@@ -1,4 +1,24 @@
-# once-campfire-fsharp
+# once-campfire-fsharp-thedotnetway
+
+**This repository is theDotNetWay**, the third Campfire in F# (branch `dotnetway`), forked from the published F# port
+(`ckluis/once-campfire-fSharp` at `a78972f`). It is the most .NET way possible: framework-first (ASP.NET Core, EF Core, Falco
+and Falco.Markup, mainstream NuGet packages), the least and most familiar code, the UI pixel-identical to Rails, and several
+times Rails' speed. Read `plans/dotnetway.md` first.
+
+- **`plans/dotnetway.md` and the D1-D9 decisions** (`/Users/clank/Desktop/projects/campfire-fsharp-thedotnetway-plan.md`)
+  **win wherever they conflict with the port's rules below.** In particular:
+  - "Match Rust's implementation" no longer applies: `rust/` and `reference/` say *what* Rails does; *how* is the framework's.
+    Don't port a Rust module when a framework feature or a mainstream package does the job; hand-written code only where
+    parity demands it.
+  - "Use the framework" does apply: controllers take `HttpContext` (not `Ctx`), views are Falco.Markup (not the UTF-8 writer),
+    data goes through EF Core (not hand-written SQL), Cable runs on ASP.NET Core's WebSocket middleware.
+  - The port's performance rules (pooled UTF-8 rendering, no markup library, prepared statements, Rust's caches) are withdrawn;
+    the speed bar is the plan's floor of 5x Rails per workload, measured with `bench/quick`.
+  - Differences from the port and from Rails follow the plan's known-differences policy (section 4), not "match byte for byte".
+- **The image is `campfire-dotnetway:app`** (the port's `campfire-fsharp:app` below is renamed in the plan's Phase 0).
+- `bin/kloc` counts the code by upstream's rules, per project.
+
+What follows is the port's guide, still accurate for the code as it is until each layer is replaced.
 
 Campfire in F#. It is a port that has to be indistinguishable in use from the Rails app in
 `reference/` (basecamp/once-campfire, pinned at `90b3300`) and from the Rust port in `rust/`

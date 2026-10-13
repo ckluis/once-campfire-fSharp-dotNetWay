@@ -1,0 +1,51 @@
+#!/usr/bin/env bash
+# KLOC by upstream's rules, per project: cloc 2.10 --by-file --skip-uniqueness over `git ls-files 'src/**/*.fs'`, without
+# src/Campfire.Assets.Build (a build-time tool, as Rust's build.rs is) and without the static-data modules upstream's rule leaves
+# out (the same list as onCrack's bench/results/oncrack-r5-final/kloc/kloc.py). Rust's 31.0 is the bar (plans/dotnetway.md, D7).
+#
+#   bin/kloc            per-project table of the working tree, both columns, and the total
+#   bin/kloc --files    per-file rows as well
+#
+# Two columns, because cloc 2.10 miscounts F#: it takes `(*` as the start of a block comment wherever it appears, so the
+# `(*)` in `COUNT(*)`, and `(*` inside a string or a `//` comment, drop every line up to the next `*)` from the count
+# (Models.fs counts 353 lines of code instead of 1,163). "cloc" is the tool's own output, the number the onCrack round 5 table
+# printed; "corrected" is the same tool on a copy with `(*` rewritten to `(_` (the sources have no real block comments).
+# The plan's budgets and gates use "corrected", the higher and honest one.
+#
+# CLOC names upstream's cloc-2.10.pl (default: the upstream-campfire checkout beside this one).
+set -euo pipefail
+ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+CLOC=${CLOC:-$ROOT/../upstream-campfire/tools/cloc-2.10.pl}
+[ -f "$CLOC" ] || { echo "kloc: cloc 2.10 not found at $CLOC (set CLOC)" >&2; exit 2; }
+TMP=$(mktemp -d); trap 'rm -rf "$TMP"' EXIT
+cd "$ROOT"
+git ls-files 'src/**/*.fs' | grep -v '^src/Campfire.Assets.Build/' > "$TMP/files"
+xargs perl "$CLOC" --by-file --skip-uniqueness --quiet --csv < "$TMP/files" > "$TMP/raw.csv"
+while read -r f; do mkdir -p "$TMP/fix/$(dirname "$f")"; sed 's/(\*/(_/g' "$f" > "$TMP/fix/$f"; done < "$TMP/files"
+(cd "$TMP/fix" && xargs perl "$CLOC" --by-file --skip-uniqueness --quiet --csv < "$TMP/files" > "$TMP/fixed.csv")
+python3 - "$TMP" "${1:-}" <<'EOF'
+import csv, sys
+from collections import defaultdict
+tmp, mode = sys.argv[1], sys.argv[2]
+DATA = ('src/Campfire.Storage/Tables.fs', 'src/Campfire.Views/Helpers/UnicodeTables.fs', 'src/Campfire.Db/Fixtures.fs',
+        'src/Campfire.RichText/Unicode/WordRanges.fs', 'src/Campfire.App/Integrations/SearchWordRanges.fs',
+        'src/Campfire.Views/Helpers/TranslationsTable.fs')
+def load(name):
+    out = {}
+    for r in csv.reader(open(f'{tmp}/{name}')):
+        if len(r) >= 5 and r[0] not in ('language', 'SUM'):
+            out[r[1].lstrip('./')] = int(r[4])
+    return out
+raw, fixed = load('raw.csv'), load('fixed.csv')
+proj = defaultdict(lambda: [0, 0]); data = [0, 0]
+for f in sorted(raw):
+    if any(f.endswith(d) for d in DATA):
+        data[0] += raw[f]; data[1] += fixed.get(f, 0); continue
+    p = proj[f.split('/')[1]]; p[0] += raw[f]; p[1] += fixed.get(f, 0)
+    if mode == '--files': print(f'  {raw[f]:6} {fixed.get(f, 0):6}  {f}')
+print('| Project | cloc | corrected |\n|---|---:|---:|')
+for k, (a, b) in sorted(proj.items()): print(f'| {k} | {a:,} | {b:,} |')
+ta, tb = sum(v[0] for v in proj.values()), sum(v[1] for v in proj.values())
+print(f'| **Total** | **{ta:,} ({ta/1000:.1f} KLOC)** | **{tb:,} ({tb/1000:.1f} KLOC)** |')
+print(f'\nStatic data left out: {data[0]:,} lines (corrected {data[1]:,}). Rust f9dca47: 31.0 KLOC. Rails 0aa339d: 5.5.')
+EOF
