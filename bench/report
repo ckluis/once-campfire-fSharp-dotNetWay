@@ -18,9 +18,9 @@ runs = {}
 for f in sorted(glob.glob(os.path.join(out, "*-*.json"))):
     r = json.load(open(f))
     runs.setdefault(r["app"], []).append(r)
-identity = {a: runs.pop(a) for a in ("rust-identity", "fsharp-identity") if a in runs}
-apps = [a for a in ("reference", "rust", "fsharp") if a in runs]
-NAME = {"reference": "Rails", "rust": "Rust", "fsharp": "F#", "rust-identity": "Rust, no gzip", "fsharp-identity": "F#, no gzip"}
+identity = {a: runs.pop(a) for a in ("rust-identity", "fsharp-identity", "dotnetway-identity") if a in runs}
+apps = [a for a in ("reference", "rust", "fsharp", "dotnetway") if a in runs]
+NAME = {"reference": "Rails", "rust": "Rust", "fsharp": "F#", "dotnetway": "theDotNetWay", "rust-identity": "Rust, no gzip", "fsharp-identity": "F#, no gzip", "dotnetway-identity": "theDotNetWay, no gzip"}
 
 
 def cell(vals):
@@ -56,6 +56,8 @@ def columns():
         cols.append("Rust adv.")
     if "rust" in apps and "fsharp" in apps:
         cols.append("F# adv.")
+    if "rust" in apps and "dotnetway" in apps:
+        cols.append("theDotNetWay adv.")
     cols += [NAME[a] for a in identity]
     if "rust-identity" in identity and "fsharp-identity" in identity:
         cols.append("F# adv. (no gzip)")
@@ -75,6 +77,8 @@ def row(name, getter, higher_better, with_identity=False):
         cells.append(ratio(meds["rust"], meds["reference"], higher_better))
     if "rust" in apps and "fsharp" in apps:
         cells.append(ratio(meds["fsharp"], meds["rust"], higher_better, 2))
+    if "rust" in apps and "dotnetway" in apps:
+        cells.append(ratio(meds["dotnetway"], meds["rust"], higher_better, 2))
     imeds = {}
     if with_identity:
         for a, group in identity.items():

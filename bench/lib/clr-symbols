@@ -3,7 +3,7 @@
 # calls it). The F# image ships libcoreclr.so and libc stripped, so without this every CLR allocation helper, GC function and
 # memcpy is "[unknown]". Idempotent: it does nothing when /usr/lib/debug/.build-id already has both.
 #
-#   bench/lib/clr-symbols [IMAGE]        IMAGE defaults to campfire-fsharp:app
+#   bench/lib/clr-symbols [IMAGE]        IMAGE defaults to campfire-dotnetway:app
 #
 # - libcoreclr: dotnet-symbol (installed into TOOLS_DIR, /var/tmp/dotnet-tools, by the recipe in bench/breakdown's header)
 #   downloads libcoreclr.so.dbg from Microsoft's symbol server by the library's build id.
@@ -12,7 +12,7 @@
 # perf looks symbols up by build id under /usr/lib/debug/.build-id when the process it profiled is gone, so the install is
 # `sudo ln`/`cp` into that directory. The downloads live in SYMBOLS_DIR (default /var/tmp/symbols).
 set -euo pipefail
-IMAGE=${1:-campfire-fsharp:app}
+IMAGE=${1:-campfire-dotnetway:app}
 SYMBOLS_DIR=${SYMBOLS_DIR:-/var/tmp/symbols}
 TOOLS_DIR=${TOOLS_DIR:-/var/tmp/dotnet-tools}
 TOOL_IMAGE=${TOOL_IMAGE:-campfire-fsharp-toolchain:latest}

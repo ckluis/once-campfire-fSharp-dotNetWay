@@ -1,7 +1,7 @@
 # syntax = docker/dockerfile:1
 #
-# The parity candidate image: the unmodified production image of the app under test (the F# app, built
-# from /Dockerfile as campfire-fsharp:app, or the Rust one, rust/Dockerfile as campfire-rust:app; see
+# The parity candidate image: the unmodified production image of the app under test (theDotNetWay, built
+# from /Dockerfile as campfire-dotnetway:app, or the F# port as campfire-fsharp:app, or the Rust one, rust/Dockerfile as campfire-rust:app; see
 # parity/bin/candidate) plus what the harness needs around it, mirroring parity/docker/Dockerfile for
 # the reference. App code is untouched.
 #
@@ -11,7 +11,7 @@
 #
 # Built by `parity/bin/candidate build`.
 
-ARG BASE_IMAGE=campfire-fsharp:app
+ARG BASE_IMAGE=campfire-dotnetway:app
 
 FROM docker.io/library/debian:trixie-slim AS faketime
 RUN apt-get update -qq && apt-get install --no-install-recommends -y build-essential ca-certificates curl

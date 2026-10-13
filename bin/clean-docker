@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Reclaim the colima VM's disk after image rebuilds. Every rebuild of campfire-fsharp:app leaves its
+# Reclaim the colima VM's disk after image rebuilds. Every rebuild of campfire-dotnetway:app leaves its
 # old layers and build cache behind (Phase 5 grew the VM disk from 15 GB to 33 GB). This drops
 # dangling images and build cache unused for UNUSED_FOR (default 2h), so the layers the latest build
 # reused (the libvips and ffmpeg stages) stay, then trims the filesystem so macOS gets the space back.

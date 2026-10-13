@@ -1,12 +1,12 @@
 # syntax = docker/dockerfile:1
 #
-# Production image for the F# port. A drop-in for the reference image (reference/Dockerfile), exactly as
+# Production image for theDotNetWay (campfire-dotnetway:app; the F# port's campfire-fsharp:app is built from this file at its commit). A drop-in for the reference image (reference/Dockerfile), exactly as
 # rust/Dockerfile is: same user (uid 1000), working directory, storage layout
 # (/rails/storage/{db,files,backups}), env vars, ports and ONCE hooks. The binary does Thruster's job itself
 # (src/Campfire.Kit/Front): HTTP on 80, and with TLS_DOMAIN, HTTPS on 443 with Let's Encrypt certificates
 # cached in /rails/storage/thruster, where the reference's Thruster keeps them.
 #
-#   docker build -t campfire-fsharp:app --build-arg APP_VERSION=... --build-arg GIT_REVISION=... .
+#   docker build -t campfire-dotnetway:app --build-arg APP_VERSION=... --build-arg GIT_REVISION=... .
 #
 # Media: variants and video posters must be byte-identical to the reference's, so libvips and ffmpeg are built
 # from the same Debian trixie source packages the reference image ships (libvips 8.16.1-1+deb13u1, ffmpeg

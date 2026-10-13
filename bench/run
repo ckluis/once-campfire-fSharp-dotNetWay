@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Benchmark the reference (Rails) app against the Rust and F# ports on the same seed and CPUs.
 #
-#   bench/run [--apps reference,rust[,fsharp][,rust-identity][,fsharp-identity]] [--reps 3] [--out DIR] [--user-agent UA]
+#   bench/run [--apps reference,rust[,fsharp][,dotnetway][,rust-identity][,fsharp-identity][,dotnetway-identity]] [--reps 3] [--out DIR] [--user-agent UA]
 #   bench/run --apps reference,rust,fsharp --reps 3 --only fsharp:2 --out DIR   # one app's one rep, for DIR
 #   bench/report DIR            # median + spread table from a results dir
 #
@@ -14,7 +14,10 @@
 # LOAD_MAX, and records it.
 #
 # `rust-identity` is the Rust image again, running only the HTTP suite with
-# `Accept-Encoding: identity`: the app's cost without gzip. `fsharp-identity` is the same for the F# port.
+# `Accept-Encoding: identity`: the app's cost without gzip. `fsharp-identity` is the same for the F# port, `dotnetway-identity` for theDotNetWay.
+#
+# `fsharp` is the stored F# port (campfire-fsharp:app, left untouched for comparison) and `dotnetway` is this repository's fork
+# of it (campfire-dotnetway:app, plans/dotnetway.md); both run exactly the same way, so one session can run all of them.
 #
 # `--only APP:REP` runs one app's one rep, in the place the full schedule would put it (--apps and --reps
 # still say what the schedule is, so the alternating order is the same), into --out, which a first full run
@@ -37,7 +40,8 @@
 # the reference's own resque-pool.yml):
 #   REFERENCE_IMAGE  campfire-reference:app   (parity/bin/reference build)
 #   RUST_IMAGE       campfire-rust:app        (parity/bin/candidate build, from /Dockerfile)
-#   FSHARP_IMAGE     campfire-fsharp:app      (parity/bin/candidate build with the F# Dockerfile, or docker build)
+#   FSHARP_IMAGE     campfire-fsharp:app      (the F# port: parity/bin/candidate build with the F# Dockerfile, or docker build)
+#   DOTNETWAY_IMAGE  campfire-dotnetway:app   (theDotNetWay: parity/bin/candidate build in this repo, or docker build)
 # The F# image runs exactly as the Rust one: the same environment, ports, CPU pinning, storage layout and
 # --network host. FSHARP_EXTRA_ENV (K=V, space-separated) is the F# container's RUST_EXTRA_ENV; it is empty.
 #
@@ -85,6 +89,7 @@ ENV_FILE=$ROOT/parity/.env.reference
 REFERENCE_IMAGE=${REFERENCE_IMAGE:-campfire-reference:app}
 RUST_IMAGE=${RUST_IMAGE:-campfire-rust:app}
 FSHARP_IMAGE=${FSHARP_IMAGE:-campfire-fsharp:app}
+DOTNETWAY_IMAGE=${DOTNETWAY_IMAGE:-campfire-dotnetway:app}
 SERVER_CPUS=${SERVER_CPUS:-8-11}
 LOADGEN_CPUS=${LOADGEN_CPUS:-12-15}
 HTTP_SECS=${HTTP_SECS:-8}
@@ -110,9 +115,12 @@ suite() { [[ " $SUITES " = *" $1 "* ]]; }
 # 1c22a94 fixed; the app now runs as configured.
 RUST_EXTRA_ENV=${RUST_EXTRA_ENV-}
 FSHARP_EXTRA_ENV=${FSHARP_EXTRA_ENV-}
+DOTNETWAY_EXTRA_ENV=${DOTNETWAY_EXTRA_ENV-}
 # FSHARP_MOUNT=DIR (bench/quick --mounted): a published build of the app (bin/publish-mounted) mounted over /opt/campfire in the F#
 # image, which then supplies only the runtime environment, libvips and ffmpeg; the tier 2 build, no image rebuild.
 FSHARP_MOUNT=${FSHARP_MOUNT-}
+# DOTNETWAY_MOUNT=DIR is the same for theDotNetWay (bench/quick --mounted sets it when the apps include dotnetway).
+DOTNETWAY_MOUNT=${DOTNETWAY_MOUNT-}
 BASE=http://127.0.0.1:$PORT
 LOADGEN_TARGET=aarch64-unknown-linux-gnu
 LOADGEN=$ROOT/target/rust/$LOADGEN_TARGET/release/loadgen
@@ -186,6 +194,7 @@ image_for() {
     reference) echo "$REFERENCE_IMAGE" ;;
     rust|rust-identity) echo "$RUST_IMAGE" ;;
     fsharp|fsharp-identity) echo "$FSHARP_IMAGE" ;;
+    dotnetway|dotnetway-identity) echo "$DOTNETWAY_IMAGE" ;;
     *) echo "unknown app $1" >&2; return 1 ;;
   esac
 }
@@ -202,6 +211,7 @@ env_args() {
   local e
   if [[ "${1:-}" = rust* ]]; then for e in $RUST_EXTRA_ENV; do printf '%s\n' -e "$e"; done; fi
   if [[ "${1:-}" = fsharp* ]]; then for e in $FSHARP_EXTRA_ENV; do printf '%s\n' -e "$e"; done; fi
+  if [[ "${1:-}" = dotnetway* ]]; then for e in $DOTNETWAY_EXTRA_ENV; do printf '%s\n' -e "$e"; done; fi
 }
 
 # Web Push and webhook deliveries to the seed's real endpoints (fcm.googleapis.com, ...) go to a
@@ -272,6 +282,7 @@ start_app() {
   if [ "$app" = reference ] && [ "$(id -u)" != 1000 ]; then scratch=(--tmpfs /rails/tmp:mode=1777 --tmpfs /rails/log:mode=1777); fi
   local mount=()
   if [[ "$app" = fsharp* ]] && [ -n "$FSHARP_MOUNT" ]; then mount=(-v "$FSHARP_MOUNT:/opt/campfire:ro"); fi
+  if [[ "$app" = dotnetway* ]] && [ -n "$DOTNETWAY_MOUNT" ]; then mount=(-v "$DOTNETWAY_MOUNT:/opt/campfire:ro"); fi
   docker run -d --name "$CONTAINER" --cpuset-cpus "$SERVER_CPUS" --user "$(id -u):$(id -g)" \
     "${mount[@]}" "${DOCKER_LOG_ARGS[@]}" "${net[@]}" "${scratch[@]}" "${args[@]}" "${DOCKER_EXTRA_ARGS[@]}" \
     -v "$dir/db:/rails/storage/db" -v "$dir/storage:/rails/storage/files" \
@@ -443,9 +454,11 @@ write_env() {
   echo "env: $(env_args | grep -E 'WEB_CONC|JOB_CONC|MAX_THREADS' | tr '\n' ' ')"
   echo "rust extra env: $RUST_EXTRA_ENV"
   echo "fsharp extra env: $FSHARP_EXTRA_ENV"
+  echo "dotnetway extra env: $DOTNETWAY_EXTRA_ENV"
   echo "user agent: ${USER_AGENT_ARGS[1]:-(none)}"
   for app in ${APPS//,/ }; do echo "$app image: $(image_for "$app") $(docker image inspect -f '{{.Id}} {{.Created}}' "$(image_for "$app")") built from commit: $(docker image inspect -f '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$(image_for "$app")")"; done
   [ -z "$FSHARP_MOUNT" ] || echo "fsharp build: MOUNTED $FSHARP_MOUNT over /opt/campfire ($(cat "$FSHARP_MOUNT/.built-from" 2>/dev/null || echo 'no .built-from'))"
+  [ -z "$DOTNETWAY_MOUNT" ] || echo "dotnetway build: MOUNTED $DOTNETWAY_MOUNT over /opt/campfire ($(cat "$DOTNETWAY_MOUNT/.built-from" 2>/dev/null || echo 'no .built-from'))"
   echo "repo HEAD: $(git -C "$ROOT" rev-parse --short HEAD) (dirty: $(git -C "$ROOT" status --porcelain -- src rust Cargo.toml Cargo.lock | wc -l) files under src/ and rust/)"
   echo "work dir (seed copies): $WORK ($(findmnt -T "$WORK" -n -o FSTYPE))"
   echo "loadgen: $LOADGEN ($(stat -c %y "$LOADGEN" | cut -d. -f1)), built with $RUST_BUILD_IMAGE"

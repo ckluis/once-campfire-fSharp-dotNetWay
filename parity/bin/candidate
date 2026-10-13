@@ -1,14 +1,16 @@
 #!/usr/bin/env bash
 # Run the candidate app for the parity harness. Same interface as parity/bin/reference.
 #
-# The candidate is the F# app (campfire-fsharp:app, built from /Dockerfile) unless PARITY_CANDIDATE_APP=rust
-# selects the Rust port (campfire-rust:app, built from /rust/Dockerfile): one harness, either app. A custom
+# In this repository (theDotNetWay, plans/dotnetway.md) the candidate is theDotNetWay (campfire-dotnetway:app, built from /Dockerfile)
+# unless PARITY_CANDIDATE_APP selects another: `fsharp` is the F# port (campfire-fsharp:app, built from the same Dockerfile at the
+# port's commit, left untouched for comparison) and `rust` the Rust port (campfire-rust:app, built from /rust/Dockerfile): one
+# harness, any app. A custom
 # image (PARITY_CANDIDATE_APP_IMAGE) is built from PARITY_CANDIDATE_DOCKERFILE and PARITY_CANDIDATE_CONTEXT,
 # which default to those of the app named by PARITY_CANDIDATE_APP.
 #
-#   parity/bin/candidate build                      build campfire-fsharp:app (/Dockerfile) and the
-#                                                   campfire-candidate parity image on top of it
-#                                                   (campfire-candidate-rust on campfire-rust:app)
+#   parity/bin/candidate build                      build campfire-dotnetway:app (/Dockerfile) and the
+#                                                   campfire-candidate-dotnetway parity image on top of it
+#                                                   (campfire-candidate on campfire-fsharp:app, campfire-candidate-rust on campfire-rust:app)
 #   parity/bin/candidate up   [--seed NAME] [--port N] [--time ISO8601 [--freeze]] [-e K=V]
 #   parity/bin/candidate down [--port N | --all [--everyone]]
 #   parity/bin/candidate logs [--port N] [-f]
@@ -49,10 +51,11 @@ ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 PARITY=$ROOT/parity
 SEEDS=${PARITY_SEED_DIR:-$PARITY/.seed}
 INSTANCES=$SEEDS/.candidates
-case ${PARITY_CANDIDATE_APP:-fsharp} in
+case ${PARITY_CANDIDATE_APP:-dotnetway} in
+  dotnetway) DEFAULT_APP_IMAGE=campfire-dotnetway:app DEFAULT_DOCKERFILE=$ROOT/Dockerfile DEFAULT_CONTEXT=$ROOT DEFAULT_IMAGE=campfire-candidate-dotnetway ;;
   fsharp) DEFAULT_APP_IMAGE=campfire-fsharp:app DEFAULT_DOCKERFILE=$ROOT/Dockerfile DEFAULT_CONTEXT=$ROOT DEFAULT_IMAGE=campfire-candidate ;;
   rust)   DEFAULT_APP_IMAGE=campfire-rust:app DEFAULT_DOCKERFILE=$ROOT/rust/Dockerfile DEFAULT_CONTEXT=staged-rust DEFAULT_IMAGE=campfire-candidate-rust ;;
-  *)      echo "candidate: PARITY_CANDIDATE_APP is fsharp or rust, not ${PARITY_CANDIDATE_APP}" >&2; exit 1 ;;
+  *)      echo "candidate: PARITY_CANDIDATE_APP is dotnetway, fsharp or rust, not ${PARITY_CANDIDATE_APP}" >&2; exit 1 ;;
 esac
 APP_IMAGE=${PARITY_CANDIDATE_APP_IMAGE:-$DEFAULT_APP_IMAGE}
 APP_DOCKERFILE=${PARITY_CANDIDATE_DOCKERFILE:-$DEFAULT_DOCKERFILE}

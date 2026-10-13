@@ -17,7 +17,7 @@ args=(); while IFS= read -r line; do args+=("$line"); done < <(grep -Ev '^(#|$|W
 docker rm -f campfire-logcount >/dev/null 2>&1 || true
 docker run -d --name campfire-logcount --cpuset-cpus 0-3 --user "$(id -u):$(id -g)" "${MOUNT[@]}" --log-driver json-file \
   --network host -e HTTP_PORT=$PORT -e TARGET_PORT=$((PORT + 1)) "${args[@]}" -e RAILS_LOG_LEVEL=warn \
-  -v "$WORK/db:/rails/storage/db" -v "$WORK/storage:/rails/storage/files" campfire-fsharp:app >/dev/null
+  -v "$WORK/db:/rails/storage/db" -v "$WORK/storage:/rails/storage/files" ${LOGCOUNT_IMAGE:-campfire-dotnetway:app} >/dev/null
 probes=0
 for _ in $(seq 1 3000); do
   probes=$((probes + 1))

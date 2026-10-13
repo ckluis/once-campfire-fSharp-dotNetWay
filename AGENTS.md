@@ -15,7 +15,9 @@ times Rails' speed. Read `plans/dotnetway.md` first.
   - The port's performance rules (pooled UTF-8 rendering, no markup library, prepared statements, Rust's caches) are withdrawn;
     the speed bar is the plan's floor of 5x Rails per workload, measured with `bench/quick`.
   - Differences from the port and from Rails follow the plan's known-differences policy (section 4), not "match byte for byte".
-- **The image is `campfire-dotnetway:app`** (the port's `campfire-fsharp:app` below is renamed in the plan's Phase 0).
+- **The image is `campfire-dotnetway:app`** (renamed in Phase 0: `parity/bin/candidate`, `Dockerfile`, `bench/run`/`bench/quick`). The port's
+  `campfire-fsharp:app` stays usable as the comparison app (`PARITY_CANDIDATE_APP=fsharp`, `bench/run --apps ...,fsharp,dotnetway`); wherever the
+  port guide below says `campfire-fsharp:app`, read `campfire-dotnetway:app`, and `bench/quick` measures `dotnetway` by default.
 - `bin/kloc` counts the code by upstream's rules, per project.
 
 What follows is the port's guide, still accurate for the code as it is until each layer is replaced.
@@ -158,7 +160,7 @@ Project references follow the crate graph. Don't add an edge Rust doesn't have.
   way for both apps (`bench/lib/clr-symbols` installs the libcoreclr and libc symbols it needs). Container logs are capped
   (`LOG_MAX_SIZE`, `LOG_MAX_FILE`; request logging itself stays on). Before every benchmark check `df -h ~`
   (stop under 15 GB free), and run `bin/clean-docker` after image rebuilds and `bin/clean-rust-builds` after Rust builds.
-  Rebuild `campfire-fsharp:app` from HEAD before measuring F# (`CAMPFIRE_REVISION=$(git rev-parse HEAD) parity/bin/candidate build`
+  Rebuild `campfire-dotnetway:app` from HEAD before measuring (`CAMPFIRE_REVISION=$(git rev-parse HEAD) parity/bin/candidate build`
   in colima labels the image with its commit; `bench/run`'s env.txt records the label and the digest).
 - `bench/cable/run` measures fan-out to 1,000 local subscribers against `campfire_cable` (needs python3 and mise, like
   `bench/kit/run`); `FanOutTests` measures the same in process, without Kestrel. Run both after changing `Pubsub.fs`,
@@ -169,7 +171,7 @@ Project references follow the crate graph. Don't add an edge Rust doesn't have.
   reporting. `bin/storage-media-vectors` runs them in `Dockerfile.toolchain` inside colima, with
   `CAMPFIRE_REQUIRE_MEDIA_VECTORS=1` (the header says why it checks vectors the reference image makes there
   rather than `vectors/storage.json` on aarch64).
-- `Dockerfile` builds the production image (`campfire-fsharp:app`) in colima, a drop-in for the reference's as
+- `Dockerfile` builds the production image (`campfire-dotnetway:app`) in colima, a drop-in for the reference's as
   `rust/Dockerfile` is; its `media-base`, `vips`, `ffmpeg` and `dotnet` stages are copies of `Dockerfile.toolchain`'s, so
   the two share layers, and they must stay identical to each other. `parity/bin/candidate build` builds it and the parity
   candidate image on top (`PARITY_CANDIDATE_APP=rust` runs the Rust port in the same harness instead); `parity/bin/candidate

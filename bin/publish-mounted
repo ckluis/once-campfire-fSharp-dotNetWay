@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Tier 2 build for Phase 7's tuning loop: publish the F# app exactly as the Dockerfile does (Release, self-contained,
 # ReadyToRun, linux-arm64, no symbols) into DIR on the colima VM's own disk, without rebuilding the image. bench/quick
-# --mounted DIR then runs it in a container of campfire-fsharp:app with DIR mounted over /opt/campfire.
+# --mounted DIR then runs it in a container of campfire-dotnetway:app with DIR mounted over /opt/campfire.
 #
 #   colima ssh -- bash -c "cd $PWD && bin/publish-mounted [DIR]"
 #
