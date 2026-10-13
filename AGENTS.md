@@ -198,6 +198,11 @@ Project references follow the crate graph. Don't add an edge Rust doesn't have.
 - Run one parity compare at a time in colima (6 GB): two at once OOM-kill Chromium and cells error with "browser.newContext: Target
   page, context or browser has been closed". `parity/bin/candidate compare` refuses a second one (`PARITY_ALLOW_CONCURRENT=1` overrides,
   for a bigger VM); `parity/bin/test-compare-lock` tests the guard. An error status like that is the harness: re-run those cells with `--only`.
+- **The phase gates' tools** (Phase 0, plans/dotnetway.md section 3): `bin/pixel-parity [--fast] [--seeds ...] [--only GLOB,GLOB] [-- harness options]` runs the
+  harness against Rails per seed and requires the screenshots, the `aria` tree and the loose DOM (`parity/capture/loose.ts`, `.loose.norm.html`)
+  equal (`--pixels-only` for screenshots alone; `--fast` = Chromium, light, no breakpoint sweep; `bin/clean-parity` and `bin/clean-docker` between
+  slices). `parity/bin/test-loose-dom` is the loose layer's self-test and the harness's other unit tests. `bin/cookie-roundtrip [--candidate
+  fsharp]` signs in on Rails, hands the storage to our image and back, and checks the cookie signs David in and a post is stored each way.
 - Commit each logical unit on the current branch with a message saying what and why. Don't push.
 - Toolchain: .NET SDK 10.0.401 in `~/.dotnet` (`export PATH="$HOME/.dotnet:$PATH"`).
 - Docker runs in colima. Run `parity/`, `bench/` and `reference-tools/` scripts inside the VM,
