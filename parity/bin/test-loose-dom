@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+# Self-test of the loose DOM layer (parity/capture/loose.ts, plans/dotnetway.md section 4): shows it flags a lost data-* attribute (and
+# a changed id, aria or Turbo/Stimulus hook, text, order, nesting, whitespace that renders) and ignores attribute order, character
+# references, quoting, void-element syntax, comments and whitespace that does not render. Also runs the harness's other unit tests.
+#
+#   parity/bin/test-loose-dom [NODE_TEST_ARGS]    (on the Mac it runs itself in colima, inside the pinned Playwright image)
+set -euo pipefail
+ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
+if [ "$(uname -s)" = Darwin ] && [ -z "${PARITY_IN_VM:-}" ]; then
+  args=''; [ $# -eq 0 ] || args=$(printf '%q ' "$@")
+  exec colima ssh -- bash -c "cd '$ROOT' && PARITY_IN_VM=1 parity/bin/test-loose-dom $args"
+fi
+source "$ROOT/parity/capture/sandbox/run.sh"
+image=$(docker_image)
+# The image carries the locked modules at /node_modules; the repo is mounted at its host path.
+exec docker run --rm --network none -u "$(id -u):$(id -g)" -v "$ROOT:$ROOT:ro" -w "$PARITY" "$image" \
+  bash -c 'node --test "$@" capture/test/*.test.ts' _ "$@"

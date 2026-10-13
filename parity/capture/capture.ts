@@ -11,6 +11,7 @@ import { PARITY_DIR, REPO_DIR } from "./config.ts"
 import { cellId, interpolate, interpolateStep, isFragment, loadLabels } from "./inventory.ts"
 import type { Job, Labels, Masks, State } from "./inventory.ts"
 import { maskText, normalizeResponse, normalizeDocument } from "./normalize.ts"
+import { looseDom } from "./loose.ts"
 import { CableLog, NetworkLog } from "./network.ts"
 import { DETERMINISM_SCRIPT, PageTracker, READINESS_SCRIPT, waitForReady } from "./readiness.ts"
 import type { SessionCache } from "./session.ts"
@@ -56,7 +57,7 @@ export interface CellMeta {
   browserVersion?: string
 }
 
-export const ARTIFACTS = [".png", ".server.html", ".server.norm.html", ".live.norm.html", ".aria.yml", ".network.txt", ".cable.txt", ".json"]
+export const ARTIFACTS = [".png", ".server.html", ".server.norm.html", ".live.norm.html", ".loose.norm.html", ".aria.yml", ".network.txt", ".cable.txt", ".json"]
 
 // Seeded opengraph embeds point at external images; the harness serves them (no network).
 const EXTERNAL_FIXTURES: [string, string][] = [
@@ -192,6 +193,7 @@ async function capturePage(
   if (!shot.stable) meta.console.push("screenshot never stabilized (two consecutive frames always differed)")
   const live = await capturePage.evaluate(() => document.body?.outerHTML ?? "")
   fs.writeFileSync(base + ".live.norm.html", mask(normalizeDocument(`<!DOCTYPE html><html><head></head>${live}</html>`, { seedTime })))
+  fs.writeFileSync(base + ".loose.norm.html", mask(looseDom(live, { seedTime })))
   const aria = await capturePage.locator("body").ariaSnapshot({ timeout: env.timeoutMs })
   fs.writeFileSync(base + ".aria.yml", mask(maskText(aria, { seedTime })) + "\n")
 

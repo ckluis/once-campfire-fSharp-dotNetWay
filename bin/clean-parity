@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+# Delete parity reports (parity/out/*) older than KEEP_MINUTES (default 360). Each pixel-parity or compare run writes
+# hundreds of MB of captures there; summaries worth keeping are committed as data (e.g. review/pixel-parity.json).
+# Round 2 found 5 GB of them. Run it with bin/clean-docker at every gate.
+set -euo pipefail
+cd "$(dirname "$0")/.."
+keep=${KEEP_MINUTES:-360}
+before=$(du -sk parity/out 2>/dev/null | cut -f1 || echo 0)
+find parity/out -mindepth 1 -maxdepth 1 -type d -mmin +"$keep" -exec rm -rf {} + 2>/dev/null || true
+rm -f parity/core
+after=$(du -sk parity/out 2>/dev/null | cut -f1 || echo 0)
+echo "parity/out: $((before / 1024)) MB -> $((after / 1024)) MB"

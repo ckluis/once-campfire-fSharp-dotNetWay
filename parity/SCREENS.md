@@ -64,12 +64,13 @@ with that `{port}`.
 so a port can only change pixels by sending different bytes: the gate is server output, and pixels
 back it up.
 
-Every page capture records five text layers besides the screenshot, and every one is compared:
+Every page capture records six text layers besides the screenshot, and every one is compared:
 
 | Layer | File | What |
 |---|---|---|
 | server | `.server.norm.html` | the main document's response, normalized (typed placeholders for tokens and times) |
 | live | `.live.norm.html` | `body.outerHTML` at capture time, normalized |
+| loose | `.loose.norm.html` | `body.outerHTML` as a tree for theDotNetWay's gate (`capture/loose.ts`): attributes as sets, character references decoded, whitespace-only text nodes dropped except in pre/textarea and between inline siblings; self-test `parity/bin/test-loose-dom` |
 | aria | `.aria.yml` | the accessibility tree |
 | network | `.network.txt` | every response from the server to the page (and navigation): method, path, status, header shape (names, plus the values of `content-type`, `location`, `cache-control`, `content-disposition`, `vary`, and each cookie's name and attributes), and the sha256 of the normalized body (media ranges: the total size). Sorted, since requests run in parallel. |
 | cable | `.cable.txt` | every Action Cable frame except pings, per subscription in order, payloads normalized |

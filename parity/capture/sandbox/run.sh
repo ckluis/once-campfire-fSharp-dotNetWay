@@ -57,11 +57,12 @@ run_in_image() {
       # Named, so parity_cleanup can stop them if the run is interrupted.
       local name=parity-capture-$$-$RANDOM
       CAPTURE_CONTAINERS+=("$name" "$name-forward")
-      docker run -d --rm --init --name "$name-forward" --network host -u "$(id -u):$(id -g)" \
+      docker run -d --rm --init --name "$name-forward" --network host --ulimit core=0 -u "$(id -u):$(id -g)" \
         -v "$ROOT:$ROOT" -v "$net_dir:$net_dir" --tmpfs "$PARITY/node_modules" -w "$PARITY" \
         "$image" node capture/forward.ts "$socket" >/dev/null
       wait_for_socket "$socket"
-      docker run --rm --init --name "$name" --network none --ipc host \
+      # --ulimit core=0: a crashing browser (WebKit) otherwise leaves a multi-GB core dump in parity/ on the host.
+      docker run --rm --init --name "$name" --network none --ipc host --ulimit core=0 \
         -u "$(id -u):$(id -g)" -e HOME=/tmp -e TZ=UTC -e CI="${CI:-}" -e PARITY_WORKERS="${PARITY_WORKERS:-}" \
         -e PARITY_UPSTREAM_SOCKET="$socket" \
         -v "$ROOT:$ROOT" -v "$net_dir:$net_dir" --tmpfs "$PARITY/node_modules" -w "$PARITY" \

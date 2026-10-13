@@ -10,7 +10,7 @@
 #   --reset-host CMD   host command restoring a server before each `mutates: true` capture;
 #                      {port} {target} {url} are substituted
 # Artifacts: DIR/NAME/<state id>/<engine>-<viewport>-<scheme>.{png,server.html,server.norm.html,
-# live.norm.html,aria.yml,json}. Runtime: PARITY_CAPTURE_RUNTIME=docker|sandbox|host.
+# live.norm.html,loose.norm.html,aria.yml,json}. Runtime: PARITY_CAPTURE_RUNTIME=docker|sandbox|host.
 set -euo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/../capture/sandbox/run.sh"
 

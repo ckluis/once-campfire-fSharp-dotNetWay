@@ -46,7 +46,7 @@ export interface Attempt {
   images?: { expected: string; actual: string; diff?: string }
 }
 
-export const SERVER_OUTPUT_LAYERS: Layer[] = ["server", "live", "aria", "network", "cable"]
+export const SERVER_OUTPUT_LAYERS: Layer[] = ["server", "live", "loose", "aria", "network", "cable"]
 
 // A failure that re-capturing may clear: only the pixels differ (not allowed), and every
 // server-output layer is identical. Anything else the servers sent differently is never retried.
@@ -66,7 +66,7 @@ export function describeMasks(masks: Job["state"]["masks"]): string[] | undefine
 }
 
 const TEXT_LAYERS: [Layer, string][] = [
-  ["server", ".server.norm.html"], ["live", ".live.norm.html"], ["aria", ".aria.yml"], ["network", ".network.txt"], ["cable", ".cable.txt"],
+  ["server", ".server.norm.html"], ["live", ".live.norm.html"], ["loose", ".loose.norm.html"], ["aria", ".aria.yml"], ["network", ".network.txt"], ["cable", ".cable.txt"],
 ]
 
 export function compareJob(job: Job, runDir: string, expectedName: string, actualName: string, allowlist: Allowlist): CellComparison {
