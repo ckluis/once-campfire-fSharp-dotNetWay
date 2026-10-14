@@ -7,7 +7,9 @@
 //   * character references are decoded (`&amp;` and `&#38;` and `&` are one character); the output prints the decoded text
 //   * `<br>` and `<br/>`, attribute quoting and comments are not part of the tree
 //   * a whitespace-only text node is dropped, except inside pre, textarea, listing, plaintext and xmp (where every character
-//     renders) and between two inline-level siblings (`<a>x</a> <a>y</a>`: that space renders, so losing it is a pixel change)
+//     renders) and between two inline-level siblings (`<a>x</a> <a>y</a>`: that space renders, so losing it is a pixel change);
+//     elements that draw no box (`input type=hidden`, script, style, template, ...) and the left-out forgery tokens are looked
+//     through, and a run of blanks across them counts as one
 //   * other text keeps its characters, with runs of whitespace collapsed to one space, and loses the space at its edges unless
 //     it touches an inline sibling
 //
@@ -31,6 +33,16 @@ const INLINE = new Set([
 // Custom elements (turbo-frame, action-text-attachment, ...) have no default display; the browser treats them as inline.
 const isInlineNode = (node: any): boolean =>
   node.nodeName === "#text" || (node.tagName !== undefined && (INLINE.has(node.tagName) || node.tagName.includes("-")))
+// Elements that generate no box (display: none by default): whitespace beside them renders only if it has rendered inline
+// content on both sides further out, so they are looked through when deciding whether a space shows. A hidden input between two
+// spaces at the start of a form (Rails' `form_with` writes `<input type="hidden" name="authenticity_token">` and then its template's
+// newline) draws nothing.
+const BOXLESS = new Set(["script", "style", "template", "link", "meta", "base", "title", "noscript"])
+const isBoxless = (node: any): boolean =>
+  node.tagName !== undefined &&
+  (BOXLESS.has(node.tagName) ||
+    (node.tagName === "input" && (node.attrs.find((a: any) => a.name === "type")?.value ?? "").toLowerCase() === "hidden"))
+const isBlankText = (node: any): boolean => node.nodeName === "#text" && !collapse(node.value)
 
 export function looseDom(bodyOuterHtml: string, options: NormalizeOptions = {}): string {
   const document: any = parse(`<!DOCTYPE html><html><head></head>${bodyOuterHtml}</html>`)
@@ -62,24 +74,35 @@ function walk(node: any, depth: number, out: string[], options: NormalizeOptions
     if (body) out.push(`${indent}  ${maskText(body, options)}`)
   } else {
     const childRaw = raw || RAW_TEXT.has(tag)
-    // Comments are not part of the tree a reader sees.
-    const kids = children.filter((c: any) => c.nodeName !== "#comment")
+    // Comments are not part of the tree a reader sees, and a left-out forgery token is not either: it must not decide whether the
+    // whitespace beside it renders.
+    const kids = children.filter((c: any) => c.nodeName !== "#comment" && !(c.tagName !== undefined && isForgeryToken(c.tagName, c.attrs)))
+    // The nearest sibling that draws something, looking through box-less elements (and, going forward, through blank text).
+    const prevDrawn = (i: number): any => { for (let j = i - 1; j >= 0; j--) if (!isBoxless(kids[j])) return kids[j]; return undefined }
+    const nextDrawn = (i: number, skipBlank: boolean): any => {
+      for (let j = i + 1; j < kids.length; j++) if (!isBoxless(kids[j]) && !(skipBlank && isBlankText(kids[j]))) return kids[j]
+      return undefined
+    }
     kids.forEach((child, i) => {
       if (child.nodeName !== "#text") return walk(child, depth + 1, out, options, childRaw)
       if (childRaw) {
         if (child.value) out.push(`${indent}  ${JSON.stringify(maskText(child.value, options))}`)
         return
       }
-      const before = i > 0 && isInlineNode(kids[i - 1])
-      const after = i < kids.length - 1 && isInlineNode(kids[i + 1])
+      const prev = prevDrawn(i)
       const text = collapse(child.value)
       if (!text) {
-        // Whitespace only: it renders as one space only between two inline-level siblings.
-        if (child.value !== "" && before && after) out.push(`${indent}  " "`)
+        // Whitespace only: a run of it (across box-less elements) renders as one space, only between two inline-level siblings.
+        // The first blank of a run speaks for it.
+        if (child.value === "" || (prev !== undefined && isBlankText(prev))) return
+        const next = nextDrawn(i, true)
+        if (prev !== undefined && isInlineNode(prev) && next !== undefined && isInlineNode(next)) out.push(`${indent}  " "`)
         return
       }
-      const lead = /^[\t\n\f\r ]/.test(child.value) && before ? " " : ""
-      const trail = /[\t\n\f\r ]$/.test(child.value) && after ? " " : ""
+      const next = nextDrawn(i, false)
+      // A space at the text's edge renders against an inline neighbour, unless a blank run between them already stands for it.
+      const lead = /^[\t\n\f\r ]/.test(child.value) && prev !== undefined && isInlineNode(prev) && !isBlankText(prev) ? " " : ""
+      const trail = /[\t\n\f\r ]$/.test(child.value) && next !== undefined && isInlineNode(next) && !isBlankText(next) ? " " : ""
       out.push(`${indent}  ${JSON.stringify(maskText(lead + text + trail, options))}`)
     })
   }

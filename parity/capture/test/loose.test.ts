@@ -50,6 +50,22 @@ test("whitespace between blocks does not matter, whitespace that renders does", 
   assert.equal(equal(`<body><textarea>\n x </textarea></body>`, `<body><textarea>\nx </textarea></body>`), false)
 })
 
+test("whitespace beside a left-out forgery token or a hidden input does not matter, unless it sits between drawn inline content", () => {
+  // Rails' form_with: the token, the template's newline, a hidden field, a newline, the button. The port writes no token.
+  const rails = `<body><form action="/b" method="post"><input type="hidden" name="authenticity_token" value="t" autocomplete="off">\n  <input type="hidden" name="boost[content]" value="x">\n  <button type="submit">x</button>\n</form></body>`
+  const port = `<body><form action="/b" method="post"><input type="hidden" name="boost[content]" value="x">\n  <button type="submit">x</button>\n</form></body>`
+  const none = `<body><form action="/b" method="post"><input type="hidden" name="boost[content]" value="x"><button type="submit">x</button></form></body>`
+  assert.equal(equal(rails, port), true)
+  assert.equal(equal(rails, none), true)
+  // a hidden input between two links: the space still renders, once
+  assert.equal(equal(`<body><p><a>x</a> <input type="hidden" name="q"> <a>y</a></p></body>`, `<body><p><a>x</a> <input type="hidden" name="q"><a>y</a></p></body>`), true)
+  assert.equal(equal(`<body><p><a>x</a> <input type="hidden" name="q"> <a>y</a></p></body>`, `<body><p><a>x</a><input type="hidden" name="q"><a>y</a></p></body>`), false)
+  // a visible input is drawn: the space beside it still counts
+  assert.equal(equal(`<body><p><input name="q"> <a>y</a></p></body>`, `<body><p><input name="q"><a>y</a></p></body>`), false)
+  // text against a hidden input then a link: the edge space renders
+  assert.equal(equal(`<body><p>Hi <input type="hidden" name="q"><b>there</b></p></body>`, `<body><p>Hi<input type="hidden" name="q"><b>there</b></p></body>`), false)
+})
+
 test("text, element order and nesting differences are flagged", () => {
   assert.equal(equal(`<body><p>Hello</p></body>`, `<body><p>Hullo</p></body>`), false)
   assert.equal(equal(`<body><p>a</p><p>b</p></body>`, `<body><p>b</p><p>a</p></body>`), false)
