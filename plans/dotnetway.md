@@ -720,3 +720,20 @@ counted `input type=hidden` as drawn. Fixed (forgery tokens and box-less element
 `messages/threaded` (both in the residue) 4/4 pixel, aria and loose equal, plus the second sample recorded in the commit. The
 lean-matrix loose count over all 940 cells has not been re-run (disk under the 12 GB floor during verification); the first Phase 1
 gate run re-establishes it.
+
+### Phase 1, unit 1.0: .NET 11 SDK move (2026-10-14, `27c98c8`) - PARTIAL (pixel run blocked on disk)
+
+`global.json` -> `11.0.100-rc.2.26504.105` (installed beside 10.0.401 in `~/.dotnet`), `net11.0` in `Directory.Build.props` and the bench projects,
+`DOTNET_VERSION` in `Dockerfile` and `Dockerfile.toolchain`, AGENTS.md toolchain line. Net11's BCL annotates `Path.GetFileName`/`GetExtension` as
+non-null, so five `nonNull`/`| null` arms (Disk.fs, Fixtures.fs, Config.fs, three test files) went (FS3261/FS3262 under warnings-as-errors); no other change.
+
+- `bin/verify` (Release, warnaserror) on net11.0: 0 warnings, 1038 tests, 0 failed.
+- Image rebuilt from `27c98c8` (label checked; runtimeconfig `net11.0`, runtime 11.0.0-rc.2.26504.105); `bin/clean-docker` run. Old image kept as `campfire-dotnetway:before-net11` (digest 247e17441067, Phase 0).
+- `bench/quick` (1 rep, five workloads, c=1/16; evidence under `bench/results/dotnetway-p1-0/`), before then after, same session, host probe ratio 1.05-1.10 both:
+  full runs, rps c=1 / c=16: room 7711/34626 -> 7742/35116; messages 7969/35998 -> 8402/37688; post 2837/5202 -> 2894/4549 (both runs hit the 90 s warm-up cap; post c=16 is the noisiest);
+  sidebar and search dipped in the after run (host load average 14 when it began; probes read 1.07-1.10 but a second Mac session was busy), so both images were
+  re-measured back to back on sidebar+search: before sidebar 5966/34294, search 6073/32658; after sidebar 7924/35315, search 6391/30319. Net: no measurable change from the SDK move
+  (CPU per request unchanged within noise: room 213 -> 220 us at c=1, 99.8 -> 97.1 at c=16). Cold start 361-418 ms before, 377-412 ms after; idle 27 -> 27-28 MB.
+- KLOC (`bin/kloc`): 39,428 corrected (39.4 KLOC), unchanged to within 1 line.
+- Not done: the `--fast` pixel run on a handful of states. `df -h /` read 11 GB free (under the 12 GB floor) after the bench, `bin/clean-docker` and a builder prune did
+  not return more. Run it when space allows: `bin/pixel-parity --fast --only "auth/**,rooms/**"`, then `bin/clean-parity` and `bin/clean-docker`.
