@@ -291,10 +291,8 @@ type internal Erb(options: Options) =
 /// `push_subscriptions` (the model's table name).
 let tableName (dir: string) (file: string) : string =
     let relative = Path.GetRelativePath(dir, file)
-    let withoutExtension =
-        match Path.GetExtension relative with
-        | null -> relative
-        | extension -> relative.Substring(0, relative.Length - extension.Length)
+    let extension = Path.GetExtension relative
+    let withoutExtension = relative.Substring(0, relative.Length - extension.Length)
     withoutExtension.Replace('/', '_').Replace('\\', '_')
 
 let private collectYamlFiles (dir: string) : string list =

@@ -350,7 +350,7 @@ let ``backup snapshots the live database`` () =
         Assert.True(users > 0L)
         let leftovers =
             Directory.GetFiles(config.Storage.Backups)
-            |> Array.filter (fun file -> (nonNull (Path.GetFileName file)).StartsWith ".backup-")
+            |> Array.filter (fun file -> (Path.GetFileName file).StartsWith ".backup-")
         Assert.Empty leftovers
     }
 

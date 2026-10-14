@@ -68,7 +68,6 @@ module StoragePaths =
     let backupFile (paths: StoragePaths) : string =
         let name =
             match Path.GetFileName paths.Database with
-            | null
             | "" -> "production.sqlite3"
             | name -> name
         Path.Combine(paths.Backups, name)

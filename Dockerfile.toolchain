@@ -16,7 +16,7 @@
 # packages the reference image ships, with the same compiler flags, against the same Debian
 # libraries (see rust/Dockerfile for what is left out: only what Campfire never reaches).
 
-ARG DOTNET_VERSION=10.0.401
+ARG DOTNET_VERSION=11.0.100-rc.2.26504.105
 ARG DEBIAN_RELEASE=trixie
 ARG LIBVIPS_VERSION=8.16.1-1+deb13u1
 ARG LIBVIPS_DSC_SHA256=60205e00d061b9d8072938e04899f2ca2fdac0513068e561d33f7c87fae1ae2e
@@ -80,7 +80,7 @@ RUN apt-get source -qq ffmpeg=${FFMPEG_VERSION} && \
     strip --strip-unneeded /opt/ffmpeg/lib/*.so.* /opt/ffmpeg/bin/*
 
 
-# The .NET SDK global.json pins (10.0.401, rolling forward to later feature bands), installed
+# The .NET SDK global.json pins (11.0.100-rc.2.26504.105, rolling forward to later feature bands), installed
 # the way Microsoft documents for Linux images that don't ship it.
 FROM media-base AS dotnet
 ARG DOTNET_VERSION

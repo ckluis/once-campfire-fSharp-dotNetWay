@@ -29,7 +29,7 @@
 # the numbers), and costs nothing once tiering has recompiled what is hot. Not trimmed: ASP.NET Core and
 # Falco use reflection.
 
-ARG DOTNET_VERSION=10.0.401
+ARG DOTNET_VERSION=11.0.100-rc.2.26504.105
 ARG DEBIAN_RELEASE=trixie
 ARG LIBVIPS_VERSION=8.16.1-1+deb13u1
 ARG LIBVIPS_DSC_SHA256=60205e00d061b9d8072938e04899f2ca2fdac0513068e561d33f7c87fae1ae2e
@@ -93,7 +93,7 @@ RUN apt-get source -qq ffmpeg=${FFMPEG_VERSION} && \
     strip --strip-unneeded /opt/ffmpeg/lib/*.so.* /opt/ffmpeg/bin/*
 
 
-# The .NET SDK global.json pins (10.0.401, rolling forward to later feature bands), installed
+# The .NET SDK global.json pins (11.0.100-rc.2.26504.105, rolling forward to later feature bands), installed
 # the way Microsoft documents for Linux images that don't ship it.
 FROM media-base AS dotnet
 ARG DOTNET_VERSION
@@ -105,7 +105,7 @@ RUN curl -fsSL https://dot.net/v1/dotnet-install.sh -o /tmp/dotnet-install.sh &&
 # Publish the app. NetVips loads the system libvips by its soname at run time, so nothing here links
 # against the media libraries; src/Campfire.Assets digests and embeds the reference's assets and public/
 # at build time (src/Campfire.Assets.Build), which is why reference/ is in the context. That tool runs from
-# bin/Release/net10.0, where a build without a runtime identifier puts it; publishing with `-r` would
+# bin/Release/net11.0, where a build without a runtime identifier puts it; publishing with `-r` would
 # build it under a runtime-specific directory, so it is built once without one first.
 FROM media-base AS build
 COPY --from=dotnet /opt/dotnet /opt/dotnet

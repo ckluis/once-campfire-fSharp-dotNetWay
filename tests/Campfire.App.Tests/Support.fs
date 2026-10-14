@@ -310,9 +310,9 @@ let private copyDir (from: string) (target: string) : unit =
     let rec copy (from: string) (target: string) =
         Directory.CreateDirectory target |> ignore
         for file in Directory.GetFiles from do
-            File.Copy(file, Path.Combine(target, nonNull (Path.GetFileName file)))
+            File.Copy(file, Path.Combine(target, Path.GetFileName file))
         for sub in Directory.GetDirectories from do
-            copy sub (Path.Combine(target, nonNull (Path.GetFileName sub)))
+            copy sub (Path.Combine(target, Path.GetFileName sub))
     copy from target
 
 /// The app's configuration over `root` as its storage, with the parity secret.

@@ -167,7 +167,7 @@ let ``an opened blob is a copy named for its id and extension`` () =
     let blob = (Storage.createAndUpload storage conn "bytes"B (Filename.create "a.txt") None at).Value
     let copy = (Storage.openBlob storage blob).Value
     let path = copy.Path
-    let name = nonNull (Path.GetFileName path)
+    let name = Path.GetFileName path
     Assert.True(name.StartsWith $"ActiveStorage-{blob.Id}-" && name.EndsWith ".txt", name)
     Assert.Equal<byte[]>("bytes"B, File.ReadAllBytes path)
     (copy :> IDisposable).Dispose()

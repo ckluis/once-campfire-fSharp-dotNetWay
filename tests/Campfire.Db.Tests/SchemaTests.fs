@@ -19,7 +19,7 @@ let ``schema sha1 matches reference schema rb`` () =
 let ``migration versions match reference migrations`` () =
     let versions =
         Directory.GetFiles(Path.Combine(reference, "migrate"))
-        |> Array.map (fun f -> (nonNull (Path.GetFileName f)).Split('_')[0])
+        |> Array.map (fun f -> (Path.GetFileName f).Split('_')[0])
         |> Array.sort
         |> List.ofArray
     Assert.Equal<string list>(versions, Schema.migrationVersions)

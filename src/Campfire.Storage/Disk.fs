@@ -121,7 +121,7 @@ module DiskService =
         else
             Io.attempt (fun () ->
                 for entry in Directory.EnumerateFileSystemEntries dir |> Seq.toArray do
-                    if (nonNull (Path.GetFileName entry)).StartsWith(stem, StringComparison.Ordinal) then
+                    if (Path.GetFileName entry).StartsWith(stem, StringComparison.Ordinal) then
                         if Directory.Exists entry then Directory.Delete(entry, true) else File.Delete entry)
 
     let exist (service: DiskService) (key: string) : bool =

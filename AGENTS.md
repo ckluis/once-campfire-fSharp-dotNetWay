@@ -204,7 +204,7 @@ Project references follow the crate graph. Don't add an edge Rust doesn't have.
   slices). `parity/bin/test-loose-dom` is the loose layer's self-test and the harness's other unit tests. `bin/cookie-roundtrip [--candidate
   fsharp]` signs in on Rails, hands the storage to our image and back, and checks the cookie signs David in and a post is stored each way.
 - Commit each logical unit on the current branch with a message saying what and why. Don't push.
-- Toolchain: .NET SDK 10.0.401 in `~/.dotnet` (`export PATH="$HOME/.dotnet:$PATH"`).
+- Toolchain: .NET SDK 11.0.100-rc.2.26504.105 (net11.0; 10.0.401 stays beside it) in `~/.dotnet` (`export PATH="$HOME/.dotnet:$PATH"`).
 - Docker runs in colima. Run `parity/`, `bench/` and `reference-tools/` scripts inside the VM,
   where they get GNU userland and host networking:
   `colima ssh -- bash -c "cd $PWD && parity/bin/..."`.
