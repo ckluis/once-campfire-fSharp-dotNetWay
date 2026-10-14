@@ -323,9 +323,10 @@ the encrypted-cookie functions about 85; `Concerns.fs` 269 rewritten as about 20
 | Controllers' call sites (`Ctx` members to module functions; `act` to `taskResult`) | +0.05 |
 | **Phase 2 net** | **-4.7** |
 
-Project: **37.4 -> about 32.7 KLOC** (if Phase 1 closes at 37.4), against the plan's 31.7: the plan's Phase 2 row counted
+Project: **37.4 -> about 32.7 KLOC** if Phase 1 closes at the plan's 37.4 (**38.0 -> about 33.3** at design-data-ef's projection), against the plan's 31.7: the plan's Phase 2 row counted
 almost no new code; the 0.94 above is where the Rails-specific rules (params, formats, public exceptions, flash) go. The
-end-of-project projection moves from 17.0 to about 18.0, still 58% of Rust's 31.0.
+end-of-project projection moves from 17.0 to about 18.0 from this phase alone, about 18.5 with design-data-ef's +0.6 and
+design-cable's -0.07: 60% of Rust's 31.0.
 
 ## 7. Known differences this phase records (README "Known differences", plan section 4)
 

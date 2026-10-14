@@ -176,7 +176,8 @@ depends on it). Each template becomes a function returning `XmlNode`, rendered w
   `WebUtility.HtmlEncode`) but **writes attribute values raw**: `Attr.value "a\"b"` rendered `value="a"b"`. There is no
   encoding variant in the API (`Attr.create`, `Attr.createBool` only). So the project gets one small module, `Html`, whose
   attribute helpers encode (`Html.attr name value = Attr.create name (HtmlEncoder.Default.Encode value)`), and `bin/verify` gets a
-  lint that fails on `Attr.` calls with a non-literal value outside that module. The hostile-text cases of the views
+  lint that fails on `Attr.` calls with a non-literal value outside that module, and on `Text.raw` with a non-literal argument outside
+  the modules that emit already-sanitized HTML (rich-text bodies, cached fragments): the other way an unescaped string reaches a page. The hostile-text cases of the views
   differential (quotes, angle brackets, ampersands in every string field) become a test that renders each template and
   parses it back with AngleSharp.
 - **Pixel-identical, not byte-identical.** `WebUtility.HtmlEncode` writes `é` as `&#233;` and emoji as numeric references;
@@ -213,7 +214,7 @@ The kit stops existing as a project. Controllers become Falco `HttpHandler`s ove
     `assume_ssl`/`force_ssl` behaviour), expiry 20 years (Rails' `permanent`), `SlidingExpiration = false`;
   - `TicketDataFormat` = `RailsSignedTicketFormat`, an `ISecureDataFormat<AuthenticationTicket>` whose `Protect` writes the
     Rails 7.1+ signed cookie (`MessageVerifier` with the `_rails` metadata envelope, purpose `cookie.session_token`, JSON
-    serializer, SHA-256 HMAC over the key derived from `SECRET_KEY_BASE`) around the session's token, and whose `Unprotect`
+    serializer, HMAC-SHA1 over the PBKDF2-SHA256 key derived from `SECRET_KEY_BASE`, as `Campfire.RailsCompat/Cookies.fs` does) around the session's token, and whose `Unprotect`
     verifies one and returns a ticket carrying only that token. So the cookie on the wire is the one Rails writes and reads,
     and a switch either way keeps people signed in;
   - `CookieAuthenticationEvents.OnValidatePrincipal` looks the token up in `sessions` (EF), rejects it if gone, attaches the
@@ -539,6 +540,11 @@ stay as they are; "front server" ones are re-stated for Kestrel in Phase 7.
 
 ## 6. Open questions for Chris
 
+Both answered (decisions file, "Decided after the design": Q1 option 1, Q2 option 1). Of the "Settled here" list below, two
+lines are superseded by the decisions of 2026-10-13 and the design notes: the target is **.NET 11** (moved to in Phase 1's first
+unit), and CSRF is **.NET 11's token-less `ICsrfProtection`**, not antiforgery tokens (`plans/design-kit-auth.md` K5; section
+2.4's CSRF bullet is superseded the same way). Where a design note and sections 2.1, 2.4 or 2.5 disagree, the note wins.
+
 | # | question | options |
 |---|---|---|
 | Q1 | D3 asks for compiled queries, but `EF.CompileAsyncQuery` throws on any F# lambda that nests another (spike), and EF 10's precompiled queries are C#-only. F# LINQ costs ~51 us a query (30 us of it F#'s lambda conversion), `FromSql` ~15 us, raw ADO.NET 1.3 us. What do hot paths use? | 1. EF LINQ by default, `FromSql` on the five workloads' queries, no compiled queries; measure in Phase 1 and stop only if a workload falls under 5x Rails (Recommended) <br> 2. A ~60-line expression rewriter that turns F#'s `QuotationToLambdaExpression` calls back into quoted lambdas so compiled queries work (unproven, ours to maintain) <br> 3. A small C# project holding the compiled queries (fastest; breaks D1) |
@@ -703,3 +709,14 @@ c=16: 21,741-31,424).
 Views 5,792, Db 3,307, Storage 1,767, Cable 1,603, RailsCompat 1,466, Assets 429, Ruby 631, Routes 82. Static data left out 4,598 (corrected). Rust 31.0, Rails 5.5.
 
 **Not done in this unit:** the three Opus design notes (EF mapping, auth and cookies, Cable).
+
+**Design notes** (committed after this unit): `plans/design-data-ef.md` (Phase 1), `plans/design-kit-auth.md` (Phase 2),
+`plans/design-cable.md` (Phase 3). Combined KLOC projection: about 18.5 at the end (60% of Rust's 31.0).
+
+**Verifier (2026-10-13).** The loose-DOM residue was the layer's own defect, not the port's: `loose.ts` left Rails' forgery-token
+`<input>` out of the output but still counted it as an inline sibling, so the template newline after it was kept as `" "`, and it
+counted `input type=hidden` as drawn. Fixed (forgery tokens and box-less elements are looked through, a run of blanks counts once;
+`parity/bin/test-loose-dom` 22/22). Re-checked with `bin/pixel-parity --fast` on `default`: `search/results` and
+`messages/threaded` (both in the residue) 4/4 pixel, aria and loose equal, plus the second sample recorded in the commit. The
+lean-matrix loose count over all 940 cells has not been re-run (disk under the 12 GB floor during verification); the first Phase 1
+gate run re-establishes it.
