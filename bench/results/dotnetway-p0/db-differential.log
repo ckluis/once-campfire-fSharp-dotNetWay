@@ -1,0 +1,30 @@
+== reference: db:prepare, db:fixtures:load, scenario.rb
+ok
+`/` is not writable.
+Bundler will use `/tmp/bundler20261013-7-svfh7z7' as your home directory temporarily.
+`/` is not writable.
+Bundler will use `/tmp/bundler20261013-13-9wddkm13' as your home directory temporarily.
+`/` is not writable.
+Bundler will use `/tmp/bundler20261013-20-k7nu9r20' as your home directory temporarily.
+== Campfire.Db differential tests
+
+Build succeeded.
+    0 Warning(s)
+    0 Error(s)
+
+Time Elapsed 00:00:00.61
+Running tests from /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.Db.Tests/bin/Release/net10.0/Campfire.Db.Tests.dll (net10.0|arm64)
+/Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.Db.Tests/bin/Release/net10.0/Campfire.Db.Tests.dll (net10.0|arm64) passed (205ms)
+
+Test run summary: Passed!
+  total: 3
+  failed: 0
+  succeeded: 3
+  skipped: 0
+  duration: 304ms
+== schema identity
+schema.sql, the reference's db:prepare and Campfire.Db's prepare agree
+== reference on the F#-written database
+rollback ok
+`/` is not writable.
+Bundler will use `/tmp/bundler20261013-9-y60jdk9' as your home directory temporarily.

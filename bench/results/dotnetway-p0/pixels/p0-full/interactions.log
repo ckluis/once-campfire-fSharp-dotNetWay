@@ -1,0 +1,38 @@
+pixel-parity: dotnetway vs the Rails reference, layers pixels,aria,loose, seeds default,crowd,custom_styles,first_run,restricted
+pixel-parity: VM free 43G, parity/out 736M
+seed default: 182/182 screenshots pixel-equal; 182/182 aria equal; 16/182 loose equal, 166 DIFFERENT  [728s]
+    LOOSE DIFF interactions/actions_menu @ chromium-desktop-light: +0 -248 lines
+    LOOSE DIFF interactions/boost_created @ chromium-phone-light: +0 -248 lines
+    LOOSE DIFF interactions/boost_created @ chromium-desktop-light: +0 -248 lines
+    LOOSE DIFF interactions/boost_created @ chromium-desktop-dark: +0 -248 lines
+    LOOSE DIFF interactions/composer/with_text @ firefox-desktop-light: +0 -248 lines
+    LOOSE DIFF interactions/composer/with_text @ webkit-desktop-light: +0 -248 lines
+    LOOSE DIFF interactions/quick_boost @ chromium-desktop-dark: +0 -248 lines
+    LOOSE DIFF interactions/quick_boost @ chromium-desktop-light: +0 -248 lines
+    LOOSE DIFF interactions/boost_created @ chromium-phone-dark: +0 -248 lines
+    LOOSE DIFF interactions/actions_menu @ chromium-desktop-dark: +0 -248 lines
+    LOOSE DIFF interactions/composer/with_text @ firefox-phone-light: +0 -248 lines
+    LOOSE DIFF interactions/quick_boost @ chromium-phone-light: +0 -248 lines
+    LOOSE DIFF interactions/quick_boost @ chromium-phone-dark: +0 -248 lines
+    LOOSE DIFF interactions/composer/with_text @ webkit-phone-light: +0 -248 lines
+    LOOSE DIFF interactions/edit_saved @ chromium-desktop-light: +0 -248 lines
+    LOOSE DIFF interactions/actions_menu @ chromium-phone-light: +0 -248 lines
+    LOOSE DIFF interactions/edit_saved @ chromium-phone-light: +0 -248 lines
+    LOOSE DIFF interactions/edit_saved @ chromium-desktop-dark: +0 -248 lines
+    LOOSE DIFF interactions/mention_autocomplete/results @ firefox-desktop-light: +0 -248 lines
+    LOOSE DIFF interactions/edit_saved @ chromium-phone-dark: +0 -248 lines
+    LOOSE DIFF interactions/mention_autocomplete/results @ webkit-desktop-light: +0 -248 lines
+    LOOSE DIFF interactions/message_deleted @ chromium-desktop-light: +0 -240 lines
+    LOOSE DIFF interactions/message_deleted @ chromium-desktop-dark: +0 -240 lines
+    LOOSE DIFF interactions/message_deleted @ chromium-phone-light: +0 -240 lines
+    LOOSE DIFF interactions/actions_menu @ chromium-phone-dark: +0 -248 lines
+pixel-parity: VM free 43G, parity/out 736M
+seed crowd: 0/0 screenshots pixel-equal; 0/0 aria equal; 0/0 loose equal  [8s]
+pixel-parity: VM free 43G, parity/out 736M
+seed custom_styles: 0/0 screenshots pixel-equal; 0/0 aria equal; 0/0 loose equal  [6s]
+pixel-parity: VM free 43G, parity/out 736M
+seed first_run: 0/0 screenshots pixel-equal; 0/0 aria equal; 0/0 loose equal  [6s]
+pixel-parity: VM free 43G, parity/out 736M
+seed restricted: 0/0 screenshots pixel-equal; 0/0 aria equal; 0/0 loose equal  [5s]
+pixel-parity: FAILED in 753s; reports under /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/parity/out/p0-full/interactions
+time="2026-10-13T17:22:08-04:00" level=fatal msg="exit status 1"

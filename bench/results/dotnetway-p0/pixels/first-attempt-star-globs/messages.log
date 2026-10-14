@@ -1,0 +1,38 @@
+pixel-parity: dotnetway vs the Rails reference, layers pixels,aria,loose, seeds default,crowd,custom_styles,first_run,restricted
+pixel-parity: VM free 43G, parity/out 417M
+seed default: 96/96 screenshots pixel-equal; 96/96 aria equal; 0/96 loose equal, 96 DIFFERENT  [280s]
+    LOOSE DIFF messages/plain @ chromium-desktop-dark: +0 -248 lines
+    LOOSE DIFF messages/plain @ chromium-desktop-light: +0 -248 lines
+    LOOSE DIFF messages/plain @ chromium-phone-dark: +0 -248 lines
+    LOOSE DIFF messages/plain @ chromium-phone-light: +0 -248 lines
+    LOOSE DIFF messages/threaded @ chromium-phone-light: +0 -248 lines
+    LOOSE DIFF messages/threaded @ chromium-desktop-dark: +0 -248 lines
+    LOOSE DIFF messages/threaded @ chromium-desktop-light: +0 -248 lines
+    LOOSE DIFF messages/threaded @ chromium-phone-dark: +0 -248 lines
+    LOOSE DIFF messages/long @ chromium-desktop-light: +0 -248 lines
+    LOOSE DIFF messages/long @ chromium-phone-dark: +0 -248 lines
+    LOOSE DIFF messages/long @ chromium-phone-light: +0 -248 lines
+    LOOSE DIFF messages/long @ chromium-desktop-dark: +0 -248 lines
+    LOOSE DIFF messages/emoji_only @ chromium-phone-light: +0 -248 lines
+    LOOSE DIFF messages/emoji_only @ chromium-desktop-light: +0 -248 lines
+    LOOSE DIFF messages/emoji_only @ chromium-desktop-dark: +0 -248 lines
+    LOOSE DIFF messages/emoji_only @ chromium-phone-dark: +0 -248 lines
+    LOOSE DIFF messages/code_with_language @ chromium-desktop-light: +0 -248 lines
+    LOOSE DIFF messages/code_with_language @ chromium-phone-light: +0 -248 lines
+    LOOSE DIFF messages/code_with_language @ chromium-desktop-dark: +0 -248 lines
+    LOOSE DIFF messages/code_with_language @ chromium-phone-dark: +0 -248 lines
+    LOOSE DIFF messages/code_without_language @ chromium-phone-light: +0 -248 lines
+    LOOSE DIFF messages/code_without_language @ chromium-desktop-light: +0 -248 lines
+    LOOSE DIFF messages/code_without_language @ chromium-desktop-dark: +0 -248 lines
+    LOOSE DIFF messages/code_without_language @ chromium-phone-dark: +0 -248 lines
+    LOOSE DIFF messages/table @ chromium-desktop-light: +0 -248 lines
+pixel-parity: VM free 43G, parity/out 417M
+seed crowd: 0/0 screenshots pixel-equal; 0/0 aria equal; 0/0 loose equal  [8s]
+pixel-parity: VM free 43G, parity/out 417M
+seed custom_styles: 0/0 screenshots pixel-equal; 0/0 aria equal; 0/0 loose equal  [6s]
+pixel-parity: VM free 43G, parity/out 417M
+seed first_run: 0/0 screenshots pixel-equal; 0/0 aria equal; 0/0 loose equal  [6s]
+pixel-parity: VM free 43G, parity/out 417M
+seed restricted: 0/0 screenshots pixel-equal; 0/0 aria equal; 0/0 loose equal  [6s]
+pixel-parity: FAILED in 306s; reports under /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/parity/out/p0-full/messages
+time="2026-10-13T16:21:44-04:00" level=fatal msg="exit status 1"

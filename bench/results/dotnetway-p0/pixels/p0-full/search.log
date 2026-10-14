@@ -1,0 +1,35 @@
+pixel-parity: dotnetway vs the Rails reference, layers pixels,aria,loose, seeds default,crowd,custom_styles,first_run,restricted
+pixel-parity: VM free 43G, parity/out 20M
+seed default: 30/30 screenshots pixel-equal; 30/30 aria equal; 12/30 loose equal, 18 DIFFERENT  [84s]
+    LOOSE DIFF search/submitted @ chromium-desktop-light: +0 -40 lines
+    LOOSE DIFF search/submitted @ chromium-desktop-dark: +0 -40 lines
+    LOOSE DIFF search/submitted @ chromium-phone-light: +0 -40 lines
+    LOOSE DIFF search/submitted @ chromium-phone-dark: +0 -40 lines
+    LOOSE DIFF search/results @ chromium-desktop-light: +0 -8 lines
+    LOOSE DIFF search/results @ chromium-desktop-dark: +0 -8 lines
+    LOOSE DIFF search/results @ chromium-phone-light: +0 -8 lines
+    LOOSE DIFF search/results @ chromium-phone-dark: +0 -8 lines
+    LOOSE DIFF search/results @ chromium-bp799-light: +0 -8 lines
+    LOOSE DIFF search/results @ chromium-bp799-dark: +0 -8 lines
+    LOOSE DIFF search/results @ chromium-bp800-light: +0 -8 lines
+    LOOSE DIFF search/results @ chromium-bp800-dark: +0 -8 lines
+    LOOSE DIFF search/results @ chromium-bp801-light: +0 -8 lines
+    LOOSE DIFF search/results @ chromium-bp801-dark: +0 -8 lines
+    LOOSE DIFF search/results/many @ chromium-desktop-light: +0 -96 lines
+    LOOSE DIFF search/results/many @ chromium-desktop-dark: +0 -96 lines
+    LOOSE DIFF search/results/many @ chromium-phone-light: +0 -96 lines
+    LOOSE DIFF search/results/many @ chromium-phone-dark: +0 -96 lines
+pixel-parity: VM free 43G, parity/out 20M
+seed crowd: 0/0 screenshots pixel-equal; 0/0 aria equal; 0/0 loose equal  [6s]
+pixel-parity: VM free 43G, parity/out 27M
+seed custom_styles: 4/4 screenshots pixel-equal; 4/4 aria equal; 0/4 loose equal, 4 DIFFERENT  [22s]
+    LOOSE DIFF search/custom_styles @ chromium-phone-light: +0 -96 lines
+    LOOSE DIFF search/custom_styles @ chromium-phone-dark: +0 -96 lines
+    LOOSE DIFF search/custom_styles @ chromium-desktop-dark: +0 -96 lines
+    LOOSE DIFF search/custom_styles @ chromium-desktop-light: +0 -96 lines
+pixel-parity: VM free 43G, parity/out 27M
+seed first_run: 0/0 screenshots pixel-equal; 0/0 aria equal; 0/0 loose equal  [6s]
+pixel-parity: VM free 43G, parity/out 27M
+seed restricted: 0/0 screenshots pixel-equal; 0/0 aria equal; 0/0 loose equal  [5s]
+pixel-parity: FAILED in 123s; reports under /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/parity/out/p0-full/search
+time="2026-10-13T16:55:48-04:00" level=fatal msg="exit status 1"

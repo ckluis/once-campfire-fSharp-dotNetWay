@@ -626,3 +626,80 @@ optional.
 ## Phase log
 
 (Appended as phases close.)
+
+### Phase 0: baseline (2026-10-13, untouched port code, `dotnetway` at `1a687ea`)
+
+Tooling units: `a43066b` (image rename, `dotnetway` app in `bench/`), `5841a67` (`bin/pixel-parity` with the aria and loose-DOM layers),
+`1035553` (`bin/cookie-roundtrip`), `1a687ea` (AGENTS.md). Baseline gates run on `campfire-dotnetway:app` built from `1a687ea` (label checked,
+digest `247e17441067`). Evidence (slim, no screenshots) is under `bench/results/dotnetway-p0/`.
+
+**Pixel gate, full lean matrix, run as `bin/pixel-parity --only "<dir>/**"` slices, one at a time** (the first attempt used `<dir>/*`, which does not
+cross `/` and matched only the top level of each directory; its logs are kept under `pixels/first-attempt-star-globs/`). Slices: auth, errors, pwa,
+welcome, bot_api, search, account, users, autocompletable, messages, interactions, rooms, and `realtime` as 13 single-state runs.
+
+| Seed | Screenshots pixel-equal | aria equal | Loose DOM equal | Other layers (server / live / network / cable), reported not gated |
+|---|---:|---:|---:|---|
+| default | 860 / 860 | 860 / 860 | 348 / 860 (512 different) | 873/874 / 860/860 / 860/860 / 860/860 |
+| crowd | 24 / 24 | 24 / 24 | 24 / 24 | all equal |
+| custom_styles | 32 / 32 | 32 / 32 | 20 / 32 (12 different) | server 32/33, rest equal |
+| first_run | 16 / 16 | 16 / 16 | 16 / 16 | all equal |
+| restricted | 8 / 8 | 8 / 8 | 8 / 8 | all equal |
+| **Total** | **940 / 940** | **940 / 940** | **416 / 940 (524 different)** | |
+
+940 is onCrack's round-3 count; its 944 includes 4 `search/results/order` cells that exist only there. 0 pixel differences, 0 not captured in the final
+counts. The server-layer differences are `pwa/manifest` (allowlisted, `allowed`) and its custom_styles twin. Fragment states (bot_api 4, autocompletable 2,
+and the other response states) are counted in the report as pass on the server layer.
+
+**The finding: the loose DOM layer is not green on the untouched port.** 524 cells in 112 states (messages 120, interactions 166, realtime 96, rooms 88,
+pwa 32, search 22) differ, all of one kind: Rails emits a whitespace-only text node (`" "`) that the port does not, 106,440 removed lines over 447 cells in the
+full corpus, and in a 60-cell sample 12,776 of 12,778 sit between `<form ...>` and the hidden `<input>` of `button_to` forms (the quick-boost forms of every
+message), the rest between `<form>` and a `label`/`a`. No attribute, id, aria, role, Turbo or Stimulus hook differs. Pixels and the aria tree are equal in the
+same cells, and the strict live layer (which drops whitespace-only text) is equal in all 860 default cells. So it is either a class A difference the loose
+rule is too strict about (whitespace next to a `display:none` hidden input does not render, though `form` is inline), or Rails' ERB whitespace to emit.
+Not fixed here. Decision needed before Phase 1's gate: relax the loose rule for whitespace beside `input[type=hidden]`/`script`/`template`, or make the views
+emit it. Sample: `pixels/loose-sample/`.
+
+**Harness faults, re-run by themselves, none a pixel difference.** `auth/sign_in/error` was not captured on the first two attempts (the harness retried it twice;
+the third attempt captured all cells, equal). `realtime/**` as one slice crashed twice (an unhandled "Timeout 30000ms" / "Target page ... closed" from
+`NetworkLog.bodyOf` in `parity/capture/network.ts`, 1,446 s and 523 s, no report), so the 13 realtime states ran one at a time (8 cells each, 104 cells):
+12 captured at once; `realtime/removed_from_room` produced no report in its single-state run (the same `network.ts` crash), and its second run needed the harness's retries (`pixels/p0-rt/removed_from_room-rerun/`: a first pass, then two re-captures) and then had all 8 cells equal on pixels and aria. Nothing in `src/` or the harness was changed for them.
+
+**Other gates**
+
+| Gate | Result |
+|---|---|
+| `CAMPFIRE_REQUIRE_SEED=1 bin/verify` | passed on the second run: 1,038 tests, 1,031 succeeded, 0 failed, 7 skipped (the 7 listed under "Starting state"). The first run failed one test, `Campfire.Kit.Tests.ParamsTests.many keys parse from json and a query string in linear time` (2.49 s against a 2 s limit) with host load average 8-11 from other projects; log in `verify-run1-timing-flake.log`. A timing test, flaky under load. |
+| `bin/db-differential` | passed (exit 0): fixtures and the long scenario equal Active Record, `Campfire.Db` tests 3/3, "schema.sql, the reference's db:prepare and Campfire.Db's prepare agree", "reference on the F#-written database: rollback ok". |
+| `bin/cookie-roundtrip` | 20 / 20 checks, PASSED, both directions (Rails -> ours -> Rails, ours -> Rails), cookie-less controls included. |
+| `parity/bin/test-loose-dom` | 21 / 21 (from the tooling unit). |
+
+**Speed (`bench/quick`, five workloads, c=1 and c=16, 3 reps, in 6 parts, `quick/`; `quick-compare.txt`).** Median req/s, with the stored Rails and Rust
+medians of `bench/results/phase7-final`. Host: macOS load average 8-15 from other projects' builds during the whole run (`quick/driver.log` has it per
+part), 4 of 8 threads pinned to the server; the harness's host probe read 1.1-1.5x its quiet spin and flagged 30 runs "noisy host" and "warm-up did not settle".
+The Mac's free space was 9-16 GiB, below the 15 GiB bench floor part of the time (another project's `go test` refilled `~/Library/Caches/go-build`, cleaned
+between parts whenever no go process ran); no run failed for it.
+
+| Workload | c | dotnetway | port stored | vs port | Rust stored | vs Rust | Rails stored | vs Rails |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| room page | 16 | 30,751 | 40,422 | 0.76x | 28,623 | 1.07x | 239 | 128.5x |
+| room page | 1 | 5,800 | 7,617 | 0.76x | 6,481 | 0.90x | 107 | 54.2x |
+| messages page | 16 | 33,744 | 37,836 | 0.89x | 30,063 | 1.12x | 381 | 88.7x |
+| messages page | 1 | 6,608 | 8,312 | 0.80x | 6,822 | 0.97x | 218 | 30.3x |
+| sidebar | 16 | 31,306 | 37,555 | 0.83x | 28,238 | 1.11x | 599 | 52.3x |
+| sidebar | 1 | 6,144 | 8,000 | 0.77x | 6,196 | 0.99x | 287 | 21.4x |
+| search | 16 | 17,752 | 34,070 | 0.52x | 26,606 | 0.67x | 408 | 43.5x |
+| search | 1 | 4,494 | 6,055 | 0.74x | 5,646 | 0.80x | 193 | 23.3x |
+| post a message | 16 | 4,055 | 8,905 | 0.46x | 7,174 | 0.57x | 330 | 12.3x |
+| post a message | 1 | 2,389 | 3,052 | 0.78x | 2,779 | 0.86x | 167 | 14.3x |
+
+All five workloads at c=16 are far over the 5x-Rails floor (lowest: post a message, 12.3x). The numbers are **below** the port's stored phase7-final (0.46x-0.89x),
+which is not "within noise" of that table. A **control** in the same session (`quick-control.md`, 1 rep, the port's `campfire-fsharp:app` and `campfire-dotnetway:app`
+alternating, same source) read dotnetway/port at 0.77x-1.31x with no pattern (c=16: room 0.91, messages 1.03, sidebar 1.31, search 1.31, post 0.88), and the port
+image itself ran at 16-21k req/s on the page routes against its stored 38-40k. So the gap to the stored table is the loaded host, not the rename or the image. The
+Phase 1 speed checks must be compared with a control run of this baseline on the same day, or taken on a quiet host. Run-to-run spread in `quick/` is wide (room page
+c=16: 21,741-31,424).
+
+**KLOC (`bin/kloc`, `kloc.md`)**: 39,429 corrected (39.4 KLOC), 38,180 as cloc 2.10 prints it; per project (corrected): App 9,820, Kit 8,341, RichText 6,191,
+Views 5,792, Db 3,307, Storage 1,767, Cable 1,603, RailsCompat 1,466, Assets 429, Ruby 631, Routes 82. Static data left out 4,598 (corrected). Rust 31.0, Rails 5.5.
+
+**Not done in this unit:** the three Opus design notes (EF mapping, auth and cookies, Cable).

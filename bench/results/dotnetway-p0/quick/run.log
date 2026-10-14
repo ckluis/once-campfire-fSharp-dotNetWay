@@ -1,0 +1,351 @@
+[18:46:02] building the load generator (docker)
+Unable to find image 'rust:1.98.1-trixie' locally
+1.98.1-trixie: Pulling from library/rust
+8dbc42934ae5: Pulling fs layer
+16d90cec24d7: Pulling fs layer
+ccd9dba13ae3: Pulling fs layer
+1a48a960533f: Pulling fs layer
+509699aefca8: Pulling fs layer
+7d75f5e6afc3: Download complete
+1a48a960533f: Download complete
+934f9d902d04: Download complete
+ccd9dba13ae3: Download complete
+8dbc42934ae5: Download complete
+ccd9dba13ae3: Pull complete
+1a48a960533f: Pull complete
+8dbc42934ae5: Pull complete
+509699aefca8: Download complete
+16d90cec24d7: Download complete
+509699aefca8: Pull complete
+16d90cec24d7: Pull complete
+Digest: sha256:a8a5f0a1e5fe7dfe1d352591e4a1c7dd2c08fd70475cae872cf3458ba0df0546
+Status: Downloaded newer image for rust:1.98.1-trixie
+date: 2026-10-13T18:47:07-04:00
+host: 6.8.0-117-generic, , 8 threads, 5GB
+server cpus: 0-3 (nproc 4); loadgen cpus: 4-7; network: host
+env: WEB_CONCURRENCY=3 JOB_CONCURRENCY=3 RAILS_MAX_THREADS=5 
+rust extra env: 
+fsharp extra env: 
+dotnetway extra env: 
+user agent: (none)
+dotnetway image: campfire-dotnetway:app sha256:247e1744106798798de055bc55c51e072b4c27f5fd28e0846c6af5cfe9d43272 2026-10-13T16:07:45.757052196-04:00 built from commit: 1a687ea8f295099d6a2bf6998040ad349f7f7dda
+repo HEAD: 1a687ea (dirty: 0 files under src/ and rust/)
+work dir (seed copies): /var/tmp/campfire-bench-work (ext4)
+loadgen: /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/target/rust/aarch64-unknown-linux-gnu/release/loadgen (2026-10-13 18:47:07), built with rust:1.98.1-trixie
+schedule: apps dotnetway, reps 3; suites: http; http secs 8, concs 1 16, routes room_show messages_page sidebar search post_message (in parts, --part 1/2 is one slice of them), warm-up 30s at each route and concentration, idle 5s
+log retention: 2 x 10m (json-file)
+[18:47:38] load before run: 1.31 2.35 3.78 (waited 30s)
+[18:47:40] host probe before run: {"spin_ms": 60.9, "spin_ms_max_cpu": 62.68, "cpus": "0-3,4-7", "baseline_ms": 55.57, "ratio": 1.096} (waited 30s)
+[18:47:40] dotnetway rep 1: starting (load: 1.28 2.32 3.77)
+[18:47:46] dotnetway rep 1: cold start 481ms, idle 77MB (anon 15MB)
+[18:48:27] dotnetway rep 1: room_show c=1 7032.5 rps p50 0.131 p99 0.251 {'200': 56261} err 0 cpu 217.0 us/req; warm-up 30.0 s settled tail 7074.7 host 1.077
+[18:50:08] dotnetway rep 1: room_show c=16 30751.0 rps p50 0.456 p99 1.502 {'200': 246039} err 0 cpu 113.1 us/req; warm-up 90.0 s reached the maximum tail 31240.1 host 1.08
+[18:50:50] dotnetway rep 1: messages_page c=1 6608.2 rps p50 0.126 p99 0.56 {'200': 52870} err 0 cpu 217.9 us/req; warm-up 30.0 s settled tail 7646.5 host 1.158
+[18:52:23] dotnetway rep 1: messages_page c=16 33743.9 rps p50 0.432 p99 1.332 {'200': 269980} err 0 cpu 100.8 us/req; warm-up 82.1 s settled tail 35198.7 host 1.085
+[18:53:04] dotnetway rep 1: sidebar c=1 6909.4 rps p50 0.135 p99 0.228 {'200': 55276} err 0 cpu 211.9 us/req; warm-up 30.0 s settled tail 6853.1 host 1.067
+[18:53:47] dotnetway rep 1: sidebar c=16 32550.1 rps p50 0.443 p99 1.317 {'200': 260423} err 0 cpu 108.5 us/req; warm-up 32.0 s settled tail 31609.5 host 1.054
+[18:53:50] dotnetway rep 1: done -> /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/bench/results/dotnetway-p0/quick/dotnetway-1.json
+theDotNetWay in /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/bench/results/dotnetway-p0/quick against the stored medians of bench/results/phase7-final (Rails, Rust and the F# port, 3 reps each, one session)
+
+| Workload | c | theDotNetWay req/s | F# port stored | vs port | Rust stored | **theDotNetWay / Rust (vs stored Rust baseline)** | Rails stored | **theDotNetWay / Rails** | CPU us/req | port | Rust stored |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| room page | 16 | 30,751 | 40,422 | 0.761x | 28,623 | **1.074x** | 239 | **128.504x** | 113.1 | 93.6 | 122.4 |
+| room page | 1 | 7,032 | 7,617 | 0.923x | 6,481 | **1.085x** | 107 | **65.663x** | 217.0 | 208.7 | 142.1 |
+| messages page | 16 | 33,744 | 37,836 | 0.892x | 30,063 | **1.122x** | 381 | **88.660x** | 100.8 | 102.2 | 114.2 |
+| messages page | 1 | 6,608 | 8,312 | 0.795x | 6,822 | **0.969x** | 218 | **30.327x** | 217.9 | 199.3 | 139.2 |
+| sidebar | 16 | 32,550 | 37,555 | 0.867x | 28,238 | **1.153x** | 599 | **54.377x** | 108.5 | 101.8 | 123.2 |
+| sidebar | 1 | 6,909 | 8,000 | 0.864x | 6,196 | **1.115x** | 287 | **24.108x** | 211.9 | 181.0 | 149.0 |
+
+Checks:
+  note messages_page c=1: host probe 1.158 after the window (noisy host)
+  note room_show c=16: warm-up did not settle (reached the maximum)
+  responses: every one 2xx with 0 connection errors in 6 runs
+  decoded bytes equal Rust's on every probed route; post rows written equal the 2xx answers in every phase
+date: 2026-10-13T18:47:07-04:00
+host: 6.8.0-117-generic, , 8 threads, 5GB
+server cpus: 0-3 (nproc 4); loadgen cpus: 4-7; network: host
+env: WEB_CONCURRENCY=3 JOB_CONCURRENCY=3 RAILS_MAX_THREADS=5 
+rust extra env: 
+fsharp extra env: 
+dotnetway extra env: 
+user agent: (none)
+dotnetway image: campfire-dotnetway:app sha256:247e1744106798798de055bc55c51e072b4c27f5fd28e0846c6af5cfe9d43272 2026-10-13T16:07:45.757052196-04:00 built from commit: 1a687ea8f295099d6a2bf6998040ad349f7f7dda
+repo HEAD: 1a687ea (dirty: 0 files under src/ and rust/)
+work dir (seed copies): /var/tmp/campfire-bench-work (ext4)
+loadgen: /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/target/rust/aarch64-unknown-linux-gnu/release/loadgen (2026-10-13 18:47:07), built with rust:1.98.1-trixie
+schedule: apps dotnetway, reps 3; suites: http; http secs 8, concs 1 16, routes room_show messages_page sidebar search post_message (in parts, --part 1/2 is one slice of them), warm-up 30s at each route and concentration, idle 5s
+log retention: 2 x 10m (json-file)
+[18:54:42] load before run: 1.41 2.85 3.60 (waited 50s)
+[18:54:48] host busy: {"spin_ms": 77.82, "spin_ms_max_cpu": 180.44, "cpus": "0-3,4-7", "baseline_ms": 55.57, "ratio": 1.4}
+[18:55:01] host probe before run: {"spin_ms": 59.73, "spin_ms_max_cpu": 64.9, "cpus": "0-3,4-7", "baseline_ms": 55.57, "ratio": 1.075} (waited 60s)
+[18:55:01] dotnetway rep 1: starting (load: 1.15 2.70 3.53)
+[18:55:06] dotnetway rep 1: cold start 322ms, idle 27MB (anon 15MB)
+[18:55:48] dotnetway rep 1: search c=1 5459.3 rps p50 0.169 p99 0.351 {'200': 43675} err 0 cpu 320.7 us/req; warm-up 30.0 s settled tail 5499.0 host 1.072
+[18:56:28] dotnetway rep 1: search c=16 28409.4 rps p50 0.497 p99 1.658 {'200': 227292} err 0 cpu 126.2 us/req; warm-up 30.0 s settled tail 28118.4 host 1.098
+[18:57:10] dotnetway rep 1: post_message c=1 2501.1 rps p50 0.349 p99 0.985 {'200': 20010} err 0 cpu 688.4 us/req; warm-up 30.0 s settled tail 2555.7 host 1.109
+[18:58:58] dotnetway rep 1: post_message c=16 4565.6 rps p50 2.097 p99 10.831 {'200': 36635} err 0 cpu 499.9 us/req; warm-up 91.9 s reached the maximum tail 4238.0 host 1.496
+[18:59:01] dotnetway rep 1: done -> /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/bench/results/dotnetway-p0/quick/dotnetway-1.json
+theDotNetWay in /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/bench/results/dotnetway-p0/quick against the stored medians of bench/results/phase7-final (Rails, Rust and the F# port, 3 reps each, one session)
+
+| Workload | c | theDotNetWay req/s | F# port stored | vs port | Rust stored | **theDotNetWay / Rust (vs stored Rust baseline)** | Rails stored | **theDotNetWay / Rails** | CPU us/req | port | Rust stored |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| room page | 16 | 30,751 | 40,422 | 0.761x | 28,623 | **1.074x** | 239 | **128.504x** | 113.1 | 93.6 | 122.4 |
+| room page | 1 | 7,032 | 7,617 | 0.923x | 6,481 | **1.085x** | 107 | **65.663x** | 217.0 | 208.7 | 142.1 |
+| messages page | 16 | 33,744 | 37,836 | 0.892x | 30,063 | **1.122x** | 381 | **88.660x** | 100.8 | 102.2 | 114.2 |
+| messages page | 1 | 6,608 | 8,312 | 0.795x | 6,822 | **0.969x** | 218 | **30.327x** | 217.9 | 199.3 | 139.2 |
+| sidebar | 16 | 32,550 | 37,555 | 0.867x | 28,238 | **1.153x** | 599 | **54.377x** | 108.5 | 101.8 | 123.2 |
+| sidebar | 1 | 6,909 | 8,000 | 0.864x | 6,196 | **1.115x** | 287 | **24.108x** | 211.9 | 181.0 | 149.0 |
+| search | 16 | 28,409 | 34,070 | 0.834x | 26,606 | **1.068x** | 408 | **69.648x** | 126.2 | 107.3 | 123.9 |
+| search | 1 | 5,459 | 6,055 | 0.902x | 5,646 | **0.967x** | 193 | **28.331x** | 320.7 | 315.1 | 158.3 |
+| post a message | 16 | 4,566 | 8,905 | 0.513x | 7,174 | **0.636x** | 330 | **13.831x** | 499.9 | 353.0 | 385.6 |
+| post a message | 1 | 2,501 | 3,052 | 0.820x | 2,779 | **0.900x** | 167 | **14.986x** | 688.4 | 629.1 | 403.7 |
+
+Checks:
+  note messages_page c=1: host probe 1.158 after the window (noisy host)
+  note post_message c=1: host probe 1.109 after the window (noisy host)
+  note post_message c=16: warm-up did not settle (reached the maximum)
+  note post_message c=16: host probe 1.496 after the window (noisy host)
+  note room_show c=16: warm-up did not settle (reached the maximum)
+  responses: every one 2xx with 0 connection errors in 10 runs
+  decoded bytes equal Rust's on every probed route; post rows written equal the 2xx answers in every phase
+date: 2026-10-13T18:47:07-04:00
+host: 6.8.0-117-generic, , 8 threads, 5GB
+server cpus: 0-3 (nproc 4); loadgen cpus: 4-7; network: host
+env: WEB_CONCURRENCY=3 JOB_CONCURRENCY=3 RAILS_MAX_THREADS=5 
+rust extra env: 
+fsharp extra env: 
+dotnetway extra env: 
+user agent: (none)
+dotnetway image: campfire-dotnetway:app sha256:247e1744106798798de055bc55c51e072b4c27f5fd28e0846c6af5cfe9d43272 2026-10-13T16:07:45.757052196-04:00 built from commit: 1a687ea8f295099d6a2bf6998040ad349f7f7dda
+repo HEAD: 1a687ea (dirty: 0 files under src/ and rust/)
+work dir (seed copies): /var/tmp/campfire-bench-work (ext4)
+loadgen: /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/target/rust/aarch64-unknown-linux-gnu/release/loadgen (2026-10-13 18:47:07), built with rust:1.98.1-trixie
+schedule: apps dotnetway, reps 3; suites: http; http secs 8, concs 1 16, routes room_show messages_page sidebar search post_message (in parts, --part 1/2 is one slice of them), warm-up 30s at each route and concentration, idle 5s
+log retention: 2 x 10m (json-file)
+[19:00:13] load before run: 1.49 2.80 3.38 (waited 70s)
+[19:00:16] host probe before run: {"spin_ms": 60.58, "spin_ms_max_cpu": 66.49, "cpus": "0-3,4-7", "baseline_ms": 55.57, "ratio": 1.09} (waited 70s)
+[19:00:16] dotnetway rep 2: starting (load: 1.45 2.77 3.37)
+[19:00:21] dotnetway rep 2: cold start 379ms, idle 28MB (anon 15MB)
+[19:01:05] dotnetway rep 2: room_show c=1 5800.3 rps p50 0.156 p99 0.456 {'200': 46403} err 0 cpu 230.2 us/req; warm-up 32.0 s settled tail 5844.0 host 1.097
+[19:02:17] dotnetway rep 2: room_show c=16 31424.4 rps p50 0.458 p99 1.377 {'200': 251412} err 0 cpu 109.9 us/req; warm-up 62.0 s settled tail 32234.3 host 1.082
+[19:02:58] dotnetway rep 2: messages_page c=1 7386.0 rps p50 0.126 p99 0.225 {'200': 59089} err 0 cpu 210.6 us/req; warm-up 30.0 s settled tail 7441.0 host 1.089
+[19:04:39] dotnetway rep 2: messages_page c=16 35357.2 rps p50 0.407 p99 1.285 {'200': 282886} err 0 cpu 97.8 us/req; warm-up 90.0 s reached the maximum tail 34963.7 host 1.077
+[19:06:04] dotnetway rep 2: sidebar c=1 6082.5 rps p50 0.151 p99 0.375 {'200': 48661} err 0 cpu 226.9 us/req; warm-up 74.0 s settled tail 6050.7 host 1.1
+[19:07:17] dotnetway rep 2: sidebar c=16 31305.5 rps p50 0.462 p99 1.333 {'200': 250459} err 0 cpu 112.6 us/req; warm-up 62.0 s settled tail 31026.6 host 1.073
+[19:07:20] dotnetway rep 2: done -> /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/bench/results/dotnetway-p0/quick/dotnetway-2.json
+theDotNetWay in /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/bench/results/dotnetway-p0/quick against the stored medians of bench/results/phase7-final (Rails, Rust and the F# port, 3 reps each, one session)
+
+| Workload | c | theDotNetWay req/s | F# port stored | vs port | Rust stored | **theDotNetWay / Rust (vs stored Rust baseline)** | Rails stored | **theDotNetWay / Rails** | CPU us/req | port | Rust stored |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| room page | 16 | 31,088 [30,751-31,424] | 40,422 | 0.769x | 28,623 | **1.086x** | 239 | **129.911x** | 111.5 [110-113] | 93.6 | 122.4 |
+| room page | 1 | 6,416 [5,800-7,032] | 7,617 | 0.842x | 6,481 | **0.990x** | 107 | **59.910x** | 223.6 [217-230] | 208.7 | 142.1 |
+| messages page | 16 | 34,551 [33,744-35,357] | 37,836 | 0.913x | 30,063 | **1.149x** | 381 | **90.779x** | 99.3 [98-101] | 102.2 | 114.2 |
+| messages page | 1 | 6,997 [6,608-7,386] | 8,312 | 0.842x | 6,822 | **1.026x** | 218 | **32.112x** | 214.2 [211-218] | 199.3 | 139.2 |
+| sidebar | 16 | 31,928 [31,306-32,550] | 37,555 | 0.850x | 28,238 | **1.131x** | 599 | **53.337x** | 110.5 [108-113] | 101.8 | 123.2 |
+| sidebar | 1 | 6,496 [6,082-6,909] | 8,000 | 0.812x | 6,196 | **1.048x** | 287 | **22.666x** | 219.4 [212-227] | 181.0 | 149.0 |
+| search | 16 | 28,409 | 34,070 | 0.834x | 26,606 | **1.068x** | 408 | **69.648x** | 126.2 | 107.3 | 123.9 |
+| search | 1 | 5,459 | 6,055 | 0.902x | 5,646 | **0.967x** | 193 | **28.331x** | 320.7 | 315.1 | 158.3 |
+| post a message | 16 | 4,566 | 8,905 | 0.513x | 7,174 | **0.636x** | 330 | **13.831x** | 499.9 | 353.0 | 385.6 |
+| post a message | 1 | 2,501 | 3,052 | 0.820x | 2,779 | **0.900x** | 167 | **14.986x** | 688.4 | 629.1 | 403.7 |
+
+Checks:
+  note messages_page c=1: host probe 1.158 after the window (noisy host)
+  note messages_page c=16: warm-up did not settle (reached the maximum)
+  note post_message c=1: host probe 1.109 after the window (noisy host)
+  note post_message c=16: warm-up did not settle (reached the maximum)
+  note post_message c=16: host probe 1.496 after the window (noisy host)
+  note room_show c=16: warm-up did not settle (reached the maximum)
+  responses: every one 2xx with 0 connection errors in 16 runs
+  decoded bytes equal Rust's on every probed route; post rows written equal the 2xx answers in every phase
+date: 2026-10-13T18:47:07-04:00
+host: 6.8.0-117-generic, , 8 threads, 5GB
+server cpus: 0-3 (nproc 4); loadgen cpus: 4-7; network: host
+env: WEB_CONCURRENCY=3 JOB_CONCURRENCY=3 RAILS_MAX_THREADS=5 
+rust extra env: 
+fsharp extra env: 
+dotnetway extra env: 
+user agent: (none)
+dotnetway image: campfire-dotnetway:app sha256:247e1744106798798de055bc55c51e072b4c27f5fd28e0846c6af5cfe9d43272 2026-10-13T16:07:45.757052196-04:00 built from commit: 1a687ea8f295099d6a2bf6998040ad349f7f7dda
+repo HEAD: 1a687ea (dirty: 0 files under src/ and rust/)
+work dir (seed copies): /var/tmp/campfire-bench-work (ext4)
+loadgen: /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/target/rust/aarch64-unknown-linux-gnu/release/loadgen (2026-10-13 18:47:07), built with rust:1.98.1-trixie
+schedule: apps dotnetway, reps 3; suites: http; http secs 8, concs 1 16, routes room_show messages_page sidebar search post_message (in parts, --part 1/2 is one slice of them), warm-up 30s at each route and concentration, idle 5s
+log retention: 2 x 10m (json-file)
+[19:08:21] load before run: 1.31 2.59 3.12 (waited 60s)
+[19:08:23] host probe before run: {"spin_ms": 60.18, "spin_ms_max_cpu": 61.27, "cpus": "0-3,4-7", "baseline_ms": 55.57, "ratio": 1.083} (waited 60s)
+[19:08:23] dotnetway rep 2: starting (load: 1.31 2.59 3.12)
+[19:08:29] dotnetway rep 2: cold start 254ms, idle 27MB (anon 15MB)
+[19:10:10] dotnetway rep 2: search c=1 4147.9 rps p50 0.193 p99 1.312 {'200': 33185} err 0 cpu 367.0 us/req; warm-up 90.0 s reached the maximum tail 4998.7 host 1.124
+[19:11:52] dotnetway rep 2: search c=16 17605.1 rps p50 0.705 p99 3.779 {'200': 140875} err 0 cpu 185.8 us/req; warm-up 90.0 s reached the maximum tail 16612.5 host 1.191
+[19:12:57] dotnetway rep 2: post_message c=1 2388.8 rps p50 0.392 p99 0.812 {'200': 19112} err 0 cpu 709.3 us/req; warm-up 54.0 s settled tail 2392.2 host 1.091
+[19:14:42] dotnetway rep 2: post_message c=16 4055.3 rps p50 2.439 p99 10.239 {'200': 32451} err 0 cpu 559.7 us/req; warm-up 92.6 s reached the maximum tail 3423.1 host 1.206
+[19:14:46] dotnetway rep 2: done -> /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/bench/results/dotnetway-p0/quick/dotnetway-2.json
+theDotNetWay in /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/bench/results/dotnetway-p0/quick against the stored medians of bench/results/phase7-final (Rails, Rust and the F# port, 3 reps each, one session)
+
+| Workload | c | theDotNetWay req/s | F# port stored | vs port | Rust stored | **theDotNetWay / Rust (vs stored Rust baseline)** | Rails stored | **theDotNetWay / Rails** | CPU us/req | port | Rust stored |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| room page | 16 | 31,088 [30,751-31,424] | 40,422 | 0.769x | 28,623 | **1.086x** | 239 | **129.911x** | 111.5 [110-113] | 93.6 | 122.4 |
+| room page | 1 | 6,416 [5,800-7,032] | 7,617 | 0.842x | 6,481 | **0.990x** | 107 | **59.910x** | 223.6 [217-230] | 208.7 | 142.1 |
+| messages page | 16 | 34,551 [33,744-35,357] | 37,836 | 0.913x | 30,063 | **1.149x** | 381 | **90.779x** | 99.3 [98-101] | 102.2 | 114.2 |
+| messages page | 1 | 6,997 [6,608-7,386] | 8,312 | 0.842x | 6,822 | **1.026x** | 218 | **32.112x** | 214.2 [211-218] | 199.3 | 139.2 |
+| sidebar | 16 | 31,928 [31,306-32,550] | 37,555 | 0.850x | 28,238 | **1.131x** | 599 | **53.337x** | 110.5 [108-113] | 101.8 | 123.2 |
+| sidebar | 1 | 6,496 [6,082-6,909] | 8,000 | 0.812x | 6,196 | **1.048x** | 287 | **22.666x** | 219.4 [212-227] | 181.0 | 149.0 |
+| search | 16 | 23,007 [17,605-28,409] | 34,070 | 0.675x | 26,606 | **0.865x** | 408 | **56.404x** | 156.0 [126-186] | 107.3 | 123.9 |
+| search | 1 | 4,804 [4,148-5,459] | 6,055 | 0.793x | 5,646 | **0.851x** | 193 | **24.928x** | 343.9 [321-367] | 315.1 | 158.3 |
+| post a message | 16 | 4,310 [4,055-4,566] | 8,905 | 0.484x | 7,174 | **0.601x** | 330 | **13.058x** | 529.8 [500-560] | 353.0 | 385.6 |
+| post a message | 1 | 2,445 [2,389-2,501] | 3,052 | 0.801x | 2,779 | **0.880x** | 167 | **14.649x** | 698.8 [688-709] | 629.1 | 403.7 |
+
+Checks:
+  note messages_page c=1: host probe 1.158 after the window (noisy host)
+  note messages_page c=16: warm-up did not settle (reached the maximum)
+  note post_message c=1: host probe 1.109 after the window (noisy host)
+  note post_message c=16: warm-up did not settle (reached the maximum)
+  note post_message c=16: host probe 1.496 after the window (noisy host)
+  note post_message c=16: warm-up did not settle (reached the maximum)
+  note post_message c=16: host probe 1.206 after the window (noisy host)
+  note room_show c=16: warm-up did not settle (reached the maximum)
+  note search c=1: warm-up did not settle (reached the maximum)
+  note search c=1: host probe 1.124 after the window (noisy host)
+  note search c=16: warm-up did not settle (reached the maximum)
+  note search c=16: host probe 1.191 after the window (noisy host)
+  responses: every one 2xx with 0 connection errors in 20 runs
+  decoded bytes equal Rust's on every probed route; post rows written equal the 2xx answers in every phase
+date: 2026-10-13T18:47:07-04:00
+host: 6.8.0-117-generic, , 8 threads, 5GB
+server cpus: 0-3 (nproc 4); loadgen cpus: 4-7; network: host
+env: WEB_CONCURRENCY=3 JOB_CONCURRENCY=3 RAILS_MAX_THREADS=5 
+rust extra env: 
+fsharp extra env: 
+dotnetway extra env: 
+user agent: (none)
+dotnetway image: campfire-dotnetway:app sha256:247e1744106798798de055bc55c51e072b4c27f5fd28e0846c6af5cfe9d43272 2026-10-13T16:07:45.757052196-04:00 built from commit: 1a687ea8f295099d6a2bf6998040ad349f7f7dda
+repo HEAD: 1a687ea (dirty: 0 files under src/ and rust/)
+work dir (seed copies): /var/tmp/campfire-bench-work (ext4)
+loadgen: /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/target/rust/aarch64-unknown-linux-gnu/release/loadgen (2026-10-13 18:47:07), built with rust:1.98.1-trixie
+schedule: apps dotnetway, reps 3; suites: http; http secs 8, concs 1 16, routes room_show messages_page sidebar search post_message (in parts, --part 1/2 is one slice of them), warm-up 30s at each route and concentration, idle 5s
+log retention: 2 x 10m (json-file)
+[19:15:57] load before run: 1.40 2.91 3.13 (waited 70s)
+[19:16:01] host busy: {"spin_ms": 71.38, "spin_ms_max_cpu": 90.12, "cpus": "0-3,4-7", "baseline_ms": 55.57, "ratio": 1.285}
+[19:16:14] host busy: {"spin_ms": 62.18, "spin_ms_max_cpu": 89.69, "cpus": "0-3,4-7", "baseline_ms": 55.57, "ratio": 1.119}
+[19:16:26] host probe before run: {"spin_ms": 61.1, "spin_ms_max_cpu": 62.34, "cpus": "0-3,4-7", "baseline_ms": 55.57, "ratio": 1.099} (waited 90s)
+[19:16:26] dotnetway rep 3: starting (load: 0.98 2.67 3.04)
+[19:16:32] dotnetway rep 3: cold start 325ms, idle 27MB (anon 15MB)
+[19:17:16] dotnetway rep 3: room_show c=1 4793.7 rps p50 0.193 p99 0.462 {'200': 38350} err 0 cpu 247.3 us/req; warm-up 32.0 s settled tail 4811.5 host 1.123
+[19:17:56] dotnetway rep 3: room_show c=16 21740.9 rps p50 0.687 p99 1.746 {'200': 173951} err 0 cpu 155.8 us/req; warm-up 30.0 s settled tail 20316.1 host 1.094
+[19:19:38] dotnetway rep 3: messages_page c=1 5739.5 rps p50 0.153 p99 0.665 {'200': 45917} err 0 cpu 224.7 us/req; warm-up 90.0 s reached the maximum tail 5463.2 host 1.139
+[19:21:20] dotnetway rep 3: messages_page c=16 18929.6 rps p50 0.641 p99 4.383 {'200': 151458} err 0 cpu 163.9 us/req; warm-up 90.1 s reached the maximum tail 17905.2 host 1.23
+[19:22:01] dotnetway rep 3: sidebar c=1 6144.3 rps p50 0.157 p99 0.246 {'200': 49155} err 0 cpu 226.5 us/req; warm-up 30.0 s settled tail 6045.2 host 1.117
+[19:23:43] dotnetway rep 3: sidebar c=16 16678.7 rps p50 0.716 p99 5.083 {'200': 134611} err 0 cpu 185.5 us/req; warm-up 90.1 s reached the maximum tail 16912.5 host 1.171
+[19:23:47] dotnetway rep 3: done -> /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/bench/results/dotnetway-p0/quick/dotnetway-3.json
+theDotNetWay in /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/bench/results/dotnetway-p0/quick against the stored medians of bench/results/phase7-final (Rails, Rust and the F# port, 3 reps each, one session)
+
+| Workload | c | theDotNetWay req/s | F# port stored | vs port | Rust stored | **theDotNetWay / Rust (vs stored Rust baseline)** | Rails stored | **theDotNetWay / Rails** | CPU us/req | port | Rust stored |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| room page | 16 | 30,751 [21,741-31,424] | 40,422 | 0.761x | 28,623 | **1.074x** | 239 | **128.504x** | 113.1 [110-156] | 93.6 | 122.4 |
+| room page | 1 | 5,800 [4,794-7,032] | 7,617 | 0.762x | 6,481 | **0.895x** | 107 | **54.158x** | 230.2 [217-247] | 208.7 | 142.1 |
+| messages page | 16 | 33,744 [18,930-35,357] | 37,836 | 0.892x | 30,063 | **1.122x** | 381 | **88.660x** | 100.8 [98-164] | 102.2 | 114.2 |
+| messages page | 1 | 6,608 [5,740-7,386] | 8,312 | 0.795x | 6,822 | **0.969x** | 218 | **30.327x** | 217.9 [211-225] | 199.3 | 139.2 |
+| sidebar | 16 | 31,306 [16,679-32,550] | 37,555 | 0.834x | 28,238 | **1.109x** | 599 | **52.298x** | 112.6 [108-186] | 101.8 | 123.2 |
+| sidebar | 1 | 6,144 [6,082-6,909] | 8,000 | 0.768x | 6,196 | **0.992x** | 287 | **21.439x** | 226.5 [212-227] | 181.0 | 149.0 |
+| search | 16 | 23,007 [17,605-28,409] | 34,070 | 0.675x | 26,606 | **0.865x** | 408 | **56.404x** | 156.0 [126-186] | 107.3 | 123.9 |
+| search | 1 | 4,804 [4,148-5,459] | 6,055 | 0.793x | 5,646 | **0.851x** | 193 | **24.928x** | 343.9 [321-367] | 315.1 | 158.3 |
+| post a message | 16 | 4,310 [4,055-4,566] | 8,905 | 0.484x | 7,174 | **0.601x** | 330 | **13.058x** | 529.8 [500-560] | 353.0 | 385.6 |
+| post a message | 1 | 2,445 [2,389-2,501] | 3,052 | 0.801x | 2,779 | **0.880x** | 167 | **14.649x** | 698.8 [688-709] | 629.1 | 403.7 |
+
+Checks:
+  note messages_page c=1: host probe 1.158 after the window (noisy host)
+  note messages_page c=1: warm-up did not settle (reached the maximum)
+  note messages_page c=1: host probe 1.139 after the window (noisy host)
+  note messages_page c=16: warm-up did not settle (reached the maximum)
+  note messages_page c=16: warm-up did not settle (reached the maximum)
+  note messages_page c=16: host probe 1.23 after the window (noisy host)
+  note post_message c=1: host probe 1.109 after the window (noisy host)
+  note post_message c=16: warm-up did not settle (reached the maximum)
+  note post_message c=16: host probe 1.496 after the window (noisy host)
+  note post_message c=16: warm-up did not settle (reached the maximum)
+  note post_message c=16: host probe 1.206 after the window (noisy host)
+  note room_show c=1: host probe 1.123 after the window (noisy host)
+  note room_show c=16: warm-up did not settle (reached the maximum)
+  note search c=1: warm-up did not settle (reached the maximum)
+  note search c=1: host probe 1.124 after the window (noisy host)
+  note search c=16: warm-up did not settle (reached the maximum)
+  note search c=16: host probe 1.191 after the window (noisy host)
+  note sidebar c=1: host probe 1.117 after the window (noisy host)
+  note sidebar c=16: warm-up did not settle (reached the maximum)
+  note sidebar c=16: host probe 1.171 after the window (noisy host)
+  responses: every one 2xx with 0 connection errors in 26 runs
+  decoded bytes equal Rust's on every probed route; post rows written equal the 2xx answers in every phase
+date: 2026-10-13T18:47:07-04:00
+host: 6.8.0-117-generic, , 8 threads, 5GB
+server cpus: 0-3 (nproc 4); loadgen cpus: 4-7; network: host
+env: WEB_CONCURRENCY=3 JOB_CONCURRENCY=3 RAILS_MAX_THREADS=5 
+rust extra env: 
+fsharp extra env: 
+dotnetway extra env: 
+user agent: (none)
+dotnetway image: campfire-dotnetway:app sha256:247e1744106798798de055bc55c51e072b4c27f5fd28e0846c6af5cfe9d43272 2026-10-13T16:07:45.757052196-04:00 built from commit: 1a687ea8f295099d6a2bf6998040ad349f7f7dda
+repo HEAD: 1a687ea (dirty: 0 files under src/ and rust/)
+work dir (seed copies): /var/tmp/campfire-bench-work (ext4)
+loadgen: /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/target/rust/aarch64-unknown-linux-gnu/release/loadgen (2026-10-13 18:47:07), built with rust:1.98.1-trixie
+schedule: apps dotnetway, reps 3; suites: http; http secs 8, concs 1 16, routes room_show messages_page sidebar search post_message (in parts, --part 1/2 is one slice of them), warm-up 30s at each route and concentration, idle 5s
+log retention: 2 x 10m (json-file)
+[19:24:38] load before run: 1.40 2.40 2.77 (waited 50s)
+[19:24:41] host busy: {"spin_ms": 71.85, "spin_ms_max_cpu": 91.05, "cpus": "0-3,4-7", "baseline_ms": 55.57, "ratio": 1.293}
+[19:24:54] host busy: {"spin_ms": 61.4, "spin_ms_max_cpu": 63.03, "cpus": "0-3,4-7", "baseline_ms": 55.57, "ratio": 1.105}
+[19:25:08] host busy: {"spin_ms": 69.92, "spin_ms_max_cpu": 99.77, "cpus": "0-3,4-7", "baseline_ms": 55.57, "ratio": 1.258}
+[19:25:20] host busy: {"spin_ms": 62.33, "spin_ms_max_cpu": 62.71, "cpus": "0-3,4-7", "baseline_ms": 55.57, "ratio": 1.122}
+[19:25:33] host busy: {"spin_ms": 61.19, "spin_ms_max_cpu": 64.22, "cpus": "0-3,4-7", "baseline_ms": 55.57, "ratio": 1.101}
+[19:25:46] host probe before run: {"spin_ms": 61.06, "spin_ms_max_cpu": 62.13, "cpus": "0-3,4-7", "baseline_ms": 55.57, "ratio": 1.099} (waited 100s)
+[19:25:46] dotnetway rep 3: starting (load: 0.63 1.96 2.59)
+[19:25:51] dotnetway rep 3: cold start 339ms, idle 28MB (anon 15MB)
+[19:27:33] dotnetway rep 3: search c=1 4494.1 rps p50 0.197 p99 0.65 {'200': 35954} err 0 cpu 337.2 us/req; warm-up 90.0 s reached the maximum tail 4271.8 host 1.128
+[19:29:15] dotnetway rep 3: search c=16 17752.5 rps p50 0.7 p99 4.171 {'200': 142036} err 0 cpu 183.2 us/req; warm-up 90.0 s reached the maximum tail 18637.2 host 1.265
+[19:30:57] dotnetway rep 3: post_message c=1 1270.6 rps p50 0.499 p99 5.203 {'200': 10168} err 0 cpu 1024.2 us/req; warm-up 90.1 s reached the maximum tail 1209.1 host 1.136
+[19:32:40] dotnetway rep 3: post_message c=16 3193.4 rps p50 2.853 p99 17.151 {'200': 25557} err 0 cpu 665.6 us/req; warm-up 91.0 s reached the maximum tail 2636.7 host 1.2
+[19:32:44] dotnetway rep 3: done -> /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/bench/results/dotnetway-p0/quick/dotnetway-3.json
+theDotNetWay in /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/bench/results/dotnetway-p0/quick against the stored medians of bench/results/phase7-final (Rails, Rust and the F# port, 3 reps each, one session)
+
+| Workload | c | theDotNetWay req/s | F# port stored | vs port | Rust stored | **theDotNetWay / Rust (vs stored Rust baseline)** | Rails stored | **theDotNetWay / Rails** | CPU us/req | port | Rust stored |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| room page | 16 | 30,751 [21,741-31,424] | 40,422 | 0.761x | 28,623 | **1.074x** | 239 | **128.504x** | 113.1 [110-156] | 93.6 | 122.4 |
+| room page | 1 | 5,800 [4,794-7,032] | 7,617 | 0.762x | 6,481 | **0.895x** | 107 | **54.158x** | 230.2 [217-247] | 208.7 | 142.1 |
+| messages page | 16 | 33,744 [18,930-35,357] | 37,836 | 0.892x | 30,063 | **1.122x** | 381 | **88.660x** | 100.8 [98-164] | 102.2 | 114.2 |
+| messages page | 1 | 6,608 [5,740-7,386] | 8,312 | 0.795x | 6,822 | **0.969x** | 218 | **30.327x** | 217.9 [211-225] | 199.3 | 139.2 |
+| sidebar | 16 | 31,306 [16,679-32,550] | 37,555 | 0.834x | 28,238 | **1.109x** | 599 | **52.298x** | 112.6 [108-186] | 101.8 | 123.2 |
+| sidebar | 1 | 6,144 [6,082-6,909] | 8,000 | 0.768x | 6,196 | **0.992x** | 287 | **21.439x** | 226.5 [212-227] | 181.0 | 149.0 |
+| search | 16 | 17,752 [17,605-28,409] | 34,070 | 0.521x | 26,606 | **0.667x** | 408 | **43.522x** | 183.2 [126-186] | 107.3 | 123.9 |
+| search | 1 | 4,494 [4,148-5,459] | 6,055 | 0.742x | 5,646 | **0.796x** | 193 | **23.322x** | 337.2 [321-367] | 315.1 | 158.3 |
+| post a message | 16 | 4,055 [3,193-4,566] | 8,905 | 0.455x | 7,174 | **0.565x** | 330 | **12.285x** | 559.7 [500-666] | 353.0 | 385.6 |
+| post a message | 1 | 2,389 [1,271-2,501] | 3,052 | 0.783x | 2,779 | **0.860x** | 167 | **14.313x** | 709.3 [688-1,024] | 629.1 | 403.7 |
+
+Checks:
+  note messages_page c=1: host probe 1.158 after the window (noisy host)
+  note messages_page c=1: warm-up did not settle (reached the maximum)
+  note messages_page c=1: host probe 1.139 after the window (noisy host)
+  note messages_page c=16: warm-up did not settle (reached the maximum)
+  note messages_page c=16: warm-up did not settle (reached the maximum)
+  note messages_page c=16: host probe 1.23 after the window (noisy host)
+  note post_message c=1: host probe 1.109 after the window (noisy host)
+  note post_message c=1: warm-up did not settle (reached the maximum)
+  note post_message c=1: host probe 1.136 after the window (noisy host)
+  note post_message c=16: warm-up did not settle (reached the maximum)
+  note post_message c=16: host probe 1.496 after the window (noisy host)
+  note post_message c=16: warm-up did not settle (reached the maximum)
+  note post_message c=16: host probe 1.206 after the window (noisy host)
+  note post_message c=16: warm-up did not settle (reached the maximum)
+  note post_message c=16: host probe 1.2 after the window (noisy host)
+  note room_show c=1: host probe 1.123 after the window (noisy host)
+  note room_show c=16: warm-up did not settle (reached the maximum)
+  note search c=1: warm-up did not settle (reached the maximum)
+  note search c=1: host probe 1.124 after the window (noisy host)
+  note search c=1: warm-up did not settle (reached the maximum)
+  note search c=1: host probe 1.128 after the window (noisy host)
+  note search c=16: warm-up did not settle (reached the maximum)
+  note search c=16: host probe 1.191 after the window (noisy host)
+  note search c=16: warm-up did not settle (reached the maximum)
+  note search c=16: host probe 1.265 after the window (noisy host)
+  note sidebar c=1: host probe 1.117 after the window (noisy host)
+  note sidebar c=16: warm-up did not settle (reached the maximum)
+  note sidebar c=16: host probe 1.171 after the window (noisy host)
+  responses: every one 2xx with 0 connection errors in 30 runs
+  decoded bytes equal Rust's on every probed route; post rows written equal the 2xx answers in every phase

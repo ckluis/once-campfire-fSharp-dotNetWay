@@ -1,0 +1,26 @@
+=== message_sent 21:57:37 load 5.11 8.66 8.66
+rc=1
+=== attachment_sent 21:59:19 load 5.85 7.86 8.34
+rc=1
+=== message_edited 22:01:09 load 5.14 7.09 7.98
+rc=1
+=== message_deleted 22:03:10 load 5.93 7.11 7.90
+rc=1
+=== boosted 22:04:57 load 4.47 6.29 7.48
+rc=1
+=== boost_removed 22:06:44 load 4.65 5.96 7.21
+rc=1
+=== typing/one 22:08:28 load 4.45 5.62 6.94
+rc=1
+=== typing/many 22:10:06 load 4.47 5.32 6.67
+rc=1
+=== unread_in_sidebar 22:15:14 load 6.87 8.59 7.98
+rc=1
+=== new_room_in_sidebar 22:17:18 load 6.42 8.02 7.84
+rc=1
+=== removed_from_room 22:19:31 load 8.29 8.58 8.11
+rc=1
+=== room_deleted_then_send 22:21:50 load 6.87 7.62 7.77
+rc=0
+=== presence_read 22:23:42 load 4.91 7.00 7.53
+rc=1

@@ -1,0 +1,46 @@
+pixel-parity: dotnetway vs the Rails reference, layers pixels,aria,loose, seeds default,crowd,custom_styles,first_run,restricted
+pixel-parity: VM free 43G, parity/out 349M
+seed default: 170/170 screenshots pixel-equal; 170/170 aria equal; 90/170 loose equal, 80 DIFFERENT  [498s]
+    LOOSE DIFF rooms/show/designers @ chromium-desktop-light: +0 -248 lines
+    LOOSE DIFF rooms/show/designers/member @ chromium-desktop-light: +0 -248 lines
+    LOOSE DIFF rooms/show/designers/member @ chromium-desktop-dark: +0 -248 lines
+    LOOSE DIFF rooms/show/designers/member @ chromium-phone-light: +0 -248 lines
+    LOOSE DIFF rooms/show/designers @ firefox-desktop-light: +0 -248 lines
+    LOOSE DIFF rooms/show/designers @ webkit-desktop-light: +0 -248 lines
+    LOOSE DIFF rooms/show/designers/member @ chromium-phone-dark: +0 -248 lines
+    LOOSE DIFF rooms/show/closed @ chromium-desktop-dark: +0 -320 lines
+    LOOSE DIFF rooms/show/closed @ chromium-desktop-light: +0 -320 lines
+    LOOSE DIFF rooms/show/designers @ chromium-desktop-dark: +0 -248 lines
+    LOOSE DIFF rooms/show/closed @ chromium-phone-dark: +0 -320 lines
+    LOOSE DIFF rooms/show/closed @ chromium-phone-light: +0 -320 lines
+    LOOSE DIFF rooms/show/busy/last_page @ chromium-desktop-light: +0 -320 lines
+    LOOSE DIFF rooms/show/designers @ firefox-phone-light: +0 -248 lines
+    LOOSE DIFF rooms/show/designers @ webkit-phone-light: +0 -248 lines
+    LOOSE DIFF rooms/show/busy/last_page @ chromium-phone-light: +0 -320 lines
+    LOOSE DIFF rooms/show/busy/last_page @ chromium-phone-dark: +0 -320 lines
+    LOOSE DIFF rooms/show/busy/last_page @ chromium-desktop-dark: +0 -320 lines
+    LOOSE DIFF rooms/show/designers @ chromium-phone-light: +0 -248 lines
+    LOOSE DIFF rooms/show/designers @ chromium-phone-dark: +0 -248 lines
+    LOOSE DIFF rooms/show/busy/scrolled_to_previous_page @ chromium-phone-light: +0 -640 lines
+    LOOSE DIFF rooms/show/busy/scrolled_to_previous_page @ chromium-desktop-dark: +0 -640 lines
+    LOOSE DIFF rooms/show/busy/scrolled_to_previous_page @ chromium-desktop-light: +0 -640 lines
+    LOOSE DIFF rooms/show/designers @ chromium-bp799-light: +0 -248 lines
+    LOOSE DIFF rooms/show/designers @ chromium-bp799-dark: +0 -248 lines
+pixel-parity: VM free 43G, parity/out 421M
+seed crowd: 16/16 screenshots pixel-equal; 16/16 aria equal; 16/16 loose equal  [58s]
+pixel-parity: VM free 43G, parity/out 455M
+seed custom_styles: 8/8 screenshots pixel-equal; 8/8 aria equal; 0/8 loose equal, 8 DIFFERENT  [45s]
+    LOOSE DIFF rooms/show/designers/custom_styles @ chromium-desktop-light: +0 -248 lines
+    LOOSE DIFF rooms/show/designers/custom_styles/member @ chromium-phone-light: +0 -248 lines
+    LOOSE DIFF rooms/show/designers/custom_styles/member @ chromium-desktop-light: +0 -248 lines
+    LOOSE DIFF rooms/show/designers/custom_styles/member @ chromium-desktop-dark: +0 -248 lines
+    LOOSE DIFF rooms/show/designers/custom_styles @ chromium-desktop-dark: +0 -248 lines
+    LOOSE DIFF rooms/show/designers/custom_styles @ chromium-phone-light: +0 -248 lines
+    LOOSE DIFF rooms/show/designers/custom_styles @ chromium-phone-dark: +0 -248 lines
+    LOOSE DIFF rooms/show/designers/custom_styles/member @ chromium-phone-dark: +0 -248 lines
+pixel-parity: VM free 43G, parity/out 455M
+seed first_run: 0/0 screenshots pixel-equal; 0/0 aria equal; 0/0 loose equal  [7s]
+pixel-parity: VM free 43G, parity/out 455M
+seed restricted: 4/4 screenshots pixel-equal; 4/4 aria equal; 4/4 loose equal  [15s]
+pixel-parity: FAILED in 623s; reports under /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/parity/out/p0-full/rooms
+time="2026-10-13T17:32:35-04:00" level=fatal msg="exit status 1"
