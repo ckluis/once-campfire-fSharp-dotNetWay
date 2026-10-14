@@ -736,3 +736,28 @@ non-null, so five `nonNull`/`| null` arms (Disk.fs, Fixtures.fs, Config.fs, thre
   (CPU per request unchanged within noise: room 213 -> 220 us at c=1, 99.8 -> 97.1 at c=16). Cold start 361-418 ms before, 377-412 ms after; idle 27 -> 27-28 MB.
 - KLOC (`bin/kloc`): 39,428 corrected (39.4 KLOC), unchanged to within 1 line.
 - `bin/pixel-parity --fast --only "auth/**,rooms/**"` on net11.0 (run after clean-docker returned space to 14 GB free): PASSED in 620 s. The harness ran all seeds: default 100/100, crowd 8/8, custom_styles 6/6, first_run 8/8, restricted 2/2 screenshots, aria and loose equal (one auth/sign_in/error capture retried once). `bin/clean-parity` and `bin/clean-docker` run afterwards.
+
+### Phase 1, unit 1.1: EF Core foundation (2026-10-14) - DONE
+
+Packages (`Directory.Packages.props`): `Microsoft.EntityFrameworkCore.Sqlite` 10.0.13, `EFCore.NamingConventions` 10.0.1, `Microsoft.Data.Sqlite` 10.0.12 -> 10.0.13 (Storage and the old
+`Database` use it too; their suites pass unchanged). New in `src/Campfire.Db`: `RailsTime.fs` (module `RailsTime` + `RailsTimeConverter`), and under `Ef/`: `Entities.fs` (15 `[<CLIMutable>]` records
+and the `Involvement`/`RoomType` enums with their string mappings), `CampfireDb.fs`, `Interceptors.fs` (`SqlitePragmas`, `RailsTimestamps`, `RailsParameterGuard`), `Data.fs` (`options`,
+`factory`, `tryFirst`). Nothing outside `Campfire.Db` changed except the package versions and the test project.
+
+Deviations from the design note, both forced by coexisting with the old layer until unit 1.11:
+- The new types live in namespace `Campfire.Db.Ef` (the old `User`, `Room`, `Session`, ... and the union forms of `Involvement`/`RoomType` still occupy `Campfire.Db`), and the `Ef/` files compile
+  after `Models.fs` (they reuse its `Role` and `Status` enums). `RailsTime` is in `Campfire.Db` beside the old `Timestamp`. Unit 1.11 moves the `Ef` types up when the twins go.
+- `ofDb` also reads a `T` separator and a trailing `Z`/` UTC` (the old `Timestamp.ParseDb` did); a bare trailing dot is rejected.
+
+Tests (`tests/Campfire.Db.Tests/EfTests.fs`, one module so D4's process-wide counter is not shared): D1 (twice: `default` and `crowd` seeds), D2 (four), D3 (two), D4, D5, D6 = 11 tests, all pass.
+- D1 reads every row of all 15 tables through EF and writes them to a fresh `Schema.prepare`d database; the two are then compared table by table, row by row, column by column with SQLite's
+  `quote()` (type-preserving, equal to a `.dump` of the INSERTs; columns by name because migrated and fresh Rails databases order them differently). Identical for both seeds, including the
+  timestamps' text. Finding: the seeds were loaded with foreign keys off and hold an orphan (`messages` row whose `creator_id` 933434637 is not a user; `pragma foreign_key_check` reports it),
+  so the test's target connection turns `foreign_keys` off for the copy. The orphan round-trips too.
+- D4: three concurrently open pooled connections each read `busy_timeout` 5000, `journal_mode` wal, `foreign_keys` 1, `synchronous` 1; `SqlitePragmas.Applied` grew by exactly 3 and did not grow
+  over 20 further queries.
+- D5: `DateTime` and `DateTimeOffset` holes in `FromSql`/`ExecuteSql` throw (`RailsTime.toDb` in the message); the `toDb` string and a LINQ comparison on a converted column run.
+
+`CAMPFIRE_REQUIRE_SEED=1 bin/verify` (Release, warnaserror): 0 warnings, 1049 tests, 1042 passed, 0 failed, 7 skipped (the 7 are the same environmental skips as before: Rails-needed
+fixtures, Linux-only, export-db). `bin/kloc`: 39,428 corrected (39.4 KLOC); Db 3,307 corrected. The pixel run is not applicable: no behaviour outside `Campfire.Db` changed and no app code uses the new
+types yet. No `bin/db-differential` (units 1.3-1.9 write rows through it). Differences recorded: none.

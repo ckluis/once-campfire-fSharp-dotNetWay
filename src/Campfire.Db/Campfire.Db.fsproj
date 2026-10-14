@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
     <Compile Include="Time.fs" />
+    <Compile Include="RailsTime.fs" />
     <Compile Include="Error.fs" />
     <Compile Include="Events.fs" />
     <Compile Include="Sql.fs" />
@@ -16,6 +17,10 @@
     <Compile Include="ActiveStorage.fs" />
     <Compile Include="Account.fs" />
     <Compile Include="Models.fs" />
+    <Compile Include="Ef/Entities.fs" />
+    <Compile Include="Ef/CampfireDb.fs" />
+    <Compile Include="Ef/Interceptors.fs" />
+    <Compile Include="Ef/Data.fs" />
     <Compile Include="PushSubscription.fs" />
     <Compile Include="FirstRun.fs" />
     <Compile Include="Testing.fs" />
@@ -27,6 +32,8 @@
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.Data.Sqlite" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" />
+    <PackageReference Include="EFCore.NamingConventions" />
   </ItemGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="Campfire.Db.Tests" />
