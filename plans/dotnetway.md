@@ -735,5 +735,4 @@ non-null, so five `nonNull`/`| null` arms (Disk.fs, Fixtures.fs, Config.fs, thre
   re-measured back to back on sidebar+search: before sidebar 5966/34294, search 6073/32658; after sidebar 7924/35315, search 6391/30319. Net: no measurable change from the SDK move
   (CPU per request unchanged within noise: room 213 -> 220 us at c=1, 99.8 -> 97.1 at c=16). Cold start 361-418 ms before, 377-412 ms after; idle 27 -> 27-28 MB.
 - KLOC (`bin/kloc`): 39,428 corrected (39.4 KLOC), unchanged to within 1 line.
-- Not done: the `--fast` pixel run on a handful of states. `df -h /` read 11 GB free (under the 12 GB floor) after the bench, `bin/clean-docker` and a builder prune did
-  not return more. Run it when space allows: `bin/pixel-parity --fast --only "auth/**,rooms/**"`, then `bin/clean-parity` and `bin/clean-docker`.
+- `bin/pixel-parity --fast --only "auth/**,rooms/**"` on net11.0 (run after clean-docker returned space to 14 GB free): PASSED in 620 s. The harness ran all seeds: default 100/100, crowd 8/8, custom_styles 6/6, first_run 8/8, restricted 2/2 screenshots, aria and loose equal (one auth/sign_in/error capture retried once). `bin/clean-parity` and `bin/clean-docker` run afterwards.
