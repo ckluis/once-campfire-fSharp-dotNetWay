@@ -139,9 +139,9 @@ let ``breakdown of a small request`` () =
         box (Request.Create("GET", "GET", "/rooms/5", null, null, "http", headers, IPAddress.Loopback, ReadOnlyMemory.Empty, kit.Config.Proxy)))
     let request = Request.Create("GET", "GET", "/rooms/5", null, null, "http", headers, IPAddress.Loopback, ReadOnlyMemory.Empty, kit.Config.Proxy)
     stage "Ctx.ctor (+cookie jar, maps)" 100000 (fun () ->
-        box (Ctx(kit, request, ParamMap(), ParamMap(), ParamMap(), CookieJar(kit.Secrets, kit.Clock))))
+        box (Ctx(kit, Microsoft.AspNetCore.Http.DefaultHttpContext(), request, ParamMap(), ParamMap(), ParamMap(), CookieJar(kit.Secrets, kit.Clock))))
     stage "ctx + html + finish" 50000 (fun () ->
-        let c = Ctx(kit, request, ParamMap(), ParamMap(), ParamMap(), CookieJar(kit.Secrets, kit.Clock))
+        let c = Ctx(kit, Microsoft.AspNetCore.Http.DefaultHttpContext(), request, ParamMap(), ParamMap(), ParamMap(), CookieJar(kit.Secrets, kit.Clock))
         box (c.Finish(Ok(c.Html "hello"))))
     stage "Response.Header x5" 100000 (fun () ->
         let r = Response(200)

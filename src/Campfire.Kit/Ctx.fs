@@ -185,7 +185,7 @@ module private CtxHelpers =
             "Object {" + String.Join(", ", entries |> List.map (fun (k, v) -> $"{debugString k}: {debugValue v}")) + "}"
 
 [<Sealed>]
-type Ctx internal (kit: Kit, request: Request, pathParams: ParamMap, queryParams: ParamMap, requestParams: ParamMap, cookies: CookieJar) =
+type Ctx internal (kit: Kit, http: Microsoft.AspNetCore.Http.HttpContext, request: Request, pathParams: ParamMap, queryParams: ParamMap, requestParams: ParamMap, cookies: CookieJar) =
     let parameters =
         let merged = requestParams.Clone()
         merged.Merge queryParams
@@ -216,6 +216,9 @@ type Ctx internal (kit: Kit, request: Request, pathParams: ParamMap, queryParams
     member val CacheControl: CacheControl = CacheControl.Empty with get, set
 
     member _.Kit = kit
+
+    /// The ASP.NET Core request this action runs in: `RequestServices` (the scoped `CampfireDb`), the connection, the user.
+    member _.Http : Microsoft.AspNetCore.Http.HttpContext = http
 
     member _.Request = request
 

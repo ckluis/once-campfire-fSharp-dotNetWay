@@ -5,6 +5,8 @@ open System
 open System.Linq
 open Microsoft.EntityFrameworkCore
 open Microsoft.EntityFrameworkCore.Infrastructure
+open Microsoft.Extensions.DependencyInjection
+open Campfire.Db
 
 module Data =
 
@@ -29,3 +31,11 @@ module Data =
         match query.FirstOrDefault() with
         | null -> None
         | found -> Some found
+
+    /// The context's lifetime in the request pipeline: the pooled factory as the singleton, a scoped context leased from it
+    /// (returned to the pool when the request's scope ends), the write gate and the clock (design section 3.5).
+    let addServices (services: IServiceCollection) (factory: IDbContextFactory<CampfireDb>) (gate: WriteGate) (time: TimeProvider) : unit =
+        services.AddSingleton<IDbContextFactory<CampfireDb>>(factory) |> ignore
+        services.AddScoped<CampfireDb>(fun _ -> factory.CreateDbContext()) |> ignore
+        services.AddSingleton<WriteGate>(gate) |> ignore
+        services.AddSingleton<TimeProvider>(time) |> ignore

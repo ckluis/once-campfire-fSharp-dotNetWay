@@ -4,6 +4,7 @@
     <Compile Include="RailsTime.fs" />
     <Compile Include="Error.fs" />
     <Compile Include="Events.fs" />
+    <Compile Include="WriteGate.fs" />
     <Compile Include="Sql.fs" />
     <Compile Include="Columns.fs" />
     <Compile Include="RichText.fs" />
@@ -21,6 +22,7 @@
     <Compile Include="Ef/CampfireDb.fs" />
     <Compile Include="Ef/Interceptors.fs" />
     <Compile Include="Ef/Data.fs" />
+    <Compile Include="Ef/Writes.fs" />
     <Compile Include="PushSubscription.fs" />
     <Compile Include="FirstRun.fs" />
     <Compile Include="Testing.fs" />

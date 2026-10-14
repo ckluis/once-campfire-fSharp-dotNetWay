@@ -50,13 +50,14 @@ module Front =
     /// Serves `app` (the pipeline of the kit, `Adapter.app` and what comes before it, built onto the
     /// builder it's given) the way Thruster served the reference until `shutdown` completes.
     /// `acme` replaces the configuration's ACME options (tests use a local CA), and `loggerFactory`
-    /// is where the server and Kestrel log (the requests, as `thruster`, unless `lines` is given: the host then
+    /// is where the server and Kestrel log (`configureServices` registers the app's services, which `HttpContext.RequestServices` resolves; the requests, as `thruster`, unless `lines` is given: the host then
     /// writes them itself, as bytes, see `RequestLog`).
     let serveWithLines
         (config: FrontConfig)
         (app: IApplicationBuilder -> unit)
         (acme: AcmeOptions voption)
         (loggerFactory: ILoggerFactory)
+        (configureServices: IServiceCollection -> unit)
         (lines: RequestLines | null)
         (shutdown: Task)
         : Task =
@@ -88,6 +89,7 @@ module Front =
             let builder = WebApplication.CreateSlimBuilder [| "--hostBuilder:reloadConfigOnChange=false" |]
             builder.Services.AddSingleton<ILoggerFactory>(loggerFactory) |> ignore
             builder.Services.AddSingleton<IHostLifetime, NoLifetime>() |> ignore
+            configureServices builder.Services
             builder.WebHost.ConfigureKestrel(fun (options: KestrelServerOptions) ->
                 Adapter.configureKestrel options
                 FrontConn.configureLimits options timeouts
@@ -161,7 +163,7 @@ module Front =
         (loggerFactory: ILoggerFactory)
         (shutdown: Task)
         : Task =
-        serveWithLines config app acme loggerFactory null shutdown
+        serveWithLines config app acme loggerFactory ignore null shutdown
 
     /// `serveWith`, with the configuration's ACME options and no logging but the requests'.
     let serve (config: FrontConfig) (app: IApplicationBuilder -> unit) (shutdown: Task) : Task =

@@ -131,7 +131,7 @@ let private ctxFor (config: KitConfig) (meth: string) (headers: (string * string
     for (k, v) in headers do
         map.Append(k, v)
     let request = Request.Create(meth, meth, "/session", null, null, null, map, IPAddress.Loopback, ReadOnlyMemory.Empty, config.Proxy)
-    Ctx(kit, request, ParamMap(), ParamMap(), ParamMap(), CookieJar(kit.Secrets, kit.Clock))
+    Ctx(kit, Microsoft.AspNetCore.Http.DefaultHttpContext(), request, ParamMap(), ParamMap(), ParamMap(), CookieJar(kit.Secrets, kit.Clock))
 
 [<Fact>]
 let ``csrf origin cases`` () =

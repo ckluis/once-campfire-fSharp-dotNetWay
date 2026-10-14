@@ -6,6 +6,8 @@ namespace Campfire.App
 
 open System
 open System.Threading.Tasks
+open Microsoft.EntityFrameworkCore
+open Microsoft.Extensions.DependencyInjection
 open Microsoft.Extensions.Logging
 open Campfire.App.Channels
 open Campfire.App.Integrations
@@ -36,6 +38,8 @@ type AppState
         secrets: Secrets,
         clock: SharedClock,
         db: Database,
+        dbFactory: IDbContextFactory<Campfire.Db.Ef.CampfireDb>,
+        env: Campfire.Db.Ef.Env,
         storage: Storage,
         cable: Cable,
         broadcasts: Broadcasts,
@@ -48,6 +52,15 @@ type AppState
     member _.Secrets = secrets
     member _.Clock = clock
     member _.Db = db
+
+    /// EF Core beside the old `Db` until unit 1.11: `Writes.run app.Gate app.Env ctx` for jobs, channels and integrations
+    /// (`use ctx = app.DbFactory.CreateDbContext()`), a scoped `CampfireDb` from `c.Db` in actions.
+    member _.DbFactory = dbFactory
+
+    /// The one writer at a time, shared with the old `Db`'s writer (`Database.Gate`).
+    member _.Gate : WriteGate = db.Gate
+
+    member _.Env = env
     member _.Storage = storage
     member _.Cable = cable
     member _.Broadcasts = broadcasts
@@ -100,3 +113,6 @@ type App = AppState
 module CtxApp =
     type Campfire.Kit.Ctx with
         member c.App: AppState = c.State<AppState>()
+
+        /// The request's `CampfireDb`: scoped, leased from the pooled factory and returned when the request ends.
+        member c.Db : Campfire.Db.Ef.CampfireDb = c.Http.RequestServices.GetRequiredService<Campfire.Db.Ef.CampfireDb>()

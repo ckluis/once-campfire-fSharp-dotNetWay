@@ -20,6 +20,7 @@ open Microsoft.AspNetCore.Builder
 open Microsoft.AspNetCore.Http
 open Microsoft.AspNetCore.Http.Features
 open Microsoft.Data.Sqlite
+open Microsoft.Extensions.DependencyInjection
 open Microsoft.Extensions.Logging
 open Campfire.App.Channels
 open Campfire.App.Integrations
@@ -37,6 +38,8 @@ type Booted =
     { App: AppState
       /// What `Front.serve` builds the app's pipeline with (the kit's `Adapter.app` and what the app puts in it).
       Pipeline: IApplicationBuilder -> unit
+      /// Registers `CampfireDb`, its factory, the `WriteGate` and the `TimeProvider` (`Front.serveWithLines`'s `configureServices`).
+      ConfigureServices: IServiceCollection -> unit
       Jobs: Runner }
 
 module Boot =
@@ -175,15 +178,26 @@ module Boot =
             let fragmentCache = FragmentCache(int (min config.FragmentCacheBytes (int64 Int32.MaxValue)))
             // config/initializers/web_push.rb: off without a valid VAPID key pair.
             let webPush = IntegrationJobs.webPushPool config db (loggers.CreateLogger "campfire.web_push")
+            let time = Campfire.Db.Ef.ClockTimeProvider clock
+            let dbFactory = Campfire.Db.Ef.Data.factory (Campfire.Db.Ef.Data.options config.Storage.Database time ignore)
+            let efEnv: Campfire.Db.Ef.Env =
+                { Time = time
+                  Sink = jobs
+                  RichText = richText
+                  BcryptCost = Password.Cost }
             let app =
-                AppState(config, secrets, clock, db, storage, cable, Broadcasts cable, jobs, webPush, fragmentCache, loggers)
+                AppState(config, secrets, clock, db, dbFactory, efEnv, storage, cable, Broadcasts cable, jobs, webPush, fragmentCache, loggers)
 
             let registry = CoreJobs.withCoreJobs ()
             IntegrationJobs.registerJobs registry
             let runner = JobRunner.start jobs cable app registry config.JobConcurrency
 
             let kit = Kit(kitConfig, secrets, clock, app, logger)
-            return { App = app; Pipeline = pipeline app kit; Jobs = runner }
+            return
+                { App = app
+                  Pipeline = pipeline app kit
+                  ConfigureServices = fun services -> Campfire.Db.Ef.Data.addServices services dbFactory db.Gate time
+                  Jobs = runner }
         }
 
     // --- Commands ----------------------------------------------------------------------------------------
@@ -215,7 +229,7 @@ module Boot =
                 }
             // The request log goes to stdout as batched bytes (the `thruster` lines the console logger would write), not through `ILogger`.
             let requestLines = RequestLog.stdout ()
-            let server = Front.serveWithLines front booted.Pipeline ValueNone loggers requestLines signal
+            let server = Front.serveWithLines front booted.Pipeline ValueNone loggers booted.ConfigureServices requestLines signal
             let deadline =
                 task {
                     do! stopping.Task

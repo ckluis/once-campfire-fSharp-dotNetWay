@@ -761,3 +761,33 @@ Tests (`tests/Campfire.Db.Tests/EfTests.fs`, one module so D4's process-wide cou
 `CAMPFIRE_REQUIRE_SEED=1 bin/verify` (Release, warnaserror): 0 warnings, 1049 tests, 1042 passed, 0 failed, 7 skipped (the 7 are the same environmental skips as before: Rails-needed
 fixtures, Linux-only, export-db). `bin/kloc`: 39,428 corrected (39.4 KLOC); Db 3,307 corrected. The pixel run is not applicable: no behaviour outside `Campfire.Db` changed and no app code uses the new
 types yet. No `bin/db-differential` (units 1.3-1.9 write rows through it). Differences recorded: none.
+
+### Phase 1, unit 1.2: Write path and seam (2026-10-14) - DONE
+
+New in `src/Campfire.Db`: `WriteGate.fs` (namespace `Campfire.Db`; it compiles ahead of `Database.fs` because the old writer takes the gate too, so it is not in `Ef/Writes.fs` as the note has it) and
+`Ef/Writes.fs` (`ClockTimeProvider`, `Env`, `Tx`, `Writes.run`, `Reads.run`); `Data.addServices` is in `Ef/Data.fs`. In `Campfire.Kit`: `Ctx.Http` (the Adapter passes the request's `HttpContext`; the
+three Kit tests that build a `Ctx` pass a `DefaultHttpContext`) and `Front.serveWithLines` gains `configureServices` (`serveWith`/`serve` pass `ignore`). In `Campfire.App`: `AppState` gains
+`DbFactory`, `Gate` (= the old `Database.Gate`) and `Env` beside `Db`; `c.Db` (scoped `CampfireDb` from `RequestServices`); `Booted.ConfigureServices`, which `Boot.serve` passes to the front host and
+`Support.start` to the test host (`Support.startPipelineWith`; `startPipeline` is `startPipelineWith ignore`).
+
+Decisions the note left open:
+- **BEGIN IMMEDIATE.** EF's `BeginTransaction` (and Microsoft.Data.Sqlite's `Serializable` through it) sends a deferred `BEGIN`, which W1 caught: a second connection's `BEGIN IMMEDIATE` succeeded inside the body.
+  `Writes.run` opens the connection, starts `SqliteConnection.BeginTransaction(Serializable, deferred = false)` itself and hands it to EF with `UseTransaction`. W1 now sees SQLITE_BUSY (code 5) from the other connection before any
+  statement of the body has run.
+- **The migration rule is inside the old `Database`.** `Database.Write` takes the `WriteGate` (async) and `WriteBlocking` takes it blocking, around the writer thread's job, so every existing `app.Db.Write` call site is covered (20) without
+  touching them; the gate belongs to the `Database` (`db.Gate`) and `AppState.Gate` is that same object, so there is exactly one writer at a time throughout the phase. The old Rust-shaped `DbRun.runWrite` is unchanged.
+- `Env.RichText` is still the port's `RichText` interface (over `Conn`); unit 1.5a moves it to `CampfireDb`. `Env`/`Tx` are in `Campfire.Db.Ef` beside the old twins (as in 1.1).
+- A failing after-commit hook that is not a `DbException`/`SqliteException` comes back as `Error (Other exn)` (the write has committed); a hook queued from inside a hook runs at once and a failure there is logged only.
+- W5's "`DisconnectUser` reaches `Revocation` without tripping C16's guard" is not testable here: Cable's guard arrives with the Cable phase. The test checks what it rests on: `InWrite` is false in the sink call for a `DisconnectUser`
+  emitted after commit.
+
+Tests: `tests/Campfire.Db.Tests/WritesTests.fs` W1-W7 (8 tests: W3 has two), all pass; they use `action_text_rich_texts` rows (no foreign keys, unique on type/id/name, which W3 uses for `isRecordNotUnique`). W6 runs 64
+concurrent `Writes.run` writes on 16 tasks at once (4 rounds each): all 64 rows present, no error, a counter never above 1 inside the body. W7 interleaves 20 old `Database.Write` and 20 `Writes.run` writes: 40 rows, no error. App
+test `a request resolves the scoped CampfireDb and the TimeProvider from its RequestServices` (in `AppTests.fs`) boots the seed, resolves `CampfireDb` (same instance twice in one request), `TimeProvider` (`ClockTimeProvider`) and the gate
+(same object as `AppState.Gate` and `Db.Gate`) from `RequestServices`, and compares the user count with the old layer's.
+
+Gates: `CAMPFIRE_REQUIRE_SEED=1 bin/verify` (Release, warnaserror): 0 warnings, 1058 tests, 1051 passed, 0 failed, 7 skipped (the same environmental skips). The App suite is unchanged apart from the one added test.
+`bin/pixel-parity --fast --only "rooms/**,interactions/**"` (image rebuilt from the tree): PASSED in 781 s, default 153/153, crowd 8/8, custom_styles 4/4, first_run 0/0, restricted 2/2 screenshots, aria and loose equal
+(`bench/results/dotnetway-p1-2/pixel.log`). `bin/db-differential` and the bench are not for this unit. `bin/kloc`: 39,859 corrected (39.9 KLOC; 1.1 closed at 39,428); Db 3,714. Differences recorded: none (Class A: no visible change).
+Host disk: 11.6 GiB free before the image build, 5.8 GiB after it (colima's data disk grew; `bin/clean-docker` reclaimed 0 B: the 13 images are all tagged, 10.9 GB of them reclaimable but not this unit's to remove).
+

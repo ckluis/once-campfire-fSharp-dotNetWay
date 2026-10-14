@@ -386,6 +386,8 @@ type Database
     // Not a `Monitor`, which the thread already holding it could enter again: a `ReadBlocking` inside
     // another gets a connection of its own.
     let blockingGate = new SemaphoreSlim(1, 1)
+    // The one writer at a time across the old writer thread and EF's `Writes.run` (design-data-ef section 4, migration rule).
+    let writeGate = WriteGate()
     let mutable blockingReader: Conn option = None
     let mutable disposed = false
 
@@ -493,6 +495,9 @@ type Database
 
     member _.Path : string = path
 
+    /// What `Writes.run` takes too: exactly one writer at a time while the old writer and EF share the file.
+    member _.Gate : WriteGate = writeGate
+
     /// Reader threads still running; zero once disposed.
     member internal _.ReaderThreadsAlive : int = readerThreads |> List.filter (fun t -> t.IsAlive) |> List.length
 
@@ -502,53 +507,61 @@ type Database
     /// Runs `f` as one immediate transaction on the writer thread.
     member _.Write(f: Tx -> 'T) : Task<Result<'T, DbError>> =
         task {
-            let reply = TaskCompletionSource<Result<'T, DbError>>(TaskCreationOptions.RunContinuationsAsynchronously)
-            let job (conn: Conn) (env: Env) : bool =
-                let mutable committed = false
-                try
-                    reply.SetResult(
-                        DbRun.attempt (fun () ->
-                            let value = DbRun.runWrite conn env f
-                            committed <- true
-                            value)
-                    )
-                with e ->
-                    reply.SetException e
-                committed
-            let! queued = writeQueue.EnqueueAsync job
-            if queued then return! reply.Task else return Error WriterGone
-        }
-
-    /// `Write` for synchronous callers (not from inside an async task).
-    member _.WriteBlocking(f: Tx -> 'T) : Result<'T, DbError> =
-        use replied = new ManualResetEventSlim(false)
-        let outcome: Result<Result<'T, DbError>, exn> option ref = ref None
-        let job (conn: Conn) (env: Env) : bool =
-            let mutable committed = false
-            outcome.Value <-
-                try
-                    Some(
-                        Ok(
+            do! writeGate.Enter()
+            try
+                let reply = TaskCompletionSource<Result<'T, DbError>>(TaskCreationOptions.RunContinuationsAsynchronously)
+                let job (conn: Conn) (env: Env) : bool =
+                    let mutable committed = false
+                    try
+                        reply.SetResult(
                             DbRun.attempt (fun () ->
                                 let value = DbRun.runWrite conn env f
                                 committed <- true
                                 value)
                         )
-                    )
-                with e ->
-                    Some(Error e)
-            replied.Set()
-            committed
-        if writeQueue.Enqueue job then
-            replied.Wait()
-            match outcome.Value with
-            | Some(Ok result) -> result
-            | Some(Error e) ->
-                ExceptionDispatchInfo.Capture(e).Throw()
+                    with e ->
+                        reply.SetException e
+                    committed
+                let! queued = writeQueue.EnqueueAsync job
+                if queued then return! reply.Task else return Error WriterGone
+            finally
+                writeGate.Exit()
+        }
+
+    /// `Write` for synchronous callers (not from inside an async task).
+    member _.WriteBlocking(f: Tx -> 'T) : Result<'T, DbError> =
+        writeGate.EnterBlocking()
+        try
+            use replied = new ManualResetEventSlim(false)
+            let outcome: Result<Result<'T, DbError>, exn> option ref = ref None
+            let job (conn: Conn) (env: Env) : bool =
+                let mutable committed = false
+                outcome.Value <-
+                    try
+                        Some(
+                            Ok(
+                                DbRun.attempt (fun () ->
+                                    let value = DbRun.runWrite conn env f
+                                    committed <- true
+                                    value)
+                            )
+                        )
+                    with e ->
+                        Some(Error e)
+                replied.Set()
+                committed
+            if writeQueue.Enqueue job then
+                replied.Wait()
+                match outcome.Value with
+                | Some(Ok result) -> result
+                | Some(Error e) ->
+                    ExceptionDispatchInfo.Capture(e).Throw()
+                    Error WriterGone
+                | None -> Error WriterGone
+            else
                 Error WriterGone
-            | None -> Error WriterGone
-        else
-            Error WriterGone
+        finally
+            writeGate.Exit()
 
     /// Runs `f` on a reader connection: right here, on the calling task's thread, when one is free
     /// and no read is queued for one, since a read on a warm page cache takes less time than the

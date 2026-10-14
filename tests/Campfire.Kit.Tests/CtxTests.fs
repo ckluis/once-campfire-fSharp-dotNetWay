@@ -19,7 +19,7 @@ let private makeCtx (config: KitConfig) (meth: string) (headers: (string * strin
     for (k, v) in headers do
         map.Append(k, v)
     let request = Request.Create(meth, meth, "/rooms/1", "x=1", null, null, map, IPAddress.Loopback, ReadOnlyMemory.Empty, config.Proxy)
-    Ctx(kit, request, ParamMap(), ParamMap(), requestParams, CookieJar(kit.Secrets, kit.Clock))
+    Ctx(kit, Microsoft.AspNetCore.Http.DefaultHttpContext(), request, ParamMap(), ParamMap(), requestParams, CookieJar(kit.Secrets, kit.Clock))
 
 let private plain (headers: (string * string) list) = makeCtx KitConfig.Default "GET" ([ "host", "chat.example.com" ] @ headers) (ParamMap())
 

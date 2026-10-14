@@ -661,3 +661,26 @@ let ``the console logger never colours its lines`` () =
         Console.SetOut real
     Assert.Contains("warn: campfire[0]", sw.ToString())
     Assert.DoesNotContain("\u001b", sw.ToString())
+
+[<Fact>]
+let ``a request resolves the scoped CampfireDb and the TimeProvider from its RequestServices`` () =
+    task {
+        use! test = bootSeeded "default"
+        let handler (http: Microsoft.AspNetCore.Http.HttpContext) : Task =
+            task {
+                let services = http.RequestServices
+                let db = Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<Campfire.Db.Ef.CampfireDb>(services)
+                let again = Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<Campfire.Db.Ef.CampfireDb>(services)
+                let time = Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<TimeProvider>(services)
+                let gate = Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<WriteGate>(services)
+                let users = System.Linq.Queryable.Count(db.Users)
+                let sameGate = obj.ReferenceEquals(gate, test.App.Gate) && obj.ReferenceEquals(gate, test.App.Db.Gate)
+                do! Microsoft.AspNetCore.Http.HttpResponseWritingExtensions.WriteAsync(http.Response, $"{users} {obj.ReferenceEquals(db, again)} {sameGate} {time.GetType().Name}")
+            }
+        use! host = startPipelineWith test.Booted.ConfigureServices (fun app -> Microsoft.AspNetCore.Builder.RunExtensions.Run(app, Microsoft.AspNetCore.Http.RequestDelegate handler))
+        let! reply = host.Send(get "/")
+        Assert.Equal(200, reply.Status)
+        let! usersInOldLayer = test.App.Db.Read(fun conn -> conn.Count("SELECT COUNT(*) FROM users", [||]))
+        Assert.Equal($"{(match usersInOldLayer with Ok n -> n | Error e -> failwith (DbError.display e))} True True ClockTimeProvider", reply.Text)
+        Assert.NotNull test.App.DbFactory
+    }

@@ -214,10 +214,11 @@ type Host(host: WebApplication, port: int, writes: BodyWrites) =
                 }
             )
 
-/// Serve `pipeline` on a free loopback port.
-let startPipeline (pipeline: IApplicationBuilder -> unit) : Task<Host> =
+/// Serve `pipeline` on a free loopback port, with `configureServices` registered (the app's `ConfigureServices`).
+let startPipelineWith (configureServices: IServiceCollection -> unit) (pipeline: IApplicationBuilder -> unit) : Task<Host> =
     task {
         let builder = WebApplication.CreateSlimBuilder()
+        configureServices builder.Services
         builder.WebHost.ConfigureKestrel(fun (options: KestrelServerOptions) ->
             Adapter.configureKestrel options
             options.Listen(IPAddress.Loopback, 0))
@@ -238,6 +239,9 @@ let startPipeline (pipeline: IApplicationBuilder -> unit) : Task<Host> =
         let addresses = (nonNull (app.Services.GetRequiredService<IServer>().Features.Get<IServerAddressesFeature>())).Addresses
         return new Host(app, Uri(Seq.head addresses).Port, writes)
     }
+
+/// Serve `pipeline` on a free loopback port.
+let startPipeline (pipeline: IApplicationBuilder -> unit) : Task<Host> = startPipelineWith ignore pipeline
 
 /// Log lines written to a factory, formatted as the console would (without its timestamp).
 type CapturingLoggers() =
@@ -335,7 +339,7 @@ let private start (config: AppConfig) (dir: string) : Task<Test> =
     task {
         let logs = new CapturingLoggers()
         let! booted = Boot.boot config logs
-        let! host = startPipeline booted.Pipeline
+        let! host = startPipelineWith booted.ConfigureServices booted.Pipeline
         return new Test(booted, dir, host, logs)
     }
 

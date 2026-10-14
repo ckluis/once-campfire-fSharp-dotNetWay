@@ -545,7 +545,7 @@ module Adapter =
                 match header with
                 | null -> ()
                 | header -> cookies.AddHeader header
-            let ctx = Ctx(kit, request, pathParams, queryParams, bodyParams, cookies)
+            let ctx = Ctx(kit, http, request, pathParams, queryParams, bodyParams, cookies)
             let failure = if queryError.IsSome then queryError else bodyError
             let mutable result: Result<Response, Error> = Unchecked.defaultof<_>
             match failure with
