@@ -9,8 +9,10 @@ open Microsoft.EntityFrameworkCore
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module RichTextRecord =
     let findFor (db: Ef.CampfireDb) (recordType: string) (recordId: int64) (name: string) : RichTextRecord option =
-        db.RichTexts.Where(fun r -> r.RecordId = EF.Parameter recordId && r.RecordType = EF.Parameter recordType && r.Name = EF.Parameter name)
-        |> Ef.Data.tryFirst
+        db.RichTexts.FromSql(
+            $"SELECT * FROM action_text_rich_texts WHERE record_id = {recordId} AND record_type = {recordType} AND name = {name} LIMIT 1"
+        )
+        |> Ef.Data.sqlFirst
 
     let create (tx: Ef.Tx) (recordType: string) (recordId: int64) (name: string) (body: string) : RichTextRecord =
         Ef.Data.insert

@@ -18,7 +18,7 @@ type internal IpAddress =
 module Ban =
     /// `Ban.banned?(ip_address)`: runs on every non-GET request (`BlockBannedRequests`).
     let banned (db: CampfireDb) (ipAddress: string) : bool =
-        db.Bans.Any(fun b -> b.IpAddress = EF.Parameter ipAddress)
+        db.Bans.FromSql($"SELECT * FROM bans WHERE ip_address = {ipAddress} LIMIT 1") |> Data.sqlFirst |> Option.isSome
 
     let forUser (db: CampfireDb) (userId: int64) : Ban list =
         db.Bans.Where(fun b -> b.UserId = EF.Parameter userId).ToList() |> List.ofSeq

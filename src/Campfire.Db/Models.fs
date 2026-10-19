@@ -60,7 +60,7 @@ module User =
 
     /// `User.find_by(id:)`
     let findById (db: Ef.CampfireDb) (id: int64) : User option =
-        db.Users.Where(fun u -> u.Id = EF.Parameter id) |> Ef.Data.tryFirst
+        db.Users.FromSql($"SELECT * FROM users WHERE id = {id} LIMIT 1") |> Ef.Data.sqlFirst
 
     /// `User.find`
     let find (db: Ef.CampfireDb) (id: int64) : User = findById db id |> Err.orNotFound "User"
@@ -452,7 +452,7 @@ module Membership =
 
     /// `room.memberships.find_by(user:)` / `user.memberships.find_by(room_id:)`
     let findByRoomAndUser (db: Ef.CampfireDb) (roomId: int64) (userId: int64) : Membership option =
-        db.Memberships.Where(fun m -> m.RoomId = EF.Parameter roomId && m.UserId = EF.Parameter userId) |> Ef.Data.tryFirst
+        db.Memberships.FromSql($"SELECT * FROM memberships WHERE room_id = {roomId} AND user_id = {userId} LIMIT 1") |> Ef.Data.sqlFirst
 
     let private ofRow (r: MembershipRoomRow) : Membership * Room =
         let time (text: string) = RailsTime.ofDb text
@@ -660,7 +660,7 @@ module Room =
     // ---- Finders and scopes (EF, LINQ)
 
     let findById (db: Ef.CampfireDb) (id: int64) : Room option =
-        db.Rooms.Where(fun r -> r.Id = EF.Parameter id) |> Ef.Data.tryFirst
+        db.Rooms.FromSql($"SELECT * FROM rooms WHERE id = {id} LIMIT 1") |> Ef.Data.sqlFirst
 
     let find (db: Ef.CampfireDb) (id: int64) : Room = findById db id |> Err.orNotFound "Room"
 
@@ -686,7 +686,10 @@ module Room =
 
     /// `user.rooms.find_by(id:)`
     let findForUser (db: Ef.CampfireDb) (userId: int64) (roomId: int64) : Room option =
-        (ofUser db userId).Where(fun r -> r.Id = EF.Parameter roomId) |> Ef.Data.tryFirst
+        db.Rooms.FromSql(
+            $"SELECT rooms.* FROM rooms INNER JOIN memberships ON rooms.id = memberships.room_id WHERE memberships.user_id = {userId} AND rooms.id = {roomId} LIMIT 1"
+        )
+        |> Ef.Data.sqlFirst
 
     /// `user.rooms.directs` / `.opens` / `.closeds`
     let forUserOfType (db: Ef.CampfireDb) (userId: int64) (roomType: RoomType) : Room list =
@@ -927,7 +930,7 @@ module Message =
         db.Messages.Where(fun m -> m.RoomId = EF.Parameter roomId)
 
     let findById (db: Ef.CampfireDb) (id: int64) : Message option =
-        db.Messages.Where(fun m -> m.Id = EF.Parameter id) |> Ef.Data.tryFirst
+        db.Messages.FromSql($"SELECT * FROM messages WHERE id = {id} LIMIT 1") |> Ef.Data.sqlFirst
 
     let find (db: Ef.CampfireDb) (id: int64) : Message = findById db id |> Err.orNotFound "Message"
 
@@ -1071,8 +1074,8 @@ module Message =
 
     /// `has_one_attached :attachment`'s row, if attached.
     let private attachmentRow (db: Ef.CampfireDb) (messageId: int64) : Ef.Attachment option =
-        db.Attachments.Where(fun a -> a.RecordId = EF.Parameter messageId && a.RecordType = RecordType && a.Name = "attachment")
-        |> Ef.Data.tryFirst
+        db.Attachments.FromSql($"SELECT * FROM active_storage_attachments WHERE record_id = {messageId} AND record_type = {RecordType} AND name = 'attachment' LIMIT 1")
+        |> Ef.Data.sqlFirst
 
     /// The attachment and its blob, if attached.
     let attachment (db: Ef.CampfireDb) (message: Message) : (Ef.Attachment * Ef.Blob) option =

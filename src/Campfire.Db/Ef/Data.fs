@@ -24,6 +24,11 @@ module Data =
         extra builder
         builder.Options
 
+    /// The first row of a `FromSql` query as an option, without composing it (no lambda: nothing for F# to rebuild into an expression
+    /// tree, ~60 us a statement, measured in unit 1.10). For the lookups every request makes; the SQL ends in `LIMIT 1`.
+    let sqlFirst (query: IQueryable<'T>) : 'T option when 'T : not null =
+        query.AsEnumerable() |> Seq.tryHead
+
     /// A pooled factory (E7): a disposed context returns to the pool, and the next lease gets it back.
     let factory (options: DbContextOptions<CampfireDb>) : IDbContextFactory<CampfireDb> =
         PooledDbContextFactory<CampfireDb>(options, 1024)
