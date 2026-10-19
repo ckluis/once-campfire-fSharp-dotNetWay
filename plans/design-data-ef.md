@@ -20,7 +20,8 @@ Phase 1 unit 1.0 (the .NET 11 SDK move) comes first, as Chris decided; everythin
 > they are what keeps EF's query cache hitting from F#. A captured local or argument becomes a constant in the expression tree and
 > costs a recompile (~1 ms) per call. Unit 1.3 spends at most 20 minutes on one spike: does `EF.Parameter(x)` around a captured value
 > keep the cache hitting (H1's counter at zero in steady state)? If yes, it replaces the record-field idiom of rule (a); record the
-> result in the Phase log. H1 (zero query compilations in steady state on the five workloads) is the guard, in `bin/verify`. Never
+> result in the Phase log. **Result (unit 1.3, `LinqTests` L1): yes.** `EF.Parameter` and the record field both compile 0 queries over 39 calls with a new value
+> each time; a captured local compiles 39. Use `EF.Parameter` (also for a collection in `Contains`). H1 (zero query compilations in steady state on the five workloads) is the guard, in `bin/verify`. Never
 > F#'s `query { }` (4 ms a query). The 5x-Rails floor still decides: a workload under it is fixed inside LINQ first (fewer
 > statements, `Include`/projection shape, `AsSplitQuery`), and only then with `FromSql`, recorded.
 

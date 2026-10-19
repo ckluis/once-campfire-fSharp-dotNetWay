@@ -791,3 +791,45 @@ Gates: `CAMPFIRE_REQUIRE_SEED=1 bin/verify` (Release, warnaserror): 0 warnings, 
 (`bench/results/dotnetway-p1-2/pixel.log`). `bin/db-differential` and the bench are not for this unit. `bin/kloc`: 39,859 corrected (39.9 KLOC; 1.1 closed at 39,428); Db 3,714. Differences recorded: none (Class A: no visible change).
 Host disk: 11.6 GiB free before the image build, 5.8 GiB after it (colima's data disk grew; `bin/clean-docker` reclaimed 0 B: the 13 images are all tagged, 10.9 GB of them reclaimable but not this unit's to remove).
 
+
+### Phase 1, unit 1.3: Users, sessions, accounts (2026-10-19) - DONE
+
+`User`, `Session` and `Account` are now the EF entities and the only records of those tables (`src/Campfire.Db/Identity.fs`, namespace `Campfire.Db`, with `Role`, `Status`, `PasswordDigest`, `NewUser`, `UserChanges`; the
+three records left `Ef/Entities.fs`; the `Ef/` files now compile before `Models.fs`). Their modules (`User` in `Models.fs`, `Session.fs`, `Account.fs`, `FirstRun.fs`) take `CampfireDb` for reads and `Ef.Tx` for writes. Nullable columns are
+`string | null` and times are UTC `DateTime`s in the records; the presenters convert at the edge (`Option.ofObj`, `DateTimeOffset`). New in `Ef/Data.fs`: `found` (RecordNotFound), `insert`, `update` (attach, mark only the
+properties that differ from the old record, `SaveChanges`, detach: nothing at all when nothing changed, `RailsTimestamps` stamps `updated_at`), `remove`. In `Campfire.App`: `c.Read`, `c.Write` and `c.TryWrite` (`Writes.run` over the request's
+context; `TryWrite` keeps the `DbError` for the `RecordNotUnique` rescue); `Concerns` (sign-in, session resume and start, bot key), the sessions, accounts, users, first-run, bots, bans, avatars, logos, join codes, custom styles, transfers and PWA
+controllers, `Presenters/Accounts` (`helpContact`, `noUsers`, `accountUsers`) and the cable connection's session lookup (`SessionAuthenticator` takes the `IDbContextFactory`; `Deps.DbFactory`).
+
+**Spike L1 (the 20 minutes the revision gave this unit): `EF.Parameter(x)` around a captured value keeps EF's query cache hitting.** `LinqTests.fs` counts `CoreEventId.QueryCompilationStarting` over 39 calls with a new value each time after a
+warm call: a captured local compiled 39 queries (F# turns it into a constant in the tree), `EF.Parameter id` 0, a record field 0. `EF.Parameter` replaces the record-field idiom of E12 rule (a); every lookup in this unit uses it
+(the sign-in lookups included: `Session.findByToken`, `User.findActiveByEmailAddress`, `User.findById`). `EF.Parameter` also parameterises a collection (`Enumerable.Contains(EF.Parameter ids, u.Id)` in `whereIds`) and a `LIKE` pattern.
+
+**LINQ first, and what is not LINQ.** Everything else in the unit is LINQ in method syntax: `Where`, `OrderBy(fun u -> u.Name.ToLower())` (`ORDER BY LOWER(name)`), `EF.Functions.Like`, `Select(fun s -> s.IpAddress)` (one property),
+`ExecuteDelete()`, `Find`, `LongCount`. Raw SQL, each because LINQ cannot say it: (1) `grantMembershipToOpenRooms` and `FirstRun`'s grant, an `INSERT ... SELECT` stamped with SQLite's own clock (what Rails' `insert_all` does; the
+old code did the same per batch of 1,000 rooms or users, one statement now); (2) `deactivate`'s memberships `DELETE ... WHERE id IN (SELECT ... INNER JOIN rooms ...)`: a subquery over a second table is a lambda inside a lambda, which
+fails at run time from F# (E12 rule b). No `*Raw` call, no F# `query { }`.
+
+Decisions and deviations:
+- **Old and new coexist until 1.11, so the port's Conn readers stay under new names**: `User.findLegacy`, `findByIdLegacy`, `whereIdsLegacy`, `activeOrderedLegacy`, `fromRow`, `findBySql`, `Select`, and `Account.firstLegacy` (for Room, Membership, Message, the
+  sidebar, the presenters and the rooms and messages controllers, which move in 1.4-1.6; same names would have made F# resolve to the wrong module). The new and the old function of one name cannot share a module.
+- **Avatar and logo attachments are a second write.** `AttachmentWrites.assign` needs the old `Tx` (unit 1.7 moves the storage rows), and one SQLite transaction cannot span the EF connection and the old writer's. The user, bot, account or first-run
+  administrator is written and committed by `Writes.run`, then the attachment by the port's writer. Rails does both in one transaction; the difference is a user saved without its avatar when the second write fails, which a constraint or disk error
+  could cause and nothing else. It goes away in 1.7. (Class B of the known-differences policy: no visible difference on the happy path; recorded here, not yet in README.)
+- `FirstRun` inserts the first room as an EF row (an open room, creator the administrator) and grants it to every active user after commit, rather than calling `Room.create` and `Room.grantTo` (the old `Tx`): Rails' explicit `grant_to` after the
+  room's own `grant_access_to_all_users` was a no-op and is not repeated. Unit 1.4 replaces it with `Room.create`.
+- `User.removeBannedContent` and `deliverWebhookLater` stay on the old `Tx` (they call `Message.destroy`, `Webhook.findByUser`); `Membership.destroy` emits `DisconnectUser` itself instead of calling `User.resetRemoteConnections`.
+- `User.create`/`createBot` return the saved entity (id and `RailsTimestamps`' times filled in); `Webhook` rows for bots and `Ban` rows for `ban` are EF inserts of the entities (the models themselves move in 1.8).
+- `Layout.load` is now one EF read (`Account.first`) and one old read (the logo's attachment, the last room); unit 1.4/1.7 merge them back. It is a per-page cost not measured here.
+- The Db test project runs without test parallelism (`CollectionBehavior(DisableTestParallelization = true)` in `Support.fs`): D4 counts physical connections through a process-wide counter and a second module opening connections made it
+  flaky (3 expected, 4 seen). The suite is 12 s.
+
+Tests: `UserTests`, `AccountTests`, `FirstRunTests` ported to EF (`t.WriteEf`/`t.ReadEf` in `Support.TestDb`, sharing the old `Database`'s gate, sink and clock); `LinqTests` L1 (three tests). `CallbacksTests`' session tests, `ColumnsTests` (user and account
+column order through the legacy readers), `FixturesTests`, `SeedTests`, `DifferentialTests` (the scenario's user, session, ban and account steps go through EF), `RoomTests` and the App tests (`ChannelsSupport.TestApp.WriteEf`, revocation, golden channels,
+`AppTests` pipelines register `Booted.ConfigureServices`) adapted; no test was deleted and no assertion weakened.
+
+Gates: `CAMPFIRE_REQUIRE_SEED=1 bin/verify` (Release, warnaserror): 0 warnings, 1,061 tests, 1,054 passed, 0 failed, 7 skipped (the same environmental skips); Db suite 200 passed + 4 skipped, three runs in a row. Image rebuilt from `f684d38`
+(label checked). `bin/cookie-roundtrip`: 20/20, PASSED (Rails -> ours -> Rails both ways). `bin/db-differential`: green (fixtures, scenario, schema identity, Rails boots on the F#-written file; `bench/results/dotnetway-p1-3/db-differential.log`).
+`bin/pixel-parity --fast --only "auth/**,account/**,users/**"`: PASSED in 334 s, default 72/72, crowd 4/4, custom_styles 10/10, first_run 8/8, restricted 2/2 screenshots, aria and loose equal (`bench/results/dotnetway-p1-3/pixel.log`).
+No bench (not this unit's gate). `bin/kloc`: 39,973 corrected (40.0 KLOC; 1.2 closed at 39,859); Db 3,805 (old and new layers side by side). Differences recorded: the second write for avatars and logos above (until 1.7).
+Host disk: 41 GB free before, 39 GB after the image build and the pixel run; `bin/clean-docker` and `bin/clean-parity` run.
