@@ -49,6 +49,7 @@ fi
 
 mkdir -p target/media-vectors
 rm -f target/media-vectors/storage.txt
+# Build and test are separate steps: `dotnet test` that builds first left the container hanging after the last test passed (2026-10-19, unit 1.7).
 # Build output goes outside the repository (--artifacts-path), so it can't clash with the host's
 # obj/ and bin/; CAMPFIRE_ROOT tells the tests where the repository is.
 status=0
@@ -61,7 +62,7 @@ docker run --rm \
   --env CAMPFIRE_STORAGE_VECTORS="$vectors" \
   --env CAMPFIRE_STORAGE_REPORT=/report/storage.txt \
   "$image" \
-  dotnet test --project tests/Campfire.Storage.Tests -c Release --artifacts-path /artifacts || status=$?
+  bash -c 'dotnet build tests/Campfire.Storage.Tests -c Release --artifacts-path /artifacts -v q -nologo && dotnet test --project tests/Campfire.Storage.Tests -c Release --artifacts-path /artifacts --no-build' || status=$?
 echo
 echo "target/media-vectors/storage.txt:"
 cat target/media-vectors/storage.txt
