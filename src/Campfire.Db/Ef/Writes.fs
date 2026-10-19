@@ -2,7 +2,6 @@
 namespace Campfire.Db.Ef
 
 open System
-open System.Data
 open System.Threading.Tasks
 open Microsoft.Data.Sqlite
 open Microsoft.EntityFrameworkCore
@@ -76,27 +75,20 @@ module Writes =
             | _ -> ValueNone
         | _ -> ValueNone
 
-    /// `BEGIN IMMEDIATE` (`default_transaction_mode: immediate`; EF's own `BeginTransaction` would send a deferred `BEGIN`), the
-    /// body, `SaveChanges`, `COMMIT`. EF joins the transaction we started (`UseTransaction`). `InWrite` holds exactly across
-    /// that span, and any exception rolls back (disposing an uncommitted transaction does it).
+    /// `BEGIN IMMEDIATE` (`default_transaction_mode: immediate`: EF's `BeginTransaction` on Microsoft.Data.Sqlite is
+    /// `BEGIN IMMEDIATE` unless asked for `ReadUncommitted`; W1 holds it to that), the body, `SaveChanges`, `COMMIT`. `InWrite`
+    /// holds exactly across that span, and any exception rolls back (disposing an uncommitted transaction does it, and closes
+    /// the connection the transaction opened).
     let private transact (db: CampfireDb) (tx: Tx) (body: Tx -> 'T) : 'T =
-        db.Database.OpenConnection()
+        use transaction = db.Database.BeginTransaction()
+        WriteGate.SetInWrite true
         try
-            match db.Database.GetDbConnection() with
-            | :? SqliteConnection as connection ->
-                use transaction = connection.BeginTransaction(IsolationLevel.Serializable, false)
-                use _ = db.Database.UseTransaction transaction
-                WriteGate.SetInWrite true
-                try
-                    let value = body tx
-                    db.SaveChanges() |> ignore
-                    transaction.Commit()
-                    value
-                finally
-                    WriteGate.SetInWrite false
-            | other -> invalidOp $"Writes.run needs a SQLite connection, not {other.GetType().Name}"
+            let value = body tx
+            db.SaveChanges() |> ignore
+            transaction.Commit()
+            value
         finally
-            db.Database.CloseConnection()
+            WriteGate.SetInWrite false
 
     let private attempt (db: CampfireDb) (tx: Tx) (body: Tx -> 'T) : Result<'T, DbError> =
         try

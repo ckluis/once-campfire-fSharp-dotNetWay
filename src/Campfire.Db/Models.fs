@@ -273,9 +273,9 @@ module User =
         let uuid = Sql.uuid ()
         Option.ofObj user.EmailAddress |> Option.map (fun e -> e.Replace("@", $"-deactivated-{uuid}@"))
 
-    /// `deactivate`: disconnects sockets first (mid-transaction, as Rails does), then removes
-    /// non-direct memberships, push subscriptions, searches and sessions, and scrambles the
-    /// email address.
+    /// `deactivate`: queues the socket disconnect (after commit: Rails does it mid-transaction, the Rust known
+    /// difference, design-data-ef 3.6), then removes non-direct memberships, push subscriptions, searches and
+    /// sessions, and scrambles the email address.
     let deactivate (tx: Ef.Tx) (user: User) : User =
         closeRemoteConnections tx user false
         let db = tx.Db
