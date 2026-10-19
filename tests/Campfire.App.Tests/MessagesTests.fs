@@ -114,7 +114,7 @@ let private template (stream: string) : string =
 let ``a text message is answered and broadcast as it was stored`` () =
     task {
         use! test = bootSeeded "default"
-        let! room = read test (fun conn -> Room.find conn ALL_TALK)
+        let! room = read test (fun conn -> Room.findLegacy conn ALL_TALK)
         let streamables = [ Campfire.RailsCompat.GlobalId.toParam (Campfire.App.Channels.Gid.roomGid room); "messages" ]
         let wake = Campfire.Cable.Wake()
         use subscriber = test.App.Cable.Hub.Subscribe(Campfire.Cable.Naming.streamNameFrom streamables, null, wake)

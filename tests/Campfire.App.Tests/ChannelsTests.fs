@@ -114,7 +114,7 @@ let ``presence subscribes and marks the membership connected`` () =
 
         let! membership = app.Membership("designers", "david")
         let membership = membership.Value
-        Assert.False(Membership.isConnected membership (app.Now()))
+        Assert.False(Membership.isConnected membership (app.Utc()))
         // A member's unread room gets cleared by `present`.
         let! unread =
             app.Db.Write(fun tx ->
@@ -128,20 +128,20 @@ let ``presence subscribes and marks the membership connected`` () =
 
         let! membership = app.Membership("designers", "david")
         let membership = membership.Value
-        Assert.True(Membership.isConnected membership (app.Now()))
+        Assert.True(Membership.isConnected membership (app.Utc()))
         Assert.Equal(1L, membership.Connections)
-        Assert.Equal(None, membership.UnreadAt)
+        Assert.False(membership.UnreadAt.HasValue)
 
         do! client.Unsubscribe presence
         do!
             eventually (fun () ->
                 task {
                     let! membership = app.Membership("designers", "david")
-                    return not (Membership.isConnected membership.Value (app.Now()))
+                    return not (Membership.isConnected membership.Value (app.Utc()))
                 })
         let! membership = app.Membership("designers", "david")
         let membership = membership.Value
-        Assert.Equal((0L, None), (membership.Connections, membership.ConnectedAt))
+        Assert.Equal((0L, false), (membership.Connections, membership.ConnectedAt.HasValue))
     }
 
 [<Fact>]
@@ -159,13 +159,13 @@ let ``presence counts connections and refreshes`` () =
         // `refresh` reconnects a membership that timed out.
         app.Clock.Travel(TimeSpan.FromSeconds 61.0)
         let! membership = app.Membership("designers", "david")
-        Assert.False(Membership.isConnected membership.Value (app.Now()))
+        Assert.False(Membership.isConnected membership.Value (app.Utc()))
         do! first.Perform(presence, obj' [ "action", Value.String "refresh" ])
         do!
             eventually (fun () ->
                 task {
                     let! membership = app.Membership("designers", "david")
-                    return Membership.isConnected membership.Value (app.Now())
+                    return Membership.isConnected membership.Value (app.Utc())
                 })
         let! membership = app.Membership("designers", "david")
         Assert.Equal(1L, membership.Value.Connections)
@@ -175,7 +175,7 @@ let ``presence counts connections and refreshes`` () =
             eventually (fun () ->
                 task {
                     let! membership = app.Membership("designers", "david")
-                    return membership.Value.ConnectedAt.IsNone
+                    return not membership.Value.ConnectedAt.HasValue
                 })
     }
 
@@ -368,7 +368,7 @@ let ``room message streams are rejected for everyone else`` () =
         // A signed name that isn't a room's message stream.
         do! kevin.Reject(subscribe (Value.String(app.SignedStreamName [ "rooms" ])))
         // A room whose type changed since the name was signed (`Rooms::Open.find` of a closed room).
-        let stale = { designers with RoomType = Open }
+        let stale = { designers with Type = RoomType.Open }
         do! kevin.Reject(subscribe (Value.String(app.SignedStreamName [ GlobalId.toParam (Gid.roomGid stale); "messages" ])))
         // A user GID in place of a room.
         do! kevin.Reject(subscribe (Value.String(app.SignedStreamName [ GlobalId.toParam (Gid.userGid (id "kevin")); "messages" ])))
@@ -385,7 +385,7 @@ let ``a revoked member may not resubscribe with a harvested stream name`` () =
         use! kevin = app.Connect "kevin"
         do! kevin.Confirm channel
 
-        let! revoked = app.Db.Write(fun tx -> Room.revokeFrom tx designers [ id "kevin" ])
+        let! revoked = app.WriteEf(fun tx -> Room.revokeFrom tx designers [ id "kevin" ])
         Assert.True(revoked.IsOk)
         let! _ = kevin.UntilClosed()
 

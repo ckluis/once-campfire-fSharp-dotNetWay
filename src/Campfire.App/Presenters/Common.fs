@@ -47,6 +47,10 @@ module Common =
     let epochString (time: Campfire.Db.Timestamp) : string =
         string (Campfire.Views.MessagesSupport.epochMs (time.ToDateTimeOffset()))
 
+    /// `epochString` for an entity's `DateTime`.
+    let epochStringOf (time: DateTime) : string =
+        string (Campfire.Views.MessagesSupport.epochMs (DateTimeOffset(time)))
+
     /// A `User` row as the users views see it.
     let userSummary (secrets: Secrets) (user: User) : UserSummary =
         { Id = user.Id

@@ -11,7 +11,7 @@ open Campfire.Db
 
 let private nilMembership: ChannelError = Channel.error "undefined method for nil (membership)"
 
-let channel (db: Database) : Channel<CableUser> =
+let channel (access: RoomChannel.Access) : Channel<CableUser> =
     let room: Room option ref = ref None
 
     // `@room` is only nil after a rejection, when these callbacks don't run.
@@ -27,20 +27,20 @@ let channel (db: Database) : Channel<CableUser> =
             match ids sub with
             | Error error -> return Error error
             | Ok(roomId, userId) ->
-                match! db.Read(fun conn -> Membership.findByRoomAndUser conn roomId userId) with
+                match RoomChannel.Access.read access (fun db -> Membership.findByRoomAndUser db roomId userId) with
                 | Error error -> return Error(RoomChannel.dbError error)
                 | Ok None -> return Error nilMembership
                 | Ok(Some membership) -> return Ok membership
         }
 
-    let withMembership (sub: Subscription<CableUser>) (change: Tx -> Membership -> unit) : Task<ChannelResult<unit>> =
+    let withMembership (sub: Subscription<CableUser>) (change: Ef.Tx -> Membership -> unit) : Task<ChannelResult<unit>> =
         task {
             match ids sub with
             | Error error -> return Error error
             | Ok(roomId, userId) ->
                 let! found =
-                    db.Write(fun tx ->
-                        match Membership.findByRoomAndUser tx.Conn roomId userId with
+                    RoomChannel.Access.write access (fun tx ->
+                        match Membership.findByRoomAndUser tx.Db roomId userId with
                         | Some membership ->
                             change tx membership
                             true
@@ -75,7 +75,7 @@ let channel (db: Database) : Channel<CableUser> =
 
     let resubscribe (sub: Subscription<CableUser>) : Task<ChannelResult<unit>> =
         task {
-            match! RoomChannel.subscribe db sub with
+            match! RoomChannel.subscribe access sub with
             | Ok found ->
                 room.Value <- found
                 return Ok()

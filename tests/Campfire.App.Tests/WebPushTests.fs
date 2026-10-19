@@ -457,8 +457,8 @@ let ``pushes messages and destroys expired subscriptions`` () =
                         [| S(encode64 (P256.uncompressed receiver.Key)); S(encode64 receiver.Auth); I id |]
                     )
                     |> ignore
-                let membership = Membership.find tx.Conn (TestDb.Id "kevin_designers")
-                Membership.updateInvolvement tx membership (Some Invisible) |> ignore)
+                tx.Conn.Execute("UPDATE memberships SET involvement = 'invisible' WHERE id = ?", [| I(TestDb.Id "kevin_designers") |])
+                |> ignore)
         Assert.True prepared.IsOk
 
         let create () =

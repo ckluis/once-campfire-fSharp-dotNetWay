@@ -20,14 +20,12 @@ module BoostsByBots =
             let! (user: User) = Concerns.requireCurrentUser c
             let roomId = match c.ParamStr "room_id" with null -> None | id -> Ruby.integerCast id
             let messageId = match c.ParamStr "message_id" with null -> None | id -> Ruby.integerCast id
-            let! message =
-                c.App.Read(fun conn ->
-                    match roomId |> Option.bind (fun id -> Room.findForUser conn user.Id id) with
-                    | None -> None
-                    | Some room ->
-                        match messageId with
-                        | Some id -> Message.findById conn id |> Option.filter (fun message -> message.RoomId = room.Id)
-                        | None -> None)
+            let! (room: Room option) = c.Read(fun db -> roomId |> Option.bind (fun id -> Room.findForUser db user.Id id))
+            let! (message: Message option) =
+                match room, messageId with
+                | Some room, Some id ->
+                    c.App.Read(fun conn -> Message.findById conn id |> Option.filter (fun message -> message.RoomId = room.Id))
+                | _ -> Task.FromResult(Ok None)
             match message with
             | Some message -> return message
             | None -> return! halt (Concerns.head Status.NotFound)

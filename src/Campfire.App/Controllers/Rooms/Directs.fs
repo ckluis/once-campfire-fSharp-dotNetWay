@@ -40,17 +40,22 @@ module Directs =
 
     /// `broadcast_create_room`: `users/sidebars/rooms/_direct` for each membership, to its user.
     let private broadcastCreateRoom (c: Ctx) (room: Room) : Task<Result<unit, Error>> =
-        let app = c.App
-        let baseUrl = Page.rendererBaseUrl c
-        app.Read(fun conn ->
-            let presenter = Presenter(conn, app, None)
-            let account = Account.firstLegacy conn
-            let directRooms =
-                [ for membership in Membership.forRoom conn room.Id do
-                      let direct = presenter.SidebarDirect membership
-                      let html = Page.renderDetachedAt app account baseUrl (fun ctx -> UsersCached.directRoom ctx direct)
-                      membership.Id, html ]
-            app.Broadcasts.DirectRoomCreate(conn, room, Rendered.partials { Rendered.empty with DirectRooms = directRooms }))
+        act {
+            let app = c.App
+            let baseUrl = Page.rendererBaseUrl c
+            let! memberships = c.Read(fun db -> Membership.forRoom db room.Id)
+            let! directRooms =
+                app.Read(fun conn ->
+                    let presenter = Presenter(conn, app, None)
+                    let account = Account.firstLegacy conn
+                    [ for membership in memberships do
+                          let direct = presenter.SidebarDirect membership
+                          let html = Page.renderDetachedAt app account baseUrl (fun ctx -> UsersCached.directRoom ctx direct)
+                          membership.Id, html ])
+            return!
+                c.Read(fun db ->
+                    app.Broadcasts.DirectRoomCreate(db, room, Rendered.partials { Rendered.empty with DirectRooms = directRooms }))
+        }
 
     let create (c: Ctx) : Task<Result<Response, Error>> =
         act {
@@ -59,8 +64,8 @@ module Directs =
             // selected_users: `User.where(id: selected_users_ids.including(Current.user.id))`
             let ids = RoomsController.userIdsParam c @ [ user.Id ]
             let! (room: Room) =
-                c.App.Write(fun tx ->
-                    let users = RoomsController.existingUserIds tx.Conn ids
+                c.Write(fun tx ->
+                    let users = RoomsController.existingUserIds tx.Db ids
                     Room.findOrCreateDirectFor tx users user.Id)
             do! broadcastCreateRoom c room
             return! RoomsController.redirectToRoom c room.Id
@@ -76,7 +81,7 @@ module Directs =
                 app.Read(fun conn ->
                     let presenter = Presenter(conn, app, None)
                     // `@room.users.many? ? @room.users.without(Current.user) : @room.users`
-                    let users = Room.users conn room
+                    let users = Room.usersLegacy conn room
                     let users = if users.Length > 1 then users |> List.filter (fun user -> user.Id <> current.Id) else users
                     ({ RoomId = room.Id
                        DisplayName = presenter.RoomDisplayName(room, Some current)

@@ -7,7 +7,7 @@ open Campfire.Cable
 open Campfire.Db
 open Campfire.RailsCompat
 
-let channel (db: Database) : Channel<CableUser> =
+let channel (access: RoomChannel.Access) : Channel<CableUser> =
     let room: Room option ref = ref None
 
     /// `broadcast_to @room, action:, user: current_user.slice(:id, :name)`.
@@ -24,7 +24,7 @@ let channel (db: Database) : Channel<CableUser> =
 
     let resubscribe sub =
         task {
-            match! RoomChannel.subscribe db sub with
+            match! RoomChannel.subscribe access sub with
             | Ok found ->
                 room.Value <- found
                 return Ok()

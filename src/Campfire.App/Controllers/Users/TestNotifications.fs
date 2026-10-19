@@ -23,12 +23,13 @@ module TestNotifications =
                 match (match c.ParamStr "push_subscription_id" with null -> None | id -> Ruby.integerCast id) with
                 | Some id -> Ok id
                 | None -> Error NotFound
-            let! subscription, badge =
+            let! subscription =
                 c.App.Read(fun conn ->
                     // `Current.user.push_subscriptions.find(params[:push_subscription_id])`
                     let subscription = PushSubscription.find conn id
                     if subscription.UserId <> userId then Err.fail (RecordNotFound "Push::Subscription")
-                    subscription, Membership.unreadCount conn userId)
+                    subscription)
+            let! badge = c.Read(fun db -> Membership.unreadCount db userId)
 
             let location = c.UrlFor(Routes.userPushSubscriptions ())
             let! pool =

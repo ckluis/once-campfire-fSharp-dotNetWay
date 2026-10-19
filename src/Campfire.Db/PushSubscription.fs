@@ -187,7 +187,7 @@ module PushSubscription =
             tx.Conn.Execute("""DELETE FROM "push_subscriptions" WHERE "push_subscriptions"."id" = ?""", [| I id |]) |> ignore
 
     /// The badge for a notification: `user.memberships.unread.count`.
-    let badge (conn: Conn) (subscription: PushSubscription) : int64 = Membership.unreadCount conn subscription.UserId
+    let badge (conn: Conn) (subscription: PushSubscription) : int64 = Membership.unreadCountLegacy conn subscription.UserId
 
     // Room::MessagePusher
 
@@ -236,7 +236,7 @@ module PushSubscription =
             if Room.isDirect room then
                 creator.Name, body
             else
-                defaultArg room.Name "", $"{creator.Name}: {body}"
+                (match room.Name with null -> "" | name -> name), $"{creator.Name}: {body}"
         { Title = truncateJsonString title MaxPayloadTitleBytes
           Body = truncateJsonString body MaxPayloadBodyBytes
           Path = path }
@@ -247,7 +247,7 @@ module PushSubscription =
             "SELECT "
             + Columns.PushSubscription
             + " FROM \"push_subscriptions\" INNER JOIN \"users\" ON \"users\".\"id\" = \"push_subscriptions\".\"user_id\" INNER JOIN \"memberships\" ON \"memberships\".\"user_id\" = \"users\".\"id\" WHERE (\"memberships\".\"connected_at\" IS NULL OR \"memberships\".\"connected_at\" < ?) AND \"memberships\".\"room_id\" = ? AND \"memberships\".\"user_id\" != ? AND \"memberships\".\"involvement\" = 'everything'",
-            [| T(Membership.connectionCutoff now); I roomId; I creatorId |],
+            [| T(Membership.connectionCutoffLegacy now); I roomId; I creatorId |],
             fromRow
         )
 
@@ -262,13 +262,13 @@ module PushSubscription =
                 + " FROM \"push_subscriptions\" INNER JOIN \"users\" ON \"users\".\"id\" = \"push_subscriptions\".\"user_id\" INNER JOIN \"memberships\" ON \"memberships\".\"user_id\" = \"users\".\"id\" WHERE (\"memberships\".\"connected_at\" IS NULL OR \"memberships\".\"connected_at\" < ?) AND \"memberships\".\"room_id\" = ? AND \"memberships\".\"user_id\" != ? AND \"memberships\".\"involvement\" = 'mentions' AND \"push_subscriptions\".\"user_id\" IN ("
                 + Sql.placeholders (List.length mentioneeIds)
                 + ")"
-            let values = Array.ofList (T(Membership.connectionCutoff now) :: I roomId :: I creatorId :: (mentioneeIds |> List.map I))
+            let values = Array.ofList (T(Membership.connectionCutoffLegacy now) :: I roomId :: I creatorId :: (mentioneeIds |> List.map I))
             conn.QueryAll(sql, values, fromRow)
 
     /// `Room::MessagePusher#push`: the payload, and the subscriptions it goes to (everything
     /// first, then mentions).
     let pushesFor (conn: Conn) (richText: RichText) (message: Message) (now: Timestamp) : PushPayload * PushSubscription list * PushSubscription list =
-        let room = Room.find conn message.RoomId
+        let room = Room.findLegacy conn message.RoomId
         let payload = payloadFor conn richText room message
         let everything = forUsersInvolvedInEverything conn room.Id message.CreatorId now
         let mentioneeIds = Message.mentionees conn richText message |> List.map (fun u -> u.Id)

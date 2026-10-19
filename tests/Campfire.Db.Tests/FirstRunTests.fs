@@ -29,15 +29,15 @@ let ``creating makes first user an administrator`` () =
 let ``first user has access to first room`` () =
     use t = fresh ()
     let user = createFirstRunUser t
-    let rooms = t.Read(fun c -> Room.forUser c user.Id)
+    let rooms = t.ReadEf(fun c -> Room.forUser c user.Id)
     Assert.Equal(1, List.length rooms)
-    Assert.Equal(Some "All Talk", rooms[0].Name)
+    Assert.Equal("All Talk", rooms[0].Name)
 
 [<Fact>]
 let ``first room is an open room`` () =
     use t = fresh ()
     createFirstRunUser t |> ignore
-    Assert.True(Room.isOpen (t.Read(fun c -> (Room.original c).Value)))
+    Assert.True(Room.isOpen (t.ReadEf(fun c -> (Room.original c).Value)))
 
 [<Fact>]
 let ``first user can sign in`` () =

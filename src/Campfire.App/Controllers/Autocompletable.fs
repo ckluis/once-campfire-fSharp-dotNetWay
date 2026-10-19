@@ -48,7 +48,7 @@ module AutocompletableUsers =
                         match (match param.AsStr with null -> None | id -> Ruby.integerCast id) with
                         | None -> return Error NotFound
                         | Some id ->
-                            match! c.App.Read(fun conn -> Room.findForUser conn user.Id id) with
+                            match! c.Read(fun db -> Room.findForUser db user.Id id) with
                             | Error e -> return Error e
                             | Ok None -> return Error NotFound
                             | Ok(Some room) -> return Ok(Some room.Id)

@@ -258,6 +258,14 @@ type TestApp
             use context = factory.CreateDbContext()
             return! Campfire.Db.Ef.Writes.run db.Gate efEnv context f
         }
+
+    /// `Reads.run` over the same file, on a leased context: the EF models' reads.
+    member _.ReadEf(f: Campfire.Db.Ef.CampfireDb -> 'T) : 'T =
+        use context = factory.CreateDbContext()
+        match Campfire.Db.Ef.Reads.run context f with
+        | Ok value -> value
+        | Error error -> failwith (DbError.display error)
+
     member _.Server = server
     member _.Broadcasts = broadcasts
     member _.Secrets = secrets
@@ -267,6 +275,9 @@ type TestApp
 
     /// `Time.current` on the clock the database and the cable server share.
     member _.Now() : Campfire.Db.Timestamp = Campfire.Db.Timestamp.FromDateTimeOffset(clock.Now())
+
+    /// `Now` as the UTC `DateTime` the EF entities carry.
+    member _.Utc() : System.DateTime = Campfire.Db.RailsTime.truncate (clock.Now().UtcDateTime)
 
     member _.NowOffset() : Campfire.RailsCompat.Timestamp = clock.Now()
 
@@ -310,20 +321,16 @@ type TestApp
 
     member _.SignedStreamName(streamables: string list) : string = Turbo.signedStreamName secrets streamables
 
-    member _.Room(label: string) : Task<Room> =
+    member this.Room(label: string) : Task<Room> =
         task {
             let roomId = id label
-            match! db.Read(fun conn -> Room.find conn roomId) with
-            | Ok room -> return room
-            | Error error -> return failwith (DbError.display error)
+            return this.ReadEf(fun db -> Room.find db roomId)
         }
 
-    member _.Membership(room: string, user: string) : Task<Membership option> =
+    member this.Membership(room: string, user: string) : Task<Membership option> =
         task {
             let roomId, userId = id room, id user
-            match! db.Read(fun conn -> Membership.findByRoomAndUser conn roomId userId) with
-            | Ok membership -> return membership
-            | Error error -> return failwith (DbError.display error)
+            return this.ReadEf(fun db -> Membership.findByRoomAndUser db roomId userId)
         }
 
     member _.Message(label: string) : Task<Message> =
@@ -391,13 +398,13 @@ let start () : Task<TestApp> =
         | Ok() -> ()
         | Error error -> failwith (DbError.display error)
 
-        let factory = Campfire.Db.Ef.Data.factory (Campfire.Db.Ef.Data.options (Path.Combine(dir, "test.sqlite3")) System.TimeProvider.System ignore)
+        let factory = Campfire.Db.Ef.Data.factory (Campfire.Db.Ef.Data.options (Path.Combine(dir, "test.sqlite3")) (Campfire.Db.Ef.ClockTimeProvider clock) ignore)
         let efEnv: Campfire.Db.Ef.Env =
             { Time = Campfire.Db.Ef.ClockTimeProvider clock
               Sink = sink
               RichText = richText
               BcryptCost = 4 }
-        let deps: Deps = { Db = db; DbFactory = factory; Secrets = secrets; Clock = clock }
+        let deps: Deps = { Db = db; DbFactory = factory; Env = efEnv; Secrets = secrets; Clock = clock }
         let server = Registry.server deps { Campfire.Cable.Config.defaults with AssumeSsl = false } NullLogger.Instance
         sink.Server <- server
 

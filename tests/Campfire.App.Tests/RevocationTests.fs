@@ -42,7 +42,7 @@ let private revoke (app: TestApp) (how: Revoke) : Task =
         let roomId, kevin = id "designers", id "kevin"
         let! result =
             match how with
-            | RemoveMembership -> app.Db.Write(fun tx -> Room.revokeFrom tx (Room.find tx.Conn roomId) [ kevin ])
+            | RemoveMembership -> app.WriteEf(fun tx -> Room.revokeFrom tx (Room.find tx.Db roomId) [ kevin ])
             | Deactivate -> app.WriteEf(fun tx -> User.deactivate tx (User.find tx.Db kevin) |> ignore)
             | Ban -> app.WriteEf(fun tx -> User.ban tx (User.find tx.Db kevin) |> ignore)
         match result with

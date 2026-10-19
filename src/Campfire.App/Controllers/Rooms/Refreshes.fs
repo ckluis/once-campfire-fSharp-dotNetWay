@@ -59,7 +59,7 @@ module Refreshes =
                     let presenter = Presenter(conn, app, requestHost)
                     FragmentCache.withCache app.FragmentCache (fun () ->
                         ({ RoomId = room.Id
-                           RoomKind = PresenterSupport.roomKind room.RoomType
+                           RoomKind = PresenterSupport.roomKind room.Type
                            NewMessages = presenter.Messages newMessages
                            UpdatedMessages = presenter.Messages updatedMessages }: RefreshView)))
             return!

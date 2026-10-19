@@ -10,6 +10,7 @@ module Campfire.Db.Tests.SeedTests
 
 open System
 open System.IO
+open System.Linq
 open System.Text.Json
 open Xunit
 open Campfire.Db
@@ -94,9 +95,9 @@ let ``every model reads the rows Rails wrote`` () =
         let read f = unwrap (db.ReadBlocking f)
 
         Assert.Equal(10L, efRead path User.count)
-        Assert.Equal(11, List.length (read Room.all))
+        Assert.Equal(11, List.length (efRead path Room.all))
         Assert.Equal(169L, read Message.count)
-        Assert.Equal(39L, read Membership.count)
+        Assert.Equal(39L, efRead path Membership.count)
         Assert.Equal(1L, efRead path Account.count)
         Assert.Equal(3L, read Search.count)
         Assert.Equal(5L, read PushSubscription.count)
@@ -123,10 +124,10 @@ let ``every model reads the rows Rails wrote`` () =
         Assert.Equal(7, List.length (efRead path User.activeOrdered)) // not Rita (deactivated), Mallory (banned) or Old Bot (deactivated)
 
         // Room types, and a user's rooms.
-        let rooms = read Room.all
-        Assert.Equal<RoomType list>([ Open; Open; Open ], rooms |> List.filter Room.isOpen |> List.map (fun r -> r.RoomType))
+        let rooms = efRead path Room.all
+        Assert.Equal<RoomType list>([ RoomType.Open; RoomType.Open; RoomType.Open ], rooms |> List.filter Room.isOpen |> List.map (fun r -> r.Type))
         Assert.Equal(4, rooms |> List.filter Room.isDirect |> List.length)
-        Assert.True(read (fun c -> Room.forUser c david.Id) |> List.length >= 5)
+        Assert.True(efRead path (fun c -> Room.forUser c david.Id) |> List.length >= 5)
         let session = efRead path (fun c -> Session.findByToken c "AxJs94fteQ5Autv2VrKsH68c")
         Assert.Equal(david.Id, session.Value.UserId))
 
@@ -155,7 +156,7 @@ let ``messages page, search and read their bodies and attachments as Rails store
         let richText = BasicRichText() :> RichText
 
         // Every room's pages agree with SQL, and the paging index serves them.
-        for room in read Room.all do
+        for room in efRead path Room.all do
             let page = read (fun c -> Message.lastPage c room.Id)
             let expected =
                 read (fun c ->
@@ -210,13 +211,16 @@ let ``messages page, search and read their bodies and attachments as Rails store
 let ``memberships Rails wrote read with every involvement and connection state`` () =
     withSeed "default" (fun path _ ->
         use db = openSeed path (TestClock()) (RecordingSink())
-        let memberships = unwrap (db.ReadBlocking(fun c -> c.QueryAll("SELECT id FROM memberships", [||], fun r -> r.Int64 0) |> List.map (Membership.find c)))
-        let involvements = memberships |> List.map (fun m -> m.Involvement) |> List.distinct |> Set.ofList
-        Assert.Equal<Involvement option Set>(Set.ofList [ Some Everything; Some Mentions; Some Nothing; Some Invisible ], involvements)
+        let memberships = efRead path (fun c -> c.Memberships.OrderBy(fun m -> m.Id).ToList() |> List.ofSeq)
+        let involvements = memberships |> List.map (fun m -> Option.ofNullable m.Involvement) |> List.distinct |> Set.ofList
+        Assert.Equal<Involvement option Set>(
+            Set.ofList [ Some Involvement.Everything; Some Involvement.Mentions; Some Involvement.Nothing; Some Involvement.Invisible ],
+            involvements
+        )
         let user = memberships[0].UserId
-        let withRooms = unwrap (db.ReadBlocking(fun c -> Membership.withOrderedRoom c user))
+        let withRooms = efRead path (fun c -> Membership.withOrderedRoom c user)
         Assert.False(List.isEmpty withRooms)
-        let visible = unwrap (db.ReadBlocking(fun c -> Membership.visibleWithOrderedRoom c user))
+        let visible = efRead path (fun c -> Membership.visibleWithOrderedRoom c user)
         Assert.True(List.length visible <= List.length withRooms))
 
 [<Fact>]
@@ -279,8 +283,8 @@ let ``the first run seed has no account and FirstRun creates one`` () =
         let digest = PasswordDigest.create "secret123456" 4
         let admin = efWrite path db (RecordingSink()) (TestClock()) (fun tx -> FirstRun.create tx "First" "first@example.com" digest)
         Assert.True(User.isAdministrator admin)
-        let rooms = unwrap (db.ReadBlocking(fun c -> Room.forUser c admin.Id))
-        Assert.Equal<string option list>([ Some "All Talk" ], rooms |> List.map (fun r -> r.Name))
+        let rooms = efRead path (fun c -> Room.forUser c admin.Id)
+        Assert.Equal<string list>([ "All Talk" ], rooms |> List.map (fun r -> string r.Name))
         Assert.Equal(1L, efRead path Account.count))
 
 [<Fact>]
@@ -290,10 +294,10 @@ let ``a crowd of users all join a new open room`` () =
         let users = efRead path User.count
         Assert.True(users > 500L, $"{users} users")
         let active = efRead path (fun c -> List.length (User.active c))
-        let room = unwrap (db.WriteBlocking(fun tx -> Room.create tx Open (Some "Everyone") (label seed "users.david")))
-        let members = unwrap (db.ReadBlocking(fun c -> Room.userIds c room))
+        let room = efWrite path db (RecordingSink()) (TestClock()) (fun tx -> Room.create tx RoomType.Open (Some "Everyone") (label seed "users.david"))
+        let members = efRead path (fun c -> Room.userIds c room)
         Assert.Equal(active, List.length members)
         // A new user is granted every open room, in one statement per batch.
         let user = efWrite path db (RecordingSink()) (TestClock()) (fun tx -> User.create tx (NewUser.create "Latecomer"))
-        let openRooms = unwrap (db.ReadBlocking(fun c -> Room.countOfType c Open))
-        Assert.Equal(openRooms, int64 (List.length (unwrap (db.ReadBlocking(fun c -> Membership.forUser c user.Id))))))
+        let openRooms = efRead path (fun c -> Room.countOfType c RoomType.Open)
+        Assert.Equal(openRooms, int64 (List.length (efRead path (fun c -> Membership.forUser c user.Id)))))

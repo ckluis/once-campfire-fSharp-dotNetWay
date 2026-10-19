@@ -11,6 +11,7 @@
     <Compile Include="Schema.fs" />
     <Compile Include="Database.fs" />
     <Compile Include="Identity.fs" />
+    <Compile Include="Rooms.fs" />
     <Compile Include="Ef/Entities.fs" />
     <Compile Include="Ef/CampfireDb.fs" />
     <Compile Include="Ef/Interceptors.fs" />

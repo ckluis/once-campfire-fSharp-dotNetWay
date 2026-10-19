@@ -26,10 +26,8 @@ module Profiles =
             let! (user: User) = Concerns.requireCurrentUser c
             let secrets = c.App.Secrets
             let transferId = Accounts.transferId secrets user.Id (c.Now())
-            let! avatarAttached, (directMemberships, sharedMemberships) =
-                c.App.Read(fun conn ->
-                    let attached = (Attachments.attachedBlob conn "User" user.Id "avatar").IsSome
-                    attached, Accounts.profileMemberships conn user)
+            let! (directMemberships, sharedMemberships) = c.Read(fun db -> Accounts.profileMemberships db user)
+            let! avatarAttached = c.App.Read(fun conn -> (Attachments.attachedBlob conn "User" user.Id "avatar").IsSome)
             let profile: ProfileShow =
                 { User = Common.userSummary secrets user
                   AvatarAttached = avatarAttached

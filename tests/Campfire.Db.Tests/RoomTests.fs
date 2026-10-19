@@ -6,24 +6,24 @@ open Xunit
 open Campfire.Db
 open Campfire.Db.Tests.Support
 
-let private memberIds (t: TestDb) (roomId: int64) : int64 list = t.Read(fun c -> Room.userIds c (Room.find c roomId))
+let private memberIds (t: TestDb) (roomId: int64) : int64 list = t.ReadEf(fun c -> Room.userIds c (Room.find c roomId))
 
 let private room (t: TestDb) (label: string) : Room =
     let roomId = id label
-    t.Read(fun c -> Room.find c roomId)
+    t.ReadEf(fun c -> Room.find c roomId)
 
 [<Fact>]
 let ``grant membership to user`` () =
     use t = new TestDb()
     let watercooler = room t "watercooler"
-    t.Write(fun tx -> Room.grantTo tx watercooler [ id "kevin" ])
+    t.WriteEf(fun tx -> Room.grantTo tx watercooler [ id "kevin" ])
     Assert.Contains(id "kevin", memberIds t (id "watercooler"))
 
 [<Fact>]
 let ``revoke membership from user`` () =
     use t = new TestDb()
     let watercooler = room t "watercooler"
-    t.Write(fun tx -> Room.revokeFrom tx watercooler [ id "david" ])
+    t.WriteEf(fun tx -> Room.revokeFrom tx watercooler [ id "david" ])
     Assert.DoesNotContain(id "david", memberIds t (id "watercooler"))
     Assert.Equal<Event list>([ DisconnectUser(id "david", true) ], t.Events())
 
@@ -31,7 +31,7 @@ let ``revoke membership from user`` () =
 let ``revise memberships`` () =
     use t = new TestDb()
     let watercooler = room t "watercooler"
-    t.Write(fun tx -> Room.revise tx watercooler [ id "kevin" ] [ id "david" ])
+    t.WriteEf(fun tx -> Room.revise tx watercooler [ id "kevin" ] [ id "david" ])
     let members = memberIds t (id "watercooler")
     Assert.Contains(id "kevin", members)
     Assert.DoesNotContain(id "david", members)
@@ -39,7 +39,7 @@ let ``revise memberships`` () =
 [<Fact>]
 let ``create for users by giving them immediate membership`` () =
     use t = new TestDb()
-    let room = t.Write(fun tx -> Room.createFor tx Closed (Some "Hello!") (id "david") [ id "kevin"; id "david" ])
+    let room = t.WriteEf(fun tx -> Room.createFor tx RoomType.Closed (Some "Hello!") (id "david") [ id "kevin"; id "david" ])
     let members = memberIds t room.Id
     Assert.True(List.contains (id "kevin") members && List.contains (id "david") members)
 
@@ -54,16 +54,16 @@ let ``type predicates`` () =
 [<Fact>]
 let ``default involvement for new users`` () =
     use t = new TestDb()
-    let room = t.Write(fun tx -> Room.createFor tx Closed (Some "Hello!") (id "david") [ id "kevin"; id "david" ])
-    let memberships = t.Read(fun c -> Room.memberships c room)
+    let room = t.WriteEf(fun tx -> Room.createFor tx RoomType.Closed (Some "Hello!") (id "david") [ id "kevin"; id "david" ])
+    let memberships = t.ReadEf(fun c -> Room.memberships c room)
     Assert.Equal(2, List.length memberships)
-    Assert.True(memberships |> List.forall (fun m -> Membership.involvedIn m Mentions))
+    Assert.True(memberships |> List.forall (fun m -> Membership.involvedIn m Involvement.Mentions))
 
 [<Fact>]
 let ``granted memberships are stamped by sqlite`` () =
     // insert_all lets SQLite fill the timestamps: STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW').
     use t = new TestDb()
-    let room = t.Write(fun tx -> Room.createFor tx Closed (Some "Hello!") (id "david") [ id "kevin" ])
+    let room = t.WriteEf(fun tx -> Room.createFor tx RoomType.Closed (Some "Hello!") (id "david") [ id "kevin" ])
     let createdAt =
         t.Read(fun c -> c.QueryRow("SELECT created_at FROM memberships WHERE room_id = ?", [| I room.Id |], fun r -> r.Text 0))
     Assert.True((createdAt.Length = "2026-09-26 12:25:26.826".Length), createdAt)
@@ -72,7 +72,7 @@ let ``granted memberships are stamped by sqlite`` () =
 let ``direct rooms keep their type`` () =
     use t = new TestDb()
     let direct = room t "david_and_jason"
-    match t.TryWrite(fun tx -> Room.update tx direct None (Some Open)) with
+    match t.TryWriteEf(fun tx -> Room.update tx direct None (Some RoomType.Open)) with
     | Error(RecordInvalid errors) -> Assert.Equal<string list>([ "can't be changed for a direct room" ], Errors.on "type" errors)
     | other -> failwith $"expected invalid, got {other}"
 
@@ -80,10 +80,12 @@ let ``direct rooms keep their type`` () =
 let ``destroying a room destroys its messages and memberships`` () =
     use t = new TestDb()
     let watercooler = room t "watercooler"
-    t.Write(fun tx -> Room.destroy tx watercooler)
+    // The messages go on the port's writer until unit 1.5a, the room's own rows on EF's.
+    t.Write(fun tx -> Room.destroyMessagesLegacy tx watercooler.Id)
+    t.WriteEf(fun tx -> Room.destroy tx watercooler)
     Assert.True(List.isEmpty (t.Read(fun c -> Message.forRoom c (id "watercooler"))))
-    Assert.True(List.isEmpty (t.Read(fun c -> Membership.forRoom c (id "watercooler"))))
-    Assert.True((t.Read(fun c -> Room.findById c (id "watercooler"))).IsNone)
+    Assert.True(List.isEmpty (t.ReadEf(fun c -> Membership.forRoom c (id "watercooler"))))
+    Assert.True((t.ReadEf(fun c -> Room.findById c (id "watercooler"))).IsNone)
     Assert.Equal(
         0L,
         t.Read(fun c -> c.Count("SELECT COUNT(*) FROM boosts WHERE message_id IN (?, ?)", [| I(id "thirteenth"); I(id "fourth") |]))
@@ -94,7 +96,7 @@ let ``destroying a room destroys its messages and memberships`` () =
 [<Fact>]
 let ``create direct room for same users`` () =
     use t = new TestDb()
-    let room = t.Write(fun tx -> Room.findOrCreateDirectFor tx [ id "jz"; id "kevin" ] (id "jz"))
+    let room = t.WriteEf(fun tx -> Room.findOrCreateDirectFor tx [ id "jz"; id "kevin" ] (id "jz"))
     let members = memberIds t room.Id
     Assert.True(List.contains (id "jz") members && List.contains (id "kevin") members)
     Assert.DoesNotContain(id "jason", members)
@@ -102,34 +104,34 @@ let ``create direct room for same users`` () =
 [<Fact>]
 let ``only one direct room will exist for the same users`` () =
     use t = new TestDb()
-    let room1 = t.Write(fun tx -> Room.findOrCreateDirectFor tx [ id "jz"; id "kevin" ] (id "jz"))
-    let room2 = t.Write(fun tx -> Room.findOrCreateDirectFor tx [ id "kevin"; id "jz" ] (id "kevin"))
+    let room1 = t.WriteEf(fun tx -> Room.findOrCreateDirectFor tx [ id "jz"; id "kevin" ] (id "jz"))
+    let room2 = t.WriteEf(fun tx -> Room.findOrCreateDirectFor tx [ id "kevin"; id "jz" ] (id "kevin"))
     Assert.Equal(room1.Id, room2.Id)
 
-    let existing = t.Write(fun tx -> Room.findOrCreateDirectFor tx [ id "david"; id "kevin" ] (id "david"))
+    let existing = t.WriteEf(fun tx -> Room.findOrCreateDirectFor tx [ id "david"; id "kevin" ] (id "david"))
     Assert.Equal(id "david_and_kevin", existing.Id)
 
 [<Fact>]
 let ``direct default involvement for new users`` () =
     use t = new TestDb()
-    let room = t.Write(fun tx -> Room.findOrCreateDirectFor tx [ id "jz"; id "kevin" ] (id "jz"))
-    Assert.True(t.Read(fun c -> Room.memberships c room) |> List.forall (fun m -> Membership.involvedIn m Everything))
+    let room = t.WriteEf(fun tx -> Room.findOrCreateDirectFor tx [ id "jz"; id "kevin" ] (id "jz"))
+    Assert.True(t.ReadEf(fun c -> Room.memberships c room) |> List.forall (fun m -> Membership.involvedIn m Involvement.Everything))
 
 // Rooms::Open
 
 [<Fact>]
 let ``open room grants access to all users after creation`` () =
     use t = new TestDb()
-    let room = t.Write(fun tx -> Room.create tx Open (Some "My open room with everyone!") (id "david"))
+    let room = t.WriteEf(fun tx -> Room.create tx RoomType.Open (Some "My open room with everyone!") (id "david"))
     Assert.Equal(t.ReadEf User.count, int64 (List.length (memberIds t room.Id)))
 
 [<Fact>]
 let ``open room grants access to all users after becoming open`` () =
     use t = new TestDb()
     let watercooler = room t "watercooler"
-    t.Write(fun tx -> Room.update tx watercooler None (Some Open) |> ignore)
+    t.WriteEf(fun tx -> Room.update tx watercooler None (Some RoomType.Open) |> ignore)
     Assert.Equal(t.ReadEf User.count, int64 (List.length (memberIds t (id "watercooler"))))
-    Assert.Equal(Open, (room t "watercooler").RoomType)
+    Assert.Equal(RoomType.Open, (room t "watercooler").Type)
     let stored = t.Read(fun c -> c.QueryRow("SELECT type FROM rooms WHERE id = ?", [| I(id "watercooler") |], fun r -> r.Text 0))
     Assert.Equal("Rooms::Open", stored)
 
@@ -137,9 +139,46 @@ let ``open room grants access to all users after becoming open`` () =
 let ``user room scopes`` () =
     use t = new TestDb()
     let david = id "david"
-    Assert.Equal(2, List.length (t.Read(fun c -> Room.forUserOfType c david Direct)))
-    Assert.Equal(4, List.length (t.Read(fun c -> Room.forUserWithoutDirects c david)))
-    Assert.True((t.Read(fun c -> Room.findForUser c (id "kevin") (id "pets"))).IsNone)
-    let ordered = t.Read(fun c -> Membership.visibleWithOrderedRoom c david)
+    Assert.Equal(2, List.length (t.ReadEf(fun c -> Room.forUserOfType c david RoomType.Direct)))
+    Assert.Equal(4, List.length (t.ReadEf(fun c -> Room.forUserWithoutDirects c david)))
+    Assert.True((t.ReadEf(fun c -> Room.findForUser c (id "kevin") (id "pets"))).IsNone)
+    // The sidebar's one statement (`SqlQuery`): ordered by lower-cased name, invisible memberships left out.
+    let ordered = t.ReadEf(fun c -> Membership.visibleWithOrderedRoom c david)
     let names = ordered |> List.map (fun (_, r) -> r.Name)
-    Assert.Equal<string option list>([ Some "All Pets"; Some "All Talk"; Some "Designers"; Some "HQ" ], List.skip (List.length names - 4) names)
+    Assert.Equal<string list>([ "All Pets"; "All Talk"; "Designers"; "HQ" ], List.skip (List.length names - 4) (names |> List.map string))
+
+[<Fact>]
+let ``the sidebar's memberships and rooms are the entities LINQ reads`` () =
+    use t = new TestDb()
+    for userId in [ id "david"; id "kevin"; id "jz" ] do
+        let sidebar = t.ReadEf(fun c -> Membership.withOrderedRoom c userId)
+        let linq =
+            t.ReadEf(fun c -> Membership.forUser c userId |> List.map (fun m -> m, Room.find c m.RoomId))
+        Assert.Equal(List.length linq, List.length sidebar)
+        for membership, room in sidebar do
+            Assert.Contains((membership, room), linq)
+        let visible = t.ReadEf(fun c -> Membership.visibleWithOrderedRoom c userId)
+        Assert.True(visible |> List.forall (fun (m, _) -> not (Membership.involvedIn m Involvement.Invisible)))
+
+[<Fact>]
+let ``a direct room is found by its members in any order`` () =
+    use t = new TestDb()
+    let found = t.ReadEf(fun c -> Room.findDirectFor c [ id "kevin"; id "david" ])
+    Assert.Equal(Some(id "david_and_kevin"), found |> Option.map (fun r -> r.Id))
+    Assert.True((t.ReadEf(fun c -> Room.findDirectFor c [ id "kevin"; id "jz" ])).IsNone)
+    Assert.True((t.ReadEf(fun c -> Room.findDirectFor c [])).IsNone)
+
+[<Fact>]
+let ``granting more users than one batch holds`` () =
+    use t = new TestDb()
+    t.Write(fun tx ->
+        tx.Conn.ExecuteBatch
+            "WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i + 1 FROM n WHERE i < 1100) INSERT INTO users (name, role, status, created_at, updated_at) SELECT 'bulk ' || i, 0, 0, '2026-01-01 00:00:00', '2026-01-01 00:00:00' FROM n")
+    let ids = t.Read(fun c -> c.QueryAll("SELECT id FROM users WHERE name LIKE 'bulk %'", [||], fun r -> r.Int64 0))
+    let watercooler = room t "watercooler"
+    t.WriteEf(fun tx -> Room.grantTo tx watercooler ids)
+    let members = memberIds t watercooler.Id
+    Assert.True(ids |> List.forall (fun id -> List.contains id members))
+    // Granting again skips the members already there.
+    t.WriteEf(fun tx -> Room.grantTo tx watercooler ids)
+    Assert.Equal(List.length members, List.length (memberIds t watercooler.Id))

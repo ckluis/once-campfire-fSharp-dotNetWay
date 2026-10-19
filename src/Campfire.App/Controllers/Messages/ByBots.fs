@@ -24,7 +24,7 @@ module ByBots =
             let! (user: User) = Concerns.requireCurrentUser c
             let! room =
                 match (match c.ParamStr "room_id" with null -> None | id -> Ruby.integerCast id) with
-                | Some id -> c.App.Read(fun conn -> Room.findForUser conn user.Id id)
+                | Some id -> c.Read(fun db -> Room.findForUser db user.Id id)
                 | None -> Task.FromResult(Ok None)
             match room with
             | Some room -> return room

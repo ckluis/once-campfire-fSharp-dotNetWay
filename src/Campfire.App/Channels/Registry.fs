@@ -11,16 +11,16 @@ open Campfire.Cable.Turbo
 /// Registers the channels under their Ruby class names. `streams` verifies signed stream names
 /// (`Turbo.signed_stream_verifier`); `RoomMessagesChannel` verifies with it too, and `Turbo::StreamsChannel`
 /// gets it with `RoomStreamsAreAuthorized` prepended.
-let register (builder: ServerBuilder<CableUser>) (db: Campfire.Db.Database) (streams: StreamsChannel) : ServerBuilder<CableUser> =
+let register (builder: ServerBuilder<CableUser>) (access: RoomChannel.Access) (streams: StreamsChannel) : ServerBuilder<CableUser> =
     let stock = streams |> StreamsChannel.guardedBy RoomMessages.guardedStream
     builder
     |> ServerBuilder.channel "ApplicationCable::Channel" (fun () -> Channel.empty)
     |> ServerBuilder.channel "HeartbeatChannel" (fun () -> Channel.empty)
-    |> ServerBuilder.channel "PresenceChannel" (fun () -> Presence.channel db)
+    |> ServerBuilder.channel "PresenceChannel" (fun () -> Presence.channel access)
     |> ServerBuilder.channel "ReadRoomsChannel" (fun () -> ReadRooms.channel)
-    |> ServerBuilder.channel "RoomChannel" (fun () -> RoomChannel.channel db)
-    |> ServerBuilder.channel "RoomMessagesChannel" (fun () -> RoomMessages.channel db streams)
-    |> ServerBuilder.channel "TypingNotificationsChannel" (fun () -> TypingNotifications.channel db)
+    |> ServerBuilder.channel "RoomChannel" (fun () -> RoomChannel.channel access)
+    |> ServerBuilder.channel "RoomMessagesChannel" (fun () -> RoomMessages.channel access streams)
+    |> ServerBuilder.channel "TypingNotificationsChannel" (fun () -> TypingNotifications.channel access)
     |> ServerBuilder.channel "UnreadRoomsChannel" (fun () -> UnreadRooms.channel)
     |> ServerBuilder.channel StreamsChannelName (fun () -> StreamsChannel.channel stock)
 
@@ -29,6 +29,6 @@ let server (deps: Deps) (config: Config) (logger: ILogger) : Cable =
     let authenticator = SessionAuthenticator(deps.DbFactory, deps.Secrets, deps.Clock, logger)
     let streams = StreamsChannel.create deps.Secrets
     Server.builder config authenticator.Connect Gid.connectionIdentifier
-    |> fun builder -> register builder deps.Db streams
+    |> fun builder -> register builder { Factory = deps.DbFactory; Gate = deps.Db.Gate; Env = deps.Env } streams
     |> ServerBuilder.withLogger logger
     |> ServerBuilder.build

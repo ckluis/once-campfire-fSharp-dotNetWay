@@ -44,8 +44,9 @@ let ``the index shows results recent searches and the way back`` () =
         let david = david test
         let exitTo (roomId: int64) =
             $"input-switcher; --btn-border-radius: 0.5em\" href=\"/rooms/{roomId}\""
-        let! original = test.App.Db.Read(fun conn -> (Room.originalForUser conn DAVID).Value.Id)
-        let original = unwrap original
+        let original =
+            use context = test.App.DbFactory.CreateDbContext()
+            (Room.originalForUser context DAVID).Value.Id
         let! first = david.Get "/searches"
         Assert.True(first.Text.Contains(exitTo original), "no last room yet")
 

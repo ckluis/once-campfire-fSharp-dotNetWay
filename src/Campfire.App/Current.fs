@@ -66,13 +66,13 @@ module Current =
         | null -> None
         | value -> Ruby.integerCast value
 
-    /// `last_room_visited` inside a read that's already on a reader, for the user and the
+    /// `last_room_visited` inside a read that's already on the request's context, for the user and the
     /// `lastRoomCookie`: the cookie's room if the user is in it, else `Current.user.rooms.original`.
-    let lastRoomVisitedIn (conn: Conn) (userId: int64) (lastRoom: int64 option) : Room option =
+    let lastRoomVisitedIn (db: Campfire.Db.Ef.CampfireDb) (userId: int64) (lastRoom: int64 option) : Room option =
         let found =
             match lastRoom with
-            | Some roomId -> Room.findForUser conn userId roomId
+            | Some roomId -> Room.findForUser db userId roomId
             | None -> None
         match found with
         | Some room -> Some room
-        | None -> Room.originalForUser conn userId
+        | None -> Room.originalForUser db userId

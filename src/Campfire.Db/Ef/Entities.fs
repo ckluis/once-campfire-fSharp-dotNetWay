@@ -1,21 +1,10 @@
 // Design: plans/design-data-ef.md E2-E4. One record per Rails table; names, nullability and types follow `schema.sql`.
-// Role and Status (Identity.fs) are integers in the database; Involvement and RoomType here are the enum forms of the
-// port's unions (strings in the database, through the converters in CampfireDb.fs). Unit 1.11 deletes the port's twins.
+// User, Session and Account (Identity.fs) and Room and Membership (Rooms.fs) live in namespace Campfire.Db with their enums;
+// `Names` maps Involvement and RoomType to the strings the database holds.
 namespace Campfire.Db.Ef
 
 open System
-
-type Involvement =
-    | Invisible = 0
-    | Nothing = 1
-    | Mentions = 2
-    | Everything = 3
-
-/// The STI `type` column (`Rooms::Open`, `Rooms::Closed`, `Rooms::Direct`).
-type RoomType =
-    | Open = 0
-    | Closed = 1
-    | Direct = 2
+open Campfire.Db
 
 module Names =
     let roomTypeToDb (t: RoomType) : string =
@@ -47,27 +36,6 @@ module Names =
         | "mentions" -> Involvement.Mentions
         | "everything" -> Involvement.Everything
         | other -> failwith $"unknown involvement '{other}'"
-
-[<CLIMutable>]
-type Room =
-    { Id: int64
-      Name: string | null
-      Type: RoomType
-      CreatorId: int64
-      CreatedAt: DateTime
-      UpdatedAt: DateTime }
-
-[<CLIMutable>]
-type Membership =
-    { Id: int64
-      RoomId: int64
-      UserId: int64
-      Involvement: Nullable<Involvement>
-      UnreadAt: Nullable<DateTime>
-      ConnectedAt: Nullable<DateTime>
-      Connections: int64
-      CreatedAt: DateTime
-      UpdatedAt: DateTime }
 
 [<CLIMutable>]
 type Message =

@@ -48,7 +48,7 @@ module PresenterSupport =
         match roomType with
         | RoomType.Open -> RoomKind.Open
         | RoomType.Closed -> RoomKind.Closed
-        | RoomType.Direct -> RoomKind.Direct
+        | _ -> RoomKind.Direct
 
     let userView (secrets: Secrets) (user: User) : UserView =
         { Id = user.Id
@@ -129,7 +129,7 @@ type Presenter(conn: Conn, app: AppState, requestHost: string option) =
     member _.RoomDisplayName(room: Room, forUser: User option) : string =
         let names =
             if Room.isDirect room then
-                Room.users conn room
+                Room.usersLegacy conn room
                 |> List.filter (fun user ->
                     match forUser with
                     | Some forUser -> forUser.Id <> user.Id
@@ -137,12 +137,12 @@ type Presenter(conn: Conn, app: AppState, requestHost: string option) =
                 |> List.map (fun user -> user.Name)
             else
                 []
-        Campfire.Views.Rooms.roomDisplayName room.Name (Room.isDirect room) names (forUser |> Option.map (fun user -> user.Name))
+        Campfire.Views.Rooms.roomDisplayName (Option.ofObj room.Name) (Room.isDirect room) names (forUser |> Option.map (fun user -> user.Name))
 
     member this.RoomView(room: Room, forUser: User) : RoomView =
         { Id = room.Id
-          Kind = roomKind room.RoomType
-          Name = room.Name
+          Kind = roomKind room.Type
+          Name = Option.ofObj room.Name
           DisplayName = this.RoomDisplayName(room, Some forUser) }
 
     /// `message.room` with `room_display_name(message.room, for_user: nil)`.
@@ -150,7 +150,7 @@ type Presenter(conn: Conn, app: AppState, requestHost: string option) =
         match roomNames.TryGetValue roomId with
         | true, entry -> entry
         | _ ->
-            let room = Room.find conn roomId
+            let room = Room.findLegacy conn roomId
             let name = this.RoomDisplayName(room, None)
             roomNames[roomId] <- (room, name)
             room, name
@@ -339,22 +339,22 @@ type Presenter(conn: Conn, app: AppState, requestHost: string option) =
     /// `users/sidebars/rooms/_shared` locals.
     member _.SidebarRoom(room: Room) : Campfire.Views.Users.SidebarRoom =
         { Id = room.Id
-          ParamKey = RoomKind.paramKey (roomKind room.RoomType)
-          Name = defaultArg room.Name ""
+          ParamKey = RoomKind.paramKey (roomKind room.Type)
+          Name = defaultArg (Option.ofObj room.Name) ""
           Unread = false }
 
     /// `users/sidebars/rooms/_direct` locals for `membership`.
     member this.SidebarDirect(membership: Membership) : Campfire.Views.Users.SidebarDirect =
-        let room = Room.find conn membership.RoomId
+        let room = Room.findLegacy conn membership.RoomId
         let members =
-            match Room.users conn room |> List.filter (fun user -> user.Id <> membership.UserId) with
+            match Room.usersLegacy conn room |> List.filter (fun user -> user.Id <> membership.UserId) with
             | [] -> [ this.User membership.UserId ]
             | others -> others
         { RoomId = room.Id
           Unread = Membership.unread membership
-          UpdatedAtEpoch = Common.epochString room.UpdatedAt
+          UpdatedAtEpoch = Common.epochStringOf room.UpdatedAt
           Members = members |> List.map (Common.userSummary secrets)
           MembershipId = membership.Id
-          MembershipUpdatedAt = membership.UpdatedAt.ToDateTimeOffset() }
+          MembershipUpdatedAt = DateTimeOffset(membership.UpdatedAt) }
 
     member _.UserSummary(user: User) : Campfire.Views.Users.UserSummary = Common.userSummary secrets user

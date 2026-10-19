@@ -89,6 +89,9 @@ type TestDb(?fixtures: bool) =
 
     member _.Now() : Timestamp = Timestamp.FromDateTimeOffset(clock.Now())
 
+    /// `Now` as the `DateTime` EF's entities carry (UTC, microseconds).
+    member _.Utc() : DateTime = RailsTime.now time
+
     member _.Events() : Event list = sink.Events()
 
     /// `travel_to Membership::Connectable::CONNECTION_TTL.from_now + 1`

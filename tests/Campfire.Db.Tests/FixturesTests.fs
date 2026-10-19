@@ -13,21 +13,21 @@ open Campfire.Db.Tests.Support
 let ``ids are label crcs`` () =
     use t = new TestDb()
     Assert.Equal("David", (t.ReadEf(fun c -> User.find c 127326141L)).Name)
-    Assert.Equal(Some "Designers", (t.Read(fun c -> Room.find c 654632876L)).Name)
+    Assert.Equal("Designers", (t.ReadEf(fun c -> Room.find c 654632876L)).Name)
 
 [<Fact>]
 let ``associations enums and defaults`` () =
     use t = new TestDb()
-    let pets = t.Read(fun c -> Room.find c (id "pets"))
-    Assert.Equal((Open, id "david"), (pets.RoomType, pets.CreatorId))
+    let pets = t.ReadEf(fun c -> Room.find c (id "pets"))
+    Assert.Equal((RoomType.Open, id "david"), (pets.Type, pets.CreatorId))
 
     Assert.Equal(Role.Administrator, (t.ReadEf(fun c -> User.find c (id "david"))).Role)
     Assert.Equal(Role.Member, (t.ReadEf(fun c -> User.find c (id "jz"))).Role)
     let bender = t.ReadEf(fun c -> User.find c (id "bender"))
     Assert.Equal((Role.Bot, Some 12), (bender.Role, bender.BotToken |> Option.ofObj |> Option.map String.length))
 
-    let kevinDesigners = t.Read(fun c -> Membership.find c (id "kevin_designers"))
-    Assert.Equal(Some Mentions, kevinDesigners.Involvement) // column default
+    let kevinDesigners = t.ReadEf(fun c -> Membership.find c (id "kevin_designers"))
+    Assert.Equal(Nullable Involvement.Mentions, kevinDesigners.Involvement) // column default
     Assert.Equal(0L, kevinDesigners.Connections)
 
     let richText =
@@ -140,6 +140,10 @@ let ``export database for rails`` () =
                             ClientMessageId = Some "rust-1"
                             Body = Some "Written by <b>Rust</b> hovercraft" }
                 Boost.create tx message.Id (id "jason") "\U0001F980" |> ignore
-                Search.record tx rusty.Id "hovercraft" |> ignore
-                Room.createFor tx Closed (Some "Rust Room") rusty.Id [ rusty.Id; id "david" ] |> ignore)
+                Search.record tx rusty.Id "hovercraft" |> ignore)
         )
+        use context = factory.CreateDbContext()
+        (Ef.Writes.run db.Gate efEnv context (fun tx ->
+            Room.createFor tx RoomType.Closed (Some "Rust Room") rusty.Id [ rusty.Id; id "david" ] |> ignore))
+            .GetAwaiter().GetResult()
+        |> unwrap

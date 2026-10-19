@@ -408,7 +408,7 @@ module Concerns =
         | None -> Task.FromResult(Ok None)
         | Some user ->
             let lastRoom = lastRoomCookie c
-            c.App.Read(fun conn -> lastRoomVisitedIn conn user.Id lastRoom)
+            c.Read(fun db -> lastRoomVisitedIn db user.Id lastRoom)
 
     // --- RoomScoped ----------------------------------------------------------------------------------
 
@@ -423,14 +423,14 @@ module Concerns =
                 | None -> return Error NotFound
                 | Some roomId ->
                     return!
-                        c.App.Read(fun conn ->
+                        c.Read(fun db ->
                             let membership =
-                                Membership.findByRoomAndUser conn roomId user.Id |> Err.orNotFound "Membership"
+                                Membership.findByRoomAndUser db roomId user.Id |> Err.orNotFound "Membership"
                             // `@membership.room` is nil when the room is gone (memberships have no foreign key to
                             // rooms), and the action fails on it: a 500, where `Membership#room`'s
                             // `RecordNotFound` would be a 404.
                             let room =
-                                match Room.findById conn membership.RoomId with
+                                match Room.findById db membership.RoomId with
                                 | Some room -> room
                                 | None -> Err.fail (DbError.other "the membership's room is gone")
                             membership, room)

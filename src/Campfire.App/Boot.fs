@@ -161,18 +161,25 @@ module Boot =
             let richText = AppRichText(secrets, clock, loggers.CreateLogger "campfire.rich_text")
             let! db = openDatabase config clock jobs richText
 
-            // config/puma.rb: `Membership.disconnect_all` when the server boots.
-            match! db.Write(fun tx -> Membership.disconnectAll tx |> ignore) with
-            | Ok() -> ()
-            | Error error -> failwith (DbError.display error)
-
             let storage =
                 Storage.create (DiskService.create config.Storage.Files "local") (RailsCompat.appVerifier secrets "ActiveStorage")
 
             let cableConfig = { Campfire.Cable.Config.defaults with AssumeSsl = not config.DisableSsl }
             let time = Campfire.Db.Ef.ClockTimeProvider clock
             let dbFactory = Campfire.Db.Ef.Data.factory (Campfire.Db.Ef.Data.options config.Storage.Database time ignore)
-            let deps: Deps = { Db = db; DbFactory = dbFactory; Secrets = secrets; Clock = clock }
+            let efEnv: Campfire.Db.Ef.Env =
+                { Time = time
+                  Sink = jobs
+                  RichText = richText
+                  BcryptCost = Password.Cost }
+
+            // config/puma.rb: `Membership.disconnect_all` when the server boots.
+            use bootContext = dbFactory.CreateDbContext()
+            match! Campfire.Db.Ef.Writes.run db.Gate efEnv bootContext (fun tx -> Membership.disconnectAll tx |> ignore) with
+            | Ok() -> ()
+            | Error error -> failwith (DbError.display error)
+
+            let deps: Deps = { Db = db; DbFactory = dbFactory; Env = efEnv; Secrets = secrets; Clock = clock }
             let cable = Registry.server deps cableConfig (loggers.CreateLogger "campfire.cable")
 
             let kitConfig = { KitConfig.Production config.DisableSsl with ErrorPages = errorPages () }
@@ -180,11 +187,6 @@ module Boot =
             let fragmentCache = FragmentCache(int (min config.FragmentCacheBytes (int64 Int32.MaxValue)))
             // config/initializers/web_push.rb: off without a valid VAPID key pair.
             let webPush = IntegrationJobs.webPushPool config db (loggers.CreateLogger "campfire.web_push")
-            let efEnv: Campfire.Db.Ef.Env =
-                { Time = time
-                  Sink = jobs
-                  RichText = richText
-                  BcryptCost = Password.Cost }
             let app =
                 AppState(config, secrets, clock, db, dbFactory, efEnv, storage, cable, Broadcasts cable, jobs, webPush, fragmentCache, loggers)
 

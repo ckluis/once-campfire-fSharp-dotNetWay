@@ -6,6 +6,7 @@ namespace rec Campfire.Db
 
 open System
 open System.Linq
+open System.Runtime.CompilerServices
 open System.Text
 open Microsoft.EntityFrameworkCore
 open Campfire.RailsCompat
@@ -398,355 +399,253 @@ module User =
 // `reference/app/models/membership.rb` and `membership/connectable.rb`.
 // ---------------------------------------------------------------------------------------------
 
-/// `enum :involvement, %w[ invisible nothing mentions everything ].index_by(&:itself)`
-type Involvement =
-    | Invisible
-    | Nothing
-    | Mentions
-    | Everything
-
-module Involvement =
-    let name (involvement: Involvement) : string =
-        match involvement with
-        | Invisible -> "invisible"
-        | Nothing -> "nothing"
-        | Mentions -> "mentions"
-        | Everything -> "everything"
-
-    let fromName (name: string) : Involvement option =
-        match name with
-        | "invisible" -> Some Invisible
-        | "nothing" -> Some Nothing
-        | "mentions" -> Some Mentions
-        | "everything" -> Some Everything
-        | _ -> None
-
-    let toSql (involvement: Involvement option) : SqlArg =
-        match involvement with
-        | Some i -> S(name i)
-        | None -> Null
-
-type Membership =
-    { Id: int64
-      RoomId: int64
-      UserId: int64
-      /// Nullable in the schema (default "mentions").
-      Involvement: Involvement option
-      UnreadAt: Timestamp option
-      ConnectedAt: Timestamp option
-      Connections: int64
-      CreatedAt: Timestamp
-      UpdatedAt: Timestamp }
-
+[<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module Membership =
     /// `Membership::Connectable::CONNECTION_TTL`
     let connectionTtl : TimeSpan = TimeSpan.FromSeconds 60.0
 
-    [<Literal>]
-    let private findSql = Selects.Membership + " WHERE \"memberships\".\"id\" = ? LIMIT 1"
+    /// `CONNECTION_TTL.ago`
+    let connectionCutoff (now: DateTime) : DateTime = now - connectionTtl
 
-    [<Literal>]
-    let private forUserSql = Selects.Membership + " WHERE \"memberships\".\"user_id\" = ?"
+    // ---- The port's Conn-based readers, for the models that have not moved to EF yet (Message, push: units 1.5-1.8; 1.11 deletes them).
 
-    [<Literal>]
-    let private forRoomSql = Selects.Membership + " WHERE \"memberships\".\"room_id\" = ?"
-
-    [<Literal>]
-    let private findByRoomAndUserSql = Selects.Membership + " WHERE \"memberships\".\"room_id\" = ? AND \"memberships\".\"user_id\" = ? LIMIT 1"
-
-    [<Literal>]
-    let private visibleWithOrderedRoomSql =
-        "SELECT "
-        + Columns.Membership
-        + ", "
-        + Columns.Room
-        + " FROM \"memberships\" INNER JOIN \"rooms\" ON \"rooms\".\"id\" = \"memberships\".\"room_id\" WHERE \"memberships\".\"user_id\" = ? AND \"memberships\".\"involvement\" != 'invisible' ORDER BY LOWER(rooms.name)"
-
-    [<Literal>]
-    let private withOrderedRoomSql =
-        "SELECT "
-        + Columns.Membership
-        + ", "
-        + Columns.Room
-        + " FROM \"memberships\" INNER JOIN \"rooms\" ON \"rooms\".\"id\" = \"memberships\".\"room_id\" WHERE \"memberships\".\"user_id\" = ? ORDER BY LOWER(rooms.name)"
-
-    let private involvementOf (r: Row) (i: int) : Involvement option =
+    let private involvementOfLegacy (r: Row) (i: int) : Nullable<Involvement> =
         match r.OptText i with
-        | None -> None
+        | None -> Nullable()
         | Some name ->
             match Involvement.fromName name with
-            | Some involvement -> Some involvement
+            | Some involvement -> Nullable involvement
             | None -> failwith $"unknown involvement \"{name}\""
+
+    let private timeOf (t: Timestamp) : DateTime = RailsTime.truncate (t.ToDateTimeOffset().UtcDateTime)
 
     let fromRowAt (r: Row) (offset: int) : Membership =
         { Id = r.Int64(offset + 0)
           RoomId = r.Int64(offset + 1)
           UserId = r.Int64(offset + 2)
-          Involvement = involvementOf r (offset + 3)
-          UnreadAt = r.OptTimestamp(offset + 4)
-          ConnectedAt = r.OptTimestamp(offset + 5)
+          Involvement = involvementOfLegacy r (offset + 3)
+          UnreadAt = (match r.OptTimestamp(offset + 4) with Some t -> Nullable(timeOf t) | None -> Nullable())
+          ConnectedAt = (match r.OptTimestamp(offset + 5) with Some t -> Nullable(timeOf t) | None -> Nullable())
           Connections = r.Int64(offset + 6)
-          CreatedAt = r.Timestamp(offset + 7)
-          UpdatedAt = r.Timestamp(offset + 8) }
+          CreatedAt = timeOf (r.Timestamp(offset + 7))
+          UpdatedAt = timeOf (r.Timestamp(offset + 8)) }
 
     let fromRow (r: Row) : Membership = fromRowAt r 0
 
-    /// How many columns `Columns.Membership` lists, where a joined room's columns begin.
-    [<Literal>]
-    let private ColumnCount = 9
-
-    /// A membership and its room, from `Columns.Membership` followed by `Columns.Room`.
-    let private withRoom (r: Row) : Membership * Room = fromRow r, Room.fromRowAt r ColumnCount
-
-    let find (conn: Conn) (id: int64) : Membership =
-        conn.QueryOne(findSql, [| I id |], fromRow) |> Err.orNotFound "Membership"
-
-    let count (conn: Conn) : int64 = conn.Count("""SELECT COUNT(*) FROM "memberships" """, [||])
-
-    let forUser (conn: Conn) (userId: int64) : Membership list = conn.QueryAll(forUserSql, [| I userId |], fromRow)
-
-    let forRoom (conn: Conn) (roomId: int64) : Membership list = conn.QueryAll(forRoomSql, [| I roomId |], fromRow)
-
-    /// `room.memberships.find_by(user:)` / `user.memberships.find_by(room_id:)`
-    let findByRoomAndUser (conn: Conn) (roomId: int64) (userId: int64) : Membership option =
-        conn.QueryOne(findByRoomAndUserSql, [| I roomId; I userId |], fromRow)
-
-    /// `user.memberships.visible.with_ordered_room`, each with its room.
-    let visibleWithOrderedRoom (conn: Conn) (userId: int64) : (Membership * Room) list =
-        conn.QueryAll(visibleWithOrderedRoomSql, [| I userId |], withRoom)
-
-    /// `user.memberships.with_ordered_room` (invisible included).
-    let withOrderedRoom (conn: Conn) (userId: int64) : (Membership * Room) list =
-        conn.QueryAll(withOrderedRoomSql, [| I userId |], withRoom)
-
-    /// `user.memberships.without_direct_rooms.count`
-    let countWithoutDirectRooms (conn: Conn) (userId: int64) : int64 =
-        conn.Count(
-            """SELECT COUNT(*) FROM "memberships" INNER JOIN "rooms" "room" ON "room"."id" = "memberships"."room_id" WHERE "memberships"."user_id" = ? AND "room"."type" != 'Rooms::Direct'""",
-            [| I userId |]
-        )
+    /// `Membership.where(room_id:)`, for the broadcasts that still run on a reader's `Conn`.
+    let forRoomLegacy (conn: Conn) (roomId: int64) : Membership list =
+        conn.QueryAll(Selects.Membership + " WHERE \"memberships\".\"room_id\" = ?", [| I roomId |], fromRow)
 
     /// `user.memberships.unread.count`: the push badge.
-    let unreadCount (conn: Conn) (userId: int64) : int64 =
+    let unreadCountLegacy (conn: Conn) (userId: int64) : int64 =
         conn.Count(
             """SELECT COUNT(*) FROM "memberships" WHERE "memberships"."user_id" = ? AND "memberships"."unread_at" IS NOT NULL""",
             [| I userId |]
         )
 
-    /// `CONNECTION_TTL.ago`
-    let connectionCutoff (now: Timestamp) : Timestamp = now.Ago connectionTtl
+    /// `CONNECTION_TTL.ago`, for the port's `Timestamp`.
+    let connectionCutoffLegacy (now: Timestamp) : Timestamp = now.Ago connectionTtl
+
+    // ---- Finders and scopes (EF, LINQ; every captured value goes through `EF.Parameter`)
+
+    let find (db: Ef.CampfireDb) (id: int64) : Membership =
+        db.Memberships.Where(fun m -> m.Id = EF.Parameter id) |> Ef.Data.tryFirst |> Err.orNotFound "Membership"
+
+    let count (db: Ef.CampfireDb) : int64 = db.Memberships.LongCount()
+
+    let forUser (db: Ef.CampfireDb) (userId: int64) : Membership list =
+        db.Memberships.Where(fun m -> m.UserId = EF.Parameter userId).ToList() |> List.ofSeq
+
+    let forRoom (db: Ef.CampfireDb) (roomId: int64) : Membership list =
+        db.Memberships.Where(fun m -> m.RoomId = EF.Parameter roomId).ToList() |> List.ofSeq
+
+    /// `room.memberships.find_by(user:)` / `user.memberships.find_by(room_id:)`
+    let findByRoomAndUser (db: Ef.CampfireDb) (roomId: int64) (userId: int64) : Membership option =
+        db.Memberships.Where(fun m -> m.RoomId = EF.Parameter roomId && m.UserId = EF.Parameter userId) |> Ef.Data.tryFirst
+
+    let private ofRow (r: MembershipRoomRow) : Membership * Room =
+        let time (text: string) = RailsTime.ofDb text
+        let optTime (text: string | null) : Nullable<DateTime> =
+            match text with
+            | null -> Nullable()
+            | text -> Nullable(time text)
+        { Id = r.MembershipId
+          RoomId = r.RoomId
+          UserId = r.UserId
+          Involvement =
+            (match r.Involvement with
+             | null -> Nullable()
+             | name -> Nullable(Ef.Names.involvementOfDb name))
+          UnreadAt = optTime r.UnreadAt
+          ConnectedAt = optTime r.ConnectedAt
+          Connections = r.Connections
+          CreatedAt = time r.MembershipCreatedAt
+          UpdatedAt = time r.MembershipUpdatedAt },
+        { Id = r.RoomId
+          Name = r.RoomName
+          Type = Ef.Names.roomTypeOfDb r.RoomType
+          CreatorId = r.RoomCreatorId
+          CreatedAt = time r.RoomCreatedAt
+          UpdatedAt = time r.RoomUpdatedAt }
+
+    /// `user.memberships.visible.with_ordered_room`, each with its room: the sidebar, one statement (`SqlQuery`, design 4).
+    let visibleWithOrderedRoom (db: Ef.CampfireDb) (userId: int64) : (Membership * Room) list =
+        db.Database
+            .SqlQuery<MembershipRoomRow>(
+                $"SELECT memberships.id AS membership_id, memberships.room_id AS room_id, memberships.user_id AS user_id, memberships.involvement AS involvement, memberships.unread_at AS unread_at, memberships.connected_at AS connected_at, memberships.connections AS connections, memberships.created_at AS membership_created_at, memberships.updated_at AS membership_updated_at, rooms.name AS room_name, rooms.type AS room_type, rooms.creator_id AS room_creator_id, rooms.created_at AS room_created_at, rooms.updated_at AS room_updated_at FROM memberships INNER JOIN rooms ON rooms.id = memberships.room_id WHERE memberships.user_id = {userId} AND memberships.involvement != 'invisible' ORDER BY LOWER(rooms.name)"
+            )
+            .ToList()
+        |> Seq.map ofRow
+        |> List.ofSeq
+
+    /// `user.memberships.with_ordered_room` (invisible included).
+    let withOrderedRoom (db: Ef.CampfireDb) (userId: int64) : (Membership * Room) list =
+        db.Database
+            .SqlQuery<MembershipRoomRow>(
+                $"SELECT memberships.id AS membership_id, memberships.room_id AS room_id, memberships.user_id AS user_id, memberships.involvement AS involvement, memberships.unread_at AS unread_at, memberships.connected_at AS connected_at, memberships.connections AS connections, memberships.created_at AS membership_created_at, memberships.updated_at AS membership_updated_at, rooms.name AS room_name, rooms.type AS room_type, rooms.creator_id AS room_creator_id, rooms.created_at AS room_created_at, rooms.updated_at AS room_updated_at FROM memberships INNER JOIN rooms ON rooms.id = memberships.room_id WHERE memberships.user_id = {userId} ORDER BY LOWER(rooms.name)"
+            )
+            .ToList()
+        |> Seq.map ofRow
+        |> List.ofSeq
+
+    /// `user.memberships.without_direct_rooms.count`
+    let countWithoutDirectRooms (db: Ef.CampfireDb) (userId: int64) : int64 =
+        db.Memberships
+            .Where(fun m -> m.UserId = EF.Parameter userId)
+            .Join(db.Rooms.Where(fun r -> r.Type <> RoomType.Direct), (fun m -> m.RoomId), (fun r -> r.Id), (fun m _ -> m))
+            .LongCount()
+
+    /// `user.memberships.unread.count`: the push badge.
+    let unreadCount (db: Ef.CampfireDb) (userId: int64) : int64 =
+        db.Memberships.LongCount(fun m -> m.UserId = EF.Parameter userId && m.UnreadAt.HasValue)
 
     /// `Membership.connected.exists?(id)`
-    let connectedExists (conn: Conn) (id: int64) (now: Timestamp) : bool =
-        conn.Exists(
-            """SELECT 1 FROM "memberships" WHERE "memberships"."connected_at" >= ? AND "memberships"."id" = ? LIMIT 1""",
-            [| T(connectionCutoff now); I id |]
-        )
+    let connectedExists (db: Ef.CampfireDb) (id: int64) (now: DateTime) : bool =
+        let cutoff = connectionCutoff now
+        db.Memberships.Any(fun m -> m.Id = EF.Parameter id && m.ConnectedAt.HasValue && m.ConnectedAt.Value >= EF.Parameter cutoff)
 
     /// `Membership.disconnected.exists?(id)`
-    let disconnectedExists (conn: Conn) (id: int64) (now: Timestamp) : bool =
-        conn.Exists(
-            """SELECT 1 FROM "memberships" WHERE ("memberships"."connected_at" IS NULL OR "memberships"."connected_at" < ?) AND "memberships"."id" = ? LIMIT 1""",
-            [| T(connectionCutoff now); I id |]
-        )
+    let disconnectedExists (db: Ef.CampfireDb) (id: int64) (now: DateTime) : bool =
+        let cutoff = connectionCutoff now
+        db.Memberships.Any(fun m -> m.Id = EF.Parameter id && (not m.ConnectedAt.HasValue || m.ConnectedAt.Value < EF.Parameter cutoff))
 
-    let room (conn: Conn) (membership: Membership) : Room = Room.find conn membership.RoomId
+    // ---- Involvement and read state
 
-    let user (conn: Conn) (membership: Membership) : User = User.findLegacy conn membership.UserId
-
-    // Involvement and read state
-
-    let involvedIn (membership: Membership) (involvement: Involvement) : bool = membership.Involvement = Some involvement
+    let involvedIn (membership: Membership) (involvement: Involvement) : bool =
+        membership.Involvement.HasValue && membership.Involvement.Value = involvement
 
     /// `update!(involvement:)`
-    let updateInvolvement (tx: Tx) (membership: Membership) (involvement: Involvement option) : Membership =
-        if membership.Involvement = involvement then
-            membership
-        else
-            let now = tx.Now()
-            tx.Conn.Execute(
-                """UPDATE "memberships" SET "involvement" = ?, "updated_at" = ? WHERE "memberships"."id" = ?""",
-                [| Involvement.toSql involvement; T now; I membership.Id |]
-            )
-            |> ignore
-            { membership with Involvement = involvement; UpdatedAt = now }
+    let updateInvolvement (tx: Ef.Tx) (membership: Membership) (involvement: Involvement option) : Membership =
+        let value = match involvement with Some i -> Nullable i | None -> Nullable()
+        Ef.Data.update tx.Db membership { membership with Involvement = value }
 
     /// `read`: `update!(unread_at: nil)`
-    let read (tx: Tx) (membership: Membership) : Membership =
-        if membership.UnreadAt.IsNone then
-            membership
-        else
-            let now = tx.Now()
-            tx.Conn.Execute(
-                """UPDATE "memberships" SET "unread_at" = ?, "updated_at" = ? WHERE "memberships"."id" = ?""",
-                [| Null; T now; I membership.Id |]
-            )
-            |> ignore
-            { membership with UnreadAt = None; UpdatedAt = now }
+    let read (tx: Ef.Tx) (membership: Membership) : Membership =
+        Ef.Data.update tx.Db membership { membership with UnreadAt = Nullable() }
 
-    let unread (membership: Membership) : bool = membership.UnreadAt.IsSome
+    let unread (membership: Membership) : bool = membership.UnreadAt.HasValue
 
-    /// `destroy`: the user's sockets reconnect after commit, so their subscriptions to this
-    /// room are dropped.
-    let destroy (tx: Tx) (membership: Membership) : unit =
-        tx.Conn.Execute("""DELETE FROM "memberships" WHERE "memberships"."id" = ?""", [| I membership.Id |]) |> ignore
+    /// `destroy`: the user's sockets reconnect after commit, so their subscriptions to this room are dropped.
+    let destroy (tx: Ef.Tx) (membership: Membership) : unit =
+        Ef.Data.remove tx.Db membership
         let userId = membership.UserId
         tx.AfterCommit(fun tx -> tx.EmitAfterCommit(DisconnectUser(userId, true)))
 
-    // Membership::Connectable
+    // ---- Membership::Connectable
 
     /// `Membership.disconnect_all`
-    let disconnectAll (tx: Tx) : int =
+    let disconnectAll (tx: Ef.Tx) : int =
         let now = tx.Now()
-        tx.Conn.Execute(
-            """UPDATE "memberships" SET "connected_at" = ?, "connections" = ?, "updated_at" = ? WHERE "memberships"."connected_at" >= ?""",
-            [| Null; I 0L; T now; T(connectionCutoff now) |]
-        )
+        let cutoff = connectionCutoff now
+        tx.Db.Memberships
+            .Where(fun m -> m.ConnectedAt.HasValue && m.ConnectedAt.Value >= EF.Parameter cutoff)
+            .ExecuteUpdate(fun s ->
+                s.SetProperty((fun m -> m.ConnectedAt), Nullable<DateTime>())
+                 .SetProperty((fun m -> m.Connections), 0L)
+                 .SetProperty((fun m -> m.UpdatedAt), now)
+                |> ignore)
 
     /// `Membership.connect(membership, connections)`: no `updated_at`.
-    let connect (tx: Tx) (id: int64) (connections: int64) : unit =
-        tx.Conn.Execute(
-            """UPDATE "memberships" SET "connections" = ?, "connected_at" = ?, "unread_at" = ? WHERE "memberships"."id" = ?""",
-            [| I connections; T(tx.Now()); Null; I id |]
-        )
+    let connect (tx: Ef.Tx) (id: int64) (connections: int64) : unit =
+        let now = tx.Now()
+        tx.Db.Memberships
+            .Where(fun m -> m.Id = EF.Parameter id)
+            .ExecuteUpdate(fun s ->
+                s.SetProperty((fun m -> m.Connections), connections)
+                 .SetProperty((fun m -> m.ConnectedAt), Nullable now)
+                 .SetProperty((fun m -> m.UnreadAt), Nullable<DateTime>())
+                |> ignore)
         |> ignore
 
     /// `connected?`
-    let isConnected (membership: Membership) (now: Timestamp) : bool =
-        match membership.ConnectedAt with
-        | Some at -> at >= connectionCutoff now
-        | None -> false
+    let isConnected (membership: Membership) (now: DateTime) : bool =
+        membership.ConnectedAt.HasValue && membership.ConnectedAt.Value >= connectionCutoff now
 
     /// `present`
-    let present (tx: Tx) (membership: Membership) : unit =
+    let present (tx: Ef.Tx) (membership: Membership) : unit =
         let connections = if isConnected membership (tx.Now()) then membership.Connections + 1L else 1L
         connect tx membership.Id connections
 
-    /// `increment!(:connections, touch: true)` / `decrement!`
-    let private updateCounter (tx: Tx) (membership: Membership) (by: int64) : Membership =
-        let now = tx.Now()
-        let sql =
-            if by >= 0L then
-                """UPDATE "memberships" SET "connections" = COALESCE("memberships"."connections", 0) + ?, "updated_at" = ? WHERE "memberships"."id" = ?"""
-            else
-                """UPDATE "memberships" SET "connections" = COALESCE("memberships"."connections", 0) - ?, "updated_at" = ? WHERE "memberships"."id" = ?"""
-        tx.Conn.Execute(sql, [| I(abs by); T now; I membership.Id |]) |> ignore
-        { membership with Connections = membership.Connections + by; UpdatedAt = now }
+    /// `increment!(:connections, touch: true)` / `decrement!`, and `update!(connections:)` (a no-op when unchanged): the
+    /// context stamps `updated_at` on what changed.
+    let private setConnections (tx: Ef.Tx) (membership: Membership) (connections: int64) : Membership =
+        Ef.Data.update tx.Db membership { membership with Connections = connections }
 
-    /// `update!(connections:)`, a no-op when unchanged.
-    let private updateConnections (tx: Tx) (membership: Membership) (connections: int64) : Membership =
-        if membership.Connections = connections then
-            membership
-        else
-            let now = tx.Now()
-            tx.Conn.Execute(
-                """UPDATE "memberships" SET "connections" = ?, "updated_at" = ? WHERE "memberships"."id" = ?""",
-                [| I connections; T now; I membership.Id |]
-            )
-            |> ignore
-            { membership with Connections = connections; UpdatedAt = now }
+    let private incrementConnections (tx: Ef.Tx) (membership: Membership) : Membership =
+        setConnections tx membership (if isConnected membership (tx.Now()) then membership.Connections + 1L else 1L)
 
-    let private incrementConnections (tx: Tx) (membership: Membership) : Membership =
-        if isConnected membership (tx.Now()) then updateCounter tx membership 1L else updateConnections tx membership 1L
-
-    let private decrementConnections (tx: Tx) (membership: Membership) : Membership =
-        if isConnected membership (tx.Now()) then updateCounter tx membership -1L else updateConnections tx membership 0L
+    let private decrementConnections (tx: Ef.Tx) (membership: Membership) : Membership =
+        setConnections tx membership (if isConnected membership (tx.Now()) then membership.Connections - 1L else 0L)
 
     /// `touch :connected_at`
-    let private touchConnectedAt (tx: Tx) (membership: Membership) : Membership =
+    let private touchConnectedAt (tx: Ef.Tx) (membership: Membership) : Membership =
         let now = tx.Now()
-        tx.Conn.Execute(
-            """UPDATE "memberships" SET "updated_at" = ?, "connected_at" = ? WHERE "memberships"."id" = ?""",
-            [| T now; T now; I membership.Id |]
-        )
+        tx.Db.Memberships
+            .Where(fun m -> m.Id = EF.Parameter membership.Id)
+            .ExecuteUpdate(fun s ->
+                s.SetProperty((fun m -> m.ConnectedAt), Nullable now).SetProperty((fun m -> m.UpdatedAt), now) |> ignore)
         |> ignore
-        { membership with ConnectedAt = Some now; UpdatedAt = now }
+        { membership with ConnectedAt = Nullable now; UpdatedAt = now }
 
     /// `connected`
-    let connected (tx: Tx) (membership: Membership) : Membership =
+    let connected (tx: Ef.Tx) (membership: Membership) : Membership =
         incrementConnections tx membership |> touchConnectedAt tx
 
     /// `disconnected`
-    let disconnected (tx: Tx) (membership: Membership) : Membership =
+    let disconnected (tx: Ef.Tx) (membership: Membership) : Membership =
         let membership = decrementConnections tx membership
-        if membership.Connections < 1L && membership.ConnectedAt.IsSome then
+        if membership.Connections < 1L && membership.ConnectedAt.HasValue then
             let now = tx.Now()
-            tx.Conn.Execute(
-                """UPDATE "memberships" SET "connected_at" = ?, "updated_at" = ? WHERE "memberships"."id" = ?""",
-                [| Null; T now; I membership.Id |]
-            )
+            tx.Db.Memberships
+                .Where(fun m -> m.Id = EF.Parameter membership.Id)
+                .ExecuteUpdate(fun s ->
+                    s.SetProperty((fun m -> m.ConnectedAt), Nullable<DateTime>()).SetProperty((fun m -> m.UpdatedAt), now) |> ignore)
             |> ignore
-            { membership with ConnectedAt = None; UpdatedAt = now }
+            { membership with ConnectedAt = Nullable(); UpdatedAt = now }
         else
             membership
 
     /// `refresh_connection`
-    let refreshConnection (tx: Tx) (membership: Membership) : Membership =
+    let refreshConnection (tx: Ef.Tx) (membership: Membership) : Membership =
         let membership = if not (isConnected membership (tx.Now())) then incrementConnections tx membership else membership
         touchConnectedAt tx membership
 
-    let reload (conn: Conn) (membership: Membership) : Membership = find conn membership.Id
+    let reload (db: Ef.CampfireDb) (membership: Membership) : Membership = find db membership.Id
 
 // ---------------------------------------------------------------------------------------------
 // Room
 // `reference/app/models/room.rb`, `rooms/*.rb` and `room/message_pusher.rb`'s queries.
 // ---------------------------------------------------------------------------------------------
 
-/// The STI `type` column.
-type RoomType =
-    | Open
-    | Closed
-    | Direct
-
-module RoomType =
-    let className (roomType: RoomType) : string =
-        match roomType with
-        | Open -> "Rooms::Open"
-        | Closed -> "Rooms::Closed"
-        | Direct -> "Rooms::Direct"
-
-    let fromClassName (name: string) : RoomType option =
-        match name with
-        | "Rooms::Open" -> Some Open
-        | "Rooms::Closed" -> Some Closed
-        | "Rooms::Direct" -> Some Direct
-        | _ -> None
-
-    /// `default_involvement`: "everything" in direct rooms, "mentions" elsewhere.
-    let defaultInvolvement (roomType: RoomType) : string =
-        match roomType with
-        | Direct -> "everything"
-        | _ -> "mentions"
-
-    let toSql (roomType: RoomType) : SqlArg = S(className roomType)
-
-type Room =
-    { Id: int64
-      Name: string option
-      RoomType: RoomType
-      CreatorId: int64
-      CreatedAt: Timestamp
-      UpdatedAt: Timestamp }
-
+[<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module Room =
     /// Rows per `INSERT` of memberships, well under SQLite's bound-variable limit.
     [<Literal>]
-    let MembershipInsertBatch = 1_000
+    let private MembershipInsertBatch = 1_000
 
-    [<Literal>]
-    let private findSql = Selects.Room + " WHERE \"rooms\".\"id\" = ? LIMIT 1"
+    // ---- The port's Conn-based readers and the old writer's two calls, for Message and push (units 1.5-1.8 move them).
 
-    [<Literal>]
-    let private selectForUser =
-        "SELECT "
-        + Columns.Room
-        + " FROM \"rooms\" INNER JOIN \"memberships\" ON \"rooms\".\"id\" = \"memberships\".\"room_id\" WHERE \"memberships\".\"user_id\" = ?"
-
-    [<Literal>]
-    let private usersJoin =
-        Selects.User + " INNER JOIN \"memberships\" ON \"users\".\"id\" = \"memberships\".\"user_id\" WHERE \"memberships\".\"room_id\" = ?"
-
-    let private roomTypeOf (r: Row) (i: int) : RoomType =
+    let private roomTypeOfLegacy (r: Row) (i: int) : RoomType =
         let name = r.Text i
         match RoomType.fromClassName name with
         | Some roomType -> roomType
@@ -754,219 +653,241 @@ module Room =
 
     let fromRowAt (r: Row) (offset: int) : Room =
         { Id = r.Int64(offset + 0)
-          Name = r.OptText(offset + 1)
-          RoomType = roomTypeOf r (offset + 2)
+          Name = Option.toObj (r.OptText(offset + 1))
+          Type = roomTypeOfLegacy r (offset + 2)
           CreatorId = r.Int64(offset + 3)
-          CreatedAt = r.Timestamp(offset + 4)
-          UpdatedAt = r.Timestamp(offset + 5) }
+          CreatedAt = RailsTime.truncate ((r.Timestamp(offset + 4)).ToDateTimeOffset().UtcDateTime)
+          UpdatedAt = RailsTime.truncate ((r.Timestamp(offset + 5)).ToDateTimeOffset().UtcDateTime) }
 
     let fromRow (r: Row) : Room = fromRowAt r 0
 
-    let findById (conn: Conn) (id: int64) : Room option = conn.QueryOne(findSql, [| I id |], fromRow)
+    let findByIdLegacy (conn: Conn) (id: int64) : Room option =
+        conn.QueryOne(Selects.Room + " WHERE \"rooms\".\"id\" = ? LIMIT 1", [| I id |], fromRow)
 
-    let find (conn: Conn) (id: int64) : Room = findById conn id |> Err.orNotFound "Room"
+    let findLegacy (conn: Conn) (id: int64) : Room = findByIdLegacy conn id |> Err.orNotFound "Room"
 
-    let all (conn: Conn) : Room list = conn.QueryAll(Selects.Room, [||], fromRow)
-
-    /// `Room.opens` / `closeds` / `directs`
-    let ofType (conn: Conn) (roomType: RoomType) : Room list =
-        conn.QueryAll(Selects.Room + " WHERE \"rooms\".\"type\" = ?", [| RoomType.toSql roomType |], fromRow)
-
-    let countOfType (conn: Conn) (roomType: RoomType) : int64 =
-        conn.Count("""SELECT COUNT(*) FROM "rooms" WHERE "rooms"."type" = ?""", [| RoomType.toSql roomType |])
-
-    /// `Room.original`: the oldest room.
-    let original (conn: Conn) : Room option =
-        conn.QueryOne(Selects.Room + " ORDER BY \"rooms\".\"created_at\" ASC LIMIT 1", [||], fromRow)
-
-    // `Current.user.rooms` and its scopes
-
-    /// `user.rooms`
-    let forUser (conn: Conn) (userId: int64) : Room list = conn.QueryAll(selectForUser, [| I userId |], fromRow)
-
-    /// `user.rooms.find_by(id:)`
-    let findForUser (conn: Conn) (userId: int64) (roomId: int64) : Room option =
-        conn.QueryOne(selectForUser + " AND \"rooms\".\"id\" = ? LIMIT 1", [| I userId; I roomId |], fromRow)
-
-    /// `user.rooms.directs` / `.opens` / `.closeds`
-    let forUserOfType (conn: Conn) (userId: int64) (roomType: RoomType) : Room list =
-        conn.QueryAll(selectForUser + " AND \"rooms\".\"type\" = ?", [| I userId; RoomType.toSql roomType |], fromRow)
-
-    /// `user.rooms.without_directs`
-    let forUserWithoutDirects (conn: Conn) (userId: int64) : Room list =
-        conn.QueryAll(selectForUser + " AND \"rooms\".\"type\" != ?", [| I userId; RoomType.toSql Direct |], fromRow)
-
-    /// `user.rooms.original`
-    let originalForUser (conn: Conn) (userId: int64) : Room option =
-        conn.QueryOne(selectForUser + " ORDER BY \"rooms\".\"created_at\" ASC LIMIT 1", [| I userId |], fromRow)
-
-    /// `user.rooms.last`
-    let lastForUser (conn: Conn) (userId: int64) : Room option =
-        conn.QueryOne(selectForUser + " ORDER BY \"rooms\".\"id\" DESC LIMIT 1", [| I userId |], fromRow)
-
-    // Memberships
-
-    let memberships (conn: Conn) (room: Room) : Membership list = Membership.forRoom conn room.Id
-
-    /// `Membership.insert_all(... { room_id:, user_id:, involvement: })`
-    let private insertMemberships (tx: Tx) (roomId: int64) (involvement: string) (userIds: int64 list) : unit =
-        // In batches: SQLite binds at most 32,766 variables per statement, 3 per row here.
-        for batch in List.chunkBySize MembershipInsertBatch userIds do
-            let rows = batch |> List.map (fun _ -> $"({Time.SqliteNow}, ?, ?, {Time.SqliteNow}, ?)")
-            let sql =
-                "INSERT INTO \"memberships\" (\"created_at\",\"involvement\",\"room_id\",\"updated_at\",\"user_id\") VALUES "
-                + String.concat ", " rows
-                + " ON CONFLICT  DO NOTHING RETURNING \"id\""
-            let values = batch |> List.collect (fun userId -> [ S involvement; I roomId; I userId ]) |> Array.ofList
-            tx.Conn.ExecuteUncached(sql, values) |> ignore
-
-    /// `memberships.grant_to(users)`: `Membership.insert_all` with the room's default
-    /// involvement, skipping existing members.
-    let grantTo (tx: Tx) (room: Room) (userIds: int64 list) : unit =
-        insertMemberships tx room.Id (RoomType.defaultInvolvement room.RoomType) userIds
-
-    /// `memberships.grant_to(User.active)`, from `Rooms::Open`'s `after_save_commit`.
-    let private grantToActiveUsers (tx: Tx) (roomId: int64) : unit =
-        let userIds = tx.Conn.QueryAll("""SELECT "users"."id" FROM "users" WHERE "users"."status" = ?""", [| I 0L |], fun r -> r.Int64 0)
-        let room = find tx.Conn roomId
-        insertMemberships tx roomId (RoomType.defaultInvolvement room.RoomType) userIds
-
-    // Creating
-
-    /// `Rooms::<Type>.create!(name:, creator:)`. An open room grants itself to every active
-    /// user after commit (`Rooms::Open#grant_access_to_all_users`).
-    let create (tx: Tx) (roomType: RoomType) (name: string option) (creatorId: int64) : Room =
-        let now = tx.Now()
-        let id =
-            tx.Conn.QueryRow(
-                """INSERT INTO "rooms" ("created_at", "creator_id", "name", "type", "updated_at") VALUES (?, ?, ?, ?, ?) RETURNING "id" """,
-                [| T now; I creatorId; Sql.optS name; RoomType.toSql roomType; T now |],
-                fun r -> r.Int64 0
-            )
-        if roomType = Open then tx.AfterCommit(fun tx -> grantToActiveUsers tx id)
-        find tx.Conn id
-
-    /// `Room.create_for(attributes, users:)`
-    let createFor (tx: Tx) (roomType: RoomType) (name: string option) (creatorId: int64) (userIds: int64 list) : Room =
-        let room = create tx roomType name creatorId
-        grantTo tx room userIds
-        room
-
-    /// `room.user_ids`
-    let userIds (conn: Conn) (room: Room) : int64 list =
-        conn.QueryAll(
-            """SELECT "users"."id" FROM "users" INNER JOIN "memberships" ON "users"."id" = "memberships"."user_id" WHERE "memberships"."room_id" = ?""",
-            [| I room.Id |],
-            fun r -> r.Int64 0
-        )
-
-    /// `Rooms::Direct.find_for`: walks the direct rooms (joined to their users, as Rails
-    /// does, so rooms repeat) and returns the first with the same set of members.
-    let findDirectFor (conn: Conn) (userIds': int64 list) : Room option =
-        let wanted = Set.ofList userIds'
-        let candidates =
-            conn.QueryAll(
-                "SELECT "
-                + Columns.Room
-                + " FROM \"rooms\" INNER JOIN \"memberships\" ON \"memberships\".\"room_id\" = \"rooms\".\"id\" INNER JOIN \"users\" ON \"users\".\"id\" = \"memberships\".\"user_id\" WHERE \"rooms\".\"type\" = ?",
-                [| RoomType.toSql Direct |],
-                fromRow
-            )
-        candidates |> List.tryFind (fun room -> Set.ofList (userIds conn room) = wanted)
-
-    /// `Rooms::Direct.find_or_create_for(users)`: the direct room whose members are exactly
-    /// `user_ids`, created (by `creator_id`, i.e. `Current.user`) if there isn't one.
-    let findOrCreateDirectFor (tx: Tx) (userIds: int64 list) (creatorId: int64) : Room =
-        match findDirectFor tx.Conn userIds with
-        | Some room -> room
-        | None -> createFor tx Direct None creatorId userIds
-
-    // Updating
-
-    /// `room.update!(name:, type:)`. A direct room can't change type
-    /// (`direct_rooms_keep_their_type`). Becoming open grants every active user after commit.
-    let update (tx: Tx) (room: Room) (name: string option option) (roomType: RoomType option) : Room =
-        let name = name |> Option.filter (fun n -> n <> room.Name)
-        let roomType = roomType |> Option.filter (fun t -> t <> room.RoomType)
-        if roomType.IsSome && room.RoomType = Direct then
-            Err.validate (Errors.empty |> Errors.add "type" "can't be changed for a direct room")
-        if name.IsNone && roomType.IsNone then
-            room
-        else
-            let now = tx.Now()
-            let updated =
-                { room with
-                    Name = (match name with Some n -> n | None -> room.Name)
-                    RoomType = defaultArg roomType room.RoomType
-                    UpdatedAt = now }
-            tx.Conn.Execute(
-                """UPDATE "rooms" SET "name" = ?, "type" = ?, "updated_at" = ? WHERE "rooms"."id" = ?""",
-                [| Sql.optS updated.Name; RoomType.toSql updated.RoomType; T now; I room.Id |]
-            )
-            |> ignore
-            if roomType = Some Open then
-                let id = room.Id
-                tx.AfterCommit(fun tx -> grantToActiveUsers tx id)
-            updated
-
-    /// `touch`: `belongs_to :room, touch: true` on messages.
-    let touch (tx: Tx) (roomId: int64) : unit =
-        tx.Conn.Execute("""UPDATE "rooms" SET "updated_at" = ? WHERE "rooms"."id" = ?""", [| T(tx.Now()); I roomId |]) |> ignore
-
-    /// `room.destroy`: memberships are deleted without callbacks, messages are destroyed.
-    let destroy (tx: Tx) (room: Room) : unit =
-        tx.Conn.Execute("""DELETE FROM "memberships" WHERE "memberships"."room_id" = ?""", [| I room.Id |]) |> ignore
-        for message in Message.forRoom tx.Conn room.Id do
-            Message.destroy tx message
-        tx.Conn.Execute("""DELETE FROM "rooms" WHERE "rooms"."id" = ?""", [| I room.Id |]) |> ignore
-
-    /// `memberships.revoke_from(users)`: `destroy_by`, so each removed member is disconnected
-    /// (with reconnect) after commit.
-    let revokeFrom (tx: Tx) (room: Room) (userIds: int64 list) : unit =
-        let sql =
-            Selects.Membership
-            + " WHERE \"memberships\".\"room_id\" = ? AND \"memberships\".\"user_id\" IN ("
-            + Sql.placeholders (List.length userIds)
-            + ")"
-        let values = Array.ofList (I room.Id :: (userIds |> List.map I))
-        for membership in tx.Conn.QueryAll(sql, values, Membership.fromRow) do
-            Membership.destroy tx membership
-
-    /// `memberships.revise(granted:, revoked:)`
-    let revise (tx: Tx) (room: Room) (granted: int64 list) (revoked: int64 list) : unit =
-        if not (List.isEmpty granted) then grantTo tx room granted
-        if not (List.isEmpty revoked) then revokeFrom tx room revoked
+    [<Literal>]
+    let private usersJoin =
+        Selects.User + " INNER JOIN \"memberships\" ON \"users\".\"id\" = \"memberships\".\"user_id\" WHERE \"memberships\".\"room_id\" = ?"
 
     /// `room.users`
-    let users (conn: Conn) (room: Room) : User list = conn.QueryAll(usersJoin, [| I room.Id |], User.fromRow)
+    let usersLegacy (conn: Conn) (room: Room) : User list = conn.QueryAll(usersJoin, [| I room.Id |], User.fromRow)
 
     /// `room.users.active_bots`
-    let activeBots (conn: Conn) (room: Room) : User list =
+    let activeBotsLegacy (conn: Conn) (room: Room) : User list =
         conn.QueryAll(usersJoin + " AND \"users\".\"status\" = 0 AND \"users\".\"role\" = 2", [| I room.Id |], User.fromRow)
+
+    /// `touch`: `belongs_to :room, touch: true` on messages.
+    let touchLegacy (tx: Tx) (roomId: int64) : unit =
+        tx.Conn.Execute("""UPDATE "rooms" SET "updated_at" = ? WHERE "rooms"."id" = ?""", [| T(tx.Now()); I roomId |]) |> ignore
 
     let private unreadMemberships (tx: Tx) (roomId: int64) (message: Message) : unit =
         let now = tx.Now()
         tx.Conn.Execute(
             """UPDATE "memberships" SET "unread_at" = ?, "updated_at" = ? WHERE "memberships"."room_id" = ? AND "memberships"."involvement" != ? AND ("memberships"."connected_at" IS NULL OR "memberships"."connected_at" < ?) AND "memberships"."user_id" != ?""",
-            [| T message.CreatedAt; T now; I roomId; S "invisible"; T(Membership.connectionCutoff now); I message.CreatorId |]
+            [| T message.CreatedAt; T now; I roomId; S "invisible"; T(Membership.connectionCutoffLegacy now); I message.CreatorId |]
         )
         |> ignore
 
-    /// `room.receive(message)`, from the message's `after_create_commit`: marks members
-    /// unread, then enqueues the push.
-    let receive (tx: Tx) (roomId: int64) (message: Message) : unit =
+    /// `room.receive(message)`, from the message's `after_create_commit`: marks members unread, then enqueues the push.
+    let receiveLegacy (tx: Tx) (roomId: int64) (message: Message) : unit =
         unreadMemberships tx roomId message
         tx.EmitAfterCommit(PushMessage(roomId, message.Id))
 
-    let isOpen (room: Room) : bool = room.RoomType = Open
+    /// `room.destroy`'s `messages` (`dependent: :destroy`), on the old writer until unit 1.5a: the room's own write follows.
+    let destroyMessagesLegacy (tx: Tx) (roomId: int64) : unit =
+        for message in Message.forRoom tx.Conn roomId do
+            Message.destroy tx message
 
-    let isClosed (room: Room) : bool = room.RoomType = Closed
+    // ---- Finders and scopes (EF, LINQ)
 
-    let isDirect (room: Room) : bool = room.RoomType = Direct
+    let findById (db: Ef.CampfireDb) (id: int64) : Room option =
+        db.Rooms.Where(fun r -> r.Id = EF.Parameter id) |> Ef.Data.tryFirst
 
-    let defaultInvolvement (room: Room) : string = RoomType.defaultInvolvement room.RoomType
+    let find (db: Ef.CampfireDb) (id: int64) : Room = findById db id |> Err.orNotFound "Room"
 
-    let reload (conn: Conn) (room: Room) : Room = find conn room.Id
+    let all (db: Ef.CampfireDb) : Room list = db.Rooms.ToList() |> List.ofSeq
+
+    /// `Room.opens` / `closeds` / `directs`
+    let ofType (db: Ef.CampfireDb) (roomType: RoomType) : Room list =
+        db.Rooms.Where(fun r -> r.Type = EF.Parameter roomType).ToList() |> List.ofSeq
+
+    let countOfType (db: Ef.CampfireDb) (roomType: RoomType) : int64 =
+        db.Rooms.LongCount(fun r -> r.Type = EF.Parameter roomType)
+
+    /// `Room.original`: the oldest room.
+    let original (db: Ef.CampfireDb) : Room option = db.Rooms.OrderBy(fun r -> r.CreatedAt) |> Ef.Data.tryFirst
+
+    // `Current.user.rooms` and its scopes: the rooms of the user's memberships.
+
+    let private ofUser (db: Ef.CampfireDb) (userId: int64) : IQueryable<Room> =
+        db.Rooms.Join(db.Memberships.Where(fun m -> m.UserId = EF.Parameter userId), (fun r -> r.Id), (fun m -> m.RoomId), (fun r _ -> r))
+
+    /// `user.rooms`
+    let forUser (db: Ef.CampfireDb) (userId: int64) : Room list = (ofUser db userId).ToList() |> List.ofSeq
+
+    /// `user.rooms.find_by(id:)`
+    let findForUser (db: Ef.CampfireDb) (userId: int64) (roomId: int64) : Room option =
+        (ofUser db userId).Where(fun r -> r.Id = EF.Parameter roomId) |> Ef.Data.tryFirst
+
+    /// `user.rooms.directs` / `.opens` / `.closeds`
+    let forUserOfType (db: Ef.CampfireDb) (userId: int64) (roomType: RoomType) : Room list =
+        (ofUser db userId).Where(fun r -> r.Type = EF.Parameter roomType).ToList() |> List.ofSeq
+
+    /// `user.rooms.without_directs`
+    let forUserWithoutDirects (db: Ef.CampfireDb) (userId: int64) : Room list =
+        (ofUser db userId).Where(fun r -> r.Type <> RoomType.Direct).ToList() |> List.ofSeq
+
+    /// `user.rooms.original`
+    let originalForUser (db: Ef.CampfireDb) (userId: int64) : Room option =
+        (ofUser db userId).OrderBy(fun r -> r.CreatedAt) |> Ef.Data.tryFirst
+
+    /// `user.rooms.last`
+    let lastForUser (db: Ef.CampfireDb) (userId: int64) : Room option =
+        (ofUser db userId).OrderByDescending(fun r -> r.Id) |> Ef.Data.tryFirst
+
+    // ---- Memberships
+
+    let memberships (db: Ef.CampfireDb) (room: Room) : Membership list = Membership.forRoom db room.Id
+
+    /// `memberships.grant_to(users)`: `Membership.insert_all(... { room_id:, user_id:, involvement: })` stamps the rows with
+    /// SQLite's own clock (what `insert_all` does; LINQ has no `INSERT ... VALUES` with an expression, so this is SQL), skipping
+    /// members already there.
+    let private insertMemberships (tx: Ef.Tx) (roomId: int64) (involvement: Involvement) (userIds: int64 list) : unit =
+        // In batches: SQLite binds at most 32,766 variables per statement, 3 per row here.
+        for batch in List.chunkBySize MembershipInsertBatch userIds do
+            let rows =
+                batch
+                |> List.mapi (fun i _ ->
+                    $"(STRFTIME('%%Y-%%m-%%d %%H:%%M:%%f', 'NOW'), {{0}}, {{1}}, STRFTIME('%%Y-%%m-%%d %%H:%%M:%%f', 'NOW'), {{{i + 2}}})")
+            let format =
+                "INSERT INTO memberships (created_at, involvement, room_id, updated_at, user_id) VALUES "
+                + String.concat ", " rows
+                + " ON CONFLICT DO NOTHING"
+            let args: (obj | null) array =
+                Array.ofList (box (Ef.Names.involvementToDb involvement) :: box roomId :: (batch |> List.map box))
+                |> Array.map (fun o -> o)
+            tx.Db.Database.ExecuteSql(FormattableStringFactory.Create(format, args)) |> ignore
+
+    /// `memberships.grant_to(users)`: with the room's default involvement.
+    let grantTo (tx: Ef.Tx) (room: Room) (userIds: int64 list) : unit =
+        insertMemberships tx room.Id (RoomType.defaultInvolvement room.Type) userIds
+
+    /// `memberships.grant_to(User.active)`, from `Rooms::Open`'s `after_save_commit`: one `INSERT ... SELECT`.
+    let private grantToActiveUsers (tx: Ef.Tx) (roomId: int64) : unit =
+        let involvement = Ef.Names.involvementToDb (RoomType.defaultInvolvement RoomType.Open)
+        tx.Db.Database.ExecuteSql(
+            $"INSERT INTO memberships (created_at, involvement, room_id, updated_at, user_id) SELECT STRFTIME('%%Y-%%m-%%d %%H:%%M:%%f', 'NOW'), {involvement}, {roomId}, STRFTIME('%%Y-%%m-%%d %%H:%%M:%%f', 'NOW'), users.id FROM users WHERE users.status = 0 ON CONFLICT DO NOTHING"
+        )
+        |> ignore
+
+    // ---- Creating
+
+    /// `Rooms::<Type>.create!(name:, creator:)`. An open room grants itself to every active user after commit
+    /// (`Rooms::Open#grant_access_to_all_users`).
+    let create (tx: Ef.Tx) (roomType: RoomType) (name: string option) (creatorId: int64) : Room =
+        let room =
+            Ef.Data.insert
+                tx.Db
+                { Id = 0L
+                  Name = Option.toObj name
+                  Type = roomType
+                  CreatorId = creatorId
+                  CreatedAt = DateTime.MinValue
+                  UpdatedAt = DateTime.MinValue }
+        if roomType = RoomType.Open then
+            let id = room.Id
+            tx.AfterCommit(fun tx -> grantToActiveUsers tx id)
+        room
+
+    /// `Room.create_for(attributes, users:)`
+    let createFor (tx: Ef.Tx) (roomType: RoomType) (name: string option) (creatorId: int64) (userIds: int64 list) : Room =
+        let room = create tx roomType name creatorId
+        grantTo tx room userIds
+        room
+
+    /// `room.user_ids`
+    let userIds (db: Ef.CampfireDb) (room: Room) : int64 list =
+        let id = room.Id
+        db.Memberships.Where(fun m -> m.RoomId = EF.Parameter id).Select(fun m -> m.UserId).ToList() |> List.ofSeq
+
+    /// `Rooms::Direct.find_for`: the direct room whose members are exactly `userIds'` (candidates are the first user's directs).
+    let findDirectFor (db: Ef.CampfireDb) (userIds': int64 list) : Room option =
+        match userIds' with
+        | [] -> None
+        | first :: _ ->
+            let wanted = Set.ofList userIds'
+            forUserOfType db first RoomType.Direct |> List.tryFind (fun room -> Set.ofList (userIds db room) = wanted)
+
+    /// `Rooms::Direct.find_or_create_for(users)`: the direct room whose members are exactly `user_ids`, created (by
+    /// `creator_id`, i.e. `Current.user`) if there isn't one.
+    let findOrCreateDirectFor (tx: Ef.Tx) (userIds: int64 list) (creatorId: int64) : Room =
+        match findDirectFor tx.Db userIds with
+        | Some room -> room
+        | None -> createFor tx RoomType.Direct None creatorId userIds
+
+    // ---- Updating
+
+    /// `room.update!(name:, type:)`. A direct room can't change type (`direct_rooms_keep_their_type`). Becoming open grants every
+    /// active user after commit.
+    let update (tx: Ef.Tx) (room: Room) (name: string option option) (roomType: RoomType option) : Room =
+        let name = name |> Option.filter (fun n -> n <> Option.ofObj room.Name)
+        let roomType = roomType |> Option.filter (fun t -> t <> room.Type)
+        if roomType.IsSome && room.Type = RoomType.Direct then
+            Err.validate (Errors.empty |> Errors.add "type" "can't be changed for a direct room")
+        if name.IsNone && roomType.IsNone then
+            room
+        else
+            let updated =
+                { room with
+                    Name = (match name with Some n -> Option.toObj n | None -> room.Name)
+                    Type = defaultArg roomType room.Type }
+            let saved = Ef.Data.update tx.Db room updated
+            if roomType = Some RoomType.Open then
+                let id = room.Id
+                tx.AfterCommit(fun tx -> grantToActiveUsers tx id)
+            saved
+
+    /// `room.destroy`'s own rows: memberships are deleted without callbacks (the messages go first, `destroyMessagesLegacy`).
+    let destroy (tx: Ef.Tx) (room: Room) : unit =
+        let id = room.Id
+        tx.Db.Memberships.Where(fun m -> m.RoomId = EF.Parameter id).ExecuteDelete() |> ignore
+        tx.Db.Rooms.Where(fun r -> r.Id = EF.Parameter id).ExecuteDelete() |> ignore
+
+    /// `memberships.revoke_from(users)`: `destroy_by`, so each removed member is disconnected (with reconnect) after commit.
+    let revokeFrom (tx: Ef.Tx) (room: Room) (userIds: int64 list) : unit =
+        let id = room.Id
+        let ids = Array.ofList userIds
+        let revoked =
+            tx.Db.Memberships.Where(fun m -> m.RoomId = EF.Parameter id && Enumerable.Contains(EF.Parameter ids, m.UserId)).ToList()
+        for membership in revoked do
+            Membership.destroy tx membership
+
+    /// `memberships.revise(granted:, revoked:)`
+    let revise (tx: Ef.Tx) (room: Room) (granted: int64 list) (revoked: int64 list) : unit =
+        if not (List.isEmpty granted) then grantTo tx room granted
+        if not (List.isEmpty revoked) then revokeFrom tx room revoked
+
+    let private members (db: Ef.CampfireDb) (room: Room) : IQueryable<User> =
+        let id = room.Id
+        db.Users.Join(db.Memberships.Where(fun m -> m.RoomId = EF.Parameter id), (fun u -> u.Id), (fun m -> m.UserId), (fun u _ -> u))
+
+    /// `room.users`
+    let users (db: Ef.CampfireDb) (room: Room) : User list = (members db room).ToList() |> List.ofSeq
+
+    /// `room.users.active_bots`
+    let activeBots (db: Ef.CampfireDb) (room: Room) : User list =
+        (members db room).Where(fun u -> u.Status = Status.Active && u.Role = Role.Bot).ToList() |> List.ofSeq
+
+    let isOpen (room: Room) : bool = room.Type = RoomType.Open
+
+    let isClosed (room: Room) : bool = room.Type = RoomType.Closed
+
+    let isDirect (room: Room) : bool = room.Type = RoomType.Direct
+
+    let defaultInvolvement (room: Room) : Involvement = RoomType.defaultInvolvement room.Type
+
+    let reload (db: Ef.CampfireDb) (room: Room) : Room = find db room.Id
 
 // ---------------------------------------------------------------------------------------------
 // Message
@@ -1183,7 +1104,7 @@ module Message =
 
     // Attributes and associations
 
-    let room (conn: Conn) (message: Message) : Room = Room.find conn message.RoomId
+    let room (conn: Conn) (message: Message) : Room = Room.findLegacy conn message.RoomId
 
     let creator (conn: Conn) (message: Message) : User = User.findLegacy conn message.CreatorId
 
@@ -1304,19 +1225,19 @@ module Message =
             touched <- true
         | None -> ()
         if touched then message <- { message with UpdatedAt = touchRow tx id }
-        Room.touch tx message.RoomId
+        Room.touchLegacy tx message.RoomId
 
         let committed = message
         tx.AfterCommit(fun tx ->
             createInIndex tx committed
-            Room.receive tx committed.RoomId committed)
+            Room.receiveLegacy tx committed.RoomId committed)
         message
 
     /// `touch` (from a boost, or the body): the message, then its room, then a reindex
     /// after commit.
     let touch (tx: Tx) (message: Message) : Message =
         let touched = { message with UpdatedAt = touchRow tx message.Id }
-        Room.touch tx message.RoomId
+        Room.touchLegacy tx message.RoomId
         let id = message.Id
         tx.AfterCommit(fun tx -> updateInIndex tx (find tx.Conn id))
         touched
@@ -1365,7 +1286,7 @@ module Message =
         | Some body -> RichTextRecord.delete tx body
         | None -> ()
         tx.Conn.Execute("""DELETE FROM "messages" WHERE "messages"."id" = ?""", [| I message.Id |]) |> ignore
-        Room.touch tx message.RoomId
+        Room.touchLegacy tx message.RoomId
         let id = message.Id
         tx.AfterCommit(fun tx -> removeFromIndex tx id)
 
@@ -1512,7 +1433,7 @@ module Webhook =
         (messagePath: string)
         : string =
         let creator = Message.creator conn message
-        let room = Room.find conn message.RoomId
+        let room = Room.findLegacy conn message.RoomId
         let recipient = User.findLegacy conn webhook.UserId
         let html = Message.bodyHtml conn message
         let plain = withoutRecipientMentions (Message.plainTextBody conn richText message) recipient
@@ -1526,7 +1447,7 @@ module Webhook =
         let body =
             Value.Object
                 [ "user", Value.Object [ "id", Value.Int creator.Id; "name", Value.String creator.Name ]
-                  "room", Value.Object [ "id", Value.Int room.Id; "name", optional room.Name; "path", Value.String roomBotMessagesPath ]
+                  "room", Value.Object [ "id", Value.Int room.Id; "name", optional (Option.ofObj room.Name); "path", Value.String roomBotMessagesPath ]
                   "message",
                   Value.Object
                       [ "id", Value.Int message.Id

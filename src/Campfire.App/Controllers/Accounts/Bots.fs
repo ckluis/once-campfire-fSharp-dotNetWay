@@ -50,7 +50,7 @@ module Bots =
             do! c.RespondTo [ Format.Html ] |> Result.map ignore
             let secrets = c.App.Secrets
             let! users = c.Read User.activeBotsOrdered
-            let! bots = c.App.ReadOffloaded(fun conn -> users |> List.map (Accounts.bot conn secrets))
+            let! bots = c.Read(fun db -> users |> List.map (Accounts.bot db secrets))
             return!
                 Page.framedPage
                     c

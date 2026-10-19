@@ -58,11 +58,11 @@ module Closeds =
             let! partials = RoomsController.renderSharedRoom c room
             let broadcasts = c.App.Broadcasts
             return!
-                c.App.Read(fun conn ->
+                c.Read(fun db ->
                     if update then
-                        broadcasts.ClosedRoomUpdate(conn, room, Rendered.partials partials)
+                        broadcasts.ClosedRoomUpdate(db, room, Rendered.partials partials)
                     else
-                        broadcasts.ClosedRoomCreate(conn, room, Rendered.partials partials))
+                        broadcasts.ClosedRoomCreate(db, room, Rendered.partials partials))
         }
 
     let create (c: Ctx) : Task<Result<Response, Error>> =
@@ -75,8 +75,8 @@ module Closeds =
             let granteeIds = RoomsController.userIdsParam c
             // Rooms::Closed.create_for(room_params, users: grantees)
             let! (room: Room) =
-                c.App.Write(fun tx ->
-                    let grantees = RoomsController.existingUserIds tx.Conn granteeIds
+                c.Write(fun tx ->
+                    let grantees = RoomsController.existingUserIds tx.Db granteeIds
                     Room.createFor tx RoomType.Closed name user.Id grantees)
             do! broadcastToMembers c room false
             return! RoomsController.redirectToRoom c room.Id
@@ -87,19 +87,19 @@ module Closeds =
             do! Concerns.beforeActions c Before.Default
             let! (room: Room) = RoomsController.setRoom c WithoutDirects
             // force_room_type
-            let room = { room with RoomType = RoomType.Closed }
+            let room = { room with Type = RoomType.Closed }
             let! (current: User) = Concerns.requireCurrentUser c
             let secrets = c.App.Secrets
             let roomId = room.Id
             let! selected, unselected =
-                c.App.ReadOffloaded(fun conn ->
-                    let selectedIds = Room.userIds conn (Room.find conn roomId)
+                c.Read(fun db ->
+                    let selectedIds = Room.userIds db (Room.find db roomId)
                     let selected, unselected =
-                        User.activeOrderedLegacy conn |> List.partition (fun user -> List.contains user.Id selectedIds)
+                        User.activeOrdered db |> List.partition (fun user -> List.contains user.Id selectedIds)
                     let views = List.map (PresenterSupport.userView secrets)
                     views selected, views unselected)
             let form: ClosedFormView =
-                { Room = { Id = Some room.Id; Name = room.Name }
+                { Room = { Id = Some room.Id; Name = Option.ofObj room.Name }
                   CanAdminister = User.canAdminister current (Some room.CreatorId) false
                   CurrentUserId = current.Id
                   SelectedUsers = selected
@@ -122,12 +122,12 @@ module Closeds =
             let! name = RoomsController.roomNameParam c
             let granteeIds = RoomsController.userIdsParam c
             // force_room_type, then `@room.update! room_params`
-            let! (room: Room) = c.App.Write(fun tx -> Room.update tx room name (Some RoomType.Closed))
+            let! (room: Room) = c.Write(fun tx -> Room.update tx room name (Some RoomType.Closed))
             // `@room.memberships.revise(granted: grantees, revoked: revokees)`
             do!
-                c.App.Write(fun tx ->
-                    let granted = RoomsController.existingUserIds tx.Conn granteeIds
-                    let revoked = Room.userIds tx.Conn room |> List.filter (fun id -> not (List.contains id granteeIds))
+                c.Write(fun tx ->
+                    let granted = RoomsController.existingUserIds tx.Db granteeIds
+                    let revoked = Room.userIds tx.Db room |> List.filter (fun id -> not (List.contains id granteeIds))
                     Room.revise tx room granted revoked)
             do! broadcastToMembers c room true
             return! RoomsController.redirectToRoom c room.Id

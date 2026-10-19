@@ -25,7 +25,7 @@ module CoreJobs =
                             match! app.Db.Write(fun tx -> Message.destroy tx message) with
                             | Error error -> failure <- Some(DbError.display error)
                             | Ok() ->
-                                match! app.Db.Read(fun conn -> Room.find conn message.RoomId) with
+                                match! app.Db.Read(fun conn -> Room.findLegacy conn message.RoomId) with
                                 | Error error -> failure <- Some(DbError.display error)
                                 | Ok room -> app.Broadcasts.MessageRemove(room, message)
                     return match failure with Some failure -> Error failure | None -> Ok()

@@ -128,7 +128,7 @@ module IntegrationJobs =
                     db.Read(fun conn ->
                         let bot = User.findLegacy conn botId
                         let message = Message.find conn messageId
-                        let room = Room.find conn message.RoomId
+                        let room = Room.findLegacy conn message.RoomId
                         match Webhook.findByUser conn botId with
                         | None -> None
                         | Some webhook ->

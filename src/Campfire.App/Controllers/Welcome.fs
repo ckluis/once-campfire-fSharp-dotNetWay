@@ -19,7 +19,7 @@ module Welcome =
         act {
             do! Concerns.beforeActions c Before.Default
             let! user = Concerns.requireCurrentUser c
-            let! anyRooms = c.App.Read(fun conn -> not (List.isEmpty (Room.forUser conn user.Id)))
+            let! anyRooms = c.Read(fun db -> not (List.isEmpty (Room.forUser db user.Id)))
             if anyRooms then
                 // `redirect_to room_url(last_room_visited)`
                 let! (lastRoom: Room option) = Concerns.lastRoomVisited c

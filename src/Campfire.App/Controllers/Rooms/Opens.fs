@@ -27,7 +27,7 @@ module Opens =
     /// `User.active.ordered`
     let activeUsers (c: Ctx) : Task<Result<Campfire.Views.Messages.UserView list, Error>> =
         let secrets = c.App.Secrets
-        c.App.ReadOffloaded(fun conn -> User.activeOrderedLegacy conn |> List.map (PresenterSupport.userView secrets))
+        c.Read(fun db -> User.activeOrdered db |> List.map (PresenterSupport.userView secrets))
 
     let show (c: Ctx) : Task<Result<Response, Error>> =
         act {
@@ -64,7 +64,7 @@ module Opens =
             let name = Option.flatten name
             let! (user: User) = Concerns.requireCurrentUser c
             // Rooms::Open.create_for(room_params, users: Current.user)
-            let! (room: Room) = c.App.Write(fun tx -> Room.createFor tx RoomType.Open name user.Id [ user.Id ])
+            let! (room: Room) = c.Write(fun tx -> Room.createFor tx RoomType.Open name user.Id [ user.Id ])
             let! partials = RoomsController.renderSharedRoom c room
             c.App.Broadcasts.OpenRoomCreate(room, Rendered.partials partials)
             return! RoomsController.redirectToRoom c room.Id
@@ -75,11 +75,11 @@ module Opens =
             do! Concerns.beforeActions c Before.Default
             let! (room: Room) = RoomsController.setRoom c WithoutDirects
             // force_room_type
-            let room = { room with RoomType = RoomType.Open }
+            let room = { room with Type = RoomType.Open }
             let! (user: User) = Concerns.requireCurrentUser c
             let! users = activeUsers c
             let form: OpenFormView =
-                { Room = { Id = Some room.Id; Name = room.Name }
+                { Room = { Id = Some room.Id; Name = Option.ofObj room.Name }
                   CanAdminister = User.canAdminister user (Some room.CreatorId) false
                   Users = users }
             return!
@@ -99,7 +99,7 @@ module Opens =
             do! RoomsController.ensureCanAdminister c room
             let! name = RoomsController.roomNameParam c
             // force_room_type, then `@room.update! room_params` saves the name and the new type.
-            let! (room: Room) = c.App.Write(fun tx -> Room.update tx room name (Some RoomType.Open))
+            let! (room: Room) = c.Write(fun tx -> Room.update tx room name (Some RoomType.Open))
             let! partials = RoomsController.renderSharedRoom c room
             c.App.Broadcasts.OpenRoomUpdate(room, Rendered.partials partials)
             return! RoomsController.redirectToRoom c room.Id

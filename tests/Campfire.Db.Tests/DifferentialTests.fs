@@ -53,7 +53,7 @@ let private runScenario (t: TestDb) : unit =
     let m2 = t.Write(fun tx -> Message.create tx (message "hq" "jason" "Doomed" "s2"))
     t.Write(fun tx -> Boost.create tx m2.Id (id "david") "x" |> ignore)
     t.Write(fun tx -> Message.destroy tx (Message.find tx.Conn m2.Id))
-    t.Write(fun tx -> Membership.destroy tx (Membership.find tx.Conn (id "kevin_designers")))
+    t.WriteEf(fun tx -> Membership.destroy tx (Membership.find tx.Db (id "kevin_designers")))
     t.WriteEf(fun tx ->
         User.create
             tx
@@ -61,18 +61,18 @@ let private runScenario (t: TestDb) : unit =
                 EmailAddress = Some "u@example.com"
                 PasswordDigest = Some(PasswordDigest.create "secret123456" 4) }
         |> ignore)
-    t.Write(fun tx -> Room.create tx Open (Some "Open!") (id "david") |> ignore)
-    t.Write(fun tx -> Room.createFor tx Closed (Some "Hello!") (id "david") [ id "kevin"; id "david" ] |> ignore)
-    t.Write(fun tx -> Room.update tx (Room.find tx.Conn (id "watercooler")) None (Some Open) |> ignore)
-    t.Write(fun tx -> Room.update tx (Room.find tx.Conn (id "pets")) (Some(Some "Pets2")) None |> ignore)
-    t.Write(fun tx -> Membership.updateInvolvement tx (Membership.find tx.Conn (id "jason_pets")) (Some Invisible) |> ignore)
-    t.Write(fun tx ->
-        Membership.find tx.Conn (id "david_hq")
+    t.WriteEf(fun tx -> Room.create tx RoomType.Open (Some "Open!") (id "david") |> ignore)
+    t.WriteEf(fun tx -> Room.createFor tx RoomType.Closed (Some "Hello!") (id "david") [ id "kevin"; id "david" ] |> ignore)
+    t.WriteEf(fun tx -> Room.update tx (Room.find tx.Db (id "watercooler")) None (Some RoomType.Open) |> ignore)
+    t.WriteEf(fun tx -> Room.update tx (Room.find tx.Db (id "pets")) (Some(Some "Pets2")) None |> ignore)
+    t.WriteEf(fun tx -> Membership.updateInvolvement tx (Membership.find tx.Db (id "jason_pets")) (Some Involvement.Invisible) |> ignore)
+    t.WriteEf(fun tx ->
+        Membership.find tx.Db (id "david_hq")
         |> Membership.connected tx
         |> Membership.connected tx
         |> Membership.disconnected tx
         |> ignore)
-    t.Write(fun tx -> Room.findOrCreateDirectFor tx [ id "jz"; id "kevin" ] (id "david") |> ignore)
+    t.WriteEf(fun tx -> Room.findOrCreateDirectFor tx [ id "jz"; id "kevin" ] (id "david") |> ignore)
     t.WriteEf(fun tx -> Session.start tx (id "kevin") (Some "x") (Some "8.8.8.8") |> ignore)
     t.WriteEf(fun tx -> User.ban tx (User.find tx.Db (id "kevin")) |> ignore)
     t.WriteEf(fun tx -> User.unban tx (User.find tx.Db (id "kevin")) |> ignore)

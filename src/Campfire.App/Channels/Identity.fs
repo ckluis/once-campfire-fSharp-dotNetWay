@@ -26,6 +26,8 @@ type Deps =
     { Db: Database
       /// EF Core beside the old `Db` until unit 1.11: the connection's session and user lookup uses it.
       DbFactory: Microsoft.EntityFrameworkCore.IDbContextFactory<Campfire.Db.Ef.CampfireDb>
+      /// The write environment for the channels that write (presence); the gate is `Db.Gate`.
+      Env: Campfire.Db.Ef.Env
       Secrets: Secrets
       Clock: SharedClock }
 
@@ -33,7 +35,7 @@ module Gid =
     let userGid (userId: int64) : GlobalId = GlobalId.create "User" (string userId)
 
     /// A room's GlobalID names its STI class (`gid://campfire/Rooms::Open/1`).
-    let roomGid (room: Room) : GlobalId = GlobalId.create (RoomType.className room.RoomType) (string room.Id)
+    let roomGid (room: Room) : GlobalId = GlobalId.create (RoomType.className room.Type) (string room.Id)
 
     /// `connection_gid`: the user's GlobalID, which `remote_connections.where(current_user:)` matches.
     let connectionIdentifier (user: CableUser) : string = string (userGid user.Id)

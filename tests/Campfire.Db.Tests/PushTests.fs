@@ -44,13 +44,13 @@ let ``notifies subscribed users`` () =
 [<Fact>]
 let ``does not notify for connected rooms`` () =
     use t = new TestDb()
-    t.Write(fun tx -> Membership.find tx.Conn (id "kevin_designers") |> Membership.connected tx |> ignore)
+    t.WriteEf(fun tx -> Membership.find tx.Db (id "kevin_designers") |> Membership.connected tx |> ignore)
     Assert.Equal(2, deliveries t "designers" "Hey @Kevin" [ id "kevin" ])
 
 [<Fact>]
 let ``does not notify for invisible rooms`` () =
     use t = new TestDb()
-    t.Write(fun tx -> Membership.updateInvolvement tx (Membership.find tx.Conn (id "kevin_designers")) (Some Invisible) |> ignore)
+    t.WriteEf(fun tx -> Membership.updateInvolvement tx (Membership.find tx.Db (id "kevin_designers")) (Some Involvement.Invisible) |> ignore)
     Assert.Equal(2, deliveries t "designers" "Hey @Kevin" [ id "kevin" ])
 
 [<Fact>]

@@ -9,6 +9,7 @@
 // directs) run without `set_room` and raise on the nil `@room`, as in the reference.
 namespace Campfire.App.Controllers
 
+open System
 open System.Threading.Tasks
 open Campfire.App
 open Campfire.App.Channels
@@ -32,8 +33,8 @@ module Scope =
     let includes (scope: Scope) (room: Room) : bool =
         match scope with
         | All -> true
-        | WithoutDirects -> room.RoomType <> RoomType.Direct
-        | Directs -> room.RoomType = RoomType.Direct
+        | WithoutDirects -> room.Type <> RoomType.Direct
+        | Directs -> room.Type = RoomType.Direct
 
 module RoomsController =
     module ShowPage = Campfire.Views.Templates.Rooms.ShowPage
@@ -54,7 +55,7 @@ module RoomsController =
                 | id -> id
             let! (room: Room option) =
                 match (match id with null -> None | id -> Ruby.integerCast id) with
-                | Some id -> c.App.Read(fun conn -> Room.findForUser conn user.Id id)
+                | Some id -> c.Read(fun db -> Room.findForUser db user.Id id)
                 | None -> Task.FromResult(Ok None)
             match room |> Option.filter (Scope.includes scope) with
             | Some room -> return room
@@ -78,7 +79,7 @@ module RoomsController =
     let ensurePermissionToCreateRooms (c: Ctx) : Task<Result<unit, Error>> =
         act {
             let! (user: User) = Concerns.requireCurrentUser c
-            let! account = c.App.Read(fun conn -> Account.firstLegacy conn)
+            let! account = c.Read Account.first
             let restricted =
                 account
                 |> Option.exists (fun account -> AccountSettings.restrictRoomCreationToAdministrators (Account.settings account))
@@ -114,7 +115,7 @@ module RoomsController =
         | ValueNone -> []
 
     /// `User.where(id: ids)`, as ids of existing users (in id order, like the query).
-    let existingUserIds (conn: Conn) (ids: int64 list) : int64 list = User.whereIdsLegacy conn ids |> List.map (fun user -> user.Id)
+    let existingUserIds (db: Campfire.Db.Ef.CampfireDb) (ids: int64 list) : int64 list = User.whereIds db ids |> List.map (fun user -> user.Id)
 
     /// Renders `users/sidebars/rooms/_shared` for `room` outside a request.
     let renderSharedRoom (c: Ctx) (room: Room) : Task<Result<Rendered, Error>> =
@@ -135,6 +136,7 @@ module RoomsController =
             let! (user: User) = Concerns.requireCurrentUser c
             let messageId = match c.ParamStr "message_id" with null -> None | id -> Ruby.integerCast id
             let requestHost = Some c.Request.Host
+            let! original = c.Read(fun db -> Room.original db |> Option.exists (fun original -> original.Id = room.Id))
             let! show =
                 app.Read(fun conn ->
                     let messages =
@@ -142,10 +144,9 @@ module RoomsController =
                         | Some message when message.RoomId = room.Id -> Message.pageAround conn room.Id message
                         | _ -> Message.lastPage conn room.Id
                     let presenter = Presenter(conn, app, requestHost)
-                    let original = Room.original conn |> Option.exists (fun original -> original.Id = room.Id)
                     let roomGid = Campfire.RailsCompat.GlobalId.toParam (Gid.roomGid room)
                     ({ Room = presenter.RoomView(room, user)
-                       UpdatedAt = room.UpdatedAt.ToDateTimeOffset()
+                       UpdatedAt = DateTimeOffset(room.UpdatedAt)
                        User = PresenterSupport.userView app.Secrets user
                        // The page's message fragments come from the store the render then uses.
                        Messages = FragmentCache.withCache app.FragmentCache (fun () -> presenter.Messages messages)
@@ -164,7 +165,9 @@ module RoomsController =
 
     let destroyRoom (c: Ctx) (room: Room) : Task<Result<Response, Error>> =
         act {
-            do! c.App.Write(fun tx -> Room.destroy tx room)
+            // The messages go on the port's writer first (unit 1.5a moves them), then the room's own rows on EF's.
+            do! c.App.Write(fun tx -> Room.destroyMessagesLegacy tx room.Id)
+            do! c.Write(fun tx -> Room.destroy tx room)
             // broadcast_remove_to :rooms, target: [ @room, :list ]
             c.App.Broadcasts.RoomRemove room
             return! redirectToRoot c
@@ -178,7 +181,7 @@ module RoomsController =
         act {
             do! Concerns.beforeActions c Before.Default
             let! (user: User) = Concerns.requireCurrentUser c
-            let! (room: Room option) = c.App.Read(fun conn -> Room.lastForUser conn user.Id)
+            let! (room: Room option) = c.Read(fun db -> Room.lastForUser db user.Id)
             match room with
             | None -> return! Error(Internal(exn "No route matches room_url(nil)"))
             | Some room -> return! c.RedirectTo(c.UrlFor(Routes.room room.Id))

@@ -44,7 +44,7 @@ module BroadcastNames =
 
     /// `Room.model_name.param_key` for the room's STI class: `Rooms::Open` is `rooms_open`.
     let roomParamKey (room: Room) : string =
-        (RoomType.className room.RoomType).Replace("::", "_").ToLowerInvariant()
+        (RoomType.className room.Type).Replace("::", "_").ToLowerInvariant()
 
     /// `dom_id(room, prefix)`.
     let roomDomId (room: Room) (prefix: string) : string = domId (roomParamKey room) room.Id (Some prefix)
@@ -95,7 +95,7 @@ type Broadcasts(server: Cable) =
     member _.UnreadRoom(conn: Conn, room: Room) : unit =
         // The same message to every member's stream: encoded once.
         let json = System.Text.Encoding.UTF8.GetBytes(Json.encode (Value.Object [ "roomId", Value.Int room.Id ]))
-        for membership in Membership.forRoom conn room.Id do
+        for membership in Membership.forRoomLegacy conn room.Id do
             server.BroadcastEncoded(UnreadRooms.streamNameFor membership.UserId, System.ReadOnlySpan json) |> ignore
 
     /// `message.broadcast_remove`: MessagesController#destroy and `User#remove_banned_content`.
@@ -142,23 +142,23 @@ type Broadcasts(server: Cable) =
 
     /// Rooms::ClosedsController#create: render once, prepend to each member's own stream
     /// (`room.users`).
-    member this.ClosedRoomCreate(conn: Conn, room: Room, partials: IPartials) : unit =
+    member this.ClosedRoomCreate(db: Ef.CampfireDb, room: Room, partials: IPartials) : unit =
         let html = partials.SharedRoom room
-        for userId in Room.userIds conn room do
+        for userId in Room.userIds db room do
             this.To(Broadcasts.UserRooms userId, Prepend, "shared_rooms", Some html, [])
 
     /// Rooms::ClosedsController#update: after `memberships.revise`, replace `[room, :list]` for
     /// each remaining member (`room` as a closed room).
-    member this.ClosedRoomUpdate(conn: Conn, room: Room, partials: IPartials) : unit =
+    member this.ClosedRoomUpdate(db: Ef.CampfireDb, room: Room, partials: IPartials) : unit =
         let html = partials.SharedRoom room
         let target = BroadcastNames.roomDomId room "list"
-        for userId in Room.userIds conn room do
+        for userId in Room.userIds db room do
             this.To(Broadcasts.UserRooms userId, Replace, target, Some html, [])
 
     /// Rooms::DirectsController#create: prepend `users/sidebars/rooms/_direct` to each member's
     /// `direct_rooms`, rendered per membership.
-    member this.DirectRoomCreate(conn: Conn, room: Room, partials: IPartials) : unit =
-        for membership in Room.memberships conn room do
+    member this.DirectRoomCreate(db: Ef.CampfireDb, room: Room, partials: IPartials) : unit =
+        for membership in Room.memberships db room do
             let html = partials.DirectRoom membership
             this.To(Broadcasts.UserRooms membership.UserId, Prepend, "direct_rooms", Some html, [])
 

@@ -12,6 +12,7 @@ namespace Campfire.App.Presenters
 open System
 open System.Linq
 open System.Text
+open Microsoft.EntityFrameworkCore
 open Campfire.App
 open Campfire.Db
 open Campfire.Kit
@@ -72,31 +73,31 @@ module Accounts =
           AttachableSgid = attachableSgid secrets user.Id }
 
     /// `room_display_name(room, for_user:)`: a direct room is named after its other members.
-    let roomDisplayName (conn: Conn) (room: Room) (forUser: User) : string =
+    let roomDisplayName (db: Campfire.Db.Ef.CampfireDb) (room: Room) (forUser: User) : string =
         let names =
             if Room.isDirect room then
-                Room.users conn room |> List.filter (fun user -> user.Id <> forUser.Id) |> List.map (fun user -> user.Name)
+                Room.users db room |> List.filter (fun user -> user.Id <> forUser.Id) |> List.map (fun user -> user.Name)
             else
                 []
-        Rooms.roomDisplayName room.Name (Room.isDirect room) names (Some forUser.Name)
+        Rooms.roomDisplayName (Option.ofObj room.Name) (Room.isDirect room) names (Some forUser.Name)
 
     /// `Room.model_name.param_key` for the room's STI class.
     let roomParamKey (roomType: RoomType) : string =
         match roomType with
-        | Open -> "rooms_open"
-        | Closed -> "rooms_closed"
-        | Direct -> "rooms_direct"
+        | RoomType.Open -> "rooms_open"
+        | RoomType.Closed -> "rooms_closed"
+        | _ -> "rooms_direct"
 
     /// Users::ProfilesController#show: `Current.user.memberships.with_ordered_room.partition { |m| m.room.direct? }`,
     /// returned as `(direct, shared)`.
-    let profileMemberships (conn: Conn) (user: User) : ProfileMembership list * ProfileMembership list =
+    let profileMemberships (db: Campfire.Db.Ef.CampfireDb) (user: User) : ProfileMembership list * ProfileMembership list =
         let views =
-            Membership.withOrderedRoom conn user.Id
+            Membership.withOrderedRoom db user.Id
             |> List.map (fun (membership, room) ->
                 { RoomId = room.Id
-                  RoomParamKey = roomParamKey room.RoomType
-                  RoomDisplayName = roomDisplayName conn room user
-                  Involvement = membership.Involvement |> Option.map Involvement.name |> Option.defaultValue ""
+                  RoomParamKey = roomParamKey room.Type
+                  RoomDisplayName = roomDisplayName db room user
+                  Involvement = (if membership.Involvement.HasValue then Involvement.name membership.Involvement.Value else "")
                   Direct = Room.isDirect room })
         let direct, shared = views |> List.partition (fun view -> view.Direct)
         direct, shared
@@ -108,67 +109,70 @@ module Accounts =
     let DirectPlaceholders = 20L
 
     /// `users/sidebars/rooms/_direct` locals: `room.users.without(membership.user).presence || [ membership.user ]`.
-    let sidebarDirect (conn: Conn) (secrets: Secrets) (membership: Membership) (room: Room) : SidebarDirect =
-        let users = Room.users conn room
+    let sidebarDirect (db: Campfire.Db.Ef.CampfireDb) (secrets: Secrets) (membership: Membership) (room: Room) : SidebarDirect =
+        let users = Room.users db room
         let members =
             match users |> List.filter (fun user -> user.Id <> membership.UserId) with
-            | [] -> [ User.findLegacy conn membership.UserId ]
+            | [] -> [ User.find db membership.UserId ]
             | others -> others
         { RoomId = room.Id
           Unread = Membership.unread membership
-          UpdatedAtEpoch = Common.epochString room.UpdatedAt
+          UpdatedAtEpoch = Common.epochStringOf room.UpdatedAt
           Members = members |> List.map (Common.userSummary secrets)
           MembershipId = membership.Id
-          MembershipUpdatedAt = membership.UpdatedAt.ToDateTimeOffset() }
+          MembershipUpdatedAt = DateTimeOffset(membership.UpdatedAt) }
 
     /// `find_direct_placeholder_users`. `exclude_user_ids` is `Membership.where(room_id: directs).pluck(:user_id).uniq`
     /// `.including(Current.user.id)`: `including` appends even when the id is already there, and the
     /// limit counts that duplicate.
-    let private directPlaceholderUsers (conn: Conn) (secrets: Secrets) (user: User) : UserSummary list =
-        let directRoomIds = Room.forUserOfType conn user.Id Direct |> List.map (fun room -> room.Id)
+    let private directPlaceholderUsers (db: Campfire.Db.Ef.CampfireDb) (secrets: Secrets) (user: User) : UserSummary list =
+        let directRoomIds = Room.forUserOfType db user.Id RoomType.Direct |> List.map (fun room -> room.Id) |> Array.ofList
         let excluded = ResizeArray<int64>()
-        if not directRoomIds.IsEmpty then
-            let sql =
-                $"""SELECT "memberships"."user_id" FROM "memberships" WHERE "memberships"."room_id" IN ({Sql.placeholders directRoomIds.Length})"""
-            for id in conn.QueryAll(sql, directRoomIds |> List.map I |> Array.ofList, fun r -> r.Int64 0) do
+        if directRoomIds.Length > 0 then
+            let memberIds =
+                db.Memberships.Where(fun m -> Enumerable.Contains(EF.Parameter directRoomIds, m.RoomId)).Select(fun m -> m.UserId).ToList()
+            for id in memberIds do
                 if not (excluded.Contains id) then excluded.Add id
         excluded.Add user.Id
-        // The limit goes in the SQL: under ORDER BY, SQLite recompiles a statement with a bound LIMIT
-        // every time it runs.
-        let limit = max (DirectPlaceholders - int64 excluded.Count) 0L
-        let sql =
-            $"""{User.Select} WHERE "users"."status" = 0 AND "users"."id" NOT IN ({Sql.placeholders excluded.Count}) ORDER BY "users"."created_at" ASC LIMIT {limit}"""
-        User.findBySql conn sql (excluded |> Seq.map I |> Array.ofSeq) |> List.map (Common.userSummary secrets)
+        let excludedIds = excluded.ToArray()
+        let limit = int (max (DirectPlaceholders - int64 excluded.Count) 0L)
+        db.Users
+            .Where(fun u -> u.Status = Campfire.Db.Status.Active && not (Enumerable.Contains(EF.Parameter excludedIds, u.Id)))
+            .OrderBy(fun u -> u.CreatedAt)
+            .Take(limit)
+            .ToList()
+        |> Seq.map (Common.userSummary secrets)
+        |> List.ofSeq
 
     /// Users::SidebarsController#show.
-    let sidebar (conn: Conn) (secrets: Secrets) (user: User) : Sidebar =
-        let allMemberships = Membership.visibleWithOrderedRoom conn user.Id
+    let sidebar (db: Campfire.Db.Ef.CampfireDb) (secrets: Secrets) (user: User) : Sidebar =
+        let allMemberships = Membership.visibleWithOrderedRoom db user.Id
 
         // `select { direct }.sort_by { |m| m.room.updated_at }.reverse`
         let direct =
             allMemberships
             |> List.filter (fun (_, room) -> Room.isDirect room)
-            |> List.sortBy (fun (_, room) -> room.UpdatedAt.Microsecond)
+            |> List.sortBy (fun (_, room) -> room.UpdatedAt)
             |> List.rev
 
         let directMemberships =
             direct
             |> List.map (fun (membership, room) ->
                 // `cache membership` wraps the whole partial: on a hit Rails loads none of its members.
-                match Users.cachedDirectRoomFragment membership.Id (membership.UpdatedAt.ToDateTimeOffset()) with
-                | null -> View(sidebarDirect conn secrets membership room)
+                match Users.cachedDirectRoomFragment membership.Id (DateTimeOffset(membership.UpdatedAt)) with
+                | null -> View(sidebarDirect db secrets membership room)
                 | html -> Cached html)
         let otherMemberships =
             allMemberships
             |> List.filter (fun (membership, _) -> not (direct |> List.exists (fun (d, _) -> d.Id = membership.Id)))
             |> List.map (fun (membership, room) ->
                 { Id = room.Id
-                  ParamKey = roomParamKey room.RoomType
-                  Name = defaultArg room.Name ""
+                  ParamKey = roomParamKey room.Type
+                  Name = defaultArg (Option.ofObj room.Name) ""
                   Unread = Membership.unread membership })
         { DirectMemberships = directMemberships
           OtherMemberships = otherMemberships
-          DirectPlaceholderUsers = directPlaceholderUsers conn secrets user }
+          DirectPlaceholderUsers = directPlaceholderUsers db secrets user }
 
     // --- Account ---------------------------------------------------------------------------------------
 
@@ -195,11 +199,11 @@ module Accounts =
         items |> List.map (fun item -> lower (name item), item) |> List.sortWith (fun (a, _) (b, _) -> compare a b) |> List.map snd
 
     /// A bot row for `accounts/bots/_bot`: its key and `bot.rooms.without_directs.ordered`.
-    let bot (conn: Conn) (secrets: Secrets) (bot: User) : Bot =
-        let rooms = Room.forUserWithoutDirects conn bot.Id |> sortByLowerName (fun room -> defaultArg room.Name "")
+    let bot (db: Campfire.Db.Ef.CampfireDb) (secrets: Secrets) (bot: User) : Bot =
+        let rooms = Room.forUserWithoutDirects db bot.Id |> sortByLowerName (fun room -> defaultArg (Option.ofObj room.Name) "")
         { User = Common.userSummary secrets bot
           BotKey = User.botKey bot
-          Rooms = rooms |> List.map (fun room -> { Id = room.Id; Name = defaultArg room.Name "" }) }
+          Rooms = rooms |> List.map (fun room -> { Id = room.Id; Name = defaultArg (Option.ofObj room.Name) "" }) }
 
     /// The fields `accounts/bots/_form` fills in: `image_tag bot.avatar` is the blob's absolute
     /// redirect URL.

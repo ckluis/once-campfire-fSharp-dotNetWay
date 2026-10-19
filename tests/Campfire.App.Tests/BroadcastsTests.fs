@@ -3,6 +3,7 @@
 // The broadcasts' streams, targets and markup, as delivered to subscribers.
 module Campfire.App.Tests.BroadcastsTests
 
+open System
 open System.Text.Json
 open System.Threading.Tasks
 open Xunit
@@ -131,12 +132,10 @@ let ``room list broadcasts`` () =
         // Closed rooms go to each member's own stream: jz is in designers, not the watercooler.
         let! designers = app.Room "designers"
         let! watercooler = app.Room "watercooler"
-        let! closed =
-            app.Db.Read(fun conn ->
-                app.Broadcasts.ClosedRoomCreate(conn, watercooler, fakePartials)
-                app.Broadcasts.ClosedRoomCreate(conn, designers, fakePartials)
-                app.Broadcasts.ClosedRoomUpdate(conn, designers, fakePartials))
-        ok closed
+        app.ReadEf(fun db ->
+            app.Broadcasts.ClosedRoomCreate(db, watercooler, fakePartials)
+            app.Broadcasts.ClosedRoomCreate(db, designers, fakePartials)
+            app.Broadcasts.ClosedRoomUpdate(db, designers, fakePartials))
         let! frame = jz.NextText()
         Assert.Equal(
             $"""<turbo-stream action="prepend" target="shared_rooms"><template><li>shared {designers.Id}</li></template></turbo-stream>""",
@@ -159,8 +158,7 @@ let ``direct room and involvement broadcasts`` () =
         let! _ = turbo app kevin [ ownRooms; "rooms" ]
 
         let! direct = app.Room "bender_and_kevin"
-        let! created = app.Db.Read(fun conn -> app.Broadcasts.DirectRoomCreate(conn, direct, fakePartials))
-        ok created
+        app.ReadEf(fun db -> app.Broadcasts.DirectRoomCreate(db, direct, fakePartials))
         let! membership = app.Membership("bender_and_kevin", "kevin")
         let membership = membership.Value
         let! frame = kevin.NextText()
@@ -175,23 +173,23 @@ let ``direct room and involvement broadcasts`` () =
         let membership = membership.Value
 
         // Direct rooms never change the list.
-        Assert.True((app.Broadcasts.InvolvementChange(direct, membership, Some Invisible, fakePartials)).IsOk)
+        Assert.True((app.Broadcasts.InvolvementChange(direct, membership, Some Involvement.Invisible, fakePartials)).IsOk)
         do! kevin.AssertSilent()
 
-        let membership = { membership with Involvement = Some Invisible }
-        Assert.True((app.Broadcasts.InvolvementChange(designers, membership, Some Mentions, fakePartials)).IsOk)
+        let membership = { membership with Involvement = Nullable Involvement.Invisible }
+        Assert.True((app.Broadcasts.InvolvementChange(designers, membership, Some Involvement.Mentions, fakePartials)).IsOk)
         let! frame = kevin.NextText()
         Assert.Equal($"""<turbo-stream action="remove" target="list_rooms_closed_{designers.Id}"></turbo-stream>""", turboStream frame)
 
-        let membership = { membership with Involvement = Some Everything }
-        Assert.True((app.Broadcasts.InvolvementChange(designers, membership, Some Invisible, fakePartials)).IsOk)
+        let membership = { membership with Involvement = Nullable Involvement.Everything }
+        Assert.True((app.Broadcasts.InvolvementChange(designers, membership, Some Involvement.Invisible, fakePartials)).IsOk)
         let! frame = kevin.NextText()
         Assert.Equal(
             $"""<turbo-stream action="prepend" target="shared_rooms"><template><li>shared {designers.Id}</li></template></turbo-stream>""",
             turboStream frame
         )
 
-        Assert.True((app.Broadcasts.InvolvementChange(designers, membership, Some Mentions, fakePartials)).IsOk)
+        Assert.True((app.Broadcasts.InvolvementChange(designers, membership, Some Involvement.Mentions, fakePartials)).IsOk)
         do! kevin.AssertSilent()
         Assert.True((app.Broadcasts.InvolvementChange(designers, membership, None, fakePartials)).IsError)
     }

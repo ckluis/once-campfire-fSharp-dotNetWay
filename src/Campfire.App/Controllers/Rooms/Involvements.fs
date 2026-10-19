@@ -36,8 +36,8 @@ module Involvements =
             let! (membership: Membership), (room: Room) = Concerns.setRoom c
             let involvement: InvolvementView =
                 { RoomId = room.Id
-                  Kind = PresenterSupport.roomKind room.RoomType
-                  Involvement = membership.Involvement |> Option.map Involvement.name |> Option.defaultValue "" }
+                  Kind = PresenterSupport.roomKind room.Type
+                  Involvement = (if membership.Involvement.HasValue then Involvement.name membership.Involvement.Value else "") }
             return! Page.content c Status.Ok (fun w ctx -> ShowPage.render w ctx involvement)
         }
 
@@ -46,8 +46,8 @@ module Involvements =
             do! Concerns.beforeActions c Before.Default
             let! (membership: Membership), (room: Room) = Concerns.setRoom c
             let! involvement = involvementParam c
-            let previous = membership.Involvement
-            let! (membership: Membership) = c.App.Write(fun tx -> Membership.updateInvolvement tx membership involvement)
+            let previous = if membership.Involvement.HasValue then Some membership.Involvement.Value else None
+            let! (membership: Membership) = c.Write(fun tx -> Membership.updateInvolvement tx membership involvement)
 
             // broadcast_visibility_changes
             let! partials = RoomsController.renderSharedRoom c room

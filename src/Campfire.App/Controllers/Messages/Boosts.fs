@@ -55,7 +55,7 @@ module BoostsController =
         act {
             do! c.App.Write(fun tx -> Boost.destroy tx boost)
             let roomId = message.RoomId
-            let! (room: Room) = c.App.Read(fun conn -> Room.find conn roomId)
+            let! (room: Room) = c.Read(fun db -> Room.find db roomId)
             c.App.Broadcasts.BoostRemove(room, boost)
         }
 
@@ -68,7 +68,7 @@ module BoostsController =
             let view = presenter.Boost boost
             let account = Account.firstLegacy conn
             let html = Page.renderDetachedAt app account baseUrl (fun ctx -> BoostsCached.boost ctx view)
-            let room = Room.find conn message.RoomId
+            let room = Room.findLegacy conn message.RoomId
             let partials = { Rendered.empty with Boost = Some html }
             app.Broadcasts.BoostCreate(room, message, boost, Rendered.partials partials))
 

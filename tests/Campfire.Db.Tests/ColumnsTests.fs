@@ -79,10 +79,22 @@ let private insertUser (conn: Conn) (id: int64) : unit =
     conn.Execute("""INSERT INTO "users" ("id", "name", "created_at", "updated_at") VALUES (?, 'User', ?, ?)""", [| I id; T(at 0L); T(at 0L) |])
     |> ignore
 
+/// A `DateTime` of an entity as the port's `Timestamp`, and back.
+let private stamp (d: DateTime) : Timestamp = Timestamp.FromDateTimeOffset(DateTimeOffset(d))
+
+let private unstamp (t: Timestamp) : DateTime = RailsTime.truncate (t.ToDateTimeOffset().UtcDateTime)
+
+let private optStamp (d: Nullable<DateTime>) : SqlArg = if d.HasValue then T(stamp d.Value) else Null
+
 let private insertRoom (conn: Conn) (room: Room) : unit =
     conn.Execute(
         """INSERT INTO "rooms" ("id", "name", "type", "creator_id", "created_at", "updated_at") VALUES (?, ?, ?, ?, ?, ?)""",
-        [| I room.Id; Sql.optS room.Name; RoomType.toSql room.RoomType; I room.CreatorId; T room.CreatedAt; T room.UpdatedAt |]
+        [| I room.Id
+           Sql.optS (Option.ofObj room.Name)
+           S(RoomType.className room.Type)
+           I room.CreatorId
+           T(stamp room.CreatedAt)
+           T(stamp room.UpdatedAt) |]
     )
     |> ignore
 
@@ -99,32 +111,32 @@ let private insertMembership (conn: Conn) (membership: Membership) : unit =
         [| I membership.Id
            I membership.RoomId
            I membership.UserId
-           Involvement.toSql membership.Involvement
-           Sql.optT membership.UnreadAt
-           Sql.optT membership.ConnectedAt
+           (if membership.Involvement.HasValue then S(Involvement.name membership.Involvement.Value) else Null)
+           optStamp membership.UnreadAt
+           optStamp membership.ConnectedAt
            I membership.Connections
-           T membership.CreatedAt
-           T membership.UpdatedAt |]
+           T(stamp membership.CreatedAt)
+           T(stamp membership.UpdatedAt) |]
     )
     |> ignore
 
 /// A room with a distinct value in every column.
 let private distinctRoom () : Room =
     { Id = 2001L
-      Name = Some "Room 2002"
-      RoomType = Closed
+      Name = "Room 2002"
+      Type = RoomType.Closed
       CreatorId = 2003L
-      CreatedAt = at 2004L
-      UpdatedAt = at 2005L }
+      CreatedAt = unstamp (at 2004L)
+      UpdatedAt = unstamp (at 2005L) }
 
 /// A room with every nullable column null.
 let private unnamedRoom () : Room =
     { Id = 2011L
-      Name = None
-      RoomType = Direct
+      Name = null
+      Type = RoomType.Direct
       CreatorId = 2013L
-      CreatedAt = at 2014L
-      UpdatedAt = at 2015L }
+      CreatedAt = unstamp (at 2014L)
+      UpdatedAt = unstamp (at 2015L) }
 
 let private userIds (conn: Conn) : int64 list =
     conn.QueryAll("""SELECT "id" FROM "users" ORDER BY "id" """, [||], fun r -> r.Int64 0)
@@ -175,11 +187,40 @@ let ``messages read by position as by name`` () =
 /// How `Room.fromRow` read a row before it read by position.
 let private roomByName (r: Row) : Room =
     { Id = r.Int64(r.Ordinal "id")
-      Name = r.OptText(r.Ordinal "name")
-      RoomType = (RoomType.fromClassName (r.Text(r.Ordinal "type"))).Value
+      Name = Option.toObj (r.OptText(r.Ordinal "name"))
+      Type = (RoomType.fromClassName (r.Text(r.Ordinal "type"))).Value
       CreatorId = r.Int64(r.Ordinal "creator_id")
-      CreatedAt = r.Timestamp(r.Ordinal "created_at")
-      UpdatedAt = r.Timestamp(r.Ordinal "updated_at") }
+      CreatedAt = unstamp (r.Timestamp(r.Ordinal "created_at"))
+      UpdatedAt = unstamp (r.Timestamp(r.Ordinal "updated_at")) }
+
+/// The port's positional readers that the EF module keeps for the models not yet moved (`Room.findLegacy`) and the
+/// statements the others ran, written out so `Room.fromRow` and `Membership.fromRowAt` are still checked.
+let private allRooms (conn: Conn) : Room list = conn.QueryAll(Selects.Room, [||], Room.fromRow)
+
+let private roomsForUser (conn: Conn) (userId: int64) : Room list =
+    conn.QueryAll(
+        "SELECT " + Columns.Room + """ FROM "rooms" INNER JOIN "memberships" ON "rooms"."id" = "memberships"."room_id" WHERE "memberships"."user_id" = ?""",
+        [| I userId |],
+        Room.fromRow
+    )
+
+let private findMembership (conn: Conn) (id: int64) : Membership =
+    conn.QueryOne(Selects.Membership + """ WHERE "memberships"."id" = ? LIMIT 1""", [| I id |], Membership.fromRow) |> Option.get
+
+/// `user.memberships.with_ordered_room` / `.visible.with_ordered_room`, on a `Conn`, read by position.
+let private withOrderedRoom (conn: Conn) (userId: int64) (visibleOnly: bool) : (Membership * Room) list =
+    let visible = if visibleOnly then """ AND "memberships"."involvement" != 'invisible'""" else ""
+    conn.QueryAll(
+        "SELECT "
+        + Columns.Membership
+        + ", "
+        + Columns.Room
+        + """ FROM "memberships" INNER JOIN "rooms" ON "rooms"."id" = "memberships"."room_id" WHERE "memberships"."user_id" = ?"""
+        + visible
+        + """ ORDER BY LOWER(rooms.name)""",
+        [| I userId |],
+        fun r -> Membership.fromRowAt r 0, Room.fromRowAt r 9
+    )
 
 [<Fact>]
 let ``a room reads each column into its own field`` () =
@@ -190,9 +231,9 @@ let ``a room reads each column into its own field`` () =
         insertRoom conn room
         insertRoom conn unnamed
 
-        Assert.True((Room.find conn room.Id = room), $"{layout}")
-        Assert.True((Room.find conn unnamed.Id = unnamed), $"{layout}")
-        Assert.True((Room.all conn = [ room; unnamed ]), $"{layout}")
+        Assert.True((Room.findLegacy conn room.Id = room), $"{layout}")
+        Assert.True((Room.findLegacy conn unnamed.Id = unnamed), $"{layout}")
+        Assert.True((allRooms conn = [ room; unnamed ]), $"{layout}")
 
 [<Fact>]
 let ``rooms read by position as by name`` () =
@@ -201,9 +242,9 @@ let ``rooms read by position as by name`` () =
         let rooms = conn.QueryAll("""SELECT * FROM "rooms" ORDER BY "id" """, [||], roomByName)
         Assert.True(List.length rooms > 3)
         for room in rooms do
-            Assert.True((Room.find conn room.Id = room), $"{layout}")
+            Assert.True((Room.findLegacy conn room.Id = room), $"{layout}")
         for userId in userIds conn do
-            let forUser = Room.forUser conn userId |> List.sortBy (fun r -> r.Id)
+            let forUser = roomsForUser conn userId |> List.sortBy (fun r -> r.Id)
             let byName =
                 conn.QueryAll(
                     """SELECT "rooms".* FROM "rooms" INNER JOIN "memberships" ON "rooms"."id" = "memberships"."room_id" WHERE "memberships"."user_id" = ? ORDER BY "rooms"."id" """,
@@ -219,12 +260,15 @@ let private membershipByName (r: Row) : Membership =
     { Id = r.Int64(r.Ordinal "id")
       RoomId = r.Int64(r.Ordinal "room_id")
       UserId = r.Int64(r.Ordinal "user_id")
-      Involvement = r.OptText(r.Ordinal "involvement") |> Option.bind Involvement.fromName
-      UnreadAt = r.OptTimestamp(r.Ordinal "unread_at")
-      ConnectedAt = r.OptTimestamp(r.Ordinal "connected_at")
+      Involvement =
+        (match r.OptText(r.Ordinal "involvement") |> Option.bind Involvement.fromName with
+         | Some involvement -> Nullable involvement
+         | None -> Nullable())
+      UnreadAt = (match r.OptTimestamp(r.Ordinal "unread_at") with Some t -> Nullable(unstamp t) | None -> Nullable())
+      ConnectedAt = (match r.OptTimestamp(r.Ordinal "connected_at") with Some t -> Nullable(unstamp t) | None -> Nullable())
       Connections = r.Int64(r.Ordinal "connections")
-      CreatedAt = r.Timestamp(r.Ordinal "created_at")
-      UpdatedAt = r.Timestamp(r.Ordinal "updated_at") }
+      CreatedAt = unstamp (r.Timestamp(r.Ordinal "created_at"))
+      UpdatedAt = unstamp (r.Timestamp(r.Ordinal "updated_at")) }
 
 /// How `withOrderedRoom` selected a membership with its room before, the room's columns aliased so
 /// that they could be read by name.
@@ -234,11 +278,11 @@ let private withRoomByNameSql =
 let private membershipWithRoomByName (r: Row) : Membership * Room =
     let room =
         { Id = r.Int64(r.Ordinal "r_id")
-          Name = r.OptText(r.Ordinal "r_name")
-          RoomType = (RoomType.fromClassName (r.Text(r.Ordinal "r_type"))).Value
+          Name = Option.toObj (r.OptText(r.Ordinal "r_name"))
+          Type = (RoomType.fromClassName (r.Text(r.Ordinal "r_type"))).Value
           CreatorId = r.Int64(r.Ordinal "r_creator_id")
-          CreatedAt = r.Timestamp(r.Ordinal "r_created_at")
-          UpdatedAt = r.Timestamp(r.Ordinal "r_updated_at") }
+          CreatedAt = unstamp (r.Timestamp(r.Ordinal "r_created_at"))
+          UpdatedAt = unstamp (r.Timestamp(r.Ordinal "r_updated_at")) }
     membershipByName r, room
 
 let private byMembershipId (pairs: (Membership * Room) list) : (Membership * Room) list = pairs |> List.sortBy (fun (m, _) -> m.Id)
@@ -252,32 +296,32 @@ let ``a membership and its room read each column into their own fields`` () =
             { Id = 3001L
               RoomId = room.Id
               UserId = 3003L
-              Involvement = Some Everything
-              UnreadAt = Some(at 3004L)
-              ConnectedAt = Some(at 3005L)
+              Involvement = Nullable Involvement.Everything
+              UnreadAt = Nullable(unstamp (at 3004L))
+              ConnectedAt = Nullable(unstamp (at 3005L))
               Connections = 3006L
-              CreatedAt = at 3007L
-              UpdatedAt = at 3008L }
+              CreatedAt = unstamp (at 3007L)
+              UpdatedAt = unstamp (at 3008L) }
         let unset =
             { Id = 3011L
               RoomId = unnamed.Id
               UserId = membership.UserId
-              Involvement = None
-              UnreadAt = None
-              ConnectedAt = None
+              Involvement = Nullable()
+              UnreadAt = Nullable()
+              ConnectedAt = Nullable()
               Connections = 3016L
-              CreatedAt = at 3017L
-              UpdatedAt = at 3018L }
+              CreatedAt = unstamp (at 3017L)
+              UpdatedAt = unstamp (at 3018L) }
         for m, r in [ membership, room; unset, unnamed ] do
             insertRoom conn r
             insertMembership conn m
 
-        Assert.True((Membership.find conn membership.Id = membership), $"{layout}")
-        Assert.True((Membership.find conn unset.Id = unset), $"{layout}")
+        Assert.True((findMembership conn membership.Id = membership), $"{layout}")
+        Assert.True((findMembership conn unset.Id = unset), $"{layout}")
         // Ordered by room name, nulls first.
-        Assert.True((Membership.withOrderedRoom conn membership.UserId = [ unset, unnamed; membership, room ]), $"{layout}")
+        Assert.True((withOrderedRoom conn membership.UserId false = [ unset, unnamed; membership, room ]), $"{layout}")
         // A null involvement isn't `!= 'invisible'`.
-        Assert.True((Membership.visibleWithOrderedRoom conn membership.UserId = [ membership, room ]), $"{layout}")
+        Assert.True((withOrderedRoom conn membership.UserId true = [ membership, room ]), $"{layout}")
 
 [<Fact>]
 let ``memberships read by position as by name`` () =
@@ -286,20 +330,20 @@ let ``memberships read by position as by name`` () =
         let memberships = conn.QueryAll("""SELECT * FROM "memberships" ORDER BY "id" """, [||], membershipByName)
         Assert.True(List.length memberships > 5)
         for membership in memberships do
-            Assert.True((Membership.find conn membership.Id = membership), $"{layout}")
+            Assert.True((findMembership conn membership.Id = membership), $"{layout}")
         for userId in userIds conn do
             let withRoom = conn.QueryAll(withRoomByNameSql, [| I userId |], membershipWithRoomByName)
             let visible =
                 conn.QueryAll(withRoomByNameSql + """ AND "memberships"."involvement" != 'invisible'""", [| I userId |], membershipWithRoomByName)
-            Assert.True((byMembershipId (Membership.withOrderedRoom conn userId) = byMembershipId withRoom), $"{layout}")
-            Assert.True((byMembershipId (Membership.visibleWithOrderedRoom conn userId) = byMembershipId visible), $"{layout}")
+            Assert.True((byMembershipId (withOrderedRoom conn userId false) = byMembershipId withRoom), $"{layout}")
+            Assert.True((byMembershipId (withOrderedRoom conn userId true) = byMembershipId visible), $"{layout}")
 
 // Users, sessions, accounts, boosts and rich texts
 
 [<Fact>]
 let ``users accounts boosts and rich texts read each column into its own field`` () =
     let dt (n: int64) : System.DateTime = RailsTime.truncate ((at n).ToDateTimeOffset().UtcDateTime)
-    let ts (d: System.DateTime) : Timestamp = Timestamp.FromDateTimeOffset(System.DateTimeOffset(d))
+    let ts = stamp
     for layout in layouts do
         use conn = database layout
         let user =
@@ -436,23 +480,23 @@ let private timingDatabase () : Conn =
         insertRoom
             conn
             { Id = id
-              Name = Some $"Room {id}"
-              RoomType = Open
+              Name = $"Room {id}"
+              Type = RoomType.Open
               CreatorId = 1L
-              CreatedAt = createdAt
-              UpdatedAt = updatedAt }
-        let unreadAt = if id % 2L = 0L then Some createdAt else None
+              CreatedAt = unstamp createdAt
+              UpdatedAt = unstamp updatedAt }
+        let unreadAt = if id % 2L = 0L then Nullable(unstamp createdAt) else Nullable()
         insertMembership
             conn
             { Id = id
               RoomId = id
               UserId = 1L
-              Involvement = Some Mentions
+              Involvement = Nullable Involvement.Mentions
               UnreadAt = unreadAt
-              ConnectedAt = None
+              ConnectedAt = Nullable()
               Connections = 0L
-              CreatedAt = createdAt
-              UpdatedAt = updatedAt }
+              CreatedAt = unstamp createdAt
+              UpdatedAt = unstamp updatedAt }
     for id in 1L .. 200L do
         insertMessage
             conn
@@ -485,9 +529,9 @@ let ``row reading timing`` () =
     let timings =
         [ "Message.lastPage (40 rows)", timePerCall 20_000 (fun () -> Message.lastPage conn 1L |> ignore)
           "Message.pageBefore (40 rows)", timePerCall 20_000 (fun () -> Message.pageBefore conn 1L before |> ignore)
-          "Membership.visibleWithOrderedRoom (12 rows)", timePerCall 20_000 (fun () -> Membership.visibleWithOrderedRoom conn 1L |> ignore)
+          "Membership.visibleWithOrderedRoom (12 rows)", timePerCall 20_000 (fun () -> withOrderedRoom conn 1L true |> ignore)
           "Message.find (1 row)", timePerCall 200_000 (fun () -> Message.find conn 100L |> ignore)
-          "Room.find (1 row)", timePerCall 200_000 (fun () -> Room.find conn 5L |> ignore) ]
+          "Room.find (1 row)", timePerCall 200_000 (fun () -> Room.findLegacy conn 5L |> ignore) ]
     let report = timings |> List.map (fun (name, perCall) -> $"{name}: {perCall.TotalMicroseconds:F2} us")
     for line in report do
         TestContext.Current.SendDiagnosticMessage line

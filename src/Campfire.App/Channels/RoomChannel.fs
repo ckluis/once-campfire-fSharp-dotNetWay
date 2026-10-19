@@ -11,6 +11,26 @@ open Campfire.Db
 open Campfire.RailsCompat
 open Campfire.Ruby
 
+/// What the room channels read and write with: the pooled context factory, the write gate and the write environment
+/// (the cable's `Deps`).
+type Access =
+    { Factory: Microsoft.EntityFrameworkCore.IDbContextFactory<Campfire.Db.Ef.CampfireDb>
+      Gate: WriteGate
+      Env: Campfire.Db.Ef.Env }
+
+module Access =
+    /// `Reads.run` on a leased context, as the port's `Database.Read` boundary.
+    let read (access: Access) (f: Campfire.Db.Ef.CampfireDb -> 'T) : Result<'T, DbError> =
+        use db = access.Factory.CreateDbContext()
+        Campfire.Db.Ef.Reads.run db f
+
+    /// `Writes.run` on a leased context: the gate, the transaction, the after-commit queue.
+    let write (access: Access) (f: Campfire.Db.Ef.Tx -> 'T) : Task<Result<'T, DbError>> =
+        task {
+            use db = access.Factory.CreateDbContext()
+            return! Campfire.Db.Ef.Writes.run access.Gate access.Env db f
+        }
+
 /// A `DbError` as the exception a callback would have raised.
 let dbError (error: DbError) : ChannelError = Channel.error (DbError.display error)
 
@@ -28,21 +48,21 @@ let castId (value: Value) : int64 option =
     | _ -> None
 
 /// `current_user.rooms.find_by(id: params[:room_id])`.
-let private findRoom (db: Database) (sub: Subscription<CableUser>) : Task<ChannelResult<Room option>> =
+let private findRoom (access: Access) (sub: Subscription<CableUser>) : Task<ChannelResult<Room option>> =
     task {
         match sub.Param "room_id" |> Option.bind castId with
         | None -> return Ok None
         | Some roomId ->
             let userId = sub.CurrentUser.Id
-            match! db.Read(fun conn -> Room.findForUser conn userId roomId) with
+            match Access.read access (fun db -> Room.findForUser db userId roomId) with
             | Ok room -> return Ok room
             | Error error -> return Error(dbError error)
     }
 
 /// `RoomChannel#subscribed`: `stream_for @room` if the user is a member, else `reject`.
-let subscribe (db: Database) (sub: Subscription<CableUser>) : Task<ChannelResult<Room option>> =
+let subscribe (access: Access) (sub: Subscription<CableUser>) : Task<ChannelResult<Room option>> =
     task {
-        match! findRoom db sub with
+        match! findRoom access sub with
         | Error error -> return Error error
         | Ok room ->
             match room with
@@ -51,13 +71,13 @@ let subscribe (db: Database) (sub: Subscription<CableUser>) : Task<ChannelResult
             return Ok room
     }
 
-let channel (db: Database) : Channel<CableUser> =
+let channel (access: Access) : Channel<CableUser> =
     let room: Room option ref = ref None
     { Channel.empty with
         Subscribed =
             fun sub ->
                 task {
-                    match! subscribe db sub with
+                    match! subscribe access sub with
                     | Ok found ->
                         room.Value <- found
                         return Ok()
@@ -68,7 +88,7 @@ let channel (db: Database) : Channel<CableUser> =
                 task {
                     match action with
                     | "subscribed" when not sub.Rejected ->
-                        match! subscribe db sub with
+                        match! subscribe access sub with
                         | Ok found ->
                             room.Value <- found
                             return Ok true

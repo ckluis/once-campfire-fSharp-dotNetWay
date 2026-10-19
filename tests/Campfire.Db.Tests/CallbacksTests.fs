@@ -9,14 +9,17 @@ open Xunit
 open Campfire.Db
 open Campfire.Db.Tests.Support
 
+/// A legacy message's time as the entity `DateTime` the membership columns read as.
+let private asDateTime (t: Timestamp) : DateTime = RailsTime.truncate (t.ToDateTimeOffset().UtcDateTime)
+
 let private ftsBody (t: TestDb) (messageId: int64) : string option =
     t.Read(fun c -> c.QueryOne("SELECT body FROM message_search_index WHERE rowid = ?", [| I messageId |], fun r -> r.Text 0))
 
 [<Fact>]
 let ``creating a message touches the room marks disconnected members unread and indexes after commit`` () =
     use t = new TestDb()
-    t.Write(fun tx -> Membership.find tx.Conn (id "jz_designers") |> Membership.connected tx |> ignore)
-    let roomBefore = t.Read(fun c -> Room.find c (id "designers"))
+    t.WriteEf(fun tx -> Membership.find tx.Db (id "jz_designers") |> Membership.connected tx |> ignore)
+    let roomBefore = t.ReadEf(fun c -> Room.find c (id "designers"))
     t.Travel 1L
 
     let attributes =
@@ -27,12 +30,12 @@ let ``creating a message touches the room marks disconnected members unread and 
 
     // The body touches the message; the room is touched too.
     Assert.True(message.UpdatedAt >= message.CreatedAt)
-    Assert.True((t.Read(fun c -> Room.find c (id "designers"))).UpdatedAt > roomBefore.UpdatedAt)
+    Assert.True((t.ReadEf(fun c -> Room.find c (id "designers"))).UpdatedAt > roomBefore.UpdatedAt)
 
     // Unread: visible, disconnected, not the creator; unread_at is the message's created_at.
-    let unread (label: string) = (t.Read(fun c -> Membership.find c (id label))).UnreadAt
-    Assert.Equal(Some message.CreatedAt, unread "jason_designers")
-    Assert.Equal(Some message.CreatedAt, unread "kevin_designers")
+    let unread (label: string) = (t.ReadEf(fun c -> Membership.find c (id label))).UnreadAt |> Option.ofNullable
+    Assert.Equal(Some(asDateTime message.CreatedAt), unread "jason_designers")
+    Assert.Equal(Some(asDateTime message.CreatedAt), unread "kevin_designers")
     Assert.Equal(None, unread "jz_designers") // connected
     Assert.Equal(None, unread "david_designers") // creator
 
@@ -51,10 +54,10 @@ let ``creating a message touches the room marks disconnected members unread and 
 [<Fact>]
 let ``invisible members are not marked unread`` () =
     use t = new TestDb()
-    t.Write(fun tx -> Membership.find tx.Conn (id "kevin_designers") |> (fun m -> Membership.updateInvolvement tx m (Some Invisible)) |> ignore)
+    t.WriteEf(fun tx -> Membership.find tx.Db (id "kevin_designers") |> (fun m -> Membership.updateInvolvement tx m (Some Involvement.Invisible)) |> ignore)
     let attributes = { NewMessage.create (id "designers") (id "david") with Body = Some "x" }
     t.Write(fun tx -> Message.create tx attributes |> ignore)
-    Assert.Equal(None, (t.Read(fun c -> Membership.find c (id "kevin_designers"))).UnreadAt)
+    Assert.False((t.ReadEf(fun c -> Membership.find c (id "kevin_designers"))).UnreadAt.HasValue)
 
 [<Fact>]
 let ``rolled back writes emit nothing after commit`` () =
@@ -72,12 +75,12 @@ let ``rolled back writes emit nothing after commit`` () =
 let ``boosting touches the message and room and reindexes`` () =
     use t = new TestDb()
     let first = t.Read(fun c -> Message.find c (id "first"))
-    let roomBefore = t.Read(fun c -> Room.find c (id "designers"))
+    let roomBefore = t.ReadEf(fun c -> Room.find c (id "designers"))
     t.Travel 1L
     let boost = t.Write(fun tx -> Boost.create tx (id "first") (id "jason") "hi")
     let touched = t.Read(fun c -> Message.find c (id "first"))
     Assert.True(touched.UpdatedAt > first.UpdatedAt)
-    Assert.True((t.Read(fun c -> Room.find c (id "designers"))).UpdatedAt > roomBefore.UpdatedAt)
+    Assert.True((t.ReadEf(fun c -> Room.find c (id "designers"))).UpdatedAt > roomBefore.UpdatedAt)
     // The fixture message was never indexed; the after_commit update finds no row, as in Rails.
     Assert.Equal(None, ftsBody t first.Id)
 

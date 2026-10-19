@@ -187,17 +187,17 @@ let private startOurs (recording: Recording) (dir: string) : Task<Database * Cab
         |> fun write -> write.Result |> ok
 
         let secrets = Secrets.create (parityEnv "SECRET_KEY_BASE" |> Option.defaultWith (fun () -> failwith "parity/.env.reference has no SECRET_KEY_BASE"))
-        let factory = Campfire.Db.Ef.Data.factory (Campfire.Db.Ef.Data.options (Path.Combine(dir, "production.sqlite3")) System.TimeProvider.System ignore)
-        let deps: Deps = { Db = db; DbFactory = factory; Secrets = secrets; Clock = clock }
-        // The reference runs with DISABLE_SSL, so without assume_ssl.
-        let server = Registry.server deps { Campfire.Cable.Config.defaults with AssumeSsl = false } NullLogger.Instance
-        sink.Server <- server
-        let! host, authority = serveCable server
+        let factory = Campfire.Db.Ef.Data.factory (Campfire.Db.Ef.Data.options (Path.Combine(dir, "production.sqlite3")) (Campfire.Db.Ef.ClockTimeProvider clock) ignore)
         let efEnv: Campfire.Db.Ef.Env =
             { Time = Campfire.Db.Ef.ClockTimeProvider clock
               Sink = sink
               RichText = BasicRichText()
               BcryptCost = 4 }
+        let deps: Deps = { Db = db; DbFactory = factory; Env = efEnv; Secrets = secrets; Clock = clock }
+        // The reference runs with DISABLE_SSL, so without assume_ssl.
+        let server = Registry.server deps { Campfire.Cable.Config.defaults with AssumeSsl = false } NullLogger.Instance
+        sink.Server <- server
+        let! host, authority = serveCable server
         return db, server, Broadcasts server, host, authority, (factory, efEnv)
     }
 
@@ -257,14 +257,19 @@ let ``replays reference frames`` () =
                     | "unread" ->
                         db.Read(fun conn ->
                             let message = Message.find conn ids[0]
-                            broadcasts.UnreadRoom(conn, Room.find conn message.RoomId))
+                            broadcasts.UnreadRoom(conn, Room.findLegacy conn message.RoomId))
                         |> fun read -> read.Result |> ok
                     | "remove_message" ->
                         db.Read(fun conn ->
                             let message = Message.find conn ids[0]
-                            broadcasts.MessageRemove(Room.find conn message.RoomId, message))
+                            broadcasts.MessageRemove(Room.findLegacy conn message.RoomId, message))
                         |> fun read -> read.Result |> ok
-                    | "revoke" -> db.Write(fun tx -> Room.revokeFrom tx (Room.find tx.Conn ids[0]) [ ids[1] ]) |> fun write -> write.Result |> ok
+                    | "revoke" ->
+                        (task {
+                            use context = factory.CreateDbContext()
+                            return! Campfire.Db.Ef.Writes.run db.Gate efEnv context (fun tx -> Room.revokeFrom tx (Room.find tx.Db ids[0]) [ ids[1] ])
+                         })
+                        |> fun write -> write.Result |> ok
                     | "deactivate" ->
                         (task {
                             use context = factory.CreateDbContext()

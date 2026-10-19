@@ -27,6 +27,12 @@ let private read (test: Test) (f: Conn -> 'T) : Task<'T> =
         return unwrap result
     }
 
+let private readEf (test: Test) (f: Ef.CampfireDb -> 'T) : Task<'T> =
+    task {
+        use context = test.App.DbFactory.CreateDbContext()
+        return unwrap (Ef.Reads.run context f)
+    }
+
 let private replyMarker = "data-controller=\"reply\""
 
 let private count (haystack: string) (needle: string) : int =
@@ -143,10 +149,10 @@ let ``open rooms are created edited and updated`` () =
         let! created = david.Write((request "POST" "/rooms/opens").Form(formBody [ "room[name]", "Watercooler" ]))
         Assert.True((created.Status = 302), created.Text)
         let id = roomId created
-        let! room = read test (fun conn -> Room.find conn id)
-        Assert.Equal((Some "Watercooler", RoomType.Open), (room.Name, room.RoomType))
+        let! room = readEf test (fun db -> Room.find db id)
+        Assert.Equal(("Watercooler", RoomType.Open), (string room.Name, room.Type))
         // Rooms::Open grants every active user after commit.
-        let! members = read test (fun conn -> Membership.forRoom conn id)
+        let! members = readEf test (fun db -> Membership.forRoom db id)
         Assert.True(members.Length > 3)
 
         let! edit = david.Get $"/rooms/opens/{id}/edit"
@@ -160,9 +166,9 @@ let ``open rooms are created edited and updated`` () =
                     .Form(formBody [ "room[name]", "Private"; "user_ids[]", string DAVID ])
             )
         Assert.True((updated.Status = 302), updated.Text)
-        let! room = read test (fun conn -> Room.find conn id)
-        Assert.Equal((Some "Private", RoomType.Closed), (room.Name, room.RoomType))
-        let! members = read test (fun conn -> Membership.forRoom conn id)
+        let! room = readEf test (fun db -> Room.find db id)
+        Assert.Equal(("Private", RoomType.Closed), (string room.Name, room.Type))
+        let! members = readEf test (fun db -> Membership.forRoom db id)
         Assert.Equal<int64 list>([ DAVID ], members |> List.map (fun m -> m.UserId))
 
         let! missingParam = david.Write((request "POST" "/rooms/opens").Form(formBody [ "name", "x" ]))
@@ -183,7 +189,7 @@ let ``closed rooms are created with the selected users`` () =
             )
         Assert.True((created.Status = 302), created.Text)
         let id = roomId created
-        let! members = read test (fun conn -> Membership.forRoom conn id)
+        let! members = readEf test (fun db -> Membership.forRoom db id)
         Assert.Equal<int64 list>([ DAVID; JASON ] |> List.sort, members |> List.map (fun m -> m.UserId) |> List.sort)
         let! edit = david.Get $"/rooms/closeds/{id}/edit"
         Assert.Equal(200, edit.Status)
@@ -211,14 +217,14 @@ let ``direct rooms are found or created`` () =
         Assert.Equal(Some $"http://campfire.test/rooms/{DIRECT_DAVID_JASON}", existing.Location)
         let! created = david.Write((request "POST" "/rooms/directs").Form(formBody [ "user_ids[]", string KEVIN ]))
         let id = roomId created
-        let! room = read test (fun conn -> Room.find conn id)
-        Assert.Equal(RoomType.Direct, room.RoomType)
+        let! room = readEf test (fun db -> Room.find db id)
+        Assert.Equal(RoomType.Direct, room.Type)
 
         let! edit = david.Get $"/rooms/directs/{id}/edit"
         Assert.Equal(200, edit.Status)
         let! destroyed = david.Write(request "DELETE" $"/rooms/directs/{id}")
         Assert.Equal(Some "http://campfire.test/", destroyed.Location)
-        let! gone = read test (fun conn -> Room.findById conn id)
+        let! gone = readEf test (fun db -> Room.findById db id)
         Assert.True gone.IsNone
     }
 
@@ -249,16 +255,16 @@ let ``involvement is shown and changed`` () =
         Assert.Contains("turbo-frame", shown.Text)
         let! updated = david.Write((request "PATCH" $"/rooms/{ALL_TALK}/involvement").Form(formBody [ "involvement", "invisible" ]))
         Assert.Equal(Some $"http://campfire.test/rooms/{ALL_TALK}/involvement", updated.Location)
-        let! membership = read test (fun conn -> (Membership.findByRoomAndUser conn ALL_TALK DAVID).Value)
-        Assert.Equal(Some Involvement.Invisible, membership.Involvement)
+        let! membership = readEf test (fun db -> (Membership.findByRoomAndUser db ALL_TALK DAVID).Value)
+        Assert.Equal(Nullable Involvement.Invisible, membership.Involvement)
         let! invalid = david.Write((request "PATCH" $"/rooms/{ALL_TALK}/involvement").Form(formBody [ "involvement", "loud" ]))
         Assert.Equal(500, invalid.Status)
 
         // A missing (or blank) involvement is stored as nil, like the enum casts it.
         let! missing = david.Write(request "PATCH" $"/rooms/{ALL_TALK}/involvement")
         Assert.Equal(302, missing.Status)
-        let! membership = read test (fun conn -> (Membership.findByRoomAndUser conn ALL_TALK DAVID).Value)
-        Assert.Equal(None, membership.Involvement)
+        let! membership = readEf test (fun db -> (Membership.findByRoomAndUser db ALL_TALK DAVID).Value)
+        Assert.False(membership.Involvement.HasValue)
     }
 
 [<Fact>]
@@ -267,7 +273,7 @@ let ``rooms are destroyed by administrators`` () =
         use! test = bootSeeded "default"
         let! reply = (david test).Write(request "DELETE" $"/rooms/{QUIET_CORNER}")
         Assert.Equal(Some "http://campfire.test/", reply.Location)
-        let! gone = read test (fun conn -> Room.findById conn QUIET_CORNER)
+        let! gone = readEf test (fun db -> Room.findById db QUIET_CORNER)
         Assert.True gone.IsNone
     }
 
@@ -307,7 +313,7 @@ let private backLink (html: string) : string =
 let ``back links go to the last room visited`` () =
     task {
         use! test = bootSeeded "default"
-        let! original = read test (fun conn -> (Room.originalForUser conn DAVID).Value.Id)
+        let! original = readEf test (fun db -> (Room.originalForUser db DAVID).Value.Id)
         Assert.NotEqual(QUIET_CORNER, original)
         let david = david test
         let backLinkOf (path: string) : Task<string> =

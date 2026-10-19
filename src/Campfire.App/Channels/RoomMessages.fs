@@ -30,7 +30,7 @@ let private knownModels =
     set [ "Account"; "Ban"; "Boost"; "Current"; "Membership"; "Message"; "Push::Subscription"; "Search"; "Session"; "User"; "Webhook" ]
 
 /// `GlobalID::Locator.locate gid_param, only: Room`, with `RecordNotFound` as nil.
-let private roomFrom (conn: Conn) (gidParam: string) : ChannelResult<Room option> =
+let private roomFrom (db: Campfire.Db.Ef.CampfireDb) (gidParam: string) : ChannelResult<Room option> =
     // `GlobalID.parse` takes the URI form or its Base64 param.
     match GlobalId.parse gidParam |> Option.orElse (GlobalId.fromParam gidParam) with
     | None -> Ok None
@@ -53,22 +53,22 @@ let private roomFrom (conn: Conn) (gidParam: string) : ChannelResult<Room option
             match Int64.TryParse(gid.Id, Globalization.NumberStyles.AllowLeadingSign, Globalization.CultureInfo.InvariantCulture) with
             | false, _ -> Ok None
             | true, id ->
-                Room.findById conn id
-                |> Option.filter (fun room -> requiredType |> Option.forall (fun t -> t = room.RoomType))
+                Room.findById db id
+                |> Option.filter (fun room -> requiredType |> Option.forall (fun t -> t = room.Type))
                 |> Ok
 
 /// `RoomMessagesChannel.subscribable_room(user, stream_name)`.
-let subscribableRoom (conn: Conn) (userId: int64) (streamName: string) : ChannelResult<Room option> =
+let subscribableRoom (db: Campfire.Db.Ef.CampfireDb) (userId: int64) (streamName: string) : ChannelResult<Room option> =
     match streamName.IndexOf ':' with
     | -1 -> Ok None
     | colon when streamName.Substring(colon + 1) <> StreamSuffix -> Ok None
     | colon ->
-        match roomFrom conn (streamName.Substring(0, colon)) with
+        match roomFrom db (streamName.Substring(0, colon)) with
         | Error error -> Error error
-        | Ok(Some room) -> Ok(Room.findForUser conn userId room.Id)
+        | Ok(Some room) -> Ok(Room.findForUser db userId room.Id)
         | Ok None -> Ok None
 
-let channel (db: Database) (streams: StreamsChannel) : Channel<CableUser> =
+let channel (access: RoomChannel.Access) (streams: StreamsChannel) : Channel<CableUser> =
     /// `authorized_stream_name`: the verified stream name, if present and for a room the user belongs to.
     let authorizedStreamName (sub: Subscription<CableUser>) : Task<ChannelResult<string option>> =
         task {
@@ -78,7 +78,7 @@ let channel (db: Database) (streams: StreamsChannel) : Channel<CableUser> =
             | Ok(Some streamName) when streamName.Trim() = "" -> return Ok None
             | Ok(Some streamName) ->
                 let userId = sub.CurrentUser.Id
-                match! db.Read(fun conn -> subscribableRoom conn userId streamName) with
+                match RoomChannel.Access.read access (fun db -> subscribableRoom db userId streamName) with
                 | Error error -> return Error(RoomChannel.dbError error)
                 | Ok(Error error) -> return Error error
                 | Ok(Ok room) -> return Ok(room |> Option.map (fun _ -> streamName))

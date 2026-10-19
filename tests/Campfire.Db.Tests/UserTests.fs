@@ -30,12 +30,12 @@ let ``user does not prevent very long passwords`` () =
 [<Fact>]
 let ``creating users grants membership to the open rooms`` () =
     use t = new TestDb()
-    let before = t.Read Membership.count
-    let openRooms = t.Read(fun c -> Room.countOfType c Open)
+    let before = t.ReadEf Membership.count
+    let openRooms = t.ReadEf(fun c -> Room.countOfType c RoomType.Open)
     let user = createNewUser t
-    Assert.Equal(before + openRooms, t.Read Membership.count)
+    Assert.Equal(before + openRooms, t.ReadEf Membership.count)
     // grant_membership_to_open_rooms leaves involvement to the column default.
-    Assert.True(t.Read(fun c -> Membership.forUser c user.Id) |> List.forall (fun m -> Membership.involvedIn m Mentions))
+    Assert.True(t.ReadEf(fun c -> Membership.forUser c user.Id) |> List.forall (fun m -> Membership.involvedIn m Involvement.Mentions))
 
 [<Fact>]
 let ``creating subsequent users makes them members`` () =
@@ -49,8 +49,8 @@ let ``creating subsequent users makes them members`` () =
 let ``deactivating a user deletes push subscriptions searches memberships for non direct rooms and changes their email address`` () =
     use t = new TestDb()
     let david = id "david"
-    let memberships = t.Read Membership.count
-    let withoutDirects = t.Read(fun c -> Membership.countWithoutDirectRooms c david)
+    let memberships = t.ReadEf Membership.count
+    let withoutDirects = t.ReadEf(fun c -> Membership.countWithoutDirectRooms c david)
     let subscriptions = t.Read PushSubscription.count
     let davidsSubscriptions = int64 (List.length (t.Read(fun c -> PushSubscription.forUser c david)))
     let searches = t.Read Search.count
@@ -59,7 +59,7 @@ let ``deactivating a user deletes push subscriptions searches memberships for no
     let user = user t "david"
     t.WriteEf(fun tx -> User.deactivate tx user |> ignore)
 
-    Assert.Equal(memberships - withoutDirects, t.Read Membership.count)
+    Assert.Equal(memberships - withoutDirects, t.ReadEf Membership.count)
     Assert.Equal(subscriptions - davidsSubscriptions, t.Read PushSubscription.count)
     Assert.Equal(searches - davidsSearches, t.Read Search.count)
 
@@ -192,7 +192,7 @@ let ``can administer`` () =
     let m = user t "kevin"
     Assert.True(User.canAdminister m (Some m.Id) false, "creator")
     Assert.True(User.canAdminister m (Some(id "jz")) true, "new record")
-    let designers = t.Read(fun c -> Room.find c (id "designers"))
+    let designers = t.ReadEf(fun c -> Room.find c (id "designers"))
     Assert.False(User.canAdminister m (Some designers.CreatorId) false)
 
 // User::Bannable

@@ -323,7 +323,7 @@ module MessagesController =
             let! (bots: User list) =
                 app.Read(fun conn ->
                     let candidates =
-                        if Room.isDirect room then Room.activeBots conn room else Message.mentionees conn app.Db.Env.RichText message
+                        if Room.isDirect room then Room.activeBotsLegacy conn room else Message.mentionees conn app.Db.Env.RichText message
                     candidates
                     |> List.filter (fun (user: User) -> user.Role = Role.Bot && user.Status = Status.Active && user.Id <> message.CreatorId))
             if not bots.IsEmpty then
@@ -395,7 +395,7 @@ module MessagesController =
                 // (`cache [ message, "presentation-v3" ]`), so it's the request-less rendering: no CSRF
                 // tokens in its forms.
                 do! c.RespondTo [ Format.TurboStream ] |> Result.map ignore
-                let kind = PresenterSupport.roomKind room.RoomType
+                let kind = PresenterSupport.roomKind room.Type
                 let app = c.App
                 let baseUrl = c.UrlFor ""
                 let! html =
