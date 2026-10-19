@@ -28,8 +28,6 @@ type StorageError =
     | Analyze of string
     /// `std::io::Error`
     | Io of exn
-    /// `rusqlite::Error`
-    | Sql of exn
 
 module StorageError =
     /// The error's `Display`.
@@ -46,7 +44,6 @@ module StorageError =
         | StorageError.Preview message -> message
         | StorageError.Analyze message -> $"analysis failed: {message}"
         | StorageError.Io e -> e.Message
-        | StorageError.Sql e -> e.Message
 
 type StorageResult<'a> = Result<'a, StorageError>
 

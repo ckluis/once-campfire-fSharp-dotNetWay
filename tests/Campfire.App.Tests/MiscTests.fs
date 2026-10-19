@@ -106,23 +106,6 @@ let ``counts within a fixed window`` () =
 
 // --- active_storage.rs ---------------------------------------------------------------------------------------------
 
-/// A unique index refusing a blob or attachment row inside `User.create!` is rescued as
-/// `ActiveRecord::RecordNotUnique`, like the user row's own.
-[<Fact>]
-let ``storage errors keep sqlites own`` () =
-    use connection = new SqliteConnection("Data Source=:memory:")
-    connection.Open()
-    use setup = connection.CreateCommand()
-    setup.CommandText <- "CREATE TABLE blobs (key TEXT UNIQUE); INSERT INTO blobs VALUES ('a')"
-    setup.ExecuteNonQuery() |> ignore
-    use insert = connection.CreateCommand()
-    insert.CommandText <- "INSERT INTO blobs VALUES ('a')"
-    let unique = Assert.Throws<SqliteException>(fun () -> insert.ExecuteNonQuery() |> ignore)
-    Assert.True(DbError.isRecordNotUnique (ActiveStorage.storageError (StorageError.Sql unique)))
-    match ActiveStorage.storageError StorageError.FileNotFound with
-    | Other _ -> ()
-    | other -> failwith $"{other}"
-
 [<Fact>]
 let ``byte ranges are not read into memory`` () =
     task {

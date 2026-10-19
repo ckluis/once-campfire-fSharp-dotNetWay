@@ -64,17 +64,10 @@ module FirstRuns =
                         return Error(Internal e)
                 }
 
-            // The avatar is attached by the port's writer until unit 1.7 moves the storage rows onto EF, so it follows the
-            // administrator's commit as its own write.
             let! result =
-                task {
-                    match! c.TryWrite(fun tx -> FirstRun.create tx name emailAddress passwordDigest) with
-                    | Error error -> return Error error
-                    | Ok administrator ->
-                        let! attached =
-                            c.App.Db.Write(fun tx -> AttachmentWrites.assign tx (Record.user administrator.Id) "avatar" avatar)
-                        return attached |> Result.map (fun pending -> administrator, pending)
-                }
+                c.TryWrite(fun tx ->
+                    let administrator = FirstRun.create tx name emailAddress passwordDigest
+                    administrator, AttachmentWrites.assign tx (Record.user administrator.Id) "avatar" avatar)
 
             let root = c.UrlFor(Routes.root ())
             match result with

@@ -77,9 +77,10 @@ module AccountsController =
                 | _ -> None
             let! logo = Assignment.stage c.App (Assignment.fromParams parameters "logo")
 
-            let! (_: Account) = c.Write(fun tx -> Account.update tx account name None settings)
-            // The logo goes through the port's writer until unit 1.7 moves the storage rows onto EF.
-            let! pending = c.App.Write(fun tx -> AttachmentWrites.assign tx (Record.account account.Id) "logo" logo)
+            let! pending =
+                c.Write(fun tx ->
+                    Account.update tx account name None settings |> ignore
+                    AttachmentWrites.assign tx (Record.account account.Id) "logo" logo)
             AttachmentWrites.analyzeLater c.App pending
 
             return! c.RedirectToWith(c.UrlFor(Routes.editAccount ()), { Redirect.Default with Notice = "✓" })

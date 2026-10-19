@@ -7,7 +7,9 @@
 namespace Campfire.App.Presenters
 
 open System
+open System.Linq
 open Microsoft.Data.Sqlite
+open Microsoft.EntityFrameworkCore
 open Campfire.Db
 open Campfire.RailsCompat
 open Campfire.Routes
@@ -28,14 +30,10 @@ module Common =
     let avatarPath (secrets: Secrets) (user: User) : string =
         Routes.freshUserAvatar (avatarToken secrets user.Id) (toFsNumberOf user.UpdatedAt)
 
-    /// A storage error inside a database closure. SQLite's own errors stay `Sqlite`, so that
-    /// `DbError.isRecordNotUnique` sees them. (Neither project depends on the other, so this can't be
-    /// a conversion in either.)
+    /// A storage error inside a database closure. (The rows are EF's now, so SQLite's own errors never pass through here:
+    /// they are raised by the context and `Writes.run` maps them.)
     let storageError (error: Campfire.Storage.StorageError) : DbError =
-        match error with
-        | Campfire.Storage.StorageError.Sql(:? SqliteException as e) -> Sqlite e
-        | Campfire.Storage.StorageError.Sql e -> Other e
-        | other -> Other(Exception(Campfire.Storage.StorageError.message other))
+        Other(Exception(Campfire.Storage.StorageError.message error))
 
     /// `storageError` as the exception a model raises inside a read or write.
     let raiseStorage (result: Campfire.Storage.StorageResult<'T>) : 'T =
@@ -75,3 +73,14 @@ module Common =
     /// attachment's record, and `Blob#touch_attachments` after analysis).
     let touch (conn: Conn) (table: string) (id: int64) (now: Campfire.Db.Timestamp) : unit =
         conn.Execute($"UPDATE \"{table}\" SET \"updated_at\" = ? WHERE \"{table}\".\"id\" = ?", [| T now; I id |]) |> ignore
+
+    /// `record.touch` for the records an attachment belongs to, in the caller's write: a message also touches its room
+    /// (`Message belongs_to :room, touch: true`), users and accounts only themselves. Other record types are left alone.
+    let touchRecord (tx: Campfire.Db.Ef.Tx) (recordType: string) (id: int64) : unit =
+        let db = tx.Db
+        let now = tx.Now()
+        match recordType with
+        | "User" -> db.Users.Where(fun u -> u.Id = EF.Parameter id).ExecuteUpdate(fun s -> s.SetProperty((fun u -> u.UpdatedAt), now) |> ignore) |> ignore
+        | "Account" -> db.Accounts.Where(fun a -> a.Id = EF.Parameter id).ExecuteUpdate(fun s -> s.SetProperty((fun a -> a.UpdatedAt), now) |> ignore) |> ignore
+        | "Message" -> Message.touch tx (Message.find db id) |> ignore
+        | _ -> ()

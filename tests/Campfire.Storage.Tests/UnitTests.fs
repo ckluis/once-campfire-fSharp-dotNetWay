@@ -7,6 +7,9 @@ open System.IO
 open Xunit
 open Campfire.RailsCompat
 open Campfire.Storage
+open Campfire.Db
+open System.Linq
+open Microsoft.EntityFrameworkCore
 
 // --- filename.rs ---------------------------------------------------------------------------------
 
@@ -135,14 +138,14 @@ let ``a copy that fails leaves no file behind`` () =
 let private testStorage (root: TempDir) : Storage =
     Storage.create (DiskService.create root.Path "local") (RailsCompat.appVerifier (Secrets.create "test") "ActiveStorage")
 
-let private at = (Timestamps.tryParse "2026-09-26T12:00:00Z").Value
+
 
 [<Fact>]
 let ``opening a blob whose file is missing is file not found`` () =
     use root = TempDir.Create()
-    use conn = openDatabase ()
+    use db = openDatabase ()
     let storage = testStorage root
-    let blob = (Storage.createAndUpload storage conn "bytes"B (Filename.create "a.txt") None at).Value
+    let blob = (Storage.createAndUpload storage db "bytes"B (Filename.create "a.txt") None).Value
     DiskService.delete storage.Service blob.Key |> ignore
     match Storage.openBlob storage blob with
     | Error StorageError.FileNotFound -> ()
@@ -151,9 +154,9 @@ let ``opening a blob whose file is missing is file not found`` () =
 [<Fact>]
 let ``opening a blob whose file changed is an integrity error`` () =
     use root = TempDir.Create()
-    use conn = openDatabase ()
+    use db = openDatabase ()
     let storage = testStorage root
-    let blob = (Storage.createAndUpload storage conn "bytes"B (Filename.create "a.txt") None at).Value
+    let blob = (Storage.createAndUpload storage db "bytes"B (Filename.create "a.txt") None).Value
     File.WriteAllText(Storage.pathFor storage blob, "other bytes")
     match Storage.openBlob storage blob with
     | Error StorageError.Integrity -> ()
@@ -162,9 +165,9 @@ let ``opening a blob whose file changed is an integrity error`` () =
 [<Fact>]
 let ``an opened blob is a copy named for its id and extension`` () =
     use root = TempDir.Create()
-    use conn = openDatabase ()
+    use db = openDatabase ()
     let storage = testStorage root
-    let blob = (Storage.createAndUpload storage conn "bytes"B (Filename.create "a.txt") None at).Value
+    let blob = (Storage.createAndUpload storage db "bytes"B (Filename.create "a.txt") None).Value
     let copy = (Storage.openBlob storage blob).Value
     let path = copy.Path
     let name = Path.GetFileName path
@@ -176,33 +179,27 @@ let ``an opened blob is a copy named for its id and extension`` () =
 [<Fact>]
 let ``a blob is stored by its key and described by its row`` () =
     use root = TempDir.Create()
-    use conn = openDatabase ()
+    use db = openDatabase ()
     let storage = testStorage root
-    let blob = (Storage.createAndUpload storage conn "hello"B (Filename.create "hello.txt") None at).Value
+    let blob = (Storage.createAndUpload storage db "hello"B (Filename.create "hello.txt") None).Value
     Assert.Equal(Some "text/plain", blob.ContentType)
     Assert.Equal("2026-09-26 12:00:00", blob.CreatedAt)
     Assert.Equal(Some "XUFAKrxLKna5cZ2REBfFkg==", blob.Checksum)
     Assert.Equal(Path.Combine(root.Path, blob.Key.Substring(0, 2), blob.Key.Substring(2, 2), blob.Key), Storage.pathFor storage blob)
-    Assert.Equal(Some blob, (Blob.findByKey conn blob.Key).Value)
-    Assert.Equal(Some blob, (Blob.find conn blob.Id).Value)
+    Assert.Equal(Some blob, Blob.findByKey db blob.Key)
+    Assert.Equal(Some blob, Blob.find db blob.Id)
     Assert.Equal("{\"identified\":true}", JsonValue.encode blob.Metadata)
-
-[<Fact>]
-let ``timestamps are written as Active Record writes them`` () =
-    let at = (Timestamps.tryParse "2026-09-26T12:00:00.5Z").Value
-    Assert.Equal("2026-09-26 12:00:00.500000", Blob.formatTimestamp at)
-    Assert.Equal("2026-09-26 12:00:00", Blob.formatTimestamp (at.AddMilliseconds -500.0))
 
 [<Fact>]
 let ``a variant record is inserted once`` () =
     use root = TempDir.Create()
-    use conn = openDatabase ()
+    use db = openDatabase ()
     let storage = testStorage root
-    let blob = (Storage.createAndUpload storage conn "bytes"B (Filename.create "a.txt") None at).Value
-    let first = (Blob.insertVariantRecord conn blob.Id "digest").Value
+    let blob = (Storage.createAndUpload storage db "bytes"B (Filename.create "a.txt") None).Value
+    let first = Blob.insertVariantRecord db blob.Id "digest"
     Assert.True first.IsSome
-    Assert.Equal(None, (Blob.insertVariantRecord conn blob.Id "digest").Value)
-    Assert.Equal(first, (Blob.findVariantRecord conn blob.Id "digest").Value)
+    Assert.Equal(None, Blob.insertVariantRecord db blob.Id "digest")
+    Assert.Equal(first, Blob.findVariantRecord db blob.Id "digest")
 
 [<Fact>]
 let ``folders come from the first four characters of the key`` () =
@@ -229,38 +226,41 @@ let ``deleting a prefix removes what starts with it`` () =
     Assert.False(DiskService.exist service "variants/abc/two")
     Assert.True(DiskService.exist service "variants/abd/other")
 
-// --- sql.rs's stand-in for rusqlite -----------------------------------------------------------------
+// --- The rows on EF ---------------------------------------------------------------------------------
 
-/// Microsoft.Data.Sqlite retries a busy statement for CommandTimeout (30 s by default) after SQLite's
-/// busy handler gives up; rusqlite doesn't, so a locked database fails after busy_timeout.
 [<Fact>]
-let ``a locked database fails after the busy timeout, not after the command timeout`` () =
-    let path = Path.Combine(Path.GetTempPath(), $"campfire-storage-busy-{Guid.NewGuid():N}.sqlite3")
-    try
-        let open' () =
-            let conn = new Microsoft.Data.Sqlite.SqliteConnection($"Data Source={path};Pooling=False")
-            conn.Open()
-            conn
-        use holder = open' ()
-        use waiter = open' ()
-        let run (conn: Microsoft.Data.Sqlite.SqliteConnection) (sql: string) =
-            use command = conn.CreateCommand()
-            command.CommandText <- sql
-            command.ExecuteNonQuery() |> ignore
-        run holder "CREATE TABLE things (id INTEGER PRIMARY KEY)"
-        run waiter "PRAGMA busy_timeout = 100"
-        run holder "BEGIN IMMEDIATE"
-        let started = Diagnostics.Stopwatch.StartNew()
-        let result = Sql.execute waiter "INSERT INTO things (id) VALUES (?1)" [| box 1L |]
-        let elapsed = started.Elapsed
-        run holder "ROLLBACK"
-        match result with
-        | Error(StorageError.Sql(:? Microsoft.Data.Sqlite.SqliteException as e)) -> Assert.Equal(5, e.SqliteErrorCode) // SQLITE_BUSY
-        | other -> failwith $"expected SQLITE_BUSY, got {other}"
-        Assert.True(elapsed < TimeSpan.FromSeconds 5.0, $"a locked statement took {elapsed.TotalSeconds:F1} s to fail")
-    finally
-        for suffix in [ ""; "-wal"; "-shm"; "-journal" ] do
-            try
-                File.Delete(path + suffix)
-            with _ ->
-                ()
+let ``an attached blob is the first attachment's, by id`` () =
+    use root = TempDir.Create()
+    use db = openDatabase ()
+    let storage = testStorage root
+    let upload (text: string) = (Storage.createAndUpload storage db (Text.Encoding.UTF8.GetBytes text) (Filename.create $"{text}.txt") None).Value
+    let first, second = upload "one", upload "two"
+    // The later blob is attached first, so the order is the attachment's id, not the blob's.
+    Blob.insertAttachment db "avatar" "User" 7L second.Id |> ignore
+    Blob.insertAttachment db "avatar" "User" 7L first.Id |> ignore
+    Assert.Equal(Some second.Id, Blob.attached db "User" 7L "avatar" |> Option.map (fun b -> b.Id))
+    Assert.Equal(None, Blob.attached db "User" 8L "avatar")
+    Assert.Equal(None, Blob.attached db "User" 7L "logo")
+    Assert.Equal<(string * int64) list>([ ("User", 7L) ], Blob.attachmentRecords db first.Id)
+
+[<Fact>]
+let ``updating a blob's metadata saves it and keeps the rest`` () =
+    use root = TempDir.Create()
+    use db = openDatabase ()
+    let storage = testStorage root
+    let blob = (Storage.createAndUpload storage db "bytes"B (Filename.create "a.txt") None).Value
+    let metadata = Value.Object [ "identified", Value.Bool true; "analyzed", Value.Bool true ]
+    let updated = Blob.updateMetadata db metadata blob
+    Assert.True(Blob.isAnalyzed updated)
+    let stored = (Blob.find db blob.Id).Value
+    Assert.Equal<string>("{\"identified\":true,\"analyzed\":true}", JsonValue.encode stored.Metadata)
+    Assert.Equal(blob.Key, stored.Key)
+    Assert.Equal(blob.CreatedAt, stored.CreatedAt)
+
+[<Fact>]
+let ``a blob row is stamped with the clock's time as Active Record writes it`` () =
+    use root = TempDir.Create()
+    use db = openDatabase ()
+    let blob = (Storage.createAndUpload (testStorage root) db "bytes"B (Filename.create "a.txt") None).Value
+    Assert.Equal("2026-09-26 12:00:00", blob.CreatedAt)
+    Assert.Equal("2026-09-26 12:00:00", db.Blobs.Where(fun b -> b.Id = EF.Parameter blob.Id).Select(fun b -> b.CreatedAt).First() |> RailsTime.toDb)

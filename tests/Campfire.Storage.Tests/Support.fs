@@ -1,7 +1,12 @@
 namespace Campfire.Storage.Tests
 
+open System
+open System.IO
 open Microsoft.Data.Sqlite
+open Microsoft.EntityFrameworkCore
 open Xunit
+open Campfire.Db.Ef
+open Campfire.Storage
 
 // The timing tests measure the process they run in, so the assembly's tests run one at a time.
 [<assembly: CollectionBehavior(DisableTestParallelization = true)>]
@@ -27,11 +32,30 @@ CREATE TABLE active_storage_variant_records (id integer PRIMARY KEY AUTOINCREMEN
 CREATE UNIQUE INDEX index_active_storage_variant_records_uniqueness ON active_storage_variant_records (blob_id, variation_digest);
 """
 
-    /// An in-memory database holding them.
-    let openDatabase () : SqliteConnection =
-        let conn = new SqliteConnection("Data Source=:memory:")
-        conn.Open()
-        use command = conn.CreateCommand()
-        command.CommandText <- schema
-        command.ExecuteNonQuery() |> ignore
-        conn
+    /// A clock fixed at 2026-09-26 12:00:00 UTC, as EF's `TimeProvider`.
+    type FixedTime() =
+        inherit TimeProvider()
+        override _.GetUtcNow() = DateTimeOffset(2026, 9, 26, 12, 0, 0, TimeSpan.Zero)
+
+    /// The context over a file holding them, in a directory of its own that goes with the context.
+    type TestDb private (options: DbContextOptions<CampfireDb>, dir: TempDir) =
+        inherit CampfireDb(options)
+
+        static member Open() : TestDb =
+            let dir = TempDir.Create()
+            let path = Path.Combine(dir.Path, "test.sqlite3")
+            do
+                use conn = new SqliteConnection($"Data Source={path};Pooling=False")
+                conn.Open()
+                use command = conn.CreateCommand()
+                command.CommandText <- schema
+                command.ExecuteNonQuery() |> ignore
+            new TestDb(Data.options path (FixedTime()) ignore, dir)
+
+        override this.Dispose() =
+            base.Dispose()
+            SqliteConnection.ClearAllPools()
+            (dir :> IDisposable).Dispose()
+
+    /// A database holding the Active Storage tables, read and written through EF.
+    let openDatabase () : TestDb = TestDb.Open()

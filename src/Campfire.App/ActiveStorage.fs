@@ -15,7 +15,9 @@ open System
 open System.Globalization
 open System.IO
 open System.Threading
+open System.Linq
 open System.Threading.Tasks
+open Microsoft.EntityFrameworkCore
 open Campfire.RailsCompat
 open Campfire.Ruby
 open Campfire.Kit
@@ -140,7 +142,7 @@ module ActiveStorage =
             match Paths.verifySignedBlobId storage.Verifier signedId (c.Now()) with
             | None -> return halt (Concerns.head Status.NotFound)
             | Some blobId ->
-                match! c.App.Read(fun conn -> Common.raiseStorage (Campfire.Storage.Blob.find conn.Raw blobId)) with
+                match! c.Read(fun db -> Campfire.Storage.Blob.find db blobId) with
                 | Ok(Some blob) -> return Ok blob
                 | Ok None -> return Error NotFound
                 | Error e -> return Error e
@@ -309,7 +311,7 @@ module ActiveStorage =
 
     /// Keeps a staged file once the write saving its row commits; a rollback drops it instead, which
     /// deletes the file.
-    let keepAfterCommit (tx: Tx) (staged: Staged) : unit =
+    let keepAfterCommit (tx: Ef.Tx) (staged: Staged) : unit =
         tx.AfterCommit(fun _ -> staged.Keep())
 
     /// `VariantWithRecord#processed` for an already-defaulted variation: the existing variant, or one
@@ -322,7 +324,7 @@ module ActiveStorage =
         : Task<Result<Campfire.Storage.Blob, Error>> =
         task {
             let storage = app.Storage
-            match! app.Read(fun conn -> Common.raiseStorage (Storage.existingVariant conn.Raw blob variation)) with
+            match! app.ReadEf(fun db -> Storage.existingVariant db blob variation) with
             | Error e -> return Error e
             | Ok(Some image) -> return Ok image
             | Ok None ->
@@ -330,16 +332,16 @@ module ActiveStorage =
                 | Error e -> return Error e
                 | Ok image ->
                     return!
-                        app.Write(fun tx ->
-                            let conn = tx.Conn.Raw
-                            match Common.raiseStorage (Storage.recordVariant conn blob variation image (tx.Now().ToDateTimeOffset())) with
+                        app.WriteEf(fun tx ->
+                            let db = tx.Db
+                            match Storage.recordVariant db blob variation image with
                             | Some recorded ->
                                 keepAfterCommit tx image
                                 recorded
                             // Another request recorded it first; ours is dropped (and its file deleted).
                             | None ->
                                 (image :> IDisposable).Dispose()
-                                match Common.raiseStorage (Storage.existingVariant conn blob variation) with
+                                match Storage.existingVariant db blob variation with
                                 | Some existing -> existing
                                 | None -> Err.fail (RecordNotFound "ActiveStorage::VariantRecord"))
         }
@@ -351,7 +353,7 @@ module ActiveStorage =
     let private previewImage (app: AppState) (blob: Campfire.Storage.Blob) : Task<Result<Campfire.Storage.Blob, Error>> =
         task {
             let storage = app.Storage
-            match! app.Read(fun conn -> Common.raiseStorage (Storage.existingPreviewImage conn.Raw blob)) with
+            match! app.ReadEf(fun db -> Storage.existingPreviewImage db blob) with
             | Error e -> return Error e
             | Ok(Some image) -> return Ok image
             | Ok None ->
@@ -359,15 +361,15 @@ module ActiveStorage =
                 | Error e -> return Error e
                 | Ok image ->
                     return!
-                        app.Write(fun tx ->
-                            let conn = tx.Conn.Raw
-                            match Common.raiseStorage (Storage.recordPreviewImage conn blob image (tx.Now().ToDateTimeOffset())) with
+                        app.WriteEf(fun tx ->
+                            let db = tx.Db
+                            match Storage.recordPreviewImage db blob image with
                             | Some recorded ->
                                 keepAfterCommit tx image
                                 recorded
                             | None ->
                                 (image :> IDisposable).Dispose()
-                                match Common.raiseStorage (Storage.existingPreviewImage conn blob) with
+                                match Storage.existingPreviewImage db blob with
                                 | Some existing -> existing
                                 | None -> Err.fail (RecordNotFound "ActiveStorage::Blob"))
         }
@@ -605,7 +607,7 @@ module ActiveStorage =
                               ServiceName = storage.Service.Name
                               ByteSize = byteSize
                               Checksum = checksum }
-                        let! (blob: Campfire.Storage.Blob) = c.App.Write(fun tx -> Common.raiseStorage (NewBlob.insert tx.Conn.Raw now newBlob))
+                        let! (blob: Campfire.Storage.Blob) = c.Write(fun tx -> NewBlob.insert tx.Db newBlob)
                         let expiresAt = now.AddSeconds(float ServiceUrlsExpireIn)
                         let url =
                             c.UrlFor(DiskService.urlPathForDirectUpload storage.Service storage.Verifier blob.Key expiresAt contentType byteSize checksum)
@@ -618,18 +620,16 @@ module ActiveStorage =
     // --- Purging ---------------------------------------------------------------------------------------
 
     /// Deletes the attachment row, returning its blob id.
-    let private destroyAttachment (conn: Conn) (recordType: string) (recordId: int64) (name: string) : int64 option =
-        let attachment =
-            conn.QueryOne(
-                "SELECT id, blob_id FROM active_storage_attachments WHERE record_type = ? AND record_id = ? AND name = ? LIMIT 1",
-                [| S recordType; I recordId; S name |],
-                fun r -> r.Int64 0, r.Int64 1
-            )
-        match attachment with
+    let private destroyAttachment (db: Ef.CampfireDb) (recordType: string) (recordId: int64) (name: string) : int64 option =
+        match
+            db.Attachments.Where(fun a -> a.RecordType = EF.Parameter recordType && a.RecordId = EF.Parameter recordId && a.Name = EF.Parameter name)
+            |> Ef.Data.tryFirst
+        with
         | None -> None
-        | Some(id, blobId) ->
-            conn.Execute("DELETE FROM active_storage_attachments WHERE id = ?", [| I id |]) |> ignore
-            Some blobId
+        | Some attachment ->
+            let id = attachment.Id
+            db.Attachments.Where(fun a -> a.Id = EF.Parameter id).ExecuteDelete() |> ignore
+            Some attachment.BlobId
 
     let private deleteFiles (storage: Storage) (blob: Campfire.Storage.Blob) : Task<Result<unit, string>> =
         task {
@@ -646,26 +646,26 @@ module ActiveStorage =
     /// delete the files.
     let purge (app: AppState) (blobId: int64) : Task<Result<unit, string>> =
         task {
+            use context = app.DbFactory.CreateDbContext()
             let! destroyed =
-                app.Db.Write(fun tx ->
-                    let conn = tx.Conn
-                    match Common.raiseStorage (Campfire.Storage.Blob.find conn.Raw blobId) with
+                Ef.Writes.run app.Gate app.Env context (fun tx ->
+                    let db = tx.Db
+                    match Campfire.Storage.Blob.find db blobId with
                     | None -> None
                     | Some blob ->
                         // before_destroy(prepend: true) { raise ActiveRecord::InvalidForeignKey if attachments.exists? }
-                        if not (Common.raiseStorage (Campfire.Storage.Blob.attachmentRecords conn.Raw blobId)).IsEmpty then
+                        if not (Campfire.Storage.Blob.attachmentRecords db blobId).IsEmpty then
                             None
                         else
                             let dependents = ResizeArray<int64>()
                             // before_destroy { variant_records.destroy_all }: each record's image attachment goes too.
-                            let variantRecords =
-                                conn.QueryAll("SELECT id FROM active_storage_variant_records WHERE blob_id = ?", [| I blobId |], fun r -> r.Int64 0)
+                            let variantRecords = db.Variants.Where(fun v -> v.BlobId = EF.Parameter blobId).Select(fun v -> v.Id).ToList()
                             for recordId in variantRecords do
-                                destroyAttachment conn "ActiveStorage::VariantRecord" recordId "image" |> Option.iter dependents.Add
-                                conn.Execute("DELETE FROM active_storage_variant_records WHERE id = ?", [| I recordId |]) |> ignore
+                                destroyAttachment db "ActiveStorage::VariantRecord" recordId "image" |> Option.iter dependents.Add
+                                db.Variants.Where(fun v -> v.Id = EF.Parameter recordId).ExecuteDelete() |> ignore
                             // has_one_attached :preview_image (dependent: :destroy on the attachment)
-                            destroyAttachment conn "ActiveStorage::Blob" blobId "preview_image" |> Option.iter dependents.Add
-                            conn.Execute("DELETE FROM active_storage_blobs WHERE id = ?", [| I blobId |]) |> ignore
+                            destroyAttachment db "ActiveStorage::Blob" blobId "preview_image" |> Option.iter dependents.Add
+                            db.Blobs.Where(fun b -> b.Id = EF.Parameter blobId).ExecuteDelete() |> ignore
                             // after_destroy_commit :purge_dependent_blob_later
                             for dependent in dependents do
                                 tx.EmitAfterCommit(Event.PurgeBlob dependent)

@@ -249,7 +249,7 @@ type Presenter(db: Ef.CampfireDb, app: AppState, requestHost: string option) =
 
     /// `message.attachment` as `Messages::AttachmentPresentation` needs it.
     member private this.Attachment(message: Message) : AttachmentView option =
-        match Attachments.attachedBlobOn db "Message" message.Id "attachment" with
+        match Attachments.attachedBlob db "Message" message.Id "attachment" with
         | None -> None
         | Some blob ->
             let verifier = storage.Verifier

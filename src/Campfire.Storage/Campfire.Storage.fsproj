@@ -15,7 +15,6 @@
     <Compile Include="Process.fs" />
     <Compile Include="Analyze.fs" />
     <Compile Include="Disk.fs" />
-    <Compile Include="Sql.fs" />
     <Compile Include="Blob.fs" />
     <Compile Include="Paths.fs" />
     <Compile Include="FileServer.fs" />
@@ -24,9 +23,9 @@
   <ItemGroup>
     <ProjectReference Include="../Campfire.RailsCompat/Campfire.RailsCompat.fsproj" />
     <ProjectReference Include="../Campfire.Ruby/Campfire.Ruby.fsproj" />
+    <ProjectReference Include="../Campfire.Db/Campfire.Db.fsproj" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="Microsoft.Data.Sqlite" />
     <PackageReference Include="NetVips" />
   </ItemGroup>
   <ItemGroup>

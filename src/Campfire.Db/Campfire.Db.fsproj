@@ -23,7 +23,6 @@
     <Compile Include="Ban.fs" />
     <Compile Include="Search.fs" />
     <Compile Include="RichTextRecord.fs" />
-    <Compile Include="ActiveStorage.fs" />
     <Compile Include="Account.fs" />
     <Compile Include="Models.fs" />
     <Compile Include="PushSubscription.fs" />

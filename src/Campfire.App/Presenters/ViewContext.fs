@@ -80,28 +80,24 @@ module Layout =
                         match userId with
                         | Some userId -> Current.lastRoomVisitedIn db userId lastRoom |> Option.map (fun room -> room.Id)
                         | None -> None
-                    Account.first db, lastRoomVisitedId)
+                    let account = Account.first db
+                    let hasLogo =
+                        match account with
+                        | Some account -> (Attachments.attachedBlob db "Account" account.Id "logo").IsSome
+                        | None -> false
+                    account, hasLogo, lastRoomVisitedId)
             with
             | Error e -> return Error e
-            | Ok(account, lastRoomVisitedId) ->
-                // The logo's attachment still lives in the port's layer (unit 1.7): one trip to a reader.
-                match!
-                    app.Read(fun conn ->
-                        match account with
-                        | Some account -> (Attachments.attachedBlob conn "Account" account.Id "logo").IsSome
-                        | None -> false)
-                with
-                | Error e -> return Error e
-                | Ok hasLogo ->
-                    return
-                        Ok
-                            { CurrentUser = user |> Option.map (ViewContextBuilder.currentUser secrets)
-                              Account = ViewContextBuilder.accountSummary account hasLogo
-                              CustomStyles = account |> Option.bind (fun account -> Option.ofObj account.CustomStyles)
-                              Platform = Accounts.platform c
-                              LastRoomVisitedId = lastRoomVisitedId
-                              VapidPublicKey = app.VapidPublicKey
-                              AppVersion = app.Config.AppVersion }
+            | Ok(account, hasLogo, lastRoomVisitedId) ->
+                return
+                    Ok
+                        { CurrentUser = user |> Option.map (ViewContextBuilder.currentUser secrets)
+                          Account = ViewContextBuilder.accountSummary account hasLogo
+                          CustomStyles = account |> Option.bind (fun account -> Option.ofObj account.CustomStyles)
+                          Platform = Accounts.platform c
+                          LastRoomVisitedId = lastRoomVisitedId
+                          VapidPublicKey = app.VapidPublicKey
+                          AppVersion = app.Config.AppVersion }
         }
 
     let private option (value: string | null) : string option =

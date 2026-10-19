@@ -6,13 +6,13 @@
 /// Each flow is split in two, so the slow part never holds the database's writer: the file work
 /// (copying, checksumming, libvips, ffmpeg, analysis) takes no connection and is blocking, so
 /// call it from a blocking task; it leaves a `Staged` blob whose file is already uploaded. The
-/// record step then saves rows inside a transaction and is quick. The `SqliteConnection`
+/// record step then saves rows inside a transaction and is quick. The `CampfireDb`
 /// functions that do both at once are for tests and tools.
 namespace Campfire.Storage
 
 open System
 open System.IO
-open Microsoft.Data.Sqlite
+open Campfire.Db
 open Campfire.RailsCompat
 open Campfire.Storage.Analyze
 
@@ -38,8 +38,8 @@ type Staged internal (blob: NewBlob, service: DiskService) =
 
     member internal _.WithMetadata(metadata: Value) : unit = blob <- { blob with Metadata = metadata }
 
-    /// Inserts the blob's row.
-    member _.Insert(conn: SqliteConnection, now: Timestamp) : StorageResult<Blob> = NewBlob.insert conn now blob
+    /// Inserts the blob's row (`created_at` stamped by `RailsTimestamps`).
+    member _.Insert(db: Ef.CampfireDb) : Blob = NewBlob.insert db blob
 
     /// The row is saved for good: keep the file.
     member _.Keep() : unit = kept <- true
@@ -189,62 +189,44 @@ module Storage =
             Ok(Variation.defaultTo [ "format", Marshal.Value.Str(Blob.defaultVariantFormat blob) ] transformations)
 
     /// The processed variant's image blob, if `variant_records` already has it.
-    let existingVariant (conn: SqliteConnection) (blob: Blob) (variation: Variation) : StorageResult<Blob option> =
-        match Blob.findVariantRecord conn blob.Id (Variation.digest variation) with
-        | Ok(Some recordId) -> Blob.attached conn "ActiveStorage::VariantRecord" recordId "image"
-        | Ok None -> Ok None
-        | Error e -> Error e
+    let existingVariant (db: Ef.CampfireDb) (blob: Blob) (variation: Variation) : Blob option =
+        match Blob.findVariantRecord db blob.Id (Variation.digest variation) with
+        | Some recordId -> Blob.attached db "ActiveStorage::VariantRecord" recordId "image"
+        | None -> None
 
     /// The record half of `VariantWithRecord#processed`: the variant record, its image blob and
     /// attachment. `None` when another request recorded the variant first; that one is then
     /// `existingVariant`, and `image` should be dropped.
-    let recordVariant
-        (conn: SqliteConnection)
-        (blob: Blob)
-        (variation: Variation)
-        (image: Staged)
-        (now: Timestamp)
-        : StorageResult<Blob option> =
-        result {
-            match! Blob.insertVariantRecord conn blob.Id (Variation.digest variation) with
-            | None -> return None
-            | Some recordId ->
-                let! image = image.Insert(conn, now)
-                let! _ = Blob.insertAttachment conn "image" "ActiveStorage::VariantRecord" recordId image.Id now
-                return Some image
-        }
+    let recordVariant (db: Ef.CampfireDb) (blob: Blob) (variation: Variation) (image: Staged) : Blob option =
+        match Blob.insertVariantRecord db blob.Id (Variation.digest variation) with
+        | None -> None
+        | Some recordId ->
+            let image = image.Insert db
+            Blob.insertAttachment db "image" "ActiveStorage::VariantRecord" recordId image.Id |> ignore
+            Some image
 
     /// `blob.preview_image`, if it has been generated.
-    let existingPreviewImage (conn: SqliteConnection) (blob: Blob) : StorageResult<Blob option> =
-        Blob.attached conn "ActiveStorage::Blob" blob.Id "preview_image"
+    let existingPreviewImage (db: Ef.CampfireDb) (blob: Blob) : Blob option =
+        Blob.attached db "ActiveStorage::Blob" blob.Id "preview_image"
 
     /// The record half of `Preview#process`: attaches the frame as the blob's `preview_image`.
     /// `None` when another request attached one first; `image` should then be dropped.
-    let recordPreviewImage (conn: SqliteConnection) (blob: Blob) (image: Staged) (now: Timestamp) : StorageResult<Blob option> =
-        result {
-            match! existingPreviewImage conn blob with
-            | Some _ -> return None
-            | None ->
-                let! image = image.Insert(conn, now)
-                let! _ = Blob.insertAttachment conn "preview_image" "ActiveStorage::Blob" blob.Id image.Id now
-                return Some image
-        }
+    let recordPreviewImage (db: Ef.CampfireDb) (blob: Blob) (image: Staged) : Blob option =
+        match existingPreviewImage db blob with
+        | Some _ -> None
+        | None ->
+            let image = image.Insert db
+            Blob.insertAttachment db "preview_image" "ActiveStorage::Blob" blob.Id image.Id |> ignore
+            Some image
 
     // --- Both at once, for tests and tools ---------------------------------------------------------
 
     /// `Blob.create_and_upload!(io:, filename:, content_type:)`.
-    let createAndUpload
-        (storage: Storage)
-        (conn: SqliteConnection)
-        (data: byte[])
-        (filename: Filename)
-        (declaredType: string option)
-        (now: Timestamp)
-        : StorageResult<Blob> =
+    let createAndUpload (storage: Storage) (db: Ef.CampfireDb) (data: byte[]) (filename: Filename) (declaredType: string option) : StorageResult<Blob> =
         result {
             let! staged = stageBytes storage data filename declaredType
             use staged = staged
-            let! blob = staged.Insert(conn, now)
+            let blob = staged.Insert db
             staged.Keep()
             return blob
         }
@@ -252,82 +234,70 @@ module Storage =
     /// `blob.analyze`: `update!(metadata: metadata.merge(analyzer.metadata.merge(analyzed: true)))`,
     /// returning the blob as saved. Rails then touches the blob's attachment records (see
     /// `Blob.attachmentRecords`).
-    let analyze (storage: Storage) (conn: SqliteConnection) (blob: Blob) : StorageResult<Blob> =
+    let analyze (storage: Storage) (db: Ef.CampfireDb) (blob: Blob) : StorageResult<Blob> =
         result {
             let! metadata = analyzedMetadata storage blob
-            return! Blob.updateMetadata conn metadata blob
+            return Blob.updateMetadata db metadata blob
         }
 
     /// `VariantWithRecord#processed`: reuses the variant record when present, otherwise
     /// transforms the blob and records the variant.
-    let processVariant (storage: Storage) (conn: SqliteConnection) (blob: Blob) (variation: Variation) (now: Timestamp) : StorageResult<Blob> =
+    let processVariant (storage: Storage) (db: Ef.CampfireDb) (blob: Blob) (variation: Variation) : StorageResult<Blob> =
         result {
-            match! existingVariant conn blob variation with
+            match existingVariant db blob variation with
             | Some image -> return image
             | None ->
                 let! image = transformVariant storage blob variation
                 use image = image
-                match! recordVariant conn blob variation image now with
+                match recordVariant db blob variation image with
                 | Some recorded ->
                     image.Keep()
                     return recorded
                 | None ->
-                    match! existingVariant conn blob variation with
+                    match existingVariant db blob variation with
                     | Some existing -> return existing
                     | None -> return! Error StorageError.FileNotFound
         }
 
     /// `blob.preview_image`, generating it with ffmpeg when missing (`Preview#process`).
-    let previewImage (storage: Storage) (conn: SqliteConnection) (blob: Blob) (now: Timestamp) : StorageResult<Blob> =
+    let previewImage (storage: Storage) (db: Ef.CampfireDb) (blob: Blob) : StorageResult<Blob> =
         result {
-            match! existingPreviewImage conn blob with
+            match existingPreviewImage db blob with
             | Some image -> return image
             | None ->
                 let! image = drawPreviewImage storage blob
                 use image = image
-                match! recordPreviewImage conn blob image now with
+                match recordPreviewImage db blob image with
                 | Some recorded ->
                     image.Keep()
                     return recorded
                 | None ->
-                    match! existingPreviewImage conn blob with
+                    match existingPreviewImage db blob with
                     | Some existing -> return existing
                     | None -> return! Error StorageError.FileNotFound
         }
 
     /// `blob.preview(transformations).processed`, returning the blob to serve: the preview image
     /// itself for empty transformations, otherwise its processed variant.
-    let processPreview
-        (storage: Storage)
-        (conn: SqliteConnection)
-        (blob: Blob)
-        (transformations: Variation)
-        (now: Timestamp)
-        : StorageResult<Blob> =
+    let processPreview (storage: Storage) (db: Ef.CampfireDb) (blob: Blob) (transformations: Variation) : StorageResult<Blob> =
         result {
-            let! image = previewImage storage conn blob now
+            let! image = previewImage storage db blob
             if Variation.isEmpty transformations then
                 return image
             else
                 let! variation = variationFor image transformations
-                return! processVariant storage conn image variation now
+                return! processVariant storage db image variation
         }
 
     /// `blob.representation(transformations).processed`: a preview for previewable blobs, a
     /// variant for variable ones.
-    let processRepresentation
-        (storage: Storage)
-        (conn: SqliteConnection)
-        (blob: Blob)
-        (transformations: Variation)
-        (now: Timestamp)
-        : StorageResult<Blob> =
+    let processRepresentation (storage: Storage) (db: Ef.CampfireDb) (blob: Blob) (transformations: Variation) : StorageResult<Blob> =
         if Blob.isPreviewable blob then
-            processPreview storage conn blob transformations now
+            processPreview storage db blob transformations
         elif Blob.isVariable blob then
             result {
                 let! variation = variationFor blob transformations
-                return! processVariant storage conn blob variation now
+                return! processVariant storage db blob variation
             }
         else
             Error(StorageError.Unrepresentable(Blob.contentType blob))

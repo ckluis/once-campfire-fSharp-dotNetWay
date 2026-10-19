@@ -207,8 +207,8 @@ module Accounts =
 
     /// The fields `accounts/bots/_form` fills in: `image_tag bot.avatar` is the blob's absolute
     /// redirect URL.
-    let botForm (conn: Conn) (storage: Campfire.Storage.Storage) (baseUrl: string) (bot: User) (webhookUrl: string option) : BotForm =
-        let avatar = Attachments.attachedBlob conn "User" bot.Id "avatar"
+    let botForm (db: Campfire.Db.Ef.CampfireDb) (storage: Campfire.Storage.Storage) (baseUrl: string) (bot: User) (webhookUrl: string option) : BotForm =
+        let avatar = Attachments.attachedBlob db "User" bot.Id "avatar"
         { Name = Some bot.Name
           WebhookUrl = webhookUrl
           AvatarAttachmentUrl =

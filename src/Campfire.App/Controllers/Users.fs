@@ -88,16 +88,11 @@ module UsersController =
                     PasswordDigest = passwordDigest }
             let! avatar = Assignment.stage c.App (Assignment.fromParams parameters "avatar")
 
-            // `User.create!(user_params)`; the avatar is attached by the port's writer until unit 1.7 moves the storage rows onto EF,
-            // so it follows the user's commit as its own write instead of sharing the transaction.
+            // `User.create!(user_params)`, the avatar in the same transaction.
             let! result =
-                task {
-                    match! c.TryWrite(fun tx -> User.create tx attributes) with
-                    | Error error -> return Error error
-                    | Ok user ->
-                        let! attached = c.App.Db.Write(fun tx -> AttachmentWrites.assign tx (Record.user user.Id) "avatar" avatar)
-                        return attached |> Result.map (fun pending -> user, pending)
-                }
+                c.TryWrite(fun tx ->
+                    let user = User.create tx attributes
+                    user, AttachmentWrites.assign tx (Record.user user.Id) "avatar" avatar)
             match result with
             | Ok(user, pending) ->
                 AttachmentWrites.analyzeLater c.App pending

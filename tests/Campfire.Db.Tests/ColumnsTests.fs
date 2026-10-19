@@ -379,7 +379,7 @@ let ``every column list names the columns its model reads`` () =
     Assert.Equal(9, List.length (names Columns.Membership))
     for layout in layouts do
         use conn = database layout
-        for columns, table in [ Columns.User, "users"; Columns.Message, "messages"; Columns.Room, "rooms"; Columns.Membership, "memberships"; Columns.Account, "accounts"; Columns.Boost, "boosts"; Columns.RichTextRecord, "action_text_rich_texts"; Columns.Session, "sessions"; Columns.Blob, "active_storage_blobs"; Columns.Attachment, "active_storage_attachments"; Columns.Ban, "bans"; Columns.PushSubscription, "push_subscriptions"; Columns.Search, "searches"; Columns.Webhook, "webhooks" ] do
+        for columns, table in [ Columns.User, "users"; Columns.Message, "messages"; Columns.Room, "rooms"; Columns.Membership, "memberships"; Columns.Account, "accounts"; Columns.Boost, "boosts"; Columns.RichTextRecord, "action_text_rich_texts"; Columns.Session, "sessions"; Columns.Ban, "bans"; Columns.PushSubscription, "push_subscriptions"; Columns.Search, "searches"; Columns.Webhook, "webhooks" ] do
             // The list selects what it names, in its order, from the table.
             let selected =
                 conn.QueryAll($"SELECT {columns} FROM \"{table}\"", [||], fun _ -> ())

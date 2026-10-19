@@ -123,6 +123,6 @@ module Avatars =
             c.UseLiveResponse() // `include ActiveStorage::Streaming`
             do! Concerns.beforeActions c Before.Default
             let! (user: User) = Concerns.requireCurrentUser c
-            let! (_: bool) = c.App.Write(fun tx -> AttachmentWrites.destroy tx (Record.user user.Id) "avatar")
+            let! (_: bool) = c.Write(fun tx -> AttachmentWrites.destroy tx (Record.user user.Id) "avatar")
             return! c.RedirectTo(c.UrlFor(Campfire.Routes.Routes.userProfile ()))
         }

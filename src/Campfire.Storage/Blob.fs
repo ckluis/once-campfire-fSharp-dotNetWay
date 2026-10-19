@@ -1,14 +1,16 @@
 // Port of rust/crates/storage/src/blob.rs
 /// `active_storage_blobs`, `active_storage_attachments` and `active_storage_variant_records` rows.
 ///
-/// Every function takes a `SqliteConnection`, so callers decide the transaction boundaries the
-/// way the Rails models' callbacks would.
+/// On EF Core (design-data-ef.md, unit 1.7): reads take the `CampfireDb`, writes take it too and run inside the caller's
+/// `Writes.run` (so callers decide the transaction boundaries the way the Rails models' callbacks would). `created_at` is
+/// stamped by `RailsTimestamps`. LINQ with every captured value in `EF.Parameter`; no raw SQL.
 namespace Campfire.Storage
 
 open System
-open System.Globalization
 open System.IO
-open Microsoft.Data.Sqlite
+open System.Linq
+open Microsoft.EntityFrameworkCore
+open Campfire.Db
 open Campfire.RailsCompat
 
 type Blob =
@@ -34,45 +36,32 @@ type NewBlob =
       Checksum: string }
 
 module Blob =
-    /// Active Record's SQLite datetime format: UTC, microseconds only when non-zero.
-    let formatTimestamp (t: Timestamp) : string =
-        let utc = t.UtcDateTime
-        let micros = (utc.Ticks % TimeSpan.TicksPerSecond) / 10L
-        let basis = utc.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture)
-        if micros = 0L then basis else $"{basis}.{micros:D6}"
+    /// The row as the storage code sees it.
+    let ofEntity (b: Ef.Blob) : Blob =
+        { Id = b.Id
+          Key = b.Key
+          Filename = Filename.create b.Filename
+          ContentType = Option.ofObj b.ContentType
+          Metadata = Option.ofObj b.Metadata |> Option.bind JsonValue.parse |> Option.defaultValue JsonValue.object
+          ServiceName = b.ServiceName
+          ByteSize = b.ByteSize
+          Checksum = Option.ofObj b.Checksum
+          CreatedAt = RailsTime.toDb b.CreatedAt }
 
-    let private columns = "id, key, filename, content_type, metadata, service_name, byte_size, checksum, created_at"
+    let find (db: Ef.CampfireDb) (id: int64) : Blob option =
+        db.Blobs.Where(fun b -> b.Id = EF.Parameter id) |> Ef.Data.tryFirst |> Option.map ofEntity
 
-    let private optionalText (reader: SqliteDataReader) (i: int) : string option =
-        if reader.IsDBNull i then None else Some(reader.GetString i)
+    let findByKey (db: Ef.CampfireDb) (key: string) : Blob option =
+        db.Blobs.Where(fun b -> b.Key = EF.Parameter key) |> Ef.Data.tryFirst |> Option.map ofEntity
 
-    let private fromRow (row: SqliteDataReader) : Blob =
-        { Id = row.GetInt64 0
-          Key = row.GetString 1
-          Filename = Filename.create (row.GetString 2)
-          ContentType = optionalText row 3
-          Metadata = optionalText row 4 |> Option.bind JsonValue.parse |> Option.defaultValue JsonValue.object
-          ServiceName = row.GetString 5
-          ByteSize = row.GetInt64 6
-          Checksum = optionalText row 7
-          CreatedAt = row.GetString 8 }
-
-    let private selectBlob = $"SELECT {columns} FROM active_storage_blobs WHERE id = ?1"
-
-    let private selectByKey = $"SELECT {columns} FROM active_storage_blobs WHERE key = ?1"
-
-    let private selectAttached =
-        let prefixed = columns.Split(", ") |> Array.map (fun c -> "b." + c) |> String.concat ", "
-        $"SELECT {prefixed} FROM active_storage_blobs b JOIN active_storage_attachments a ON a.blob_id = b.id WHERE a.record_type = ?1 AND a.record_id = ?2 AND a.name = ?3 ORDER BY a.id LIMIT 1"
-
-    let find (conn: SqliteConnection) (id: int64) : StorageResult<Blob option> = Sql.queryOne conn selectBlob [| id |] fromRow
-
-    let findByKey (conn: SqliteConnection) (key: string) : StorageResult<Blob option> =
-        Sql.queryOne conn selectByKey [| key |] fromRow
-
-    /// The blob attached to `record` under `name` (`has_one_attached`).
-    let attached (conn: SqliteConnection) (recordType: string) (recordId: int64) (name: string) : StorageResult<Blob option> =
-        Sql.queryOne conn selectAttached [| recordType; recordId; name |] fromRow
+    /// The blob attached to `record` under `name` (`has_one_attached`): the first attachment's, by id.
+    let attached (db: Ef.CampfireDb) (recordType: string) (recordId: int64) (name: string) : Blob option =
+        db.Attachments
+            .Where(fun a -> a.RecordType = EF.Parameter recordType && a.RecordId = EF.Parameter recordId && a.Name = EF.Parameter name)
+            .OrderBy(fun a -> a.Id)
+            .Join(db.Blobs, (fun a -> a.BlobId), (fun b -> b.Id), (fun _ b -> b))
+        |> Ef.Data.tryFirst
+        |> Option.map ofEntity
 
     let contentType (blob: Blob) : string = defaultArg blob.ContentType ""
 
@@ -107,9 +96,12 @@ module Blob =
         | _ -> None
 
     /// `update!(metadata:)`: the blob as saved.
-    let updateMetadata (conn: SqliteConnection) (metadata: Value) (blob: Blob) : StorageResult<Blob> =
-        Sql.execute conn "UPDATE active_storage_blobs SET metadata = ?1 WHERE id = ?2" [| JsonValue.encode metadata; blob.Id |]
-        |> Result.map (fun _ -> { blob with Metadata = metadata })
+    let updateMetadata (db: Ef.CampfireDb) (metadata: Value) (blob: Blob) : Blob =
+        let json: string | null = JsonValue.encode metadata
+        let id = blob.Id
+        db.Blobs.Where(fun b -> b.Id = EF.Parameter id).ExecuteUpdate(fun u -> u.SetProperty((fun b -> b.Metadata), json) |> ignore)
+        |> ignore
+        { blob with Metadata = metadata }
 
     /// `Representable#format`: the filename's extension when Marcel agrees it names the
     /// content type, otherwise the content type's first registered extension.
@@ -134,48 +126,39 @@ module Blob =
 
     /// Inserts an `active_storage_attachments` row. Rails then touches the record (and whatever it
     /// touches in turn, e.g. `Message belongs_to :room, touch: true`); that's up to the caller.
-    let insertAttachment
-        (conn: SqliteConnection)
-        (name: string)
-        (recordType: string)
-        (recordId: int64)
-        (blobId: int64)
-        (createdAt: Timestamp)
-        : StorageResult<int64> =
-        Sql.execute
-            conn
-            "INSERT INTO active_storage_attachments (name, record_type, record_id, blob_id, created_at) VALUES (?1, ?2, ?3, ?4, ?5)"
-            [| name; recordType; recordId; blobId; formatTimestamp createdAt |]
-        |> Result.map (fun _ -> Sql.lastInsertRowid conn)
+    let insertAttachment (db: Ef.CampfireDb) (name: string) (recordType: string) (recordId: int64) (blobId: int64) : int64 =
+        let attachment: Ef.Attachment =
+            Ef.Data.insert
+                db
+                { Id = 0L
+                  Name = name
+                  RecordType = recordType
+                  RecordId = recordId
+                  BlobId = blobId
+                  CreatedAt = DateTime.MinValue }
+        attachment.Id
 
     /// The `(record_type, record_id)` of every attachment of a blob: the records `Blob#touch_attachments`
     /// touches after the blob is updated (e.g. by analysis).
-    let attachmentRecords (conn: SqliteConnection) (blobId: int64) : StorageResult<(string * int64) list> =
-        Sql.queryAll
-            conn
-            "SELECT record_type, record_id FROM active_storage_attachments WHERE blob_id = ?1 ORDER BY id"
-            [| blobId |]
-            (fun row -> row.GetString 0, row.GetInt64 1)
+    let attachmentRecords (db: Ef.CampfireDb) (blobId: int64) : (string * int64) list =
+        db.Attachments.Where(fun a -> a.BlobId = EF.Parameter blobId).OrderBy(fun a -> a.Id).ToList()
+        |> Seq.map (fun a -> a.RecordType, a.RecordId)
+        |> List.ofSeq
 
     /// `blob.variant_records.find_by(variation_digest:)`.
-    let findVariantRecord (conn: SqliteConnection) (blobId: int64) (variationDigest: string) : StorageResult<int64 option> =
-        Sql.queryOne
-            conn
-            "SELECT id FROM active_storage_variant_records WHERE blob_id = ?1 AND variation_digest = ?2"
-            [| blobId; variationDigest |]
-            (fun row -> row.GetInt64 0)
+    let findVariantRecord (db: Ef.CampfireDb) (blobId: int64) (variationDigest: string) : int64 option =
+        db.Variants.Where(fun v -> v.BlobId = EF.Parameter blobId && v.VariationDigest = EF.Parameter variationDigest)
+        |> Ef.Data.tryFirst
+        |> Option.map (fun v -> v.Id)
 
-    /// `INSERT` half of `create_or_find_by!`: `None` when another writer created it first.
-    let insertVariantRecord (conn: SqliteConnection) (blobId: int64) (variationDigest: string) : StorageResult<int64 option> =
-        match
-            Sql.execute
-                conn
-                "INSERT INTO active_storage_variant_records (blob_id, variation_digest) VALUES (?1, ?2)"
-                [| blobId; variationDigest |]
-        with
-        | Ok _ -> Ok(Some(Sql.lastInsertRowid conn))
-        | Error e when Sql.isUniqueViolation e -> Ok None
-        | Error e -> Error e
+    /// `INSERT` half of `create_or_find_by!`: `None` when the record exists already (writes are serialized by the write
+    /// gate, so looking first can't race another writer).
+    let insertVariantRecord (db: Ef.CampfireDb) (blobId: int64) (variationDigest: string) : int64 option =
+        match findVariantRecord db blobId variationDigest with
+        | Some _ -> None
+        | None ->
+            let record: Ef.VariantRecord = Ef.Data.insert db { Id = 0L; BlobId = blobId; VariationDigest = variationDigest }
+            Some record.Id
 
 module NewBlob =
     let private contentType (head: byte[]) (filename: Filename) (declaredType: string option) (identify: bool) : string option =
@@ -223,28 +206,17 @@ module NewBlob =
             let byteSize = FileInfo(path).Length
             build filename contentType serviceName byteSize (Key.checksumFile path))
 
-    let insert (conn: SqliteConnection) (createdAt: Timestamp) (blob: NewBlob) : StorageResult<Blob> =
-        let createdAt = Blob.formatTimestamp createdAt
-        Sql.execute
-            conn
-            "INSERT INTO active_storage_blobs (key, filename, content_type, metadata, service_name, byte_size, checksum, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)"
-            [| box blob.Key
-               box (Filename.raw blob.Filename)
-               (match blob.ContentType with
-                | Some t -> box t
-                | None -> null)
-               box (JsonValue.encode blob.Metadata)
-               box blob.ServiceName
-               box blob.ByteSize
-               box blob.Checksum
-               box createdAt |]
-        |> Result.map (fun _ ->
-            { Id = Sql.lastInsertRowid conn
-              Key = blob.Key
-              Filename = blob.Filename
-              ContentType = blob.ContentType
-              Metadata = blob.Metadata
-              ServiceName = blob.ServiceName
-              ByteSize = blob.ByteSize
-              Checksum = Some blob.Checksum
-              CreatedAt = createdAt })
+    let insert (db: Ef.CampfireDb) (blob: NewBlob) : Blob =
+        let row: Ef.Blob =
+            Ef.Data.insert
+                db
+                { Id = 0L
+                  Key = blob.Key
+                  Filename = Filename.raw blob.Filename
+                  ContentType = Option.toObj blob.ContentType
+                  Metadata = JsonValue.encode blob.Metadata
+                  ServiceName = blob.ServiceName
+                  ByteSize = blob.ByteSize
+                  Checksum = blob.Checksum
+                  CreatedAt = DateTime.MinValue }
+        Blob.ofEntity row

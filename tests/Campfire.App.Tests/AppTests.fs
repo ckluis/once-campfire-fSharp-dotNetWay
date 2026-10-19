@@ -16,6 +16,7 @@ open System.Text.Json
 open System.Threading
 open System.Threading.Tasks
 open Microsoft.Data.Sqlite
+open Microsoft.EntityFrameworkCore
 open Xunit
 open Campfire.App
 open Campfire.App.Presenters
@@ -30,6 +31,19 @@ let private unwrap (result: Result<'T, DbError>) : 'T =
     match result with
     | Ok value -> value
     | Error e -> failwith (DbError.display e)
+
+/// `Reads.run` over a context leased for the call.
+let private readEf (app: AppState) (f: Ef.CampfireDb -> 'T) : 'T =
+    use context = app.DbFactory.CreateDbContext()
+    Ef.Reads.run context f |> unwrap
+
+/// `Writes.run` over a context leased for the call.
+let private writeEf (app: AppState) (f: Ef.Tx -> 'T) : Task<'T> =
+    task {
+        use context = app.DbFactory.CreateDbContext()
+        let! result = Ef.Writes.run app.Gate app.Env context f
+        return unwrap result
+    }
 
 [<Fact>]
 let ``health check`` () =
@@ -365,11 +379,8 @@ let ``jobs run ad hoc work and purge unattached blobs`` () =
         let! done' = Task.WhenAny(finished.Task, Task.Delay(TimeSpan.FromSeconds 5.0))
         Assert.True(obj.ReferenceEquals(done', finished.Task), "the ad hoc job ran")
 
-        let now = app.Clock.Now()
-        let! created =
-            app.Db.Write(fun tx ->
-                Storage.createAndUpload app.Storage tx.Conn.Raw "hello"B (Filename.create "hello.txt") None now |> Common.raiseStorage)
-        let blob = unwrap created
+        let! blob =
+            writeEf app (fun tx -> Storage.createAndUpload app.Storage tx.Db "hello"B (Filename.create "hello.txt") None |> Common.raiseStorage)
         let path = Storage.pathFor app.Storage blob
         Assert.True(File.Exists path)
 
@@ -378,8 +389,8 @@ let ``jobs run ad hoc work and purge unattached blobs`` () =
         (app.Jobs :> EventSink).Emit(Event.PurgeBlob blob.Id)
         let isGone () =
             task {
-                let! gone = app.Db.Read(fun conn -> (Common.raiseStorage (Campfire.Storage.Blob.find conn.Raw blob.Id)).IsNone)
-                return unwrap gone && not (File.Exists path)
+                let gone = readEf app (fun db -> (Campfire.Storage.Blob.find db blob.Id).IsNone)
+                return gone && not (File.Exists path)
             }
         let mutable attempts = 0
         let mutable gone = false
@@ -389,8 +400,7 @@ let ``jobs run ad hoc work and purge unattached blobs`` () =
             if not gone then do! Task.Delay 20
             attempts <- attempts + 1
         Assert.False(File.Exists path, test.Logs)
-        let! attached = app.Db.Read(fun conn -> (Common.raiseStorage (Campfire.Storage.Blob.find conn.Raw 5L)).IsSome)
-        Assert.True(unwrap attached)
+        Assert.True(readEf app (fun db -> (Campfire.Storage.Blob.find db 5L).IsSome))
 
         do! (test :> IAsyncDisposable).DisposeAsync()
     }
@@ -401,7 +411,7 @@ let ``writes proceed while a variant is transformed`` () =
     task {
         use! test = bootSeeded "default"
         let app = test.App
-        let blob = unwrap (app.Db.ReadBlocking(fun conn -> (Common.raiseStorage (Campfire.Storage.Blob.find conn.Raw 5L)).Value))
+        let blob = readEf app (fun db -> (Campfire.Storage.Blob.find db 5L).Value)
         let variation = Storage.variationFor blob (Variation.resizeToLimit 37L 37L None) |> Result.defaultWith (fun e -> failwith (StorageError.message e))
 
         use entered = new ManualResetEventSlim(false)
@@ -413,18 +423,18 @@ let ``writes proceed while a variant is transformed`` () =
                 Storage.transformVariant storage blob variation)
         Assert.True(entered.Wait(TimeSpan.FromSeconds 10.0), "the transform started")
 
-        let write = app.Db.Write(fun tx -> tx.Conn.Execute("UPDATE accounts SET name = name", [||]) |> ignore)
+        let write = writeEf app (fun tx -> tx.Db.Database.ExecuteSql($"UPDATE accounts SET name = name") |> ignore)
         let! first = Task.WhenAny(write, Task.Delay(TimeSpan.FromSeconds 5.0))
         Assert.True(obj.ReferenceEquals(first, write), "the write waited on the transform")
-        unwrap write.Result
+        write.Result
 
         released.Set()
         match! processing with
         | Error e -> failwith (Error.display e)
         | Ok image ->
             Assert.True(File.Exists(Storage.pathFor app.Storage image))
-            let! recorded = app.Db.Read(fun conn -> Common.raiseStorage (Storage.existingVariant conn.Raw blob variation))
-            Assert.Equal(Some image.Id, unwrap recorded |> Option.map (fun b -> b.Id))
+            let recorded = readEf app (fun db -> Storage.existingVariant db blob variation)
+            Assert.Equal(Some image.Id, recorded |> Option.map (fun b -> b.Id))
     }
 
 let private proxyPath () : string =
@@ -437,7 +447,7 @@ let ``blob byte ranges are served from the file`` () =
     task {
         use! test = bootSeeded "default"
         let proxyPath = proxyPath ()
-        let blob = unwrap (test.App.Db.ReadBlocking(fun conn -> (Common.raiseStorage (Campfire.Storage.Blob.find conn.Raw 5L)).Value))
+        let blob = readEf test.App (fun db -> (Campfire.Storage.Blob.find db 5L).Value)
         let file = File.ReadAllBytes(Storage.pathFor test.App.Storage blob)
         let ranged (range: string) = (get proxyPath).With("range", range)
 
@@ -468,7 +478,7 @@ let ``blob byte ranges are served from the file`` () =
 let ``proxied blobs name their file like rails`` () =
     task {
         use! test = bootSeeded "default"
-        unwrap (test.App.Db.WriteBlocking(fun tx -> tx.Conn.Execute("UPDATE active_storage_blobs SET filename = 'Łódź.jpg' WHERE id = 5", [||]) |> ignore))
+        do! writeEf test.App (fun tx -> tx.Db.Database.ExecuteSql($"UPDATE active_storage_blobs SET filename = 'Łódź.jpg' WHERE id = 5") |> ignore)
         let proxyPath = proxyPath ()
         let expected = Some "inline; filename=\"Lodz.jpg\"; filename*=UTF-8''%C5%81%C3%B3d%C5%BA.jpg"
         let! whole = test.Send(get proxyPath)

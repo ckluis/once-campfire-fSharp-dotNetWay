@@ -289,7 +289,7 @@ let ``pipeline matches the reference`` () =
     let files = Path.Combine(Path.GetDirectoryName(vectorsPath ()) |> nonNull, "storage")
     use root = TempDir.Create()
     let storage = Storage.create (DiskService.create root.Path "local") (verifier ())
-    use conn = openDatabase ()
+    use db = openDatabase ()
     let comparison = Comparison(prop "versions" vectors')
     let messages = cases "messages" 5
     let mutable expectedImages = 0
@@ -308,8 +308,8 @@ let ``pipeline matches the reference`` () =
         Assert.True((Key.checksum expected = str (prop "checksum" (prop "blob" v))), $"{label} vector file")
         let actual = File.ReadAllBytes(Storage.pathFor storage image)
         Assert.True((Some(Key.checksum actual) = image.Checksum), $"{label} stored file")
-        let recordId = (Blob.findVariantRecord conn source.Id digest).Value
-        let attached = (Blob.attached conn "ActiveStorage::VariantRecord" recordId.Value "image").Value
+        let recordId = Blob.findVariantRecord db source.Id digest
+        let attached = Blob.attached db "ActiveStorage::VariantRecord" recordId.Value "image"
         Assert.True((attached |> Option.map (fun b -> b.Id) = Some image.Id), $"{label} variant record attachment")
 
     let mutable skippedVideo = 0
@@ -323,28 +323,28 @@ let ``pipeline matches the reference`` () =
         else
             let data = File.ReadAllBytes(fixture name)
             let created =
-                (Storage.createAndUpload storage conn data (Filename.create name) (optProp "declared_type" m) (now ())).Value
-            Blob.insertAttachment conn "attachment" "Message" 1L created.Id (now ()) |> ignore
-            let blob = (Storage.analyze storage conn created).Value
+                (Storage.createAndUpload storage db data (Filename.create name) (optProp "declared_type" m)).Value
+            Blob.insertAttachment db "attachment" "Message" 1L created.Id |> ignore
+            let blob = (Storage.analyze storage db created).Value
             comparison.Blob(name, blob, prop "blob" m, false, false)
             Assert.True((Blob.isVariable blob = (prop "variable" m).GetBoolean()), $"{name} variable?")
             Assert.True((Blob.isPreviewable blob = (prop "previewable" m).GetBoolean()), $"{name} previewable?")
 
             if Blob.isVideo blob then
-                let previewImage = (Storage.previewImage storage conn blob (now ())).Value
+                let previewImage = (Storage.previewImage storage db blob).Value
                 comparison.Blob($"{name} preview_image", previewImage, prop "blob" (prop "preview_image" m), true, true)
                 expectedVideo <- expectedVideo + 1
                 for v in items (prop "variants" m) do
-                    let image = (Storage.processPreview storage conn blob (variation (prop "transformations_typed" v)) (now ())).Value
+                    let image = (Storage.processPreview storage db blob (variation (prop "transformations_typed" v))).Value
                     checkVariant previewImage v image true
             elif Blob.isVariable blob then
                 let thumb = Variation.resizeToLimit 1200L 800L None
                 let variation' = (Storage.variationFor blob thumb).Value
                 let v = (items (prop "variants" m))[0]
                 Assert.True((variation' = variation (prop "transformations_typed" v)))
-                let image = (Storage.processVariant storage conn blob variation' (now ())).Value
+                let image = (Storage.processVariant storage db blob variation').Value
                 // Processing again reuses the variant record.
-                Assert.Equal(image.Id, (Storage.processVariant storage conn blob variation' (now ())).Value.Id)
+                Assert.Equal(image.Id, (Storage.processVariant storage db blob variation').Value.Id)
                 checkVariant blob v image false
 
     let named =
@@ -355,14 +355,14 @@ let ``pipeline matches the reference`` () =
             let row = prop "blob" entry
             let data = File.ReadAllBytes(fixture (str (prop "fixture" entry)))
             let created =
-                (Storage.createAndUpload storage conn data (Filename.create (str (prop "filename" row))) (optProp "content_type" row) (now ())).Value
-            let blob = (Storage.analyze storage conn created).Value
+                (Storage.createAndUpload storage db data (Filename.create (str (prop "filename" row))) (optProp "content_type" row)).Value
+            let blob = (Storage.analyze storage db created).Value
             comparison.Blob(str (prop "filename" row), blob, row, false, false)
             for i, v in items (prop "variants" entry) |> Array.indexed do
                 let transformations = if i = 0 then first else Variation.resizeToLimit 192L 192L (Some "png")
                 let variation' = (Storage.variationFor blob transformations).Value
                 Assert.True((variation' = variation (prop "transformations_typed" v)), str (prop "label" v))
-                let image = (Storage.processVariant storage conn blob variation' (now ())).Value
+                let image = (Storage.processVariant storage db blob variation').Value
                 checkVariant blob v image false
 
     // How many byte comparisons of processed media ran: all of them where the versions match.
@@ -414,18 +414,18 @@ let ``posters are made from the reference frame as the reference made them`` () 
         let files = Path.Combine(Path.GetDirectoryName(vectorsPath ()) |> nonNull, "storage")
         use root = TempDir.Create()
         let storage = Storage.create (DiskService.create root.Path "local") (verifier ())
-        use conn = openDatabase ()
+        use db = openDatabase ()
         let video = cases "messages" 5 |> Array.find (fun m -> str (prop "fixture" m) = "alpha-centuri.mov")
         let frame = prop "blob" (prop "preview_image" video)
         let upload =
-            (Storage.createAndUpload storage conn (File.ReadAllBytes(Path.Combine(files, str (prop "file" (prop "preview_image" video))))) (Filename.create (str (prop "filename" frame))) (optProp "content_type" frame) (now ())).Value
-        let image = (Storage.analyze storage conn upload).Value
+            (Storage.createAndUpload storage db (File.ReadAllBytes(Path.Combine(files, str (prop "file" (prop "preview_image" video))))) (Filename.create (str (prop "filename" frame))) (optProp "content_type" frame)).Value
+        let image = (Storage.analyze storage db upload).Value
         let variants = items (prop "variants" video)
         Assert.Equal(3, variants.Length)
         for v in variants do
             let label = str (prop "label" v)
             let variation' = (Storage.variationFor image (variation (prop "transformations_typed" v))).Value
-            let processed = (Storage.processVariant storage conn image variation' (now ())).Value
+            let processed = (Storage.processVariant storage db image variation').Value
             let expected = File.ReadAllBytes(Path.Combine(files, str (prop "file" v)))
             Assert.True((File.ReadAllBytes(Storage.pathFor storage processed) = expected), $"{label} is not byte-identical to the reference's")
             Assert.True((processed.Checksum = optStr (prop "checksum" (prop "blob" v))), $"{label} checksum")

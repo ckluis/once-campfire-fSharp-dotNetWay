@@ -96,24 +96,26 @@ module IntegrationJobs =
             match staged with
             | Error error -> return Error(sprintf "%A" error)
             | Ok staged ->
-                match! app.Db.Write(fun tx -> MessagesController.saveStaged tx staged) with
+                let newMessage (blob: Campfire.Storage.Blob) : NewMessage =
+                    { RoomId = room.Id
+                      CreatorId = bot.Id
+                      ClientMessageId = None
+                      Body = None
+                      AttachmentBlobId = Some blob.Id }
+                // The blob, its attachment and the message are one write.
+                match!
+                    writeEf app (fun tx ->
+                        let blob = MessagesController.saveStaged tx staged
+                        Message.create tx (newMessage blob), blob)
+                with
                 | Error error -> return Error(failure error)
-                | Ok blob ->
-                    let newMessage: NewMessage =
-                        { RoomId = room.Id
-                          CreatorId = bot.Id
-                          ClientMessageId = None
-                          Body = None
-                          AttachmentBlobId = Some blob.Id }
-                    match! writeEf app (fun tx -> Message.create tx newMessage) with
-                    | Error error -> return Error(failure error)
-                    | Ok message ->
-                        match! MessagesController.processAttachment app blob with
-                        | Error error -> return Error(kitFailure error)
-                        | Ok() ->
-                            match readEf app (fun db -> Message.find db message.Id) with
-                            | Ok message -> return Ok message
-                            | Error error -> return Error(failure error)
+                | Ok(message, blob) ->
+                    match! MessagesController.processAttachment app blob with
+                    | Error error -> return Error(kitFailure error)
+                    | Ok() ->
+                        match readEf app (fun db -> Message.find db message.Id) with
+                        | Ok message -> return Ok message
+                        | Error error -> return Error(failure error)
         }
 
     /// `message.broadcast_create`, rendered without a request (`ApplicationController.renderer`).

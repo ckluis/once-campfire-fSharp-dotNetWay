@@ -39,14 +39,6 @@ module Columns =
     [<Literal>]
     let Session = "\"sessions\".\"id\", \"sessions\".\"user_id\", \"sessions\".\"token\", \"sessions\".\"ip_address\", \"sessions\".\"user_agent\", \"sessions\".\"last_active_at\", \"sessions\".\"created_at\", \"sessions\".\"updated_at\""
 
-    /// active_storage_blobs, in the order `Blob.fromRow` reads them.
-    [<Literal>]
-    let Blob = "\"active_storage_blobs\".\"id\", \"active_storage_blobs\".\"key\", \"active_storage_blobs\".\"filename\", \"active_storage_blobs\".\"content_type\", \"active_storage_blobs\".\"metadata\", \"active_storage_blobs\".\"service_name\", \"active_storage_blobs\".\"byte_size\", \"active_storage_blobs\".\"checksum\", \"active_storage_blobs\".\"created_at\""
-
-    /// active_storage_attachments, in the order `Attachment.fromRow` reads them.
-    [<Literal>]
-    let Attachment = "\"active_storage_attachments\".\"id\", \"active_storage_attachments\".\"name\", \"active_storage_attachments\".\"record_type\", \"active_storage_attachments\".\"record_id\", \"active_storage_attachments\".\"blob_id\", \"active_storage_attachments\".\"created_at\""
-
     /// bans, in the order `Ban.fromRow` reads them.
     [<Literal>]
     let Ban = "\"bans\".\"id\", \"bans\".\"user_id\", \"bans\".\"ip_address\", \"bans\".\"created_at\", \"bans\".\"updated_at\""

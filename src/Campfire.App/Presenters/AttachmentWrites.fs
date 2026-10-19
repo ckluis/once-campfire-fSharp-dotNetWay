@@ -19,7 +19,9 @@
 namespace Campfire.App.Presenters
 
 open System
+open System.Linq
 open System.Threading.Tasks
+open Microsoft.EntityFrameworkCore
 open Campfire.Db
 open Campfire.Kit
 open Campfire.Storage
@@ -103,34 +105,32 @@ module Record =
 module AttachmentWrites =
     /// `record.<name>.destroy` (the attachment): delete it, touch the record, and purge its blob
     /// after commit. Nothing happens without an attachment (`delegate_missing_to :attachment, allow_nil: true`).
-    let destroy (tx: Tx) (record: Record) (name: string) : bool =
+    let destroy (tx: Ef.Tx) (record: Record) (name: string) : bool =
+        let db = tx.Db
+        let recordType, recordId = record.RecordType, record.Id
         let attachment =
-            tx.Conn.QueryOne(
-                "SELECT id, blob_id FROM active_storage_attachments WHERE record_type = ? AND record_id = ? AND name = ? LIMIT 1",
-                [| S record.RecordType; I record.Id; S name |],
-                fun r -> r.Int64 0, r.Int64 1
-            )
+            db.Attachments.Where(fun a -> a.RecordType = EF.Parameter recordType && a.RecordId = EF.Parameter recordId && a.Name = EF.Parameter name)
+            |> Ef.Data.tryFirst
         match attachment with
         | None -> false
-        | Some(attachmentId, blobId) ->
-            tx.Conn.Execute("DELETE FROM active_storage_attachments WHERE id = ?", [| I attachmentId |]) |> ignore
-            Common.touch tx.Conn record.Table record.Id (tx.Now())
-            tx.EmitAfterCommit(Event.PurgeBlob blobId)
+        | Some attachment ->
+            let attachmentId = attachment.Id
+            db.Attachments.Where(fun a -> a.Id = EF.Parameter attachmentId).ExecuteDelete() |> ignore
+            Common.touchRecord tx record.RecordType record.Id
+            tx.EmitAfterCommit(Event.PurgeBlob attachment.BlobId)
             true
 
     /// `record.<name> = uploaded_file; record.save`: replaces any current attachment.
-    let attach (tx: Tx) (record: Record) (name: string) (staged: Staged) : Pending =
+    let attach (tx: Ef.Tx) (record: Record) (name: string) (staged: Staged) : Pending =
         destroy tx record name |> ignore
-        let now = tx.Now()
-        let blob = Common.raiseStorage (staged.Insert(tx.Conn.Raw, now.ToDateTimeOffset()))
+        let blob = staged.Insert tx.Db
         ActiveStorage.keepAfterCommit tx staged
-        Common.raiseStorage (Campfire.Storage.Blob.insertAttachment tx.Conn.Raw name record.RecordType record.Id blob.Id (now.ToDateTimeOffset()))
-        |> ignore
-        Common.touch tx.Conn record.Table record.Id now
+        Campfire.Storage.Blob.insertAttachment tx.Db name record.RecordType record.Id blob.Id |> ignore
+        Common.touchRecord tx record.RecordType record.Id
         { Blob = blob }
 
     /// Applies an assignment inside the record's save. Returns the blob to analyze after commit.
-    let assign (tx: Tx) (record: Record) (name: string) (assignment: Assignment<Staged>) : Pending option =
+    let assign (tx: Ef.Tx) (record: Record) (name: string) (assignment: Assignment<Staged>) : Pending option =
         match assignment with
         | Unchanged -> None
         | Delete ->
@@ -139,18 +139,12 @@ module AttachmentWrites =
         | Create staged -> Some(attach tx record name staged)
         | Invalid -> Err.fail (DbError.other "Could not find or build blob: expected attachable")
 
-    let private tableFor (recordType: string) : string option =
-        match recordType with
-        | "User" -> Some "users"
-        | "Account" -> Some "accounts"
-        | "Message" -> Some "messages"
-        | _ -> None
-
     /// `ActiveStorage::AnalyzeJob`: `blob.analyze`, then `touch_attachment_records`. The file is
     /// analyzed off the writer; only the metadata update and touches run on it.
     let analyze (app: AppState) (blobId: int64) : Task<Result<unit, string>> =
         task {
-            match! app.Db.Read(fun conn -> Common.raiseStorage (Campfire.Storage.Blob.find conn.Raw blobId)) with
+            use context = app.DbFactory.CreateDbContext()
+            match Ef.Reads.run context (fun db -> Campfire.Storage.Blob.find db blobId) with
             | Error error -> return Error(DbError.display error)
             | Ok None -> return Ok()
             | Ok(Some blob) ->
@@ -158,12 +152,10 @@ module AttachmentWrites =
                 | Error e -> return Error(sprintf "%A" e)
                 | Ok metadata ->
                     let! written =
-                        app.Db.Write(fun tx ->
-                            Common.raiseStorage (Campfire.Storage.Blob.updateMetadata tx.Conn.Raw metadata blob) |> ignore
-                            for (recordType, recordId) in Common.raiseStorage (Campfire.Storage.Blob.attachmentRecords tx.Conn.Raw blobId) do
-                                match tableFor recordType with
-                                | Some table -> Common.touch tx.Conn table recordId (tx.Now())
-                                | None -> ())
+                        Ef.Writes.run app.Gate app.Env context (fun tx ->
+                            Campfire.Storage.Blob.updateMetadata tx.Db metadata blob |> ignore
+                            for (recordType, recordId) in Campfire.Storage.Blob.attachmentRecords tx.Db blobId do
+                                Common.touchRecord tx recordType recordId)
                     return written |> Result.mapError DbError.display
         }
 
@@ -177,7 +169,7 @@ module AttachmentWrites =
     /// blob, or `None` when there's no attachment or it can't be transformed.
     let processedVariant (app: AppState) (record: Record) (name: string) (transformations: Variation) : Task<Result<Campfire.Storage.Blob option, Error>> =
         task {
-            match! app.Read(fun conn -> Attachments.attachedBlob conn record.RecordType record.Id name) with
+            match! app.ReadEf(fun db -> Attachments.attachedBlob db record.RecordType record.Id name) with
             | Error e -> return Error e
             | Ok(Some blob) when Campfire.Storage.Blob.isVariable blob ->
                 match! ActiveStorage.processedRepresentation app blob transformations with

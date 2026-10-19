@@ -27,7 +27,7 @@ module Profiles =
             let secrets = c.App.Secrets
             let transferId = Accounts.transferId secrets user.Id (c.Now())
             let! (directMemberships, sharedMemberships) = c.Read(fun db -> Accounts.profileMemberships db user)
-            let! avatarAttached = c.App.Read(fun conn -> (Attachments.attachedBlob conn "User" user.Id "avatar").IsSome)
+            let! avatarAttached = c.Read(fun db -> (Attachments.attachedBlob db "User" user.Id "avatar").IsSome)
             let profile: ProfileShow =
                 { User = Common.userSummary secrets user
                   AvatarAttached = avatarAttached
@@ -78,9 +78,10 @@ module Profiles =
                 | ValueNone -> "✓"
 
             let! avatar = Assignment.stage c.App avatar
-            let! (_: User) = c.Write(fun tx -> User.update tx user changes)
-            // The avatar goes through the port's writer until unit 1.7 moves the storage rows onto EF.
-            let! pending = c.App.Write(fun tx -> AttachmentWrites.assign tx (Record.user user.Id) "avatar" avatar)
+            let! pending =
+                c.Write(fun tx ->
+                    User.update tx user changes |> ignore
+                    AttachmentWrites.assign tx (Record.user user.Id) "avatar" avatar)
             AttachmentWrites.analyzeLater c.App pending
 
             return! c.RedirectToWith(c.UrlFor(Routes.userProfile ()), { Redirect.Default with Notice = notice })

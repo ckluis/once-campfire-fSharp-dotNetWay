@@ -67,6 +67,6 @@ module Logos =
             do! Concerns.beforeActions c Before.Default
             do! Concerns.ensureCanAdminister c
             let! (account: Account) = AccountsController.currentAccount c
-            let! (_: bool) = c.App.Write(fun tx -> AttachmentWrites.destroy tx (Record.account account.Id) "logo")
+            let! (_: bool) = c.Write(fun tx -> AttachmentWrites.destroy tx (Record.account account.Id) "logo")
             return! c.RedirectTo(c.UrlFor(Routes.editAccount ()))
         }

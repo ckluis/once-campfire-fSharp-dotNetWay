@@ -89,9 +89,10 @@ module Bots =
             // `create_webhook!(url: webhook_url) if webhook_url`: any non-nil value, "" included.
             let webhookUrl = Accounts.paramToS parameters "webhook_url"
             let! avatar = Assignment.stage c.App (Assignment.fromParams parameters "avatar")
-            let! (bot: User) = c.Write(fun tx -> User.createBot tx name webhookUrl)
-            // The avatar goes through the port's writer until unit 1.7 moves the storage rows onto EF.
-            let! pending = c.App.Write(fun tx -> AttachmentWrites.assign tx (Record.user bot.Id) "avatar" avatar)
+            let! pending =
+                c.Write(fun tx ->
+                    let bot = User.createBot tx name webhookUrl
+                    AttachmentWrites.assign tx (Record.user bot.Id) "avatar" avatar)
             AttachmentWrites.analyzeLater c.App pending
             return! redirectToBots c
         }
@@ -105,7 +106,7 @@ module Bots =
             let baseUrl = c.UrlFor ""
             let botId = bot.Id
             let! webhookUrl = c.Read(fun db -> User.webhookUrl db bot)
-            let! form = c.App.Read(fun conn -> Accounts.botForm conn storage baseUrl bot webhookUrl)
+            let! form = c.Read(fun db -> Accounts.botForm db storage baseUrl bot webhookUrl)
             return!
                 Page.framedPage
                     c
@@ -125,8 +126,10 @@ module Bots =
             let changes = { UserChanges.none with Name = Accounts.paramToS parameters "name" }
             let webhookUrl = Accounts.paramToS parameters "webhook_url"
             let! avatar = Assignment.stage c.App (Assignment.fromParams parameters "avatar")
-            let! (_: User) = c.Write(fun tx -> User.updateBot tx bot changes webhookUrl)
-            let! pending = c.App.Write(fun tx -> AttachmentWrites.assign tx (Record.user bot.Id) "avatar" avatar)
+            let! pending =
+                c.Write(fun tx ->
+                    User.updateBot tx bot changes webhookUrl |> ignore
+                    AttachmentWrites.assign tx (Record.user bot.Id) "avatar" avatar)
             AttachmentWrites.analyzeLater c.App pending
             return! redirectToBots c
         }

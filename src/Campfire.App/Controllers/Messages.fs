@@ -121,8 +121,8 @@ module MessagesController =
     let private invalidAttachment () : Error = Internal(exn "Could not find or build blob: expected attachable")
 
     /// Inserts a staged blob's row, keeping its file once the transaction commits.
-    let saveStaged (tx: Tx) (staged: Staged) : Campfire.Storage.Blob =
-        let blob = Common.raiseStorage (staged.Insert(tx.Conn.Raw, (tx.Now()).ToDateTimeOffset()))
+    let saveStaged (tx: Ef.Tx) (staged: Staged) : Campfire.Storage.Blob =
+        let blob = staged.Insert tx.Db
         ActiveStorage.keepAfterCommit tx staged
         blob
 
@@ -139,23 +139,17 @@ module MessagesController =
     let canonicalizeBody (app: AppState) (body: string) (requestHost: string option) : Task<Result<string, Error>> =
         app.ReadEf(fun db -> canonicalBody db app body requestHost)
 
-    /// `Blob#touch_attachments`: each attached record is touched (a message also touches its room).
-    let private touchAttachmentRecords (tx: Ef.Tx) (records: (string * int64) list) : unit =
-        for (recordType, recordId) in records do
-            if recordType = "Message" then Message.touch tx (Message.find tx.Db recordId) |> ignore
-
-    /// `blob.analyze`: its `after_update` touches the attached records. The file is analyzed off the
-    /// writer.
+    /// `blob.analyze`: its `after_update` touches the attached records (a message also touches its room). The file is
+    /// analyzed off the writer; the metadata and the touches are one write.
     let private analyzeAttachment (app: AppState) (blob: Campfire.Storage.Blob) : Task<Result<Campfire.Storage.Blob, Error>> =
         act {
             let! metadata = ActiveStorage.analyzedMetadata app blob
-            // The metadata is a storage row (the port's writer until unit 1.7), the touches are EF's: two writes.
-            let! (blob, records) =
-                app.Write(fun tx ->
-                    let blob = Common.raiseStorage (Campfire.Storage.Blob.updateMetadata tx.Conn.Raw metadata blob)
-                    blob, Common.raiseStorage (Campfire.Storage.Blob.attachmentRecords tx.Conn.Raw blob.Id))
-            do! app.WriteEf(fun tx -> touchAttachmentRecords tx records)
-            return blob
+            return!
+                app.WriteEf(fun tx ->
+                    let blob = Campfire.Storage.Blob.updateMetadata tx.Db metadata blob
+                    for (recordType, recordId) in Campfire.Storage.Blob.attachmentRecords tx.Db blob.Id do
+                        Common.touchRecord tx recordType recordId
+                    blob)
         }
 
     /// `Message#process_attachment`: analyze the blob now (its `after_update` touches the message),
@@ -205,20 +199,19 @@ module MessagesController =
                         | Error e -> return Error e
                     }
                 | None -> Task.FromResult(Ok None)
-            // The blob row is a storage row (the port's writer until unit 1.7); the message and its rows are EF's: two writes.
-            let! (blob: Campfire.Storage.Blob option) =
-                match attachment with
-                | Some staged -> app.Write(fun tx -> Some(saveStaged tx staged))
-                | None -> Task.FromResult(Ok None)
-            let! (message: Message) =
+            // The blob, the attachment and the message are one write.
+            let! (message: Message, blob: Campfire.Storage.Blob option) =
                 c.Write(fun tx ->
-                    Message.create
-                        tx
-                        { RoomId = roomId
-                          CreatorId = user.Id
-                          ClientMessageId = attributes.ClientMessageId
-                          Body = body
-                          AttachmentBlobId = blob |> Option.map (fun blob -> blob.Id) })
+                    let blob = attachment |> Option.map (saveStaged tx)
+                    let message =
+                        Message.create
+                            tx
+                            { RoomId = roomId
+                              CreatorId = user.Id
+                              ClientMessageId = attributes.ClientMessageId
+                              Body = body
+                              AttachmentBlobId = blob |> Option.map (fun blob -> blob.Id) }
+                    message, blob)
             // Without an attachment, `message` is the row as stored: nothing after the commit writes to it,
             // and Rails answers with the same record (`create!(attributes).tap(&:process_attachment)`,
             // reference/app/models/message/attachment.rb). Analyzing an attachment touches the message, so
@@ -258,21 +251,17 @@ module MessagesController =
                         | Error e -> return Error e
                     }
                 | None -> Task.FromResult(Ok None)
-            // The blob row first (a storage row, the port's writer until unit 1.7), then the message's rows on EF's.
-            let! (blob: Campfire.Storage.Blob option) =
-                match attachment |> Option.flatten with
-                | Some staged -> app.Write(fun tx -> Some(saveStaged tx staged))
-                | None -> Task.FromResult(Ok None)
             let attachmentGiven = attachment.IsSome
-            let! (id: int64) =
+            let! (id: int64, blob: Campfire.Storage.Blob option) =
                 c.Write(fun tx ->
+                    let blob = attachment |> Option.flatten |> Option.map (saveStaged tx)
                     let mutable message = message
                     match body with
                     | Some body -> message <- Message.updateBody tx message body
                     | None -> ()
                     if attachmentGiven then
                         message <- Message.replaceAttachment tx message (blob |> Option.map (fun blob -> blob.Id))
-                    message.Id)
+                    message.Id, blob)
             match blob |> Option.filter (fun blob -> not (Campfire.Storage.Blob.isAnalyzed blob)) with
             | Some blob ->
                 app.Jobs.PerformLater(
