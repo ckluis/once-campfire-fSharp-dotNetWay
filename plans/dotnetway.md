@@ -833,3 +833,40 @@ Gates: `CAMPFIRE_REQUIRE_SEED=1 bin/verify` (Release, warnaserror): 0 warnings, 
 `bin/pixel-parity --fast --only "auth/**,account/**,users/**"`: PASSED in 334 s, default 72/72, crowd 4/4, custom_styles 10/10, first_run 8/8, restricted 2/2 screenshots, aria and loose equal (`bench/results/dotnetway-p1-3/pixel.log`).
 No bench (not this unit's gate). `bin/kloc`: 39,973 corrected (40.0 KLOC; 1.2 closed at 39,859); Db 3,805 (old and new layers side by side). Differences recorded: the second write for avatars and logos above (until 1.7).
 Host disk: 41 GB free before, 39 GB after the image build and the pixel run; `bin/clean-docker` and `bin/clean-parity` run.
+
+### Phase 1, unit 1.4: Rooms, memberships (2026-10-19) - DONE
+
+`Room` and `Membership` are the EF entities and the only records of those tables (`src/Campfire.Db/Rooms.fs`, namespace `Campfire.Db`, with the `Involvement` and `RoomType` enums, now the enum forms the port's unions had as twins; `Ef.Names` keeps the string
+mappings). Nullable columns are `string | null` and `Nullable<_>`, times UTC `DateTime`s. Their modules (`Models.fs`) run on `CampfireDb` for reads and `Ef.Tx` for writes: `Room.find/findById/forUser/findForUser/forUserOfType/original/...` are LINQ with `EF.Parameter`
+(a user's rooms are `db.Rooms.Join(memberships of the user, ..., fun r _ -> r)`: a join whose result selector is the entity translates, a tuple would not need to), `create/update` are `Data.insert/update` (type change to open queues the grant after commit),
+`destroy` is two `ExecuteDelete`s, `revokeFrom` removes each membership through `Membership.destroy` (`DisconnectUser` after commit). The Connectable counters: `Data.update` where `updated_at` is stamped (involvement, read, connections), `ExecuteUpdate`
+where it must not be (`connect`: no `updated_at`; `touchConnectedAt`, `disconnected`, `disconnectAll`: explicit). `FirstRun` now calls `Room.create`.
+
+Raw SQL, each because LINQ cannot say it: (1) the `insert_all` grants (`Room.grantTo`: one `INSERT ... VALUES` per batch of 1,000 users, built as a `FormattableString` so every value is a parameter, stamped with SQLite's own clock as `insert_all` is; `grantToActiveUsers`: one
+`INSERT ... SELECT` for the new open room); (2) the sidebar: `Membership.visibleWithOrderedRoom`/`withOrderedRoom` are one `SqlQuery<MembershipRoomRow>` (`Rooms.fs`; the times stay text in the row and `RailsTime.ofDb` reads them, so no converter question arises for a keyless
+type). `SqlQuery` mapped the snake-case aliases to the record's properties without help (the naming convention reaches keyless types).
+
+Callers on EF now: the rooms controllers (`Rooms`, `Opens`, `Closeds`, `Directs`, `Involvements`, `Refreshes` for the room), `Concerns.setRoom` and `lastRoomVisited`, `Current.lastRoomVisitedIn`, `Layout.load` (the last room joins `Account.first` in one EF read, the logo's
+attachment stays on the port's reader until 1.7), the sidebars and profiles controllers with `Presenters/Accounts` (`sidebar`, `profileMemberships`, `bot`, `directPlaceholderUsers` as LINQ), bots index, welcome, searches' return-to-room, autocompletable, `Messages/ByBots`,
+`BoostsByBots`, `Boosts`, the test-notification badge, `Membership.disconnectAll` at boot (it moved ahead of `AppState`'s construction, on a leased context), and the channels `Presence`, `RoomChannel` (and so `TypingNotifications`) and `RoomMessages`, which take
+`RoomChannel.Access` (the pooled factory, `Db.Gate`, the EF environment; `Deps.Env` is new) instead of the old `Database`. The broadcasts `ClosedRoomCreate/Update` and `DirectRoomCreate` take a `CampfireDb`.
+
+**What stays on the port's `Conn` until the message units** (units 1.5-1.8 delete them; named `*Legacy` as in 1.3): `Room.findByIdLegacy/findLegacy`, `usersLegacy`, `activeBotsLegacy`, `touchLegacy` and `receiveLegacy` (what `Message.create`/`updateBody`/`destroy` call on the old `Tx`), `destroyMessagesLegacy`,
+`Membership.forRoomLegacy`, `unreadCountLegacy`, `connectionCutoffLegacy`, with `Room.fromRow` and `Membership.fromRow` over `Columns`. The `Presenter` (messages, rich text), `Broadcasts.UnreadRoom`, `PushSubscription`, `CoreJobs` and `IntegrationJobs` use them.
+
+Decisions and deviations:
+- **Room destroy is two writes** (class B of the policy, until 1.5a moves `Message`): the room's messages on the old writer (`Room.destroyMessagesLegacy`), then the memberships and the room on EF's. Rails does both in one transaction; the difference is a room whose messages are gone but
+  which still exists if the second write fails, which nothing but a disk error could cause. Recorded here, not yet in README.
+- `Room.findDirectFor` looks at the first user's direct rooms and compares each one's member set (the port's walked every direct room joined to its users, repeats included); the result is the same room, as the member sets of direct rooms are unique.
+- Counters (`increment!`/`decrement!(touch: true)`) go through `Data.update` (read value plus or minus one, inside `BEGIN IMMEDIATE`) rather than `connections = connections + 1` in SQL: the same row, with the gate making the two equivalent.
+- The Presence and room-channel reads lease a context per call (`Access.read`), as the cable connection's session lookup did in 1.3; the test apps' EF options now use the test clock's `TimeProvider` (they used the system's, so `updated_at` of EF writes was real time in channel tests).
+- `ColumnsTests` still checks the positional readers for rooms and memberships (`Room.fromRow`, `Membership.fromRowAt`, both column layouts) through the SQL the old module ran, written out in the test; `Room.all`, `forUser` and `withOrderedRoom` no longer exist as `Conn` readers, their EF forms are in `RoomTests`
+  (`the sidebar's memberships and rooms are the entities LINQ reads`).
+
+Tests: `RoomTests` and `MembershipTests` ported to EF; new in `RoomTests`: the sidebar statement against LINQ's rows, direct-room lookup in any member order, a grant larger than one batch (1,100 users, then again to see `ON CONFLICT` skip them). `CallbacksTests`, `FirstRunTests`, `UserTests`,
+`FixturesTests`, `SeedTests`, `DifferentialTests`, `PushTests` and the App tests (`RoomsTests`, `BroadcastsTests`, `ChannelsTests`, `ChannelsGoldenTests`, `RevocationTests`, `MessagesTests`, `SearchesTests`, `WebPushTests`, `ChannelsSupport`) adapted; no test deleted, no assertion weakened.
+
+Gates: `CAMPFIRE_REQUIRE_SEED=1 bin/verify` (Release, warnaserror): 0 warnings, 1,064 tests, 1,057 passed, 0 failed, 7 skipped (the same environmental skips); Db suite 203 passed + 4 skipped. Image rebuilt from `bd3ea1b` (label checked). `bin/db-differential`: green (fixtures, scenario, schema identity, Rails boots
+on the F#-written file; `bench/results/dotnetway-p1-4/db-differential.log`). `bin/pixel-parity --fast --only "rooms/**"`: PASSED in 312 s, default 74/74, crowd 8/8, custom_styles 4/4, first_run 0/0, restricted 2/2 screenshots, aria and loose equal (`bench/results/dotnetway-p1-4/pixel.log`).
+No bench (not this unit's gate). `bin/kloc`: 39,965 corrected (40.0 KLOC; 1.3 closed at 39,973); Campfire.Db 3,768 (old and new layers side by side). Differences recorded: the two-write room destroy above (until 1.5a).
+Host disk: 39 GB free before, 36 GB after the image build and the pixel run; `bin/clean-docker` and `bin/clean-parity` run.
