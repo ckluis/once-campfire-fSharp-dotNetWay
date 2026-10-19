@@ -58,3 +58,17 @@ let ``L1 a record field keeps the cache hitting`` () =
             let p = { Wanted = id }
             db.Users.Where(fun u -> u.Id = p.Wanted).FirstOrDefault() |> ignore)
     Assert.Equal(0, compiled)
+
+/// Unit 1.5a's finding: EF 10's `ExecuteUpdate(Action<UpdateSettersBuilder>)` turns the value a setter is given into a
+/// parameter, so the plain captured value of `s.SetProperty(f, now)` keeps the cache hitting (no `EF.Parameter` is needed, or possible:
+/// it throws outside a query expression).
+[<Fact>]
+let ``L2 an ExecuteUpdate setter value is a parameter, not a constant`` () =
+    let compiled =
+        compilationsFor (fun db id ->
+            let now = DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc).AddSeconds(float id)
+            db.Messages
+                .Where(fun m -> m.Id = EF.Parameter id)
+                .ExecuteUpdate(fun s -> s.SetProperty((fun m -> m.UpdatedAt), now) |> ignore)
+            |> ignore)
+    Assert.Equal(0, compiled)

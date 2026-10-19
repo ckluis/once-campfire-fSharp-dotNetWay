@@ -175,7 +175,6 @@ let private startOurs (recording: Recording) (dir: string) : Task<Database * Cab
         let env: Env =
             { Clock = clock
               Sink = sink
-              RichText = BasicRichText()
               BcryptCost = 4 }
         let db = Database.Open({ Config.create (Path.Combine(dir, "production.sqlite3")) with Readers = 2 }, env)
         db.Write(fun tx ->
@@ -255,15 +254,17 @@ let ``replays reference frames`` () =
                     let ids = args |> List.map (fun arg -> Int64.Parse recording.Tokens[arg])
                     match event with
                     | "unread" ->
-                        db.Read(fun conn ->
-                            let message = Message.find conn ids[0]
-                            broadcasts.UnreadRoom(conn, Room.findLegacy conn message.RoomId))
-                        |> fun read -> read.Result |> ok
+                        use context = factory.CreateDbContext()
+                        Campfire.Db.Ef.Reads.run context (fun db ->
+                            let message = Message.find db ids[0]
+                            broadcasts.UnreadRoom(db, Room.find db message.RoomId))
+                        |> ok
                     | "remove_message" ->
-                        db.Read(fun conn ->
-                            let message = Message.find conn ids[0]
-                            broadcasts.MessageRemove(Room.findLegacy conn message.RoomId, message))
-                        |> fun read -> read.Result |> ok
+                        use context = factory.CreateDbContext()
+                        Campfire.Db.Ef.Reads.run context (fun db ->
+                            let message = Message.find db ids[0]
+                            broadcasts.MessageRemove(Room.find db message.RoomId, message))
+                        |> ok
                     | "revoke" ->
                         (task {
                             use context = factory.CreateDbContext()

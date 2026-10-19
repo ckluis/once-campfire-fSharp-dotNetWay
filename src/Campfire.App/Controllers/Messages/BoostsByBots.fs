@@ -24,7 +24,7 @@ module BoostsByBots =
             let! (message: Message option) =
                 match room, messageId with
                 | Some room, Some id ->
-                    c.App.Read(fun conn -> Message.findById conn id |> Option.filter (fun message -> message.RoomId = room.Id))
+                    c.Read(fun db -> Message.findById db id |> Option.filter (fun message -> message.RoomId = room.Id))
                 | _ -> Task.FromResult(Ok None)
             match message with
             | Some message -> return message

@@ -3,6 +3,9 @@
 // (the parts that are data, not image processing), and pagination.
 module Campfire.Db.Tests.MessageTests
 
+open System
+open System.Linq
+open Microsoft.EntityFrameworkCore
 open Xunit
 open Campfire.Db
 open Campfire.Db.Tests.Support
@@ -12,11 +15,25 @@ let private create (t: TestDb) (room: string) (creator: string) (body: string) (
         { NewMessage.create (id room) (id creator) with
             ClientMessageId = Some clientMessageId
             Body = Some body }
-    t.Write(fun tx -> Message.create tx attributes)
+    t.WriteEf(fun tx -> Message.create tx attributes)
+
+/// A blob row, as the storage layer leaves it before the message that attaches it.
+let private insertBlob (tx: Ef.Tx) (key: string) (metadata: string option) : Ef.Blob =
+    Ef.Data.insert
+        tx.Db
+        { Id = 0L
+          Key = key
+          Filename = "moon.jpg"
+          ContentType = "image/jpeg"
+          Metadata = Option.toObj metadata
+          ServiceName = "local"
+          ByteSize = 1L
+          Checksum = null
+          CreatedAt = DateTime.MinValue }
 
 let private search (t: TestDb) (room: string) (query: string) : int64 list =
     let roomId = id room
-    t.Read(fun c -> Message.searchInRoom c roomId query) |> List.map (fun m -> m.Id)
+    t.ReadEf(fun c -> Message.searchInRoom c roomId query) |> List.map (fun m -> m.Id)
 
 [<Fact>]
 let ``creating a message enqueues to push later`` () =
@@ -31,7 +48,7 @@ let ``mentionees`` () =
     use t = new TestDb()
     let pets = id "pets"
     let mentionees (userIds: int64 list) =
-        t.Read(fun c -> Message.mentioneesInRoom c pets userIds) |> List.map (fun u -> u.Id)
+        t.ReadEf(fun c -> Message.mentioneesInRoom c pets userIds) |> List.map (fun u -> u.Id)
 
     Assert.Equal<int64 list>([ id "david" ], mentionees [ id "david" ])
     Assert.Equal<int64 list>([ id "david" ], mentionees [ id "david"; id "david" ])
@@ -44,10 +61,10 @@ let ``message body is indexed and searchable`` () =
     let message = create t "designers" "david" "My hovercraft is full of eels" "earth"
     Assert.Equal<int64 list>([ message.Id ], search t "designers" "eel")
 
-    let message = t.Write(fun tx -> Message.updateBody tx message "My hovercraft is full of sharks")
+    let message = t.WriteEf(fun tx -> Message.updateBody tx message "My hovercraft is full of sharks")
     Assert.Equal<int64 list>([ message.Id ], search t "designers" "sharks")
 
-    t.Write(fun tx -> Message.destroy tx message)
+    t.WriteEf(fun tx -> Message.destroy tx message)
     Assert.True(List.isEmpty (search t "designers" "sharks"))
 
 [<Fact>]
@@ -81,68 +98,46 @@ let ``rich text body is converted to plain text for indexing`` () =
 let ``search reachable only finds messages in the users rooms`` () =
     use t = new TestDb()
     let message = create t "designers" "david" "hovercraft" "earth"
-    let found = t.Read(fun c -> Message.searchReachable c (id "kevin") "hovercraft")
+    let found = t.ReadEf(fun c -> Message.searchReachable c (id "kevin") "hovercraft")
     Assert.Equal<int64 list>([ message.Id ], found |> List.map (fun m -> m.Id))
-    Assert.True(List.isEmpty (t.Read(fun c -> Message.searchReachable c (id "bender") "hovercraft")))
+    Assert.True(List.isEmpty (t.ReadEf(fun c -> Message.searchReachable c (id "bender") "hovercraft")))
 
 [<Fact>]
 let ``creating a blank message with attachment uses filename as plain text body`` () =
     use t = new TestDb()
     let message =
-        t.Write(fun tx ->
-            let blob =
-                Blob.create
-                    tx
-                    { Id = 0L
-                      Key = "abc123"
-                      Filename = "moon.jpg"
-                      ContentType = Some "image/jpeg"
-                      Metadata = Some """{"identified":true}"""
-                      ServiceName = "local"
-                      ByteSize = 1L
-                      Checksum = None
-                      CreatedAt = tx.Now() }
+        t.WriteEf(fun tx ->
+            let blob = insertBlob tx "abc123" (Some """{"identified":true}""")
             Message.create
                 tx
                 { NewMessage.create (id "hq") (id "david") with
                     ClientMessageId = Some "message"
                     AttachmentBlobId = Some blob.Id })
     let richText = BasicRichText() :> RichText
-    Assert.Equal("moon.jpg", t.Read(fun c -> Message.plainTextBody c richText message))
-    Assert.Equal(ContentType.Attachment, t.Read(fun c -> Message.contentType c richText message))
+    Assert.Equal("moon.jpg", t.ReadEf(fun c -> Message.plainTextBody c richText message))
+    Assert.Equal(ContentType.Attachment, t.ReadEf(fun c -> Message.contentType c richText message))
     Assert.Equal<int64 list>([ message.Id ], search t "hq" "moon")
 
-    t.Write(fun tx -> Message.destroy tx message)
+    t.WriteEf(fun tx -> Message.destroy tx message)
     Assert.True(t.Events() |> List.exists (fun e -> match e with PurgeBlob _ -> true | _ -> false))
-    Assert.Equal(0L, t.Read(fun c -> c.Count("SELECT COUNT(*) FROM active_storage_attachments", [||])))
+    Assert.Equal(0L, t.ReadEf(fun c -> c.Attachments.Count()))
 
 [<Fact>]
 let ``sound messages`` () =
     use t = new TestDb()
     let richText = BasicRichText() :> RichText
     let message = create t "designers" "david" "/play trombone" "x"
-    Assert.Equal(ContentType.Sound, t.Read(fun c -> Message.contentType c richText message))
-    Assert.Equal("trombone", (t.Read(fun c -> Message.sound c richText message)).Value.Name)
+    Assert.Equal(ContentType.Sound, t.ReadEf(fun c -> Message.contentType c richText message))
+    Assert.Equal("trombone", (t.ReadEf(fun c -> Message.sound c richText message)).Value.Name)
     let message = create t "designers" "david" "/play nosuchsound" "y"
-    Assert.Equal(ContentType.Text, t.Read(fun c -> Message.contentType c richText message))
+    Assert.Equal(ContentType.Text, t.ReadEf(fun c -> Message.contentType c richText message))
 
 /// `create_message` answers with what `Message.create` returns, without reading it back, so that
 /// has to be the row as stored: after the commit's hooks, at the microseconds the columns keep.
 [<Fact>]
 let ``create returns the row as stored`` () =
     use t = new TestDb()
-    let blobId (key: string) =
-        let blob =
-            { Id = 0L
-              Key = key
-              Filename = "moon.jpg"
-              ContentType = Some "image/jpeg"
-              Metadata = None
-              ServiceName = "local"
-              ByteSize = 1L
-              Checksum = None
-              CreatedAt = t.Now() }
-        t.Write(fun tx -> (Blob.create tx blob).Id)
+    let blobId (key: string) = t.WriteEf(fun tx -> (insertBlob tx key None).Id)
     let make (body: string option) (attachmentBlobId: int64 option) (clientMessageId: string option) : NewMessage =
         { NewMessage.create (id "designers") (id "david") with
             ClientMessageId = clientMessageId
@@ -160,47 +155,112 @@ let ``create returns the row as stored`` () =
         if n = 1 then
             // A frozen clock with nanoseconds, which the columns don't keep.
             t.Clock.TravelTo(System.DateTimeOffset.UnixEpoch.AddSeconds(1_900_000_000.0).AddTicks(1_234_567L))
-        let created = t.Write(fun tx -> Message.create tx attributes)
-        Assert.True((created = t.Read(fun c -> Message.find c created.Id)), $"case {n}")
+        let created = t.WriteEf(fun tx -> Message.create tx attributes)
+        Assert.True((created = t.ReadEf(fun c -> Message.find c created.Id)), $"case {n}")
     )
 
 [<Fact>]
 let ``client message id defaults to a uuid`` () =
     use t = new TestDb()
     let message =
-        t.Write(fun tx -> Message.create tx { NewMessage.create (id "hq") (id "bender") with Body = Some "beep" })
+        t.WriteEf(fun tx -> Message.create tx { NewMessage.create (id "hq") (id "bender") with Body = Some "beep" })
     Assert.Equal(36, message.ClientMessageId.Length)
 
 [<Fact>]
 let ``pagination`` () =
     use t = new TestDb()
     let watercooler = id "watercooler"
-    let all = t.Read(fun c -> Message.lastPage c watercooler)
+    let all = t.ReadEf(fun c -> Message.lastPage c watercooler)
     Assert.Equal(10, List.length all) // watercooler fixtures
     Assert.True(all |> List.pairwise |> List.forall (fun (a, b) -> a.CreatedAt <= b.CreatedAt))
-    Assert.False(t.Read(fun c -> Message.paged c watercooler))
+    Assert.False(t.ReadEf(fun c -> Message.paged c watercooler))
 
     let middle = all[5]
-    let before = t.Read(fun c -> Message.pageBefore c watercooler middle)
-    let after = t.Read(fun c -> Message.pageAfter c watercooler middle)
+    let before = t.ReadEf(fun c -> Message.pageBefore c watercooler middle)
+    let after = t.ReadEf(fun c -> Message.pageAfter c watercooler middle)
     Assert.Equal<Message list>(List.take 5 all, before)
     Assert.Equal<Message list>(List.skip 6 all, after)
-    let around = t.Read(fun c -> Message.pageAround c watercooler middle)
+    let around = t.ReadEf(fun c -> Message.pageAround c watercooler middle)
     Assert.Equal<Message list>(all, around)
-    Assert.True(t.Read(fun c -> Message.existsBefore c watercooler middle))
-    Assert.False(t.Read(fun c -> Message.existsAfter c watercooler all[9]))
+    Assert.True(t.ReadEf(fun c -> Message.existsBefore c watercooler middle))
+    Assert.False(t.ReadEf(fun c -> Message.existsAfter c watercooler all[9]))
 
     for n in 0L .. Message.PageSize - 1L do
         t.Travel 1L
         create t "watercooler" "david" $"message {n}" $"c{n}" |> ignore
-    Assert.True(t.Read(fun c -> Message.paged c watercooler))
-    let last = t.Read(fun c -> Message.lastPage c watercooler)
+    Assert.True(t.ReadEf(fun c -> Message.paged c watercooler))
+    let last = t.ReadEf(fun c -> Message.lastPage c watercooler)
     Assert.Equal(Message.PageSize, int64 (List.length last))
-    Assert.Equal(all[0], (t.Read(fun c -> Message.firstPage c watercooler))[0])
+    Assert.Equal(all[0], (t.ReadEf(fun c -> Message.firstPage c watercooler))[0])
 
     let since = all[9].CreatedAt
-    let created = t.Read(fun c -> Message.pageCreatedSince c watercooler since)
+    let created = t.ReadEf(fun c -> Message.pageCreatedSince c watercooler since)
     Assert.Equal(Message.PageSize, int64 (List.length created))
     let createdIds = created |> List.map (fun m -> m.Id)
-    let updated = t.Read(fun c -> Message.pageUpdatedSince c watercooler since createdIds)
+    let updated = t.ReadEf(fun c -> Message.pageUpdatedSince c watercooler since createdIds)
     Assert.True(updated |> List.forall (fun m -> not (List.contains m.Id createdIds)))
+
+/// P1 (design-data-ef section 5): a post through `Message.create`. The message, its rich text, the room's `updated_at`, the FTS row,
+/// the unread memberships and the `PushMessage` event, every timestamp equal to the frozen clock; then a boost touches the message
+/// and the room and reindexes.
+[<Fact>]
+let ``P1 post and boost with the clock frozen`` () =
+    use t = new TestDb()
+    let frozen = DateTimeOffset(2026, 3, 4, 10, 11, 12, 123, TimeSpan.Zero).AddTicks(4560L)
+    t.Clock.TravelTo frozen
+    let now = t.Utc()
+    let designers = id "designers"
+    let posted =
+        t.WriteEf(fun tx ->
+            Message.create
+                tx
+                { NewMessage.create designers (id "david") with
+                    ClientMessageId = Some "p1"
+                    Body = Some "<p>Hello <b>planet</b></p>" })
+
+    Assert.Equal((now, now), (posted.CreatedAt, posted.UpdatedAt))
+    let stored = t.ReadEf(fun db -> Message.find db posted.Id)
+    Assert.Equal(posted, stored)
+    let rich = t.ReadEf(fun db -> (Message.body db stored).Value)
+    Assert.Equal<string | null>("<p>Hello <b>planet</b></p>", rich.Body)
+    Assert.Equal((now, now), (rich.CreatedAt, rich.UpdatedAt))
+    Assert.Equal(now, (t.ReadEf(fun db -> Room.find db designers)).UpdatedAt)
+    let indexed =
+        t.ReadEf(fun db -> db.Database.SqlQuery<string>($"SELECT body AS Value FROM message_search_index WHERE rowid = {posted.Id}").ToList())
+    Assert.Equal<string list>([ "Hello planet" ], List.ofSeq indexed)
+    // Unread: the others who can see the room, from this message's creation; not its creator.
+    let memberships = t.ReadEf(fun db -> Membership.forRoom db designers)
+    Assert.True(memberships |> List.exists (fun m -> m.UserId <> id "david" && m.UnreadAt = Nullable now))
+    Assert.True(memberships |> List.forall (fun m -> m.UserId <> id "david" || not m.UnreadAt.HasValue))
+    Assert.Equal<Event list>([ PushMessage(designers, posted.Id) ], t.Events())
+
+    t.Clock.TravelTo(frozen.AddSeconds 30.0)
+    let later = t.Utc()
+    let boost = t.WriteEf(fun tx -> Boost.create tx posted.Id (id "jason") "hi")
+    Assert.Equal((later, later), (boost.CreatedAt, boost.UpdatedAt))
+    Assert.Equal(later, (t.ReadEf(fun db -> Message.find db posted.Id)).UpdatedAt)
+    Assert.Equal(later, (t.ReadEf(fun db -> Room.find db designers)).UpdatedAt)
+    Assert.Equal(now, (t.ReadEf(fun db -> Message.find db posted.Id)).CreatedAt)
+
+[<Fact>]
+let ``reachable messages are those of the user's rooms`` () =
+    use t = new TestDb()
+    let reachable (user: string) (message: string) =
+        t.TryReadEf(fun db -> Message.findReachable db (id user) (id message)) |> Result.isOk
+    // `first` is in Designers: Kevin is a member of it, Bender is not.
+    Assert.True(reachable "kevin" "first")
+    Assert.False(reachable "bender" "first")
+
+[<Fact>]
+let ``destroying a message removes its boosts, body and attachment and touches the room`` () =
+    use t = new TestDb()
+    let message = create t "designers" "david" "bye" "bye"
+    t.WriteEf(fun tx -> Boost.create tx message.Id (id "jason") "x" |> ignore)
+    t.Travel 5L
+    let before = t.ReadEf(fun db -> Room.find db (id "designers"))
+    t.WriteEf(fun tx -> Message.destroy tx message)
+    Assert.True((t.ReadEf(fun db -> Message.findById db message.Id)).IsNone)
+    Assert.True(List.isEmpty (t.ReadEf(fun db -> Boost.forMessage db message.Id)))
+    Assert.True((t.ReadEf(fun db -> Message.body db message)).IsNone)
+    Assert.True((t.ReadEf(fun db -> Room.find db (id "designers"))).UpdatedAt > before.UpdatedAt)
+    Assert.True(List.isEmpty (search t "designers" "bye"))

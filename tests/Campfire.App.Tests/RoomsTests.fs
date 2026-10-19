@@ -68,7 +68,7 @@ let ``show at a message pages around it`` () =
     task {
         use! test = bootSeeded "default"
         let! first =
-            read test (fun conn -> Message.forRoom conn ALL_TALK |> List.minBy (fun m -> m.CreatedAt.Microsecond))
+            readEf test (fun db -> Message.forRoom db ALL_TALK |> List.minBy (fun m -> m.CreatedAt))
         let! reply = (david test).Get $"/rooms/{ALL_TALK}/@{first.Id}"
         Assert.Equal(200, reply.Status)
         // The first message and the 40 after it.
@@ -359,8 +359,8 @@ let ``pages of messages go out in parts`` () =
         use! test = bootSeeded "default"
         let david = david test
         let! messages =
-            read test (fun conn ->
-                Message.forRoom conn ALL_TALK |> List.sortBy (fun m -> m.CreatedAt.Microsecond, m.Id))
+            readEf test (fun db ->
+                Message.forRoom db ALL_TALK |> List.sortBy (fun m -> m.CreatedAt, m.Id))
         let pages =
             [ $"/rooms/{ALL_TALK}", None
               $"/rooms/{ALL_TALK}", Some "messages"

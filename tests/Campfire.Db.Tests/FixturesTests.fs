@@ -42,8 +42,8 @@ let ``associations enums and defaults`` () =
 [<Fact>]
 let ``erb times are whole seconds and default timestamps are now`` () =
     use t = new TestDb()
-    let first = t.Read(fun c -> Message.find c (id "first"))
-    Assert.Equal(0, first.CreatedAt.SubsecMicrosecond)
+    let first = t.ReadEf(fun c -> Message.find c (id "first"))
+    Assert.Equal(0L, first.CreatedAt.Ticks % TimeSpan.TicksPerSecond)
     Assert.True(first.UpdatedAt > first.CreatedAt)
     let session = t.ReadEf(fun c -> Session.find c (id "david_safari"))
     Assert.Equal(0L, session.LastActiveAt.Ticks % TimeSpan.TicksPerSecond)
@@ -131,17 +131,18 @@ let ``export database for rails`` () =
                 user))
                 .GetAwaiter().GetResult()
             |> unwrap
-        unwrap (
-            db.WriteBlocking(fun tx ->
-                let message =
-                    Message.create
-                        tx
-                        { NewMessage.create (id "designers") (id "david") with
-                            ClientMessageId = Some "rust-1"
-                            Body = Some "Written by <b>Rust</b> hovercraft" }
-                Boost.create tx message.Id (id "jason") "\U0001F980" |> ignore
-                Search.record tx rusty.Id "hovercraft" |> ignore)
-        )
+        unwrap (db.WriteBlocking(fun tx -> Search.record tx rusty.Id "hovercraft" |> ignore))
+        use context = factory.CreateDbContext()
+        (Ef.Writes.run db.Gate efEnv context (fun tx ->
+            let message =
+                Message.create
+                    tx
+                    { NewMessage.create (id "designers") (id "david") with
+                        ClientMessageId = Some "rust-1"
+                        Body = Some "Written by <b>Rust</b> hovercraft" }
+            Boost.create tx message.Id (id "jason") "\U0001F980" |> ignore))
+            .GetAwaiter().GetResult()
+        |> unwrap
         use context = factory.CreateDbContext()
         (Ef.Writes.run db.Gate efEnv context (fun tx ->
             Room.createFor tx RoomType.Closed (Some "Rust Room") rusty.Id [ rusty.Id; id "david" ] |> ignore))

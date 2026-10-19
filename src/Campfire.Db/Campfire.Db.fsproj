@@ -7,13 +7,14 @@
     <Compile Include="WriteGate.fs" />
     <Compile Include="Sql.fs" />
     <Compile Include="Columns.fs" />
-    <Compile Include="RichText.fs" />
     <Compile Include="Schema.fs" />
     <Compile Include="Database.fs" />
     <Compile Include="Identity.fs" />
     <Compile Include="Rooms.fs" />
+    <Compile Include="Messages.fs" />
     <Compile Include="Ef/Entities.fs" />
     <Compile Include="Ef/CampfireDb.fs" />
+    <Compile Include="RichText.fs" />
     <Compile Include="Ef/Interceptors.fs" />
     <Compile Include="Ef/Data.fs" />
     <Compile Include="Ef/Writes.fs" />

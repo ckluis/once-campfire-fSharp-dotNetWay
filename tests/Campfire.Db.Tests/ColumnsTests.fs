@@ -98,13 +98,6 @@ let private insertRoom (conn: Conn) (room: Room) : unit =
     )
     |> ignore
 
-let private insertMessage (conn: Conn) (message: Message) : unit =
-    conn.Execute(
-        """INSERT INTO "messages" ("id", "room_id", "creator_id", "client_message_id", "created_at", "updated_at") VALUES (?, ?, ?, ?, ?, ?)""",
-        [| I message.Id; I message.RoomId; I message.CreatorId; S message.ClientMessageId; T message.CreatedAt; T message.UpdatedAt |]
-    )
-    |> ignore
-
 let private insertMembership (conn: Conn) (membership: Membership) : unit =
     conn.Execute(
         """INSERT INTO "memberships" ("id", "room_id", "user_id", "involvement", "unread_at", "connected_at", "connections", "created_at", "updated_at") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
@@ -140,47 +133,6 @@ let private unnamedRoom () : Room =
 
 let private userIds (conn: Conn) : int64 list =
     conn.QueryAll("""SELECT "id" FROM "users" ORDER BY "id" """, [||], fun r -> r.Int64 0)
-
-// Messages
-
-/// How `Message.fromRow` read a row before it read by position.
-let private messageByName (r: Row) : Message =
-    { Id = r.Int64(r.Ordinal "id")
-      RoomId = r.Int64(r.Ordinal "room_id")
-      CreatorId = r.Int64(r.Ordinal "creator_id")
-      ClientMessageId = r.Text(r.Ordinal "client_message_id")
-      CreatedAt = r.Timestamp(r.Ordinal "created_at")
-      UpdatedAt = r.Timestamp(r.Ordinal "updated_at") }
-
-[<Fact>]
-let ``a message reads each column into its own field`` () =
-    for layout in layouts do
-        use conn = database layout
-        let room = distinctRoom ()
-        insertUser conn room.CreatorId
-        insertRoom conn room
-        let message =
-            { Id = 1001L
-              RoomId = room.Id
-              CreatorId = room.CreatorId
-              ClientMessageId = "client 1004"
-              CreatedAt = at 1005L
-              UpdatedAt = at 1006L }
-        insertMessage conn message
-
-        Assert.True((Message.find conn message.Id = message), $"{layout}")
-        Assert.True((Message.lastPage conn room.Id = [ message ]), $"{layout}")
-
-[<Fact>]
-let ``messages read by position as by name`` () =
-    for layout in layouts do
-        use conn = databaseWithFixtures layout
-        let messages = conn.QueryAll("""SELECT * FROM "messages" ORDER BY "id" """, [||], messageByName)
-        Assert.True(List.length messages > 5)
-        for message in messages do
-            Assert.True((Message.find conn message.Id = message), $"{layout}")
-            let inRoom = Message.forRoom conn message.RoomId |> List.sortBy (fun m -> m.Id)
-            Assert.True((inRoom = (messages |> List.filter (fun m -> m.RoomId = message.RoomId))), $"{layout}")
 
 // Rooms
 
@@ -415,44 +367,8 @@ let ``users accounts boosts and rich texts read each column into its own field``
         |> ignore
         let room = { distinctRoom () with CreatorId = user.Id }
         insertRoom conn room
-        let message =
-            { Id = 7002L
-              RoomId = room.Id
-              CreatorId = user.Id
-              ClientMessageId = "7002"
-              CreatedAt = at 0L
-              UpdatedAt = at 0L }
-        insertMessage conn message
-        let boost =
-            { Id = 7001L
-              MessageId = message.Id
-              BoosterId = user.Id
-              Content = "\U0001F44D 7004"
-              CreatedAt = at 7005L
-              UpdatedAt = at 7006L }
-        conn.Execute(
-            """INSERT INTO "boosts" ("id", "message_id", "booster_id", "content", "created_at", "updated_at") VALUES (?, ?, ?, ?, ?, ?)""",
-            [| I boost.Id; I boost.MessageId; I boost.BoosterId; S boost.Content; T boost.CreatedAt; T boost.UpdatedAt |]
-        )
-        |> ignore
-        let richText =
-            { Id = 8001L
-              Name = "body"
-              Body = Some "<p>8003</p>"
-              RecordType = "Message"
-              RecordId = 8005L
-              CreatedAt = at 8006L
-              UpdatedAt = at 8007L }
-        conn.Execute(
-            """INSERT INTO "action_text_rich_texts" ("id", "name", "body", "record_type", "record_id", "created_at", "updated_at") VALUES (?, ?, ?, ?, ?, ?, ?)""",
-            [| I richText.Id; S richText.Name; Sql.optS richText.Body; S richText.RecordType; I richText.RecordId; T richText.CreatedAt; T richText.UpdatedAt |]
-        )
-        |> ignore
-
         Assert.True((User.findLegacy conn user.Id = user), $"{layout}")
         Assert.True((Account.firstLegacy conn = Some account), $"{layout}")
-        Assert.True((Boost.forMessageOrdered conn boost.MessageId = [ boost ]), $"{layout}")
-        Assert.True((RichTextRecord.findFor conn "Message" richText.RecordId "body" = Some richText), $"{layout}")
 
 [<Fact>]
 let ``every column list names the columns its model reads`` () =
@@ -468,74 +384,3 @@ let ``every column list names the columns its model reads`` () =
             let selected =
                 conn.QueryAll($"SELECT {columns} FROM \"{table}\"", [||], fun _ -> ())
             Assert.Empty selected
-
-// Timing
-
-/// A room page's worth of rows and more: 200 messages in room 1, and user 1 in 12 rooms.
-let private timingDatabase () : Conn =
-    let conn = database Alphabetical
-    insertUser conn 1L
-    for id in 1L .. 12L do
-        let createdAt, updatedAt = at id, at (id + 1L)
-        insertRoom
-            conn
-            { Id = id
-              Name = $"Room {id}"
-              Type = RoomType.Open
-              CreatorId = 1L
-              CreatedAt = unstamp createdAt
-              UpdatedAt = unstamp updatedAt }
-        let unreadAt = if id % 2L = 0L then Nullable(unstamp createdAt) else Nullable()
-        insertMembership
-            conn
-            { Id = id
-              RoomId = id
-              UserId = 1L
-              Involvement = Nullable Involvement.Mentions
-              UnreadAt = unreadAt
-              ConnectedAt = Nullable()
-              Connections = 0L
-              CreatedAt = unstamp createdAt
-              UpdatedAt = unstamp updatedAt }
-    for id in 1L .. 200L do
-        insertMessage
-            conn
-            { Id = id
-              RoomId = 1L
-              CreatorId = 1L
-              ClientMessageId = $"5f0c2b4e-1d7a-4c39-9a57-{id:D12}"
-              CreatedAt = at id
-              UpdatedAt = at (id + 1L) }
-    conn
-
-/// The median over 7 runs of the mean time per call.
-let private timePerCall (iterations: int) (call: unit -> unit) : TimeSpan =
-    let runs =
-        [ for _ in 1..7 ->
-              let sw = Stopwatch.StartNew()
-              for _ in 1..iterations do
-                  call ()
-              sw.Elapsed / float iterations ]
-        |> List.sort
-    runs[runs.Length / 2]
-
-/// `CAMPFIRE_DB_TIMING=1 CAMPFIRE_DB_TIMING_OUT=/tmp/timing.txt dotnet test --project tests/Campfire.Db.Tests -c Release --filter-method '*row reading timing'`
-[<Fact>]
-let ``row reading timing`` () =
-    if Environment.GetEnvironmentVariable "CAMPFIRE_DB_TIMING" <> "1" then
-        Assert.Skip "a timing, run by hand in a release build (CAMPFIRE_DB_TIMING=1)"
-    use conn = timingDatabase ()
-    let before = Message.find conn 161L
-    let timings =
-        [ "Message.lastPage (40 rows)", timePerCall 20_000 (fun () -> Message.lastPage conn 1L |> ignore)
-          "Message.pageBefore (40 rows)", timePerCall 20_000 (fun () -> Message.pageBefore conn 1L before |> ignore)
-          "Membership.visibleWithOrderedRoom (12 rows)", timePerCall 20_000 (fun () -> withOrderedRoom conn 1L true |> ignore)
-          "Message.find (1 row)", timePerCall 200_000 (fun () -> Message.find conn 100L |> ignore)
-          "Room.find (1 row)", timePerCall 200_000 (fun () -> Room.findLegacy conn 5L |> ignore) ]
-    let report = timings |> List.map (fun (name, perCall) -> $"{name}: {perCall.TotalMicroseconds:F2} us")
-    for line in report do
-        TestContext.Current.SendDiagnosticMessage line
-    // The runner shows diagnostics only on request; a file is easier to read.
-    match Environment.GetEnvironmentVariable "CAMPFIRE_DB_TIMING_OUT" with
-    | null -> ()
-    | path -> File.WriteAllLines(path, report)

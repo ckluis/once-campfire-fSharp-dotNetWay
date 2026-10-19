@@ -42,7 +42,7 @@ module SearchesController =
             | None -> return []
             | Some query ->
                 let! (user: User) = Concerns.requireCurrentUser c
-                return! c.App.ReadOffloaded(fun conn -> Message.searchReachable conn user.Id query)
+                return! c.Read(fun db -> Message.searchReachable db user.Id query)
         }
 
     let index (c: Ctx) : Task<Result<Response, Error>> =
@@ -54,14 +54,13 @@ module SearchesController =
             let lastRoom = Concerns.lastRoomCookie c
             // `set_messages`, the recent searches and `last_room_visited` in one trip to a reader, off the
             // runtime's workers since the search's cost grows with the whole database.
-            let! messages, recentSearches =
-                c.App.ReadOffloaded(fun conn ->
-                    let messages =
-                        match query with
-                        | Some query -> Message.searchReachable conn user.Id query
-                        | None -> []
-                    let recentSearches = Search.orderedForUser conn user.Id |> List.map (fun search -> search.Query)
-                    messages, recentSearches)
+            let! messages =
+                c.Read(fun db ->
+                    match query with
+                    | Some query -> Message.searchReachable db user.Id query
+                    | None -> [])
+            let! recentSearches =
+                c.App.ReadOffloaded(fun conn -> Search.orderedForUser conn user.Id |> List.map (fun search -> search.Query))
             let! returnToRoomId =
                 c.Read(fun db ->
                     Concerns.lastRoomVisitedIn db user.Id lastRoom |> Option.map (fun room -> room.Id) |> Option.defaultValue 0L)

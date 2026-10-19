@@ -9,9 +9,6 @@ open Xunit
 open Campfire.Db
 open Campfire.Db.Tests.Support
 
-/// A legacy message's time as the entity `DateTime` the membership columns read as.
-let private asDateTime (t: Timestamp) : DateTime = RailsTime.truncate (t.ToDateTimeOffset().UtcDateTime)
-
 let private ftsBody (t: TestDb) (messageId: int64) : string option =
     t.Read(fun c -> c.QueryOne("SELECT body FROM message_search_index WHERE rowid = ?", [| I messageId |], fun r -> r.Text 0))
 
@@ -26,7 +23,7 @@ let ``creating a message touches the room marks disconnected members unread and 
         { NewMessage.create (id "designers") (id "david") with
             ClientMessageId = Some "abc"
             Body = Some "Hello <b>there</b>" }
-    let message = t.Write(fun tx -> Message.create tx attributes)
+    let message = t.WriteEf(fun tx -> Message.create tx attributes)
 
     // The body touches the message; the room is touched too.
     Assert.True(message.UpdatedAt >= message.CreatedAt)
@@ -34,8 +31,8 @@ let ``creating a message touches the room marks disconnected members unread and 
 
     // Unread: visible, disconnected, not the creator; unread_at is the message's created_at.
     let unread (label: string) = (t.ReadEf(fun c -> Membership.find c (id label))).UnreadAt |> Option.ofNullable
-    Assert.Equal(Some(asDateTime message.CreatedAt), unread "jason_designers")
-    Assert.Equal(Some(asDateTime message.CreatedAt), unread "kevin_designers")
+    Assert.Equal(Some message.CreatedAt, unread "jason_designers")
+    Assert.Equal(Some message.CreatedAt, unread "kevin_designers")
     Assert.Equal(None, unread "jz_designers") // connected
     Assert.Equal(None, unread "david_designers") // creator
 
@@ -56,7 +53,7 @@ let ``invisible members are not marked unread`` () =
     use t = new TestDb()
     t.WriteEf(fun tx -> Membership.find tx.Db (id "kevin_designers") |> (fun m -> Membership.updateInvolvement tx m (Some Involvement.Invisible)) |> ignore)
     let attributes = { NewMessage.create (id "designers") (id "david") with Body = Some "x" }
-    t.Write(fun tx -> Message.create tx attributes |> ignore)
+    t.WriteEf(fun tx -> Message.create tx attributes |> ignore)
     Assert.False((t.ReadEf(fun c -> Membership.find c (id "kevin_designers"))).UnreadAt.HasValue)
 
 [<Fact>]
@@ -64,37 +61,37 @@ let ``rolled back writes emit nothing after commit`` () =
     use t = new TestDb()
     let attributes = { NewMessage.create (id "designers") (id "david") with Body = Some "x" }
     let result =
-        t.TryWrite(fun tx ->
+        t.TryWriteEf(fun tx ->
             Message.create tx attributes |> ignore
             Err.fail (DbError.other "boom"))
     Assert.True(Result.isError result)
     Assert.True(List.isEmpty (t.Events()))
-    Assert.Equal(13L, t.Read Message.count)
+    Assert.Equal(13L, t.ReadEf Message.count)
 
 [<Fact>]
 let ``boosting touches the message and room and reindexes`` () =
     use t = new TestDb()
-    let first = t.Read(fun c -> Message.find c (id "first"))
+    let first = t.ReadEf(fun c -> Message.find c (id "first"))
     let roomBefore = t.ReadEf(fun c -> Room.find c (id "designers"))
     t.Travel 1L
-    let boost = t.Write(fun tx -> Boost.create tx (id "first") (id "jason") "hi")
-    let touched = t.Read(fun c -> Message.find c (id "first"))
+    let boost = t.WriteEf(fun tx -> Boost.create tx (id "first") (id "jason") "hi")
+    let touched = t.ReadEf(fun c -> Message.find c (id "first"))
     Assert.True(touched.UpdatedAt > first.UpdatedAt)
     Assert.True((t.ReadEf(fun c -> Room.find c (id "designers"))).UpdatedAt > roomBefore.UpdatedAt)
     // The fixture message was never indexed; the after_commit update finds no row, as in Rails.
     Assert.Equal(None, ftsBody t first.Id)
 
     t.Travel 1L
-    t.Write(fun tx -> Boost.destroy tx boost)
-    Assert.True((t.Read(fun c -> Message.find c (id "first"))).UpdatedAt > touched.UpdatedAt)
-    Assert.Equal(1, List.length (t.Read(fun c -> Boost.forMessage c (id "first"))))
+    t.WriteEf(fun tx -> Boost.destroy tx boost)
+    Assert.True((t.ReadEf(fun c -> Message.find c (id "first"))).UpdatedAt > touched.UpdatedAt)
+    Assert.Equal(1, List.length (t.ReadEf(fun c -> Boost.forMessage c (id "first"))))
 
 [<Fact>]
 let ``boosts are ordered by creation`` () =
     use t = new TestDb()
     t.Travel 1L
-    t.Write(fun tx -> Boost.create tx (id "first") (id "jason") "2" |> ignore)
-    let contents = t.Read(fun c -> Message.boosts c (Message.find c (id "first"))) |> List.map (fun b -> b.Content)
+    t.WriteEf(fun tx -> Boost.create tx (id "first") (id "jason") "2" |> ignore)
+    let contents = t.ReadEf(fun c -> Message.boosts c (Message.find c (id "first"))) |> List.map (fun b -> b.Content)
     Assert.Equal<string list>([ "Hello"; "2" ], contents)
 
 [<Fact>]
@@ -145,7 +142,7 @@ let ``timestamps are written like active record`` () =
     use t = new TestDb()
     t.Clock.TravelTo((Timestamp.ParseDb "2026-09-26 12:34:56.123456").Value.ToDateTimeOffset())
     let attributes = { NewMessage.create (id "hq") (id "david") with Body = Some "x" }
-    let message = t.Write(fun tx -> Message.create tx attributes)
+    let message = t.WriteEf(fun tx -> Message.create tx attributes)
     let createdAt, typeofCreated =
         t.Read(fun c ->
             c.QueryRow("SELECT created_at, typeof(created_at) FROM messages WHERE id = ?", [| I message.Id |], fun r -> r.Text 0, r.Text 1))
@@ -153,7 +150,7 @@ let ``timestamps are written like active record`` () =
 
     t.Clock.TravelTo((Timestamp.ParseDb "2026-09-26 12:00:00").Value.ToDateTimeOffset())
     let attributes = { NewMessage.create (id "hq") (id "david") with Body = Some "y" }
-    let message = t.Write(fun tx -> Message.create tx attributes)
+    let message = t.WriteEf(fun tx -> Message.create tx attributes)
     let createdAt = t.Read(fun c -> c.QueryRow("SELECT created_at FROM messages WHERE id = ?", [| I message.Id |], fun r -> r.Text 0))
     Assert.Equal("2026-09-26 12:00:00", createdAt) // no fraction when microseconds are zero
 

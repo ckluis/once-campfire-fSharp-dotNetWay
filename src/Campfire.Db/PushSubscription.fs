@@ -228,9 +228,9 @@ module PushSubscription =
     /// `build_payload`: direct rooms show the sender; others the room and "Sender: body".
     /// Unlike Rails, a long title or body is cut short (with an ellipsis) so the notification
     /// still fits a push message.
-    let payloadFor (conn: Conn) (richText: RichText) (room: Room) (message: Message) : PushPayload =
-        let creator = Message.creator conn message
-        let body = Message.plainTextBody conn richText message
+    let payloadFor (db: Ef.CampfireDb) (richText: RichText) (room: Room) (message: Message) : PushPayload =
+        let creator = Message.creator db message
+        let body = Message.plainTextBody db richText message
         let path = $"/rooms/{room.Id}"
         let title, body =
             if Room.isDirect room then
@@ -267,10 +267,10 @@ module PushSubscription =
 
     /// `Room::MessagePusher#push`: the payload, and the subscriptions it goes to (everything
     /// first, then mentions).
-    let pushesFor (conn: Conn) (richText: RichText) (message: Message) (now: Timestamp) : PushPayload * PushSubscription list * PushSubscription list =
-        let room = Room.findLegacy conn message.RoomId
-        let payload = payloadFor conn richText room message
+    let pushesFor (conn: Conn) (db: Ef.CampfireDb) (richText: RichText) (message: Message) (now: Timestamp) : PushPayload * PushSubscription list * PushSubscription list =
+        let room = Room.find db message.RoomId
+        let payload = payloadFor db richText room message
         let everything = forUsersInvolvedInEverything conn room.Id message.CreatorId now
-        let mentioneeIds = Message.mentionees conn richText message |> List.map (fun u -> u.Id)
+        let mentioneeIds = Message.mentionees db richText message |> List.map (fun u -> u.Id)
         let mentions = forMentionedUsers conn room.Id message.CreatorId mentioneeIds now
         payload, everything, mentions

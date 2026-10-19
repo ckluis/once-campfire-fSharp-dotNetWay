@@ -56,8 +56,7 @@ let ``message broadcasts`` () =
         let! designers = app.Room "designers"
         let! message = app.Message "second"
 
-        let! created = app.Db.Read(fun conn -> app.Broadcasts.MessageCreate(conn, designers, message, fakePartials))
-        ok created
+        app.ReadEf(fun db -> app.Broadcasts.MessageCreate(db, designers, message, fakePartials))
         let! frame = kevin.NextText()
         Assert.Equal(
             $"""<turbo-stream action="append" target="messages_rooms_closed_{designers.Id}"><template><div id="message_0002">message {message.Id}</div></template></turbo-stream>""",

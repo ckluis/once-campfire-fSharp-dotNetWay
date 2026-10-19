@@ -23,7 +23,7 @@ module BoostsController =
             let! (user: User) = Concerns.requireCurrentUser c
             match (match c.ParamStr "message_id" with null -> None | id -> Ruby.integerCast id) with
             | None -> return! Error NotFound
-            | Some id -> return! c.App.Read(fun conn -> Message.findReachable conn user.Id id)
+            | Some id -> return! c.Read(fun db -> Message.findReachable db user.Id id)
         }
 
     /// `@message.boosts.find_by!(id: params[:id], booster: Current.user)`
@@ -34,7 +34,7 @@ module BoostsController =
             | None -> return! Error NotFound
             | Some id ->
                 let messageId = message.Id
-                return! c.App.Read(fun conn -> Boost.findByMessageAndBooster conn messageId id user.Id)
+                return! c.Read(fun db -> Boost.findByMessageAndBooster db messageId id user.Id)
         }
 
     /// `@message.boosts.create!(content:)`, boosted by `Current.user`.
@@ -47,13 +47,13 @@ module BoostsController =
                 match content with
                 | Some content -> Ok content
                 | None -> Error(Internal(exn "NOT NULL constraint failed: boosts.content"))
-            return! c.App.Write(fun tx -> Boost.create tx messageId user.Id content)
+            return! c.Write(fun tx -> Boost.create tx messageId user.Id content)
         }
 
     /// `@boost.destroy!` then `broadcast_remove`.
     let destroyBoost (c: Ctx) (message: Message) (boost: Boost) : Task<Result<unit, Error>> =
         act {
-            do! c.App.Write(fun tx -> Boost.destroy tx boost)
+            do! c.Write(fun tx -> Boost.destroy tx boost)
             let roomId = message.RoomId
             let! (room: Room) = c.Read(fun db -> Room.find db roomId)
             c.App.Broadcasts.BoostRemove(room, boost)
@@ -63,12 +63,12 @@ module BoostsController =
     let broadcastCreate (c: Ctx) (message: Message) (boost: Boost) : Task<Result<unit, Error>> =
         let app = c.App
         let baseUrl = Page.rendererBaseUrl c
-        app.Read(fun conn ->
-            let presenter = Presenter(conn, app, None)
+        c.Read(fun db ->
+            let presenter = Presenter(db, app, None)
             let view = presenter.Boost boost
-            let account = Account.firstLegacy conn
+            let account = Account.first db
             let html = Page.renderDetachedAt app account baseUrl (fun ctx -> BoostsCached.boost ctx view)
-            let room = Room.findLegacy conn message.RoomId
+            let room = Room.find db message.RoomId
             let partials = { Rendered.empty with Boost = Some html }
             app.Broadcasts.BoostCreate(room, message, boost, Rendered.partials partials))
 

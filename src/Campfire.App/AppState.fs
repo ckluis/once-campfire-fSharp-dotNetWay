@@ -91,6 +91,20 @@ type AppState
             return result |> Result.mapError AppErrors.dbError
         }
 
+    /// `Reads.run` over a context leased for the call, for what has no request (jobs, integrations), with errors mapped as `Read`
+    /// maps them.
+    member _.ReadEf<'T>(f: Campfire.Db.Ef.CampfireDb -> 'T) : Task<Result<'T, Campfire.Kit.Error>> =
+        use context = dbFactory.CreateDbContext()
+        Task.FromResult(Campfire.Db.Ef.Reads.run context f |> Result.mapError AppErrors.dbError)
+
+    /// `Writes.run` over a context leased for the write, for what has no request, with errors mapped as `Write` maps them.
+    member _.WriteEf<'T>(f: Campfire.Db.Ef.Tx -> 'T) : Task<Result<'T, Campfire.Kit.Error>> =
+        task {
+            use context = dbFactory.CreateDbContext()
+            let! result = Campfire.Db.Ef.Writes.run db.Gate env context f
+            return result |> Result.mapError AppErrors.dbError
+        }
+
     /// `db.ReadOffloaded` for actions (reads whose cost grows with the whole database), with errors
     /// mapped as `Read` maps them.
     member _.ReadOffloaded<'T>(f: Conn -> 'T) : Task<Result<'T, Campfire.Kit.Error>> =

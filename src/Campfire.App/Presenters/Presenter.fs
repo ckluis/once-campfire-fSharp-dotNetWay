@@ -100,26 +100,26 @@ open PresenterSupport
 
 /// Everything a page of messages needs, with the rows it looks up along the way remembered
 /// (Rails preloads them with `with_creator`, `with_boosts` and friends). One per read: it holds the
-/// reader's `Conn`, so it can't outlive it.
+/// request's context (or a leased one), so it can't outlive it.
 [<Sealed; NoComparison; NoEquality>]
-type Presenter(conn: Conn, app: AppState, requestHost: string option) =
+type Presenter(db: Ef.CampfireDb, app: AppState, requestHost: string option) =
     let secrets = app.Secrets
     let storage = app.Storage
-    let richText = app.Db.Env.RichText
+    let richText = app.Env.RichText
     let now = app.Clock.Now()
     let users = Dictionary<int64, User>()
     let roomNames = Dictionary<int64, Room * string>()
 
-    member _.Conn = conn
+    member _.Db = db
     member _.Secrets = secrets
 
-    member _.Resolver: DbResolver = DbResolver(conn, secrets, now)
+    member _.Resolver: DbResolver = DbResolver(db, secrets, now)
 
     member _.User(id: int64) : User =
         match users.TryGetValue id with
         | true, user -> user
         | _ ->
-            let user = User.findLegacy conn id
+            let user = User.find db id
             users[id] <- user
             user
 
@@ -129,7 +129,7 @@ type Presenter(conn: Conn, app: AppState, requestHost: string option) =
     member _.RoomDisplayName(room: Room, forUser: User option) : string =
         let names =
             if Room.isDirect room then
-                Room.usersLegacy conn room
+                Room.users db room
                 |> List.filter (fun user ->
                     match forUser with
                     | Some forUser -> forUser.Id <> user.Id
@@ -150,12 +150,12 @@ type Presenter(conn: Conn, app: AppState, requestHost: string option) =
         match roomNames.TryGetValue roomId with
         | true, entry -> entry
         | _ ->
-            let room = Room.findLegacy conn roomId
+            let room = Room.find db roomId
             let name = this.RoomDisplayName(room, None)
             roomNames[roomId] <- (room, name)
             room, name
 
-    member _.PlainTextBody(message: Message) : string = Message.plainTextBody conn richText message
+    member _.PlainTextBody(message: Message) : string = Message.plainTextBody db richText message
 
     /// `render @messages`: each message's cached fragment when the current store has its version
     /// (`cache [ message, "presentation-v3" ]` wraps the whole partial, so Rails evaluates none of
@@ -164,7 +164,7 @@ type Presenter(conn: Conn, app: AppState, requestHost: string option) =
 
     /// `render message`, as `Messages` does it.
     member this.MessageItem(message: Message) : MessageItem =
-        match cachedMessageFragment message.Id (message.UpdatedAt.ToDateTimeOffset()) with
+        match cachedMessageFragment message.Id (DateTimeOffset(message.UpdatedAt)) with
         | null -> MessageItem.View(this.Message message)
         | html -> MessageItem.Cached(message.ClientMessageId, message.RoomId, html)
 
@@ -185,8 +185,8 @@ type Presenter(conn: Conn, app: AppState, requestHost: string option) =
                   Name = ""
                   Title = ""
                   AvatarUrl = "" }
-              CreatedAt = message.CreatedAt.ToDateTimeOffset()
-              UpdatedAt = message.UpdatedAt.ToDateTimeOffset()
+              CreatedAt = DateTimeOffset(message.CreatedAt)
+              UpdatedAt = DateTimeOffset(message.UpdatedAt)
               AllEmoji = false
               Content = MessageContent.Unrenderable
               Boosts = [] }
@@ -198,19 +198,19 @@ type Presenter(conn: Conn, app: AppState, requestHost: string option) =
           RoomId = message.RoomId
           RoomName = roomName
           Creator = this.UserView message.CreatorId
-          CreatedAt = message.CreatedAt.ToDateTimeOffset()
-          UpdatedAt = message.UpdatedAt.ToDateTimeOffset()
+          CreatedAt = DateTimeOffset(message.CreatedAt)
+          UpdatedAt = DateTimeOffset(message.UpdatedAt)
           AllEmoji = allEmoji plainText
           Content = this.Content(message, plainText)
           Boosts = this.Boosts message }
 
     /// `message.boosts.ordered`.
     member this.Boosts(message: Message) : BoostView list =
-        Boost.forMessageOrdered conn message.Id |> List.map this.Boost
+        Boost.forMessageOrdered db message.Id |> List.map this.Boost
 
     member this.Boost(boost: Boost) : BoostView =
         { Id = boost.Id
-          UpdatedAt = boost.UpdatedAt.ToDateTimeOffset()
+          UpdatedAt = DateTimeOffset(boost.UpdatedAt)
           MessageId = boost.MessageId
           Content = boost.Content
           AllEmoji = allEmoji boost.Content
@@ -218,7 +218,7 @@ type Presenter(conn: Conn, app: AppState, requestHost: string option) =
 
     /// `message.content_type`, with what `message_presentation` shows for it.
     member private this.Content(message: Message, plainText: string) : MessageContent =
-        let body = defaultArg (Message.bodyHtml conn message) ""
+        let body = defaultArg (Message.bodyHtml db message) ""
         let ctx = this.Resolver.RenderContext requestHost
         // `message_tag` evaluates `message.plain_text_body` first; where that raises, it rescues
         // and renders `messages/_unrenderable`, unless logging the exception raises again (a
@@ -249,7 +249,7 @@ type Presenter(conn: Conn, app: AppState, requestHost: string option) =
 
     /// `message.attachment` as `Messages::AttachmentPresentation` needs it.
     member private this.Attachment(message: Message) : AttachmentView option =
-        match Attachments.attachedBlob conn "Message" message.Id "attachment" with
+        match Attachments.attachedBlobOn db "Message" message.Id "attachment" with
         | None -> None
         | Some blob ->
             let verifier = storage.Verifier
@@ -284,7 +284,7 @@ type Presenter(conn: Conn, app: AppState, requestHost: string option) =
 
     /// `message.body.to_s`: the stored rich text rendered inside its layout.
     member this.BodyHtml(message: Message) : string =
-        match Message.bodyHtml conn message with
+        match Message.bodyHtml db message with
         | None -> ""
         | Some body ->
             let ctx = this.Resolver.RenderContext requestHost
@@ -294,7 +294,7 @@ type Presenter(conn: Conn, app: AppState, requestHost: string option) =
 
     /// `editable_body(message)` as the editor's `value`.
     member this.EditableBody(message: Message) : string =
-        let body = defaultArg (Message.bodyHtml conn message) ""
+        let body = defaultArg (Message.bodyHtml db message) ""
         let ctx = this.Resolver.RenderContext requestHost
         // An `Error` is where the edit page raises in Rails (a missing attachment, say).
         match ActionText.editableValue body ctx with
@@ -304,14 +304,14 @@ type Presenter(conn: Conn, app: AppState, requestHost: string option) =
     /// `messages/_message.json.jbuilder` (`json.cache! message`).
     member this.MessageJson(message: Message, baseUrl: string) : MessageJson =
         let key (key: KeyBuf) =
-            jbuilderKey key "messages/_message" "messages" message.Id (message.UpdatedAt.ToDateTimeOffset()) baseUrl
+            jbuilderKey key "messages/_message" "messages" message.Id (DateTimeOffset(message.UpdatedAt)) baseUrl
         match FragmentCache.tryFetchValue key messageCacheSize (fun () -> (Ok(this.RenderMessageJson(message, baseUrl)): Result<MessageJson, unit>)) with
         | Ok value -> value
         | Error() -> failwith "unreachable"
 
     member private this.RenderMessageJson(message: Message, baseUrl: string) : MessageJson =
         { Id = message.Id
-          CreatedAt = MessagesSupport.jsonTime (message.CreatedAt.ToDateTimeOffset())
+          CreatedAt = MessagesSupport.jsonTime (DateTimeOffset(message.CreatedAt))
           Body =
             { PlainText = this.PlainTextBody message
               Html = this.BodyHtml message }
@@ -322,7 +322,7 @@ type Presenter(conn: Conn, app: AppState, requestHost: string option) =
     /// `messages/boosts/_boost.json.jbuilder` (`json.cache! boost`).
     member this.BoostJson(boost: Boost, message: Message, baseUrl: string) : BoostJson =
         let key (key: KeyBuf) =
-            jbuilderKey key "messages/boosts/_boost" "boosts" boost.Id (boost.UpdatedAt.ToDateTimeOffset()) baseUrl
+            jbuilderKey key "messages/boosts/_boost" "boosts" boost.Id (DateTimeOffset(boost.UpdatedAt)) baseUrl
         match FragmentCache.tryFetchValue key boostCacheSize (fun () -> (Ok(this.RenderBoostJson(boost, message, baseUrl)): Result<BoostJson, unit>)) with
         | Ok value -> value
         | Error() -> failwith "unreachable"
@@ -330,7 +330,7 @@ type Presenter(conn: Conn, app: AppState, requestHost: string option) =
     member private this.RenderBoostJson(boost: Boost, message: Message, baseUrl: string) : BoostJson =
         { Id = boost.Id
           Content = boost.Content
-          CreatedAt = MessagesSupport.jsonTime (boost.CreatedAt.ToDateTimeOffset())
+          CreatedAt = MessagesSupport.jsonTime (DateTimeOffset(boost.CreatedAt))
           Booster = cachedUserJson secrets baseUrl (this.User boost.BoosterId)
           Message =
             { Id = boost.MessageId
@@ -345,9 +345,9 @@ type Presenter(conn: Conn, app: AppState, requestHost: string option) =
 
     /// `users/sidebars/rooms/_direct` locals for `membership`.
     member this.SidebarDirect(membership: Membership) : Campfire.Views.Users.SidebarDirect =
-        let room = Room.findLegacy conn membership.RoomId
+        let room = Room.find db membership.RoomId
         let members =
-            match Room.usersLegacy conn room |> List.filter (fun user -> user.Id <> membership.UserId) with
+            match Room.users db room |> List.filter (fun user -> user.Id <> membership.UserId) with
             | [] -> [ this.User membership.UserId ]
             | others -> others
         { RoomId = room.Id

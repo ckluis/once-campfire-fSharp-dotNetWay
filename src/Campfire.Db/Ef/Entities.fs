@@ -1,5 +1,5 @@
 // Design: plans/design-data-ef.md E2-E4. One record per Rails table; names, nullability and types follow `schema.sql`.
-// User, Session and Account (Identity.fs) and Room and Membership (Rooms.fs) live in namespace Campfire.Db with their enums;
+// User, Session and Account (Identity.fs), Room and Membership (Rooms.fs) and Message, Boost and RichTextRecord (Messages.fs) live in namespace Campfire.Db with their enums;
 // `Names` maps Involvement and RoomType to the strings the database holds.
 namespace Campfire.Db.Ef
 
@@ -36,35 +36,6 @@ module Names =
         | "mentions" -> Involvement.Mentions
         | "everything" -> Involvement.Everything
         | other -> failwith $"unknown involvement '{other}'"
-
-[<CLIMutable>]
-type Message =
-    { Id: int64
-      RoomId: int64
-      CreatorId: int64
-      ClientMessageId: string
-      CreatedAt: DateTime
-      UpdatedAt: DateTime }
-
-[<CLIMutable>]
-type Boost =
-    { Id: int64
-      MessageId: int64
-      BoosterId: int64
-      Content: string
-      CreatedAt: DateTime
-      UpdatedAt: DateTime }
-
-/// `action_text_rich_texts`
-[<CLIMutable>]
-type RichTextRecord =
-    { Id: int64
-      RecordType: string
-      RecordId: int64
-      Name: string
-      Body: string | null
-      CreatedAt: DateTime
-      UpdatedAt: DateTime }
 
 [<CLIMutable>]
 type Search =

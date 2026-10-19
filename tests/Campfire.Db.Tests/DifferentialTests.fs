@@ -45,14 +45,14 @@ let private message (room: string) (creator: string) (body: string) (clientMessa
 
 let private runScenario (t: TestDb) : unit =
     // Each step is its own write, as each Rails call is its own transaction.
-    let m = t.Write(fun tx -> Message.create tx (message "designers" "david" "Hello <b>there</b>" "s1"))
-    let b = t.Write(fun tx -> Boost.create tx m.Id (id "jason") "hi")
-    t.Write(fun tx -> Boost.create tx m.Id (id "kevin") "yo" |> ignore)
-    t.Write(fun tx -> Boost.destroy tx b)
-    t.Write(fun tx -> Message.updateBody tx (Message.find tx.Conn m.Id) "Edited hovercraft" |> ignore)
-    let m2 = t.Write(fun tx -> Message.create tx (message "hq" "jason" "Doomed" "s2"))
-    t.Write(fun tx -> Boost.create tx m2.Id (id "david") "x" |> ignore)
-    t.Write(fun tx -> Message.destroy tx (Message.find tx.Conn m2.Id))
+    let m = t.WriteEf(fun tx -> Message.create tx (message "designers" "david" "Hello <b>there</b>" "s1"))
+    let b = t.WriteEf(fun tx -> Boost.create tx m.Id (id "jason") "hi")
+    t.WriteEf(fun tx -> Boost.create tx m.Id (id "kevin") "yo" |> ignore)
+    t.WriteEf(fun tx -> Boost.destroy tx b)
+    t.WriteEf(fun tx -> Message.updateBody tx (Message.find tx.Db m.Id) "Edited hovercraft" |> ignore)
+    let m2 = t.WriteEf(fun tx -> Message.create tx (message "hq" "jason" "Doomed" "s2"))
+    t.WriteEf(fun tx -> Boost.create tx m2.Id (id "david") "x" |> ignore)
+    t.WriteEf(fun tx -> Message.destroy tx (Message.find tx.Db m2.Id))
     t.WriteEf(fun tx -> Membership.destroy tx (Membership.find tx.Db (id "kevin_designers")))
     t.WriteEf(fun tx ->
         User.create
@@ -76,7 +76,7 @@ let private runScenario (t: TestDb) : unit =
     t.WriteEf(fun tx -> Session.start tx (id "kevin") (Some "x") (Some "8.8.8.8") |> ignore)
     t.WriteEf(fun tx -> User.ban tx (User.find tx.Db (id "kevin")) |> ignore)
     t.WriteEf(fun tx -> User.unban tx (User.find tx.Db (id "kevin")) |> ignore)
-    t.Write(fun tx -> User.removeBannedContent tx (User.findLegacy tx.Conn (id "jz")) |> ignore)
+    t.WriteEf(fun tx -> User.removeBannedContent tx (User.find tx.Db (id "jz")) |> ignore)
     t.WriteEf(fun tx -> User.deactivate tx (User.find tx.Db (id "jz")) |> ignore)
     for n in 0..11 do
         t.Write(fun tx -> Search.record tx (id "david") $"q{n}" |> ignore)
@@ -85,7 +85,7 @@ let private runScenario (t: TestDb) : unit =
     t.WriteEf(fun tx ->
         Account.update tx (Account.first tx.Db).Value None None (Some [ "restrict_room_creation_to_administrators", "true" ])
         |> ignore)
-    t.Write(fun tx -> Message.create tx (message "hq" "kevin" "Last one" "s3") |> ignore)
+    t.WriteEf(fun tx -> Message.create tx (message "hq" "kevin" "Last one" "s3") |> ignore)
 
 /// Every row, with values that are random or clock-dependent reduced to their shape.
 let private normalizedDump (conn: Conn) (table: string) (order: string) : string list =

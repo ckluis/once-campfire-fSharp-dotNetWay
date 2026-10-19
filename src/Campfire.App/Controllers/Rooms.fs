@@ -121,10 +121,10 @@ module RoomsController =
     let renderSharedRoom (c: Ctx) (room: Room) : Task<Result<Rendered, Error>> =
         let app = c.App
         let baseUrl = Page.rendererBaseUrl c
-        app.Read(fun conn ->
-            let presenter = Presenter(conn, app, None)
+        c.Read(fun db ->
+            let presenter = Presenter(db, app, None)
             let sidebarRoom = presenter.SidebarRoom room
-            let account = Account.firstLegacy conn
+            let account = Account.first db
             let html =
                 Page.renderDetachedAt app account baseUrl (fun _ -> Render.text (fun w -> SharedPartial.render w sidebarRoom))
             { Rendered.empty with SharedRoom = Some html })
@@ -138,20 +138,20 @@ module RoomsController =
             let requestHost = Some c.Request.Host
             let! original = c.Read(fun db -> Room.original db |> Option.exists (fun original -> original.Id = room.Id))
             let! show =
-                app.Read(fun conn ->
+                c.Read(fun db ->
                     let messages =
-                        match messageId |> Option.bind (fun id -> Message.findById conn id) with
-                        | Some message when message.RoomId = room.Id -> Message.pageAround conn room.Id message
-                        | _ -> Message.lastPage conn room.Id
-                    let presenter = Presenter(conn, app, requestHost)
+                        match messageId |> Option.bind (fun id -> Message.findById db id) with
+                        | Some message when message.RoomId = room.Id -> Message.pageAround db room.Id message
+                        | _ -> Message.lastPage db room.Id
+                    let presenter = Presenter(db, app, requestHost)
                     let roomGid = Campfire.RailsCompat.GlobalId.toParam (Gid.roomGid room)
                     ({ Room = presenter.RoomView(room, user)
                        UpdatedAt = DateTimeOffset(room.UpdatedAt)
                        User = PresenterSupport.userView app.Secrets user
                        // The page's message fragments come from the store the render then uses.
                        Messages = FragmentCache.withCache app.FragmentCache (fun () -> presenter.Messages messages)
-                       Invitation = original && not (Message.paged conn room.Id)
-                       JoinCode = Account.firstLegacy conn |> Option.map (fun account -> account.JoinCode) |> Option.defaultValue ""
+                       Invitation = original && not (Message.paged db room.Id)
+                       JoinCode = Account.first db |> Option.map (fun account -> account.JoinCode) |> Option.defaultValue ""
                        MessagesStreamName = Campfire.RailsCompat.Turbo.signedStreamName app.Secrets [ roomGid; "messages" ] }: Campfire.Views.Rooms.ShowView))
             return!
                 Page.framedPage
@@ -165,8 +165,6 @@ module RoomsController =
 
     let destroyRoom (c: Ctx) (room: Room) : Task<Result<Response, Error>> =
         act {
-            // The messages go on the port's writer first (unit 1.5a moves them), then the room's own rows on EF's.
-            do! c.App.Write(fun tx -> Room.destroyMessagesLegacy tx room.Id)
             do! c.Write(fun tx -> Room.destroy tx room)
             // broadcast_remove_to :rooms, target: [ @room, :list ]
             c.App.Broadcasts.RoomRemove room

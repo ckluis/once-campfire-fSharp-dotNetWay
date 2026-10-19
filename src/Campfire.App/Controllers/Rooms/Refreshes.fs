@@ -51,12 +51,13 @@ module Refreshes =
 
             let app = c.App
             let requestHost = Some c.Request.Host
+            let since = RailsTime.truncate (lastUpdatedAt.ToDateTimeOffset().UtcDateTime)
             let! refresh =
-                app.ReadOffloaded(fun conn ->
-                    let newMessages = Message.pageCreatedSince conn room.Id lastUpdatedAt
+                c.Read(fun db ->
+                    let newMessages = Message.pageCreatedSince db room.Id since
                     let newIds = newMessages |> List.map (fun message -> message.Id)
-                    let updatedMessages = Message.pageUpdatedSince conn room.Id lastUpdatedAt newIds
-                    let presenter = Presenter(conn, app, requestHost)
+                    let updatedMessages = Message.pageUpdatedSince db room.Id since newIds
+                    let presenter = Presenter(db, app, requestHost)
                     FragmentCache.withCache app.FragmentCache (fun () ->
                         ({ RoomId = room.Id
                            RoomKind = PresenterSupport.roomKind room.Type

@@ -53,15 +53,6 @@ module User =
 
     let findLegacy (conn: Conn) (id: int64) : User = findByIdLegacy conn id |> Err.orNotFound "User"
 
-    /// `User.where(id: ids)`
-    let whereIdsLegacy (conn: Conn) (ids: int64 list) : User list =
-        let sql = Selects.User + " WHERE \"users\".\"id\" IN (" + Sql.placeholders (List.length ids) + ")"
-        conn.QueryAll(sql, ids |> List.map I |> Array.ofList, fromRow)
-
-    /// `User.active.ordered`
-    let activeOrderedLegacy (conn: Conn) : User list =
-        conn.QueryAll(Selects.User + " WHERE \"users\".\"status\" = 0 ORDER BY LOWER(name)", [||], fromRow)
-
     // ---- Finders and scopes (EF, LINQ; every captured value goes through `EF.Parameter` so the query cache keeps hitting)
 
     /// `User.generate_bot_token`
@@ -327,19 +318,17 @@ module User =
         tx.Db.Bans.Where(fun b -> b.UserId = EF.Parameter id).ExecuteDelete() |> ignore
         update tx user { UserChanges.none with Status = Some Status.Active }
 
-    // ---- Still on the port's writer (their models move in units 1.4-1.8)
-
     /// `remove_banned_content`: destroys every message the user wrote. Returns them so the
     /// caller can `broadcast_remove` each one.
-    let removeBannedContent (tx: Tx) (user: User) : Message list =
-        let messages = Message.byCreator tx.Conn user.Id
+    let removeBannedContent (tx: Ef.Tx) (user: User) : Message list =
+        let messages = Message.byCreator tx.Db user.Id
         for message in messages do
             Message.destroy tx message
         messages
 
     /// `deliver_webhook_later(message)`: only bots with a webhook.
-    let deliverWebhookLater (tx: Tx) (user: User) (messageId: int64) : unit =
-        if (Webhook.findByUser tx.Conn user.Id).IsSome then
+    let deliverWebhookLater (tx: Ef.Tx) (user: User) (messageId: int64) : unit =
+        if (webhook tx.Db user).IsSome then
             tx.EmitAfterCommit(DeliverWebhook(user.Id, messageId))
 
     // ---- Attributes (pure)
@@ -431,10 +420,6 @@ module Membership =
           UpdatedAt = timeOf (r.Timestamp(offset + 8)) }
 
     let fromRow (r: Row) : Membership = fromRowAt r 0
-
-    /// `Membership.where(room_id:)`, for the broadcasts that still run on a reader's `Conn`.
-    let forRoomLegacy (conn: Conn) (roomId: int64) : Membership list =
-        conn.QueryAll(Selects.Membership + " WHERE \"memberships\".\"room_id\" = ?", [| I roomId |], fromRow)
 
     /// `user.memberships.unread.count`: the push badge.
     let unreadCountLegacy (conn: Conn) (userId: int64) : int64 =
@@ -643,7 +628,7 @@ module Room =
     [<Literal>]
     let private MembershipInsertBatch = 1_000
 
-    // ---- The port's Conn-based readers and the old writer's two calls, for Message and push (units 1.5-1.8 move them).
+    // ---- The port's Conn-based readers, for push (unit 1.8 moves them).
 
     let private roomTypeOfLegacy (r: Row) (i: int) : RoomType =
         let name = r.Text i
@@ -665,39 +650,6 @@ module Room =
         conn.QueryOne(Selects.Room + " WHERE \"rooms\".\"id\" = ? LIMIT 1", [| I id |], fromRow)
 
     let findLegacy (conn: Conn) (id: int64) : Room = findByIdLegacy conn id |> Err.orNotFound "Room"
-
-    [<Literal>]
-    let private usersJoin =
-        Selects.User + " INNER JOIN \"memberships\" ON \"users\".\"id\" = \"memberships\".\"user_id\" WHERE \"memberships\".\"room_id\" = ?"
-
-    /// `room.users`
-    let usersLegacy (conn: Conn) (room: Room) : User list = conn.QueryAll(usersJoin, [| I room.Id |], User.fromRow)
-
-    /// `room.users.active_bots`
-    let activeBotsLegacy (conn: Conn) (room: Room) : User list =
-        conn.QueryAll(usersJoin + " AND \"users\".\"status\" = 0 AND \"users\".\"role\" = 2", [| I room.Id |], User.fromRow)
-
-    /// `touch`: `belongs_to :room, touch: true` on messages.
-    let touchLegacy (tx: Tx) (roomId: int64) : unit =
-        tx.Conn.Execute("""UPDATE "rooms" SET "updated_at" = ? WHERE "rooms"."id" = ?""", [| T(tx.Now()); I roomId |]) |> ignore
-
-    let private unreadMemberships (tx: Tx) (roomId: int64) (message: Message) : unit =
-        let now = tx.Now()
-        tx.Conn.Execute(
-            """UPDATE "memberships" SET "unread_at" = ?, "updated_at" = ? WHERE "memberships"."room_id" = ? AND "memberships"."involvement" != ? AND ("memberships"."connected_at" IS NULL OR "memberships"."connected_at" < ?) AND "memberships"."user_id" != ?""",
-            [| T message.CreatedAt; T now; I roomId; S "invisible"; T(Membership.connectionCutoffLegacy now); I message.CreatorId |]
-        )
-        |> ignore
-
-    /// `room.receive(message)`, from the message's `after_create_commit`: marks members unread, then enqueues the push.
-    let receiveLegacy (tx: Tx) (roomId: int64) (message: Message) : unit =
-        unreadMemberships tx roomId message
-        tx.EmitAfterCommit(PushMessage(roomId, message.Id))
-
-    /// `room.destroy`'s `messages` (`dependent: :destroy`), on the old writer until unit 1.5a: the room's own write follows.
-    let destroyMessagesLegacy (tx: Tx) (roomId: int64) : unit =
-        for message in Message.forRoom tx.Conn roomId do
-            Message.destroy tx message
 
     // ---- Finders and scopes (EF, LINQ)
 
@@ -848,9 +800,43 @@ module Room =
                 tx.AfterCommit(fun tx -> grantToActiveUsers tx id)
             saved
 
-    /// `room.destroy`'s own rows: memberships are deleted without callbacks (the messages go first, `destroyMessagesLegacy`).
+    /// `touch`: `belongs_to :room, touch: true` on messages.
+    let touch (tx: Ef.Tx) (roomId: int64) : unit =
+        let now = tx.Now()
+        tx.Db.Rooms
+            .Where(fun r -> r.Id = EF.Parameter roomId)
+            .ExecuteUpdate(fun s -> s.SetProperty((fun r -> r.UpdatedAt), now) |> ignore)
+        |> ignore
+
+    /// `memberships.where.not(involvement: :invisible).disconnected.where.not(user: creator).update_all(unread_at: message.created_at)`
+    /// (SQL's `!=` leaves a NULL involvement out, as `HasValue` does here).
+    let private unreadMemberships (tx: Ef.Tx) (roomId: int64) (message: Message) : unit =
+        let now = tx.Now()
+        let cutoff = Membership.connectionCutoff now
+        let creatorId = message.CreatorId
+        let createdAt = message.CreatedAt
+        tx.Db.Memberships
+            .Where(fun m ->
+                m.RoomId = EF.Parameter roomId
+                && m.Involvement.HasValue
+                && m.Involvement.Value <> Involvement.Invisible
+                && (not m.ConnectedAt.HasValue || m.ConnectedAt.Value < EF.Parameter cutoff)
+                && m.UserId <> EF.Parameter creatorId)
+            .ExecuteUpdate(fun s ->
+                s.SetProperty((fun m -> m.UnreadAt), Nullable createdAt).SetProperty((fun m -> m.UpdatedAt), now) |> ignore)
+        |> ignore
+
+    /// `room.receive(message)`, from the message's `after_create_commit`: marks members unread, then enqueues the push.
+    let receive (tx: Ef.Tx) (roomId: int64) (message: Message) : unit =
+        unreadMemberships tx roomId message
+        tx.EmitAfterCommit(PushMessage(roomId, message.Id))
+
+    /// `room.destroy`: the messages (`dependent: :destroy`, each with its callbacks), then memberships, deleted without
+    /// callbacks, then the room.
     let destroy (tx: Ef.Tx) (room: Room) : unit =
         let id = room.Id
+        for message in Message.forRoom tx.Db id do
+            Message.destroy tx message
         tx.Db.Memberships.Where(fun m -> m.RoomId = EF.Parameter id).ExecuteDelete() |> ignore
         tx.Db.Rooms.Where(fun r -> r.Id = EF.Parameter id).ExecuteDelete() |> ignore
 
@@ -895,14 +881,6 @@ module Room =
 // Searchable; Broadcasts belong to the app).
 // ---------------------------------------------------------------------------------------------
 
-type Message =
-    { Id: int64
-      RoomId: int64
-      CreatorId: int64
-      ClientMessageId: string
-      CreatedAt: Timestamp
-      UpdatedAt: Timestamp }
-
 /// Attributes for `room.messages.create!` / `create_with_attachment!`.
 type NewMessage =
     { RoomId: int64
@@ -934,6 +912,7 @@ module ContentType =
         | Sound -> "sound"
         | Text -> "text"
 
+[<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module Message =
     /// `Message::Pagination::PAGE_SIZE`
     [<Literal>]
@@ -942,126 +921,98 @@ module Message =
     [<Literal>]
     let private RecordType = "Message"
 
-    [<Literal>]
-    let private selectInRoom = Selects.Message + " WHERE \"messages\".\"room_id\" = ?"
+    /// `room.messages`
+    let private inRoom (db: Ef.CampfireDb) (roomId: int64) : IQueryable<Message> =
+        db.Messages.Where(fun m -> m.RoomId = EF.Parameter roomId)
 
-    [<Literal>]
-    let private selectReachable =
-        Selects.Message
-        + " INNER JOIN \"rooms\" ON \"messages\".\"room_id\" = \"rooms\".\"id\" INNER JOIN \"memberships\" ON \"rooms\".\"id\" = \"memberships\".\"room_id\""
+    let findById (db: Ef.CampfireDb) (id: int64) : Message option =
+        db.Messages.Where(fun m -> m.Id = EF.Parameter id) |> Ef.Data.tryFirst
 
-    let fromRow (r: Row) : Message =
-        { Id = r.Int64 0
-          RoomId = r.Int64 1
-          CreatorId = r.Int64 2
-          ClientMessageId = r.Text 3
-          CreatedAt = r.Timestamp 4
-          UpdatedAt = r.Timestamp 5 }
-
-    let findById (conn: Conn) (id: int64) : Message option =
-        conn.QueryOne(Selects.Message + " WHERE \"messages\".\"id\" = ? LIMIT 1", [| I id |], fromRow)
-
-    let find (conn: Conn) (id: int64) : Message = findById conn id |> Err.orNotFound "Message"
+    let find (db: Ef.CampfireDb) (id: int64) : Message = findById db id |> Err.orNotFound "Message"
 
     /// `Message.last`
-    let last (conn: Conn) : Message option =
-        conn.QueryOne(Selects.Message + " ORDER BY \"messages\".\"id\" DESC LIMIT 1", [||], fromRow)
+    let last (db: Ef.CampfireDb) : Message option = db.Messages.OrderByDescending(fun m -> m.Id) |> Ef.Data.tryFirst
 
-    let count (conn: Conn) : int64 = conn.Count("""SELECT COUNT(*) FROM "messages" """, [||])
+    let count (db: Ef.CampfireDb) : int64 = db.Messages.LongCount()
 
     /// `user.messages`
-    let byCreator (conn: Conn) (creatorId: int64) : Message list =
-        conn.QueryAll(Selects.Message + " WHERE \"messages\".\"creator_id\" = ?", [| I creatorId |], fromRow)
+    let byCreator (db: Ef.CampfireDb) (creatorId: int64) : Message list =
+        db.Messages.Where(fun m -> m.CreatorId = EF.Parameter creatorId).ToList() |> List.ofSeq
 
     /// `room.messages`
-    let forRoom (conn: Conn) (roomId: int64) : Message list = conn.QueryAll(selectInRoom, [| I roomId |], fromRow)
+    let forRoom (db: Ef.CampfireDb) (roomId: int64) : Message list = (inRoom db roomId).ToList() |> List.ofSeq
 
     /// `room.messages.find(id)`
-    let findInRoom (conn: Conn) (roomId: int64) (id: int64) : Message =
-        conn.QueryOne(selectInRoom + " AND \"messages\".\"id\" = ? LIMIT 1", [| I roomId; I id |], fromRow)
-        |> Err.orNotFound "Message"
+    let findInRoom (db: Ef.CampfireDb) (roomId: int64) (id: int64) : Message =
+        (inRoom db roomId).Where(fun m -> m.Id = EF.Parameter id) |> Ef.Data.tryFirst |> Err.orNotFound "Message"
 
     /// `room.messages.count`
-    let countInRoom (conn: Conn) (roomId: int64) : int64 =
-        conn.Count("""SELECT COUNT(*) FROM "messages" WHERE "messages"."room_id" = ?""", [| I roomId |])
+    let countInRoom (db: Ef.CampfireDb) (roomId: int64) : int64 = (inRoom db roomId).LongCount()
+
+    /// `Current.user.reachable_messages`: the messages of the rooms the user is a member of.
+    let private reachable (db: Ef.CampfireDb) (userId: int64) : IQueryable<Message> =
+        db.Messages.Join(db.Memberships.Where(fun ms -> ms.UserId = EF.Parameter userId), (fun m -> m.RoomId), (fun ms -> ms.RoomId), (fun m _ -> m))
 
     /// `Current.user.reachable_messages.find(id)`
-    let findReachable (conn: Conn) (userId: int64) (id: int64) : Message =
-        conn.QueryOne(
-            selectReachable + " WHERE \"memberships\".\"user_id\" = ? AND \"messages\".\"id\" = ? LIMIT 1",
-            [| I userId; I id |],
-            fromRow
-        )
-        |> Err.orNotFound "Message"
+    let findReachable (db: Ef.CampfireDb) (userId: int64) (id: int64) : Message =
+        (reachable db userId).Where(fun m -> m.Id = EF.Parameter id) |> Ef.Data.tryFirst |> Err.orNotFound "Message"
 
     // Message::Pagination
 
     /// `room.messages.last_page`: the newest 40, oldest first.
-    let lastPage (conn: Conn) (roomId: int64) : Message list =
-        conn.QueryAll(selectInRoom + " ORDER BY \"messages\".\"created_at\" DESC LIMIT 40", [| I roomId |], fromRow) |> List.rev
+    let lastPage (db: Ef.CampfireDb) (roomId: int64) : Message list =
+        (inRoom db roomId).OrderByDescending(fun m -> m.CreatedAt).Take(40).ToList() |> List.ofSeq |> List.rev
 
     /// `room.messages.first_page`
-    let firstPage (conn: Conn) (roomId: int64) : Message list =
-        conn.QueryAll(selectInRoom + " ORDER BY \"messages\".\"created_at\" ASC LIMIT 40", [| I roomId |], fromRow)
+    let firstPage (db: Ef.CampfireDb) (roomId: int64) : Message list =
+        (inRoom db roomId).OrderBy(fun m -> m.CreatedAt).Take(40).ToList() |> List.ofSeq
 
     /// `room.messages.page_before(message)`
-    let pageBefore (conn: Conn) (roomId: int64) (message: Message) : Message list =
-        conn.QueryAll(
-            selectInRoom + " AND (created_at < ?) ORDER BY \"messages\".\"created_at\" DESC LIMIT 40",
-            [| I roomId; T message.CreatedAt |],
-            fromRow
-        )
+    let pageBefore (db: Ef.CampfireDb) (roomId: int64) (message: Message) : Message list =
+        let at = message.CreatedAt
+        (inRoom db roomId).Where(fun m -> m.CreatedAt < EF.Parameter at).OrderByDescending(fun m -> m.CreatedAt).Take(40).ToList()
+        |> List.ofSeq
         |> List.rev
 
     /// `room.messages.page_after(message)`
-    let pageAfter (conn: Conn) (roomId: int64) (message: Message) : Message list =
-        conn.QueryAll(
-            selectInRoom + " AND (created_at > ?) ORDER BY \"messages\".\"created_at\" ASC LIMIT 40",
-            [| I roomId; T message.CreatedAt |],
-            fromRow
-        )
+    let pageAfter (db: Ef.CampfireDb) (roomId: int64) (message: Message) : Message list =
+        let at = message.CreatedAt
+        (inRoom db roomId).Where(fun m -> m.CreatedAt > EF.Parameter at).OrderBy(fun m -> m.CreatedAt).Take(40).ToList() |> List.ofSeq
 
     /// `room.messages.page_around(message)`: up to 40 before, the message, up to 40 after.
-    let pageAround (conn: Conn) (roomId: int64) (message: Message) : Message list =
-        pageBefore conn roomId message @ [ message ] @ pageAfter conn roomId message
+    let pageAround (db: Ef.CampfireDb) (roomId: int64) (message: Message) : Message list =
+        pageBefore db roomId message @ [ message ] @ pageAfter db roomId message
 
     /// `room.messages.page_created_since(time)`
-    let pageCreatedSince (conn: Conn) (roomId: int64) (time: Timestamp) : Message list =
-        conn.QueryAll(
-            selectInRoom + " AND (created_at > ?) ORDER BY \"messages\".\"created_at\" ASC LIMIT 40",
-            [| I roomId; T time |],
-            fromRow
-        )
+    let pageCreatedSince (db: Ef.CampfireDb) (roomId: int64) (time: DateTime) : Message list =
+        (inRoom db roomId).Where(fun m -> m.CreatedAt > EF.Parameter time).OrderBy(fun m -> m.CreatedAt).Take(40).ToList() |> List.ofSeq
 
     /// `room.messages.without(excluding).page_updated_since(time)`
-    let pageUpdatedSince (conn: Conn) (roomId: int64) (time: Timestamp) (excluding: int64 list) : Message list =
-        let without =
+    let pageUpdatedSince (db: Ef.CampfireDb) (roomId: int64) (time: DateTime) (excluding: int64 list) : Message list =
+        let candidates = inRoom db roomId
+        let candidates =
             if List.isEmpty excluding then
-                ""
+                candidates
             else
-                " AND \"messages\".\"id\" NOT IN (" + Sql.placeholders (List.length excluding) + ")"
-        let sql = selectInRoom + without + " AND (updated_at > ?) ORDER BY \"messages\".\"created_at\" DESC LIMIT 40"
-        let values = Array.ofList (I roomId :: (excluding |> List.map I) @ [ T time ])
-        conn.QueryAll(sql, values, fromRow) |> List.rev
+                let ids = Array.ofList excluding
+                candidates.Where(fun m -> not (Enumerable.Contains(EF.Parameter ids, m.Id)))
+        candidates.Where(fun m -> m.UpdatedAt > EF.Parameter time).OrderByDescending(fun m -> m.CreatedAt).Take(40).ToList()
+        |> List.ofSeq
+        |> List.rev
 
     /// `room.messages.before(message).exists?`
-    let existsBefore (conn: Conn) (roomId: int64) (message: Message) : bool =
-        conn.Exists(
-            """SELECT 1 FROM "messages" WHERE "messages"."room_id" = ? AND (created_at < ?) LIMIT 1""",
-            [| I roomId; T message.CreatedAt |]
-        )
+    let existsBefore (db: Ef.CampfireDb) (roomId: int64) (message: Message) : bool =
+        let at = message.CreatedAt
+        (inRoom db roomId).Any(fun m -> m.CreatedAt < EF.Parameter at)
 
     /// `room.messages.after(message).exists?`
-    let existsAfter (conn: Conn) (roomId: int64) (message: Message) : bool =
-        conn.Exists(
-            """SELECT 1 FROM "messages" WHERE "messages"."room_id" = ? AND (created_at > ?) LIMIT 1""",
-            [| I roomId; T message.CreatedAt |]
-        )
+    let existsAfter (db: Ef.CampfireDb) (roomId: int64) (message: Message) : bool =
+        let at = message.CreatedAt
+        (inRoom db roomId).Any(fun m -> m.CreatedAt > EF.Parameter at)
 
-    /// `room.messages.paged?`: more than a page (`count > PAGE_SIZE`). Asks whether a row exists
-    /// past the first page rather than counting the whole room, which grows without bound.
-    let paged (conn: Conn) (roomId: int64) : bool =
-        conn.Exists("""SELECT 1 FROM "messages" WHERE "messages"."room_id" = ? LIMIT 1 OFFSET 40""", [| I roomId |])
+    /// `room.messages.paged?`: more than a page (`count > PAGE_SIZE`). Asks whether a row exists past the first page rather than
+    /// counting the whole room, which grows without bound.
+    let paged (db: Ef.CampfireDb) (roomId: int64) : bool = (inRoom db roomId).OrderBy(fun m -> m.Id).Skip(40).Any()
 
     // Message::Searchable
 
@@ -1075,64 +1026,74 @@ module Message =
         |> Array.map (fun word -> "\"" + word.Replace("\"", "\"\"") + "\"")
         |> String.concat " "
 
-    /// `room.messages.search(query)`: FTS5 `MATCH`, in message order.
-    let searchInRoom (conn: Conn) (roomId: int64) (query: string) : Message list =
-        let query = matchTerms query
-        if query = "" then
+    /// `room.messages.search(query)`: FTS5 `MATCH` (EF has no FTS5, so `FromSql`; E13), in message order.
+    let searchInRoom (db: Ef.CampfireDb) (roomId: int64) (query: string) : Message list =
+        let terms = matchTerms query
+        if terms = "" then
             []
         else
-            conn.QueryAll(
-                Selects.Message
-                + " join message_search_index idx on messages.id = idx.rowid WHERE \"messages\".\"room_id\" = ? AND (idx.body match ?) ORDER BY \"messages\".\"created_at\" ASC",
-                [| I roomId; S query |],
-                fromRow
-            )
+            db.Messages
+                .FromSql($"SELECT messages.* FROM messages JOIN message_search_index idx ON messages.id = idx.rowid WHERE messages.room_id = {roomId} AND (idx.body MATCH {terms})")
+                .OrderBy(fun m -> m.CreatedAt)
+                .ToList()
+            |> List.ofSeq
 
     /// `Current.user.reachable_messages.search(query).last(100)`
-    let searchReachable (conn: Conn) (userId: int64) (query: string) : Message list =
-        let query = matchTerms query
-        if query = "" then
+    let searchReachable (db: Ef.CampfireDb) (userId: int64) (query: string) : Message list =
+        let terms = matchTerms query
+        if terms = "" then
             []
         else
-            conn.QueryAll(
-                selectReachable
-                + " join message_search_index idx on messages.id = idx.rowid WHERE \"memberships\".\"user_id\" = ? AND (idx.body match ?) ORDER BY \"messages\".\"created_at\" DESC LIMIT 100",
-                [| I userId; S query |],
-                fromRow
-            )
+            db.Messages
+                .FromSql(
+                    $"SELECT messages.* FROM messages INNER JOIN rooms ON messages.room_id = rooms.id INNER JOIN memberships ON rooms.id = memberships.room_id JOIN message_search_index idx ON messages.id = idx.rowid WHERE memberships.user_id = {userId} AND (idx.body MATCH {terms})"
+                )
+                .OrderByDescending(fun m -> m.CreatedAt)
+                .Take(100)
+                .ToList()
+            |> List.ofSeq
             |> List.rev
 
     // Attributes and associations
 
-    let room (conn: Conn) (message: Message) : Room = Room.findLegacy conn message.RoomId
+    let room (db: Ef.CampfireDb) (message: Message) : Room = Room.find db message.RoomId
 
-    let creator (conn: Conn) (message: Message) : User = User.findLegacy conn message.CreatorId
+    let creator (db: Ef.CampfireDb) (message: Message) : User = User.find db message.CreatorId
 
-    let boosts (conn: Conn) (message: Message) : Boost list = Boost.forMessageOrdered conn message.Id
+    let boosts (db: Ef.CampfireDb) (message: Message) : Boost list = Boost.forMessageOrdered db message.Id
 
-    let body (conn: Conn) (message: Message) : RichTextRecord option = RichTextRecord.findFor conn RecordType message.Id "body"
+    let body (db: Ef.CampfireDb) (message: Message) : RichTextRecord option = RichTextRecord.findFor db RecordType message.Id "body"
 
     /// `message.body.body` as stored HTML, if any.
-    let bodyHtml (conn: Conn) (message: Message) : string option = body conn message |> Option.bind (fun b -> b.Body)
+    let bodyHtml (db: Ef.CampfireDb) (message: Message) : string option =
+        body db message |> Option.bind (fun b -> Option.ofObj b.Body)
+
+    /// `has_one_attached :attachment`'s row, if attached.
+    let private attachmentRow (db: Ef.CampfireDb) (messageId: int64) : Ef.Attachment option =
+        db.Attachments.Where(fun a -> a.RecordId = EF.Parameter messageId && a.RecordType = RecordType && a.Name = "attachment")
+        |> Ef.Data.tryFirst
 
     /// The attachment and its blob, if attached.
-    let attachment (conn: Conn) (message: Message) : (Attachment * Blob) option =
-        match Attachment.findFor conn RecordType message.Id "attachment" with
-        | Some attachment -> Some(attachment, Attachment.blob conn attachment)
+    let attachment (db: Ef.CampfireDb) (message: Message) : (Ef.Attachment * Ef.Blob) option =
+        match attachmentRow db message.Id with
+        | Some attachment ->
+            let blobId = attachment.BlobId
+            let blob = db.Blobs.Where(fun b -> b.Id = EF.Parameter blobId) |> Ef.Data.tryFirst |> Err.orNotFound "ActiveStorage::Blob"
+            Some(attachment, blob)
         | None -> None
 
     /// `plain_text_body`: `body.to_plain_text.presence || attachment&.filename&.to_s || ""`
-    let plainTextBody (conn: Conn) (richText: RichText) (message: Message) : string =
+    let plainTextBody (db: Ef.CampfireDb) (richText: RichText) (message: Message) : string =
         let fromBody =
-            match bodyHtml conn message with
+            match bodyHtml db message with
             | Some html ->
-                let text = richText.ToPlainText(conn, html)
+                let text = richText.ToPlainText(db, html)
                 if not (String.IsNullOrWhiteSpace text) then Some text else None
             | None -> None
         match fromBody with
         | Some text -> text
         | None ->
-            match attachment conn message with
+            match attachment db message with
             | Some(_, blob) -> blob.Filename
             | None -> ""
 
@@ -1146,72 +1107,78 @@ module Message =
             if name = "" || not (name |> Seq.forall (fun c -> Char.IsAsciiLetterOrDigit c || c = '_')) then None else Sound.findByName name
 
     /// `sound`: a body of exactly `/play <name>` naming a built-in sound.
-    let sound (conn: Conn) (richText: RichText) (message: Message) : Sound option = soundIn (plainTextBody conn richText message)
+    let sound (db: Ef.CampfireDb) (richText: RichText) (message: Message) : Sound option = soundIn (plainTextBody db richText message)
 
     /// `content_type`
-    let contentType (conn: Conn) (richText: RichText) (message: Message) : ContentType =
-        if (attachment conn message).IsSome then ContentType.Attachment
-        elif (sound conn richText message).IsSome then ContentType.Sound
+    let contentType (db: Ef.CampfireDb) (richText: RichText) (message: Message) : ContentType =
+        if (attachmentRow db message.Id).IsSome then ContentType.Attachment
+        elif (sound db richText message).IsSome then ContentType.Sound
         else ContentType.Text
 
     /// `room.users.where(id: ids)`
-    let mentioneesInRoom (conn: Conn) (roomId: int64) (userIds: int64 list) : User list =
+    let mentioneesInRoom (db: Ef.CampfireDb) (roomId: int64) (userIds: int64 list) : User list =
         if List.isEmpty userIds then
             []
         else
-            let sql =
-                User.Select
-                + " INNER JOIN \"memberships\" ON \"users\".\"id\" = \"memberships\".\"user_id\" WHERE \"memberships\".\"room_id\" = ? AND \"users\".\"id\" IN ("
-                + Sql.placeholders (List.length userIds)
-                + ")"
-            conn.QueryAll(sql, Array.ofList (I roomId :: (userIds |> List.map I)), User.fromRow)
+            let ids = Array.ofList userIds
+            db.Users
+                .Join(db.Memberships.Where(fun ms -> ms.RoomId = EF.Parameter roomId), (fun u -> u.Id), (fun ms -> ms.UserId), (fun u _ -> u))
+                .Where(fun u -> Enumerable.Contains(EF.Parameter ids, u.Id))
+                .ToList()
+            |> List.ofSeq
 
     /// `mentionees`: mentioned users who are members of the room.
-    let mentionees (conn: Conn) (richText: RichText) (message: Message) : User list =
+    let mentionees (db: Ef.CampfireDb) (richText: RichText) (message: Message) : User list =
         let ids =
-            match bodyHtml conn message with
-            | Some html -> richText.MentionedUserIds(conn, html)
+            match bodyHtml db message with
+            | Some html -> richText.MentionedUserIds(db, html)
             | None -> []
-        mentioneesInRoom conn message.RoomId ids
+        mentioneesInRoom db message.RoomId ids
 
     // Creating, updating, destroying
 
-    let private createInIndex (tx: Tx) (message: Message) : unit =
-        let body = plainTextBody tx.Conn tx.RichText message
-        tx.Conn.Execute("insert into message_search_index(rowid, body) values (?, ?)", [| I message.Id; S body |]) |> ignore
+    /// The search index (E13): EF has no FTS5, so these are `ExecuteSql`, in after-commit hooks.
+    let private createInIndex (tx: Ef.Tx) (message: Message) : unit =
+        let plain = plainTextBody tx.Db tx.RichText message
+        tx.Db.Database.ExecuteSql($"insert into message_search_index(rowid, body) values ({message.Id}, {plain})") |> ignore
 
-    let private updateInIndex (tx: Tx) (message: Message) : unit =
-        let body = plainTextBody tx.Conn tx.RichText message
-        tx.Conn.Execute("update message_search_index set body = ? where rowid = ?", [| S body; I message.Id |]) |> ignore
+    let private updateInIndex (tx: Ef.Tx) (message: Message) : unit =
+        let plain = plainTextBody tx.Db tx.RichText message
+        tx.Db.Database.ExecuteSql($"update message_search_index set body = {plain} where rowid = {message.Id}") |> ignore
 
-    let private removeFromIndex (tx: Tx) (id: int64) : unit =
-        tx.Conn.Execute("delete from message_search_index where rowid = ?", [| I id |]) |> ignore
+    let private removeFromIndex (tx: Ef.Tx) (id: int64) : unit =
+        tx.Db.Database.ExecuteSql($"delete from message_search_index where rowid = {id}") |> ignore
 
-    let private touchRow (tx: Tx) (id: int64) : Timestamp =
+    let private touchRow (tx: Ef.Tx) (id: int64) : DateTime =
         let now = tx.Now()
-        tx.Conn.Execute("""UPDATE "messages" SET "updated_at" = ? WHERE "messages"."id" = ?""", [| T now; I id |]) |> ignore
+        tx.Db.Messages
+            .Where(fun m -> m.Id = EF.Parameter id)
+            .ExecuteUpdate(fun s -> s.SetProperty((fun m -> m.UpdatedAt), now) |> ignore)
+        |> ignore
         now
+
+    let private createAttachment (tx: Ef.Tx) (messageId: int64) (blobId: int64) : unit =
+        Ef.Data.insert
+            tx.Db
+            ({ Id = 0L; Name = "attachment"; RecordType = RecordType; RecordId = messageId; BlobId = blobId; CreatedAt = DateTime.MinValue }: Ef.Attachment)
+        |> ignore
 
     /// `room.messages.create!` (or `create_with_attachment!` given a blob). Inside the
     /// transaction: the message, its body (which touches the message), its attachment, and
     /// the room touch. After commit: the search index, then `room.receive` (unread
     /// memberships and the push job).
-    let create (tx: Tx) (attributes: NewMessage) : Message =
-        let now = tx.Now()
+    let create (tx: Ef.Tx) (attributes: NewMessage) : Message =
         let clientMessageId = attributes.ClientMessageId |> Option.defaultWith Sql.uuid
-        let id =
-            tx.Conn.QueryRow(
-                """INSERT INTO "messages" ("client_message_id", "created_at", "creator_id", "room_id", "updated_at") VALUES (?, ?, ?, ?, ?) RETURNING "id" """,
-                [| S clientMessageId; T now; I attributes.CreatorId; I attributes.RoomId; T now |],
-                fun r -> r.Int64 0
-            )
         let mutable message =
-            { Id = id
-              RoomId = attributes.RoomId
-              CreatorId = attributes.CreatorId
-              ClientMessageId = clientMessageId
-              CreatedAt = now
-              UpdatedAt = now }
+            Ef.Data.insert
+                tx.Db
+                { Id = 0L
+                  RoomId = attributes.RoomId
+                  CreatorId = attributes.CreatorId
+                  ClientMessageId = clientMessageId
+                  CreatedAt = DateTime.MinValue
+                  UpdatedAt = DateTime.MinValue }
+        let id = message.Id
 
         let mutable touched = false
         match attributes.Body with
@@ -1221,32 +1188,32 @@ module Message =
         | None -> ()
         match attributes.AttachmentBlobId with
         | Some blobId ->
-            Attachment.create tx RecordType id "attachment" blobId |> ignore
+            createAttachment tx id blobId
             touched <- true
         | None -> ()
         if touched then message <- { message with UpdatedAt = touchRow tx id }
-        Room.touchLegacy tx message.RoomId
+        Room.touch tx message.RoomId
 
         let committed = message
         tx.AfterCommit(fun tx ->
             createInIndex tx committed
-            Room.receiveLegacy tx committed.RoomId committed)
+            Room.receive tx committed.RoomId committed)
         message
 
     /// `touch` (from a boost, or the body): the message, then its room, then a reindex
     /// after commit.
-    let touch (tx: Tx) (message: Message) : Message =
+    let touch (tx: Ef.Tx) (message: Message) : Message =
         let touched = { message with UpdatedAt = touchRow tx message.Id }
-        Room.touchLegacy tx message.RoomId
+        Room.touch tx message.RoomId
         let id = message.Id
-        tx.AfterCommit(fun tx -> updateInIndex tx (find tx.Conn id))
+        tx.AfterCommit(fun tx -> updateInIndex tx (find tx.Db id))
         touched
 
     /// `message.update!(body:)`: the body changes, which touches the message and its room;
     /// the search index follows after commit.
-    let updateBody (tx: Tx) (message: Message) (body: string) : Message =
-        match RichTextRecord.findFor tx.Conn RecordType message.Id "body" with
-        | Some record when record.Body = Some body -> message
+    let updateBody (tx: Ef.Tx) (message: Message) (body: string) : Message =
+        match RichTextRecord.findFor tx.Db RecordType message.Id "body" with
+        | Some record when record.Body = body -> message
         | Some record ->
             RichTextRecord.updateBody tx record body |> ignore
             touch tx message
@@ -1257,107 +1224,80 @@ module Message =
     /// `update!(attachment: blob or nil)`: `has_one_attached` replaces the attachment. The old
     /// one is destroyed (its blob purged after commit, `dependent: :purge_later`) and each
     /// attachment change touches the message (`belongs_to :record, touch: true`), and so its room.
-    let replaceAttachment (tx: Tx) (message: Message) (blobId: int64 option) : Message =
+    let replaceAttachment (tx: Ef.Tx) (message: Message) (blobId: int64 option) : Message =
         let mutable message = message
-        match Attachment.findFor tx.Conn RecordType message.Id "attachment" with
+        match attachmentRow tx.Db message.Id with
         | Some attachment ->
-            Attachment.delete tx attachment
+            Ef.Data.remove tx.Db attachment
             tx.EmitAfterCommit(PurgeBlob attachment.BlobId)
             message <- touch tx message
         | None -> ()
         match blobId with
         | Some blobId ->
-            Attachment.create tx RecordType message.Id "attachment" blobId |> ignore
+            createAttachment tx message.Id blobId
             message <- touch tx message
         | None -> ()
         message
 
     /// `destroy`: its attachment (blob purged later), boosts and body, then the message, and
     /// the room is touched. The search index entry goes after commit.
-    let destroy (tx: Tx) (message: Message) : unit =
-        match Attachment.findFor tx.Conn RecordType message.Id "attachment" with
+    let destroy (tx: Ef.Tx) (message: Message) : unit =
+        let db = tx.Db
+        let id = message.Id
+        match attachmentRow db id with
         | Some attachment ->
-            Attachment.delete tx attachment
+            Ef.Data.remove db attachment
             tx.EmitAfterCommit(PurgeBlob attachment.BlobId)
         | None -> ()
-        for boost in Boost.forMessage tx.Conn message.Id do
-            Boost.deleteRow tx boost
-        match RichTextRecord.findFor tx.Conn RecordType message.Id "body" with
-        | Some body -> RichTextRecord.delete tx body
-        | None -> ()
-        tx.Conn.Execute("""DELETE FROM "messages" WHERE "messages"."id" = ?""", [| I message.Id |]) |> ignore
-        Room.touchLegacy tx message.RoomId
-        let id = message.Id
+        db.Boosts.Where(fun b -> b.MessageId = EF.Parameter id).ExecuteDelete() |> ignore
+        db.RichTexts.Where(fun r -> r.RecordId = EF.Parameter id && r.RecordType = RecordType && r.Name = "body").ExecuteDelete() |> ignore
+        db.Messages.Where(fun m -> m.Id = EF.Parameter id).ExecuteDelete() |> ignore
+        Room.touch tx message.RoomId
         tx.AfterCommit(fun tx -> removeFromIndex tx id)
 
-    let reload (conn: Conn) (message: Message) : Message = find conn message.Id
+    let reload (db: Ef.CampfireDb) (message: Message) : Message = find db message.Id
 
 // ---------------------------------------------------------------------------------------------
 // Boost
 // `reference/app/models/boost.rb`
 // ---------------------------------------------------------------------------------------------
 
-type Boost =
-    { Id: int64
-      MessageId: int64
-      BoosterId: int64
-      Content: string
-      CreatedAt: Timestamp
-      UpdatedAt: Timestamp }
-
+[<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module Boost =
-    let private fromRow (r: Row) : Boost =
-        { Id = r.Int64 0
-          MessageId = r.Int64 1
-          BoosterId = r.Int64 2
-          Content = r.Text 3
-          CreatedAt = r.Timestamp 4
-          UpdatedAt = r.Timestamp 5 }
+    let find (db: Ef.CampfireDb) (id: int64) : Boost =
+        db.Boosts.Where(fun b -> b.Id = EF.Parameter id) |> Ef.Data.tryFirst |> Err.orNotFound "Boost"
 
-    let find (conn: Conn) (id: int64) : Boost =
-        conn.QueryOne(Selects.Boost + " WHERE \"boosts\".\"id\" = ? LIMIT 1", [| I id |], fromRow) |> Err.orNotFound "Boost"
-
-    let forMessage (conn: Conn) (messageId: int64) : Boost list =
-        conn.QueryAll(Selects.Boost + " WHERE \"boosts\".\"message_id\" = ?", [| I messageId |], fromRow)
+    let forMessage (db: Ef.CampfireDb) (messageId: int64) : Boost list =
+        db.Boosts.Where(fun b -> b.MessageId = EF.Parameter messageId).ToList() |> List.ofSeq
 
     /// `message.boosts.ordered`
-    let forMessageOrdered (conn: Conn) (messageId: int64) : Boost list =
-        conn.QueryAll(Selects.Boost + " WHERE \"boosts\".\"message_id\" = ? ORDER BY \"boosts\".\"created_at\" ASC", [| I messageId |], fromRow)
+    let forMessageOrdered (db: Ef.CampfireDb) (messageId: int64) : Boost list =
+        db.Boosts.Where(fun b -> b.MessageId = EF.Parameter messageId).OrderBy(fun b -> b.CreatedAt).ToList() |> List.ofSeq
 
     /// `message.boosts.find_by!(id:, booster:)`
-    let findByMessageAndBooster (conn: Conn) (messageId: int64) (id: int64) (boosterId: int64) : Boost =
-        conn.QueryOne(
-            Selects.Boost + " WHERE \"boosts\".\"message_id\" = ? AND \"boosts\".\"id\" = ? AND \"boosts\".\"booster_id\" = ? LIMIT 1",
-            [| I messageId; I id; I boosterId |],
-            fromRow
-        )
+    let findByMessageAndBooster (db: Ef.CampfireDb) (messageId: int64) (id: int64) (boosterId: int64) : Boost =
+        db.Boosts.Where(fun b -> b.MessageId = EF.Parameter messageId && b.Id = EF.Parameter id && b.BoosterId = EF.Parameter boosterId)
+        |> Ef.Data.tryFirst
         |> Err.orNotFound "Boost"
 
     /// `message.boosts.create!(content:, booster:)`: touches the message (and so the room).
-    let create (tx: Tx) (messageId: int64) (boosterId: int64) (content: string) : Boost =
-        let now = tx.Now()
-        let id =
-            tx.Conn.QueryRow(
-                """INSERT INTO "boosts" ("booster_id", "content", "created_at", "message_id", "updated_at") VALUES (?, ?, ?, ?, ?) RETURNING "id" """,
-                [| I boosterId; S content; T now; I messageId; T now |],
-                fun r -> r.Int64 0
-            )
-        Message.touch tx (Message.find tx.Conn messageId) |> ignore
-        { Id = id
-          MessageId = messageId
-          BoosterId = boosterId
-          Content = content
-          CreatedAt = now
-          UpdatedAt = now }
-
-    /// The delete alone, for a message being destroyed (its touch is moot).
-    let deleteRow (tx: Tx) (boost: Boost) : unit =
-        tx.Conn.Execute("""DELETE FROM "boosts" WHERE "boosts"."id" = ?""", [| I boost.Id |]) |> ignore
+    let create (tx: Ef.Tx) (messageId: int64) (boosterId: int64) (content: string) : Boost =
+        let boost =
+            Ef.Data.insert
+                tx.Db
+                { Id = 0L
+                  MessageId = messageId
+                  BoosterId = boosterId
+                  Content = content
+                  CreatedAt = DateTime.MinValue
+                  UpdatedAt = DateTime.MinValue }
+        Message.touch tx (Message.find tx.Db messageId) |> ignore
+        boost
 
     /// `destroy!`: touches the message (and so the room).
-    let destroy (tx: Tx) (boost: Boost) : unit =
-        deleteRow tx boost
-        Message.touch tx (Message.find tx.Conn boost.MessageId) |> ignore
+    let destroy (tx: Ef.Tx) (boost: Boost) : unit =
+        Ef.Data.remove tx.Db boost
+        Message.touch tx (Message.find tx.Db boost.MessageId) |> ignore
 
 // ---------------------------------------------------------------------------------------------
 // Webhook
@@ -1425,18 +1365,18 @@ module Webhook =
     /// The JSON body `deliver` posts. `roomBotMessagesPath` and `messagePath` come from
     /// the route helpers (`room_bot_messages_path(room, bot_key)`, `room_at_message_path(room, message)`).
     let payload
-        (conn: Conn)
+        (db: Ef.CampfireDb)
         (richText: RichText)
-        (webhook: Webhook)
+        (webhook: Ef.Webhook)
         (message: Message)
         (roomBotMessagesPath: string)
         (messagePath: string)
         : string =
-        let creator = Message.creator conn message
-        let room = Room.findLegacy conn message.RoomId
-        let recipient = User.findLegacy conn webhook.UserId
-        let html = Message.bodyHtml conn message
-        let plain = withoutRecipientMentions (Message.plainTextBody conn richText message) recipient
+        let creator = Message.creator db message
+        let room = Room.find db message.RoomId
+        let recipient = User.find db webhook.UserId
+        let html = Message.bodyHtml db message
+        let plain = withoutRecipientMentions (Message.plainTextBody db richText message) recipient
 
         let optional (value: string option) =
             match value with

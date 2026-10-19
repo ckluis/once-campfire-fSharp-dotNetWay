@@ -12,7 +12,7 @@ open Campfire.RailsCompat
 open Campfire.RichText
 open Campfire.Routes
 
-type DbResolver(conn: Conn, secrets: Secrets, now: Timestamp) =
+type DbResolver(db: Ef.CampfireDb, secrets: Secrets, now: Timestamp) =
     member private _.MentionUser(user: User) : MentionUser =
         { Id = user.Id
           Name = user.Name
@@ -27,7 +27,7 @@ type DbResolver(conn: Conn, secrets: Secrets, now: Timestamp) =
         match Int64.TryParse(id, NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture) with
         | true, id ->
             try
-                User.findByIdLegacy conn id
+                User.findById db id
             with DbException _ ->
                 None
         | _ -> None

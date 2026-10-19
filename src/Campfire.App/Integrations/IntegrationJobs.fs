@@ -21,6 +21,18 @@ module IntegrationJobs =
 
     let private kitFailure (error: Campfire.Kit.Error) : string = sprintf "%A" error
 
+    /// `Reads.run` on a context leased for the call (an integration has no request), the failure left as a `DbError`.
+    let private readEf (app: AppState) (f: Ef.CampfireDb -> 'T) : Result<'T, DbError> =
+        use context = app.DbFactory.CreateDbContext()
+        Ef.Reads.run context f
+
+    /// `Writes.run` on a context leased for the write, the failure left as a `DbError`.
+    let private writeEf (app: AppState) (f: Ef.Tx -> 'T) : Task<Result<'T, DbError>> =
+        task {
+            use context = app.DbFactory.CreateDbContext()
+            return! Ef.Writes.run app.Gate app.Env context f
+        }
+
     /// `Room::PushMessageJob#perform(room, message)`: `Room::MessagePusher.new(room:, message:).push`, unless Web
     /// Push is off.
     let private pushMessage (app: AppState) (event: Event) : Task<Result<unit, string>> =
@@ -28,10 +40,11 @@ module IntegrationJobs =
             match event, app.WebPush with
             | Event.PushMessage(_, messageId), Some pool ->
                 // Offloaded: it encrypts a notification for every subscriber.
+                use context = app.DbFactory.CreateDbContext()
                 match!
                     app.Db.ReadOffloaded(fun conn ->
-                        let message = Message.find conn messageId
-                        WebPushPool.pushMessage pool conn app.Db.Env.RichText message (app.Db.Env.Now()) |> ignore)
+                        let message = Message.find context messageId
+                        WebPushPool.pushMessage pool conn context app.Env.RichText message (app.Db.Env.Now()) |> ignore)
                 with
                 | Ok() -> return Ok()
                 | Error error -> return Error(failure error)
@@ -70,7 +83,7 @@ module IntegrationJobs =
                       ClientMessageId = None
                       Body = Some body
                       AttachmentBlobId = None }
-                match! app.Db.Write(fun tx -> Message.create tx newMessage) with
+                match! writeEf app (fun tx -> Message.create tx newMessage) with
                 | Ok message -> return Ok message
                 | Error error -> return Error(failure error)
         }
@@ -92,13 +105,13 @@ module IntegrationJobs =
                           ClientMessageId = None
                           Body = None
                           AttachmentBlobId = Some blob.Id }
-                    match! app.Db.Write(fun tx -> Message.create tx newMessage) with
+                    match! writeEf app (fun tx -> Message.create tx newMessage) with
                     | Error error -> return Error(failure error)
                     | Ok message ->
                         match! MessagesController.processAttachment app blob with
                         | Error error -> return Error(kitFailure error)
                         | Ok() ->
-                            match! app.Db.Read(fun conn -> Message.find conn message.Id) with
+                            match readEf app (fun db -> Message.find db message.Id) with
                             | Ok message -> return Ok message
                             | Error error -> return Error(failure error)
         }
@@ -106,14 +119,14 @@ module IntegrationJobs =
     /// `message.broadcast_create`, rendered without a request (`ApplicationController.renderer`).
     let private broadcastCreate (app: AppState) (room: Room) (message: Message) : Task<Result<unit, string>> =
         task {
-            let! result =
-                app.Db.Read(fun conn ->
-                    let presenter = Presenter(conn, app, None)
+            let result =
+                readEf app (fun db ->
+                    let presenter = Presenter(db, app, None)
                     let view = presenter.Message message
-                    let account = Account.firstLegacy conn
+                    let account = Account.first db
                     let html = Page.renderDetached app account (fun ctx -> MessagesCached.message ctx view)
                     let partials = { Rendered.empty with Message = Some html }
-                    app.Broadcasts.MessageCreate(conn, room, message, Rendered.partials partials))
+                    app.Broadcasts.MessageCreate(db, room, message, Rendered.partials partials))
             return result |> Result.mapError failure
         }
 
@@ -123,24 +136,23 @@ module IntegrationJobs =
         task {
             match event with
             | Event.DeliverWebhook(botId, messageId) ->
-                let db = app.Db
-                match!
-                    db.Read(fun conn ->
-                        let bot = User.findLegacy conn botId
-                        let message = Message.find conn messageId
-                        let room = Room.findLegacy conn message.RoomId
-                        match Webhook.findByUser conn botId with
+                match
+                    readEf app (fun db ->
+                        let bot = User.find db botId
+                        let message = Message.find db messageId
+                        let room = Room.find db message.RoomId
+                        match User.webhook db bot with
                         | None -> None
                         | Some webhook ->
                             let payload =
                                 Webhook.payload
-                                    conn
-                                    db.Env.RichText
+                                    db
+                                    app.Env.RichText
                                     webhook
                                     message
                                     (Routes.roomBotMessages room.Id (User.botKey bot))
                                     (Routes.roomAtMessage room.Id message.Id)
-                            Some(bot, room, webhook.Url, payload))
+                            Some(bot, room, Option.ofObj webhook.Url, payload))
                 with
                 | Error error -> return Error(failure error)
                 | Ok None -> return Error "undefined method 'deliver' for nil (the bot has no webhook)"

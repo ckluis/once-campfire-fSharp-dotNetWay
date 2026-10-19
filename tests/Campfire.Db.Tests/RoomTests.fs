@@ -80,10 +80,8 @@ let ``direct rooms keep their type`` () =
 let ``destroying a room destroys its messages and memberships`` () =
     use t = new TestDb()
     let watercooler = room t "watercooler"
-    // The messages go on the port's writer until unit 1.5a, the room's own rows on EF's.
-    t.Write(fun tx -> Room.destroyMessagesLegacy tx watercooler.Id)
     t.WriteEf(fun tx -> Room.destroy tx watercooler)
-    Assert.True(List.isEmpty (t.Read(fun c -> Message.forRoom c (id "watercooler"))))
+    Assert.True(List.isEmpty (t.ReadEf(fun c -> Message.forRoom c (id "watercooler"))))
     Assert.True(List.isEmpty (t.ReadEf(fun c -> Membership.forRoom c (id "watercooler"))))
     Assert.True((t.ReadEf(fun c -> Room.findById c (id "watercooler"))).IsNone)
     Assert.Equal(

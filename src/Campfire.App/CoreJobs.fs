@@ -15,17 +15,24 @@ module CoreJobs =
         task {
             match event with
             | Event.RemoveBannedContent userId ->
-                // Offloaded: it reads every message the user wrote.
-                match! app.Db.ReadOffloaded(fun conn -> Message.byCreator conn userId) with
+                let read (f: Ef.CampfireDb -> 'T) : Result<'T, DbError> =
+                    use context = app.DbFactory.CreateDbContext()
+                    Ef.Reads.run context f
+                let write (f: Ef.Tx -> unit) : Task<Result<unit, DbError>> =
+                    task {
+                        use context = app.DbFactory.CreateDbContext()
+                        return! Ef.Writes.run app.Gate app.Env context f
+                    }
+                match read (fun db -> Message.byCreator db userId) with
                 | Error error -> return Error(DbError.display error)
                 | Ok messages ->
                     let mutable failure: string option = None
                     for message in messages do
                         if failure.IsNone then
-                            match! app.Db.Write(fun tx -> Message.destroy tx message) with
+                            match! write (fun tx -> Message.destroy tx message) with
                             | Error error -> failure <- Some(DbError.display error)
                             | Ok() ->
-                                match! app.Db.Read(fun conn -> Room.findLegacy conn message.RoomId) with
+                                match read (fun db -> Room.find db message.RoomId) with
                                 | Error error -> failure <- Some(DbError.display error)
                                 | Ok room -> app.Broadcasts.MessageRemove(room, message)
                     return match failure with Some failure -> Error failure | None -> Ok()

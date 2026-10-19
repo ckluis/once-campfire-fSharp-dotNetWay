@@ -2,6 +2,8 @@
 // `test/models/user_test.rb`, `user/bot_test.rb`, `user/role_test.rb`, plus Bannable.
 module Campfire.Db.Tests.UserTests
 
+open System.Linq
+open Microsoft.EntityFrameworkCore
 open Xunit
 open Campfire.Db
 open Campfire.Db.Tests.Support
@@ -134,21 +136,21 @@ let ``authenticate bot`` () =
 let ``deliver message by webhook`` () =
     use t = new TestDb()
     let bender = user t "bender"
-    t.Write(fun tx -> User.deliverWebhookLater tx bender (id "first"))
+    t.WriteEf(fun tx -> User.deliverWebhookLater tx bender (id "first"))
     Assert.Equal<Event list>([ DeliverWebhook(id "bender", id "first") ], t.Events())
 
     // No webhook, no job.
     let jz = user t "jz"
-    t.Write(fun tx -> User.deliverWebhookLater tx jz (id "first"))
+    t.WriteEf(fun tx -> User.deliverWebhookLater tx jz (id "first"))
     Assert.Equal(1, List.length (t.Events()))
 
 [<Fact>]
 let ``webhook payload`` () =
     use t = new TestDb()
     let richText = BasicRichText() :> RichText
-    let message = t.Read(fun c -> Message.find c (id "first"))
-    let webhook = t.Read(fun c -> (Webhook.findByUser c (id "bender")).Value)
-    let payload = t.Read(fun c -> Webhook.payload c richText webhook message "/rooms/1/bot/key/messages" "/rooms/1/@2")
+    let message = t.ReadEf(fun c -> Message.find c (id "first"))
+    let webhook = t.ReadEf(fun c -> (User.webhook c (User.find c (id "bender"))).Value)
+    let payload = t.ReadEf(fun c -> Webhook.payload c richText webhook message "/rooms/1/bot/key/messages" "/rooms/1/@2")
     let jason, designers = id "jason", id "designers"
     Assert.Equal(
         $"""{{"user":{{"id":{jason},"name":"Jason"}},"room":{{"id":{designers},"name":"Designers","path":"/rooms/1/bot/key/messages"}},"message":{{"id":{message.Id},"body":{{"html":"First post!","plain":"First post!"}},"path":"/rooms/1/@2"}}}}""",
@@ -168,9 +170,9 @@ let ``webhook payload escapes html entities`` () =
             [| I first |]
         )
         |> ignore)
-    let message = t.Read(fun c -> Message.find c first)
-    let webhook = t.Read(fun c -> (Webhook.findByUser c (id "bender")).Value)
-    let payload = t.Read(fun c -> Webhook.payload c richText webhook message "/rooms/1/bot/key/messages" "/rooms/1/@2")
+    let message = t.ReadEf(fun c -> Message.find c first)
+    let webhook = t.ReadEf(fun c -> (User.webhook c (User.find c (id "bender"))).Value)
+    let payload = t.ReadEf(fun c -> Webhook.payload c richText webhook message "/rooms/1/bot/key/messages" "/rooms/1/@2")
     // Regular strings, whose \u escapes would otherwise be read here as characters.
     let html = "\\u003cp\\u003eTom \\u0026 Jerry\\u003c/p\\u003e"
     let plain = "Tom \\u0026 Jerry"
@@ -234,6 +236,6 @@ let ``ban rejects private session ips`` () =
 let ``remove banned content`` () =
     use t = new TestDb()
     let jz = user t "jz"
-    let removed = t.Write(fun tx -> User.removeBannedContent tx jz)
+    let removed = t.WriteEf(fun tx -> User.removeBannedContent tx jz)
     Assert.Equal(5, List.length removed)
-    Assert.True(List.isEmpty (t.Read(fun c -> Message.byCreator c (id "jz"))))
+    Assert.True(List.isEmpty (t.ReadEf(fun c -> Message.byCreator c (id "jz"))))

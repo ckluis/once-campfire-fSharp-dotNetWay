@@ -46,8 +46,10 @@ let private efRead (path: string) (f: Ef.CampfireDb -> 'T) : 'T =
 
 /// `Writes.run` on the copy, sharing `db`'s gate with the port's writer (the migration rule).
 let private efWrite (path: string) (db: Database) (sink: RecordingSink) (clock: TestClock) (f: Ef.Tx -> 'T) : 'T =
-    use context = (factoryFor path).CreateDbContext()
-    let env : Ef.Env = { Time = Ef.ClockTimeProvider clock; Sink = sink; RichText = BasicRichText(); BcryptCost = 4 }
+    // Its own factory: the timestamps interceptor reads the test's clock, not the system's.
+    let time = Ef.ClockTimeProvider clock
+    use context = (Ef.Data.factory (Ef.Data.options path time ignore)).CreateDbContext()
+    let env : Ef.Env = { Time = time; Sink = sink; RichText = BasicRichText(); BcryptCost = 4 }
     unwrap ((Ef.Writes.run db.Gate env context f).GetAwaiter().GetResult())
 
 /// Opens the copy as the app does, with a frozen clock, and hands its database to `f`.
@@ -96,7 +98,7 @@ let ``every model reads the rows Rails wrote`` () =
 
         Assert.Equal(10L, efRead path User.count)
         Assert.Equal(11, List.length (efRead path Room.all))
-        Assert.Equal(169L, read Message.count)
+        Assert.Equal(169L, efRead path Message.count)
         Assert.Equal(39L, efRead path Membership.count)
         Assert.Equal(1L, efRead path Account.count)
         Assert.Equal(3L, read Search.count)
@@ -157,7 +159,7 @@ let ``messages page, search and read their bodies and attachments as Rails store
 
         // Every room's pages agree with SQL, and the paging index serves them.
         for room in efRead path Room.all do
-            let page = read (fun c -> Message.lastPage c room.Id)
+            let page = efRead path (fun c -> Message.lastPage c room.Id)
             let expected =
                 read (fun c ->
                     c.QueryAll(
@@ -167,7 +169,7 @@ let ``messages page, search and read their bodies and attachments as Rails store
                     ))
                 |> List.rev
             Assert.Equal<int64 list>(expected, page |> List.map (fun m -> m.Id))
-            Assert.Equal(read (fun c -> Message.countInRoom c room.Id) > 40L, read (fun c -> Message.paged c room.Id))
+            Assert.Equal(efRead path (fun c -> Message.countInRoom c room.Id) > 40L, efRead path (fun c -> Message.paged c room.Id))
 
         // The full-text index Rails fills, searched as the app does.
         let indexed = read (fun c -> c.QueryAll("SELECT rowid, body FROM message_search_index WHERE length(body) > 20 LIMIT 20", [||], fun r -> r.Int64 0, r.Text 1))
@@ -176,8 +178,8 @@ let ``messages page, search and read their bodies and attachments as Rails store
         for messageId, body in indexed do
             match System.Text.RegularExpressions.Regex.Match(body, "[A-Za-z]{5,}") with
             | m when m.Success ->
-                let message = read (fun c -> Message.find c messageId)
-                let found = read (fun c -> Message.searchInRoom c message.RoomId m.Value)
+                let message = efRead path (fun c -> Message.find c messageId)
+                let found = efRead path (fun c -> Message.searchInRoom c message.RoomId m.Value)
                 Assert.True(found |> List.exists (fun f -> f.Id = messageId), $"\"{m.Value}\" finds message {messageId}")
                 searched <- searched + 1
             | _ -> ()
@@ -189,23 +191,23 @@ let ``messages page, search and read their bodies and attachments as Rails store
                 c.QueryAll("SELECT record_id FROM active_storage_attachments WHERE record_type = 'Message' AND name = 'attachment'", [||], fun r -> r.Int64 0))
         Assert.Equal(5, List.length withAttachment)
         for messageId in withAttachment do
-            let message = read (fun c -> Message.find c messageId)
-            let attachment = read (fun c -> Message.attachment c message)
+            let message = efRead path (fun c -> Message.find c messageId)
+            let attachment = efRead path (fun c -> Message.attachment c message)
             let _, blob = attachment.Value
             Assert.False(String.IsNullOrEmpty blob.Filename)
-            Assert.Equal(ContentType.Attachment, read (fun c -> Message.contentType c richText message))
-            Assert.False(String.IsNullOrEmpty(read (fun c -> Message.plainTextBody c richText message)))
+            Assert.Equal(ContentType.Attachment, efRead path (fun c -> Message.contentType c richText message))
+            Assert.False(String.IsNullOrEmpty(efRead path (fun c -> Message.plainTextBody c richText message)))
 
         // Boosts, in the order they were made.
         let boosted =
             read (fun c -> c.QueryAll("SELECT DISTINCT message_id FROM boosts", [||], fun r -> r.Int64 0))
-            |> List.map (fun messageId -> read (fun c -> Message.boosts c (Message.find c messageId)))
+            |> List.map (fun messageId -> efRead path (fun c -> Message.boosts c (Message.find c messageId)))
         Assert.Equal(12, List.sumBy List.length boosted)
         for boosts in boosted do
-            Assert.Equal<Timestamp list>(boosts |> List.map (fun b -> b.CreatedAt) |> List.sort, boosts |> List.map (fun b -> b.CreatedAt))
+            Assert.Equal<DateTime list>(boosts |> List.map (fun b -> b.CreatedAt) |> List.sort, boosts |> List.map (fun b -> b.CreatedAt))
 
         // A seeded message reads by its label.
-        Assert.Equal(label seed "messages.first", (read (fun c -> Message.find c (label seed "messages.first"))).Id))
+        Assert.Equal(label seed "messages.first", (efRead path (fun c -> Message.find c (label seed "messages.first"))).Id))
 
 [<Fact>]
 let ``memberships Rails wrote read with every involvement and connection state`` () =
@@ -231,26 +233,24 @@ let ``writes land beside the rows Rails wrote`` () =
         let sink = RecordingSink()
         use db = openSeed path clock sink
         let david, designers = label seed "users.david", label seed "rooms.designers"
-        let before = unwrap (db.ReadBlocking(fun c -> Message.countInRoom c designers))
+        let before = efRead path (fun c -> Message.countInRoom c designers)
 
         let message =
-            unwrap (
-                db.WriteBlocking(fun tx ->
-                    let m =
-                        Message.create
-                            tx
-                            { NewMessage.create designers david with
-                                ClientMessageId = Some "fsharp-seed-1"
-                                Body = Some "Written by <b>F#</b> beside Rails" }
-                    Boost.create tx m.Id david "\U0001F680" |> ignore
-                    m)
-            )
+            efWrite path db sink clock (fun tx ->
+                let m =
+                    Message.create
+                        tx
+                        { NewMessage.create designers david with
+                            ClientMessageId = Some "fsharp-seed-1"
+                            Body = Some "Written by <b>F#</b> beside Rails" }
+                Boost.create tx m.Id david "\U0001F680" |> ignore
+                m)
         Assert.Equal<Event list>([ PushMessage(designers, message.Id) ], sink.Events())
-        Assert.Equal(before + 1L, unwrap (db.ReadBlocking(fun c -> Message.countInRoom c designers)))
-        let last = unwrap (db.ReadBlocking(fun c -> Message.lastPage c designers)) |> List.last
+        Assert.Equal(before + 1L, efRead path (fun c -> Message.countInRoom c designers))
+        let last = efRead path (fun c -> Message.lastPage c designers) |> List.last
         Assert.Equal(message.Id, last.Id)
-        Assert.Equal("2026-03-03 09:30:15.123456", last.CreatedAt.ToDb())
-        Assert.Equal<int64 list>([ message.Id ], unwrap (db.ReadBlocking(fun c -> Message.searchInRoom c designers "beside")) |> List.map (fun m -> m.Id))
+        Assert.Equal("2026-03-03 09:30:15.123456", RailsTime.toDb last.CreatedAt)
+        Assert.Equal<int64 list>([ message.Id ], efRead path (fun c -> Message.searchInRoom c designers "beside") |> List.map (fun m -> m.Id))
 
         // Read back by a connection of our own, as the reference app would.
         (db :> IDisposable).Dispose()

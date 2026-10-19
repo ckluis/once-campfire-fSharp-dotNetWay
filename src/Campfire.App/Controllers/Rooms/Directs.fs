@@ -45,9 +45,9 @@ module Directs =
             let baseUrl = Page.rendererBaseUrl c
             let! memberships = c.Read(fun db -> Membership.forRoom db room.Id)
             let! directRooms =
-                app.Read(fun conn ->
-                    let presenter = Presenter(conn, app, None)
-                    let account = Account.firstLegacy conn
+                c.Read(fun db ->
+                    let presenter = Presenter(db, app, None)
+                    let account = Account.first db
                     [ for membership in memberships do
                           let direct = presenter.SidebarDirect membership
                           let html = Page.renderDetachedAt app account baseUrl (fun ctx -> UsersCached.directRoom ctx direct)
@@ -78,10 +78,10 @@ module Directs =
             let! (current: User) = Concerns.requireCurrentUser c
             let app = c.App
             let! edit =
-                app.Read(fun conn ->
-                    let presenter = Presenter(conn, app, None)
+                c.Read(fun db ->
+                    let presenter = Presenter(db, app, None)
                     // `@room.users.many? ? @room.users.without(Current.user) : @room.users`
-                    let users = Room.usersLegacy conn room
+                    let users = Room.users db room
                     let users = if users.Length > 1 then users |> List.filter (fun user -> user.Id <> current.Id) else users
                     ({ RoomId = room.Id
                        DisplayName = presenter.RoomDisplayName(room, Some current)

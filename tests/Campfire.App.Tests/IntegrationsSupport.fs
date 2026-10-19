@@ -321,13 +321,12 @@ let private SecretKeyBase = "integrations-test-secret-key-base"
 type TestDb() =
     let dir = Directory.CreateTempSubdirectory("campfire-integrations").FullName
     let clock = TestClock()
+    let richText = AppRichText(Secrets.create SecretKeyBase, clock, NullLogger.Instance) :> Campfire.Db.RichText
+    let time = Campfire.Db.Ef.ClockTimeProvider clock
     let db =
-        let secrets = Secrets.create SecretKeyBase
-        let richText = AppRichText(secrets, clock, NullLogger.Instance)
         let env: Env =
             { Clock = clock
               Sink = NullSink()
-              RichText = richText
               BcryptCost = 4 }
         let db = Database.Open({ Config.create (Path.Combine(dir, "test.sqlite3")) with Environment = "test" }, env)
         match db.WriteBlocking(fun tx -> Fixtures.load tx.Conn (Fixtures.referenceDir ()) { Now = tx.Now(); BcryptCost = 4 } |> ignore) with
@@ -336,6 +335,12 @@ type TestDb() =
         db
 
     member _.Db: Database = db
+
+    /// EF Core over the same file (the message models run on it).
+    member val Factory: Microsoft.EntityFrameworkCore.IDbContextFactory<Campfire.Db.Ef.CampfireDb> =
+        Campfire.Db.Ef.Data.factory (Campfire.Db.Ef.Data.options (Path.Combine(dir, "test.sqlite3")) time ignore)
+
+    member _.Env: Campfire.Db.Ef.Env = { Time = time; Sink = NullSink(); RichText = richText; BcryptCost = 4 }
 
     static member Id(label: string) : int64 = Fixtures.identify label
 

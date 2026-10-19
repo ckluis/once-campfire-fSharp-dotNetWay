@@ -66,15 +66,14 @@ module ByBots =
                 | ValueNone -> false
             let roomId = room.Id
             let first, last = List.tryHead messages, List.tryLast messages
-            // Offloaded: the count reads every message in the room.
             let! count, nextPage =
-                c.App.ReadOffloaded(fun conn ->
-                    let count = Message.countInRoom conn roomId
+                c.Read(fun db ->
+                    let count = Message.countInRoom db roomId
                     let nextPage =
                         match first, last with
                         | Some _, Some last when after ->
-                            if Message.existsAfter conn roomId last then Some("after", last.Id) else None
-                        | Some first, Some _ -> if Message.existsBefore conn roomId first then Some("before", first.Id) else None
+                            if Message.existsAfter db roomId last then Some("after", last.Id) else None
+                        | Some first, Some _ -> if Message.existsBefore db roomId first then Some("before", first.Id) else None
                         | _ -> None
                     count, nextPage)
             c.SetHeader("x-total-count", string count)

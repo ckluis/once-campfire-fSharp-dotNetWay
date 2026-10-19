@@ -333,20 +333,16 @@ type TestApp
             return this.ReadEf(fun db -> Membership.findByRoomAndUser db roomId userId)
         }
 
-    member _.Message(label: string) : Task<Message> =
+    member this.Message(label: string) : Task<Message> =
         task {
             let messageId = id label
-            match! db.Read(fun conn -> Message.find conn messageId) with
-            | Ok message -> return message
-            | Error error -> return failwith (DbError.display error)
+            return this.ReadEf(fun db -> Message.find db messageId)
         }
 
-    member _.Boost(label: string) : Task<Boost> =
+    member this.Boost(label: string) : Task<Boost> =
         task {
             let boostId = id label
-            match! db.Read(fun conn -> Boost.find conn boostId) with
-            | Ok boost -> return boost
-            | Error error -> return failwith (DbError.display error)
+            return this.ReadEf(fun db -> Boost.find db boostId)
         }
 
     interface IAsyncDisposable with
@@ -390,7 +386,6 @@ let start () : Task<TestApp> =
         let env: Env =
             { Clock = clock
               Sink = sink
-              RichText = richText
               BcryptCost = 4 }
         let db =
             Database.Open({ Config.create (Path.Combine(dir, "test.sqlite3")) with Readers = 2; Environment = "test" }, env)

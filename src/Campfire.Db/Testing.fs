@@ -38,9 +38,9 @@ type RecordingSink() =
 type BasicRichText() =
     static let attachmentClose = "</action-text-attachment>"
 
-    static let userName (conn: Conn) (id: int64) : string option =
+    static let userName (db: Ef.CampfireDb) (id: int64) : string option =
         try
-            User.findByIdLegacy conn id |> Option.map (fun user -> user.Name)
+            User.findById db id |> Option.map (fun user -> user.Name)
         with _ ->
             None
 
@@ -90,7 +90,7 @@ type BasicRichText() =
         s.Replace("&nbsp;", "\u00a0").Replace("&lt;", "<").Replace("&gt;", ">").Replace("&quot;", "\"").Replace("&#39;", "'").Replace("&amp;", "&")
 
     interface RichText with
-        member _.ToPlainText(conn: Conn, html: string) : string =
+        member _.ToPlainText(db: Ef.CampfireDb, html: string) : string =
             let out = StringBuilder()
             let mutable rest = html
             let mutable go = true
@@ -114,7 +114,7 @@ type BasicRichText() =
                                 attributeValues tag "sgid"
                                 |> List.tryHead
                                 |> Option.bind userIdFromSgid
-                                |> Option.bind (userName conn)
+                                |> Option.bind (userName db)
                             match mention with
                             | Some name -> out.Append('@').Append(name) |> ignore
                             | None -> ()
@@ -135,12 +135,11 @@ type BasicRichText() =
             out.Append rest |> ignore
             decodeEntities (out.ToString().Trim())
 
-        member _.MentionedUserIds(_conn: Conn, _html: string) : int64 list = []
+        member _.MentionedUserIds(_db: Ef.CampfireDb, _html: string) : int64 list = []
 
 module Testing =
     /// The system clock, no side effects and `BasicRichText`.
     let defaultEnv () : Env =
         { Clock = SystemClock()
           Sink = NullSink()
-          RichText = BasicRichText()
           BcryptCost = Campfire.RailsCompat.Password.Cost }

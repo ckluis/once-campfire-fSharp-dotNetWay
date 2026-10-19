@@ -86,16 +86,16 @@ type Broadcasts(server: Cable) =
     /// `message.broadcast_create`: append the message to the room, then tell every member's
     /// unread stream (`room.memberships.pluck(:user_id)`). Used by MessagesController#create,
     /// Webhook replies, and `Messages::ByBotsController`.
-    member this.MessageCreate(conn: Conn, room: Room, message: Message, partials: IPartials) : unit =
+    member this.MessageCreate(db: Ef.CampfireDb, room: Room, message: Message, partials: IPartials) : unit =
         let html = partials.Message message
         this.ToUtf8(Broadcasts.RoomMessages room, Append, BroadcastNames.roomDomId room BroadcastNames.Messages, html, [])
-        this.UnreadRoom(conn, room)
+        this.UnreadRoom(db, room)
 
     /// `broadcast_unread_room`: `{ roomId: }` to each member's `user_<id>_unreads`.
-    member _.UnreadRoom(conn: Conn, room: Room) : unit =
+    member _.UnreadRoom(db: Ef.CampfireDb, room: Room) : unit =
         // The same message to every member's stream: encoded once.
         let json = System.Text.Encoding.UTF8.GetBytes(Json.encode (Value.Object [ "roomId", Value.Int room.Id ]))
-        for membership in Membership.forRoomLegacy conn room.Id do
+        for membership in Membership.forRoom db room.Id do
             server.BroadcastEncoded(UnreadRooms.streamNameFor membership.UserId, System.ReadOnlySpan json) |> ignore
 
     /// `message.broadcast_remove`: MessagesController#destroy and `User#remove_banned_content`.

@@ -41,7 +41,6 @@ type TempDir() =
 let testEnv (sink: RecordingSink) (clock: TestClock) : Env =
     { Clock = clock
       Sink = sink
-      RichText = BasicRichText()
       BcryptCost = 4 }
 
 type TestDb(?fixtures: bool) =
@@ -82,6 +81,10 @@ type TestDb(?fixtures: bool) =
         (Ef.Writes.run db.Gate efEnv context f).GetAwaiter().GetResult()
 
     member this.WriteEf(f: Ef.Tx -> 'T) : 'T = this.TryWriteEf f |> unwrap
+
+    member _.TryReadEf(f: Ef.CampfireDb -> 'T) : Result<'T, DbError> =
+        use context = factory.CreateDbContext()
+        Ef.Reads.run context f
 
     member _.ReadEf(f: Ef.CampfireDb -> 'T) : 'T =
         use context = factory.CreateDbContext()

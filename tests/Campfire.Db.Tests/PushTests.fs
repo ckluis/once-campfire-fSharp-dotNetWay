@@ -13,8 +13,8 @@ let private WebPushPublicTestIp = "142.250.185.206"
 /// A body's rich text, mentioning these users.
 type private Mentions(ids: int64 list) =
     interface RichText with
-        member _.ToPlainText(conn: Conn, html: string) : string = (BasicRichText() :> RichText).ToPlainText(conn, html)
-        member _.MentionedUserIds(_conn: Conn, _html: string) : int64 list = ids
+        member _.ToPlainText(db: Ef.CampfireDb, html: string) : string = (BasicRichText() :> RichText).ToPlainText(db, html)
+        member _.MentionedUserIds(_db: Ef.CampfireDb, _html: string) : int64 list = ids
 
 /// How many deliveries `Room::MessagePusher#push` would queue for a new message.
 let private deliveries (t: TestDb) (room: string) (body: string) (mentioned: int64 list) : int =
@@ -22,10 +22,10 @@ let private deliveries (t: TestDb) (room: string) (body: string) (mentioned: int
         { NewMessage.create (id room) (id "david") with
             ClientMessageId = Some "earth"
             Body = Some body }
-    let message = t.Write(fun tx -> Message.create tx attributes)
+    let message = t.WriteEf(fun tx -> Message.create tx attributes)
     let now = t.Now()
     let richText = Mentions mentioned :> RichText
-    let _, everything, mentions = t.Read(fun c -> PushSubscription.pushesFor c richText message now)
+    let _, everything, mentions = t.ReadEf(fun db -> t.Read(fun c -> PushSubscription.pushesFor c db richText message now))
     List.length everything + List.length mentions
 
 [<Fact>]
@@ -58,16 +58,16 @@ let ``payloads`` () =
     use t = new TestDb()
     let richText = BasicRichText() :> RichText
     let attributes = { NewMessage.create (id "designers") (id "david") with Body = Some "Hi" }
-    let message = t.Write(fun tx -> Message.create tx attributes)
-    let room = t.Read(fun c -> Message.room c message)
-    let payload = t.Read(fun c -> PushSubscription.payloadFor c richText room message)
+    let message = t.WriteEf(fun tx -> Message.create tx attributes)
+    let room = t.ReadEf(fun c -> Message.room c message)
+    let payload = t.ReadEf(fun c -> PushSubscription.payloadFor c richText room message)
     Assert.Equal(("Designers", "David: Hi"), (payload.Title, payload.Body))
     Assert.Equal("/rooms/" + string (id "designers"), payload.Path)
 
     let attributes = { NewMessage.create (id "david_and_jason") (id "david") with Body = Some "Hi" }
-    let message = t.Write(fun tx -> Message.create tx attributes)
-    let room = t.Read(fun c -> Message.room c message)
-    let payload = t.Read(fun c -> PushSubscription.payloadFor c richText room message)
+    let message = t.WriteEf(fun tx -> Message.create tx attributes)
+    let room = t.ReadEf(fun c -> Message.room c message)
+    let payload = t.ReadEf(fun c -> PushSubscription.payloadFor c richText room message)
     Assert.Equal(("David", "Hi"), (payload.Title, payload.Body))
 
 [<Fact>]
@@ -76,9 +76,9 @@ let ``long payloads are cut short to fit a push message`` () =
     let richText = BasicRichText() :> RichText
     let body = String.replicate 1000 "é" + "\"" + String.replicate 2000 "x"
     let attributes = { NewMessage.create (id "designers") (id "david") with Body = Some body }
-    let message = t.Write(fun tx -> Message.create tx attributes)
-    let room = t.Read(fun c -> Message.room c message)
-    let payload = t.Read(fun c -> PushSubscription.payloadFor c richText room message)
+    let message = t.WriteEf(fun tx -> Message.create tx attributes)
+    let room = t.ReadEf(fun c -> Message.room c message)
+    let payload = t.ReadEf(fun c -> PushSubscription.payloadFor c richText room message)
 
     // `serde_json::to_string(text).len() - 2`
     let jsonLen (text: string) = (Campfire.RailsCompat.Json.generate (Campfire.RailsCompat.Value.String text) |> System.Text.Encoding.UTF8.GetByteCount) - 2

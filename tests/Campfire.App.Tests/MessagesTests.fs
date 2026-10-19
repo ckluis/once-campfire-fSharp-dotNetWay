@@ -25,6 +25,12 @@ let private unwrap (result: Result<'T, DbError>) : 'T =
     | Ok value -> value
     | Error e -> failwith (DbError.display e)
 
+let private readEf (test: Test) (f: Ef.CampfireDb -> 'T) : Task<'T> =
+    task {
+        use context = test.App.DbFactory.CreateDbContext()
+        return unwrap (Ef.Reads.run context f)
+    }
+
 let private read (test: Test) (f: Conn -> 'T) : Task<'T> =
     task {
         let! result = test.App.Db.Read f
@@ -42,7 +48,7 @@ let private count (haystack: string) (needle: string) : int =
     n
 
 let private messagesIn (test: Test) (roomId: int64) : Task<Message list> =
-    read test (fun conn -> Message.forRoom conn roomId |> List.sortBy (fun m -> m.CreatedAt.Microsecond, m.Id))
+    readEf test (fun db -> Message.forRoom db roomId |> List.sortBy (fun m -> m.CreatedAt, m.Id))
 
 let private lastMessage (test: Test) (roomId: int64) : Task<Message> =
     task {
@@ -140,13 +146,13 @@ let ``a text message is answered and broadcast as it was stored`` () =
         Assert.Contains("id=\"message_as-stored\"", message)
         Assert.Contains($"data-message-id=\"{stored.Id}\"", message)
         let epochMs = Campfire.Views.MessagesSupport.epochMs
-        Assert.Contains($"data-message-timestamp=\"{epochMs (stored.CreatedAt.ToDateTimeOffset())}\"", message)
-        Assert.Contains($"data-message-updated-at=\"{epochMs (stored.UpdatedAt.ToDateTimeOffset())}\"", message)
+        Assert.Contains($"data-message-timestamp=\"{epochMs (DateTimeOffset stored.CreatedAt)}\"", message)
+        Assert.Contains($"data-message-updated-at=\"{epochMs (DateTimeOffset stored.UpdatedAt)}\"", message)
         // Cached under the stored row's key (its `updated_at` to the microsecond), which is what the
         // room page, reading the message from the database, looks up.
         let cached =
             Campfire.Views.FragmentCache.withCache test.App.FragmentCache (fun () ->
-                Campfire.Views.Messages.cachedMessageFragment stored.Id (stored.UpdatedAt.ToDateTimeOffset()))
+                Campfire.Views.Messages.cachedMessageFragment stored.Id (DateTimeOffset stored.UpdatedAt))
         Assert.Equal(message, (if isNull cached then "" else cached.ToString()))
         let! page = david.Get $"/rooms/{ALL_TALK}"
         Assert.Contains(message, page.Text) // the room page's copy of the message
@@ -187,7 +193,7 @@ let ``uploads attach and process the file`` () =
 
         let! message = lastMessage test ALL_TALK
         Assert.Equal("upload-1", message.ClientMessageId)
-        let! blob = read test (fun conn -> Message.attachment conn message |> Option.get |> snd)
+        let! blob = readEf test (fun db -> Message.attachment db message |> Option.get |> snd)
         Assert.Equal("red.png", blob.Filename)
         let! variants =
             read test (fun conn ->
@@ -206,11 +212,12 @@ let private UNRENDERABLE = "Failed to load message content"
 /// What search, a push and a bot's webhook get for a message.
 let private plainTexts (test: Test) (message: Message) : Task<string * string * string> =
     read test (fun conn ->
-        let richText = test.App.Db.Env.RichText
+        use db = test.App.DbFactory.CreateDbContext()
+        let richText = test.App.Env.RichText
         let indexed = conn.QueryOne("SELECT body FROM message_search_index WHERE rowid = ?", [| I message.Id |], (fun r -> r.Text 0)).Value
-        let push, _, _ = PushSubscription.pushesFor conn richText message (test.App.Db.Env.Now())
+        let push, _, _ = PushSubscription.pushesFor conn db richText message (test.App.Db.Env.Now())
         let webhook =
-            (Webhook.findByUser conn BENDER).Value |> fun hook -> Webhook.payload conn richText hook message "/bot" "/message"
+            (User.webhook db (User.find db BENDER)).Value |> fun hook -> Webhook.payload db richText hook message "/bot" "/message"
         let json = JsonDocument.Parse webhook
         indexed, push.Body, str (json.RootElement.GetProperty("message").GetProperty("body").GetProperty "plain"))
 
@@ -280,7 +287,7 @@ let ``show edit update and destroy`` () =
         let! updated = david.Write((request "PATCH" path).Form(formBody [ "message[body]", "<p>Edited</p>" ]))
         Assert.True((updated.Status = 302), updated.Text)
         Assert.Equal(Some $"http://campfire.test{path}", updated.Location)
-        let! body = read test (fun conn -> Message.bodyHtml conn (Message.find conn message.Id))
+        let! body = readEf test (fun db -> Message.bodyHtml db (Message.find db message.Id))
         Assert.Equal(Some "<p>Edited</p>", body)
 
         let! json = david.Write((request "PATCH" $"{path}.json").Form(formBody [ "message[body]", "x" ]))
@@ -292,7 +299,7 @@ let ``show edit update and destroy`` () =
             $"""<turbo-stream action="remove" target="message_{message.ClientMessageId}"></turbo-stream>""",
             destroyed.Text.Trim()
         )
-        let! gone = read test (fun conn -> Message.findById conn message.Id)
+        let! gone = readEf test (fun db -> Message.findById db message.Id)
         Assert.True gone.IsNone
         let! missing = david.Get path
         Assert.Equal(404, missing.Status)
@@ -314,7 +321,7 @@ let ``boosts are listed created and removed`` () =
 
         let! created = david.Write((request "POST" path).Form(formBody [ "boost[content]", "🔥" ]))
         Assert.Equal(Some $"http://campfire.test{path}", created.Location)
-        let! boost = read test (fun conn -> Boost.forMessage conn message.Id |> List.last)
+        let! boost = readEf test (fun db -> Boost.forMessage db message.Id |> List.last)
         Assert.Equal(("🔥", DAVID), (boost.Content, boost.BoosterId))
 
         let! destroyed = david.Write(request "DELETE" $"{path}/{boost.Id}")
@@ -388,8 +395,8 @@ let ``the bot api`` () =
 
         // An attachment replaces the message's attachment (and keeps the body), like Rails'
         // `update!(attachment:)`; a second one replaces the first; "" removes it.
-        let attached (id: int64) : Task<Campfire.Db.Blob option> =
-            read test (fun conn -> Message.attachment conn (Message.find conn id) |> Option.map snd)
+        let attached (id: int64) : Task<Ef.Blob option> =
+            readEf test (fun db -> Message.attachment db (Message.find db id) |> Option.map snd)
         let putFile (name: string) : Req =
             multipartReq (request "PUT" $"{b}/{message.Id}") [] ("attachment", name, "image/png", PNG)
         let! withFile = bot.Send(putFile "red.png")

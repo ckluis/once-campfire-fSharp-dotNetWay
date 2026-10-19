@@ -46,12 +46,12 @@ module MessagesController =
           Attachment = None
           ClientMessageId = None }
 
-    /// Runs `f` with a presenter on a reader connection.
+    /// Runs `f` with a presenter on the request's context.
     let present (c: Ctx) (f: Presenter -> 'T) : Task<Result<'T, Error>> =
         let app = c.App
         let requestHost = Some c.Request.Host
-        app.Read(fun conn ->
-            let presenter = Presenter(conn, app, requestHost)
+        c.Read(fun db ->
+            let presenter = Presenter(db, app, requestHost)
             // The Jbuilder partials (`json.cache!`) read the fragment cache on this thread.
             FragmentCache.withCache app.FragmentCache (fun () -> f presenter))
 
@@ -63,7 +63,7 @@ module MessagesController =
         | None -> Task.FromResult(Error NotFound)
         | Some id ->
             let roomId = room.Id
-            c.App.Read(fun conn -> Message.findInRoom conn roomId id)
+            c.Read(fun db -> Message.findInRoom db roomId id)
 
     /// `head :forbidden unless Current.user.can_administer?(@message)`
     let ensureCanAdminister (c: Ctx) (message: Message) : Result<unit, Error> =
@@ -105,15 +105,15 @@ module MessagesController =
             | _ -> None
         let before, after = present "before", present "after"
         let roomId = room.Id
-        let findInRoom (id: int64 option) (conn: Conn) =
+        let findInRoom (id: int64 option) (db: Ef.CampfireDb) =
             match id with
-            | Some id -> Message.findInRoom conn roomId id
+            | Some id -> Message.findInRoom db roomId id
             | None -> Err.fail (RecordNotFound "Message")
-        c.App.Read(fun conn ->
+        c.Read(fun db ->
             match before, after with
-            | Some before, _ -> Message.pageBefore conn roomId (findInRoom before conn)
-            | None, Some after -> Message.pageAfter conn roomId (findInRoom after conn)
-            | None, None -> Message.lastPage conn roomId)
+            | Some before, _ -> Message.pageBefore db roomId (findInRoom before db)
+            | None, Some after -> Message.pageAfter db roomId (findInRoom after db)
+            | None, None -> Message.lastPage db roomId)
 
     // --- Creating, updating, destroying -----------------------------------------------------------
 
@@ -128,32 +128,34 @@ module MessagesController =
 
     /// Assigning a String to a rich text attribute stores the canonicalized content
     /// (`ActionText::Content.new(body, canonicalize: true).to_html`).
-    let canonicalBody (conn: Conn) (app: AppState) (body: string) (requestHost: string option) : string =
-        let resolver = DbResolver(conn, app.Secrets, app.Clock.Now())
+    let canonicalBody (db: Ef.CampfireDb) (app: AppState) (body: string) (requestHost: string option) : string =
+        let resolver = DbResolver(db, app.Secrets, app.Clock.Now())
         let ctx = resolver.RenderContext requestHost
         match Content.load body ctx with
         | Ok content -> Content.toHtml content
         | Error _ -> body
 
-    /// `canonicalBody` on a reader, ahead of the write that stores it.
+    /// `canonicalBody` on a leased context, ahead of the write that stores it.
     let canonicalizeBody (app: AppState) (body: string) (requestHost: string option) : Task<Result<string, Error>> =
-        app.Read(fun conn -> canonicalBody conn app body requestHost)
+        app.ReadEf(fun db -> canonicalBody db app body requestHost)
 
     /// `Blob#touch_attachments`: each attached record is touched (a message also touches its room).
-    let private touchAttachmentRecords (tx: Tx) (blobId: int64) : unit =
-        for (recordType, recordId) in Common.raiseStorage (Campfire.Storage.Blob.attachmentRecords tx.Conn.Raw blobId) do
-            if recordType = "Message" then Message.touch tx (Message.find tx.Conn recordId) |> ignore
+    let private touchAttachmentRecords (tx: Ef.Tx) (records: (string * int64) list) : unit =
+        for (recordType, recordId) in records do
+            if recordType = "Message" then Message.touch tx (Message.find tx.Db recordId) |> ignore
 
     /// `blob.analyze`: its `after_update` touches the attached records. The file is analyzed off the
     /// writer.
     let private analyzeAttachment (app: AppState) (blob: Campfire.Storage.Blob) : Task<Result<Campfire.Storage.Blob, Error>> =
         act {
             let! metadata = ActiveStorage.analyzedMetadata app blob
-            return!
+            // The metadata is a storage row (the port's writer until unit 1.7), the touches are EF's: two writes.
+            let! (blob, records) =
                 app.Write(fun tx ->
                     let blob = Common.raiseStorage (Campfire.Storage.Blob.updateMetadata tx.Conn.Raw metadata blob)
-                    touchAttachmentRecords tx blob.Id
-                    blob)
+                    blob, Common.raiseStorage (Campfire.Storage.Blob.attachmentRecords tx.Conn.Raw blob.Id))
+            do! app.WriteEf(fun tx -> touchAttachmentRecords tx records)
+            return blob
         }
 
     /// `Message#process_attachment`: analyze the blob now (its `after_update` touches the message),
@@ -203,18 +205,20 @@ module MessagesController =
                         | Error e -> return Error e
                     }
                 | None -> Task.FromResult(Ok None)
-            let! (message: Message), (blob: Campfire.Storage.Blob option) =
-                app.Write(fun tx ->
-                    let blob = attachment |> Option.map (saveStaged tx)
-                    let message =
-                        Message.create
-                            tx
-                            { RoomId = roomId
-                              CreatorId = user.Id
-                              ClientMessageId = attributes.ClientMessageId
-                              Body = body
-                              AttachmentBlobId = blob |> Option.map (fun blob -> blob.Id) }
-                    message, blob)
+            // The blob row is a storage row (the port's writer until unit 1.7); the message and its rows are EF's: two writes.
+            let! (blob: Campfire.Storage.Blob option) =
+                match attachment with
+                | Some staged -> app.Write(fun tx -> Some(saveStaged tx staged))
+                | None -> Task.FromResult(Ok None)
+            let! (message: Message) =
+                c.Write(fun tx ->
+                    Message.create
+                        tx
+                        { RoomId = roomId
+                          CreatorId = user.Id
+                          ClientMessageId = attributes.ClientMessageId
+                          Body = body
+                          AttachmentBlobId = blob |> Option.map (fun blob -> blob.Id) })
             // Without an attachment, `message` is the row as stored: nothing after the commit writes to it,
             // and Rails answers with the same record (`create!(attributes).tap(&:process_attachment)`,
             // reference/app/models/message/attachment.rb). Analyzing an attachment touches the message, so
@@ -224,7 +228,7 @@ module MessagesController =
             | Some blob ->
                 let id = message.Id
                 do! processAttachment app blob
-                return! app.Read(fun conn -> Message.find conn id)
+                return! c.Read(fun db -> Message.find db id)
         }
 
     /// `@message.update!(message_params)`. A new attachment replaces the old one (whose blob is purged
@@ -254,17 +258,21 @@ module MessagesController =
                         | Error e -> return Error e
                     }
                 | None -> Task.FromResult(Ok None)
-            let! (id: int64), (blob: Campfire.Storage.Blob option) =
-                app.Write(fun tx ->
+            // The blob row first (a storage row, the port's writer until unit 1.7), then the message's rows on EF's.
+            let! (blob: Campfire.Storage.Blob option) =
+                match attachment |> Option.flatten with
+                | Some staged -> app.Write(fun tx -> Some(saveStaged tx staged))
+                | None -> Task.FromResult(Ok None)
+            let attachmentGiven = attachment.IsSome
+            let! (id: int64) =
+                c.Write(fun tx ->
                     let mutable message = message
                     match body with
                     | Some body -> message <- Message.updateBody tx message body
                     | None -> ()
-                    let attachmentGiven = attachment.IsSome
-                    let blob = attachment |> Option.flatten |> Option.map (saveStaged tx)
                     if attachmentGiven then
                         message <- Message.replaceAttachment tx message (blob |> Option.map (fun blob -> blob.Id))
-                    message.Id, blob)
+                    message.Id)
             match blob |> Option.filter (fun blob -> not (Campfire.Storage.Blob.isAnalyzed blob)) with
             | Some blob ->
                 app.Jobs.PerformLater(
@@ -277,13 +285,13 @@ module MessagesController =
                         }
                 )
             | None -> ()
-            return! app.Read(fun conn -> Message.find conn id)
+            return! c.Read(fun db -> Message.find db id)
         }
 
     /// `@message.destroy` then `@message.broadcast_remove`.
     let destroyMessage (c: Ctx) (room: Room) (message: Message) : Task<Result<unit, Error>> =
         act {
-            do! c.App.Write(fun tx -> Message.destroy tx message)
+            do! c.Write(fun tx -> Message.destroy tx message)
             c.App.Broadcasts.MessageRemove(room, message)
         }
 
@@ -293,23 +301,23 @@ module MessagesController =
     let broadcastCreate (c: Ctx) (room: Room) (message: Message) : Task<Result<unit, Error>> =
         let app = c.App
         let baseUrl = Page.rendererBaseUrl c
-        app.Read(fun conn ->
-            let presenter = Presenter(conn, app, None)
+        c.Read(fun db ->
+            let presenter = Presenter(db, app, None)
             let view = presenter.Message message
-            let account = Account.firstLegacy conn
+            let account = Account.first db
             let html = Page.renderDetachedAt app account baseUrl (fun ctx -> MessagesCached.message ctx view)
             let partials = { Rendered.empty with Message = Some html }
-            app.Broadcasts.MessageCreate(conn, room, message, Rendered.partials partials))
+            app.Broadcasts.MessageCreate(db, room, message, Rendered.partials partials))
 
     /// `broadcast_replace_to @room, :messages, target: [ @message, :presentation ], partial:
     /// "messages/presentation", attributes: { maintain_scroll: true }`
     let broadcastReplace (c: Ctx) (room: Room) (message: Message) : Task<Result<unit, Error>> =
         let app = c.App
         let baseUrl = Page.rendererBaseUrl c
-        app.Read(fun conn ->
-            let presenter = Presenter(conn, app, None)
+        c.Read(fun db ->
+            let presenter = Presenter(db, app, None)
             let view = presenter.Message message
-            let account = Account.firstLegacy conn
+            let account = Account.first db
             let html =
                 Page.renderDetachedAt app account baseUrl (fun ctx -> Render.text (fun w -> PresentationPartial.render w ctx view))
             let partials = { Rendered.empty with MessagePresentation = Some html }
@@ -321,15 +329,15 @@ module MessagesController =
         act {
             let app = c.App
             let! (bots: User list) =
-                app.Read(fun conn ->
+                c.Read(fun db ->
                     let candidates =
-                        if Room.isDirect room then Room.activeBotsLegacy conn room else Message.mentionees conn app.Db.Env.RichText message
+                        if Room.isDirect room then Room.activeBots db room else Message.mentionees db app.Env.RichText message
                     candidates
                     |> List.filter (fun (user: User) -> user.Role = Role.Bot && user.Status = Status.Active && user.Id <> message.CreatorId))
             if not bots.IsEmpty then
                 // bot.deliver_webhook_later(@message)
                 let messageId = message.Id
-                do! app.Write(fun tx -> bots |> List.iter (fun bot -> User.deliverWebhookLater tx bot messageId))
+                do! c.Write(fun tx -> bots |> List.iter (fun bot -> User.deliverWebhookLater tx bot messageId))
         }
 
     // --- Rendering ---------------------------------------------------------------------------------
@@ -355,12 +363,12 @@ module MessagesController =
                 // fresh_when @messages: the records' cache keys, their latest updated_at, and the template.
                 let etag =
                     messages
-                    |> List.map (fun m -> FragmentCache.cacheKeyWithVersion "messages" m.Id (m.UpdatedAt.ToDateTimeOffset()))
+                    |> List.map (fun m -> FragmentCache.cacheKeyWithVersion "messages" m.Id (DateTimeOffset m.UpdatedAt))
                     |> String.concat "/"
                 let freshness =
                     { Freshness.Default with
                         Etag = etag
-                        LastModified = ValueSome((messages |> List.map (fun m -> m.UpdatedAt) |> List.max).ToDateTimeOffset())
+                        LastModified = ValueSome(DateTimeOffset(messages |> List.map (fun m -> m.UpdatedAt) |> List.max))
                         Template = TemplateDigestIndex }
                 match c.FreshWhen freshness with
                 | ValueSome notModified -> return notModified
@@ -399,11 +407,11 @@ module MessagesController =
                 let app = c.App
                 let baseUrl = c.UrlFor ""
                 let! html =
-                    app.Read(fun conn ->
+                    c.Read(fun db ->
                         FragmentCache.withCache app.FragmentCache (fun () ->
-                            let presenter = Presenter(conn, app, None)
+                            let presenter = Presenter(db, app, None)
                             let item = presenter.MessageItem message
-                            let account = Account.firstLegacy conn
+                            let account = Account.first db
                             Page.renderDetachedAt app account baseUrl (fun ctx ->
                                 Render.plain (fun w -> CreateStream.render w ctx item kind))))
                 return c.Render(Status.Ok, Format.TurboStream, ReadOnlyMemory<byte> html)

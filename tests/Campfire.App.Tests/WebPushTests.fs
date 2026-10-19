@@ -469,7 +469,8 @@ let ``pushes messages and destroys expired subscriptions`` () =
                       ClientMessageId = Some "earth"
                       Body = Some "Hey @kevin"
                       AttachmentBlobId = None }
-                match! db.Write(fun tx -> Message.create tx attributes) with
+                use context = t.Factory.CreateDbContext()
+                match! Campfire.Db.Ef.Writes.run db.Gate t.Env context (fun tx -> Message.create tx attributes) with
                 | Ok message -> return message
                 | Error error -> return failwith (DbError.display error)
             }
@@ -481,8 +482,9 @@ let ``pushes messages and destroys expired subscriptions`` () =
         let pool =
             WebPushPool(ok.Net, vapid (), (fun id -> lock destroyed (fun () -> destroyed.Add id); Ok()), NullLogger.Instance)
         let! message = create ()
+        use pushContext = t.Factory.CreateDbContext()
         let! pushed =
-            db.Read(fun conn -> WebPushPool.pushMessage pool conn db.Env.RichText message (db.Env.Now()))
+            db.Read(fun conn -> WebPushPool.pushMessage pool conn pushContext t.Env.RichText message (db.Env.Now()))
         let payload =
             match pushed with
             | Ok payload -> payload
@@ -512,7 +514,8 @@ let ``pushes messages and destroys expired subscriptions`` () =
         let pool = WebPushPool(gone.Net, vapid (), handler, NullLogger.Instance)
         let! before = db.Read(fun conn -> PushSubscription.count conn)
         let! message = create ()
-        let! _ = db.Read(fun conn -> WebPushPool.pushMessage pool conn db.Env.RichText message (db.Env.Now()))
+        use context = t.Factory.CreateDbContext()
+        let! _ = db.Read(fun conn -> WebPushPool.pushMessage pool conn context t.Env.RichText message (db.Env.Now()))
         do! pool.Shutdown()
         let! after = db.Read(fun conn -> PushSubscription.count conn)
         let count (result: Result<int64, DbError>) = match result with Ok n -> n | Error error -> failwith (DbError.display error)

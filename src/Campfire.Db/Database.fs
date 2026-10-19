@@ -50,12 +50,11 @@ open System.Threading
 open System.Threading.Tasks
 open Campfire.RailsCompat.Clock
 
-/// Everything models need besides the connection: the clock, where side effects go, and
-/// the Action Text adapter.
+/// Everything the port's writer needs besides the connection: the clock and where side effects go (Action Text's adapter moved
+/// to `Ef.Env` with the message models).
 type Env =
     { Clock: SharedClock
       Sink: EventSink
-      RichText: RichText
       /// BCrypt cost for `has_secure_password`. Rails uses `BCrypt::Engine.cost` (12), or
       /// `MIN_COST` (4) in the test environment.
       BcryptCost: int }
@@ -79,8 +78,6 @@ type Tx internal (conn: Conn, env: Env, inTransaction: bool) =
 
     /// `Time.current`
     member _.Now() : Timestamp = env.Now()
-
-    member _.RichText : RichText = env.RichText
 
     /// Emits an event right away, even though the transaction may still roll back, for the
     /// side effects Rails performs mid-transaction.

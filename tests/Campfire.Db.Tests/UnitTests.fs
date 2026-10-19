@@ -56,23 +56,23 @@ let private unsignedMention (userId: int64) : string =
 
 [<Fact>]
 let ``plain text strips tags`` () =
-    use conn = memory ()
+    use t = new TestDb(false)
     let richText = BasicRichText() :> RichText
-    Assert.Equal("My hovercraft is full of eels", richText.ToPlainText(conn, "<span>My hovercraft is full of eels</span>"))
-    Assert.Equal("Hello there", richText.ToPlainText(conn, "Hello <b>there</b>"))
+    Assert.Equal("My hovercraft is full of eels", t.ReadEf(fun db -> richText.ToPlainText(db, "<span>My hovercraft is full of eels</span>")))
+    Assert.Equal("Hello there", t.ReadEf(fun db -> richText.ToPlainText(db, "Hello <b>there</b>")))
 
 [<Fact>]
 let ``plain text renders mentions by name`` () =
     use t = new TestDb()
     let html = "Hey " + unsignedMention (id "kevin")
     let richText = BasicRichText() :> RichText
-    Assert.Equal("Hey @Kevin", t.Read(fun c -> richText.ToPlainText(c, html)))
+    Assert.Equal("Hey @Kevin", t.ReadEf(fun c -> richText.ToPlainText(c, html)))
 
 [<Fact>]
 let ``reports no mentions`` () =
-    use conn = memory ()
+    use t = new TestDb(false)
     let html = "<div>Hey " + unsignedMention (id "kevin") + "</div>"
-    Assert.Equal<int64 list>([], (BasicRichText() :> RichText).MentionedUserIds(conn, html))
+    Assert.Equal<int64 list>([], t.ReadEf(fun db -> (BasicRichText() :> RichText).MentionedUserIds(db, html)))
 
 // fixtures.rs
 

@@ -132,7 +132,7 @@ module Boot =
 
     // --- Boot ----------------------------------------------------------------------------------------------
 
-    let private openDatabase (config: AppConfig) (clock: SharedClock) (jobs: Jobs) (richText: AppRichText) : Task<Database> =
+    let private openDatabase (config: AppConfig) (clock: SharedClock) (jobs: Jobs) : Task<Database> =
         Task.Run(fun () ->
             let dbConfig =
                 { Campfire.Db.Config.create config.Storage.Database with
@@ -141,7 +141,6 @@ module Boot =
             let env: Env =
                 { Clock = clock
                   Sink = jobs
-                  RichText = richText
                   BcryptCost = Password.Cost }
             Database.Open(dbConfig, env))
 
@@ -159,7 +158,7 @@ module Boot =
             let logger = loggers.CreateLogger "campfire"
             let jobs = Jobs(JobLimits.QueueCapacity, loggers.CreateLogger "campfire.jobs")
             let richText = AppRichText(secrets, clock, loggers.CreateLogger "campfire.rich_text")
-            let! db = openDatabase config clock jobs richText
+            let! db = openDatabase config clock jobs
 
             let storage =
                 Storage.create (DiskService.create config.Storage.Files "local") (RailsCompat.appVerifier secrets "ActiveStorage")

@@ -208,8 +208,7 @@ let ``unread rooms streams only the subscribers own stream`` () =
         do! member'.Confirm unreads
 
         let! message = app.Message "first"
-        let! sent = app.Db.Read(fun conn -> app.Broadcasts.MessageCreate(conn, direct, message, fakePartials))
-        Assert.True(sent.IsOk)
+        app.ReadEf(fun db -> app.Broadcasts.MessageCreate(db, direct, message, fakePartials))
 
         let! frame = member'.NextText()
         Assert.Equal(delivery unreads $"""{{"roomId":{direct.Id}}}""", frame)
@@ -433,7 +432,7 @@ let ``performing subscribed streams twice like ruby`` () =
         do! client.AssertSilent()
 
         let! room = app.Room "bender_and_kevin"
-        let! _ = app.Db.Read(fun conn -> app.Broadcasts.UnreadRoom(conn, room))
+        app.ReadEf(fun db -> app.Broadcasts.UnreadRoom(db, room))
         let expected = delivery unreads $"""{{"roomId":{id "bender_and_kevin"}}}"""
         let! frame = client.NextText()
         Assert.Equal(expected, frame)

@@ -120,8 +120,8 @@ module WebPushPool =
     /// `Room::PushMessageJob#perform` / `Room::MessagePusher#push`: the payload goes to the subscriptions of
     /// everyone involved in everything, then to mentioned users involved in mentions. Badges are counted here;
     /// delivery happens on the pool.
-    let pushMessage (pool: WebPushPool) (conn: Conn) (richText: Campfire.Db.RichText) (message: Message) (now: Timestamp) : PushPayload =
-        let payload, everything, mentions = PushSubscription.pushesFor conn richText message now
+    let pushMessage (pool: WebPushPool) (conn: Conn) (db: Ef.CampfireDb) (richText: Campfire.Db.RichText) (message: Message) (now: Timestamp) : PushPayload =
+        let payload, everything, mentions = PushSubscription.pushesFor conn db richText message now
         pool.Queue(conn, payload, everything)
         pool.Queue(conn, payload, mentions)
         payload
