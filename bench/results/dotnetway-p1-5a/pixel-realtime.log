@@ -1,0 +1,78 @@
+=== realtime/message_sent
+pixel-parity: dotnetway vs the Rails reference, layers pixels,aria,loose, seeds default (fast: chromium, light, no breakpoint sweep)
+pixel-parity: VM free 38G, parity/out 8.7M
+seed default: 2/2 screenshots pixel-equal; 2/2 aria equal; 2/2 loose equal  [35s]
+pixel-parity: PASSED, the UI is pixel-identical in 35s; reports under /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/parity/out/pixel-parity-20261019T142952Z
+parity/out: 1086 MB -> 1086 MB
+=== realtime/attachment_sent
+pixel-parity: dotnetway vs the Rails reference, layers pixels,aria,loose, seeds default (fast: chromium, light, no breakpoint sweep)
+pixel-parity: VM free 38G, parity/out 8.8M
+seed default: 2/2 screenshots pixel-equal; 2/2 aria equal; 2/2 loose equal  [35s]
+pixel-parity: PASSED, the UI is pixel-identical in 35s; reports under /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/parity/out/pixel-parity-20261019T143028Z
+parity/out: 1095 MB -> 1095 MB
+=== realtime/message_edited
+pixel-parity: dotnetway vs the Rails reference, layers pixels,aria,loose, seeds default (fast: chromium, light, no breakpoint sweep)
+pixel-parity: VM free 38G, parity/out 8.6M
+seed default: 2/2 screenshots pixel-equal; 2/2 aria equal; 2/2 loose equal  [38s]
+pixel-parity: PASSED, the UI is pixel-identical in 38s; reports under /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/parity/out/pixel-parity-20261019T143103Z
+parity/out: 1103 MB -> 1103 MB
+=== realtime/message_deleted
+pixel-parity: dotnetway vs the Rails reference, layers pixels,aria,loose, seeds default (fast: chromium, light, no breakpoint sweep)
+pixel-parity: VM free 38G, parity/out 8.5M
+seed default: 2/2 screenshots pixel-equal; 2/2 aria equal; 2/2 loose equal  [37s]
+pixel-parity: PASSED, the UI is pixel-identical in 37s; reports under /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/parity/out/pixel-parity-20261019T143142Z
+parity/out: 1112 MB -> 1112 MB
+=== realtime/boosted
+pixel-parity: dotnetway vs the Rails reference, layers pixels,aria,loose, seeds default (fast: chromium, light, no breakpoint sweep)
+pixel-parity: VM free 38G, parity/out 8.6M
+seed default: 2/2 screenshots pixel-equal; 2/2 aria equal; 2/2 loose equal  [34s]
+pixel-parity: PASSED, the UI is pixel-identical in 34s; reports under /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/parity/out/pixel-parity-20261019T143220Z
+parity/out: 1120 MB -> 1120 MB
+=== realtime/boost_removed
+pixel-parity: dotnetway vs the Rails reference, layers pixels,aria,loose, seeds default (fast: chromium, light, no breakpoint sweep)
+pixel-parity: VM free 38G, parity/out 8.5M
+seed default: 2/2 screenshots pixel-equal; 2/2 aria equal; 2/2 loose equal  [34s]
+pixel-parity: PASSED, the UI is pixel-identical in 34s; reports under /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/parity/out/pixel-parity-20261019T143255Z
+parity/out: 1129 MB -> 1129 MB
+=== realtime/typing/one
+pixel-parity: dotnetway vs the Rails reference, layers pixels,aria,loose, seeds default (fast: chromium, light, no breakpoint sweep)
+pixel-parity: VM free 38G, parity/out 8.5M
+seed default: 2/2 screenshots pixel-equal; 2/2 aria equal; 2/2 loose equal  [34s]
+pixel-parity: PASSED, the UI is pixel-identical in 34s; reports under /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/parity/out/pixel-parity-20261019T143329Z
+parity/out: 1137 MB -> 1137 MB
+=== realtime/typing/many
+pixel-parity: dotnetway vs the Rails reference, layers pixels,aria,loose, seeds default (fast: chromium, light, no breakpoint sweep)
+pixel-parity: VM free 38G, parity/out 8.7M
+seed default: 2/2 screenshots pixel-equal; 2/2 aria equal; 2/2 loose equal  [40s]
+pixel-parity: PASSED, the UI is pixel-identical in 41s; reports under /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/parity/out/pixel-parity-20261019T143403Z
+parity/out: 1146 MB -> 1146 MB
+=== realtime/unread_in_sidebar
+pixel-parity: dotnetway vs the Rails reference, layers pixels,aria,loose, seeds default (fast: chromium, light, no breakpoint sweep)
+pixel-parity: VM free 38G, parity/out 8.6M
+seed default: 2/2 screenshots pixel-equal; 2/2 aria equal; 2/2 loose equal  [41s]
+pixel-parity: PASSED, the UI is pixel-identical in 41s; reports under /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/parity/out/pixel-parity-20261019T143444Z
+parity/out: 1155 MB -> 1155 MB
+=== realtime/new_room_in_sidebar
+pixel-parity: dotnetway vs the Rails reference, layers pixels,aria,loose, seeds default (fast: chromium, light, no breakpoint sweep)
+pixel-parity: VM free 38G, parity/out 8.5M
+seed default: 2/2 screenshots pixel-equal; 2/2 aria equal; 2/2 loose equal  [40s]
+pixel-parity: PASSED, the UI is pixel-identical in 40s; reports under /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/parity/out/pixel-parity-20261019T143525Z
+parity/out: 1163 MB -> 1163 MB
+=== realtime/removed_from_room
+pixel-parity: dotnetway vs the Rails reference, layers pixels,aria,loose, seeds default (fast: chromium, light, no breakpoint sweep)
+pixel-parity: VM free 38G, parity/out 8.5M
+seed default: 2/2 screenshots pixel-equal; 2/2 aria equal; 2/2 loose equal  [79s]
+pixel-parity: PASSED, the UI is pixel-identical in 79s; reports under /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/parity/out/pixel-parity-20261019T143606Z
+parity/out: 1172 MB -> 1172 MB
+=== realtime/room_deleted_then_send
+pixel-parity: dotnetway vs the Rails reference, layers pixels,aria,loose, seeds default (fast: chromium, light, no breakpoint sweep)
+pixel-parity: VM free 38G, parity/out 1.2M
+seed default: 2/2 screenshots pixel-equal; 2/2 aria equal; 2/2 loose equal  [40s]
+pixel-parity: PASSED, the UI is pixel-identical in 40s; reports under /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/parity/out/pixel-parity-20261019T143725Z
+parity/out: 1173 MB -> 1173 MB
+=== realtime/presence_read
+pixel-parity: dotnetway vs the Rails reference, layers pixels,aria,loose, seeds default (fast: chromium, light, no breakpoint sweep)
+pixel-parity: VM free 38G, parity/out 11M
+seed default: 2/2 screenshots pixel-equal; 2/2 aria equal; 2/2 loose equal  [35s]
+pixel-parity: PASSED, the UI is pixel-identical in 35s; reports under /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/parity/out/pixel-parity-20261019T143805Z
+parity/out: 1183 MB -> 1183 MB
