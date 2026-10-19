@@ -12,6 +12,19 @@ after-commit work); every call site in `Campfire.App` and `Campfire.Storage`. Ou
 
 Phase 1 unit 1.0 (the .NET 11 SDK move) comes first, as Chris decided; everything after it targets `net11.0`.
 
+
+> **Revision 2026-10-19 (Chris: "linq might be used in the dotNetWay"): LINQ first, everywhere.** This supersedes E12's
+> first sentence, unit 1.10's "each is `FromSql`" and section 8's `FromSql` hot paths. Every query, the five workloads' included,
+> is EF LINQ (method syntax with F# lambdas) or `DbSet.Find`; `FromSql`/`SqlQuery` only where LINQ cannot say it (FTS5 `MATCH`,
+> and a query whose LINQ form EF cannot translate, each named in the Phase log with the reason). E12's rules (a)-(c) still bind:
+> they are what keeps EF's query cache hitting from F#. A captured local or argument becomes a constant in the expression tree and
+> costs a recompile (~1 ms) per call. Unit 1.3 spends at most 20 minutes on one spike: does `EF.Parameter(x)` around a captured value
+> keep the cache hitting (H1's counter at zero in steady state)? If yes, it replaces the record-field idiom of rule (a); record the
+> result in the Phase log. H1 (zero query compilations in steady state on the five workloads) is the guard, in `bin/verify`. Never
+> F#'s `query { }` (4 ms a query). The 5x-Rails floor still decides: a workload under it is fixed inside LINQ first (fewer
+> statements, `Include`/projection shape, `AsSplitQuery`), and only then with `FromSql`, recorded.
+
+
 ## 1. Decisions
 
 Each settled by D9 (framework and mainstream packages first, hand-written code only where parity forces it), with the reason.
