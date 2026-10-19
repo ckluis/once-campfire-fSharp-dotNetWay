@@ -7,7 +7,6 @@
     <Compile Include="WriteGate.fs" />
     <Compile Include="Sql.fs" />
     <Compile Include="Columns.fs" />
-    <Compile Include="Schema.fs" />
     <Compile Include="Database.fs" />
     <Compile Include="Identity.fs" />
     <Compile Include="Rooms.fs" />
@@ -18,6 +17,7 @@
     <Compile Include="Ef/Interceptors.fs" />
     <Compile Include="Ef/Data.fs" />
     <Compile Include="Ef/Writes.fs" />
+    <Compile Include="Schema.fs" />
     <Compile Include="Sound.fs" />
     <Compile Include="Session.fs" />
     <Compile Include="Ban.fs" />
@@ -27,7 +27,6 @@
     <Compile Include="Models.fs" />
     <Compile Include="PushSubscription.fs" />
     <Compile Include="FirstRun.fs" />
-    <Compile Include="Testing.fs" />
     <Compile Include="Fixtures.fs" />
     <EmbeddedResource Include="schema.sql" LogicalName="schema.sql" />
   </ItemGroup>

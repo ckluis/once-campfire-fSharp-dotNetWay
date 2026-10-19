@@ -45,7 +45,7 @@ let main argv =
     for suffix in [ ""; "-wal"; "-shm" ] do
         if File.Exists(seed + suffix) then File.Copy(seed + suffix, Path.Combine(dir, "production.sqlite3" + suffix))
     let conn = Conn.Open(Path.Combine(dir, "production.sqlite3"), 256)
-    Schema.configureConnection conn
+    ConnectionSettings.configureConnection conn
     conn.ExecuteBatch "PRAGMA query_only = ON"
 
     let token = conn.QueryRow("SELECT token FROM sessions ORDER BY id LIMIT 1", [||], fun r -> r.Text 0)

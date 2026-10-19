@@ -31,12 +31,10 @@ let ``associations enums and defaults`` () =
     Assert.Equal(0L, kevinDesigners.Connections)
 
     let richText =
-        t.Read(fun c ->
-            c.QueryRow(
-                "SELECT record_id, record_type FROM action_text_rich_texts WHERE id = ?",
-                [| I(id "first") |],
-                fun r -> r.Int64 0, r.Text 1
-            ))
+        use raw = Raw.openFile (t.Dir.File "test.sqlite3")
+        let richTextId = id "first"
+        Raw.query raw $"SELECT record_id, record_type FROM action_text_rich_texts WHERE id = {richTextId}" (fun r -> r.GetInt64 0, r.GetString 1)
+        |> List.exactlyOne
     Assert.Equal((id "first", "Message"), richText)
 
 [<Fact>]
@@ -58,42 +56,37 @@ let ``passwords are bcrypt of secret123456`` () =
 
 /// Dump a table with values normalized where Ruby and F# can't agree (bcrypt salts, bot tokens,
 /// and timestamps, which are compared by shape: whole seconds vs. fractional).
-let dump (conn: Conn) (table: string) : string list =
-    conn.QueryAll(
-        $"SELECT * FROM \"{table}\" ORDER BY id",
-        [||],
-        fun r ->
-            let fields =
-                [ for i in 0 .. r.FieldCount - 1 ->
-                      let name = r.ColumnName i
-                      let rendered =
-                          match name, r.Arg i with
-                          | "password_digest", S s -> $"bcrypt:{s.Substring(0, 4)}"
-                          | "bot_token", S s -> $"token:{s.Length}"
-                          | n, S s when n.EndsWith "_at" -> if s.Contains '.' then "time:fraction" else $"time:whole:{s.Substring(0, 10)}"
-                          | _, Null -> "Null"
-                          | _, I v -> $"Integer({v})"
-                          | _, R v -> $"Real({v})"
-                          | _, S v -> $"Text(\"{v}\")"
-                          | _, B v -> $"Blob({v.Length})"
-                          | _, T _ -> "Time"
-                      name, rendered ]
-            fields |> List.sort |> List.map (fun (n, v) -> $"{n}={v}") |> String.concat " "
-    )
+let dump (conn: Microsoft.Data.Sqlite.SqliteConnection) (table: string) : string list =
+    Raw.query conn $"SELECT * FROM \"{table}\" ORDER BY id" (fun r ->
+        let fields =
+            [ for name, cell in Raw.cells r ->
+                  let rendered =
+                      match name, cell with
+                      | "password_digest", Raw.Text s -> $"bcrypt:{s.Substring(0, 4)}"
+                      | "bot_token", Raw.Text s -> $"token:{s.Length}"
+                      | n, Raw.Text s when n.EndsWith "_at" -> if s.Contains '.' then "time:fraction" else $"time:whole:{s.Substring(0, 10)}"
+                      | _, Raw.Null -> "Null"
+                      | _, Raw.Int v -> $"Integer({v})"
+                      | _, Raw.Real v -> $"Real({v})"
+                      | _, Raw.Text v -> $"Text(\"{v}\")"
+                      | _, Raw.Blob v -> $"Blob({v.Length})"
+                  name, rendered ]
+        fields |> List.sort |> List.map (fun (n, v) -> $"{n}={v}") |> String.concat " ")
 
 [<Fact>]
 let ``fixtures match ruby row for row`` () =
     match Environment.GetEnvironmentVariable "CAMPFIRE_RUBY_FIXTURES_DB" with
     | null -> Assert.Skip "needs CAMPFIRE_RUBY_FIXTURES_DB, a database the reference app filled with `db:fixtures:load`"
     | path ->
-        use ruby = Conn.Open path
+        use ruby = Raw.openFile path
         use t = new TestDb()
+        use ours = Raw.openFile (t.Dir.File "test.sqlite3")
         let tables =
             [ "accounts"; "action_text_rich_texts"; "boosts"; "memberships"; "messages"; "push_subscriptions"; "rooms"; "searches"; "sessions"; "users"; "webhooks" ]
         let mutable compared = 0
         for table in tables do
             let expected = dump ruby table
-            let actual = t.Read(fun c -> dump c table)
+            let actual = dump ours table
             Assert.True((expected = actual), $"{table}\nruby: {expected}\nfsharp: {actual}")
             compared <- compared + List.length expected
         Assert.True(compared > 60, $"{compared} rows compared")
@@ -105,20 +98,16 @@ let ``export database for rails`` () =
     | path ->
         for suffix in [ ""; "-wal"; "-shm" ] do
             File.Delete(path + suffix)
-        let env = { Testing.defaultEnv () with BcryptCost = 4 }
-        let config = { Config.create path with Environment = "test" }
-        use db = Database.Open(config, env)
-        unwrap (
-            db.WriteBlocking(fun tx ->
-                Fixtures.load tx.Conn (Fixtures.referenceDir ()) { Now = tx.Now(); BcryptCost = 4 } |> ignore)
-        )
-        // The user, session and account go through EF (unit 1.3); the rest is still the port's writer, one transaction after.
+        Testing.prepare path "test" |> ignore
+        let gate = WriteGate()
         let time = TimeProvider.System
         let factory = Ef.Data.factory (Ef.Data.options path time ignore)
         let efEnv : Ef.Env = { Time = time; Sink = NullSink(); RichText = BasicRichText(); BcryptCost = 4 }
+        Testing.loadFixtures gate efEnv factory
+        // A user, a session and an account change on top of the fixtures, written through EF.
         let rusty =
             use context = factory.CreateDbContext()
-            (Ef.Writes.run db.Gate efEnv context (fun tx ->
+            (Ef.Writes.run gate efEnv context (fun tx ->
                 let user =
                     User.create
                         tx
@@ -133,7 +122,7 @@ let ``export database for rails`` () =
             |> unwrap
         let rustyId = rusty.Id
         use context = factory.CreateDbContext()
-        (Ef.Writes.run db.Gate efEnv context (fun tx ->
+        (Ef.Writes.run gate efEnv context (fun tx ->
             Search.record tx rustyId "hovercraft" |> ignore
             let message =
                 Message.create
@@ -145,7 +134,37 @@ let ``export database for rails`` () =
             .GetAwaiter().GetResult()
         |> unwrap
         use context = factory.CreateDbContext()
-        (Ef.Writes.run db.Gate efEnv context (fun tx ->
+        (Ef.Writes.run gate efEnv context (fun tx ->
             Room.createFor tx RoomType.Closed (Some "Rust Room") rusty.Id [ rusty.Id; id "david" ] |> ignore))
             .GetAwaiter().GetResult()
         |> unwrap
+
+/// Fixture names reach the statements as identifiers (a hole can't be one), so each must be one SQLite lists for the table.
+[<Fact>]
+let ``a fixture naming a table or column the schema lacks is refused and rolls back`` () =
+    use dir = new TempDir()
+    let path = dir.File "refuse.sqlite3"
+    Testing.prepare path "test" |> ignore
+    let factory = Ef.Data.factory (Ef.Data.options path TimeProvider.System ignore)
+    let env : Ef.Env = { Time = TimeProvider.System; Sink = NullSink(); RichText = BasicRichText(); BcryptCost = 4 }
+    let load (fixtures: string) =
+        use context = factory.CreateDbContext()
+        let result =
+            (Ef.Writes.run (WriteGate()) env context (fun tx ->
+                Fixtures.load tx.Db fixtures (Fixtures.Options.at (tx.Now()) 4) |> ignore))
+                .GetAwaiter().GetResult()
+        match result with
+        | Error(DbError.Other e) -> e.Message
+        | Error e -> DbError.display e
+        | Ok() -> "loaded"
+
+    let columns = Directory.CreateDirectory(Path.Combine(dir.Path, "columns")).FullName
+    File.WriteAllText(Path.Combine(columns, "users.yml"), "ghost:\n  name: Ghost\n  bogus: 1\n")
+    Assert.Contains("no column bogus", load columns)
+
+    let tables = Directory.CreateDirectory(Path.Combine(dir.Path, "tables")).FullName
+    File.WriteAllText(Path.Combine(tables, "nope.yml"), "ghost:\n  name: Ghost\n")
+    Assert.Contains("no table nope", load tables)
+
+    use raw = Raw.openFile path
+    Assert.Equal(0L, Raw.scalarInt raw "SELECT COUNT(*) FROM users")

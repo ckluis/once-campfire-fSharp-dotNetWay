@@ -13,6 +13,8 @@ module Data =
     /// The options every context uses: `Data Source=<path>`, a 1 s command timeout (so Microsoft.Data.Sqlite's busy retry ends
     /// when SQLite's busy handler has), snake case, no tracking, the three interceptors, plus `extra` (tests: `LogTo`).
     let options (path: string) (time: TimeProvider) (extra: DbContextOptionsBuilder<CampfireDb> -> unit) : DbContextOptions<CampfireDb> =
+        // SQLite's library-wide settings (no memory statistics mutex) must be made before the first connection of the process.
+        Library.ensureConfigured ()
         let builder =
             DbContextOptionsBuilder<CampfireDb>()
                 .UseSqlite($"Data Source={path}", fun sqlite -> sqlite.CommandTimeout 1 |> ignore)

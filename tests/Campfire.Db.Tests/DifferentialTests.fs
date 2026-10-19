@@ -88,46 +88,41 @@ let private runScenario (t: TestDb) : unit =
     t.WriteEf(fun tx -> Message.create tx (message "hq" "kevin" "Last one" "s3") |> ignore)
 
 /// Every row, with values that are random or clock-dependent reduced to their shape.
-let private normalizedDump (conn: Conn) (table: string) (order: string) : string list =
+let private normalizedDump (conn: Microsoft.Data.Sqlite.SqliteConnection) (table: string) (order: string) : string list =
     let columns = if table = "message_search_index" then "rowid AS id, body" else "*"
-    conn.QueryAll(
-        $"SELECT {columns} FROM \"{table}\" ORDER BY {order}",
-        [||],
-        fun r ->
-            let fields =
-                [ for i in 0 .. r.FieldCount - 1 ->
-                      let name = r.ColumnName i
-                      let rendered =
-                          match name, r.Arg i with
-                          | "password_digest", S s -> $"bcrypt:{s.Substring(0, 4)}"
-                          | ("bot_token" | "token" | "join_code"), S s -> $"random:{s.Length}"
-                          | "email_address", S s when s.Contains "-deactivated-" ->
-                              let at = s.IndexOf "-deactivated-"
-                              let local = s.Substring(0, at)
-                              let rest = s.Substring(at + "-deactivated-".Length)
-                              let atSign = rest.IndexOf '@'
-                              $"{local}-deactivated-<uuid:{atSign}>{rest.Substring atSign}"
-                          | n, S s when n.EndsWith "_at" ->
-                              let fraction = match s.IndexOf '.' with | -1 -> 0 | dot -> s.Length - dot - 1
-                              $"time:{fraction}"
-                          | _, Null -> "Null"
-                          | _, I v -> $"Integer({v})"
-                          | _, R v -> $"Real({v})"
-                          | _, S v -> $"Text(\"{v}\")"
-                          | _, B v -> $"Blob({v.Length})"
-                          | _, T _ -> "Time"
-                      name, rendered ]
-            fields |> List.sort |> List.map (fun (n, v) -> $"{n}={v}") |> String.concat " "
-    )
+    Raw.query conn $"SELECT {columns} FROM \"{table}\" ORDER BY {order}" (fun r ->
+        let fields =
+            [ for name, cell in Raw.cells r ->
+                  let rendered =
+                      match name, cell with
+                      | "password_digest", Raw.Text s -> $"bcrypt:{s.Substring(0, 4)}"
+                      | ("bot_token" | "token" | "join_code"), Raw.Text s -> $"random:{s.Length}"
+                      | "email_address", Raw.Text s when s.Contains "-deactivated-" ->
+                          let at = s.IndexOf "-deactivated-"
+                          let local = s.Substring(0, at)
+                          let rest = s.Substring(at + "-deactivated-".Length)
+                          let atSign = rest.IndexOf '@'
+                          $"{local}-deactivated-<uuid:{atSign}>{rest.Substring atSign}"
+                      | n, Raw.Text s when n.EndsWith "_at" ->
+                          let fraction = match s.IndexOf '.' with | -1 -> 0 | dot -> s.Length - dot - 1
+                          $"time:{fraction}"
+                      | _, Raw.Null -> "Null"
+                      | _, Raw.Int v -> $"Integer({v})"
+                      | _, Raw.Real v -> $"Real({v})"
+                      | _, Raw.Text v -> $"Text(\"{v}\")"
+                      | _, Raw.Blob v -> $"Blob({v.Length})"
+                  name, rendered ]
+        fields |> List.sort |> List.map (fun (n, v) -> $"{n}={v}") |> String.concat " ")
 
 [<Fact>]
 let ``scenario matches ruby`` () =
     match Environment.GetEnvironmentVariable "CAMPFIRE_RUBY_SCENARIO_DB" with
     | null -> Assert.Skip "needs CAMPFIRE_RUBY_SCENARIO_DB, the reference app's database after scenario.rb"
     | path ->
-        use ruby = Conn.Open path
+        use ruby = Raw.openFile path
         use t = new TestDb()
         runScenario t
+        use ours = Raw.openFile (t.Dir.File "test.sqlite3")
 
         let mismatches = ResizeArray<string>()
         let mutable compared = 0
@@ -146,7 +141,7 @@ let ``scenario matches ruby`` () =
               "webhooks", "id"
               "message_search_index", "rowid" ] do
             let expected = normalizedDump ruby table order
-            let actual = t.Read(fun c -> normalizedDump c table order)
+            let actual = normalizedDump ours table order
             compared <- compared + List.length expected
             if expected <> actual then
                 let onlyRuby = expected |> List.filter (fun r -> not (List.contains r actual))

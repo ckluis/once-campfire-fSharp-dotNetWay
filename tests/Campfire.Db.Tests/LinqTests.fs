@@ -18,9 +18,7 @@ type private Probe = { Wanted: int64 }
 /// A prepared, empty database whose context counts query compilations.
 let private counting (dir: TempDir) : CampfireDb * (unit -> int) =
     let path = dir.File "linq.sqlite3"
-    do
-        use conn = Conn.Open path
-        Schema.prepare conn "production" (SystemClock()) |> ignore
+    Schema.prepareFile path "production" TimeProvider.System |> ignore
     let compilations = ref 0
     let options =
         Data.options path TimeProvider.System (fun b ->

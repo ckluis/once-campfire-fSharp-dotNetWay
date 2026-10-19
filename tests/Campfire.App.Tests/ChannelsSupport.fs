@@ -387,18 +387,17 @@ let start () : Task<TestApp> =
             { Clock = clock
               Sink = sink
               BcryptCost = 4 }
-        let db =
-            Database.Open({ Config.create (Path.Combine(dir, "test.sqlite3")) with Readers = 2; Environment = "test" }, env)
-        match! db.Write(fun tx -> Fixtures.load tx.Conn (Fixtures.referenceDir ()) { Now = tx.Now(); BcryptCost = 4 } |> ignore) with
-        | Ok() -> ()
-        | Error error -> failwith (DbError.display error)
-
-        let factory = Campfire.Db.Ef.Data.factory (Campfire.Db.Ef.Data.options (Path.Combine(dir, "test.sqlite3")) (Campfire.Db.Ef.ClockTimeProvider clock) ignore)
+        let path = Path.Combine(dir, "test.sqlite3")
+        let time = Campfire.Db.Ef.ClockTimeProvider clock
+        Schema.prepareFile path "test" time |> ignore
+        let db = Database.Open({ Config.create path with Readers = 2 }, env)
+        let factory = Campfire.Db.Ef.Data.factory (Campfire.Db.Ef.Data.options path time ignore)
         let efEnv: Campfire.Db.Ef.Env =
-            { Time = Campfire.Db.Ef.ClockTimeProvider clock
+            { Time = time
               Sink = sink
               RichText = richText
               BcryptCost = 4 }
+        Testing.loadFixtures db.Gate efEnv factory
         let deps: Deps = { Db = db; DbFactory = factory; Env = efEnv; Secrets = secrets; Clock = clock }
         let server = Registry.server deps { Campfire.Cable.Config.defaults with AssumeSsl = false } NullLogger.Instance
         sink.Server <- server

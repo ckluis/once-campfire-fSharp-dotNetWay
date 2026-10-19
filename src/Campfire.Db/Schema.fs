@@ -1,4 +1,4 @@
-// Port of rust/crates/db/src/schema.rs
+// Port of rust/crates/db/src/schema.rs; on EF Core per plans/design-data-ef.md E15.
 /// The schema exactly as `bin/rails db:prepare` creates it on a fresh database, and the
 /// connection settings from `reference/config/database.yml` plus the sqlite3 adapter's
 /// `DEFAULT_PRAGMAS`.
@@ -12,9 +12,11 @@
 /// position over `*`.
 module Campfire.Db.Schema
 
+open System
 open System.IO
+open System.Linq
 open System.Reflection
-open Campfire.RailsCompat.Clock
+open Microsoft.EntityFrameworkCore
 
 let schemaSql : string =
     match Assembly.GetExecutingAssembly().GetManifestResourceStream "schema.sql" with
@@ -55,73 +57,63 @@ let additions : string list =
       // 60 ms at 236k messages, against 0.02 ms with this index.
       """CREATE INDEX IF NOT EXISTS "index_messages_on_room_id_and_created_at" ON "messages" ("room_id", "created_at")""" ]
 
-/// `timeout: 5000` in `config/database.yml`.
-[<Literal>]
-let BusyTimeoutMs = 5000
-
-/// Applies the per-connection settings Rails applies (`SQLite3Adapter#configure_connection`),
-/// except `mmap_size`: every reader remaps a memory-mapped database after each commit.
-let configureConnection (conn: Conn) : unit =
-    conn.ExecuteBatch $"PRAGMA busy_timeout = {BusyTimeoutMs}"
-    conn.ExecuteBatch "PRAGMA foreign_keys = ON"
-    conn.ExecuteBatch "PRAGMA journal_mode = wal"
-    conn.ExecuteBatch "PRAGMA synchronous = normal"
-    conn.ExecuteBatch "PRAGMA journal_size_limit = 67108864"
-    conn.ExecuteBatch "PRAGMA cache_size = 2000"
-
 type Prepared =
     /// The database was empty; the schema was loaded.
     | Loaded
     /// The schema was already current.
     | UpToDate
 
-let private tableExists (conn: Conn) (name: string) : bool =
-    conn.Exists("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?", [| S name |])
+let private tableExists (db: Ef.CampfireDb) (name: string) : bool =
+    db.Database.SqlQuery<int64>($"SELECT COUNT(*) AS Value FROM sqlite_master WHERE type = 'table' AND name = {name}").ToList()
+    |> Seq.exists (fun count -> count > 0L)
 
-let pendingMigrations (conn: Conn) : string list =
-    migrationVersions |> List.filter (fun version -> not (conn.Exists("SELECT 1 FROM schema_migrations WHERE version = ?", [| S version |])))
+let pendingMigrations (db: Ef.CampfireDb) : string list =
+    let applied = db.Database.SqlQuery<string>($"SELECT version AS Value FROM schema_migrations").ToList() |> Set.ofSeq
+    migrationVersions |> List.filter (fun version -> not (applied.Contains version))
 
-let private setInternalMetadata (conn: Conn) (key: string) (value: string) (now: Timestamp) : unit =
-    match conn.QueryOne("""SELECT "value" FROM "ar_internal_metadata" WHERE "key" = ?""", [| S key |], fun r -> r.OptText 0) with
-    | None ->
-        conn.Execute(
-            """INSERT INTO "ar_internal_metadata" ("key", "value", "created_at", "updated_at") VALUES (?, ?, ?, ?)""",
-            [| S key; S value; T now; T now |]
-        )
+let private setInternalMetadata (db: Ef.CampfireDb) (key: string) (value: string) (now: string) : unit =
+    match db.Database.SqlQuery<string | null>($"SELECT \"value\" AS Value FROM \"ar_internal_metadata\" WHERE \"key\" = {key}").ToList() |> List.ofSeq with
+    | [] ->
+        db.Database.ExecuteSql($"INSERT INTO \"ar_internal_metadata\" (\"key\", \"value\", \"created_at\", \"updated_at\") VALUES ({key}, {value}, {now}, {now})")
         |> ignore
-    | Some current when current <> Some value ->
-        conn.Execute("""UPDATE "ar_internal_metadata" SET "value" = ?, "updated_at" = ? WHERE "key" = ?""", [| S value; T now; S key |])
+    | current :: _ when current <> value ->
+        db.Database.ExecuteSql($"UPDATE \"ar_internal_metadata\" SET \"value\" = {value}, \"updated_at\" = {now} WHERE \"key\" = {key}")
         |> ignore
-    | Some _ -> ()
+    | _ -> ()
 
-let private loadSchema (conn: Conn) (environment: string) (clock: Clock) : unit =
-    conn.ExecuteBatch "BEGIN IMMEDIATE"
-    try
-        conn.ExecuteBatch schemaSql
+/// `schema.sql` is a constant, so the one `ExecuteSqlRaw` of the data layer (E12) is here: inside `BEGIN IMMEDIATE`, with the
+/// migration versions and the metadata Rails records, committed together or not at all (disposing the transaction rolls back).
+let private loadSchema (db: Ef.CampfireDb) (environment: string) (time: TimeProvider) : unit =
+    use transaction = db.Database.BeginTransaction()
+    db.Database.ExecuteSqlRaw schemaSql |> ignore
 
-        // `assume_migrated_upto_version` inserts the current version, then the rest newest first.
-        for version in List.rev migrationVersions do
-            conn.Execute("""INSERT INTO "schema_migrations" ("version") VALUES (?)""", [| S version |]) |> ignore
+    // `assume_migrated_upto_version` inserts the current version, then the rest newest first.
+    for version in List.rev migrationVersions do
+        db.Database.ExecuteSql($"INSERT INTO \"schema_migrations\" (\"version\") VALUES ({version})") |> ignore
 
-        setInternalMetadata conn "environment" environment (Timestamp.FromDateTimeOffset(clock.Now()))
-        setInternalMetadata conn "schema_sha1" SchemaSha1 (Timestamp.FromDateTimeOffset(clock.Now()))
-        conn.ExecuteBatch "COMMIT"
-    with _ ->
-        if not conn.IsAutocommit then conn.ExecuteBatch "ROLLBACK"
-        reraise ()
+    let now = RailsTime.toDb (RailsTime.now time)
+    setInternalMetadata db "environment" environment now
+    setInternalMetadata db "schema_sha1" SchemaSha1 now
+    transaction.Commit()
 
 /// `bin/rails db:prepare`: loads the schema into an empty database, or verifies an
 /// existing one is fully migrated. We don't port migrations, so a database with pending
-/// migrations is an error (boot the Rails image once to migrate it). Then adds `additions`.
-let prepare (conn: Conn) (environment: string) (clock: Clock) : Prepared =
+/// migrations is an error (boot the Rails image once to migrate it). Then adds `additions`. Never `EnsureCreated` or `Migrate`:
+/// Rails owns the schema. Not a write of the app's: it runs at boot, before anything else holds the file.
+let prepare (db: Ef.CampfireDb) (environment: string) (time: TimeProvider) : Prepared =
     let prepared =
-        if tableExists conn "schema_migrations" then
-            match pendingMigrations conn with
+        if tableExists db "schema_migrations" then
+            match pendingMigrations db with
             | [] -> UpToDate
             | pending -> Err.fail (DbError.other ("pending migrations: " + String.concat ", " pending))
         else
-            loadSchema conn environment clock
+            loadSchema db environment time
             Loaded
     for addition in additions do
-        conn.ExecuteBatch addition
+        db.Database.ExecuteSqlRaw addition |> ignore
     prepared
+
+/// `prepare` on a context of its own over the file at `path` (tests, and anything that has no factory yet).
+let prepareFile (path: string) (environment: string) (time: TimeProvider) : Prepared =
+    use db = new Ef.CampfireDb(Ef.Data.options path time ignore)
+    prepare db environment time

@@ -17,6 +17,7 @@ open Campfire.Db.Tests.Support
 let private mainFileLen (path: string) : int64 = FileInfo(path).Length
 
 let private openWithReaders (dir: TempDir) (readers: int) : Database =
+    Testing.prepare (dir.File "test.sqlite3") "production" |> ignore
     let config = { Config.create (dir.File "test.sqlite3") with Readers = readers }
     Database.Open(config, Testing.defaultEnv ())
 
@@ -374,19 +375,11 @@ let ``a write holds the write lock from the start`` () =
     Assert.True(refused, "another connection began a write inside a write that had only read")
 
 [<Fact>]
-let ``a database opened with prepare off leaves the schema alone`` () =
+let ``opening a database leaves the schema alone`` () =
     use dir = new TempDir()
-    let config = { Config.create (dir.File "test.sqlite3") with Prepare = false }
+    let config = Config.create (dir.File "test.sqlite3")
     use db = Database.Open(config, Testing.defaultEnv ())
     Assert.Equal(0L, unwrap (db.ReadBlocking(fun conn -> conn.Count("SELECT COUNT(*) FROM sqlite_master", [||]))))
-
-[<Fact>]
-let ``a database opened with prepare on loads the schema and the paging index`` () =
-    use dir = new TempDir()
-    use db = openWithReaders dir 1
-    let names = unwrap (db.ReadBlocking(fun conn -> conn.QueryAll("SELECT name FROM sqlite_master WHERE type = 'index'", [||], fun r -> r.Text 0)))
-    Assert.Contains("index_messages_on_room_id_and_created_at", names)
-    Assert.Contains("index_users_on_email_address", names)
 
 /// Microsoft.Data.Sqlite retries a busy statement for 30 s unless told otherwise; a lock is waited for as
 /// long as `busy_timeout` says, as with rusqlite.
@@ -405,19 +398,6 @@ let ``a locked statement waits for the busy timeout and no longer`` () =
         )
     Assert.True(waited >= TimeSpan.FromMilliseconds 350.0, $"gave up after {waited}")
     Assert.True(waited < TimeSpan.FromSeconds 3.0, $"waited {waited}")
-
-[<Fact>]
-let ``a database with pending migrations is refused and left closed`` () =
-    use dir = new TempDir()
-    let path = dir.File "test.sqlite3"
-    (use first = openWithReaders dir 1
-     unwrap (first.WriteBlocking(fun tx -> tx.Conn.Execute("DELETE FROM schema_migrations WHERE version = '20251212154340'", [||]) |> ignore)))
-    Assert.Throws<DbException>(fun () -> Database.Open({ Config.create path with Readers = 1 }, Testing.defaultEnv ()) |> ignore) |> ignore
-    // Nothing is left holding the file: it can be deleted and a new database opened in its place.
-    for suffix in [ ""; "-wal"; "-shm" ] do
-        File.Delete(path + suffix)
-    use db = openWithReaders dir 1
-    Assert.Equal(1L, unwrap (db.ReadBlocking selectOne))
 
 [<Fact>]
 let ``a stored datetime that does not parse comes back as an error from every kind of read and write`` () =
@@ -444,6 +424,7 @@ let ``a stored datetime that does not parse comes back as an error from every ki
 [<Fact>]
 let ``opening that fails partway stops its threads and closes its connections`` () =
     use dir = new TempDir()
+    Testing.prepare (dir.File "test.sqlite3") "production" |> ignore
     let config = { Config.create (dir.File "test.sqlite3") with Readers = 3 }
     let threads = ResizeArray<Thread>()
     let readerConnections = ResizeArray<Conn>()

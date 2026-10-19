@@ -257,7 +257,7 @@ module internal Timeouts =
     /// `ExecuteBatch` still runs through a `Microsoft.Data.Sqlite` command, which retries a statement that SQLite reports as
     /// busy for `CommandTimeout` seconds (30 by default, and 0 means for ever), on top of SQLite's own busy handler. One
     /// second ends that retrying as soon as the busy handler has given up, so that a lock is waited for as long as
-    /// `PRAGMA busy_timeout` says (`Schema.BusyTimeoutMs`) and no longer, as with rusqlite.
+    /// `PRAGMA busy_timeout` says (`ConnectionSettings.BusyTimeoutMs`) and no longer, as with rusqlite.
     [<Literal>]
     let CommandTimeoutSeconds = 1
 
@@ -532,3 +532,18 @@ module Sql =
     let queryAll (conn: Conn) (sql: string) (args: SqlArg[]) (map: Row -> 'T) : 'T list = conn.QueryAll(sql, args, map)
     let queryOne (conn: Conn) (sql: string) (args: SqlArg[]) (map: Row -> 'T) : 'T option = conn.QueryOne(sql, args, map)
     let execute (conn: Conn) (sql: string) (args: SqlArg[]) : int = conn.Execute(sql, args)
+
+/// The per-connection settings Rails applies (`SQLite3Adapter#configure_connection`, `timeout: 5000` in
+/// `reference/config/database.yml`) to the port's own connections; EF's connections get the same from `SqlitePragmas`.
+module ConnectionSettings =
+    [<Literal>]
+    let BusyTimeoutMs = 5000
+
+    /// Applies the settings Rails applies, except `mmap_size`: every reader remaps a memory-mapped database after each commit.
+    let configureConnection (conn: Conn) : unit =
+        conn.ExecuteBatch $"PRAGMA busy_timeout = {BusyTimeoutMs}"
+        conn.ExecuteBatch "PRAGMA foreign_keys = ON"
+        conn.ExecuteBatch "PRAGMA journal_mode = wal"
+        conn.ExecuteBatch "PRAGMA synchronous = normal"
+        conn.ExecuteBatch "PRAGMA journal_size_limit = 67108864"
+        conn.ExecuteBatch "PRAGMA cache_size = 2000"

@@ -26,9 +26,7 @@ let private spawn (f: unit -> Task<unit>) : Task = Task.Run(Func<Task>(fun () ->
 type Rig(?onEmit: Event -> unit) =
     let dir = new TempDir()
     let path = dir.File "writes.sqlite3"
-    do
-        use conn = Conn.Open path
-        Schema.prepare conn "production" (Campfire.RailsCompat.Clock.SystemClock()) |> ignore
+    do Schema.prepareFile path "production" TimeProvider.System |> ignore
     let log = List<string>()
     let time = TimeProvider.System
     let factory = Data.factory (Data.options path time ignore)

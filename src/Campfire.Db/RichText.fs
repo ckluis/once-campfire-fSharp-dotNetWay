@@ -2,7 +2,7 @@
 namespace Campfire.Db
 
 /// What the models need from Action Text. The real pipeline lives in `Campfire.RichText`; the app plugs it in through `RichText`.
-/// Tests have a stand-in, `Testing.BasicRichText`.
+/// Tests have a stand-in, `BasicRichText` (tests/Shared/Testing.fs).
 ///
 /// Both methods get the context the caller is already on (the write's transaction, or the request's read) for any record lookups.
 type RichText =

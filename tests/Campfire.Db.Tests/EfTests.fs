@@ -27,8 +27,9 @@ let private at2026 = DateTimeOffset(2026, 10, 13, 12, 0, 0, TimeSpan.Zero).AddTi
 /// A database Rails (here: our schema loader) prepared, empty.
 let private freshDatabase (dir: TempDir) (name: string) : string =
     let path = dir.File name
-    use conn = Conn.Open path
-    Schema.prepare conn "production" (SystemClock()) |> ignore
+    Schema.prepareFile path "production" TimeProvider.System |> ignore
+    // The connection `prepare` used stays in Microsoft.Data.Sqlite's pool, configured; D4 counts the ones it opens itself.
+    SqliteConnection.ClearAllPools()
     path
 
 let private contextOver (path: string) (time: TimeProvider) : CampfireDb =

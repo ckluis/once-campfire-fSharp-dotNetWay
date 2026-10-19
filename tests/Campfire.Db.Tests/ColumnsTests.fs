@@ -58,21 +58,40 @@ let private reorderColumns (conn: Conn) (table: string) (order: string list) : u
     let names = conn.QueryAll($"SELECT \"name\" FROM pragma_table_info('{table}')", [||], fun r -> r.Text 0)
     Assert.Equal<string list>(order, names)
 
-let private database (layout: Layout) : Conn =
-    let conn = Conn.OpenInMemory()
-    Schema.prepare conn "test" (SystemClock()) |> ignore
+/// One directory for every database of this file, removed when the test process ends.
+let private databaseDir =
+    lazy
+        (let dir = Directory.CreateTempSubdirectory "campfire-columns"
+         AppDomain.CurrentDomain.ProcessExit.Add(fun _ ->
+             try
+                 dir.Delete true
+             with _ ->
+                 ())
+         dir)
+
+/// A database `Schema.prepare` (EF) loaded, in a file of its own, opened as the port's `Conn`; with the `Migrated` layout its
+/// tables are recreated in migration order.
+let private databaseAt (layout: Layout) : string * Conn =
+    let path = Path.Combine(databaseDir.Value.FullName, Guid.NewGuid().ToString("N") + ".sqlite3")
+    Schema.prepareFile path "test" TimeProvider.System |> ignore
+    let conn = Conn.Open path
     match layout with
     | Migrated ->
         for table, order in migratedColumns do
             reorderColumns conn table order
     | Alphabetical -> ()
-    conn
+    path, conn
 
+let private database (layout: Layout) : Conn = snd (databaseAt layout)
+
+/// The reference fixtures, loaded through EF at `at 0L` into a database laid out as `layout` says.
 let private databaseWithFixtures (layout: Layout) : Conn =
-    let conn = database layout
-    conn.ExecuteBatch "BEGIN"
-    Fixtures.load conn (Fixtures.referenceDir ()) { Now = at 0L; BcryptCost = 4 } |> ignore
-    conn.ExecuteBatch "COMMIT"
+    let path, conn = databaseAt layout
+    let clock = TestClock()
+    clock.TravelTo((at 0L).ToDateTimeOffset())
+    let time = Ef.ClockTimeProvider clock
+    let env : Ef.Env = { Time = time; Sink = NullSink(); RichText = BasicRichText(); BcryptCost = 4 }
+    Testing.loadFixtures (WriteGate()) env (Ef.Data.factory (Ef.Data.options path time ignore))
     conn
 
 let private insertUser (conn: Conn) (id: int64) : unit =

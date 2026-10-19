@@ -156,15 +156,11 @@ type Config =
     { Path: string
       Readers: int
       /// Bound on queued writes; senders wait when it's full.
-      WriteQueue: int
-      /// Load the schema into an empty database (`db:prepare`).
-      Prepare: bool
-      /// `ar_internal_metadata.environment` when preparing.
-      Environment: string }
+      WriteQueue: int }
 
 module Config =
     let create (path: string) : Config =
-        { Path = path; Readers = 8; WriteQueue = 256; Prepare = true; Environment = "production" }
+        { Path = path; Readers = 8; WriteQueue = 256 }
 
 module internal Pragmas =
     /// Prepared statements each connection keeps. A page like the room show runs more than 16.
@@ -183,7 +179,7 @@ module internal Pragmas =
     let openConnection (path: string) (reader: bool) : Conn =
         let conn = Conn.Open(path, StatementCacheCapacity)
         try
-            Schema.configureConnection conn
+            ConnectionSettings.configureConnection conn
             if reader then conn.ExecuteBatch "PRAGMA query_only = ON"
             conn
         with _ ->
@@ -388,7 +384,7 @@ type Database
     let mutable blockingReader: Conn option = None
     let mutable disposed = false
 
-    /// Opens (and with `Config.Prepare` prepares) the database at `config.Path`, and starts its writer,
+    /// Opens the database at `config.Path`, which `Schema.prepare` has prepared, and starts its writer,
     /// checkpointer and reader threads.
     static member Open(config: Config, env: Env) : Database =
         Database.OpenWith(config, env, (fun path -> Pragmas.openConnection path true), ignore)
@@ -409,7 +405,6 @@ type Database
         let mutable checkpoints: Checkpoints option = None
         let mutable writerThread: Thread option = None
         try
-            if config.Prepare then Schema.prepare conn config.Environment env.Clock |> ignore
             let cp = Checkpoints config.Path
             checkpoints <- Some cp
             started cp.Thread

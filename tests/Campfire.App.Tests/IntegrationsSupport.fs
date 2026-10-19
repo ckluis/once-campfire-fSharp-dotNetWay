@@ -323,24 +323,25 @@ type TestDb() =
     let clock = TestClock()
     let richText = AppRichText(Secrets.create SecretKeyBase, clock, NullLogger.Instance) :> Campfire.Db.RichText
     let time = Campfire.Db.Ef.ClockTimeProvider clock
+    let path = Path.Combine(dir, "test.sqlite3")
+    let factory = Campfire.Db.Ef.Data.factory (Campfire.Db.Ef.Data.options path time ignore)
+    let efEnv: Campfire.Db.Ef.Env = { Time = time; Sink = NullSink(); RichText = richText; BcryptCost = 4 }
     let db =
         let env: Env =
             { Clock = clock
               Sink = NullSink()
               BcryptCost = 4 }
-        let db = Database.Open({ Config.create (Path.Combine(dir, "test.sqlite3")) with Environment = "test" }, env)
-        match db.WriteBlocking(fun tx -> Fixtures.load tx.Conn (Fixtures.referenceDir ()) { Now = tx.Now(); BcryptCost = 4 } |> ignore) with
-        | Ok() -> ()
-        | Error error -> failwith (DbError.display error)
+        Schema.prepareFile path "test" time |> ignore
+        let db = Database.Open(Config.create path, env)
+        Testing.loadFixtures db.Gate efEnv factory
         db
 
     member _.Db: Database = db
 
     /// EF Core over the same file (the message models run on it).
-    member val Factory: Microsoft.EntityFrameworkCore.IDbContextFactory<Campfire.Db.Ef.CampfireDb> =
-        Campfire.Db.Ef.Data.factory (Campfire.Db.Ef.Data.options (Path.Combine(dir, "test.sqlite3")) time ignore)
+    member _.Factory: Microsoft.EntityFrameworkCore.IDbContextFactory<Campfire.Db.Ef.CampfireDb> = factory
 
-    member _.Env: Campfire.Db.Ef.Env = { Time = time; Sink = NullSink(); RichText = richText; BcryptCost = 4 }
+    member _.Env: Campfire.Db.Ef.Env = efEnv
 
     static member Id(label: string) : int64 = Fixtures.identify label
 

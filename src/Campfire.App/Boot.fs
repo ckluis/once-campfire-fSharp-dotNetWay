@@ -135,9 +135,7 @@ module Boot =
     let private openDatabase (config: AppConfig) (clock: SharedClock) (jobs: Jobs) : Task<Database> =
         Task.Run(fun () ->
             let dbConfig =
-                { Campfire.Db.Config.create config.Storage.Database with
-                    Readers = config.DbReaders
-                    Environment = config.Environment }
+                { Campfire.Db.Config.create config.Storage.Database with Readers = config.DbReaders }
             let env: Env =
                 { Clock = clock
                   Sink = jobs
@@ -158,14 +156,19 @@ module Boot =
             let logger = loggers.CreateLogger "campfire"
             let jobs = Jobs(JobLimits.QueueCapacity, loggers.CreateLogger "campfire.jobs")
             let richText = AppRichText(secrets, clock, loggers.CreateLogger "campfire.rich_text")
+            let time = Campfire.Db.Ef.ClockTimeProvider clock
+            let dbFactory = Campfire.Db.Ef.Data.factory (Campfire.Db.Ef.Data.options config.Storage.Database time ignore)
+            // `db:prepare` (E15): the schema goes in through EF before the port's writer and readers open the file.
+            do!
+                Task.Run(fun () ->
+                    use context = dbFactory.CreateDbContext()
+                    Campfire.Db.Schema.prepare context config.Environment time |> ignore)
             let! db = openDatabase config clock jobs
 
             let storage =
                 Storage.create (DiskService.create config.Storage.Files "local") (RailsCompat.appVerifier secrets "ActiveStorage")
 
             let cableConfig = { Campfire.Cable.Config.defaults with AssumeSsl = not config.DisableSsl }
-            let time = Campfire.Db.Ef.ClockTimeProvider clock
-            let dbFactory = Campfire.Db.Ef.Data.factory (Campfire.Db.Ef.Data.options config.Storage.Database time ignore)
             let efEnv: Campfire.Db.Ef.Env =
                 { Time = time
                   Sink = jobs

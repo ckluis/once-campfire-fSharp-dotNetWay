@@ -11,15 +11,16 @@ if [ "$(uname)" = Darwin ] && [ -d /opt/homebrew/lib ]; then
   export DYLD_FALLBACK_LIBRARY_PATH="/opt/homebrew/lib${DYLD_FALLBACK_LIBRARY_PATH:+:$DYLD_FALLBACK_LIBRARY_PATH}"
 fi
 # Data-layer guards (plans/design-data-ef.md E12): SQL is parameterized by construction, so no `*Raw` EF call outside
-# Schema.fs (which runs the constant schema.sql), no runtime-built FormattableString outside Models.fs's batched insert_all
-# (constant text and numbered holes only), and never F#'s `query { }` (4 ms a query).
+# Schema.fs (which runs the constant schema.sql), no runtime-built FormattableString outside Models.fs's batched insert_all and
+# Fixtures.fs (constant text and numbered holes only; Fixtures also names a table and columns that SQLite's pragma_table_info
+# listed, since an identifier cannot be a hole), and never F#'s `query { }` (4 ms a query).
 guard() {
   local what=$1 pattern=$2 allowed=$3 hits
   hits=$(grep -rnE --include='*.fs' "$pattern" src | grep -v '/obj/' | grep -vE "$allowed" || true)
   if [ -n "$hits" ]; then echo "verify: $what outside its allowed place:" >&2; echo "$hits" >&2; exit 1; fi
 }
 guard 'a *Raw EF SQL call' 'FromSqlRaw|ExecuteSqlRaw|SqlQueryRaw' '^src/Campfire\.Db/Schema\.fs:'
-guard 'FormattableStringFactory' 'FormattableStringFactory' '^src/Campfire\.Db/Models\.fs:'
+guard 'FormattableStringFactory' 'FormattableStringFactory' '^src/Campfire\.Db/(Models|Fixtures)\.fs:'
 guard "F#'s query { }" '(^|[^"$A-Za-z])query[[:space:]]*\{' '^$'
 dotnet build CampfireFs.slnx -c Release -warnaserror -v quiet -nologo
 if [ $# -eq 0 ]; then

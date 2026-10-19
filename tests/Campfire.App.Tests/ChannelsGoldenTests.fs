@@ -176,6 +176,7 @@ let private startOurs (recording: Recording) (dir: string) : Task<Database * Cab
             { Clock = clock
               Sink = sink
               BcryptCost = 4 }
+        Testing.prepare (Path.Combine(dir, "production.sqlite3")) "production" |> ignore
         let db = Database.Open({ Config.create (Path.Combine(dir, "production.sqlite3")) with Readers = 2 }, env)
         db.Write(fun tx ->
             for table in [ "users"; "rooms"; "memberships"; "sessions"; "messages" ] do

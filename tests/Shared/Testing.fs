@@ -1,4 +1,4 @@
-// Port of rust/crates/db/src/testing.rs
+// Port of rust/crates/db/src/testing.rs; shared by the test projects (it left `src` in unit 1.9).
 //
 // Stand-ins for tests (Rust gates them, and the fixtures, behind the `test-support` feature so that
 // production can't be wired with a sink that drops every event or with rich text that only
@@ -143,3 +143,16 @@ module Testing =
         { Clock = SystemClock()
           Sink = NullSink()
           BcryptCost = Campfire.RailsCompat.Password.Cost }
+
+    /// `Schema.prepare` on the file at `path` (a fresh database gets the schema; the system clock stamps its metadata).
+    let prepare (path: string) (environment: string) : Schema.Prepared =
+        Schema.prepareFile path environment TimeProvider.System
+
+    /// `fixtures :all`: the reference fixtures into the prepared database behind `factory`, in one `Writes.run` (the foreign keys
+    /// are checked when it commits), stamped with the environment's clock.
+    let loadFixtures (gate: WriteGate) (env: Ef.Env) (factory: Microsoft.EntityFrameworkCore.IDbContextFactory<Ef.CampfireDb>) : unit =
+        use context = factory.CreateDbContext()
+        let load (tx: Ef.Tx) = Fixtures.load tx.Db (Fixtures.referenceDir ()) (Fixtures.Options.at (tx.Now()) env.BcryptCost) |> ignore
+        match (Ef.Writes.run gate env context load).GetAwaiter().GetResult() with
+        | Ok() -> ()
+        | Error error -> failwith (DbError.display error)

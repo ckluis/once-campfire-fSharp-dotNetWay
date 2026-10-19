@@ -19,7 +19,10 @@ open System.Collections.Generic
 open System.Globalization
 open System.IO
 open System.Text
+open System.Linq
+open System.Runtime.CompilerServices
 open System.Text.RegularExpressions
+open Microsoft.EntityFrameworkCore
 
 /// `ActiveRecord::FixtureSet::MAX_ID`
 [<Literal>]
@@ -59,6 +62,12 @@ type Options =
         /// BCrypt cost for `BCrypt::Password.create` (bcrypt-ruby's default is 12).
         BcryptCost: int
     }
+
+module Options =
+    /// Options for `now` as the `DateTime` an EF write carries (`Tx.Now()`).
+    let at (now: DateTime) (bcryptCost: int) : Options =
+        { Now = Timestamp.FromMicrosecond((now.ToUniversalTime() - DateTime.UnixEpoch).Ticks / 10L)
+          BcryptCost = bcryptCost }
 
 /// What was loaded: table -> label -> id.
 type Loaded = { Ids: Map<string, Map<string, int64>> }
@@ -304,10 +313,22 @@ let private collectYamlFiles (dir: string) : string list =
                   yield entry ]
     collect dir
 
-let private tableColumns (conn: Conn) (table: string) : string list =
-    let columns = conn.QueryAll($"PRAGMA table_info(\"{table}\")", [||], fun r -> r.Text 1)
+/// The table's columns, from SQLite itself; an unknown table is an error. These names are the only identifiers `load` puts into
+/// its statements, and each is checked against this list first.
+let private tableColumns (db: Ef.CampfireDb) (table: string) : string list =
+    let columns = db.Database.SqlQuery<string>($"SELECT name AS Value FROM pragma_table_info({table})").ToList() |> List.ofSeq
     if List.isEmpty columns then Err.fail (DbError.other $"no table {table}")
     columns
+
+/// A fixture value as a statement hole. Datetimes are Rails' text already (E5).
+let private holeValue (arg: SqlArg) : obj | null =
+    match arg with
+    | Null -> box DBNull.Value
+    | I i -> box i
+    | R r -> box r
+    | S s -> box s
+    | B b -> box b
+    | T t -> box (t.ToDb())
 
 let private fixtureRow (table: string) (label: string) (attributes: (string * Yaml) list) (columns: string list) (now: Timestamp) : SortedDictionary<string, SqlArg> =
     let values = SortedDictionary<string, SqlArg>(StringComparer.Ordinal)
@@ -338,9 +359,10 @@ let private fixtureRow (table: string) (label: string) (attributes: (string * Ya
         if List.contains column columns && not (values.ContainsKey column) then values[column] <- S(now.ToDb())
     values
 
-/// Loads every `*.yml` under `dir` into `conn`, inside the caller's transaction (a
-/// `Database.Write`), which checks the foreign keys when it commits.
-let load (conn: Conn) (dir: string) (options: Options) : Loaded =
+/// Loads every `*.yml` under `dir` through `db`'s own connection, inside the caller's transaction (`Writes.run`), which checks
+/// the foreign keys when it commits. Values are statement holes; the only text in a format string is a table or column name that
+/// SQLite's `pragma_table_info` listed.
+let load (db: Ef.CampfireDb) (dir: string) (options: Options) : Loaded =
     let files =
         collectYamlFiles dir
         |> List.sortWith (fun a b ->
@@ -354,7 +376,7 @@ let load (conn: Conn) (dir: string) (options: Options) : Loaded =
                     | c -> c
             compareParts 0)
 
-    conn.ExecuteBatch "PRAGMA defer_foreign_keys = ON"
+    db.Database.ExecuteSql($"PRAGMA defer_foreign_keys = ON") |> ignore
     let erb = Erb options
     let mutable ids = Map.empty
     for file in files do
@@ -366,8 +388,8 @@ let load (conn: Conn) (dir: string) (options: Options) : Loaded =
                 Err.fail (DbError.other $"{file}: {e.Message}")
         let rows = YamlParser.parse (erb.Render source)
 
-        conn.Execute($"DELETE FROM \"{table}\"", [||]) |> ignore
-        let columns = tableColumns conn table
+        let columns = tableColumns db table
+        db.Database.ExecuteSql(FormattableStringFactory.Create($"DELETE FROM \"{table}\"", [||])) |> ignore
         let now = Timestamp.FromMicrosecond options.Now.AsMicrosecond
         let mutable labels = ids |> Map.tryFind table |> Option.defaultValue Map.empty
         for label, attributes in rows do
@@ -378,8 +400,12 @@ let load (conn: Conn) (dir: string) (options: Options) : Loaded =
                     | true, I id -> id
                     | _ -> identify label
                 labels <- labels |> Map.add label id
+                for column in row.Keys do
+                    if not (List.contains column columns) then Err.fail (DbError.other $"{table}.{label}: no column {column}")
                 let names = row.Keys |> Seq.map (fun c -> $"\"{c}\"") |> String.concat ", "
-                let sql = $"INSERT INTO \"{table}\" ({names}) VALUES ({Sql.placeholders row.Count})"
-                conn.ExecuteUncached(sql, row.Values |> Seq.toArray) |> ignore
+                let holes = row.Keys |> Seq.mapi (fun i _ -> "{" + string i + "}") |> String.concat ", "
+                let args = row.Values |> Seq.map holeValue |> Seq.toArray
+                db.Database.ExecuteSql(FormattableStringFactory.Create($"INSERT INTO \"{table}\" ({names}) VALUES ({holes})", args))
+                |> ignore
         ids <- ids |> Map.add table labels
     { Ids = ids }
