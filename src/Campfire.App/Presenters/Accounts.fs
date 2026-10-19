@@ -126,23 +126,13 @@ module Accounts =
     /// `.including(Current.user.id)`: `including` appends even when the id is already there, and the
     /// limit counts that duplicate.
     let private directPlaceholderUsers (db: Campfire.Db.Ef.CampfireDb) (secrets: Secrets) (user: User) : UserSummary list =
-        let directRoomIds = Room.forUserOfType db user.Id RoomType.Direct |> List.map (fun room -> room.Id) |> Array.ofList
         let excluded = ResizeArray<int64>()
-        if directRoomIds.Length > 0 then
-            let memberIds =
-                db.Memberships.Where(fun m -> Enumerable.Contains(EF.Parameter directRoomIds, m.RoomId)).Select(fun m -> m.UserId).ToList()
-            for id in memberIds do
-                if not (excluded.Contains id) then excluded.Add id
+        for id in Room.userIdsOfDirectRoomsOf db user.Id do
+            if not (excluded.Contains id) then excluded.Add id
         excluded.Add user.Id
-        let excludedIds = excluded.ToArray()
         let limit = int (max (DirectPlaceholders - int64 excluded.Count) 0L)
-        db.Users
-            .Where(fun u -> u.Status = Campfire.Db.Status.Active && not (Enumerable.Contains(EF.Parameter excludedIds, u.Id)))
-            .OrderBy(fun u -> u.CreatedAt)
-            .Take(limit)
-            .ToList()
-        |> Seq.map (Common.userSummary secrets)
-        |> List.ofSeq
+        User.activeExcluding db (excluded.ToArray()) limit
+        |> List.map (Common.userSummary secrets)
 
     /// Users::SidebarsController#show.
     let sidebar (db: Campfire.Db.Ef.CampfireDb) (secrets: Secrets) (user: User) : Sidebar =

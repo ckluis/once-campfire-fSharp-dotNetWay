@@ -49,6 +49,14 @@ module User =
         let wanted = Array.ofList ids
         db.Users.Where(fun u -> Enumerable.Contains(EF.Parameter wanted, u.Id)).ToList() |> List.ofSeq
 
+    /// `User.active.where.not(id: ids).order(:created_at).limit(n)`; `FromSql` (the sidebar runs it every request; no lambda to rebuild).
+    let activeExcluding (db: Ef.CampfireDb) (ids: int64[]) (limit: int) : User list =
+        let json = "[" + String.Join(",", ids) + "]"
+        db.Users
+            .FromSql($"SELECT * FROM users WHERE status = 0 AND id NOT IN (SELECT value FROM json_each({json})) ORDER BY created_at LIMIT {limit}")
+            .ToList()
+        |> List.ofSeq
+
     /// `User.active.ordered`
     let activeOrdered (db: Ef.CampfireDb) : User list =
         db.Users.Where(fun u -> u.Status = Status.Active).OrderBy(fun u -> u.Name.ToLower()).ToList() |> List.ofSeq
@@ -613,7 +621,24 @@ module Room =
 
     /// `user.rooms.directs` / `.opens` / `.closeds`
     let forUserOfType (db: Ef.CampfireDb) (userId: int64) (roomType: RoomType) : Room list =
-        (ofUser db userId).Where(fun r -> r.Type = EF.Parameter roomType).ToList() |> List.ofSeq
+        // `FromSql`, not `Where(lambda)`: the sidebar runs this every request and F# rebuilds a lambda's expression tree on each call (unit 1.10).
+        let typeName = Ef.Names.roomTypeToDb roomType
+        db.Rooms
+            .FromSql($"SELECT rooms.* FROM rooms INNER JOIN memberships ON rooms.id = memberships.room_id WHERE memberships.user_id = {userId} AND rooms.type = {typeName}")
+            .ToList()
+        |> List.ofSeq
+
+    /// `Membership.where(room_id: user.rooms.directs).pluck(:user_id)`: the user ids of every membership in the user's direct rooms, in
+    /// membership order (one statement; `FromSql`, same reason as `forUserOfType`).
+    let userIdsOfDirectRoomsOf (db: Ef.CampfireDb) (userId: int64) : int64 list =
+        let typeName = Ef.Names.roomTypeToDb RoomType.Direct
+        db.Memberships
+            .FromSql(
+                $"SELECT * FROM memberships WHERE room_id IN (SELECT rooms.id FROM rooms INNER JOIN memberships AS own ON rooms.id = own.room_id WHERE own.user_id = {userId} AND rooms.type = {typeName})"
+            )
+            .AsEnumerable()
+        |> Seq.map (fun m -> m.UserId)
+        |> List.ofSeq
 
     /// `user.rooms.without_directs`
     let forUserWithoutDirects (db: Ef.CampfireDb) (userId: int64) : Room list =
