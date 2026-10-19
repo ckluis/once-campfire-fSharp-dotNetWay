@@ -130,7 +130,7 @@ module Concerns =
         act {
             if not (c.Request.IsGet || c.Request.IsHead) then
                 let! ip = c.Request.RemoteIp()
-                let! banned = c.App.Read(fun conn -> Ban.banned conn ip)
+                let! banned = c.Read(fun db -> Ban.banned db ip)
                 if banned then return! halt (head 429)
         }
 

@@ -94,9 +94,9 @@ type WebPushPool(net: Network, vapid: VapidConfig, invalidSubscriptionHandler: i
 
     /// `queue(payload, subscriptions)`: in id order (`find_each`), each subscription's notification is built here
     /// (counting its badge) and delivered on the pool.
-    member this.Queue(conn: Conn, payload: PushPayload, subscriptions: PushSubscription list) : unit =
+    member this.Queue(db: Ef.CampfireDb, payload: PushPayload, subscriptions: Ef.PushSubscription list) : unit =
         for subscription in subscriptions |> List.sortBy (fun s -> s.Id) do
-            this.DeliverLater(WebPush.Notification.build conn subscription payload)
+            this.DeliverLater(WebPush.Notification.build db subscription payload)
 
     /// Waits (up to a second, like `wait_for_termination(1)`) for queued deliveries, then stops the invalidation
     /// worker once it has drained.
@@ -120,8 +120,8 @@ module WebPushPool =
     /// `Room::PushMessageJob#perform` / `Room::MessagePusher#push`: the payload goes to the subscriptions of
     /// everyone involved in everything, then to mentioned users involved in mentions. Badges are counted here;
     /// delivery happens on the pool.
-    let pushMessage (pool: WebPushPool) (conn: Conn) (db: Ef.CampfireDb) (richText: Campfire.Db.RichText) (message: Message) (now: Timestamp) : PushPayload =
-        let payload, everything, mentions = PushSubscription.pushesFor conn db richText message now
-        pool.Queue(conn, payload, everything)
-        pool.Queue(conn, payload, mentions)
+    let pushMessage (pool: WebPushPool) (db: Ef.CampfireDb) (richText: Campfire.Db.RichText) (message: Message) (now: DateTime) : PushPayload =
+        let payload, everything, mentions = PushSubscription.pushesFor db richText message now
+        pool.Queue(db, payload, everything)
+        pool.Queue(db, payload, mentions)
         payload

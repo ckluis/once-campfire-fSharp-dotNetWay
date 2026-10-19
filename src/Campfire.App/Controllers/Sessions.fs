@@ -121,7 +121,7 @@ module Sessions =
         match c.ParamStr "push_subscription_endpoint", Concerns.currentUser c with
         | null, _
         | _, None -> Task.FromResult(Ok())
-        | endpoint, Some user -> c.App.Write(fun tx -> PushSubscription.destroyByEndpoint tx user.Id endpoint)
+        | endpoint, Some user -> c.Write(fun tx -> PushSubscription.destroyByEndpoint tx user.Id endpoint)
 
     let destroy (c: Ctx) : Task<Result<Response, Error>> =
         act {

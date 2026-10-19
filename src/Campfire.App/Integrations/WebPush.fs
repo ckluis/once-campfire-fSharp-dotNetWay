@@ -23,7 +23,7 @@ type Notification =
       Body: string
       Path: string
       Badge: int64
-      Subscription: PushSubscription }
+      Subscription: Ef.PushSubscription }
 
 /// What `WebPush.payload_send` raised.
 type DeliveryError =
@@ -108,11 +108,11 @@ module WebPush =
 
     module Notification =
         /// `subscription.notification(**payload)`: the badge is `user.memberships.unread.count`.
-        let build (conn: Conn) (subscription: PushSubscription) (payload: PushPayload) : Notification =
+        let build (db: Campfire.Db.Ef.CampfireDb) (subscription: Ef.PushSubscription) (payload: PushPayload) : Notification =
             { Title = payload.Title
               Body = payload.Body
               Path = payload.Path
-              Badge = PushSubscription.badge conn subscription
+              Badge = PushSubscription.badge db subscription
               Subscription = subscription }
 
         /// `encoded_message`: `JSON.generate` (plain JSON, no HTML escaping).
@@ -152,7 +152,7 @@ module WebPush =
         (vapid: VapidConfig)
         (endpoint: string)
         (endpointIp: IPAddress)
-        (subscription: PushSubscription)
+        (subscription: Ef.PushSubscription)
         (message: byte[])
         (now: int64)
         : Task<Result<int, DeliveryError>> =
@@ -161,7 +161,7 @@ module WebPush =
             | Error _ -> return Error(Argument("bad URI(is not URI?): " + Json.generate (Value.String endpoint)))
             | Ok uri ->
                 let host = defaultArg uri.Host ""
-                match Encryption.encrypt message subscription.P256dhKey subscription.AuthKey with
+                match Encryption.encrypt message (Option.ofObj subscription.P256dhKey) (Option.ofObj subscription.AuthKey) with
                 | Error error -> return Error(DeliveryError.ofEncryption error)
                 | Ok payload ->
                     let scheme = (defaultArg uri.Scheme "").ToLowerInvariant()
@@ -197,7 +197,7 @@ module WebPush =
         }
 
     /// `Push::Subscription#resolved_endpoint_ip`
-    let private resolvedEndpointIp (net: Network) (subscription: PushSubscription) : Task<IPAddress option> =
+    let private resolvedEndpointIp (net: Network) (subscription: Ef.PushSubscription) : Task<IPAddress option> =
         task {
             match PushSubscription.resolvedEndpointIp Some subscription with
             | None -> return None
@@ -214,7 +214,7 @@ module WebPush =
             match! resolvedEndpointIp net notification.Subscription with
             | None -> return Ok None
             | Some endpointIp ->
-                let endpoint = defaultArg notification.Subscription.Endpoint ""
+                let endpoint = defaultArg (Option.ofObj notification.Subscription.Endpoint) ""
                 let message = Text.Encoding.UTF8.GetBytes(Notification.encodedMessage notification)
                 let! sent = payloadSend net vapid endpoint endpointIp notification.Subscription message (unixNow ())
                 return sent |> Result.map Some
@@ -226,7 +226,7 @@ module WebPush =
     let deliverTestNotification
         (net: Network)
         (vapid: VapidConfig)
-        (subscription: PushSubscription)
+        (subscription: Ef.PushSubscription)
         (badge: int64)
         (path: string)
         : Task<Result<unit, DeliveryError>> =

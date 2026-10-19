@@ -3,6 +3,7 @@
 // `test/models/push/subscription_test.rb` (validation and endpoint pinning).
 module Campfire.Db.Tests.PushTests
 
+open System
 open Xunit
 open Campfire.Db
 open Campfire.Db.Tests.Support
@@ -23,16 +24,15 @@ let private deliveries (t: TestDb) (room: string) (body: string) (mentioned: int
             ClientMessageId = Some "earth"
             Body = Some body }
     let message = t.WriteEf(fun tx -> Message.create tx attributes)
-    let now = t.Now()
     let richText = Mentions mentioned :> RichText
-    let _, everything, mentions = t.ReadEf(fun db -> t.Read(fun c -> PushSubscription.pushesFor c db richText message now))
+    let _, everything, mentions = t.ReadEf(fun db -> PushSubscription.pushesFor db richText message (t.Utc()))
     List.length everything + List.length mentions
 
 [<Fact>]
 let ``deliver new message to other room users with push subscriptions`` () =
     use t = new TestDb()
-    let all = t.Read PushSubscription.count
-    let davids = int64 (List.length (t.Read(fun c -> PushSubscription.forUser c (id "david"))))
+    let all = t.ReadEf PushSubscription.count
+    let davids = int64 (List.length (t.ReadEf(fun c -> PushSubscription.forUser c (id "david"))))
     Assert.Equal(all - davids, int64 (deliveries t "hq" "This is from earth" []))
 
 [<Fact>]
@@ -87,14 +87,14 @@ let ``long payloads are cut short to fit a push message`` () =
     Assert.True(jsonLen payload.Body <= PushSubscription.MaxPayloadBodyBytes)
     Assert.True(jsonLen payload.Body > PushSubscription.MaxPayloadBodyBytes - 4)
 
-let private build (endpoint: string) : PushSubscription =
-    PushSubscription.build (id "david") (Some endpoint) (Some "test_key") (Some "test_auth") None
+let private build (endpoint: string) : Ef.PushSubscription =
+    PushSubscription.build (id "david") endpoint "test_key" "test_auth" null
 
 let private ``public`` (_: string) : string option = Some WebPushPublicTestIp
 
 let private ``private`` (_: string) : string option = None
 
-let private errors (subscription: PushSubscription) (resolve: string -> string option) : string list =
+let private errors (subscription: Ef.PushSubscription) (resolve: string -> string option) : string list =
     PushSubscription.validate resolve subscription |> Errors.on "endpoint"
 
 [<Fact>]
@@ -152,9 +152,10 @@ let ``accepts all permitted push service domains`` () =
 [<Fact>]
 let ``create validates`` () =
     use t = new TestDb()
-    Assert.True(t.TryWrite(fun tx -> PushSubscription.create tx (build "http://fcm.googleapis.com/x") ``public``) |> Result.isError)
-    let created = t.Write(fun tx -> PushSubscription.create tx (build "https://fcm.googleapis.com/x") ``public``)
-    Assert.Equal(Some "https://fcm.googleapis.com/x", (t.Read(fun c -> PushSubscription.find c created.Id)).Endpoint)
+    Assert.True(t.TryWriteEf(fun tx -> PushSubscription.create tx (build "http://fcm.googleapis.com/x") ``public``) |> Result.isError)
+    let created = t.WriteEf(fun tx -> PushSubscription.create tx (build "https://fcm.googleapis.com/x") ``public``)
+    Assert.Equal("https://fcm.googleapis.com/x", (t.ReadEf(fun c -> PushSubscription.find c created.Id)).Endpoint)
+    Assert.NotEqual(DateTime.MinValue, created.CreatedAt)
 
 [<Fact>]
 let ``truncates by json escaped length`` () =

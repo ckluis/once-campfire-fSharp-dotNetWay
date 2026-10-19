@@ -1,18 +1,14 @@
 // Port of rust/crates/db/src/models/ban.rs
-// `reference/app/models/ban.rb`
+// `reference/app/models/ban.rb` on EF Core: LINQ, every captured value in `EF.Parameter`. The record is `Ef.Ban`.
 namespace Campfire.Db
 
 open System
 open System.Buffers.Binary
 open System.Net
 open System.Net.Sockets
-
-type Ban =
-    { Id: int64
-      UserId: int64
-      IpAddress: string
-      CreatedAt: Timestamp
-      UpdatedAt: Timestamp }
+open System.Linq
+open Microsoft.EntityFrameworkCore
+open Campfire.Db.Ef
 
 /// An address as `IPAddr` holds it: an IPv4 as 32 bits, an IPv6 as 128.
 type internal IpAddress =
@@ -20,24 +16,12 @@ type internal IpAddress =
     | V6 of UInt128
 
 module Ban =
-    [<Literal>]
-    let private select = "SELECT " + Columns.Ban + " FROM \"bans\""
+    /// `Ban.banned?(ip_address)`: runs on every non-GET request (`BlockBannedRequests`).
+    let banned (db: CampfireDb) (ipAddress: string) : bool =
+        db.Bans.Any(fun b -> b.IpAddress = EF.Parameter ipAddress)
 
-    [<Literal>]
-    let private forUserSql = select + " WHERE \"bans\".\"user_id\" = ?"
-
-    let private fromRow (r: Row) : Ban =
-        { Id = r.Int64 0
-          UserId = r.Int64 1
-          IpAddress = r.Text 2
-          CreatedAt = r.Timestamp 3
-          UpdatedAt = r.Timestamp 4 }
-
-    /// `Ban.banned?(ip_address)`
-    let banned (conn: Conn) (ipAddress: string) : bool =
-        conn.Exists("""SELECT 1 AS one FROM "bans" WHERE "bans"."ip_address" = ? LIMIT 1""", [| S ipAddress |])
-
-    let forUser (conn: Conn) (userId: int64) : Ban list = conn.QueryAll(forUserSql, [| I userId |], fromRow)
+    let forUser (db: CampfireDb) (userId: int64) : Ban list =
+        db.Bans.Where(fun b -> b.UserId = EF.Parameter userId).ToList() |> List.ofSeq
 
     /// `a.b.c.d`, each part decimal without leading zeros, as Rust's `Ipv4Addr` and `IPAddr` read it.
     let private parseV4 (text: string) : uint32 option =
@@ -135,19 +119,3 @@ module Ban =
             Errors.empty |> Errors.add "ip_address" "cannot be a private or internal IP address"
         | Some _ -> Errors.empty
         | None -> Errors.empty |> Errors.add "ip_address" "is not a valid IP address"
-
-    /// `bans.create!(ip_address:)`, validating the address is public.
-    let create (tx: Tx) (userId: int64) (ipAddress: string) : Ban =
-        Err.validate (validate ipAddress)
-        let now = tx.Now()
-        let id =
-            tx.Conn.QueryRow(
-                """INSERT INTO "bans" ("created_at", "ip_address", "updated_at", "user_id") VALUES (?, ?, ?, ?) RETURNING "id" """,
-                [| T now; S ipAddress; T now; I userId |],
-                fun r -> r.Int64 0
-            )
-        { Id = id
-          UserId = userId
-          IpAddress = ipAddress
-          CreatedAt = now
-          UpdatedAt = now }

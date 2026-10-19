@@ -133,9 +133,9 @@ type private Receiver() =
     member _.Key = key
     member _.Auth = auth
 
-    member _.Subscription(id: int64, endpoint: string) : PushSubscription =
+    member _.Subscription(id: int64, endpoint: string) : Ef.PushSubscription =
         let p256dh = encode64 (P256.uncompressed key)
-        { PushSubscription.build 1L (Some endpoint) (Some p256dh) (Some(encode64 auth)) None with Id = id }
+        { PushSubscription.build 1L endpoint p256dh (encode64 auth) null with Id = id }
 
     member _.Open(body: byte[]) : string =
         match decrypt body key auth with
@@ -204,7 +204,7 @@ let private pushService (status: int) (reason: string) : PushService =
       Dialer = dialer
       Net = network resolver dialer }
 
-let private notification (subscription: PushSubscription) : Notification =
+let private notification (subscription: Ef.PushSubscription) : Notification =
     { Title = "t"
       Body = "b"
       Path = "/"
@@ -218,7 +218,7 @@ let ``encodes the message like json generate`` () =
           Body = "Kevin: line\nbreak\ttab   \u001f / \\ "
           Path = "/rooms/1"
           Badge = 3L
-          Subscription = PushSubscription.build 1L None None None None }
+          Subscription = PushSubscription.build 1L null null null null }
     Assert.Equal(str ((expected ()).GetProperty "message"), WebPush.Notification.encodedMessage notification)
 
 [<Fact>]
@@ -232,7 +232,7 @@ let ``the longest payload fits a push message`` () =
           Subscription = receiver.Subscription(1L, "https://fcm.googleapis.com/fcm/send/abc") }
     let subscription = notification.Subscription
     let message = WebPush.Notification.encodedMessage notification
-    match Encryption.encrypt (Encoding.UTF8.GetBytes message) subscription.P256dhKey subscription.AuthKey with
+    match Encryption.encrypt (Encoding.UTF8.GetBytes message) (Option.ofObj subscription.P256dhKey) (Option.ofObj subscription.AuthKey) with
     | Ok body -> Assert.Equal(message, receiver.Open body)
     | Error error -> failwith (EncryptionError.message error)
 
@@ -297,7 +297,7 @@ let private config (publicKey: string option) (privateKey: string option) : AppC
 let ``web push is off without a valid key pair`` () =
     task {
         use t = new TestDb()
-        let pool publicKey privateKey = IntegrationJobs.webPushPool (config publicKey privateKey) t.Db NullLogger.Instance
+        let pool publicKey privateKey = IntegrationJobs.webPushPool (config publicKey privateKey) t.Factory t.Db.Gate t.Env NullLogger.Instance
         Assert.True((pool None (Some VapidPrivateKey)).IsNone)
         Assert.True((pool (Some "dGVzdF9rZXk") (Some VapidPrivateKey)).IsNone)
         let on = pool (Some VapidPublicKey) (Some VapidPrivateKey)
@@ -394,7 +394,7 @@ let ``only the subscriptions own faults invalidate it`` () =
         let service = pushService 201 "Created"
         use _server = service.Server
         let badKey =
-            PushSubscription.build 1L (Some "https://fcm.googleapis.com/fcm/send/abc") (Some "dGVzdF9rZXk") (Some "dGVzdF9hdXRo") None
+            PushSubscription.build 1L "https://fcm.googleapis.com/fcm/send/abc" "dGVzdF9rZXk" "dGVzdF9hdXRo" null
         match! WebPush.deliver service.Net (vapid ()) (notification badKey) with
         | Error error ->
             Assert.Equal(("OpenSSL::PKey::EC::Point::Error", true), (DeliveryError.className error, DeliveryError.invalidatesSubscription error))
@@ -408,7 +408,7 @@ let ``only the subscriptions own faults invalidate it`` () =
             Assert.Equal(("OpenSSL::SSL::SSLError", false), (DeliveryError.className error, DeliveryError.invalidatesSubscription error))
         | Ok delivered -> failwith $"{delivered}"
 
-        let blank = PushSubscription.build 1L (Some "https://fcm.googleapis.com/fcm/send/abc") (Some "") (Some "dGVzdF9hdXRo") None
+        let blank = PushSubscription.build 1L "https://fcm.googleapis.com/fcm/send/abc" "" "dGVzdF9hdXRo" null
         match! WebPush.deliver service.Net (vapid ()) (notification blank) with
         | Error error -> Assert.Equal(("ArgumentError", false), (DeliveryError.className error, DeliveryError.invalidatesSubscription error))
         | Ok delivered -> failwith $"{delivered}"
@@ -483,10 +483,8 @@ let ``pushes messages and destroys expired subscriptions`` () =
             WebPushPool(ok.Net, vapid (), (fun id -> lock destroyed (fun () -> destroyed.Add id); Ok()), NullLogger.Instance)
         let! message = create ()
         use pushContext = t.Factory.CreateDbContext()
-        let! pushed =
-            db.Read(fun conn -> WebPushPool.pushMessage pool conn pushContext t.Env.RichText message (db.Env.Now()))
         let payload =
-            match pushed with
+            match Ef.Reads.run pushContext (fun ctx -> WebPushPool.pushMessage pool ctx t.Env.RichText message (RailsTime.now t.Env.Time)) with
             | Ok payload -> payload
             | Error error -> failwith (DbError.display error)
         Assert.Equal("Designers", payload.Title)
@@ -507,17 +505,21 @@ let ``pushes messages and destroys expired subscriptions`` () =
         let gone = pushService 410 "Gone"
         use _gone = gone.Server
         let handler (id: int64) : Result<unit, string> =
-            match db.WriteBlocking(fun tx -> PushSubscription.destroy tx (PushSubscription.find tx.Conn id)) with
+            use destroyContext = t.Factory.CreateDbContext()
+            match (Ef.Writes.run db.Gate t.Env destroyContext (fun tx -> PushSubscription.destroy tx (PushSubscription.find tx.Db id))).GetAwaiter().GetResult() with
             | Ok()
             | Error(RecordNotFound _) -> Ok()
             | Error error -> Error(DbError.display error)
         let pool = WebPushPool(gone.Net, vapid (), handler, NullLogger.Instance)
-        let! before = db.Read(fun conn -> PushSubscription.count conn)
+        let countPush () =
+            use ctx = t.Factory.CreateDbContext()
+            Ef.Reads.run ctx PushSubscription.count
+        let before = countPush ()
         let! message = create ()
         use context = t.Factory.CreateDbContext()
-        let! _ = db.Read(fun conn -> WebPushPool.pushMessage pool conn context t.Env.RichText message (db.Env.Now()))
+        Ef.Reads.run context (fun ctx -> WebPushPool.pushMessage pool ctx t.Env.RichText message (RailsTime.now t.Env.Time)) |> ignore
         do! pool.Shutdown()
-        let! after = db.Read(fun conn -> PushSubscription.count conn)
+        let after = countPush ()
         let count (result: Result<int64, DbError>) = match result with Ok n -> n | Error error -> failwith (DbError.display error)
         Assert.Equal(count before - 2L, count after)
     }

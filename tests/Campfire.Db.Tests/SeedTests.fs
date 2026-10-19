@@ -94,7 +94,6 @@ let ``the schema Rails created is the schema we load`` () =
 let ``every model reads the rows Rails wrote`` () =
     withSeed "default" (fun path seed ->
         use db = openSeed path (TestClock()) (RecordingSink())
-        let read f = unwrap (db.ReadBlocking f)
 
         Assert.Equal(10L, efRead path User.count)
         Assert.Equal(11, List.length (efRead path Room.all))
@@ -102,7 +101,7 @@ let ``every model reads the rows Rails wrote`` () =
         Assert.Equal(39L, efRead path Membership.count)
         Assert.Equal(1L, efRead path Account.count)
         Assert.Equal(3L, efRead path Search.count)
-        Assert.Equal(5L, read PushSubscription.count)
+        Assert.Equal(5L, efRead path PushSubscription.count)
 
         let david = efRead path (fun c -> User.find c (label seed "users.david"))
         Assert.Equal(("David", Role.Administrator, Status.Active), (david.Name, david.Role, david.Status))
@@ -114,8 +113,8 @@ let ``every model reads the rows Rails wrote`` () =
         Assert.Contains("-deactivated-", rita.EmailAddress)
         let mallory = efRead path (fun c -> User.find c (label seed "users.mallory"))
         Assert.Equal(Status.Banned, mallory.Status)
-        Assert.True(read (fun c -> Ban.banned c "203.0.113.9"))
-        Assert.Equal(1, List.length (read (fun c -> Ban.forUser c mallory.Id)))
+        Assert.True(efRead path (fun c -> Ban.banned c "203.0.113.9"))
+        Assert.Equal(1, List.length (efRead path (fun c -> Ban.forUser c mallory.Id)))
 
         // Bots, with and without a webhook.
         let bender = efRead path (fun c -> User.find c (label seed "users.bender"))

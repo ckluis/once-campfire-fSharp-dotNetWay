@@ -437,16 +437,6 @@ module Membership =
 
     let fromRow (r: Row) : Membership = fromRowAt r 0
 
-    /// `user.memberships.unread.count`: the push badge.
-    let unreadCountLegacy (conn: Conn) (userId: int64) : int64 =
-        conn.Count(
-            """SELECT COUNT(*) FROM "memberships" WHERE "memberships"."user_id" = ? AND "memberships"."unread_at" IS NOT NULL""",
-            [| I userId |]
-        )
-
-    /// `CONNECTION_TTL.ago`, for the port's `Timestamp`.
-    let connectionCutoffLegacy (now: Timestamp) : Timestamp = now.Ago connectionTtl
-
     // ---- Finders and scopes (EF, LINQ; every captured value goes through `EF.Parameter`)
 
     let find (db: Ef.CampfireDb) (id: int64) : Membership =
@@ -1321,58 +1311,10 @@ module Boost =
 // lives in the app.
 // ---------------------------------------------------------------------------------------------
 
-type Webhook =
-    { Id: int64
-      UserId: int64
-      Url: string option
-      CreatedAt: Timestamp
-      UpdatedAt: Timestamp }
-
 module Webhook =
     /// `Webhook::ENDPOINT_TIMEOUT`
     [<Literal>]
     let EndpointTimeoutSeconds = 7
-
-    let private fromRow (r: Row) : Webhook =
-        { Id = r.Int64 0
-          UserId = r.Int64 1
-          Url = r.OptText 2
-          CreatedAt = r.Timestamp 3
-          UpdatedAt = r.Timestamp 4 }
-
-    let findByUser (conn: Conn) (userId: int64) : Webhook option =
-        conn.QueryOne(Selects.Webhook + " WHERE \"webhooks\".\"user_id\" = ? LIMIT 1", [| I userId |], fromRow)
-
-    /// `create_webhook!(url:)`
-    let create (tx: Tx) (userId: int64) (url: string option) : Webhook =
-        let now = tx.Now()
-        let id =
-            tx.Conn.QueryRow(
-                """INSERT INTO "webhooks" ("created_at", "updated_at", "url", "user_id") VALUES (?, ?, ?, ?) RETURNING "id" """,
-                [| T now; T now; Sql.optS url; I userId |],
-                fun r -> r.Int64 0
-            )
-        { Id = id
-          UserId = userId
-          Url = url
-          CreatedAt = now
-          UpdatedAt = now }
-
-    /// `webhook.update!(url:)`
-    let updateUrl (tx: Tx) (webhook: Webhook) (url: string) : Webhook =
-        if webhook.Url = Some url then
-            webhook
-        else
-            let now = tx.Now()
-            tx.Conn.Execute(
-                """UPDATE "webhooks" SET "updated_at" = ?, "url" = ? WHERE "webhooks"."id" = ?""",
-                [| T now; S url; I webhook.Id |]
-            )
-            |> ignore
-            { webhook with Url = Some url; UpdatedAt = now }
-
-    let destroy (tx: Tx) (webhook: Webhook) : unit =
-        tx.Conn.Execute("""DELETE FROM "webhooks" WHERE "webhooks"."id" = ?""", [| I webhook.Id |]) |> ignore
 
     /// Removes `@Recipient` mentions and leading/trailing (Unicode) whitespace.
     let private withoutRecipientMentions (body: string) (recipient: User) : string =

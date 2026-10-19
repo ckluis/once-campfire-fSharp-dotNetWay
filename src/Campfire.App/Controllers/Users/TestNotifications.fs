@@ -24,9 +24,9 @@ module TestNotifications =
                 | Some id -> Ok id
                 | None -> Error NotFound
             let! subscription =
-                c.App.Read(fun conn ->
+                c.Read(fun db ->
                     // `Current.user.push_subscriptions.find(params[:push_subscription_id])`
-                    let subscription = PushSubscription.find conn id
+                    let subscription = PushSubscription.find db id
                     if subscription.UserId <> userId then Err.fail (RecordNotFound "Push::Subscription")
                     subscription)
             let! badge = c.Read(fun db -> Membership.unreadCount db userId)

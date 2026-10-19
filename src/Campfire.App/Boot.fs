@@ -185,7 +185,7 @@ module Boot =
 
             let fragmentCache = FragmentCache(int (min config.FragmentCacheBytes (int64 Int32.MaxValue)))
             // config/initializers/web_push.rb: off without a valid VAPID key pair.
-            let webPush = IntegrationJobs.webPushPool config db (loggers.CreateLogger "campfire.web_push")
+            let webPush = IntegrationJobs.webPushPool config dbFactory db.Gate efEnv (loggers.CreateLogger "campfire.web_push")
             let app =
                 AppState(config, secrets, clock, db, dbFactory, efEnv, storage, cable, Broadcasts cable, jobs, webPush, fragmentCache, loggers)
 

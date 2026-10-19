@@ -8,6 +8,7 @@ namespace Campfire.App.Integrations
 
 open System
 open System.Threading.Tasks
+open Microsoft.EntityFrameworkCore
 open Microsoft.Extensions.Logging
 open Campfire.App
 open Campfire.App.Controllers
@@ -39,13 +40,13 @@ module IntegrationJobs =
         task {
             match event, app.WebPush with
             | Event.PushMessage(_, messageId), Some pool ->
-                // Offloaded: it encrypts a notification for every subscriber.
-                use context = app.DbFactory.CreateDbContext()
-                match!
-                    app.Db.ReadOffloaded(fun conn ->
-                        let message = Message.find context messageId
-                        WebPushPool.pushMessage pool conn context app.Env.RichText message (app.Db.Env.Now()) |> ignore)
-                with
+                // Off the job's thread: it counts a badge for, and queues a notification to, every subscriber.
+                let pushed =
+                    Task.Run(fun () ->
+                        readEf app (fun db ->
+                            let message = Message.find db messageId
+                            WebPushPool.pushMessage pool db app.Env.RichText message (RailsTime.now app.Env.Time) |> ignore))
+                match! pushed with
                 | Ok() -> return Ok()
                 | Error error -> return Error(failure error)
             | _ -> return Ok()
@@ -54,7 +55,13 @@ module IntegrationJobs =
     /// config/initializers/web_push.rb (`config.x.web_push_pool`): the pool, whose invalid subscription handler
     /// destroys the subscription (`Push::Subscription.find_by(id:)&.destroy`). `None`, and Web Push is off, when the
     /// VAPID keys are missing or invalid.
-    let webPushPool (config: AppConfig) (db: Database) (logger: ILogger) : WebPushPool option =
+    let webPushPool
+        (config: AppConfig)
+        (factory: IDbContextFactory<Ef.CampfireDb>)
+        (gate: WriteGate)
+        (env: Ef.Env)
+        (logger: ILogger)
+        : WebPushPool option =
         match VapidConfig.FromConfig config with
         | Error Missing ->
             logger.LogWarning("Web Push is off: {Reason}", VapidError.message Missing)
@@ -64,7 +71,9 @@ module IntegrationJobs =
             None
         | Ok vapid ->
             let invalidSubscriptionHandler (id: int64) : Result<unit, string> =
-                match db.WriteBlocking(fun tx -> PushSubscription.destroy tx (PushSubscription.find tx.Conn id)) with
+                // Runs on the pool's own invalidation thread, which waits for the write.
+                use context = factory.CreateDbContext()
+                match (Ef.Writes.run gate env context (fun tx -> PushSubscription.destroy tx (PushSubscription.find tx.Db id))).GetAwaiter().GetResult() with
                 | Ok()
                 | Error(RecordNotFound _) -> Ok()
                 | Error error -> Error(failure error)

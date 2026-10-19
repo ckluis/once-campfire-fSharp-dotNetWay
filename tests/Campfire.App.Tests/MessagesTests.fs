@@ -215,7 +215,7 @@ let private plainTexts (test: Test) (message: Message) : Task<string * string * 
         use db = test.App.DbFactory.CreateDbContext()
         let richText = test.App.Env.RichText
         let indexed = conn.QueryOne("SELECT body FROM message_search_index WHERE rowid = ?", [| I message.Id |], (fun r -> r.Text 0)).Value
-        let push, _, _ = PushSubscription.pushesFor conn db richText message (test.App.Db.Env.Now())
+        let push, _, _ = PushSubscription.pushesFor db richText message (RailsTime.now test.App.Env.Time)
         let webhook =
             (User.webhook db (User.find db BENDER)).Value |> fun hook -> Webhook.payload db richText hook message "/bot" "/message"
         let json = JsonDocument.Parse webhook

@@ -215,10 +215,10 @@ module Accounts =
             avatar |> Option.map (fun blob -> baseUrl + Campfire.Storage.Paths.blobRedirectPath storage.Verifier blob None) }
 
     /// A push subscription with its user agent parsed like `UserAgent.parse(push_subscription.user_agent)`.
-    let pushSubscription (subscription: Campfire.Db.PushSubscription) : Campfire.Views.Users.PushSubscription =
-        let agent = UserAgent.parse (defaultArg subscription.UserAgent "")
+    let pushSubscription (subscription: Campfire.Db.Ef.PushSubscription) : Campfire.Views.Users.PushSubscription =
+        let agent = UserAgent.parse (defaultArg (Option.ofObj subscription.UserAgent) "")
         { Id = subscription.Id
-          Endpoint = defaultArg subscription.Endpoint ""
+          Endpoint = defaultArg (Option.ofObj subscription.Endpoint) ""
           Browser = UserAgent.Agent.browser agent
           Version = (UserAgent.Agent.version agent).String
           Platform = defaultArg (UserAgent.Agent.platform agent) "" }

@@ -69,11 +69,6 @@ module Common =
              | other -> failwith $"status {int other} out of range")
           AvatarPath = avatarPath secrets user }
 
-    /// `record.touch`: bumps `updated_at` (what `belongs_to :record, touch: true` does to an
-    /// attachment's record, and `Blob#touch_attachments` after analysis).
-    let touch (conn: Conn) (table: string) (id: int64) (now: Campfire.Db.Timestamp) : unit =
-        conn.Execute($"UPDATE \"{table}\" SET \"updated_at\" = ? WHERE \"{table}\".\"id\" = ?", [| T now; I id |]) |> ignore
-
     /// `record.touch` for the records an attachment belongs to, in the caller's write: a message also touches its room
     /// (`Message belongs_to :room, touch: true`), users and accounts only themselves. Other record types are left alone.
     let touchRecord (tx: Campfire.Db.Ef.Tx) (recordType: string) (id: int64) : unit =

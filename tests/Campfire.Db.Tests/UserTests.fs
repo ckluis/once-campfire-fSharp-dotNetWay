@@ -53,8 +53,8 @@ let ``deactivating a user deletes push subscriptions searches memberships for no
     let david = id "david"
     let memberships = t.ReadEf Membership.count
     let withoutDirects = t.ReadEf(fun c -> Membership.countWithoutDirectRooms c david)
-    let subscriptions = t.Read PushSubscription.count
-    let davidsSubscriptions = int64 (List.length (t.Read(fun c -> PushSubscription.forUser c david)))
+    let subscriptions = t.ReadEf PushSubscription.count
+    let davidsSubscriptions = int64 (List.length (t.ReadEf(fun c -> PushSubscription.forUser c david)))
     let searches = t.ReadEf Search.count
     let davidsSearches = t.ReadEf(fun c -> Search.countForUser c david)
 
@@ -62,7 +62,7 @@ let ``deactivating a user deletes push subscriptions searches memberships for no
     t.WriteEf(fun tx -> User.deactivate tx user |> ignore)
 
     Assert.Equal(memberships - withoutDirects, t.ReadEf Membership.count)
-    Assert.Equal(subscriptions - davidsSubscriptions, t.Read PushSubscription.count)
+    Assert.Equal(subscriptions - davidsSubscriptions, t.ReadEf PushSubscription.count)
     Assert.Equal(searches - davidsSearches, t.ReadEf Search.count)
 
     let reloaded = t.ReadEf(fun c -> User.find c david)
@@ -111,7 +111,7 @@ let ``create bot with webhook`` () =
     Assert.Equal(Some "http://x", t.ReadEf(fun c -> User.webhookUrl c bot))
 
     t.WriteEf(fun tx -> User.updateBot tx bot { UserChanges.none with Name = Some "Bot2" } (Some "") |> ignore)
-    Assert.True((t.Read(fun c -> Webhook.findByUser c bot.Id)).IsNone)
+    Assert.True((t.ReadEf(fun c -> User.webhook c bot)).IsNone)
     Assert.Equal("Bot2", (t.ReadEf(fun c -> User.find c bot.Id)).Name)
 
 [<Fact>]
@@ -212,15 +212,15 @@ let ``ban creates bans from session ips and removes sessions`` () =
     let u = user t "kevin"
     t.WriteEf(fun tx -> User.ban tx u |> ignore)
 
-    Assert.Equal<string list>([ "8.8.8.8" ], t.Read(fun c -> Ban.forUser c kevin) |> List.map (fun b -> b.IpAddress))
-    Assert.True(t.Read(fun c -> Ban.banned c "8.8.8.8"))
+    Assert.Equal<string list>([ "8.8.8.8" ], t.ReadEf(fun c -> Ban.forUser c kevin) |> List.map (fun b -> b.IpAddress))
+    Assert.True(t.ReadEf(fun c -> Ban.banned c "8.8.8.8"))
     Assert.Equal(0L, t.ReadEf(fun c -> Session.countForUser c kevin))
     Assert.Equal(Status.Banned, (t.ReadEf(fun c -> User.find c kevin)).Status)
     Assert.Equal<Event list>([ DisconnectUser(kevin, false); RemoveBannedContent kevin ], t.Events())
 
     let u = t.ReadEf(fun c -> User.find c kevin)
     t.WriteEf(fun tx -> User.unban tx u |> ignore)
-    Assert.False(t.Read(fun c -> Ban.banned c "8.8.8.8"))
+    Assert.False(t.ReadEf(fun c -> Ban.banned c "8.8.8.8"))
     Assert.Equal(Status.Active, (t.ReadEf(fun c -> User.find c kevin)).Status)
 
 [<Fact>]

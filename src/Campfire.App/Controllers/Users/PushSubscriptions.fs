@@ -5,7 +5,9 @@
 namespace Campfire.App.Controllers
 
 open System
+open System.Linq
 open System.Threading.Tasks
+open Microsoft.EntityFrameworkCore
 open Campfire.Views
 open Campfire.Kit
 open Campfire.App
@@ -27,21 +29,24 @@ module PushSubscriptions =
 
     /// `Current.user.push_subscriptions.find_by(push_subscription_params)`: only the given keys are
     /// conditions (none at all finds the user's first subscription); nil is `IS NULL`.
-    let private findBy (conn: Conn) (userId: int64) (parameters: Campfire.Kit.ParamMap) : PushSubscription option =
-        let sql = Text.StringBuilder("""SELECT "push_subscriptions"."id" FROM "push_subscriptions" WHERE "push_subscriptions"."user_id" = ?""")
-        let values = ResizeArray<SqlArg>([ I userId ])
+    let private findBy (db: Ef.CampfireDb) (userId: int64) (parameters: Campfire.Kit.ParamMap) : Ef.PushSubscription option =
+        let mutable query = db.PushSubscriptions.Where(fun p -> p.UserId = EF.Parameter userId)
         for struct (key, param) in parameters.Iter do
-            match Option.ofObj (param.ToS()) with
-            | Some value ->
-                sql.Append($" AND \"push_subscriptions\".\"{key}\" = ?") |> ignore
-                values.Add(S value)
-            | None -> sql.Append($" AND \"push_subscriptions\".\"{key}\" IS NULL") |> ignore
-        sql.Append " LIMIT 1" |> ignore
-        conn.QueryOne(sql.ToString(), values.ToArray(), fun r -> r.Int64 0) |> Option.map (PushSubscription.find conn)
+            let value: string | null = param.ToS()
+            query <-
+                match key, value with
+                | "endpoint", null -> query.Where(fun p -> p.Endpoint = null)
+                | "endpoint", v -> query.Where(fun p -> p.Endpoint = EF.Parameter v)
+                | "p256dh_key", null -> query.Where(fun p -> p.P256dhKey = null)
+                | "p256dh_key", v -> query.Where(fun p -> p.P256dhKey = EF.Parameter v)
+                | "auth_key", null -> query.Where(fun p -> p.AuthKey = null)
+                | "auth_key", v -> query.Where(fun p -> p.AuthKey = EF.Parameter v)
+                | other, _ -> failwith $"push_subscription key {other} is not permitted"
+        Ef.Data.tryFirst query
 
     /// `RestrictedHTTP::PrivateNetworkGuard.resolve(endpoint_uri.host)`, done ahead of the (synchronous)
     /// validation for the one host it asks about: a first pass records the host, then it's resolved.
-    let private resolveEndpoint (subscription: PushSubscription) : Task<Map<string, string option>> =
+    let private resolveEndpoint (subscription: Ef.PushSubscription) : Task<Map<string, string option>> =
         task {
             let mutable asked: string option = None
             PushSubscription.validate
@@ -66,7 +71,7 @@ module PushSubscriptions =
         fun host -> resolved |> Map.tryFind host |> Option.flatten
 
     /// `subscription.valid?`
-    let private validate (subscription: PushSubscription) : Task<Errors> =
+    let private validate (subscription: Ef.PushSubscription) : Task<Errors> =
         task {
             let! resolved = resolveEndpoint subscription
             return PushSubscription.validate (resolver resolved) subscription
@@ -77,7 +82,7 @@ module PushSubscriptions =
             do! Concerns.beforeActions c Before.Default
             do! c.RespondTo [ Format.Html ] |> Result.map ignore
             let! (user: User) = Concerns.requireCurrentUser c
-            let! subscriptions = c.App.Read(fun conn -> PushSubscription.forUser conn user.Id)
+            let! subscriptions = c.Read(fun db -> PushSubscription.forUser db user.Id)
             let pushSubscriptions = subscriptions |> List.map Accounts.pushSubscription
             return!
                 Page.framedPage
@@ -97,22 +102,29 @@ module PushSubscriptions =
             let userId = user.Id
             let! parameters = pushSubscriptionParams c
 
-            let! existing = c.App.Read(fun conn -> findBy conn userId parameters)
+            let! existing = c.Read(fun db -> findBy db userId parameters)
             match existing with
             // Existing endpoints must pass current validations
             | Some subscription ->
                 let! errors = validate subscription
                 if Errors.isEmpty errors then
-                    let! () = c.App.Write(fun tx -> Common.touch tx.Conn "push_subscriptions" subscription.Id (tx.Now()))
+                    let id = subscription.Id
+                    let! () =
+                        c.Write(fun tx ->
+                            let now = tx.Now()
+                            tx.Db.PushSubscriptions
+                                .Where(fun p -> p.Id = EF.Parameter id)
+                                .ExecuteUpdate(fun u -> u.SetProperty((fun p -> p.UpdatedAt), now) |> ignore)
+                            |> ignore)
                     return c.Head Status.Ok
                 else
                     return c.Head Status.UnprocessableEntity
             | None ->
                 let value key = Accounts.paramToS parameters key
                 let subscription =
-                    PushSubscription.build userId (value "endpoint") (value "p256dh_key") (value "auth_key") (Option.ofObj c.Request.UserAgent)
+                    PushSubscription.build userId (Option.toObj (value "endpoint")) (Option.toObj (value "p256dh_key")) (Option.toObj (value "auth_key")) c.Request.UserAgent
                 let! resolved = resolveEndpoint subscription
-                let! result = c.App.Db.Write(fun tx -> PushSubscription.create tx subscription (resolver resolved))
+                let! result = c.TryWrite(fun tx -> PushSubscription.create tx subscription (resolver resolved))
                 match result with
                 | Ok _ -> return c.Head Status.Ok
                 | Error(RecordInvalid _) -> return c.Head Status.UnprocessableEntity
@@ -128,10 +140,10 @@ module PushSubscriptions =
             match (match c.ParamStr "id" with null -> None | id -> Ruby.integerCast id) with
             | Some id ->
                 let! () =
-                    c.App.Write(fun tx ->
+                    c.Write(fun tx ->
                         let found =
                             try
-                                Some(PushSubscription.find tx.Conn id)
+                                Some(PushSubscription.find tx.Db id)
                             with DbException(RecordNotFound _) ->
                                 None
                         match found with

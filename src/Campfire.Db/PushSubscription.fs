@@ -1,20 +1,14 @@
 // Port of rust/crates/db/src/models/push_subscription.rs
 // `reference/app/models/push/subscription.rb`, and the subscriber queries of
-// `reference/app/models/room/message_pusher.rb`. Delivery lives in the app.
+// `reference/app/models/room/message_pusher.rb`, on EF Core: LINQ, every captured value in `EF.Parameter`. The record is
+// `Ef.PushSubscription`. Delivery lives in the app.
 namespace Campfire.Db
 
 open System
+open System.Linq
 open System.Text
-
-type PushSubscription =
-    { Id: int64
-      UserId: int64
-      Endpoint: string option
-      P256dhKey: string option
-      AuthKey: string option
-      UserAgent: string option
-      CreatedAt: Timestamp
-      UpdatedAt: Timestamp }
+open Microsoft.EntityFrameworkCore
+open Campfire.Db.Ef
 
 /// What `Room::MessagePusher#build_payload` sends.
 type PushPayload = { Title: string; Body: string; Path: string }
@@ -39,26 +33,13 @@ module PushSubscription =
     [<Literal>]
     let MaxPayloadBodyBytes = 3072
 
-    [<Literal>]
-    let private select = "SELECT " + Columns.PushSubscription + " FROM \"push_subscriptions\""
-
-    let private fromRow (r: Row) : PushSubscription =
-        { Id = r.Int64 0
-          UserId = r.Int64 1
-          Endpoint = r.OptText 2
-          P256dhKey = r.OptText 3
-          AuthKey = r.OptText 4
-          UserAgent = r.OptText 5
-          CreatedAt = r.Timestamp 6
-          UpdatedAt = r.Timestamp 7 }
-
     /// An unsaved subscription, for validation.
     let build
         (userId: int64)
-        (endpoint: string option)
-        (p256dhKey: string option)
-        (authKey: string option)
-        (userAgent: string option)
+        (endpoint: string | null)
+        (p256dhKey: string | null)
+        (authKey: string | null)
+        (userAgent: string | null)
         : PushSubscription =
         { Id = 0L
           UserId = userId
@@ -66,26 +47,17 @@ module PushSubscription =
           P256dhKey = p256dhKey
           AuthKey = authKey
           UserAgent = userAgent
-          CreatedAt = Timestamp.FromSecond 0L
-          UpdatedAt = Timestamp.FromSecond 0L }
+          CreatedAt = DateTime.MinValue
+          UpdatedAt = DateTime.MinValue }
 
-    let find (conn: Conn) (id: int64) : PushSubscription =
-        conn.QueryOne(select + " WHERE \"push_subscriptions\".\"id\" = ? LIMIT 1", [| I id |], fromRow)
+    let find (db: CampfireDb) (id: int64) : PushSubscription =
+        Data.tryFirst (db.PushSubscriptions.Where(fun p -> p.Id = EF.Parameter id))
         |> Err.orNotFound "Push::Subscription"
 
-    let count (conn: Conn) : int64 = conn.Count("""SELECT COUNT(*) FROM "push_subscriptions" """, [||])
+    let count (db: CampfireDb) : int64 = db.PushSubscriptions.LongCount()
 
-    let forUser (conn: Conn) (userId: int64) : PushSubscription list =
-        conn.QueryAll(select + " WHERE \"push_subscriptions\".\"user_id\" = ?", [| I userId |], fromRow)
-
-    /// `user.push_subscriptions.find_by(endpoint:, p256dh_key:, auth_key:)`
-    let findForUserByKeys (conn: Conn) (userId: int64) (endpoint: string) (p256dhKey: string) (authKey: string) : PushSubscription option =
-        conn.QueryOne(
-            select
-            + " WHERE \"push_subscriptions\".\"user_id\" = ? AND \"push_subscriptions\".\"endpoint\" = ? AND \"push_subscriptions\".\"p256dh_key\" = ? AND \"push_subscriptions\".\"auth_key\" = ? LIMIT 1",
-            [| I userId; S endpoint; S p256dhKey; S authKey |],
-            fromRow
-        )
+    let forUser (db: CampfireDb) (userId: int64) : PushSubscription list =
+        db.PushSubscriptions.Where(fun p -> p.UserId = EF.Parameter userId).ToList() |> List.ofSeq
 
     let private permittedEndpointHost (host: string) : bool =
         let host = host.ToLowerInvariant()
@@ -136,14 +108,14 @@ module PushSubscription =
 
     /// `resolved_endpoint_ip`: only for a permitted https:443 endpoint.
     let resolvedEndpointIp (resolve: string -> string option) (subscription: PushSubscription) : string option =
-        match subscription.Endpoint |> Option.bind parseEndpoint with
+        match Option.ofObj subscription.Endpoint |> Option.bind parseEndpoint with
         | Some uri when uri.Scheme = "https" && uri.Port = Some 443 && permittedEndpointHost uri.Host -> resolve uri.Host
         | _ -> None
 
     /// Validations: endpoint present, then `validate_endpoint_url`. `resolve` is
     /// `RestrictedHTTP::PrivateNetworkGuard.resolve` (None for private or unresolvable).
     let validate (resolve: string -> string option) (subscription: PushSubscription) : Errors =
-        let endpoint = defaultArg subscription.Endpoint ""
+        let endpoint = defaultArg (Option.ofObj subscription.Endpoint) ""
         let errors = if String.IsNullOrWhiteSpace endpoint then Errors.empty |> Errors.add "endpoint" "can't be blank" else Errors.empty
         match parseEndpoint endpoint with
         | None -> errors |> Errors.add "endpoint" "is not a valid URL"
@@ -154,40 +126,24 @@ module PushSubscription =
             errors |> Errors.add "endpoint" "resolves to a private or invalid IP address"
         | Some _ -> errors
 
-    /// `create`: validates (see `validate`) then inserts.
+    /// `create`: validates (see `validate`) then inserts. `subscription` gets its id and times in place (`Data.insert`).
     let create (tx: Tx) (subscription: PushSubscription) (resolve: string -> string option) : PushSubscription =
         Err.validate (validate resolve subscription)
-        let now = tx.Now()
-        let id =
-            tx.Conn.QueryRow(
-                """INSERT INTO "push_subscriptions" ("auth_key", "created_at", "endpoint", "p256dh_key", "updated_at", "user_agent", "user_id") VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING "id" """,
-                [| Sql.optS subscription.AuthKey
-                   T now
-                   Sql.optS subscription.Endpoint
-                   Sql.optS subscription.P256dhKey
-                   T now
-                   Sql.optS subscription.UserAgent
-                   I subscription.UserId |],
-                fun r -> r.Int64 0
-            )
-        { subscription with Id = id; CreatedAt = now; UpdatedAt = now }
+        Data.insert tx.Db subscription
 
     let destroy (tx: Tx) (subscription: PushSubscription) : unit =
-        tx.Conn.Execute("""DELETE FROM "push_subscriptions" WHERE "push_subscriptions"."id" = ?""", [| I subscription.Id |]) |> ignore
+        let id = subscription.Id
+        tx.Db.PushSubscriptions.Where(fun p -> p.Id = EF.Parameter id).ExecuteDelete() |> ignore
 
     /// `Push::Subscription.destroy_by(endpoint:, user_id:)`
     let destroyByEndpoint (tx: Tx) (userId: int64) (endpoint: string) : unit =
-        let ids =
-            tx.Conn.QueryAll(
-                """SELECT "push_subscriptions"."id" FROM "push_subscriptions" WHERE "push_subscriptions"."endpoint" = ? AND "push_subscriptions"."user_id" = ?""",
-                [| S endpoint; I userId |],
-                fun r -> r.Int64 0
-            )
-        for id in ids do
-            tx.Conn.Execute("""DELETE FROM "push_subscriptions" WHERE "push_subscriptions"."id" = ?""", [| I id |]) |> ignore
+        tx.Db.PushSubscriptions
+            .Where(fun p -> p.Endpoint = (EF.Parameter endpoint: string | null) && p.UserId = EF.Parameter userId)
+            .ExecuteDelete()
+        |> ignore
 
     /// The badge for a notification: `user.memberships.unread.count`.
-    let badge (conn: Conn) (subscription: PushSubscription) : int64 = Membership.unreadCountLegacy conn subscription.UserId
+    let badge (db: CampfireDb) (subscription: PushSubscription) : int64 = Membership.unreadCount db subscription.UserId
 
     // Room::MessagePusher
 
@@ -228,7 +184,7 @@ module PushSubscription =
     /// `build_payload`: direct rooms show the sender; others the room and "Sender: body".
     /// Unlike Rails, a long title or body is cut short (with an ellipsis) so the notification
     /// still fits a push message.
-    let payloadFor (db: Ef.CampfireDb) (richText: RichText) (room: Room) (message: Message) : PushPayload =
+    let payloadFor (db: CampfireDb) (richText: RichText) (room: Room) (message: Message) : PushPayload =
         let creator = Message.creator db message
         let body = Message.plainTextBody db richText message
         let path = $"/rooms/{room.Id}"
@@ -241,36 +197,51 @@ module PushSubscription =
           Body = truncateJsonString body MaxPayloadBodyBytes
           Path = path }
 
+    /// The subscriptions of users with a membership in `roomId` that is `involvement`, not the creator's, disconnected (never
+    /// connected, or last connected before the cutoff), restricted by `users` when given. The `users` join Rails writes only
+    /// requires the user to exist, which the foreign key already says.
+    let private forInvolvement
+        (db: CampfireDb)
+        (roomId: int64)
+        (creatorId: int64)
+        (involvement: Involvement)
+        (userIds: int64[] voption)
+        (now: DateTime)
+        : PushSubscription list =
+        let cutoff = Membership.connectionCutoff now
+        let memberships =
+            db.Memberships.Where(fun m ->
+                (not m.ConnectedAt.HasValue || m.ConnectedAt.Value < EF.Parameter cutoff)
+                && m.RoomId = EF.Parameter roomId
+                && m.UserId <> EF.Parameter creatorId
+                && m.Involvement.HasValue
+                && m.Involvement.Value = EF.Parameter involvement)
+        let subscriptions =
+            match userIds with
+            | ValueSome ids -> db.PushSubscriptions.Where(fun p -> Enumerable.Contains(EF.Parameter ids, p.UserId))
+            | ValueNone -> db.PushSubscriptions
+        subscriptions
+            .Join(memberships, (fun p -> p.UserId), (fun m -> m.UserId), (fun p _ -> p))
+            .ToList()
+        |> List.ofSeq
+
     /// `push_subscriptions_for_users_involved_in_everything`
-    let forUsersInvolvedInEverything (conn: Conn) (roomId: int64) (creatorId: int64) (now: Timestamp) : PushSubscription list =
-        conn.QueryAll(
-            "SELECT "
-            + Columns.PushSubscription
-            + " FROM \"push_subscriptions\" INNER JOIN \"users\" ON \"users\".\"id\" = \"push_subscriptions\".\"user_id\" INNER JOIN \"memberships\" ON \"memberships\".\"user_id\" = \"users\".\"id\" WHERE (\"memberships\".\"connected_at\" IS NULL OR \"memberships\".\"connected_at\" < ?) AND \"memberships\".\"room_id\" = ? AND \"memberships\".\"user_id\" != ? AND \"memberships\".\"involvement\" = 'everything'",
-            [| T(Membership.connectionCutoffLegacy now); I roomId; I creatorId |],
-            fromRow
-        )
+    let forUsersInvolvedInEverything (db: CampfireDb) (roomId: int64) (creatorId: int64) (now: DateTime) : PushSubscription list =
+        forInvolvement db roomId creatorId Involvement.Everything ValueNone now
 
     /// `push_subscriptions_for_mentionable_users(message.mentionees)`
-    let forMentionedUsers (conn: Conn) (roomId: int64) (creatorId: int64) (mentioneeIds: int64 list) (now: Timestamp) : PushSubscription list =
+    let forMentionedUsers (db: CampfireDb) (roomId: int64) (creatorId: int64) (mentioneeIds: int64 list) (now: DateTime) : PushSubscription list =
         if List.isEmpty mentioneeIds then
             []
         else
-            let sql =
-                "SELECT "
-                + Columns.PushSubscription
-                + " FROM \"push_subscriptions\" INNER JOIN \"users\" ON \"users\".\"id\" = \"push_subscriptions\".\"user_id\" INNER JOIN \"memberships\" ON \"memberships\".\"user_id\" = \"users\".\"id\" WHERE (\"memberships\".\"connected_at\" IS NULL OR \"memberships\".\"connected_at\" < ?) AND \"memberships\".\"room_id\" = ? AND \"memberships\".\"user_id\" != ? AND \"memberships\".\"involvement\" = 'mentions' AND \"push_subscriptions\".\"user_id\" IN ("
-                + Sql.placeholders (List.length mentioneeIds)
-                + ")"
-            let values = Array.ofList (T(Membership.connectionCutoffLegacy now) :: I roomId :: I creatorId :: (mentioneeIds |> List.map I))
-            conn.QueryAll(sql, values, fromRow)
+            forInvolvement db roomId creatorId Involvement.Mentions (ValueSome(Array.ofList mentioneeIds)) now
 
     /// `Room::MessagePusher#push`: the payload, and the subscriptions it goes to (everything
     /// first, then mentions).
-    let pushesFor (conn: Conn) (db: Ef.CampfireDb) (richText: RichText) (message: Message) (now: Timestamp) : PushPayload * PushSubscription list * PushSubscription list =
+    let pushesFor (db: CampfireDb) (richText: RichText) (message: Message) (now: DateTime) : PushPayload * PushSubscription list * PushSubscription list =
         let room = Room.find db message.RoomId
         let payload = payloadFor db richText room message
-        let everything = forUsersInvolvedInEverything conn room.Id message.CreatorId now
+        let everything = forUsersInvolvedInEverything db room.Id message.CreatorId now
         let mentioneeIds = Message.mentionees db richText message |> List.map (fun u -> u.Id)
-        let mentions = forMentionedUsers conn room.Id message.CreatorId mentioneeIds now
+        let mentions = forMentionedUsers db room.Id message.CreatorId mentioneeIds now
         payload, everything, mentions

@@ -72,3 +72,18 @@ let ``L2 an ExecuteUpdate setter value is a parameter, not a constant`` () =
                 .ExecuteUpdate(fun s -> s.SetProperty((fun m -> m.UpdatedAt), now) |> ignore)
             |> ignore)
     Assert.Equal(0, compiled)
+
+/// Unit 1.8: the queries of `Ban`, `PushSubscription` and the push subscriber lookups compile once whatever their values
+/// (`Ban.banned` runs on every non-GET request; the subscriber queries on every message).
+[<Fact>]
+let ``L3 ban and push queries keep the cache hitting with new values`` () =
+    let compiled =
+        compilationsFor (fun db n ->
+            let now = DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc).AddSeconds(float n)
+            Ban.banned db $"203.0.113.{n}" |> ignore
+            Ban.forUser db n |> ignore
+            (try PushSubscription.find db n |> ignore with DbException(RecordNotFound _) -> ())
+            PushSubscription.forUser db n |> ignore
+            PushSubscription.forUsersInvolvedInEverything db n (n + 1L) now |> ignore
+            PushSubscription.forMentionedUsers db n (n + 1L) [ for i in 1L .. n -> i ] now |> ignore)
+    Assert.Equal(0, compiled)
