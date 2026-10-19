@@ -905,3 +905,8 @@ Gates: `CAMPFIRE_REQUIRE_SEED=1 bin/verify` (Release, warnaserror): 0 warnings, 
 `bin/pixel-parity --fast --only "messages/**,rooms/**,interactions/**,search/**,bot_api/**"`: PASSED in 878 s, default 225/225, crowd 8/8, custom_styles 6/6 (two re-captures of the pixel-flake kind, then equal), first_run 0/0, restricted 2/2 screenshots, aria and loose equal (`bench/results/dotnetway-p1-5a/pixel.log`).
 The 13 `realtime/**` states one at a time, default seed: 13/13 equal (`pixel-realtime.log`). No bench (not this unit's gate). `bin/kloc`: 39,927 corrected (39.9 KLOC; 1.4 closed at 39,965); Campfire.Db 3,691, App 9,931.
 Host disk: 36 GB free before, 34 GB after; `bin/clean-docker` and `bin/clean-parity` run.
+
+### Phase 1, unit 1.5b: Messages: call sites (2026-10-19) - DONE (delivered inside 1.5a)
+
+Nothing was left to build: unit 1.5a moved every call site of 1.5b's row because the record changed under them (`Controllers/Messages*`, `Boosts`, `ByBots`, `BoostsByBots`, `Presenter`, `DbResolver`, `Broadcasts`, `CoreJobs`; see 1.5a). Audit at `f0fab8d`: none of those files uses `ReadOffloaded`, `app.Db` or `Legacy`; the only `Conn`/`tx.Conn.Raw` left in them is the storage layer's raw blob access in `Controllers/Messages.fs` (`saveStaged`, `touchAttachmentRecords`), which is unit 1.7's. LINQ: all queries EF LINQ, no `*Raw`, no `query { }`.
+Gates: `CAMPFIRE_REQUIRE_SEED=1 bin/verify` (Release, warnaserror) re-run on the unchanged tree: 1,065 tests, 1,059 passed, 0 failed, 6 skipped (environmental). The unit's pixel gate (`messages/**`, `rooms/**`, `interactions/**`) was run in 1.5a (default 225/225, realtime 13/13); not repeated, the tree is unchanged. No new differences.
