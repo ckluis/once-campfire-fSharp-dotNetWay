@@ -1,1 +1,1 @@
-H3: 1279 posts in 3.0 s = 422 posts/s (0 not 2xx)
+H3: 2559 posts in 3.0 s = 849 posts/s (0 not 2xx)

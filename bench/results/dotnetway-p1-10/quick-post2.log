@@ -1,0 +1,123 @@
+date: 2026-10-19T14:39:37-04:00
+host: 6.8.0-117-generic, , 8 threads, 5GB
+server cpus: 0-3 (nproc 4); loadgen cpus: 4-7; network: host
+env: WEB_CONCURRENCY=3 JOB_CONCURRENCY=3 RAILS_MAX_THREADS=5 
+rust extra env: 
+fsharp extra env: 
+dotnetway extra env: 
+user agent: (none)
+dotnetway image: campfire-dotnetway:app sha256:dd5326b3a5b949c422376de0802703ea140488ce25acf2dbfec0af22f483025c 2026-10-19T14:39:01.85579768-04:00 built from commit: 4e977a89d47c9c54ca20017520e861fb21c43bce
+repo HEAD: 4e977a8 (dirty: 0 files under src/ and rust/)
+work dir (seed copies): /var/tmp/campfire-bench-work (ext4)
+loadgen: /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/target/rust/aarch64-unknown-linux-gnu/release/loadgen (2026-10-13 18:47:07), built with rust:1.98.1-trixie
+schedule: apps dotnetway, reps 1; suites: http; http secs 8, concs 1 16, routes post_message, warm-up 30s at each route and concentration, idle 5s
+log retention: 2 x 10m (json-file)
+[14:39:48] load before run: 1.29 1.20 1.56 (waited 10s)
+[14:39:51] host probe before run: {"spin_ms": 59.29, "spin_ms_max_cpu": 61.97, "cpus": "0-3,4-7", "baseline_ms": 55.57, "ratio": 1.067} (waited 10s)
+[14:39:51] dotnetway rep 1: starting (load: 1.29 1.20 1.56)
+[14:39:56] dotnetway rep 1: cold start 391ms, idle 48MB (anon 25MB)
+[14:40:37] dotnetway rep 1: post_message c=1 650.0 rps p50 1.371 p99 5.571 {'200': 5201} err 0 cpu 2577.5 us/req; warm-up 30.0 s settled tail 640.6 host 1.069
+[14:41:24] dotnetway rep 1: post_message c=16 1363.8 rps p50 11.687 p99 18.831 {'200': 10926} err 0 cpu 2375.1 us/req; warm-up 36.2 s settled tail 1325.8 host 1.086
+[14:41:28] dotnetway rep 1: done -> /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/bench/results/dotnetway-p1-10/quick-post2/dotnetway-1.json
+```
+date: 2026-10-19T14:39:37-04:00
+host: 6.8.0-117-generic, , 8 threads, 5GB
+server cpus: 0-3 (nproc 4); loadgen cpus: 4-7; network: host
+env: WEB_CONCURRENCY=3 JOB_CONCURRENCY=3 RAILS_MAX_THREADS=5 
+rust extra env: 
+fsharp extra env: 
+dotnetway extra env: 
+user agent: (none)
+dotnetway image: campfire-dotnetway:app sha256:dd5326b3a5b949c422376de0802703ea140488ce25acf2dbfec0af22f483025c 2026-10-19T14:39:01.85579768-04:00 built from commit: 4e977a89d47c9c54ca20017520e861fb21c43bce
+repo HEAD: 4e977a8 (dirty: 0 files under src/ and rust/)
+work dir (seed copies): /var/tmp/campfire-bench-work (ext4)
+loadgen: /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/target/rust/aarch64-unknown-linux-gnu/release/loadgen (2026-10-13 18:47:07), built with rust:1.98.1-trixie
+schedule: apps dotnetway, reps 1; suites: http; http secs 8, concs 1 16, routes post_message, warm-up 30s at each route and concentration, idle 5s
+log retention: 2 x 10m (json-file)
+```
+
+Reps: dotnetway 1. Cells: median [min–max].
+
+### Startup and memory
+
+| Metric | theDotNetWay |
+|---|---|
+| cold start: docker run → /up 200 (ms) | 391 |
+| idle memory.current (MB) | 48.0 |
+| idle anon (MB) | 25.0 |
+| peak memory.current under load (MB) | 292 |
+| peak anon under load (MB) | 228 |
+
+### HTTP (signed in as david; keep-alive; c = concurrent connections)
+
+`CPU µs/req` is the container's CPU (cgroup cpu.stat, user + system, unprofiled) over the run divided by its requests; for CPU a ratio below 1 means the first app spends more per request.
+
+| Metric | theDotNetWay |
+|---|---|
+| post_message c=1 req/s | 650 |
+| post_message c=1 CPU µs/req | 2,578 |
+| post_message c=1 p50 ms | 1.37 |
+| post_message c=1 p99 ms | 5.57 |
+| post_message c=16 req/s | 1,364 |
+| post_message c=16 CPU µs/req | 2,375 |
+| post_message c=16 p50 ms | 11.7 |
+| post_message c=16 p99 ms | 18.8 |
+
+## Validity
+
+### Load average before each run (1, 5, 15 minutes; the run waited for the 1-minute figure to fall below LOAD_MAX)
+
+| App | Rep | Before | After |
+|---|---|---|---|
+| theDotNetWay | 1 | 1.29 1.20 1.56 | 2.63 1.59 1.66 |
+
+### Host CPU probe (a fixed spin timed on every pinned CPU, against the quietest this VM has shown; bench/lib/hostprobe.py)
+
+The VM's load average cannot see another program on the Mac taking the cores its vCPUs run on; this can. A ratio of 1.00 is a quiet host, above 1.10 the pinned server and load generator were slowed by something outside the run. `After each window` probes the machine right after every measured run of the rep.
+
+| App | Rep | Before the run | After the run | Windows probed above 1.10 | Highest after a window |
+|---|---|---|---|---|---|
+| theDotNetWay | 1 | 1.07 | 1.09 | 0/2 | 1.09 |
+
+### Responses by status class, every HTTP run of every rep
+
+| App | Route | 2xx | 3xx | 4xx | 5xx | Errors (no response) |
+|---|---|---|---|---|---|---|
+| theDotNetWay | post_message | 16,127 | 0 | 0 | 0 | 0 |
+
+### Warm-up before each measured run (the app runs the route at the measured concurrency until its throughput is flat; bench/lib/warmup.py)
+
+`measured / warm-up tail` is the measured run's requests a second over the mean of the last three 2 s warm-up windows: well above 1 would mean the app was still speeding up when measurement began, well below 1 that it was slowing down.
+
+| App | Route | c | warm-up seconds | settled | measured / warm-up tail |
+|---|---|---|---|---|---|
+| theDotNetWay | post_message | 1 | 30.0 | 1/1 | 1.01 |
+| theDotNetWay | post_message | 16 | 36.2 | 1/1 | 1.03 |
+
+### Rows written by `post_message` (messages of the write room counted in the app's SQLite file around each run)
+
+| App | Rep | Phase | Posts answered below 400 | Rows written | Match |
+|---|---|---|---|---|---|
+| theDotNetWay | 1 | warm-up c=1 | 16,267 | 16,267 | yes |
+| theDotNetWay | 1 | run c=1 | 5,201 | 5,201 | yes |
+| theDotNetWay | 1 | warm-up c=16 | 47,983 | 47,983 | yes |
+| theDotNetWay | 1 | run c=16 | 10,926 | 10,926 | yes |
+| theDotNetWay | 1 | **all** | 80,377 | 80,377 | yes |
+
+### Response bytes, one request per route (gzip: wire / decoded; identity: bytes) and the average over the c=16 run
+
+The probe is a single request after sign-in, before any load. Bodies carry per-request tokens and the clock, so sizes of two apps agree to within a few bytes when they render the same page. "c=16 avg" is what the load generator received per request on the wire (gzip unless the column says otherwise).
+
+| Route | theDotNetWay gzip wire / decoded | theDotNetWay identity | theDotNetWay c=16 avg | F# vs Rust |
+|---|---|---|---|---|
+| post_message | – | – | 1,991 | – |
+theDotNetWay in /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/bench/results/dotnetway-p1-10/quick-post2 against the stored medians of bench/results/phase7-final (Rails, Rust and the F# port, 3 reps each, one session)
+
+| Workload | c | theDotNetWay req/s | F# port stored | vs port | Rust stored | **theDotNetWay / Rust (vs stored Rust baseline)** | Rails stored | **theDotNetWay / Rails** | CPU us/req | port | Rust stored |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| post a message | 16 | 1,364 | 8,905 | 0.153x | 7,174 | **0.190x** | 330 | **4.131x** | 2,375.1 | 353.0 | 385.6 |
+| post a message | 1 | 650 | 3,052 | 0.213x | 2,779 | **0.234x** | 167 | **3.895x** | 2,577.5 | 629.1 | 403.7 |
+
+Checks:
+  responses: every one 2xx with 0 connection errors in 2 runs
+  decoded bytes equal Rust's on every probed route; post rows written equal the 2xx answers in every phase
