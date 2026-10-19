@@ -335,16 +335,18 @@ let configFor (root: string) (extra: (string * string) list) : AppConfig =
     | Ok config -> config
     | Error message -> failwith message
 
-let private start (config: AppConfig) (dir: string) : Task<Test> =
+let private startWith dbOptions (config: AppConfig) (dir: string) : Task<Test> =
     task {
         let logs = new CapturingLoggers()
-        let! booted = Boot.boot config logs
+        let! booted = Boot.bootWith dbOptions config logs
         let! host = startPipelineWith booted.ConfigureServices booted.Pipeline
         return new Test(booted, dir, host, logs)
     }
 
-/// An app booted over a private copy of seed `name`, or `None` (a skip) when the seed isn't built.
-let bootSeeded (name: string) : Task<Test> =
+let private start (config: AppConfig) (dir: string) : Task<Test> = startWith ignore config dir
+
+/// An app booted over a private copy of seed `name`, with `dbOptions` applied to the EF context options (tests: `LogTo`).
+let bootSeededWith dbOptions (name: string) : Task<Test> =
     task {
         match Repo.seed name with
         | None ->
@@ -358,11 +360,14 @@ let bootSeeded (name: string) : Task<Test> =
                 if File.Exists from then File.Copy(from, Path.Combine(dir, "db", file))
             let storage = Path.Combine(seed, "storage")
             if Directory.Exists storage then copyDir storage (Path.Combine(dir, "files"))
-            let! test = start (configFor dir []) dir
+            let! test = startWith dbOptions (configFor dir []) dir
             let labels = Path.Combine(seed, "labels.json")
             if File.Exists labels then test.Labels <- Some((JsonDocument.Parse(File.ReadAllText labels)).RootElement.Clone())
             return test
     }
+
+/// An app booted over a private copy of seed `name`, or a skip when the seed isn't built.
+let bootSeeded (name: string) : Task<Test> = bootSeededWith ignore name
 
 /// An app booted over an empty storage directory (a fresh install's database).
 let bootEmpty () : Task<Test> =

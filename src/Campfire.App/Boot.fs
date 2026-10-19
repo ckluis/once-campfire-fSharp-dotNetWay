@@ -144,7 +144,11 @@ module Boot =
 
     /// Boots the app from `config`: prepares the database, restores the reference's boot-time side
     /// effects, and builds the HTTP stack.
-    let boot (config: AppConfig) (loggers: ILoggerFactory) : Task<Booted> =
+    let bootWith
+        (dbOptions: Microsoft.EntityFrameworkCore.DbContextOptionsBuilder<Campfire.Db.Ef.CampfireDb> -> unit)
+        (config: AppConfig)
+        (loggers: ILoggerFactory)
+        : Task<Booted> =
         task {
             StoragePaths.createDirs config.Storage
             let secrets = Secrets.create config.SecretKeyBase
@@ -157,7 +161,7 @@ module Boot =
             let jobs = Jobs(JobLimits.QueueCapacity, loggers.CreateLogger "campfire.jobs")
             let richText = AppRichText(secrets, clock, loggers.CreateLogger "campfire.rich_text")
             let time = Campfire.Db.Ef.ClockTimeProvider clock
-            let dbFactory = Campfire.Db.Ef.Data.factory (Campfire.Db.Ef.Data.options config.Storage.Database time ignore)
+            let dbFactory = Campfire.Db.Ef.Data.factory (Campfire.Db.Ef.Data.options config.Storage.Database time dbOptions)
             // `db:prepare` (E15): the schema goes in through EF before the port's writer and readers open the file.
             do!
                 Task.Run(fun () ->
@@ -203,6 +207,9 @@ module Boot =
                   ConfigureServices = fun services -> Campfire.Db.Ef.Data.addServices services dbFactory db.Gate time
                   Jobs = runner }
         }
+
+    /// `bootWith` with no extra context options (production).
+    let boot (config: AppConfig) (loggers: ILoggerFactory) : Task<Booted> = bootWith ignore config loggers
 
     // --- Commands ----------------------------------------------------------------------------------------
 

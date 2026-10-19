@@ -35,6 +35,7 @@
     <Compile Include="BroadcastsTests.fs" />
     <Compile Include="RevocationTests.fs" />
     <Compile Include="ChannelsGoldenTests.fs" />
+    <Compile Include="HotPathTests.fs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="testdata/**" CopyToOutputDirectory="PreserveNewest" />
