@@ -29,8 +29,8 @@ let ``searching records and clears recent searches`` () =
 
         let! cleared = david.Write(request "DELETE" "/searches/clear")
         Assert.Equal(Some "http://campfire.test/searches", cleared.Location)
-        let! count = test.App.Db.Read(fun conn -> Search.countForUser conn DAVID)
-        Assert.Equal(0L, unwrap count)
+        use context = test.App.DbFactory.CreateDbContext()
+        Assert.Equal(0L, Search.countForUser context DAVID)
 
         let! missing = david.Write(request "POST" "/searches")
         Assert.Equal(500, missing.Status)

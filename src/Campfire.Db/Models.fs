@@ -114,6 +114,22 @@ module User =
             .ToList()
         |> List.ofSeq
 
+    /// `users_scope.active[.filtered_by(query)].ordered`, `users_scope` being a room's users or all of them (the autocomplete).
+    let autocompletable (db: Ef.CampfireDb) (roomId: int64 option) (query: string option) : User list =
+        let scope =
+            match roomId with
+            | Some roomId ->
+                db.Users.Join(db.Memberships.Where(fun m -> m.RoomId = EF.Parameter roomId), (fun u -> u.Id), (fun m -> m.UserId), (fun u _ -> u))
+            | None -> db.Users :> IQueryable<User>
+        let active = scope.Where(fun u -> u.Status = Status.Active)
+        let filtered =
+            match query with
+            | Some query ->
+                let pattern = $"%%{query}%%"
+                active.Where(fun u -> EF.Functions.Like(u.Name, EF.Parameter pattern))
+            | None -> active
+        filtered.OrderBy(fun u -> u.Name.ToLower()).ToList() |> List.ofSeq
+
     /// `User.active_bots.find(id)`
     let findActiveBot (db: Ef.CampfireDb) (id: int64) : User =
         db.Users.Where(fun u -> u.Status = Status.Active && u.Role = Role.Bot && u.Id = EF.Parameter id)

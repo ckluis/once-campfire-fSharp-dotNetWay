@@ -55,15 +55,15 @@ let ``deactivating a user deletes push subscriptions searches memberships for no
     let withoutDirects = t.ReadEf(fun c -> Membership.countWithoutDirectRooms c david)
     let subscriptions = t.Read PushSubscription.count
     let davidsSubscriptions = int64 (List.length (t.Read(fun c -> PushSubscription.forUser c david)))
-    let searches = t.Read Search.count
-    let davidsSearches = t.Read(fun c -> Search.countForUser c david)
+    let searches = t.ReadEf Search.count
+    let davidsSearches = t.ReadEf(fun c -> Search.countForUser c david)
 
     let user = user t "david"
     t.WriteEf(fun tx -> User.deactivate tx user |> ignore)
 
     Assert.Equal(memberships - withoutDirects, t.ReadEf Membership.count)
     Assert.Equal(subscriptions - davidsSubscriptions, t.Read PushSubscription.count)
-    Assert.Equal(searches - davidsSearches, t.Read Search.count)
+    Assert.Equal(searches - davidsSearches, t.ReadEf Search.count)
 
     let reloaded = t.ReadEf(fun c -> User.find c david)
     let email = nonNull reloaded.EmailAddress

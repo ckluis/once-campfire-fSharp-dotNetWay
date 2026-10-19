@@ -101,7 +101,7 @@ let ``every model reads the rows Rails wrote`` () =
         Assert.Equal(169L, efRead path Message.count)
         Assert.Equal(39L, efRead path Membership.count)
         Assert.Equal(1L, efRead path Account.count)
-        Assert.Equal(3L, read Search.count)
+        Assert.Equal(3L, efRead path Search.count)
         Assert.Equal(5L, read PushSubscription.count)
 
         let david = efRead path (fun c -> User.find c (label seed "users.david"))

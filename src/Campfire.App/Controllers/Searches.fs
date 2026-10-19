@@ -59,8 +59,7 @@ module SearchesController =
                     match query with
                     | Some query -> Message.searchReachable db user.Id query
                     | None -> [])
-            let! recentSearches =
-                c.App.ReadOffloaded(fun conn -> Search.orderedForUser conn user.Id |> List.map (fun search -> search.Query))
+            let! recentSearches = c.Read(fun db -> Search.orderedForUser db user.Id |> List.map (fun search -> search.Query))
             let! returnToRoomId =
                 c.Read(fun db ->
                     Concerns.lastRoomVisitedIn db user.Id lastRoom |> Option.map (fun room -> room.Id) |> Option.defaultValue 0L)
@@ -93,7 +92,7 @@ module SearchesController =
                 match query with
                 | Some query -> Ok query
                 | None -> Error(Internal(exn "NOT NULL constraint failed: searches.query"))
-            let! (_: Search) = c.App.Write(fun tx -> Search.record tx user.Id recorded)
+            let! (_: Search) = c.Write(fun tx -> Search.record tx user.Id recorded)
             let path =
                 match query with
                 | Some query -> searchPath query
@@ -107,6 +106,6 @@ module SearchesController =
             let! q = queryParam c
             let! (_: Message list) = setMessages c q
             let! (user: User) = Concerns.requireCurrentUser c
-            do! c.App.Write(fun tx -> Search.destroyAllForUser tx user.Id)
+            do! c.Write(fun tx -> Search.destroyAllForUser tx user.Id)
             return! c.RedirectTo(c.UrlFor(Routes.searches ()))
         }

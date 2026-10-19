@@ -126,16 +126,16 @@ let ``recording searches keeps the ten most recent`` () =
     let david = id "david"
     for n in 0..11 do
         t.Travel 1L
-        t.Write(fun tx -> Search.record tx david $"query {n}" |> ignore)
-    let searches = t.Read(fun c -> Search.orderedForUser c david)
+        t.WriteEf(fun tx -> Search.record tx david $"query {n}" |> ignore)
+    let searches = t.ReadEf(fun c -> Search.orderedForUser c david)
     // The 12th creation trims to ten before its touch.
     Assert.Equal(10, List.length searches)
     Assert.Equal("query 11", searches[0].Query)
     Assert.False(searches |> List.exists (fun s -> s.Query = "pizza"))
 
     t.Travel 1L
-    t.Write(fun tx -> Search.record tx david "query 5" |> ignore)
-    Assert.Equal("query 5", (List.head (t.Read(fun c -> Search.orderedForUser c david))).Query)
+    t.WriteEf(fun tx -> Search.record tx david "query 5" |> ignore)
+    Assert.Equal("query 5", (List.head (t.ReadEf(fun c -> Search.orderedForUser c david))).Query)
 
 [<Fact>]
 let ``timestamps are written like active record`` () =
@@ -160,10 +160,9 @@ let ``async writes and reads`` () =
         use t = new TestDb()
         let writes =
             [ for n in 0..19 ->
-                  t.Db.Write(fun tx -> Search.record tx (id "jason") $"q{n}" |> ignore) ]
+                  Task.Run(fun () -> t.TryWriteEf(fun tx -> Search.record tx (id "jason") $"q{n}" |> ignore)) ]
         let! results = Task.WhenAll writes
         for result in results do
             unwrap result
-        let! count = t.Db.Read(fun c -> Search.countForUser c (id "jason"))
-        Assert.Equal(10L, unwrap count)
+        Assert.Equal(10L, t.ReadEf(fun c -> Search.countForUser c (id "jason")))
     }

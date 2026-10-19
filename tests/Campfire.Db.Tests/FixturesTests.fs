@@ -131,9 +131,10 @@ let ``export database for rails`` () =
                 user))
                 .GetAwaiter().GetResult()
             |> unwrap
-        unwrap (db.WriteBlocking(fun tx -> Search.record tx rusty.Id "hovercraft" |> ignore))
+        let rustyId = rusty.Id
         use context = factory.CreateDbContext()
         (Ef.Writes.run db.Gate efEnv context (fun tx ->
+            Search.record tx rustyId "hovercraft" |> ignore
             let message =
                 Message.create
                     tx

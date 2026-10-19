@@ -79,7 +79,7 @@ let private runScenario (t: TestDb) : unit =
     t.WriteEf(fun tx -> User.removeBannedContent tx (User.find tx.Db (id "jz")) |> ignore)
     t.WriteEf(fun tx -> User.deactivate tx (User.find tx.Db (id "jz")) |> ignore)
     for n in 0..11 do
-        t.Write(fun tx -> Search.record tx (id "david") $"q{n}" |> ignore)
+        t.WriteEf(fun tx -> Search.record tx (id "david") $"q{n}" |> ignore)
     let bot = t.WriteEf(fun tx -> User.createBot tx "Bot" (Some "http://x"))
     t.WriteEf(fun tx -> User.updateBot tx bot { UserChanges.none with Name = Some "Bot2" } (Some "http://y") |> ignore)
     t.WriteEf(fun tx ->

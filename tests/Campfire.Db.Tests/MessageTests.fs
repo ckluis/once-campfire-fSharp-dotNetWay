@@ -102,6 +102,36 @@ let ``search reachable only finds messages in the users rooms`` () =
     Assert.Equal<int64 list>([ message.Id ], found |> List.map (fun m -> m.Id))
     Assert.True(List.isEmpty (t.ReadEf(fun c -> Message.searchReachable c (id "bender") "hovercraft")))
 
+/// P2: `searchReachable` finds what the port's hand-written FTS5 query finds, for a word, a quoted phrase, a NUL-separated query and "".
+[<Fact>]
+let ``search reachable equals the ports query for a word a quoted phrase a nul separated query and nothing`` () =
+    use t = new TestDb()
+    for body in [ "coffee beans"; "my coffee is cold"; "cold brew"; "say \"coffee\" twice" ] do
+        t.Travel 1L
+        create t "designers" "david" body "earth" |> ignore
+    let david = id "david"
+    // (query, the MATCH string the port's `match_terms` makes of it)
+    let cases =
+        [ "coffee", "\"coffee\""
+          "\"my coffee\"", "\"\"\"my\" \"coffee\"\"\""
+          "cold\000brew", "\"cold\" \"brew\""
+          "", "" ]
+    for query, terms in cases do
+        let expected =
+            if terms = "" then
+                []
+            else
+                t.Read(fun c ->
+                    c.QueryAll(
+                        "SELECT messages.id FROM messages INNER JOIN rooms ON messages.room_id = rooms.id INNER JOIN memberships ON rooms.id = memberships.room_id JOIN message_search_index idx ON messages.id = idx.rowid WHERE memberships.user_id = ? AND (idx.body MATCH ?) ORDER BY messages.created_at DESC LIMIT 100",
+                        [| I david; S terms |],
+                        fun r -> r.Int64 0
+                    ))
+                |> List.rev
+        let found = t.ReadEf(fun c -> Message.searchReachable c david query) |> List.map (fun m -> m.Id)
+        Assert.Equal<int64 list>(expected, found)
+        if terms <> "" then Assert.NotEmpty found
+
 [<Fact>]
 let ``creating a blank message with attachment uses filename as plain text body`` () =
     use t = new TestDb()

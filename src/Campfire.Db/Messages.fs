@@ -32,3 +32,12 @@ type RichTextRecord =
       Body: string | null
       CreatedAt: DateTime
       UpdatedAt: DateTime }
+
+/// `searches` (`reference/app/models/search.rb`): a user's recent queries.
+[<CLIMutable>]
+type Search =
+    { Id: int64
+      UserId: int64
+      Query: string
+      CreatedAt: DateTime
+      UpdatedAt: DateTime }

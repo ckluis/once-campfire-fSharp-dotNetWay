@@ -38,14 +38,6 @@ module Names =
         | other -> failwith $"unknown involvement '{other}'"
 
 [<CLIMutable>]
-type Search =
-    { Id: int64
-      UserId: int64
-      Query: string
-      CreatedAt: DateTime
-      UpdatedAt: DateTime }
-
-[<CLIMutable>]
 type Ban =
     { Id: int64
       UserId: int64
