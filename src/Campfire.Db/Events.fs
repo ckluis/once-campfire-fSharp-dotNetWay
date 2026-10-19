@@ -3,7 +3,7 @@ namespace Campfire.Db
 
 /// Side effects that leave the database. Models emit these at the point Rails performs
 /// them; the caller supplies the `EventSink` that turns them into jobs, cable
-/// disconnects and so on. The sink runs on the writer thread, so it must hand work off
+/// disconnects and so on. The sink runs inside the write's after-commit step (the write gate is still held), so it must hand work off
 /// (push onto a queue) rather than do it inline.
 type Event =
     /// `Room::PushMessageJob.perform_later(room, message)`, from `Room#receive` after a

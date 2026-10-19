@@ -37,7 +37,6 @@ type DbError =
     | RecordNotFound of model: string
     /// `ActiveRecord::RecordInvalid`
     | RecordInvalid of Errors
-    | WriterGone
     /// Any other failure, kept as its own type so that its source chain survives.
     | Other of exn
 
@@ -50,7 +49,6 @@ module DbError =
         | Sqlite e -> e.Message
         | RecordNotFound model -> $"Couldn't find {model}"
         | RecordInvalid errors -> $"Validation failed: {Errors.display errors}"
-        | WriterGone -> "database writer is gone"
         | Other e -> e.Message
 
     [<Literal>]

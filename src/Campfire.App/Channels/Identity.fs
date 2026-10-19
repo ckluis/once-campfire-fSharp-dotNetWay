@@ -23,10 +23,10 @@ type Cable = Server<CableUser>
 
 /// What the cable server needs from the app.
 type Deps =
-    { Db: Database
-      /// EF Core beside the old `Db` until unit 1.11: the connection's session and user lookup uses it.
+    { /// The connection's session and user lookup, and the channels' reads and writes.
       DbFactory: Microsoft.EntityFrameworkCore.IDbContextFactory<Campfire.Db.Ef.CampfireDb>
-      /// The write environment for the channels that write (presence); the gate is `Db.Gate`.
+      /// The write environment for the channels that write (presence); `Gate` is the one writer at a time.
+      Gate: WriteGate
       Env: Campfire.Db.Ef.Env
       Secrets: Secrets
       Clock: SharedClock }

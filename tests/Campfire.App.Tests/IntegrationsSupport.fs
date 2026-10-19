@@ -326,17 +326,20 @@ type TestDb() =
     let path = Path.Combine(dir, "test.sqlite3")
     let factory = Campfire.Db.Ef.Data.factory (Campfire.Db.Ef.Data.options path time ignore)
     let efEnv: Campfire.Db.Ef.Env = { Time = time; Sink = NullSink(); RichText = richText; BcryptCost = 4 }
-    let db =
-        let env: Env =
-            { Clock = clock
-              Sink = NullSink()
-              BcryptCost = 4 }
+    let gate = WriteGate()
+    do
         Schema.prepareFile path "test" time |> ignore
-        let db = Database.Open(Config.create path, env)
-        Testing.loadFixtures db.Gate efEnv factory
-        db
+        Testing.loadFixtures gate efEnv factory
 
-    member _.Db: Database = db
+    /// The one writer at a time, for `Writes.run`.
+    member _.Gate: WriteGate = gate
+
+    /// A plain connection on the database file for the length of `f`, to put in what no model makes (the tests take no gate: nothing
+    /// else is writing).
+    member _.Sql(f: Microsoft.Data.Sqlite.SqliteConnection -> 'T) : 'T =
+        use conn = new Microsoft.Data.Sqlite.SqliteConnection($"Data Source={path};Pooling=False")
+        conn.Open()
+        f conn
 
     /// EF Core over the same file (the message models run on it).
     member _.Factory: Microsoft.EntityFrameworkCore.IDbContextFactory<Campfire.Db.Ef.CampfireDb> = factory
@@ -347,7 +350,7 @@ type TestDb() =
 
     interface IDisposable with
         member _.Dispose() =
-            (db :> IDisposable).Dispose()
+            Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools()
             try
                 Directory.Delete(dir, true)
             with _ ->

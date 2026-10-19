@@ -33,7 +33,7 @@ module Session =
             tx.Db
             { Id = 0L
               UserId = userId
-              Token = Sql.base58 24
+              Token = Tokens.base58 24
               IpAddress = Option.toObj ipAddress
               UserAgent = Option.toObj userAgent
               LastActiveAt = now

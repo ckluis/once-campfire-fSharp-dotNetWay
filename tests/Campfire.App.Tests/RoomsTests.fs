@@ -21,12 +21,6 @@ let private unwrap (result: Result<'T, DbError>) : 'T =
     | Ok value -> value
     | Error e -> failwith (DbError.display e)
 
-let private read (test: Test) (f: Conn -> 'T) : Task<'T> =
-    task {
-        let! result = test.App.Db.Read f
-        return unwrap result
-    }
-
 let private readEf (test: Test) (f: Ef.CampfireDb -> 'T) : Task<'T> =
     task {
         use context = test.App.DbFactory.CreateDbContext()
@@ -94,14 +88,11 @@ let ``a membership of a missing room is a server error`` () =
     task {
         use! test = bootSeeded "default"
         let missingRoom = 999_999L
-        let! written =
-            test.App.Db.Write(fun tx ->
-                tx.Conn.Execute(
-                    "INSERT INTO memberships (room_id, user_id, created_at, updated_at) VALUES (?, ?, '2026-01-01', '2026-01-01')",
-                    [| I missingRoom; I DAVID |]
-                )
-                |> ignore)
-        unwrap written
+        do!
+            test.Execute(
+                "INSERT INTO memberships (room_id, user_id, created_at, updated_at) VALUES (?, ?, '2026-01-01', '2026-01-01')",
+                [ box missingRoom; box DAVID ]
+            )
         let david = david test
         let! gone = david.Get $"/rooms/{missingRoom}/messages"
         Assert.Equal(500, gone.Status)

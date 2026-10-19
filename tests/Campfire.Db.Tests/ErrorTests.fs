@@ -17,11 +17,11 @@ let ``other errors keep their type and message`` () =
 
 [<Fact>]
 let ``unique violations are record not unique`` () =
-    use conn = Conn.OpenInMemory()
-    conn.ExecuteBatch "CREATE TABLE users (id INTEGER PRIMARY KEY, email TEXT NOT NULL UNIQUE)"
-    conn.ExecuteBatch "INSERT INTO users VALUES (1, 'a@example.com')"
+    use conn = Support.Raw.openFile ":memory:"
+    Support.Raw.exec conn "CREATE TABLE users (id INTEGER PRIMARY KEY, email TEXT NOT NULL UNIQUE)"
+    Support.Raw.exec conn "INSERT INTO users VALUES (1, 'a@example.com')"
     let insert (sql: string) =
-        let e = Assert.Throws<SqliteException>(fun () -> conn.ExecuteBatch sql)
+        let e = Assert.Throws<SqliteException>(fun () -> Support.Raw.exec conn sql)
         Sqlite e
 
     Assert.True(DbError.isRecordNotUnique (insert "INSERT INTO users VALUES (2, 'a@example.com')"))

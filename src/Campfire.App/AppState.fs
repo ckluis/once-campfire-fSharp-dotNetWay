@@ -28,7 +28,6 @@ module AppErrors =
         | RecordInvalid _ -> Campfire.Kit.Error.WithStatus(Status.UnprocessableEntity, Exception(DbError.display error))
         | Sqlite e -> Campfire.Kit.Error.Internal e
         | Other e -> Campfire.Kit.Error.Internal e
-        | WriterGone -> Campfire.Kit.Error.Internal(Exception(DbError.display error))
 
 /// Everything that outlives a request.
 [<Sealed; NoComparison; NoEquality>]
@@ -37,7 +36,7 @@ type AppState
         config: AppConfig,
         secrets: Secrets,
         clock: SharedClock,
-        db: Database,
+        gate: WriteGate,
         dbFactory: IDbContextFactory<Campfire.Db.Ef.CampfireDb>,
         env: Campfire.Db.Ef.Env,
         storage: Storage,
@@ -51,14 +50,14 @@ type AppState
     member _.Config = config
     member _.Secrets = secrets
     member _.Clock = clock
-    member _.Db = db
 
-    /// EF Core beside the old `Db` until unit 1.11: `Writes.run app.Gate app.Env ctx` for jobs, channels and integrations
+    /// EF Core: `Writes.run app.Gate app.Env ctx` for jobs, channels and integrations
     /// (`use ctx = app.DbFactory.CreateDbContext()`), a scoped `CampfireDb` from `c.Db` in actions.
     member _.DbFactory = dbFactory
 
-    /// The one writer at a time, shared with the old `Db`'s writer (`Database.Gate`).
-    member _.Gate : WriteGate = db.Gate
+    /// The one writer at a time (SQLite has one): every `Writes.run` holds it from before `BEGIN IMMEDIATE` to the end of its
+    /// after-commit work.
+    member _.Gate : WriteGate = gate
 
     member _.Env = env
     member _.Storage = storage
@@ -83,14 +82,6 @@ type AppState
         | Some _ -> config.VapidPublicKey
         | None -> None
 
-    /// `db.Read` for actions, whose errors become responses as `AppErrors.dbError` maps them. (Jobs
-    /// and channels use `db.Read`, for a `DbError` result.)
-    member _.Read<'T>(f: Conn -> 'T) : Task<Result<'T, Campfire.Kit.Error>> =
-        task {
-            let! result = db.Read f
-            return result |> Result.mapError AppErrors.dbError
-        }
-
     /// `Reads.run` over a context leased for the call, for what has no request (jobs, integrations), with errors mapped as `Read`
     /// maps them.
     member _.ReadEf<'T>(f: Campfire.Db.Ef.CampfireDb -> 'T) : Task<Result<'T, Campfire.Kit.Error>> =
@@ -101,22 +92,7 @@ type AppState
     member _.WriteEf<'T>(f: Campfire.Db.Ef.Tx -> 'T) : Task<Result<'T, Campfire.Kit.Error>> =
         task {
             use context = dbFactory.CreateDbContext()
-            let! result = Campfire.Db.Ef.Writes.run db.Gate env context f
-            return result |> Result.mapError AppErrors.dbError
-        }
-
-    /// `db.ReadOffloaded` for actions (reads whose cost grows with the whole database), with errors
-    /// mapped as `Read` maps them.
-    member _.ReadOffloaded<'T>(f: Conn -> 'T) : Task<Result<'T, Campfire.Kit.Error>> =
-        task {
-            let! result = db.ReadOffloaded f
-            return result |> Result.mapError AppErrors.dbError
-        }
-
-    /// `db.Write` for actions, whose errors become responses as `AppErrors.dbError` maps them.
-    member _.Write<'T>(f: Tx -> 'T) : Task<Result<'T, Campfire.Kit.Error>> =
-        task {
-            let! result = db.Write f
+            let! result = Campfire.Db.Ef.Writes.run gate env context f
             return result |> Result.mapError AppErrors.dbError
         }
 

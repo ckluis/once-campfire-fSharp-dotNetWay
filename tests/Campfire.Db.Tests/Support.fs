@@ -22,7 +22,7 @@ let unwrap (result: Result<'T, DbError>) : 'T =
 let id (label: string) : int64 = Fixtures.identify label
 
 /// A distinct time for each `n`, with microseconds.
-let at (n: int64) : Timestamp = Timestamp.FromMicrosecond(1_790_000_000_000_000L + n * 1_000_123L)
+let at (n: int64) : DateTime = DateTime(DateTime.UnixEpoch.Ticks + (1_790_000_000_000_000L + n * 1_000_123L) * 10L, DateTimeKind.Utc)
 
 /// A directory for one test's databases, removed when the test is done.
 type TempDir() =
@@ -38,7 +38,7 @@ type TempDir() =
                 ()
 
 /// Plain ADO.NET over a database file, for the checks that read what is on disk rather than through the models (the rows another
-/// app wrote, a table's raw contents). Not the port's `Conn`, and no EF: nothing here knows the entities.
+/// app wrote, a table's raw contents). No EF: nothing here knows the entities.
 module Raw =
     open Microsoft.Data.Sqlite
 
@@ -74,6 +74,29 @@ module Raw =
         command.CommandText <- sql
         command.ExecuteNonQuery() |> ignore
 
+    /// A command whose `?` marks are numbered parameters bound to `args` (Microsoft.Data.Sqlite wants names).
+    let private bound (conn: SqliteConnection) (sql: string) (args: obj list) : SqliteCommand =
+        let command = conn.CreateCommand()
+        let parts = sql.Split '?'
+        command.CommandText <- String.Join("", parts |> Array.mapi (fun i part -> if i = 0 then part else $"@p{i - 1}{part}"))
+        args |> List.iteri (fun i arg -> command.Parameters.AddWithValue($"@p{i}", arg) |> ignore)
+        command
+
+    /// A statement with `?` parameters (ids, text), its rows mapped.
+    let rows (conn: SqliteConnection) (sql: string) (args: obj list) (map: SqliteDataReader -> 'T) : 'T list =
+        use command = bound conn sql args
+        use reader = command.ExecuteReader()
+        [ while reader.Read() do
+              yield map reader ]
+
+    /// `rows`, the first row.
+    let row (conn: SqliteConnection) (sql: string) (args: obj list) (map: SqliteDataReader -> 'T) : 'T = rows conn sql args map |> List.exactlyOne
+
+    /// A statement with `?` parameters that returns nothing; the rows it changed.
+    let run (conn: SqliteConnection) (sql: string) (args: obj list) : int =
+        use command = bound conn sql args
+        command.ExecuteNonQuery()
+
     let names (conn: SqliteConnection) (sql: string) : string list = query conn sql (fun r -> r.GetString 0)
 
     /// The row's cells, by column name.
@@ -89,45 +112,38 @@ module Raw =
                   | other -> failwith $"unexpected SQLite value {other.GetType()}"
               r.GetName i, cell ]
 
-/// The environment tests run in: a recording sink, a controllable clock, BCrypt at its minimum cost.
-let testEnv (sink: RecordingSink) (clock: TestClock) : Env =
-    { Clock = clock
-      Sink = sink
-      BcryptCost = 4 }
-
 type TestDb(?fixtures: bool) =
     let dir = new TempDir()
     let sink = RecordingSink()
     let clock = TestClock()
     let path = dir.File "test.sqlite3"
-    // EF Core beside the port's `Database` until unit 1.11: the same file, the same gate, the same sink and clock.
     let time = Ef.ClockTimeProvider clock
     let factory = Ef.Data.factory (Ef.Data.options path time ignore)
     let efEnv : Ef.Env = { Time = time; Sink = sink; RichText = BasicRichText(); BcryptCost = 4 }
+    let gate = WriteGate()
     do Schema.prepareFile path "test" time |> ignore
-    let db = Database.Open({ Config.create path with Readers = 2 }, testEnv sink clock)
 
     do
         if defaultArg fixtures true then
-            Testing.loadFixtures db.Gate efEnv factory
+            Testing.loadFixtures gate efEnv factory
 
-    member _.Db : Database = db
+    member _.Gate : WriteGate = gate
+
+    /// A plain ADO.NET connection on the database file for the length of `f`, to read what is on disk or to put rows in that no
+    /// model makes (the tests are single-threaded, so it takes no gate).
+    member _.Sql(f: Microsoft.Data.Sqlite.SqliteConnection -> 'T) : 'T =
+        use conn = Raw.openFile path
+        f conn
     member _.Factory : Microsoft.EntityFrameworkCore.IDbContextFactory<Ef.CampfireDb> = factory
     member _.EfEnv : Ef.Env = efEnv
     member _.Sink : RecordingSink = sink
     member _.Clock : TestClock = clock
     member _.Dir : TempDir = dir
 
-    member _.Write(f: Tx -> 'T) : 'T = db.WriteBlocking f |> unwrap
-
-    member _.TryWrite(f: Tx -> 'T) : Result<'T, DbError> = db.WriteBlocking f
-
-    member _.Read(f: Conn -> 'T) : 'T = db.ReadBlocking f |> unwrap
-
-    /// `Writes.run` on a leased context: the EF writer (unit 1.3 onward), sharing the old writer's gate.
+    /// `Writes.run` on a leased context.
     member _.TryWriteEf(f: Ef.Tx -> 'T) : Result<'T, DbError> =
         use context = factory.CreateDbContext()
-        (Ef.Writes.run db.Gate efEnv context f).GetAwaiter().GetResult()
+        (Ef.Writes.run gate efEnv context f).GetAwaiter().GetResult()
 
     member this.WriteEf(f: Ef.Tx -> 'T) : 'T = this.TryWriteEf f |> unwrap
 
@@ -139,8 +155,6 @@ type TestDb(?fixtures: bool) =
         use context = factory.CreateDbContext()
         Ef.Reads.run context f |> unwrap
 
-    member _.Now() : Timestamp = Timestamp.FromDateTimeOffset(clock.Now())
-
     /// `Now` as the `DateTime` EF's entities carry (UTC, microseconds).
     member _.Utc() : DateTime = RailsTime.now time
 
@@ -151,5 +165,6 @@ type TestDb(?fixtures: bool) =
 
     interface IDisposable with
         member _.Dispose() =
-            (db :> IDisposable).Dispose()
+            // Pooled connections hold the file (and its WAL) open; the directory is removed next.
+            Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools()
             (dir :> IDisposable).Dispose()

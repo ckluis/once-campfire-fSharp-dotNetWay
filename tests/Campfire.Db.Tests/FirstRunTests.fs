@@ -9,8 +9,9 @@ open Campfire.Db.Tests.Support
 let private fresh () : TestDb =
     let t = new TestDb()
     // Account.destroy_all, Room.destroy_all, User.destroy_all
-    t.Write(fun tx ->
-        tx.Conn.ExecuteBatch
+    t.Sql(fun c ->
+        Raw.exec
+            c
             "DELETE FROM accounts; DELETE FROM boosts; DELETE FROM action_text_rich_texts; DELETE FROM messages; DELETE FROM memberships;
              DELETE FROM rooms; DELETE FROM sessions; DELETE FROM searches; DELETE FROM push_subscriptions; DELETE FROM webhooks;
              DELETE FROM bans; DELETE FROM users;")

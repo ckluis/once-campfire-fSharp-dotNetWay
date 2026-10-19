@@ -121,12 +121,12 @@ let ``search reachable equals the ports query for a word a quoted phrase a nul s
             if terms = "" then
                 []
             else
-                t.Read(fun c ->
-                    c.QueryAll(
-                        "SELECT messages.id FROM messages INNER JOIN rooms ON messages.room_id = rooms.id INNER JOIN memberships ON rooms.id = memberships.room_id JOIN message_search_index idx ON messages.id = idx.rowid WHERE memberships.user_id = ? AND (idx.body MATCH ?) ORDER BY messages.created_at DESC LIMIT 100",
-                        [| I david; S terms |],
-                        fun r -> r.Int64 0
-                    ))
+                t.Sql(fun c ->
+                    Raw.rows
+                        c
+                        "SELECT messages.id FROM messages INNER JOIN rooms ON messages.room_id = rooms.id INNER JOIN memberships ON rooms.id = memberships.room_id JOIN message_search_index idx ON messages.id = idx.rowid WHERE memberships.user_id = ? AND (idx.body MATCH ?) ORDER BY messages.created_at DESC LIMIT 100"
+                        [ david; terms ]
+                        (fun r -> r.GetInt64 0))
                 |> List.rev
         let found = t.ReadEf(fun c -> Message.searchReachable c david query) |> List.map (fun m -> m.Id)
         Assert.Equal<int64 list>(expected, found)

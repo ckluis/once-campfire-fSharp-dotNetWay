@@ -138,12 +138,6 @@ type BasicRichText() =
         member _.MentionedUserIds(_db: Ef.CampfireDb, _html: string) : int64 list = []
 
 module Testing =
-    /// The system clock, no side effects and `BasicRichText`.
-    let defaultEnv () : Env =
-        { Clock = SystemClock()
-          Sink = NullSink()
-          BcryptCost = Campfire.RailsCompat.Password.Cost }
-
     /// `Schema.prepare` on the file at `path` (a fresh database gets the schema; the system clock stamps its metadata).
     let prepare (path: string) (environment: string) : Schema.Prepared =
         Schema.prepareFile path environment TimeProvider.System

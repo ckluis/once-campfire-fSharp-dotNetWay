@@ -1,4 +1,4 @@
-// Design: plans/design-data-ef.md E4. Replaces Time.fs (the Timestamp struct) when unit 1.11 deletes it.
+// Design: plans/design-data-ef.md E4. The one time type of the data layer (the old Timestamp struct is gone).
 namespace Campfire.Db
 
 open System

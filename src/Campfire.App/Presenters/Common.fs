@@ -20,9 +20,6 @@ module Common =
     let toFsNumberOf (time: DateTime) : string =
         time.ToUniversalTime().ToString("yyyyMMddHHmmss", Globalization.CultureInfo.InvariantCulture)
 
-    /// `toFsNumberOf` for the port's `Timestamp` (the models not yet on EF).
-    let toFsNumber (time: Campfire.Db.Timestamp) : string = toFsNumberOf (time.ToDateTimeOffset().UtcDateTime)
-
     /// `user.avatar_token`: `signed_id(purpose: :avatar)`.
     let avatarToken (secrets: Secrets) (userId: int64) : string = SignedId.generate secrets "User" userId (Some "avatar") None
 
@@ -41,11 +38,7 @@ module Common =
         | Ok value -> value
         | Error error -> Err.fail (storageError error)
 
-    /// `to_fs(:epoch)` as a string (milliseconds).
-    let epochString (time: Campfire.Db.Timestamp) : string =
-        string (Campfire.Views.MessagesSupport.epochMs (time.ToDateTimeOffset()))
-
-    /// `epochString` for an entity's `DateTime`.
+    /// `to_fs(:epoch)` as a string (milliseconds), for an entity's `DateTime`.
     let epochStringOf (time: DateTime) : string =
         string (Campfire.Views.MessagesSupport.epochMs (DateTimeOffset(time)))
 

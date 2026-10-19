@@ -418,7 +418,6 @@ let ``a ban from a private address is unprocessable`` () =
     task {
         use! test = bootSeeded "default"
         let jz = int64 (test.Label "users.jz")
-        let db = test.App.Db
         let app = test.App
         let! started =
             task {
@@ -433,10 +432,10 @@ let ``a ban from a private address is unprocessable`` () =
         Assert.Equal(422, reply.Status)
         Assert.True(reply.Text.Contains "That didn’t work (422)", reply.Text)
 
-        let! user = db.Read(fun conn -> User.findLegacy conn jz)
-        Assert.Equal(Status.Active, (user |> Result.defaultWith (fun e -> failwith (DbError.display e))).Status)
-        let! bans = db.Read(fun conn -> conn.Count("SELECT COUNT(*) FROM bans WHERE user_id = ?", [| I jz |]))
-        Assert.Equal(0L, bans |> Result.defaultWith (fun e -> failwith (DbError.display e)))
+        let! user = app.ReadEf(fun db -> User.find db jz)
+        Assert.Equal(Status.Active, (user |> Result.defaultWith (fun e -> failwith (Error.display e))).Status)
+        let bans = test.Sql(fun conn -> RawSql.scalar<int64> conn "SELECT COUNT(*) FROM bans WHERE user_id = ?" [ jz ])
+        Assert.Equal(0L, bans)
     }
 
 [<Fact>]

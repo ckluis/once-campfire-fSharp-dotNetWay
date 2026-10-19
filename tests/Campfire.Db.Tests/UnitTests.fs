@@ -46,8 +46,6 @@ let ``builtin sounds match reference`` () =
 
 // testing.rs
 
-let private memory () : Conn = Conn.OpenInMemory()
-
 /// `MentionTestHelper#mention_attachment_for`, with an unsigned SGID.
 let private unsignedMention (userId: int64) : string =
     let payload =
@@ -92,7 +90,7 @@ let ``table names`` () =
 
 [<Fact>]
 let ``erb ago renders whole seconds`` () =
-    let options: Fixtures.Options = { Now = (Timestamp.ParseDb "2026-09-26 12:24:38.211309").Value; BcryptCost = 4 }
+    let options: Fixtures.Options = { Now = RailsTime.ofDb "2026-09-26 12:24:38.211309"; BcryptCost = 4 }
     let erb = Fixtures.Erb options
     Assert.Equal("created_at: 2026-09-26 11:24:38 UTC", erb.Render "created_at: <%= 1.hour.ago %>")
     Assert.Equal("\na: 2026-09-26 12:19:38 UTC", erb.Render "<% x = 5.minutes.ago %>\na: <%= x %>")

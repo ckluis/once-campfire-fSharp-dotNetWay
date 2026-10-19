@@ -116,10 +116,7 @@ let ``presence subscribes and marks the membership connected`` () =
         let membership = membership.Value
         Assert.False(Membership.isConnected membership (app.Utc()))
         // A member's unread room gets cleared by `present`.
-        let! unread =
-            app.Db.Write(fun tx ->
-                tx.Conn.Execute("UPDATE memberships SET unread_at = '2024-01-01 00:00:00' WHERE id = ?", [| I membership.Id |]) |> ignore)
-        Assert.True(unread.IsOk)
+        do! app.Execute("UPDATE memberships SET unread_at = '2024-01-01 00:00:00' WHERE id = ?", box membership.Id)
 
         let presence = roomIdentifier "PresenceChannel" (id "designers")
         do! client.Confirm presence
@@ -301,8 +298,7 @@ let ``typing on a failed subscription leaves the connection up`` () =
         use! app = start ()
         let rename (from: string) (to': string) =
             task {
-                let! result = app.Db.Write(fun tx -> tx.Conn.ExecuteBatch $"ALTER TABLE {from} RENAME TO {to'}")
-                Assert.True(result.IsOk)
+                do! app.Execute $"ALTER TABLE {from} RENAME TO {to'}"
             }
         use! client = app.Connect "jz"
         let typing = roomIdentifier "TypingNotificationsChannel" (id "designers")

@@ -8,6 +8,20 @@ open Microsoft.EntityFrameworkCore.Infrastructure
 open Microsoft.Extensions.DependencyInjection
 open Campfire.Db
 
+module Library =
+    /// SQLite's library-wide settings for every connection of the process: each connection is used by one thread at a time (a
+    /// pooled context is leased to one request), so SQLite's per-connection mutex (`SQLITE_CONFIG_MULTITHREAD`, taken on every
+    /// API call) and the memory statistics' global mutex (`SQLITE_CONFIG_MEMSTATUS` off, taken on every allocation) are pure
+    /// cost. They must be set before the first connection initializes SQLite; a library already initialized refuses them and
+    /// the connections keep SQLite's defaults.
+    let private configure =
+        lazy
+            (SQLitePCL.Batteries_V2.Init()
+             SQLitePCL.raw.sqlite3_config 2 |> ignore
+             SQLitePCL.raw.sqlite3_config (9, 0) |> ignore)
+
+    let ensureConfigured () : unit = configure.Force()
+
 module Data =
 
     /// The options every context uses: `Data Source=<path>`, a 1 s command timeout (so Microsoft.Data.Sqlite's busy retry ends

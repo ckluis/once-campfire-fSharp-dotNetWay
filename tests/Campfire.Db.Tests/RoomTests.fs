@@ -65,7 +65,7 @@ let ``granted memberships are stamped by sqlite`` () =
     use t = new TestDb()
     let room = t.WriteEf(fun tx -> Room.createFor tx RoomType.Closed (Some "Hello!") (id "david") [ id "kevin" ])
     let createdAt =
-        t.Read(fun c -> c.QueryRow("SELECT created_at FROM memberships WHERE room_id = ?", [| I room.Id |], fun r -> r.Text 0))
+        t.Sql(fun c -> Raw.row c "SELECT created_at FROM memberships WHERE room_id = ?" [ room.Id ] (fun r -> r.GetString 0))
     Assert.True((createdAt.Length = "2026-09-26 12:25:26.826".Length), createdAt)
 
 [<Fact>]
@@ -86,7 +86,7 @@ let ``destroying a room destroys its messages and memberships`` () =
     Assert.True((t.ReadEf(fun c -> Room.findById c (id "watercooler"))).IsNone)
     Assert.Equal(
         0L,
-        t.Read(fun c -> c.Count("SELECT COUNT(*) FROM boosts WHERE message_id IN (?, ?)", [| I(id "thirteenth"); I(id "fourth") |]))
+        t.Sql(fun c -> Raw.row c "SELECT COUNT(*) FROM boosts WHERE message_id IN (?, ?)" [ id "thirteenth"; id "fourth" ] (fun r -> r.GetInt64 0))
     )
 
 // Rooms::Direct
@@ -130,7 +130,7 @@ let ``open room grants access to all users after becoming open`` () =
     t.WriteEf(fun tx -> Room.update tx watercooler None (Some RoomType.Open) |> ignore)
     Assert.Equal(t.ReadEf User.count, int64 (List.length (memberIds t (id "watercooler"))))
     Assert.Equal(RoomType.Open, (room t "watercooler").Type)
-    let stored = t.Read(fun c -> c.QueryRow("SELECT type FROM rooms WHERE id = ?", [| I(id "watercooler") |], fun r -> r.Text 0))
+    let stored = t.Sql(fun c -> Raw.row c "SELECT type FROM rooms WHERE id = ?" [ id "watercooler" ] (fun r -> r.GetString 0))
     Assert.Equal("Rooms::Open", stored)
 
 [<Fact>]
@@ -169,10 +169,11 @@ let ``a direct room is found by its members in any order`` () =
 [<Fact>]
 let ``granting more users than one batch holds`` () =
     use t = new TestDb()
-    t.Write(fun tx ->
-        tx.Conn.ExecuteBatch
+    t.Sql(fun c ->
+        Raw.exec
+            c
             "WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i + 1 FROM n WHERE i < 1100) INSERT INTO users (name, role, status, created_at, updated_at) SELECT 'bulk ' || i, 0, 0, '2026-01-01 00:00:00', '2026-01-01 00:00:00' FROM n")
-    let ids = t.Read(fun c -> c.QueryAll("SELECT id FROM users WHERE name LIKE 'bulk %'", [||], fun r -> r.Int64 0))
+    let ids = t.Sql(fun c -> Raw.rows c "SELECT id FROM users WHERE name LIKE 'bulk %'" [] (fun r -> r.GetInt64 0))
     let watercooler = room t "watercooler"
     t.WriteEf(fun tx -> Room.grantTo tx watercooler ids)
     let members = memberIds t watercooler.Id

@@ -163,12 +163,9 @@ let ``webhook payload escapes html entities`` () =
     use t = new TestDb()
     let richText = BasicRichText() :> RichText
     let first, designers, jason = id "first", id "designers", id "jason"
-    t.Write(fun tx ->
-        tx.Conn.Execute("UPDATE rooms SET name = NULL WHERE id = ?", [| I designers |]) |> ignore
-        tx.Conn.Execute(
-            "UPDATE action_text_rich_texts SET body = '<p>Tom & Jerry</p>' WHERE record_type = 'Message' AND record_id = ?",
-            [| I first |]
-        )
+    t.Sql(fun c ->
+        Raw.run c "UPDATE rooms SET name = NULL WHERE id = ?" [ designers ] |> ignore
+        Raw.run c "UPDATE action_text_rich_texts SET body = '<p>Tom & Jerry</p>' WHERE record_type = 'Message' AND record_id = ?" [ first ]
         |> ignore)
     let message = t.ReadEf(fun c -> Message.find c first)
     let webhook = t.ReadEf(fun c -> (User.webhook c (User.find c (id "bender"))).Value)

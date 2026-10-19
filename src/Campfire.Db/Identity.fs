@@ -27,14 +27,7 @@ module Role =
         | "bot" -> Some Role.Bot
         | _ -> None
 
-    let toSql (role: Role) : SqlArg = I(int64 role)
 
-    let ofSql (value: int64) : Role =
-        match value with
-        | 0L -> Role.Member
-        | 1L -> Role.Administrator
-        | 2L -> Role.Bot
-        | other -> failwith $"role {other} out of range"
 
 /// `enum :status, %i[ active deactivated banned ], default: :active`
 type Status =
@@ -56,14 +49,7 @@ module Status =
         | "banned" -> Some Status.Banned
         | _ -> None
 
-    let toSql (status: Status) : SqlArg = I(int64 status)
 
-    let ofSql (value: int64) : Status =
-        match value with
-        | 0L -> Status.Active
-        | 1L -> Status.Deactivated
-        | 2L -> Status.Banned
-        | other -> failwith $"status {other} out of range"
 
 /// `users`: the Active Record model's attributes, one record for the whole app (EF maps it; the views' presenters read it).
 /// Nullable columns are `string | null`, never `option` (E3); times are UTC `DateTime`s (E4).

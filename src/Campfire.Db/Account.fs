@@ -77,23 +77,6 @@ module AccountSettings =
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module Account =
-    /// `Account.first` over the port's connection, for the controllers whose models have not moved to EF yet (unit 1.11 deletes it).
-    let firstLegacy (conn: Conn) : Account option =
-        let time (r: Row) (i: int) = RailsTime.truncate ((r.Timestamp i).ToDateTimeOffset().UtcDateTime)
-        conn.QueryOne(
-            "SELECT " + Columns.Account + " FROM \"accounts\" ORDER BY \"accounts\".\"id\" ASC LIMIT 1",
-            [||],
-            fun r ->
-                { Id = r.Int64 0
-                  Name = r.Text 1
-                  JoinCode = r.Text 2
-                  CustomStyles = Option.toObj (r.OptText 3)
-                  Settings = Option.toObj (r.OptText 4)
-                  SingletonGuard = r.Int64 5
-                  CreatedAt = time r 6
-                  UpdatedAt = time r 7 }
-        )
-
     let find (db: CampfireDb) (id: int64) : Account = db.Accounts.Find id |> Data.found "Account"
 
     /// `Account.first` (`Current.account`).
@@ -105,7 +88,7 @@ module Account =
 
     /// `SecureRandom.alphanumeric(12).scan(/.{4}/).join("-")`
     let generateJoinCode () : string =
-        let code = Sql.alphanumeric 12
+        let code = Tokens.alphanumeric 12
         $"{code.Substring(0, 4)}-{code.Substring(4, 4)}-{code.Substring(8, 4)}"
 
     /// `Account.create!(name:)`: a fresh join code, and the settings defaults written out.

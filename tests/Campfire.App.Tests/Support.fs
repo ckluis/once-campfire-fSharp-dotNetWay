@@ -266,6 +266,36 @@ type CapturingLoggers() =
 
 // --- A booted app ------------------------------------------------------------------------------------------
 
+/// Plain ADO.NET over the app's database file, for what the tests check on disk or put in without a model (nothing here knows
+/// the entities).
+module RawSql =
+    open Microsoft.Data.Sqlite
+
+    let private command (conn: SqliteConnection) (sql: string) (args: (obj | null) list) : SqliteCommand =
+        // `?` marks become numbered named parameters (Microsoft.Data.Sqlite wants names).
+        let command = conn.CreateCommand()
+        let parts = sql.Split '?'
+        command.CommandText <- String.Join("", parts |> Array.mapi (fun i part -> if i = 0 then part else $"@p{i - 1}{part}"))
+        args |> List.iteri (fun i arg -> command.Parameters.AddWithValue($"@p{i}", arg) |> ignore)
+        command
+
+    /// The first column of the first row.
+    let scalar<'T> (conn: SqliteConnection) (sql: string) (args: (obj | null) list) : 'T =
+        use command = command conn sql args
+        Convert.ChangeType(command.ExecuteScalar(), typeof<'T>) :?> 'T
+
+    /// The first column of the first row, or none when there is no row.
+    let tryScalar<'T> (conn: SqliteConnection) (sql: string) (args: (obj | null) list) : 'T option =
+        use command = command conn sql args
+        match command.ExecuteScalar() with
+        | null -> None
+        | :? DBNull -> None
+        | value -> Some(Convert.ChangeType(value, typeof<'T>) :?> 'T)
+
+    let run (conn: SqliteConnection) (sql: string) (args: (obj | null) list) : unit =
+        use command = command conn sql args
+        command.ExecuteNonQuery() |> ignore
+
 /// A booted app over its own copy of a seed (or an empty storage directory), and a server for its pipeline.
 type Test(booted: Booted, dir: string, host: Host, logs: CapturingLoggers) =
     member _.Booted = booted
@@ -274,6 +304,22 @@ type Test(booted: Booted, dir: string, host: Host, logs: CapturingLoggers) =
     member _.Logs: string = logs.Text
     member _.App = booted.App
     member _.Dir = dir
+
+    /// A plain connection on the app's database file for the length of `f` (reads; it takes no gate).
+    member _.Sql(f: Microsoft.Data.Sqlite.SqliteConnection -> 'T) : 'T =
+        use conn = new Microsoft.Data.Sqlite.SqliteConnection($"Data Source={booted.App.Config.Storage.Database};Pooling=False")
+        conn.Open()
+        f conn
+
+    /// A statement no model makes, run on a connection of its own while holding the write gate.
+    member this.Execute(sql: string, args: (obj | null) list) : Task<unit> =
+        task {
+            do! booted.App.Gate.Enter()
+            try
+                this.Sql(fun conn -> RawSql.run conn sql args)
+            finally
+                booted.App.Gate.Exit()
+        }
     member _.Host = host
 
     /// The writes the app's handlers have made to response bodies (see `BodyWrites`).
@@ -302,7 +348,7 @@ type Test(booted: Booted, dir: string, host: Host, logs: CapturingLoggers) =
                 task {
                     do! (host :> IAsyncDisposable).DisposeAsync()
                     do! booted.Jobs.Shutdown(TimeSpan.FromSeconds 5.0)
-                    (booted.App.Db :> IDisposable).Dispose()
+                    Boot.closeDatabase booted.App
                     try
                         Directory.Delete(dir, true)
                     with _ ->

@@ -150,17 +150,17 @@ let private parseRecording (document: JsonDocument) : Recording =
                         socket.Name, [ for frame in socket.Value.EnumerateArray() -> str frame ] ]
                   |> Map.ofList } ] }
 
-let private sqlValue (value: JsonElement) : SqlArg =
+let private sqlValue (value: JsonElement) : obj | null =
     match value.ValueKind with
-    | JsonValueKind.Null -> Null
-    | JsonValueKind.True -> I 1L
-    | JsonValueKind.False -> I 0L
+    | JsonValueKind.Null -> box DBNull.Value
+    | JsonValueKind.True -> box 1L
+    | JsonValueKind.False -> box 0L
     | JsonValueKind.Number ->
         match value.TryGetInt64() with
-        | true, n -> I n
-        | _ -> R(value.GetDouble())
-    | JsonValueKind.String -> S(str value)
-    | _ -> S(value.GetRawText())
+        | true, n -> box n
+        | _ -> box (value.GetDouble())
+    | JsonValueKind.String -> box (str value)
+    | _ -> box (value.GetRawText())
 
 let private ok (result: Result<'T, DbError>) : 'T =
     match result with
@@ -168,23 +168,24 @@ let private ok (result: Result<'T, DbError>) : 'T =
     | Error error -> failwith (DbError.display error)
 
 /// A fresh database holding the reference's rows, and our channels over it.
-let private startOurs (recording: Recording) (dir: string) : Task<Database * Cable * Broadcasts * Microsoft.AspNetCore.Builder.WebApplication * string * (Microsoft.EntityFrameworkCore.IDbContextFactory<Campfire.Db.Ef.CampfireDb> * Campfire.Db.Ef.Env)> =
+let private startOurs (recording: Recording) (dir: string) : Task<WriteGate * Cable * Broadcasts * Microsoft.AspNetCore.Builder.WebApplication * string * (Microsoft.EntityFrameworkCore.IDbContextFactory<Campfire.Db.Ef.CampfireDb> * Campfire.Db.Ef.Env)> =
     task {
         let sink = CableSink()
         let clock = SystemClock()
-        let env: Env =
-            { Clock = clock
-              Sink = sink
-              BcryptCost = 4 }
-        Testing.prepare (Path.Combine(dir, "production.sqlite3")) "production" |> ignore
-        let db = Database.Open({ Config.create (Path.Combine(dir, "production.sqlite3")) with Readers = 2 }, env)
-        db.Write(fun tx ->
+        let gate = WriteGate()
+        let path = Path.Combine(dir, "production.sqlite3")
+        Testing.prepare path "production" |> ignore
+        do
+            // The recorded rows, as plain ADO.NET in one transaction (nothing here knows the entities).
+            use connection = new Microsoft.Data.Sqlite.SqliteConnection($"Data Source={path};Pooling=False")
+            connection.Open()
+            use transaction = connection.BeginTransaction()
             for table in [ "users"; "rooms"; "memberships"; "sessions"; "messages" ] do
                 for row in recording.Rows |> List.find (fun (name, _) -> name = table) |> snd do
                     let columns = row |> List.map (fun (column, _) -> $"\"{column}\"") |> String.concat ", "
-                    let sql = $"INSERT INTO {table} ({columns}) VALUES ({Sql.placeholders row.Length})"
-                    tx.Conn.ExecuteUncached(sql, row |> List.map (snd >> sqlValue) |> Array.ofList) |> ignore)
-        |> fun write -> write.Result |> ok
+                    let holes = String.Join(", ", Array.create row.Length "?")
+                    RawSql.run connection $"INSERT INTO {table} ({columns}) VALUES ({holes})" (row |> List.map (snd >> sqlValue))
+            transaction.Commit()
 
         let secrets = Secrets.create (parityEnv "SECRET_KEY_BASE" |> Option.defaultWith (fun () -> failwith "parity/.env.reference has no SECRET_KEY_BASE"))
         let factory = Campfire.Db.Ef.Data.factory (Campfire.Db.Ef.Data.options (Path.Combine(dir, "production.sqlite3")) (Campfire.Db.Ef.ClockTimeProvider clock) ignore)
@@ -193,12 +194,12 @@ let private startOurs (recording: Recording) (dir: string) : Task<Database * Cab
               Sink = sink
               RichText = BasicRichText()
               BcryptCost = 4 }
-        let deps: Deps = { Db = db; DbFactory = factory; Env = efEnv; Secrets = secrets; Clock = clock }
+        let deps: Deps = { DbFactory = factory; Gate = gate; Env = efEnv; Secrets = secrets; Clock = clock }
         // The reference runs with DISABLE_SSL, so without assume_ssl.
         let server = Registry.server deps { Campfire.Cable.Config.defaults with AssumeSsl = false } NullLogger.Instance
         sink.Server <- server
         let! host, authority = serveCable server
-        return db, server, Broadcasts server, host, authority, (factory, efEnv)
+        return gate, server, Broadcasts server, host, authority, (factory, efEnv)
     }
 
 /// Frames until the socket has sent `atLeast` of them and then been quiet for a moment.
@@ -227,7 +228,7 @@ let ``replays reference frames`` () =
         use golden = JsonDocument.Parse(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "testdata", "channels_golden.json")))
         let recording = parseRecording golden
         let dir = Directory.CreateTempSubdirectory("campfire-channels-golden").FullName
-        let! db, server, broadcasts, host, authority, (factory, efEnv) = startOurs recording dir
+        let! gate, server, broadcasts, host, authority, (factory, efEnv) = startOurs recording dir
         let url = Uri $"ws://{authority}/cable"
         let origin = $"http://{authority}"
         let sockets = SortedDictionary<string, Client>(StringComparer.Ordinal)
@@ -269,13 +270,13 @@ let ``replays reference frames`` () =
                     | "revoke" ->
                         (task {
                             use context = factory.CreateDbContext()
-                            return! Campfire.Db.Ef.Writes.run db.Gate efEnv context (fun tx -> Room.revokeFrom tx (Room.find tx.Db ids[0]) [ ids[1] ])
+                            return! Campfire.Db.Ef.Writes.run gate efEnv context (fun tx -> Room.revokeFrom tx (Room.find tx.Db ids[0]) [ ids[1] ])
                          })
                         |> fun write -> write.Result |> ok
                     | "deactivate" ->
                         (task {
                             use context = factory.CreateDbContext()
-                            return! Campfire.Db.Ef.Writes.run db.Gate efEnv context (fun tx -> User.deactivate tx (User.find tx.Db ids[0]) |> ignore)
+                            return! Campfire.Db.Ef.Writes.run gate efEnv context (fun tx -> User.deactivate tx (User.find tx.Db ids[0]) |> ignore)
                          })
                         |> fun write -> write.Result |> ok
                     | other -> failwith $"unknown trigger {other}"
@@ -297,7 +298,7 @@ let ``replays reference frames`` () =
                 (client :> IDisposable).Dispose()
             (server :> IDisposable).Dispose()
             host.StopAsync((new Threading.CancellationTokenSource(TimeSpan.FromSeconds 2.0)).Token).Wait()
-            (db :> IDisposable).Dispose()
+            Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools()
             try
                 Directory.Delete(dir, true)
             with _ ->

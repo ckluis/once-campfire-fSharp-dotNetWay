@@ -149,7 +149,7 @@ let ``unknown and unported routes`` () =
 [<Fact>]
 let ``database errors answer as active record rescues them`` () =
     Assert.Equal(404, Error.status (AppErrors.dbError (RecordNotFound "Room")))
-    Assert.Equal(500, Error.status (AppErrors.dbError WriterGone))
+    Assert.Equal(500, Error.status (AppErrors.dbError (DbError.other "disk full")))
 
     let errors = Errors.empty |> Errors.add "endpoint" "must use HTTPS"
     let invalid = AppErrors.dbError (RecordInvalid errors)
@@ -528,15 +528,15 @@ let ``concurrent message posts all complete`` () =
         let sessions, _, _ = sessionVectors ()
         let session = sessions[0]
         let! roomId =
-            test.App.Db.Read(fun conn ->
-                conn.QueryOne(
-                    """SELECT "memberships"."room_id" FROM "memberships" JOIN "users" ON "users"."id" = "memberships"."user_id"
-                       JOIN "rooms" ON "rooms"."id" = "memberships"."room_id"
-                       WHERE "users"."name" = ? AND "rooms"."type" = 'Rooms::Open' ORDER BY "rooms"."id" LIMIT 1""",
-                    [| S session.UserName |],
-                    fun r -> r.Int64 0
-                ))
-        let roomId = (unwrap roomId).Value
+            test.App.ReadEf(fun db ->
+                let name = session.UserName
+                db.Database
+                    .SqlQuery<int64>(
+                        $"""SELECT m.room_id AS Value FROM memberships m JOIN users u ON u.id = m.user_id JOIN rooms r ON r.id = m.room_id
+                           WHERE u.name = {name} AND r.type = 'Rooms::Open' ORDER BY r.id LIMIT 1"""
+                    )
+                    |> Seq.head)
+        let roomId = (match roomId with Ok id -> id | Error e -> failwith (Error.display e))
 
         let! page = test.Send(getWithCookie $"/rooms/{roomId}" session.CookieHeader)
         Assert.Equal(200, page.Status)
@@ -684,13 +684,13 @@ let ``a request resolves the scoped CampfireDb and the TimeProvider from its Req
                 let time = Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<TimeProvider>(services)
                 let gate = Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<WriteGate>(services)
                 let users = System.Linq.Queryable.Count(db.Users)
-                let sameGate = obj.ReferenceEquals(gate, test.App.Gate) && obj.ReferenceEquals(gate, test.App.Db.Gate)
+                let sameGate = obj.ReferenceEquals(gate, test.App.Gate)
                 do! Microsoft.AspNetCore.Http.HttpResponseWritingExtensions.WriteAsync(http.Response, $"{users} {obj.ReferenceEquals(db, again)} {sameGate} {time.GetType().Name}")
             }
         use! host = startPipelineWith test.Booted.ConfigureServices (fun app -> Microsoft.AspNetCore.Builder.RunExtensions.Run(app, Microsoft.AspNetCore.Http.RequestDelegate handler))
         let! reply = host.Send(get "/")
         Assert.Equal(200, reply.Status)
-        let! usersInOldLayer = test.App.Db.Read(fun conn -> conn.Count("SELECT COUNT(*) FROM users", [||]))
-        Assert.Equal($"{(match usersInOldLayer with Ok n -> n | Error e -> failwith (DbError.display e))} True True ClockTimeProvider", reply.Text)
+        let! users = test.App.ReadEf(fun db -> System.Linq.Queryable.Count(db.Users))
+        Assert.Equal($"{(match users with Ok n -> n | Error e -> failwith (Error.display e))} True True ClockTimeProvider", reply.Text)
         Assert.NotNull test.App.DbFactory
     }

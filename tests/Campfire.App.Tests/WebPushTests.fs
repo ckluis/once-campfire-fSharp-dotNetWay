@@ -297,7 +297,7 @@ let private config (publicKey: string option) (privateKey: string option) : AppC
 let ``web push is off without a valid key pair`` () =
     task {
         use t = new TestDb()
-        let pool publicKey privateKey = IntegrationJobs.webPushPool (config publicKey privateKey) t.Factory t.Db.Gate t.Env NullLogger.Instance
+        let pool publicKey privateKey = IntegrationJobs.webPushPool (config publicKey privateKey) t.Factory t.Gate t.Env NullLogger.Instance
         Assert.True((pool None (Some VapidPrivateKey)).IsNone)
         Assert.True((pool (Some "dGVzdF9rZXk") (Some VapidPrivateKey)).IsNone)
         let on = pool (Some VapidPublicKey) (Some VapidPrivateKey)
@@ -446,20 +446,15 @@ let ``test notification`` () =
 let ``pushes messages and destroys expired subscriptions`` () =
     task {
         use t = new TestDb()
-        let db = t.Db
         let labels = [ "david_chrome"; "jason_chrome"; "jz_chrome"; "kevin_chrome" ]
         let receivers = [ for label in labels -> TestDb.Id label, Receiver() ]
-        let! prepared =
-            db.Write(fun tx ->
-                for (id, receiver) in receivers do
-                    tx.Conn.Execute(
-                        "UPDATE push_subscriptions SET p256dh_key = ?, auth_key = ? WHERE id = ?",
-                        [| S(encode64 (P256.uncompressed receiver.Key)); S(encode64 receiver.Auth); I id |]
-                    )
-                    |> ignore
-                tx.Conn.Execute("UPDATE memberships SET involvement = 'invisible' WHERE id = ?", [| I(TestDb.Id "kevin_designers") |])
-                |> ignore)
-        Assert.True prepared.IsOk
+        t.Sql(fun conn ->
+            for (id, receiver) in receivers do
+                RawSql.run
+                    conn
+                    "UPDATE push_subscriptions SET p256dh_key = ?, auth_key = ? WHERE id = ?"
+                    [ box (encode64 (P256.uncompressed receiver.Key)); box (encode64 receiver.Auth); box id ]
+            RawSql.run conn "UPDATE memberships SET involvement = 'invisible' WHERE id = ?" [ box (TestDb.Id "kevin_designers") ])
 
         let create () =
             task {
@@ -470,7 +465,7 @@ let ``pushes messages and destroys expired subscriptions`` () =
                       Body = Some "Hey @kevin"
                       AttachmentBlobId = None }
                 use context = t.Factory.CreateDbContext()
-                match! Campfire.Db.Ef.Writes.run db.Gate t.Env context (fun tx -> Message.create tx attributes) with
+                match! Campfire.Db.Ef.Writes.run t.Gate t.Env context (fun tx -> Message.create tx attributes) with
                 | Ok message -> return message
                 | Error error -> return failwith (DbError.display error)
             }
@@ -506,7 +501,7 @@ let ``pushes messages and destroys expired subscriptions`` () =
         use _gone = gone.Server
         let handler (id: int64) : Result<unit, string> =
             use destroyContext = t.Factory.CreateDbContext()
-            match (Ef.Writes.run db.Gate t.Env destroyContext (fun tx -> PushSubscription.destroy tx (PushSubscription.find tx.Db id))).GetAwaiter().GetResult() with
+            match (Ef.Writes.run t.Gate t.Env destroyContext (fun tx -> PushSubscription.destroy tx (PushSubscription.find tx.Db id))).GetAwaiter().GetResult() with
             | Ok()
             | Error(RecordNotFound _) -> Ok()
             | Error error -> Error(DbError.display error)

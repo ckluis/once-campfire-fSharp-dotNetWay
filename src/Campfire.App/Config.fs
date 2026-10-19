@@ -14,8 +14,7 @@
 // - `DISABLE_SSL`: `config/environments/production.rb` (`assume_ssl`/`force_ssl` unless present).
 // - `APP_VERSION`, `GIT_REVISION`: `config/initializers/version.rb` (`X-Version`, `X-Rev`).
 // - `RAILS_ENV`: names the database file (`storage/db/<env>.sqlite3`, `config/database.yml`).
-// - `RAILS_MAX_THREADS`: `config/database.yml` pool size, used for the number of reader threads,
-//   each with a reader connection of its own (`Campfire.Db.Database`).
+// - `RAILS_MAX_THREADS`: not read (EF Core's pooled contexts and Microsoft.Data.Sqlite's connection pool size themselves).
 // - `JOB_CONCURRENCY`: Resque worker count (`config/puma.rb`), used for job concurrency.
 // - `RAILS_LOG_LEVEL`: `config/environments/production.rb` log level.
 // - Thruster's (`TLS_DOMAIN`, `HTTP_PORT`, `HTTP_*_TIMEOUT`, `TARGET_PORT`, ...): read by
@@ -86,7 +85,6 @@ type AppConfig =
       GitRevision: string option
       Environment: string
       Storage: StoragePaths
-      DbReaders: int
       JobConcurrency: int
       LogLevel: string
       /// The fragment store's limit in bytes (`CAMPFIRE_FRAGMENT_CACHE_MB`).
@@ -157,14 +155,12 @@ module AppConfig =
                   Files = defaultArg (present "CAMPFIRE_FILES_PATH") defaults.Files
                   Backups = defaultArg (present "CAMPFIRE_BACKUPS_PATH") defaults.Backups }
             match
-                number "RAILS_MAX_THREADS" 5L,
                 number "JOB_CONCURRENCY" 2L,
                 number "CAMPFIRE_FRAGMENT_CACHE_MB" (int64 (FragmentCacheLimits.DefaultMaxBytes >>> 20))
             with
-            | Error e, _, _
-            | _, Error e, _
-            | _, _, Error e -> Error e
-            | Ok readers, Ok concurrency, Ok megabytes ->
+            | Error e, _
+            | _, Error e -> Error e
+            | Ok concurrency, Ok megabytes ->
                 Ok
                     { SecretKeyBase = secretKeyBase
                       VapidPublicKey = present "VAPID_PUBLIC_KEY"
@@ -181,7 +177,6 @@ module AppConfig =
                       GitRevision = (match get "GIT_REVISION" with null -> None | revision -> Some revision)
                       Environment = environment
                       Storage = storage
-                      DbReaders = int (max readers 1L)
                       JobConcurrency = int (max concurrency 1L)
                       LogLevel = defaultArg (present "RAILS_LOG_LEVEL") "info"
                       FragmentCacheBytes = megabytes * (1L <<< 20) }

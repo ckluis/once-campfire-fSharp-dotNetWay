@@ -238,7 +238,7 @@ let eventually (check: unit -> Task<bool>) : Task =
 
 type TestApp
     (
-        db: Database,
+        gate: WriteGate,
         server: Cable,
         broadcasts: Broadcasts,
         secrets: Secrets,
@@ -250,13 +250,27 @@ type TestApp
         factory: Microsoft.EntityFrameworkCore.IDbContextFactory<Campfire.Db.Ef.CampfireDb>,
         efEnv: Campfire.Db.Ef.Env
     ) =
-    member _.Db = db
+    member _.Gate = gate
+    member _.Dir = dir
 
-    /// `Writes.run` over the same file, the same gate and the same sink (the migration rule): the EF models' writes.
+    /// A statement a model does not make (a rename, a stale value), run on a connection of its own while holding the write gate.
+    member _.Execute(sql: string, [<ParamArray>] args: (obj | null)[]) : Task<unit> =
+        task {
+            do! gate.Enter()
+            try
+                let path = Path.Combine(dir, "test.sqlite3")
+                use connection = new Microsoft.Data.Sqlite.SqliteConnection($"Data Source={path};Pooling=False")
+                connection.Open()
+                Campfire.App.Tests.Support.RawSql.run connection sql (List.ofArray args)
+            finally
+                gate.Exit()
+        }
+
+    /// `Writes.run` over the same file, the same gate and the same sink: the models' writes.
     member _.WriteEf(f: Campfire.Db.Ef.Tx -> 'T) : Task<Result<'T, DbError>> =
         task {
             use context = factory.CreateDbContext()
-            return! Campfire.Db.Ef.Writes.run db.Gate efEnv context f
+            return! Campfire.Db.Ef.Writes.run gate efEnv context f
         }
 
     /// `Reads.run` over the same file, on a leased context: the EF models' reads.
@@ -272,9 +286,6 @@ type TestApp
     member _.Clock = clock
     member _.Url = url
     member _.Origin = origin
-
-    /// `Time.current` on the clock the database and the cable server share.
-    member _.Now() : Campfire.Db.Timestamp = Campfire.Db.Timestamp.FromDateTimeOffset(clock.Now())
 
     /// `Now` as the UTC `DateTime` the EF entities carry.
     member _.Utc() : System.DateTime = Campfire.Db.RailsTime.truncate (clock.Now().UtcDateTime)
@@ -355,7 +366,7 @@ type TestApp
                     with _ ->
                         ()
                     do! host.DisposeAsync()
-                    (db :> IDisposable).Dispose()
+                    Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools()
                     try
                         Directory.Delete(dir, true)
                     with _ ->
@@ -383,25 +394,21 @@ let start () : Task<TestApp> =
         let clock = TestClock()
         let secrets = Secrets.create SecretKeyBase
         let richText = AppRichText(secrets, clock, NullLogger.Instance)
-        let env: Env =
-            { Clock = clock
-              Sink = sink
-              BcryptCost = 4 }
+        let gate = WriteGate()
         let path = Path.Combine(dir, "test.sqlite3")
         let time = Campfire.Db.Ef.ClockTimeProvider clock
         Schema.prepareFile path "test" time |> ignore
-        let db = Database.Open({ Config.create path with Readers = 2 }, env)
         let factory = Campfire.Db.Ef.Data.factory (Campfire.Db.Ef.Data.options path time ignore)
         let efEnv: Campfire.Db.Ef.Env =
             { Time = time
               Sink = sink
               RichText = richText
               BcryptCost = 4 }
-        Testing.loadFixtures db.Gate efEnv factory
-        let deps: Deps = { Db = db; DbFactory = factory; Env = efEnv; Secrets = secrets; Clock = clock }
+        Testing.loadFixtures gate efEnv factory
+        let deps: Deps = { DbFactory = factory; Gate = gate; Env = efEnv; Secrets = secrets; Clock = clock }
         let server = Registry.server deps { Campfire.Cable.Config.defaults with AssumeSsl = false } NullLogger.Instance
         sink.Server <- server
 
         let! app, authority = serveCable server
-        return TestApp(db, server, Broadcasts server, secrets, clock, app, $"ws://{authority}/cable", $"http://{authority}", dir, factory, efEnv)
+        return TestApp(gate, server, Broadcasts server, secrets, clock, app, $"ws://{authority}/cable", $"http://{authority}", dir, factory, efEnv)
     }

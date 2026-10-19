@@ -23,7 +23,7 @@ module Refreshes =
     let private maxMicrosecond = (DateTime.MaxValue.Ticks - DateTime.UnixEpoch.Ticks) / 10L
 
     /// `Time.at(0, params[:since].to_i, :millisecond)`
-    let private setLastUpdatedAt (c: Ctx) : Result<Timestamp, Error> =
+    let private setLastUpdatedAt (c: Ctx) : Result<DateTime, Error> =
         let since =
             match c.Param "since" with
             | ValueNone -> Ok 0L
@@ -40,7 +40,7 @@ module Refreshes =
                 if microseconds < Int128.op_Implicit minMicrosecond then minMicrosecond
                 elif microseconds > Int128.op_Implicit maxMicrosecond then maxMicrosecond
                 else int64 microseconds
-            Timestamp.FromMicrosecond clamped)
+            DateTime(DateTime.UnixEpoch.Ticks + clamped * 10L, DateTimeKind.Utc))
 
     let show (c: Ctx) : Task<Result<Response, Error>> =
         act {
@@ -51,7 +51,7 @@ module Refreshes =
 
             let app = c.App
             let requestHost = Some c.Request.Host
-            let since = RailsTime.truncate (lastUpdatedAt.ToDateTimeOffset().UtcDateTime)
+            let since = RailsTime.truncate lastUpdatedAt
             let! refresh =
                 c.Read(fun db ->
                     let newMessages = Message.pageCreatedSince db room.Id since

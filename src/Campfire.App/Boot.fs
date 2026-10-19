@@ -20,6 +20,7 @@ open Microsoft.AspNetCore.Builder
 open Microsoft.AspNetCore.Http
 open Microsoft.AspNetCore.Http.Features
 open Microsoft.Data.Sqlite
+open Microsoft.EntityFrameworkCore
 open Microsoft.Extensions.DependencyInjection
 open Microsoft.Extensions.Logging
 open Campfire.App.Channels
@@ -132,16 +133,6 @@ module Boot =
 
     // --- Boot ----------------------------------------------------------------------------------------------
 
-    let private openDatabase (config: AppConfig) (clock: SharedClock) (jobs: Jobs) : Task<Database> =
-        Task.Run(fun () ->
-            let dbConfig =
-                { Campfire.Db.Config.create config.Storage.Database with Readers = config.DbReaders }
-            let env: Env =
-                { Clock = clock
-                  Sink = jobs
-                  BcryptCost = Password.Cost }
-            Database.Open(dbConfig, env))
-
     /// Boots the app from `config`: prepares the database, restores the reference's boot-time side
     /// effects, and builds the HTTP stack.
     let bootWith
@@ -162,12 +153,12 @@ module Boot =
             let richText = AppRichText(secrets, clock, loggers.CreateLogger "campfire.rich_text")
             let time = Campfire.Db.Ef.ClockTimeProvider clock
             let dbFactory = Campfire.Db.Ef.Data.factory (Campfire.Db.Ef.Data.options config.Storage.Database time dbOptions)
-            // `db:prepare` (E15): the schema goes in through EF before the port's writer and readers open the file.
+            // `db:prepare` (E15): the schema goes in through EF before anything else opens the file.
             do!
                 Task.Run(fun () ->
                     use context = dbFactory.CreateDbContext()
                     Campfire.Db.Schema.prepare context config.Environment time |> ignore)
-            let! db = openDatabase config clock jobs
+            let gate = WriteGate()
 
             let storage =
                 Storage.create (DiskService.create config.Storage.Files "local") (RailsCompat.appVerifier secrets "ActiveStorage")
@@ -181,20 +172,20 @@ module Boot =
 
             // config/puma.rb: `Membership.disconnect_all` when the server boots.
             use bootContext = dbFactory.CreateDbContext()
-            match! Campfire.Db.Ef.Writes.run db.Gate efEnv bootContext (fun tx -> Membership.disconnectAll tx |> ignore) with
+            match! Campfire.Db.Ef.Writes.run gate efEnv bootContext (fun tx -> Membership.disconnectAll tx |> ignore) with
             | Ok() -> ()
             | Error error -> failwith (DbError.display error)
 
-            let deps: Deps = { Db = db; DbFactory = dbFactory; Env = efEnv; Secrets = secrets; Clock = clock }
+            let deps: Deps = { DbFactory = dbFactory; Gate = gate; Env = efEnv; Secrets = secrets; Clock = clock }
             let cable = Registry.server deps cableConfig (loggers.CreateLogger "campfire.cable")
 
             let kitConfig = { KitConfig.Production config.DisableSsl with ErrorPages = errorPages () }
 
             let fragmentCache = FragmentCache(int (min config.FragmentCacheBytes (int64 Int32.MaxValue)))
             // config/initializers/web_push.rb: off without a valid VAPID key pair.
-            let webPush = IntegrationJobs.webPushPool config dbFactory db.Gate efEnv (loggers.CreateLogger "campfire.web_push")
+            let webPush = IntegrationJobs.webPushPool config dbFactory gate efEnv (loggers.CreateLogger "campfire.web_push")
             let app =
-                AppState(config, secrets, clock, db, dbFactory, efEnv, storage, cable, Broadcasts cable, jobs, webPush, fragmentCache, loggers)
+                AppState(config, secrets, clock, gate, dbFactory, efEnv, storage, cable, Broadcasts cable, jobs, webPush, fragmentCache, loggers)
 
             let registry = CoreJobs.withCoreJobs ()
             IntegrationJobs.registerJobs registry
@@ -204,7 +195,7 @@ module Boot =
             return
                 { App = app
                   Pipeline = pipeline app kit
-                  ConfigureServices = fun services -> Campfire.Db.Ef.Data.addServices services dbFactory db.Gate time
+                  ConfigureServices = fun services -> Campfire.Db.Ef.Data.addServices services dbFactory gate time
                   Jobs = runner }
         }
 
@@ -212,6 +203,16 @@ module Boot =
     let boot (config: AppConfig) (loggers: ILoggerFactory) : Task<Booted> = bootWith ignore config loggers
 
     // --- Commands ----------------------------------------------------------------------------------------
+
+    /// What the old writer thread did on `Dispose`: a `TRUNCATE` checkpoint (the WAL's pages go into the database file and the WAL
+    /// is emptied), then every connection of Microsoft.Data.Sqlite's pool closed so that the file is released.
+    let internal closeDatabase (app: AppState) : unit =
+        try
+            use context = app.DbFactory.CreateDbContext()
+            context.Database.ExecuteSql($"PRAGMA wal_checkpoint(TRUNCATE)") |> ignore
+        with e ->
+            (app.Loggers.CreateLogger "campfire").LogWarning(e, "the shutdown checkpoint failed")
+        SqliteConnection.ClearAllPools()
 
     [<Literal>]
     let Usage = "usage: campfire [server|backup]"
@@ -257,8 +258,8 @@ module Boot =
             | Some pool -> do! pool.Shutdown()
             | None -> ()
             requestLines.Stop()
-            // The database goes last: its writer checkpoints and closes the file (Rust drops it with the app).
-            (app.Db :> IDisposable).Dispose()
+            // The database goes last: fold the WAL into the file and close every pooled connection (Rust drops its writer with the app).
+            closeDatabase app
         }
 
     /// SQLite's online backup of the live database at `source` into a new file at `target`: `sqlite3_backup_step(-1)`

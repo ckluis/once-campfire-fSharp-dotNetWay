@@ -1,13 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
-    <Compile Include="Time.fs" />
     <Compile Include="RailsTime.fs" />
     <Compile Include="Error.fs" />
     <Compile Include="Events.fs" />
     <Compile Include="WriteGate.fs" />
-    <Compile Include="Sql.fs" />
-    <Compile Include="Columns.fs" />
-    <Compile Include="Database.fs" />
+    <Compile Include="Tokens.fs" />
     <Compile Include="Identity.fs" />
     <Compile Include="Rooms.fs" />
     <Compile Include="Messages.fs" />

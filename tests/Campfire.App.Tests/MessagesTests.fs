@@ -31,12 +31,6 @@ let private readEf (test: Test) (f: Ef.CampfireDb -> 'T) : Task<'T> =
         return unwrap (Ef.Reads.run context f)
     }
 
-let private read (test: Test) (f: Conn -> 'T) : Task<'T> =
-    task {
-        let! result = test.App.Db.Read f
-        return unwrap result
-    }
-
 let private replyMarker = "data-controller=\"reply\""
 
 let private count (haystack: string) (needle: string) : int =
@@ -120,7 +114,7 @@ let private template (stream: string) : string =
 let ``a text message is answered and broadcast as it was stored`` () =
     task {
         use! test = bootSeeded "default"
-        let! room = read test (fun conn -> Room.findLegacy conn ALL_TALK)
+        let! room = readEf test (fun db -> Room.find db ALL_TALK)
         let streamables = [ Campfire.RailsCompat.GlobalId.toParam (Campfire.App.Channels.Gid.roomGid room); "messages" ]
         let wake = Campfire.Cable.Wake()
         use subscriber = test.App.Cable.Hub.Subscribe(Campfire.Cable.Naming.streamNameFrom streamables, null, wake)
@@ -195,9 +189,7 @@ let ``uploads attach and process the file`` () =
         Assert.Equal("upload-1", message.ClientMessageId)
         let! blob = readEf test (fun db -> Message.attachment db message |> Option.get |> snd)
         Assert.Equal("red.png", blob.Filename)
-        let! variants =
-            read test (fun conn ->
-                conn.Count("SELECT count(*) FROM active_storage_variant_records WHERE blob_id = ?", [| I blob.Id |]))
+        let variants = test.Sql(fun conn -> RawSql.scalar<int64> conn "SELECT count(*) FROM active_storage_variant_records WHERE blob_id = ?" [ blob.Id ])
         Assert.True((variants = 1L), "the :thumb variant is processed")
     }
 
@@ -211,10 +203,9 @@ let private UNRENDERABLE = "Failed to load message content"
 
 /// What search, a push and a bot's webhook get for a message.
 let private plainTexts (test: Test) (message: Message) : Task<string * string * string> =
-    read test (fun conn ->
-        use db = test.App.DbFactory.CreateDbContext()
+    let indexed = test.Sql(fun conn -> (RawSql.tryScalar<string> conn "SELECT body FROM message_search_index WHERE rowid = ?" [ message.Id ]).Value)
+    readEf test (fun db ->
         let richText = test.App.Env.RichText
-        let indexed = conn.QueryOne("SELECT body FROM message_search_index WHERE rowid = ?", [| I message.Id |], (fun r -> r.Text 0)).Value
         let push, _, _ = PushSubscription.pushesFor db richText message (RailsTime.now test.App.Env.Time)
         let webhook =
             (User.webhook db (User.find db BENDER)).Value |> fun hook -> Webhook.payload db richText hook message "/bot" "/message"

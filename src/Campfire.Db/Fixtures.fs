@@ -55,10 +55,18 @@ let referenceDir () : string =
             if Directory.Exists candidate then candidate else up dir.Parent
     up (DirectoryInfo AppContext.BaseDirectory)
 
+/// A value bound to a statement hole.
+[<Struct; NoComparison; NoEquality>]
+type private SqlArg =
+    | Null
+    | I of i: int64
+    | R of r: float
+    | S of s: string
+
 type Options =
     {
-        /// Base time for `N.minutes.ago` and the default timestamps.
-        Now: Timestamp
+        /// Base time for `N.minutes.ago` and the default timestamps (UTC).
+        Now: DateTime
         /// BCrypt cost for `BCrypt::Password.create` (bcrypt-ruby's default is 12).
         BcryptCost: int
     }
@@ -66,7 +74,7 @@ type Options =
 module Options =
     /// Options for `now` as the `DateTime` an EF write carries (`Tx.Now()`).
     let at (now: DateTime) (bcryptCost: int) : Options =
-        { Now = Timestamp.FromMicrosecond((now.ToUniversalTime() - DateTime.UnixEpoch).Ticks / 10L)
+        { Now = RailsTime.truncate (now.ToUniversalTime())
           BcryptCost = bcryptCost }
 
 /// What was loaded: table -> label -> id.
@@ -190,8 +198,8 @@ let private associations (table: string) : Association list =
 /// Enum attributes: name -> stored value.
 let private resolveEnum (table: string) (column: string) (value: string) : SqlArg option =
     match table, column with
-    | "users", "role" -> Role.fromName value |> Option.map Role.toSql
-    | "users", "status" -> Status.fromName value |> Option.map Status.toSql
+    | "users", "role" -> Role.fromName value |> Option.map (fun r -> I(int64 r))
+    | "users", "status" -> Status.fromName value |> Option.map (fun s -> I(int64 s))
     | "memberships", "involvement" -> Involvement.fromName value |> Option.map (fun i -> S(Involvement.name i))
     | _ -> None
 
@@ -217,9 +225,10 @@ let private yamlToSql (table: string) (column: string) (value: Yaml) : SqlArg =
         | None ->
             if isDatetimeColumn column then
                 // Time columns cast the text (e.g. ERB's "2026-09-26 11:24:38 UTC").
-                match Timestamp.ParseDb s with
-                | Some ts -> S(ts.ToDb())
-                | None -> S s
+                try
+                    S(RailsTime.toDb (RailsTime.ofDb s))
+                with :? FormatException ->
+                    S s
             else
                 S s
 
@@ -270,8 +279,8 @@ type internal Erb(options: Options) =
                     match parseAgo code with
                     | Some duration ->
                         // `TimeWithZone#to_s` in UTC: whole seconds.
-                        let at = (Timestamp.FromSecond options.Now.AsSecond).Ago duration
-                        $"{at.ToDb()} UTC"
+                        let wholeSecond = options.Now.AddTicks(-(options.Now.Ticks % TimeSpan.TicksPerSecond))
+                        $"{RailsTime.toDb (wholeSecond - duration)} UTC"
                     | None -> Err.fail (DbError.other $"unsupported ERB in fixture: {code}")
 
     member this.Render(source: string) : string =
@@ -327,10 +336,8 @@ let private holeValue (arg: SqlArg) : obj | null =
     | I i -> box i
     | R r -> box r
     | S s -> box s
-    | B b -> box b
-    | T t -> box (t.ToDb())
 
-let private fixtureRow (table: string) (label: string) (attributes: (string * Yaml) list) (columns: string list) (now: Timestamp) : SortedDictionary<string, SqlArg> =
+let private fixtureRow (table: string) (label: string) (attributes: (string * Yaml) list) (columns: string list) (now: DateTime) : SortedDictionary<string, SqlArg> =
     let values = SortedDictionary<string, SqlArg>(StringComparer.Ordinal)
     for key, value in attributes do
         let association =
@@ -356,7 +363,7 @@ let private fixtureRow (table: string) (label: string) (attributes: (string * Ya
         | None -> values[key] <- yamlToSql table key value
     if not (values.ContainsKey "id") then values["id"] <- I(identify label)
     for column in [ "created_at"; "updated_at" ] do
-        if List.contains column columns && not (values.ContainsKey column) then values[column] <- S(now.ToDb())
+        if List.contains column columns && not (values.ContainsKey column) then values[column] <- S(RailsTime.toDb now)
     values
 
 /// Loads every `*.yml` under `dir` through `db`'s own connection, inside the caller's transaction (`Writes.run`), which checks
@@ -390,7 +397,7 @@ let load (db: Ef.CampfireDb) (dir: string) (options: Options) : Loaded =
 
         let columns = tableColumns db table
         db.Database.ExecuteSql(FormattableStringFactory.Create($"DELETE FROM \"{table}\"", [||])) |> ignore
-        let now = Timestamp.FromMicrosecond options.Now.AsMicrosecond
+        let now = options.Now
         let mutable labels = ids |> Map.tryFind table |> Option.defaultValue Map.empty
         for label, attributes in rows do
             if label <> "DEFAULTS" && label <> "_fixture" then

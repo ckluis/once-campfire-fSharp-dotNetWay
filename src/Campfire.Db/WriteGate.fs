@@ -1,11 +1,10 @@
-// Design: plans/design-data-ef.md section 3.3 and the section 4 migration rule. Lives ahead of Database.fs because the old
-// writer takes the gate too, until unit 1.11 deletes it.
+// Design: plans/design-data-ef.md section 3.3.
 namespace Campfire.Db
 
 open System.Threading
 open System.Threading.Tasks
 
-/// The one writer at a time, as SQLite has it: every write (the old `Database` writer thread's job, `Writes.run`) holds the
+/// The one writer at a time, as SQLite has it: every write (`Writes.run`) holds the
 /// gate from before `BEGIN IMMEDIATE` until its after-commit work is done.
 [<Sealed>]
 type WriteGate() =
@@ -13,9 +12,6 @@ type WriteGate() =
     let semaphore = new SemaphoreSlim(1, 1)
 
     member _.Enter() : Task = semaphore.WaitAsync()
-
-    /// For synchronous callers (`Database.WriteBlocking`), never from inside an async task.
-    member _.EnterBlocking() : unit = semaphore.Wait()
 
     member _.Exit() : unit = semaphore.Release() |> ignore
 

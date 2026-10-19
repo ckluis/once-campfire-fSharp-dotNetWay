@@ -21,42 +21,10 @@ open Campfire.Db
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module User =
-    // ---- The port's Conn-based readers, for the models that have not moved to EF yet (units 1.4-1.9 delete them, 1.11 the rest).
-
-    /// `SELECT` and the columns `User.fromRow` reads, `FROM "users"`: queries built outside
-    /// this module start with it.
-    [<Literal>]
-    let Select = Selects.User
-
-    [<Literal>]
-    let private findByIdSql = Selects.User + " WHERE \"users\".\"id\" = ? LIMIT 1"
-
-    /// Reads a user from `Columns.User`, starting at column `offset`.
-    let fromRowAt (r: Row) (offset: int) : User =
-        { Id = r.Int64(offset + 0)
-          Name = r.Text(offset + 1)
-          EmailAddress = Option.toObj (r.OptText(offset + 2))
-          PasswordDigest = Option.toObj (r.OptText(offset + 3))
-          Role = Role.ofSql (r.Int64(offset + 4))
-          Status = Status.ofSql (r.Int64(offset + 5))
-          Bio = Option.toObj (r.OptText(offset + 6))
-          BotToken = Option.toObj (r.OptText(offset + 7))
-          CreatedAt = RailsTime.truncate ((r.Timestamp(offset + 8)).ToDateTimeOffset().UtcDateTime)
-          UpdatedAt = RailsTime.truncate ((r.Timestamp(offset + 9)).ToDateTimeOffset().UtcDateTime) }
-
-    let fromRow (r: Row) : User = fromRowAt r 0
-
-    /// `User.find_by_sql`: the users a query starting with `User.Select` returns.
-    let findBySql (conn: Conn) (sql: string) (args: SqlArg[]) : User list = conn.QueryAll(sql, args, fromRow)
-
-    let findByIdLegacy (conn: Conn) (id: int64) : User option = conn.QueryOne(findByIdSql, [| I id |], fromRow)
-
-    let findLegacy (conn: Conn) (id: int64) : User = findByIdLegacy conn id |> Err.orNotFound "User"
-
     // ---- Finders and scopes (EF, LINQ; every captured value goes through `EF.Parameter` so the query cache keeps hitting)
 
     /// `User.generate_bot_token`
-    let generateBotToken () : string = Sql.alphanumeric 12
+    let generateBotToken () : string = Tokens.alphanumeric 12
 
     /// `User.find_by(id:)`
     let findById (db: Ef.CampfireDb) (id: int64) : User option =
@@ -286,7 +254,7 @@ module User =
     let resetRemoteConnections (tx: Ef.Tx) (user: User) : unit = closeRemoteConnections tx user true
 
     let private deactivatedEmailAddress (user: User) : string option =
-        let uuid = Sql.uuid ()
+        let uuid = Tokens.uuid ()
         Option.ofObj user.EmailAddress |> Option.map (fun e -> e.Replace("@", $"-deactivated-{uuid}@"))
 
     /// `deactivate`: queues the socket disconnect (after commit: Rails does it mid-transaction, the Rust known
@@ -411,31 +379,6 @@ module Membership =
 
     /// `CONNECTION_TTL.ago`
     let connectionCutoff (now: DateTime) : DateTime = now - connectionTtl
-
-    // ---- The port's Conn-based readers, for the models that have not moved to EF yet (Message, push: units 1.5-1.8; 1.11 deletes them).
-
-    let private involvementOfLegacy (r: Row) (i: int) : Nullable<Involvement> =
-        match r.OptText i with
-        | None -> Nullable()
-        | Some name ->
-            match Involvement.fromName name with
-            | Some involvement -> Nullable involvement
-            | None -> failwith $"unknown involvement \"{name}\""
-
-    let private timeOf (t: Timestamp) : DateTime = RailsTime.truncate (t.ToDateTimeOffset().UtcDateTime)
-
-    let fromRowAt (r: Row) (offset: int) : Membership =
-        { Id = r.Int64(offset + 0)
-          RoomId = r.Int64(offset + 1)
-          UserId = r.Int64(offset + 2)
-          Involvement = involvementOfLegacy r (offset + 3)
-          UnreadAt = (match r.OptTimestamp(offset + 4) with Some t -> Nullable(timeOf t) | None -> Nullable())
-          ConnectedAt = (match r.OptTimestamp(offset + 5) with Some t -> Nullable(timeOf t) | None -> Nullable())
-          Connections = r.Int64(offset + 6)
-          CreatedAt = timeOf (r.Timestamp(offset + 7))
-          UpdatedAt = timeOf (r.Timestamp(offset + 8)) }
-
-    let fromRow (r: Row) : Membership = fromRowAt r 0
 
     // ---- Finders and scopes (EF, LINQ; every captured value goes through `EF.Parameter`)
 
@@ -633,29 +576,6 @@ module Room =
     /// Rows per `INSERT` of memberships, well under SQLite's bound-variable limit.
     [<Literal>]
     let private MembershipInsertBatch = 1_000
-
-    // ---- The port's Conn-based readers, for push (unit 1.8 moves them).
-
-    let private roomTypeOfLegacy (r: Row) (i: int) : RoomType =
-        let name = r.Text i
-        match RoomType.fromClassName name with
-        | Some roomType -> roomType
-        | None -> failwith $"unknown room type \"{name}\""
-
-    let fromRowAt (r: Row) (offset: int) : Room =
-        { Id = r.Int64(offset + 0)
-          Name = Option.toObj (r.OptText(offset + 1))
-          Type = roomTypeOfLegacy r (offset + 2)
-          CreatorId = r.Int64(offset + 3)
-          CreatedAt = RailsTime.truncate ((r.Timestamp(offset + 4)).ToDateTimeOffset().UtcDateTime)
-          UpdatedAt = RailsTime.truncate ((r.Timestamp(offset + 5)).ToDateTimeOffset().UtcDateTime) }
-
-    let fromRow (r: Row) : Room = fromRowAt r 0
-
-    let findByIdLegacy (conn: Conn) (id: int64) : Room option =
-        conn.QueryOne(Selects.Room + " WHERE \"rooms\".\"id\" = ? LIMIT 1", [| I id |], fromRow)
-
-    let findLegacy (conn: Conn) (id: int64) : Room = findByIdLegacy conn id |> Err.orNotFound "Room"
 
     // ---- Finders and scopes (EF, LINQ)
 
@@ -1176,7 +1096,7 @@ module Message =
     /// the room touch. After commit: the search index, then `room.receive` (unread
     /// memberships and the push job).
     let create (tx: Ef.Tx) (attributes: NewMessage) : Message =
-        let clientMessageId = attributes.ClientMessageId |> Option.defaultWith Sql.uuid
+        let clientMessageId = attributes.ClientMessageId |> Option.defaultWith Tokens.uuid
         let mutable message =
             Ef.Data.insert
                 tx.Db

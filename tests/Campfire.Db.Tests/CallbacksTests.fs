@@ -10,7 +10,7 @@ open Campfire.Db
 open Campfire.Db.Tests.Support
 
 let private ftsBody (t: TestDb) (messageId: int64) : string option =
-    t.Read(fun c -> c.QueryOne("SELECT body FROM message_search_index WHERE rowid = ?", [| I messageId |], fun r -> r.Text 0))
+    t.Sql(fun c -> Raw.rows c "SELECT body FROM message_search_index WHERE rowid = ?" [ messageId ] (fun r -> r.GetString 0)) |> List.tryHead
 
 [<Fact>]
 let ``creating a message touches the room marks disconnected members unread and indexes after commit`` () =
@@ -40,12 +40,12 @@ let ``creating a message touches the room marks disconnected members unread and 
     Assert.Equal<Event list>([ PushMessage(id "designers", message.Id) ], t.Events())
 
     let body =
-        t.Read(fun c ->
-            c.QueryRow(
-                "SELECT body, record_type, record_id FROM action_text_rich_texts WHERE record_id = ?",
-                [| I message.Id |],
-                fun r -> r.Text 0, r.Text 1, r.Int64 2
-            ))
+        t.Sql(fun c ->
+            Raw.row
+                c
+                "SELECT body, record_type, record_id FROM action_text_rich_texts WHERE record_id = ?"
+                [ message.Id ]
+                (fun r -> r.GetString 0, r.GetString 1, r.GetInt64 2))
     Assert.Equal(("Hello <b>there</b>", "Message", message.Id), body)
 
 [<Fact>]
@@ -140,18 +140,17 @@ let ``recording searches keeps the ten most recent`` () =
 [<Fact>]
 let ``timestamps are written like active record`` () =
     use t = new TestDb()
-    t.Clock.TravelTo((Timestamp.ParseDb "2026-09-26 12:34:56.123456").Value.ToDateTimeOffset())
+    t.Clock.TravelTo(DateTimeOffset(RailsTime.ofDb "2026-09-26 12:34:56.123456"))
     let attributes = { NewMessage.create (id "hq") (id "david") with Body = Some "x" }
     let message = t.WriteEf(fun tx -> Message.create tx attributes)
     let createdAt, typeofCreated =
-        t.Read(fun c ->
-            c.QueryRow("SELECT created_at, typeof(created_at) FROM messages WHERE id = ?", [| I message.Id |], fun r -> r.Text 0, r.Text 1))
+        t.Sql(fun c -> Raw.row c "SELECT created_at, typeof(created_at) FROM messages WHERE id = ?" [ message.Id ] (fun r -> r.GetString 0, r.GetString 1))
     Assert.Equal(("2026-09-26 12:34:56.123456", "text"), (createdAt, typeofCreated))
 
-    t.Clock.TravelTo((Timestamp.ParseDb "2026-09-26 12:00:00").Value.ToDateTimeOffset())
+    t.Clock.TravelTo(DateTimeOffset(RailsTime.ofDb "2026-09-26 12:00:00"))
     let attributes = { NewMessage.create (id "hq") (id "david") with Body = Some "y" }
     let message = t.WriteEf(fun tx -> Message.create tx attributes)
-    let createdAt = t.Read(fun c -> c.QueryRow("SELECT created_at FROM messages WHERE id = ?", [| I message.Id |], fun r -> r.Text 0))
+    let createdAt = t.Sql(fun c -> Raw.row c "SELECT created_at FROM messages WHERE id = ?" [ message.Id ] (fun r -> r.GetString 0))
     Assert.Equal("2026-09-26 12:00:00", createdAt) // no fraction when microseconds are zero
 
 [<Fact>]
