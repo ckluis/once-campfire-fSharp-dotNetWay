@@ -808,28 +808,23 @@ module Room =
 
     /// `touch`: `belongs_to :room, touch: true` on messages.
     let touch (tx: Ef.Tx) (roomId: int64) : unit =
-        let now = tx.Now()
-        tx.Db.Rooms
-            .Where(fun r -> r.Id = EF.Parameter roomId)
-            .ExecuteUpdate(fun s -> s.SetProperty((fun r -> r.UpdatedAt), now) |> ignore)
-        |> ignore
+        // `ExecuteSql`, not `ExecuteUpdate`: the hot post path (unit 1.10). An F# lambda is rebuilt into an expression tree on
+        // every call (~60 us a statement, measured), and this runs inside the write gate.
+        let now = RailsTime.toDb (tx.Now())
+        tx.Db.Database.ExecuteSql($"UPDATE rooms SET updated_at = {now} WHERE id = {roomId}") |> ignore
 
     /// `memberships.where.not(involvement: :invisible).disconnected.where.not(user: creator).update_all(unread_at: message.created_at)`
     /// (SQL's `!=` leaves a NULL involvement out, as `HasValue` does here).
     let private unreadMemberships (tx: Ef.Tx) (roomId: int64) (message: Message) : unit =
         let now = tx.Now()
-        let cutoff = Membership.connectionCutoff now
+        // `ExecuteSql`, as `touch` above (hot post path, inside the write gate); `involvement != 'invisible'` leaves a NULL out.
+        let cutoff = RailsTime.toDb (Membership.connectionCutoff now)
+        let now = RailsTime.toDb now
+        let createdAt = RailsTime.toDb message.CreatedAt
         let creatorId = message.CreatorId
-        let createdAt = message.CreatedAt
-        tx.Db.Memberships
-            .Where(fun m ->
-                m.RoomId = EF.Parameter roomId
-                && m.Involvement.HasValue
-                && m.Involvement.Value <> Involvement.Invisible
-                && (not m.ConnectedAt.HasValue || m.ConnectedAt.Value < EF.Parameter cutoff)
-                && m.UserId <> EF.Parameter creatorId)
-            .ExecuteUpdate(fun s ->
-                s.SetProperty((fun m -> m.UnreadAt), Nullable createdAt).SetProperty((fun m -> m.UpdatedAt), now) |> ignore)
+        tx.Db.Database.ExecuteSql(
+            $"UPDATE memberships SET unread_at = {createdAt}, updated_at = {now} WHERE room_id = {roomId} AND involvement != 'invisible' AND (connected_at IS NULL OR connected_at < {cutoff}) AND user_id != {creatorId}"
+        )
         |> ignore
 
     /// `room.receive(message)`, from the message's `after_create_commit`: marks members unread, then enqueues the push.
@@ -1089,9 +1084,9 @@ module Message =
         | None -> None
 
     /// `plain_text_body`: `body.to_plain_text.presence || attachment&.filename&.to_s || ""`
-    let plainTextBody (db: Ef.CampfireDb) (richText: RichText) (message: Message) : string =
+    let private plainTextOf (db: Ef.CampfireDb) (richText: RichText) (message: Message) (html: string option) : string =
         let fromBody =
-            match bodyHtml db message with
+            match html with
             | Some html ->
                 let text = richText.ToPlainText(db, html)
                 if not (String.IsNullOrWhiteSpace text) then Some text else None
@@ -1102,6 +1097,10 @@ module Message =
             match attachment db message with
             | Some(_, blob) -> blob.Filename
             | None -> ""
+
+    /// `plain_text_body`: `body.to_plain_text.presence || attachment&.filename&.to_s || ""`
+    let plainTextBody (db: Ef.CampfireDb) (richText: RichText) (message: Message) : string =
+        plainTextOf db richText message (bodyHtml db message)
 
     /// `plain_text_body.match(/\A\/play (?<name>\w+)\z/)` then `Sound.find_by_name`.
     let soundIn (plainText: string) : Sound option =
@@ -1144,8 +1143,9 @@ module Message =
     // Creating, updating, destroying
 
     /// The search index (E13): EF has no FTS5, so these are `ExecuteSql`, in after-commit hooks.
-    let private createInIndex (tx: Ef.Tx) (message: Message) : unit =
-        let plain = plainTextBody tx.Db tx.RichText message
+    let private createInIndex (tx: Ef.Tx) (message: Message) (html: string option) : unit =
+        // A new message's body is the one just inserted: no read of it back (hot post path).
+        let plain = plainTextOf tx.Db tx.RichText message html
         tx.Db.Database.ExecuteSql($"insert into message_search_index(rowid, body) values ({message.Id}, {plain})") |> ignore
 
     let private updateInIndex (tx: Ef.Tx) (message: Message) : unit =
@@ -1157,10 +1157,9 @@ module Message =
 
     let private touchRow (tx: Ef.Tx) (id: int64) : DateTime =
         let now = tx.Now()
-        tx.Db.Messages
-            .Where(fun m -> m.Id = EF.Parameter id)
-            .ExecuteUpdate(fun s -> s.SetProperty((fun m -> m.UpdatedAt), now) |> ignore)
-        |> ignore
+        // `ExecuteSql`, as `Room.touch` (hot post path, inside the write gate).
+        let text = RailsTime.toDb now
+        tx.Db.Database.ExecuteSql($"UPDATE messages SET updated_at = {text} WHERE id = {id}") |> ignore
         now
 
     let private createAttachment (tx: Ef.Tx) (messageId: int64) (blobId: int64) : unit =
@@ -1202,7 +1201,7 @@ module Message =
 
         let committed = message
         tx.AfterCommit(fun tx ->
-            createInIndex tx committed
+            createInIndex tx committed attributes.Body
             Room.receive tx committed.RoomId committed)
         message
 
