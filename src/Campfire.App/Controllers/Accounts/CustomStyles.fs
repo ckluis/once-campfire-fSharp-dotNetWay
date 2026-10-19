@@ -23,7 +23,7 @@ module CustomStyles =
             do! Concerns.ensureCanAdminister c
             let! (account: Account) = AccountsController.currentAccount c
             do! c.RespondTo [ Format.Html ] |> Result.map ignore
-            let customStyles = account.CustomStyles
+            let customStyles = Option.ofObj account.CustomStyles
             return!
                 Page.framedPage
                     c
@@ -44,6 +44,6 @@ module CustomStyles =
             let parameters = required.Permit(Params.permitKeys [ "custom_styles" ])
             let customStyles =
                 if parameters.ContainsKey "custom_styles" then Some(Accounts.paramToS parameters "custom_styles") else None
-            let! (_: Account) = c.App.Write(fun tx -> Account.update tx account None customStyles None)
+            let! (_: Account) = c.Write(fun tx -> Account.update tx account None customStyles None)
             return! c.RedirectToWith(c.UrlFor(Routes.editAccountCustomStyles ()), { Redirect.Default with Notice = "✓" })
         }

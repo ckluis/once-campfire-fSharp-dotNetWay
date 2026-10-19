@@ -121,14 +121,14 @@ let ``direct default involvement for new users`` () =
 let ``open room grants access to all users after creation`` () =
     use t = new TestDb()
     let room = t.Write(fun tx -> Room.create tx Open (Some "My open room with everyone!") (id "david"))
-    Assert.Equal(t.Read User.count, int64 (List.length (memberIds t room.Id)))
+    Assert.Equal(t.ReadEf User.count, int64 (List.length (memberIds t room.Id)))
 
 [<Fact>]
 let ``open room grants access to all users after becoming open`` () =
     use t = new TestDb()
     let watercooler = room t "watercooler"
     t.Write(fun tx -> Room.update tx watercooler None (Some Open) |> ignore)
-    Assert.Equal(t.Read User.count, int64 (List.length (memberIds t (id "watercooler"))))
+    Assert.Equal(t.ReadEf User.count, int64 (List.length (memberIds t (id "watercooler"))))
     Assert.Equal(Open, (room t "watercooler").RoomType)
     let stored = t.Read(fun c -> c.QueryRow("SELECT type FROM rooms WHERE id = ?", [| I(id "watercooler") |], fun r -> r.Text 0))
     Assert.Equal("Rooms::Open", stored)

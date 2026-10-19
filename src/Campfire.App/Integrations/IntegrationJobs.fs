@@ -110,7 +110,7 @@ module IntegrationJobs =
                 app.Db.Read(fun conn ->
                     let presenter = Presenter(conn, app, None)
                     let view = presenter.Message message
-                    let account = Account.first conn
+                    let account = Account.firstLegacy conn
                     let html = Page.renderDetached app account (fun ctx -> MessagesCached.message ctx view)
                     let partials = { Rendered.empty with Message = Some html }
                     app.Broadcasts.MessageCreate(conn, room, message, Rendered.partials partials))
@@ -126,7 +126,7 @@ module IntegrationJobs =
                 let db = app.Db
                 match!
                     db.Read(fun conn ->
-                        let bot = User.find conn botId
+                        let bot = User.findLegacy conn botId
                         let message = Message.find conn messageId
                         let room = Room.find conn message.RoomId
                         match Webhook.findByUser conn botId with

@@ -116,3 +116,24 @@ module CtxApp =
 
         /// The request's `CampfireDb`: scoped, leased from the pooled factory and returned when the request ends.
         member c.Db : Campfire.Db.Ef.CampfireDb = c.Http.RequestServices.GetRequiredService<Campfire.Db.Ef.CampfireDb>()
+
+        /// `Reads.run` over the request's context for actions, whose errors become responses as `AppErrors.dbError` maps them.
+        /// Synchronous EF (E6): the read runs where the action is.
+        member c.Read<'T>(f: Campfire.Db.Ef.CampfireDb -> 'T) : Task<Result<'T, Campfire.Kit.Error>> =
+            let result = Campfire.Db.Ef.Reads.run c.Db f |> Result.mapError AppErrors.dbError
+            Task.FromResult result
+
+        /// `Writes.run` over the request's context, the failure left as a `DbError` for actions that rescue one
+        /// (`ActiveRecord::RecordNotUnique`).
+        member c.TryWrite<'T>(f: Campfire.Db.Ef.Tx -> 'T) : Task<Result<'T, DbError>> =
+            let app = c.App
+            Campfire.Db.Ef.Writes.run app.Gate app.Env c.Db f
+
+        /// `Writes.run` over the request's context: the gate, `BEGIN IMMEDIATE`, the body, `SaveChanges`, `COMMIT`, then the
+        /// after-commit queue; errors become responses as `AppErrors.dbError` maps them.
+        member c.Write<'T>(f: Campfire.Db.Ef.Tx -> 'T) : Task<Result<'T, Campfire.Kit.Error>> =
+            task {
+                let app = c.App
+                let! result = Campfire.Db.Ef.Writes.run app.Gate app.Env c.Db f
+                return result |> Result.mapError AppErrors.dbError
+            }

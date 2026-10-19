@@ -170,7 +170,9 @@ module Boot =
                 Storage.create (DiskService.create config.Storage.Files "local") (RailsCompat.appVerifier secrets "ActiveStorage")
 
             let cableConfig = { Campfire.Cable.Config.defaults with AssumeSsl = not config.DisableSsl }
-            let deps: Deps = { Db = db; Secrets = secrets; Clock = clock }
+            let time = Campfire.Db.Ef.ClockTimeProvider clock
+            let dbFactory = Campfire.Db.Ef.Data.factory (Campfire.Db.Ef.Data.options config.Storage.Database time ignore)
+            let deps: Deps = { Db = db; DbFactory = dbFactory; Secrets = secrets; Clock = clock }
             let cable = Registry.server deps cableConfig (loggers.CreateLogger "campfire.cable")
 
             let kitConfig = { KitConfig.Production config.DisableSsl with ErrorPages = errorPages () }
@@ -178,8 +180,6 @@ module Boot =
             let fragmentCache = FragmentCache(int (min config.FragmentCacheBytes (int64 Int32.MaxValue)))
             // config/initializers/web_push.rb: off without a valid VAPID key pair.
             let webPush = IntegrationJobs.webPushPool config db (loggers.CreateLogger "campfire.web_push")
-            let time = Campfire.Db.Ef.ClockTimeProvider clock
-            let dbFactory = Campfire.Db.Ef.Data.factory (Campfire.Db.Ef.Data.options config.Storage.Database time ignore)
             let efEnv: Campfire.Db.Ef.Env =
                 { Time = time
                   Sink = jobs

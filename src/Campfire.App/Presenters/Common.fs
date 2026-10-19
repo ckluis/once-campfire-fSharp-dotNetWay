@@ -15,15 +15,18 @@ open Campfire.Views.Users
 
 module Common =
     /// `Time#to_fs(:number)`: `%Y%m%d%H%M%S` in UTC (the app's time zone).
-    let toFsNumber (time: Campfire.Db.Timestamp) : string =
-        time.ToDateTimeOffset().UtcDateTime.ToString("yyyyMMddHHmmss", Globalization.CultureInfo.InvariantCulture)
+    let toFsNumberOf (time: DateTime) : string =
+        time.ToUniversalTime().ToString("yyyyMMddHHmmss", Globalization.CultureInfo.InvariantCulture)
+
+    /// `toFsNumberOf` for the port's `Timestamp` (the models not yet on EF).
+    let toFsNumber (time: Campfire.Db.Timestamp) : string = toFsNumberOf (time.ToDateTimeOffset().UtcDateTime)
 
     /// `user.avatar_token`: `signed_id(purpose: :avatar)`.
     let avatarToken (secrets: Secrets) (userId: int64) : string = SignedId.generate secrets "User" userId (Some "avatar") None
 
     /// `fresh_user_avatar_path(user)`.
     let avatarPath (secrets: Secrets) (user: User) : string =
-        Routes.freshUserAvatar (avatarToken secrets user.Id) (toFsNumber user.UpdatedAt)
+        Routes.freshUserAvatar (avatarToken secrets user.Id) (toFsNumberOf user.UpdatedAt)
 
     /// A storage error inside a database closure. SQLite's own errors stay `Sqlite`, so that
     /// `DbError.isRecordNotUnique` sees them. (Neither project depends on the other, so this can't be
@@ -48,8 +51,8 @@ module Common =
     let userSummary (secrets: Secrets) (user: User) : UserSummary =
         { Id = user.Id
           Name = user.Name
-          Bio = user.Bio
-          EmailAddress = user.EmailAddress
+          Bio = Option.ofObj user.Bio
+          EmailAddress = Option.ofObj user.EmailAddress
           Role =
             (match user.Role with
              | Campfire.Db.Role.Member -> Campfire.Views.Users.Role.Member

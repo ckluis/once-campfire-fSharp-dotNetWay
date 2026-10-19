@@ -28,7 +28,7 @@ module UsersController =
             match (match c.ParamStr key with null -> None | id -> Ruby.integerCast id) with
             | None -> return Error NotFound
             | Some id ->
-                match! c.App.Read(fun conn -> User.findById conn id) with
+                match! c.Read(fun db -> User.findById db id) with
                 | Error e -> return Error e
                 | Ok(Some user) -> return Ok user
                 | Ok None -> return Error NotFound
@@ -38,7 +38,7 @@ module UsersController =
     let private verifyJoinCode (c: Ctx) : Task<Result<Account, Error>> =
         act {
             // `Current.account.join_code` on nil raises NoMethodError.
-            let! account = c.App.Read(fun conn -> Account.first conn)
+            let! account = c.Read(fun db -> Account.first db)
             match account with
             | None -> return! Error(Internal(exn "undefined method 'join_code' for nil"))
             | Some account ->
@@ -57,7 +57,7 @@ module UsersController =
             do! Concerns.beforeActions c (Before.requireUnauthenticatedAccess Before.Default)
             let! account = verifyJoinCode c
             do! c.RespondTo [ Format.Html ] |> Result.map ignore
-            let! helpContact = c.App.Read(fun conn -> Accounts.helpContact conn)
+            let! helpContact = c.Read(fun db -> Accounts.helpContact db)
             let joinCode = account.JoinCode
             return!
                 Page.framedPage
@@ -88,12 +88,16 @@ module UsersController =
                     PasswordDigest = passwordDigest }
             let! avatar = Assignment.stage c.App (Assignment.fromParams parameters "avatar")
 
-            // `User.create!(user_params)`
+            // `User.create!(user_params)`; the avatar is attached by the port's writer until unit 1.7 moves the storage rows onto EF,
+            // so it follows the user's commit as its own write instead of sharing the transaction.
             let! result =
-                c.App.Db.Write(fun tx ->
-                    let user = User.create tx attributes
-                    let pending = AttachmentWrites.assign tx (Record.user user.Id) "avatar" avatar
-                    user, pending)
+                task {
+                    match! c.TryWrite(fun tx -> User.create tx attributes) with
+                    | Error error -> return Error error
+                    | Ok user ->
+                        let! attached = c.App.Db.Write(fun tx -> AttachmentWrites.assign tx (Record.user user.Id) "avatar" avatar)
+                        return attached |> Result.map (fun pending -> user, pending)
+                }
             match result with
             | Ok(user, pending) ->
                 AttachmentWrites.analyzeLater c.App pending

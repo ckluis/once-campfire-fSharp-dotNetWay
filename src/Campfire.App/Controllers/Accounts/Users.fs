@@ -20,7 +20,7 @@ module AccountUsers =
         act {
             do! Concerns.beforeActions c Before.Default
             do! c.RespondTo [ Format.TurboStream ] |> Result.map ignore
-            let! (users: User list) = c.App.ReadOffloaded(fun conn -> User.activeOrderedWithoutBots conn)
+            let! (users: User list) = c.Read User.activeOrderedWithoutBots
             let page = Pagination.Page.Create(c.ParamStr "page", int64 users.Length, [ 500L ])
             let secrets = c.App.Secrets
             let users = page.Records users |> List.map (Common.userSummary secrets)
@@ -42,7 +42,7 @@ module AccountUsers =
             | id -> id
         match (match id with null -> None | id -> Ruby.integerCast id) with
         | None -> Task.FromResult(Error NotFound)
-        | Some id -> c.App.Read(fun conn -> User.findActive conn id)
+        | Some id -> c.Read(fun db -> User.findActive db id)
 
     let private redirectToEditAccount (c: Ctx) : Task<Result<Response, Error>> =
         Task.FromResult(c.RedirectTo(c.UrlFor(Routes.editAccount ())))
@@ -58,7 +58,7 @@ module AccountUsers =
                 match required.Get "role" with
                 | ValueSome(Param.Str "administrator") -> Role.Administrator
                 | _ -> Role.Member
-            let! (_: User) = c.App.Write(fun tx -> User.update tx user { UserChanges.none with Role = Some role })
+            let! (_: User) = c.Write(fun tx -> User.update tx user { UserChanges.none with Role = Some role })
             return! redirectToEditAccount c
         }
 
@@ -68,6 +68,6 @@ module AccountUsers =
             do! Concerns.beforeActions c Before.Default
             do! Concerns.ensureCanAdminister c
             let! (user: User) = setUser c
-            let! (_: User) = c.App.Write(fun tx -> User.deactivate tx user)
+            let! (_: User) = c.Write(fun tx -> User.deactivate tx user)
             return! redirectToEditAccount c
         }

@@ -30,7 +30,7 @@ module Sidebars =
                     // The direct rooms' fragments come from the store the render then uses.
                     let sidebar = FragmentCache.withCache fragments (fun () -> Accounts.sidebar conn secrets user)
                     let restricted =
-                        Account.first conn
+                        Account.firstLegacy conn
                         |> Option.exists (fun account -> AccountSettings.restrictRoomCreationToAdministrators (Account.settings account))
                     sidebar, restricted)
 

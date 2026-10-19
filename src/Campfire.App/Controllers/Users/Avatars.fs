@@ -39,7 +39,7 @@ module Avatars =
             match Accounts.userIdFromAvatarToken c.App.Secrets token (c.Now()) with
             | None -> return! halt (c.Head Status.NotFound)
             | Some userId ->
-                let! user = c.App.Read(fun conn -> User.findById conn userId)
+                let! user = c.Read(fun db -> User.findById db userId)
                 match user with
                 | Some user -> return user
                 | None -> return! Error NotFound
@@ -103,7 +103,7 @@ module Avatars =
 
             let freshness =
                 { Freshness.Default with
-                    Etag = FragmentCache.cacheKeyWithVersion "users" user.Id (user.UpdatedAt.ToDateTimeOffset())
+                    Etag = FragmentCache.cacheKeyWithVersion "users" user.Id (DateTimeOffset(user.UpdatedAt))
                     Template = if templateFound c then TemplateDigest else null }
             match c.FreshWhen freshness with
             | ValueSome notModified -> return notModified

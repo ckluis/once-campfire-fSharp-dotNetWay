@@ -44,7 +44,7 @@ module Directs =
         let baseUrl = Page.rendererBaseUrl c
         app.Read(fun conn ->
             let presenter = Presenter(conn, app, None)
-            let account = Account.first conn
+            let account = Account.firstLegacy conn
             let directRooms =
                 [ for membership in Membership.forRoom conn room.Id do
                       let direct = presenter.SidebarDirect membership

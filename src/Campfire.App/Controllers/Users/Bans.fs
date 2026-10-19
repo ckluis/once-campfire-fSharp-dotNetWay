@@ -20,7 +20,7 @@ module Bans =
             do! Concerns.beforeActions c Before.Default
             do! Concerns.ensureCanAdminister c
             let! (user: User) = UsersController.findUser c "user_id"
-            let! (_: User) = c.App.Write(fun tx -> User.ban tx user)
+            let! (_: User) = c.Write(fun tx -> User.ban tx user)
             return! redirectToUser c user.Id
         }
 
@@ -30,6 +30,6 @@ module Bans =
             do! Concerns.beforeActions c Before.Default
             do! Concerns.ensureCanAdminister c
             let! (user: User) = UsersController.findUser c "user_id"
-            let! (_: User) = c.App.Write(fun tx -> User.unban tx user)
+            let! (_: User) = c.Write(fun tx -> User.unban tx user)
             return! redirectToUser c user.Id
         }

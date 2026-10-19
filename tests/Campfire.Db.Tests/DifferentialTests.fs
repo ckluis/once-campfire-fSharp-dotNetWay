@@ -54,7 +54,7 @@ let private runScenario (t: TestDb) : unit =
     t.Write(fun tx -> Boost.create tx m2.Id (id "david") "x" |> ignore)
     t.Write(fun tx -> Message.destroy tx (Message.find tx.Conn m2.Id))
     t.Write(fun tx -> Membership.destroy tx (Membership.find tx.Conn (id "kevin_designers")))
-    t.Write(fun tx ->
+    t.WriteEf(fun tx ->
         User.create
             tx
             { NewUser.create "User" with
@@ -73,17 +73,17 @@ let private runScenario (t: TestDb) : unit =
         |> Membership.disconnected tx
         |> ignore)
     t.Write(fun tx -> Room.findOrCreateDirectFor tx [ id "jz"; id "kevin" ] (id "david") |> ignore)
-    t.Write(fun tx -> Session.start tx (id "kevin") (Some "x") (Some "8.8.8.8") |> ignore)
-    t.Write(fun tx -> User.ban tx (User.find tx.Conn (id "kevin")) |> ignore)
-    t.Write(fun tx -> User.unban tx (User.find tx.Conn (id "kevin")) |> ignore)
-    t.Write(fun tx -> User.removeBannedContent tx (User.find tx.Conn (id "jz")) |> ignore)
-    t.Write(fun tx -> User.deactivate tx (User.find tx.Conn (id "jz")) |> ignore)
+    t.WriteEf(fun tx -> Session.start tx (id "kevin") (Some "x") (Some "8.8.8.8") |> ignore)
+    t.WriteEf(fun tx -> User.ban tx (User.find tx.Db (id "kevin")) |> ignore)
+    t.WriteEf(fun tx -> User.unban tx (User.find tx.Db (id "kevin")) |> ignore)
+    t.Write(fun tx -> User.removeBannedContent tx (User.findLegacy tx.Conn (id "jz")) |> ignore)
+    t.WriteEf(fun tx -> User.deactivate tx (User.find tx.Db (id "jz")) |> ignore)
     for n in 0..11 do
         t.Write(fun tx -> Search.record tx (id "david") $"q{n}" |> ignore)
-    let bot = t.Write(fun tx -> User.createBot tx "Bot" (Some "http://x"))
-    t.Write(fun tx -> User.updateBot tx bot { UserChanges.none with Name = Some "Bot2" } (Some "http://y") |> ignore)
-    t.Write(fun tx ->
-        Account.update tx (Account.first tx.Conn).Value None None (Some [ "restrict_room_creation_to_administrators", "true" ])
+    let bot = t.WriteEf(fun tx -> User.createBot tx "Bot" (Some "http://x"))
+    t.WriteEf(fun tx -> User.updateBot tx bot { UserChanges.none with Name = Some "Bot2" } (Some "http://y") |> ignore)
+    t.WriteEf(fun tx ->
+        Account.update tx (Account.first tx.Db).Value None None (Some [ "restrict_room_creation_to_administrators", "true" ])
         |> ignore)
     t.Write(fun tx -> Message.create tx (message "hq" "kevin" "Last one" "s3") |> ignore)
 

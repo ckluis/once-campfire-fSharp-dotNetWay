@@ -27,7 +27,7 @@ module Opens =
     /// `User.active.ordered`
     let activeUsers (c: Ctx) : Task<Result<Campfire.Views.Messages.UserView list, Error>> =
         let secrets = c.App.Secrets
-        c.App.ReadOffloaded(fun conn -> User.activeOrdered conn |> List.map (PresenterSupport.userView secrets))
+        c.App.ReadOffloaded(fun conn -> User.activeOrderedLegacy conn |> List.map (PresenterSupport.userView secrets))
 
     let show (c: Ctx) : Task<Result<Response, Error>> =
         act {

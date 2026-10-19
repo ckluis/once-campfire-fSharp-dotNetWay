@@ -24,6 +24,8 @@ type Cable = Server<CableUser>
 /// What the cable server needs from the app.
 type Deps =
     { Db: Database
+      /// EF Core beside the old `Db` until unit 1.11: the connection's session and user lookup uses it.
+      DbFactory: Microsoft.EntityFrameworkCore.IDbContextFactory<Campfire.Db.Ef.CampfireDb>
       Secrets: Secrets
       Clock: SharedClock }
 

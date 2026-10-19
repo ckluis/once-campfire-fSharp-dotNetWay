@@ -95,7 +95,7 @@ module Closeds =
                 c.App.ReadOffloaded(fun conn ->
                     let selectedIds = Room.userIds conn (Room.find conn roomId)
                     let selected, unselected =
-                        User.activeOrdered conn |> List.partition (fun user -> List.contains user.Id selectedIds)
+                        User.activeOrderedLegacy conn |> List.partition (fun user -> List.contains user.Id selectedIds)
                     let views = List.map (PresenterSupport.userView secrets)
                     views selected, views unselected)
             let form: ClosedFormView =

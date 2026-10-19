@@ -27,7 +27,7 @@ type DbResolver(conn: Conn, secrets: Secrets, now: Timestamp) =
         match Int64.TryParse(id, NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture) with
         | true, id ->
             try
-                User.findById conn id
+                User.findByIdLegacy conn id
             with DbException _ ->
                 None
         | _ -> None

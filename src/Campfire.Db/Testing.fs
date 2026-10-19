@@ -40,7 +40,7 @@ type BasicRichText() =
 
     static let userName (conn: Conn) (id: int64) : string option =
         try
-            User.findById conn id |> Option.map (fun user -> user.Name)
+            User.findByIdLegacy conn id |> Option.map (fun user -> user.Name)
         with _ ->
             None
 

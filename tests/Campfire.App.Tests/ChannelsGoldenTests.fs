@@ -168,7 +168,7 @@ let private ok (result: Result<'T, DbError>) : 'T =
     | Error error -> failwith (DbError.display error)
 
 /// A fresh database holding the reference's rows, and our channels over it.
-let private startOurs (recording: Recording) (dir: string) : Task<Database * Cable * Broadcasts * Microsoft.AspNetCore.Builder.WebApplication * string> =
+let private startOurs (recording: Recording) (dir: string) : Task<Database * Cable * Broadcasts * Microsoft.AspNetCore.Builder.WebApplication * string * (Microsoft.EntityFrameworkCore.IDbContextFactory<Campfire.Db.Ef.CampfireDb> * Campfire.Db.Ef.Env)> =
     task {
         let sink = CableSink()
         let clock = SystemClock()
@@ -187,12 +187,18 @@ let private startOurs (recording: Recording) (dir: string) : Task<Database * Cab
         |> fun write -> write.Result |> ok
 
         let secrets = Secrets.create (parityEnv "SECRET_KEY_BASE" |> Option.defaultWith (fun () -> failwith "parity/.env.reference has no SECRET_KEY_BASE"))
-        let deps: Deps = { Db = db; Secrets = secrets; Clock = clock }
+        let factory = Campfire.Db.Ef.Data.factory (Campfire.Db.Ef.Data.options (Path.Combine(dir, "production.sqlite3")) System.TimeProvider.System ignore)
+        let deps: Deps = { Db = db; DbFactory = factory; Secrets = secrets; Clock = clock }
         // The reference runs with DISABLE_SSL, so without assume_ssl.
         let server = Registry.server deps { Campfire.Cable.Config.defaults with AssumeSsl = false } NullLogger.Instance
         sink.Server <- server
         let! host, authority = serveCable server
-        return db, server, Broadcasts server, host, authority
+        let efEnv: Campfire.Db.Ef.Env =
+            { Time = Campfire.Db.Ef.ClockTimeProvider clock
+              Sink = sink
+              RichText = BasicRichText()
+              BcryptCost = 4 }
+        return db, server, Broadcasts server, host, authority, (factory, efEnv)
     }
 
 /// Frames until the socket has sent `atLeast` of them and then been quiet for a moment.
@@ -221,7 +227,7 @@ let ``replays reference frames`` () =
         use golden = JsonDocument.Parse(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "testdata", "channels_golden.json")))
         let recording = parseRecording golden
         let dir = Directory.CreateTempSubdirectory("campfire-channels-golden").FullName
-        let! db, server, broadcasts, host, authority = startOurs recording dir
+        let! db, server, broadcasts, host, authority, (factory, efEnv) = startOurs recording dir
         let url = Uri $"ws://{authority}/cable"
         let origin = $"http://{authority}"
         let sockets = SortedDictionary<string, Client>(StringComparer.Ordinal)
@@ -259,7 +265,12 @@ let ``replays reference frames`` () =
                             broadcasts.MessageRemove(Room.find conn message.RoomId, message))
                         |> fun read -> read.Result |> ok
                     | "revoke" -> db.Write(fun tx -> Room.revokeFrom tx (Room.find tx.Conn ids[0]) [ ids[1] ]) |> fun write -> write.Result |> ok
-                    | "deactivate" -> db.Write(fun tx -> User.deactivate tx (User.find tx.Conn ids[0]) |> ignore) |> fun write -> write.Result |> ok
+                    | "deactivate" ->
+                        (task {
+                            use context = factory.CreateDbContext()
+                            return! Campfire.Db.Ef.Writes.run db.Gate efEnv context (fun tx -> User.deactivate tx (User.find tx.Db ids[0]) |> ignore)
+                         })
+                        |> fun write -> write.Result |> ok
                     | other -> failwith $"unknown trigger {other}"
 
                 let expected = expectedSteps[index]

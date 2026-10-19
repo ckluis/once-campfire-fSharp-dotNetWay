@@ -4,6 +4,7 @@
 // account logo (or the stock app icon) as a PNG, public so it can be the PWA icon.
 namespace Campfire.App.Controllers
 
+open System
 open System.Threading.Tasks
 open Campfire.Views
 open Campfire.Kit
@@ -26,14 +27,14 @@ module Logos =
         act {
             c.UseLiveResponse() // `include ActiveStorage::Streaming`
             do! Concerns.beforeActions c (Before.allowUnauthenticatedAccess Before.Default)
-            let! (account: Account option) = c.App.Read(fun conn -> Account.first conn)
+            let! (account: Account option) = c.Read(fun db -> Account.first db)
 
             // `stale?(etag: Current.account)`; there's no accounts/logos/show template to digest.
             let freshness =
                 { Freshness.Default with
                     Etag =
                         match account with
-                        | Some account -> FragmentCache.cacheKeyWithVersion "accounts" account.Id (account.UpdatedAt.ToDateTimeOffset())
+                        | Some account -> FragmentCache.cacheKeyWithVersion "accounts" account.Id (DateTimeOffset(account.UpdatedAt))
                         | None -> null }
             match c.FreshWhen freshness with
             | ValueSome notModified -> return notModified

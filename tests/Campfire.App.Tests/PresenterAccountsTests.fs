@@ -419,7 +419,12 @@ let ``a ban from a private address is unprocessable`` () =
         use! test = bootSeeded "default"
         let jz = int64 (test.Label "users.jz")
         let db = test.App.Db
-        let! started = db.Write(fun tx -> Session.start tx jz None (Some "192.168.1.20") |> ignore)
+        let app = test.App
+        let! started =
+            task {
+                use context = app.DbFactory.CreateDbContext()
+                return! Campfire.Db.Ef.Writes.run app.Gate app.Env context (fun tx -> Session.start tx jz None (Some "192.168.1.20") |> ignore)
+            }
         started |> Result.defaultWith (fun e -> failwith (DbError.display e))
 
         let admin = browser test "198.51.100.18"
@@ -428,7 +433,7 @@ let ``a ban from a private address is unprocessable`` () =
         Assert.Equal(422, reply.Status)
         Assert.True(reply.Text.Contains "That didn’t work (422)", reply.Text)
 
-        let! user = db.Read(fun conn -> User.find conn jz)
+        let! user = db.Read(fun conn -> User.findLegacy conn jz)
         Assert.Equal(Status.Active, (user |> Result.defaultWith (fun e -> failwith (DbError.display e))).Status)
         let! bans = db.Read(fun conn -> conn.Count("SELECT COUNT(*) FROM bans WHERE user_id = ?", [| I jz |]))
         Assert.Equal(0L, bans |> Result.defaultWith (fun e -> failwith (DbError.display e)))

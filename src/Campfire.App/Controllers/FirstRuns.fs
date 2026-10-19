@@ -21,7 +21,7 @@ module FirstRuns =
     /// `redirect_to root_url if Account.any?`
     let private preventRepeats (c: Ctx) : Task<Result<unit, Error>> =
         act {
-            let! any = c.App.Read(fun conn -> Account.count conn > 0L)
+            let! any = c.Read(fun db -> Account.count db > 0L)
             if any then
                 let! response = c.RedirectTo(c.UrlFor(Routes.root ()))
                 return! halt response
@@ -58,17 +58,23 @@ module FirstRuns =
             let! passwordDigest =
                 task {
                     try
-                        let! digest = PasswordDigest.hash password c.App.Db.Env.BcryptCost
+                        let! digest = PasswordDigest.hash password c.App.Env.BcryptCost
                         return Ok digest
                     with e ->
                         return Error(Internal e)
                 }
 
+            // The avatar is attached by the port's writer until unit 1.7 moves the storage rows onto EF, so it follows the
+            // administrator's commit as its own write.
             let! result =
-                c.App.Db.Write(fun tx ->
-                    let administrator = FirstRun.create tx name emailAddress passwordDigest
-                    let pending = AttachmentWrites.assign tx (Record.user administrator.Id) "avatar" avatar
-                    administrator, pending)
+                task {
+                    match! c.TryWrite(fun tx -> FirstRun.create tx name emailAddress passwordDigest) with
+                    | Error error -> return Error error
+                    | Ok administrator ->
+                        let! attached =
+                            c.App.Db.Write(fun tx -> AttachmentWrites.assign tx (Record.user administrator.Id) "avatar" avatar)
+                        return attached |> Result.map (fun pending -> administrator, pending)
+                }
 
             let root = c.UrlFor(Routes.root ())
             match result with

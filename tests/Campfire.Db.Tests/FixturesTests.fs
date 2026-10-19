@@ -12,7 +12,7 @@ open Campfire.Db.Tests.Support
 [<Fact>]
 let ``ids are label crcs`` () =
     use t = new TestDb()
-    Assert.Equal("David", (t.Read(fun c -> User.find c 127326141L)).Name)
+    Assert.Equal("David", (t.ReadEf(fun c -> User.find c 127326141L)).Name)
     Assert.Equal(Some "Designers", (t.Read(fun c -> Room.find c 654632876L)).Name)
 
 [<Fact>]
@@ -21,10 +21,10 @@ let ``associations enums and defaults`` () =
     let pets = t.Read(fun c -> Room.find c (id "pets"))
     Assert.Equal((Open, id "david"), (pets.RoomType, pets.CreatorId))
 
-    Assert.Equal(Role.Administrator, (t.Read(fun c -> User.find c (id "david"))).Role)
-    Assert.Equal(Role.Member, (t.Read(fun c -> User.find c (id "jz"))).Role)
-    let bender = t.Read(fun c -> User.find c (id "bender"))
-    Assert.Equal((Role.Bot, Some 12), (bender.Role, bender.BotToken |> Option.map String.length))
+    Assert.Equal(Role.Administrator, (t.ReadEf(fun c -> User.find c (id "david"))).Role)
+    Assert.Equal(Role.Member, (t.ReadEf(fun c -> User.find c (id "jz"))).Role)
+    let bender = t.ReadEf(fun c -> User.find c (id "bender"))
+    Assert.Equal((Role.Bot, Some 12), (bender.Role, bender.BotToken |> Option.ofObj |> Option.map String.length))
 
     let kevinDesigners = t.Read(fun c -> Membership.find c (id "kevin_designers"))
     Assert.Equal(Some Mentions, kevinDesigners.Involvement) // column default
@@ -45,16 +45,16 @@ let ``erb times are whole seconds and default timestamps are now`` () =
     let first = t.Read(fun c -> Message.find c (id "first"))
     Assert.Equal(0, first.CreatedAt.SubsecMicrosecond)
     Assert.True(first.UpdatedAt > first.CreatedAt)
-    let session = t.Read(fun c -> Session.find c (id "david_safari"))
-    Assert.Equal(0, session.LastActiveAt.SubsecMicrosecond)
-    Assert.True(abs (session.CreatedAt.AsSecond - session.LastActiveAt.AsSecond - 7200L) <= 1L)
+    let session = t.ReadEf(fun c -> Session.find c (id "david_safari"))
+    Assert.Equal(0L, session.LastActiveAt.Ticks % TimeSpan.TicksPerSecond)
+    Assert.True(abs ((session.CreatedAt - session.LastActiveAt).TotalSeconds - 7200.0) <= 1.0)
 
 [<Fact>]
 let ``passwords are bcrypt of secret123456`` () =
     use t = new TestDb()
-    let david = t.Read(fun c -> User.find c (id "david"))
+    let david = t.ReadEf(fun c -> User.find c (id "david"))
     Assert.True(User.authenticate david "secret123456")
-    Assert.StartsWith("$2a$", david.PasswordDigest.Value)
+    Assert.StartsWith("$2a$", david.PasswordDigest)
 
 /// Dump a table with values normalized where Ruby and F# can't agree (bcrypt salts, bot tokens,
 /// and timestamps, which are compared by shape: whole seconds vs. fractional).
@@ -112,6 +112,25 @@ let ``export database for rails`` () =
             db.WriteBlocking(fun tx ->
                 Fixtures.load tx.Conn (Fixtures.referenceDir ()) { Now = tx.Now(); BcryptCost = 4 } |> ignore)
         )
+        // The user, session and account go through EF (unit 1.3); the rest is still the port's writer, one transaction after.
+        let time = TimeProvider.System
+        let factory = Ef.Data.factory (Ef.Data.options path time ignore)
+        let efEnv : Ef.Env = { Time = time; Sink = NullSink(); RichText = BasicRichText(); BcryptCost = 4 }
+        let rusty =
+            use context = factory.CreateDbContext()
+            (Ef.Writes.run db.Gate efEnv context (fun tx ->
+                let user =
+                    User.create
+                        tx
+                        { NewUser.create "Rusty" with
+                            EmailAddress = Some "rusty@example.com"
+                            PasswordDigest = Some(PasswordDigest.create "secret123456" 4) }
+                Session.start tx user.Id (Some "ua") (Some "8.8.8.8") |> ignore
+                let account = (Account.first tx.Db).Value
+                Account.update tx account None None (Some [ "restrict_room_creation_to_administrators", "true" ]) |> ignore
+                user))
+                .GetAwaiter().GetResult()
+            |> unwrap
         unwrap (
             db.WriteBlocking(fun tx ->
                 let message =
@@ -121,15 +140,6 @@ let ``export database for rails`` () =
                             ClientMessageId = Some "rust-1"
                             Body = Some "Written by <b>Rust</b> hovercraft" }
                 Boost.create tx message.Id (id "jason") "\U0001F980" |> ignore
-                let user =
-                    User.create
-                        tx
-                        { NewUser.create "Rusty" with
-                            EmailAddress = Some "rusty@example.com"
-                            PasswordDigest = Some(PasswordDigest.create "secret123456" 4) }
-                Session.start tx user.Id (Some "ua") (Some "8.8.8.8") |> ignore
-                Search.record tx user.Id "hovercraft" |> ignore
-                Room.createFor tx Closed (Some "Rust Room") user.Id [ user.Id; id "david" ] |> ignore
-                let account = (Account.first tx.Conn).Value
-                Account.update tx account None None (Some [ "restrict_room_creation_to_administrators", "true" ]) |> ignore)
+                Search.record tx rusty.Id "hovercraft" |> ignore
+                Room.createFor tx Closed (Some "Rust Room") rusty.Id [ rusty.Id; id "david" ] |> ignore)
         )

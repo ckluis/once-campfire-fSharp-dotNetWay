@@ -66,7 +66,7 @@ module BoostsController =
         app.Read(fun conn ->
             let presenter = Presenter(conn, app, None)
             let view = presenter.Boost boost
-            let account = Account.first conn
+            let account = Account.firstLegacy conn
             let html = Page.renderDetachedAt app account baseUrl (fun ctx -> BoostsCached.boost ctx view)
             let room = Room.find conn message.RoomId
             let partials = { Rendered.empty with Boost = Some html }

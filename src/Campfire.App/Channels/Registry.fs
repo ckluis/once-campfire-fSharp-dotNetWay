@@ -26,7 +26,7 @@ let register (builder: ServerBuilder<CableUser>) (db: Campfire.Db.Database) (str
 
 /// The cable server with `ApplicationCable::Connection` and every channel registered.
 let server (deps: Deps) (config: Config) (logger: ILogger) : Cable =
-    let authenticator = SessionAuthenticator(deps.Db, deps.Secrets, deps.Clock, logger)
+    let authenticator = SessionAuthenticator(deps.DbFactory, deps.Secrets, deps.Clock, logger)
     let streams = StreamsChannel.create deps.Secrets
     Server.builder config authenticator.Connect Gid.connectionIdentifier
     |> fun builder -> register builder deps.Db streams

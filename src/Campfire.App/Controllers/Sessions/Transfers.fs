@@ -41,7 +41,7 @@ module SessionTransfers =
             // `User.active.find_by_transfer_id(params[:id])`
             let! user =
                 match userId with
-                | Some id -> c.App.Read(fun conn -> User.findById conn id |> Option.filter User.isActive)
+                | Some id -> c.Read(fun db -> User.findById db id |> Option.filter User.isActive)
                 | None -> Task.FromResult(Ok None)
             match user with
             | Some user ->

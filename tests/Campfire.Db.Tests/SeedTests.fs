@@ -33,6 +33,22 @@ let private label (seed: string) (key: string) : int64 =
     use document = JsonDocument.Parse(File.ReadAllText(Path.Combine(seed, "labels.json")))
     document.RootElement.GetProperty(key).GetInt64()
 
+let private factories = System.Collections.Concurrent.ConcurrentDictionary<string, Microsoft.EntityFrameworkCore.IDbContextFactory<Ef.CampfireDb>>()
+
+/// EF Core over the same copy (one pooled factory per path, as the app has one per process).
+let private factoryFor (path: string) =
+    factories.GetOrAdd(path, fun path -> Ef.Data.factory (Ef.Data.options path TimeProvider.System ignore))
+
+let private efRead (path: string) (f: Ef.CampfireDb -> 'T) : 'T =
+    use context = (factoryFor path).CreateDbContext()
+    unwrap (Ef.Reads.run context f)
+
+/// `Writes.run` on the copy, sharing `db`'s gate with the port's writer (the migration rule).
+let private efWrite (path: string) (db: Database) (sink: RecordingSink) (clock: TestClock) (f: Ef.Tx -> 'T) : 'T =
+    use context = (factoryFor path).CreateDbContext()
+    let env : Ef.Env = { Time = Ef.ClockTimeProvider clock; Sink = sink; RichText = BasicRichText(); BcryptCost = 4 }
+    unwrap ((Ef.Writes.run db.Gate env context f).GetAwaiter().GetResult())
+
 /// Opens the copy as the app does, with a frozen clock, and hands its database to `f`.
 let private openSeed (path: string) (clock: TestClock) (sink: RecordingSink) : Database =
     let config = { Config.create path with Readers = 2 }
@@ -77,41 +93,41 @@ let ``every model reads the rows Rails wrote`` () =
         use db = openSeed path (TestClock()) (RecordingSink())
         let read f = unwrap (db.ReadBlocking f)
 
-        Assert.Equal(10L, read User.count)
+        Assert.Equal(10L, efRead path User.count)
         Assert.Equal(11, List.length (read Room.all))
         Assert.Equal(169L, read Message.count)
         Assert.Equal(39L, read Membership.count)
-        Assert.Equal(1L, read Account.count)
+        Assert.Equal(1L, efRead path Account.count)
         Assert.Equal(3L, read Search.count)
         Assert.Equal(5L, read PushSubscription.count)
 
-        let david = read (fun c -> User.find c (label seed "users.david"))
+        let david = efRead path (fun c -> User.find c (label seed "users.david"))
         Assert.Equal(("David", Role.Administrator, Status.Active), (david.Name, david.Role, david.Status))
-        Assert.Equal(Some "david@37signals.com", david.EmailAddress)
-        Assert.True(User.authenticate david "secret123456" || david.PasswordDigest.IsSome)
+        Assert.Equal("david@37signals.com", david.EmailAddress)
+        Assert.True(User.authenticate david "secret123456" || not (isNull david.PasswordDigest))
 
-        let rita = read (fun c -> User.find c (label seed "users.rita"))
+        let rita = efRead path (fun c -> User.find c (label seed "users.rita"))
         Assert.Equal(Status.Deactivated, rita.Status)
-        Assert.Contains("-deactivated-", rita.EmailAddress.Value)
-        let mallory = read (fun c -> User.find c (label seed "users.mallory"))
+        Assert.Contains("-deactivated-", rita.EmailAddress)
+        let mallory = efRead path (fun c -> User.find c (label seed "users.mallory"))
         Assert.Equal(Status.Banned, mallory.Status)
         Assert.True(read (fun c -> Ban.banned c "203.0.113.9"))
         Assert.Equal(1, List.length (read (fun c -> Ban.forUser c mallory.Id)))
 
         // Bots, with and without a webhook.
-        let bender = read (fun c -> User.find c (label seed "users.bender"))
+        let bender = efRead path (fun c -> User.find c (label seed "users.bender"))
         Assert.Equal(Role.Bot, bender.Role)
-        Assert.Equal(Some "http://example.com/bender", read (fun c -> User.webhookUrl c bender))
-        Assert.True((read (fun c -> User.authenticateBot c (User.botKey bender))).IsSome)
-        Assert.Equal(2, List.length (read User.activeBotsOrdered))
-        Assert.Equal(7, List.length (read User.activeOrdered)) // not Rita (deactivated), Mallory (banned) or Old Bot (deactivated)
+        Assert.Equal(Some "http://example.com/bender", efRead path (fun c -> User.webhookUrl c bender))
+        Assert.True((efRead path (fun c -> User.authenticateBot c (User.botKey bender))).IsSome)
+        Assert.Equal(2, List.length (efRead path User.activeBotsOrdered))
+        Assert.Equal(7, List.length (efRead path User.activeOrdered)) // not Rita (deactivated), Mallory (banned) or Old Bot (deactivated)
 
         // Room types, and a user's rooms.
         let rooms = read Room.all
         Assert.Equal<RoomType list>([ Open; Open; Open ], rooms |> List.filter Room.isOpen |> List.map (fun r -> r.RoomType))
         Assert.Equal(4, rooms |> List.filter Room.isDirect |> List.length)
         Assert.True(read (fun c -> Room.forUser c david.Id) |> List.length >= 5)
-        let session = read (fun c -> Session.findByToken c "AxJs94fteQ5Autv2VrKsH68c")
+        let session = efRead path (fun c -> Session.findByToken c "AxJs94fteQ5Autv2VrKsH68c")
         Assert.Equal(david.Id, session.Value.UserId))
 
 [<Fact>]
@@ -242,42 +258,42 @@ let ``writes land beside the rows Rails wrote`` () =
 let ``an account with restricted room creation and an account with custom styles read their settings`` () =
     withSeed "restricted" (fun path _ ->
         use db = openSeed path (TestClock()) (RecordingSink())
-        let account = unwrap (db.ReadBlocking(fun c -> (Account.first c).Value))
+        let account = efRead path (fun c -> (Account.first c).Value)
         Assert.True(AccountSettings.restrictRoomCreationToAdministrators (Account.settings account))
-        Assert.Equal(Some """{"restrict_room_creation_to_administrators":true}""", account.SettingsJson))
+        Assert.Equal("""{"restrict_room_creation_to_administrators":true}""", account.Settings))
     withSeed "custom_styles" (fun path _ ->
         use db = openSeed path (TestClock()) (RecordingSink())
-        let account = unwrap (db.ReadBlocking(fun c -> (Account.first c).Value))
+        let account = efRead path (fun c -> (Account.first c).Value)
         Assert.False(AccountSettings.restrictRoomCreationToAdministrators (Account.settings account))
-        Assert.True(account.CustomStyles.IsSome && account.CustomStyles.Value.Length > 0)
+        Assert.False(String.IsNullOrEmpty account.CustomStyles)
         // Updating the styles leaves the settings JSON as Rails wrote it, and writes only what changed.
-        let updated = unwrap (db.WriteBlocking(fun tx -> Account.update tx account None (Some(Some "body { color: red }")) None))
-        Assert.Equal(account.SettingsJson, updated.SettingsJson)
-        Assert.Equal(Some "body { color: red }", (unwrap (db.ReadBlocking(fun c -> (Account.first c).Value))).CustomStyles))
+        let updated = efWrite path db (RecordingSink()) (TestClock()) (fun tx -> Account.update tx account None (Some(Some "body { color: red }")) None)
+        Assert.Equal(account.Settings, updated.Settings)
+        Assert.Equal("body { color: red }", (efRead path (fun c -> (Account.first c).Value)).CustomStyles))
 
 [<Fact>]
 let ``the first run seed has no account and FirstRun creates one`` () =
     withSeed "first_run" (fun path _ ->
         use db = openSeed path (TestClock()) (RecordingSink())
-        Assert.Equal(0L, unwrap (db.ReadBlocking Account.count))
+        Assert.Equal(0L, efRead path Account.count)
         let digest = PasswordDigest.create "secret123456" 4
-        let admin = unwrap (db.WriteBlocking(fun tx -> FirstRun.create tx "First" "first@example.com" digest))
+        let admin = efWrite path db (RecordingSink()) (TestClock()) (fun tx -> FirstRun.create tx "First" "first@example.com" digest)
         Assert.True(User.isAdministrator admin)
         let rooms = unwrap (db.ReadBlocking(fun c -> Room.forUser c admin.Id))
         Assert.Equal<string option list>([ Some "All Talk" ], rooms |> List.map (fun r -> r.Name))
-        Assert.Equal(1L, unwrap (db.ReadBlocking Account.count)))
+        Assert.Equal(1L, efRead path Account.count))
 
 [<Fact>]
 let ``a crowd of users all join a new open room`` () =
     withSeed "crowd" (fun path seed ->
         use db = openSeed path (TestClock()) (RecordingSink())
-        let users = unwrap (db.ReadBlocking User.count)
+        let users = efRead path User.count
         Assert.True(users > 500L, $"{users} users")
-        let active = unwrap (db.ReadBlocking(fun c -> List.length (User.active c)))
+        let active = efRead path (fun c -> List.length (User.active c))
         let room = unwrap (db.WriteBlocking(fun tx -> Room.create tx Open (Some "Everyone") (label seed "users.david")))
         let members = unwrap (db.ReadBlocking(fun c -> Room.userIds c room))
         Assert.Equal(active, List.length members)
         // A new user is granted every open room, in one statement per batch.
-        let user = unwrap (db.WriteBlocking(fun tx -> User.create tx (NewUser.create "Latecomer")))
+        let user = efWrite path db (RecordingSink()) (TestClock()) (fun tx -> User.create tx (NewUser.create "Latecomer"))
         let openRooms = unwrap (db.ReadBlocking(fun c -> Room.countOfType c Open))
-        Assert.Equal(openRooms, int64 (List.length (unwrap (db.ReadBlocking(fun c -> User.memberships c user))))))
+        Assert.Equal(openRooms, int64 (List.length (unwrap (db.ReadBlocking(fun c -> Membership.forUser c user.Id))))))

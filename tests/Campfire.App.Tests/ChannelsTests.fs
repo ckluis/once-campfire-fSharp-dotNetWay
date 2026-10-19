@@ -42,7 +42,7 @@ let ``rejects a session cookie once it expires`` () =
     task {
         use! app = start ()
         let userId = id "david"
-        let! session = app.Db.Write(fun tx -> Session.start tx userId (Some "test") (Some "8.8.8.8"))
+        let! session = app.WriteEf(fun tx -> Session.start tx userId (Some "test") (Some "8.8.8.8"))
         let session =
             match session with
             | Ok session -> session

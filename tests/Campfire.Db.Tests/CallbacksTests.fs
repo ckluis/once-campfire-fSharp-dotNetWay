@@ -98,27 +98,27 @@ let ``boosts are ordered by creation`` () =
 let ``session start and resume`` () =
     use t = new TestDb()
     let david = id "david"
-    let session = t.Write(fun tx -> Session.start tx david (Some "ua") (Some "1.2.3.4"))
+    let session = t.WriteEf(fun tx -> Session.start tx david (Some "ua") (Some "1.2.3.4"))
     Assert.Equal(24, session.Token.Length)
     Assert.True(session.Token |> Seq.forall (fun c -> Char.IsAsciiLetterOrDigit c && not ("0OIl".Contains c)))
-    Assert.Equal(session.Id, (t.Read(fun c -> Session.findByToken c session.Token)).Value.Id)
+    Assert.Equal(session.Id, (t.ReadEf(fun c -> Session.findByToken c session.Token)).Value.Id)
 
     // Within the hour: nothing is written.
-    let resumed = t.Write(fun tx -> Session.resume tx session (Some "ua2") (Some "9.9.9.9"))
-    Assert.Equal(Some "ua", (t.Read(fun c -> Session.find c session.Id)).UserAgent)
+    let resumed = t.WriteEf(fun tx -> Session.resume tx session (Some "ua2") (Some "9.9.9.9"))
+    Assert.Equal("ua", (t.ReadEf(fun c -> Session.find c session.Id)).UserAgent)
 
     t.Clock.Travel(TimeSpan.FromHours 1.0 + TimeSpan.FromSeconds 1.0)
-    t.Write(fun tx -> Session.resume tx resumed (Some "ua2") (Some "9.9.9.9") |> ignore)
-    let reloaded = t.Read(fun c -> Session.find c session.Id)
-    Assert.Equal((Some "ua2", Some "9.9.9.9"), (reloaded.UserAgent, reloaded.IpAddress))
+    t.WriteEf(fun tx -> Session.resume tx resumed (Some "ua2") (Some "9.9.9.9") |> ignore)
+    let reloaded = t.ReadEf(fun c -> Session.find c session.Id)
+    Assert.Equal(("ua2", "9.9.9.9"), (string reloaded.UserAgent, string reloaded.IpAddress))
     Assert.True(reloaded.LastActiveAt > session.LastActiveAt)
 
 [<Fact>]
 let ``fixture session resumes because it is two hours old`` () =
     use t = new TestDb()
-    let session = t.Read(fun c -> Session.find c (id "david_safari"))
-    t.Write(fun tx -> Session.resume tx session (Some "ua") (Some "9.9.9.9") |> ignore)
-    Assert.Equal(Some "9.9.9.9", (t.Read(fun c -> Session.find c (id "david_safari"))).IpAddress)
+    let session = t.ReadEf(fun c -> Session.find c (id "david_safari"))
+    t.WriteEf(fun tx -> Session.resume tx session (Some "ua") (Some "9.9.9.9") |> ignore)
+    Assert.Equal("9.9.9.9", (t.ReadEf(fun c -> Session.find c (id "david_safari"))).IpAddress)
 
 [<Fact>]
 let ``recording searches keeps the ten most recent`` () =

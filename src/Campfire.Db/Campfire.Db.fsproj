@@ -10,6 +10,12 @@
     <Compile Include="RichText.fs" />
     <Compile Include="Schema.fs" />
     <Compile Include="Database.fs" />
+    <Compile Include="Identity.fs" />
+    <Compile Include="Ef/Entities.fs" />
+    <Compile Include="Ef/CampfireDb.fs" />
+    <Compile Include="Ef/Interceptors.fs" />
+    <Compile Include="Ef/Data.fs" />
+    <Compile Include="Ef/Writes.fs" />
     <Compile Include="Sound.fs" />
     <Compile Include="Session.fs" />
     <Compile Include="Ban.fs" />
@@ -18,11 +24,6 @@
     <Compile Include="ActiveStorage.fs" />
     <Compile Include="Account.fs" />
     <Compile Include="Models.fs" />
-    <Compile Include="Ef/Entities.fs" />
-    <Compile Include="Ef/CampfireDb.fs" />
-    <Compile Include="Ef/Interceptors.fs" />
-    <Compile Include="Ef/Data.fs" />
-    <Compile Include="Ef/Writes.fs" />
     <Compile Include="PushSubscription.fs" />
     <Compile Include="FirstRun.fs" />
     <Compile Include="Testing.fs" />

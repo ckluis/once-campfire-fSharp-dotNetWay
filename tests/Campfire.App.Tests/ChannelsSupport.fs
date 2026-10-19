@@ -246,9 +246,18 @@ type TestApp
         host: WebApplication,
         url: string,
         origin: string,
-        dir: string
+        dir: string,
+        factory: Microsoft.EntityFrameworkCore.IDbContextFactory<Campfire.Db.Ef.CampfireDb>,
+        efEnv: Campfire.Db.Ef.Env
     ) =
     member _.Db = db
+
+    /// `Writes.run` over the same file, the same gate and the same sink (the migration rule): the EF models' writes.
+    member _.WriteEf(f: Campfire.Db.Ef.Tx -> 'T) : Task<Result<'T, DbError>> =
+        task {
+            use context = factory.CreateDbContext()
+            return! Campfire.Db.Ef.Writes.run db.Gate efEnv context f
+        }
     member _.Server = server
     member _.Broadcasts = broadcasts
     member _.Secrets = secrets
@@ -265,7 +274,7 @@ type TestApp
     member this.CookieFor(user: string) : Task<string> =
         task {
             let userId = id user
-            match! db.Write(fun tx -> Session.start tx userId (Some "test") (Some "8.8.8.8")) with
+            match! this.WriteEf(fun tx -> Session.start tx userId (Some "test") (Some "8.8.8.8")) with
             | Ok session -> return this.CookieWithToken session.Token
             | Error error -> return failwith (DbError.display error)
         }
@@ -382,10 +391,16 @@ let start () : Task<TestApp> =
         | Ok() -> ()
         | Error error -> failwith (DbError.display error)
 
-        let deps: Deps = { Db = db; Secrets = secrets; Clock = clock }
+        let factory = Campfire.Db.Ef.Data.factory (Campfire.Db.Ef.Data.options (Path.Combine(dir, "test.sqlite3")) System.TimeProvider.System ignore)
+        let efEnv: Campfire.Db.Ef.Env =
+            { Time = Campfire.Db.Ef.ClockTimeProvider clock
+              Sink = sink
+              RichText = richText
+              BcryptCost = 4 }
+        let deps: Deps = { Db = db; DbFactory = factory; Secrets = secrets; Clock = clock }
         let server = Registry.server deps { Campfire.Cable.Config.defaults with AssumeSsl = false } NullLogger.Instance
         sink.Server <- server
 
         let! app, authority = serveCable server
-        return TestApp(db, server, Broadcasts server, secrets, clock, app, $"ws://{authority}/cable", $"http://{authority}", dir)
+        return TestApp(db, server, Broadcasts server, secrets, clock, app, $"ws://{authority}/cable", $"http://{authority}", dir, factory, efEnv)
     }

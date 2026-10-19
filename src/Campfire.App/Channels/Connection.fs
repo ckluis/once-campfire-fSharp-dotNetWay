@@ -13,7 +13,7 @@ open Campfire.Kit
 open Campfire.RailsCompat
 open Campfire.RailsCompat.Clock
 
-type SessionAuthenticator(db: Database, secrets: Secrets, clock: SharedClock, logger: ILogger) =
+type SessionAuthenticator(factory: Microsoft.EntityFrameworkCore.IDbContextFactory<Campfire.Db.Ef.CampfireDb>, secrets: Secrets, clock: SharedClock, logger: ILogger) =
     /// `cookies.signed[:session_token]`.
     member private _.SessionToken(request: ConnectRequest) : string | null =
         let headers =
@@ -28,10 +28,11 @@ type SessionAuthenticator(db: Database, secrets: Secrets, clock: SharedClock, lo
             match this.SessionToken request with
             | null -> return None
             | token ->
-                let! user =
-                    db.Read(fun conn ->
-                        match Session.findByToken conn token with
-                        | Some session -> User.findById conn session.UserId
+                let user =
+                    use db = factory.CreateDbContext()
+                    Campfire.Db.Ef.Reads.run db (fun db ->
+                        match Session.findByToken db token with
+                        | Some session -> User.findById db session.UserId
                         | None -> None)
                 match user with
                 | Ok user -> return user |> Option.map (fun user -> { CableUser.Id = user.Id; Name = user.Name })

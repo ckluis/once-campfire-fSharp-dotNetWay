@@ -31,7 +31,7 @@ module Bots =
     let findActiveBot (c: Ctx) (key: string) : Task<Result<User, Error>> =
         match (match c.ParamStr key with null -> None | id -> Ruby.integerCast id) with
         | None -> Task.FromResult(Error NotFound)
-        | Some id -> c.App.Read(fun conn -> User.findActiveBot conn id)
+        | Some id -> c.Read(fun db -> User.findActiveBot db id)
 
     /// `User.active_bots.find(params[:id])`
     let private setBot (c: Ctx) : Task<Result<User, Error>> = findActiveBot c "id"
@@ -49,7 +49,8 @@ module Bots =
             do! before c
             do! c.RespondTo [ Format.Html ] |> Result.map ignore
             let secrets = c.App.Secrets
-            let! bots = c.App.ReadOffloaded(fun conn -> User.activeBotsOrdered conn |> List.map (Accounts.bot conn secrets))
+            let! users = c.Read User.activeBotsOrdered
+            let! bots = c.App.ReadOffloaded(fun conn -> users |> List.map (Accounts.bot conn secrets))
             return!
                 Page.framedPage
                     c
@@ -88,10 +89,9 @@ module Bots =
             // `create_webhook!(url: webhook_url) if webhook_url`: any non-nil value, "" included.
             let webhookUrl = Accounts.paramToS parameters "webhook_url"
             let! avatar = Assignment.stage c.App (Assignment.fromParams parameters "avatar")
-            let! pending =
-                c.App.Write(fun tx ->
-                    let bot = User.createBot tx name webhookUrl
-                    AttachmentWrites.assign tx (Record.user bot.Id) "avatar" avatar)
+            let! (bot: User) = c.Write(fun tx -> User.createBot tx name webhookUrl)
+            // The avatar goes through the port's writer until unit 1.7 moves the storage rows onto EF.
+            let! pending = c.App.Write(fun tx -> AttachmentWrites.assign tx (Record.user bot.Id) "avatar" avatar)
             AttachmentWrites.analyzeLater c.App pending
             return! redirectToBots c
         }
@@ -104,7 +104,8 @@ module Bots =
             let storage = c.App.Storage
             let baseUrl = c.UrlFor ""
             let botId = bot.Id
-            let! form = c.App.Read(fun conn -> Accounts.botForm conn storage baseUrl bot)
+            let! webhookUrl = c.Read(fun db -> User.webhookUrl db bot)
+            let! form = c.App.Read(fun conn -> Accounts.botForm conn storage baseUrl bot webhookUrl)
             return!
                 Page.framedPage
                     c
@@ -124,10 +125,8 @@ module Bots =
             let changes = { UserChanges.none with Name = Accounts.paramToS parameters "name" }
             let webhookUrl = Accounts.paramToS parameters "webhook_url"
             let! avatar = Assignment.stage c.App (Assignment.fromParams parameters "avatar")
-            let! pending =
-                c.App.Write(fun tx ->
-                    User.updateBot tx bot changes webhookUrl |> ignore
-                    AttachmentWrites.assign tx (Record.user bot.Id) "avatar" avatar)
+            let! (_: User) = c.Write(fun tx -> User.updateBot tx bot changes webhookUrl)
+            let! pending = c.App.Write(fun tx -> AttachmentWrites.assign tx (Record.user bot.Id) "avatar" avatar)
             AttachmentWrites.analyzeLater c.App pending
             return! redirectToBots c
         }
@@ -137,6 +136,6 @@ module Bots =
         act {
             do! before c
             let! (bot: User) = setBot c
-            let! (_: User) = c.App.Write(fun tx -> User.deactivate tx bot)
+            let! (_: User) = c.Write(fun tx -> User.deactivate tx bot)
             return! redirectToBots c
         }

@@ -5,7 +5,9 @@
 namespace rec Campfire.Db
 
 open System
+open System.Linq
 open System.Text
+open Microsoft.EntityFrameworkCore
 open Campfire.RailsCompat
 // RailsCompat has a `Timestamp` of its own (an alias of DateTimeOffset); ours is the one models use.
 open Campfire.Db
@@ -16,136 +18,10 @@ open Campfire.Db
 // and Transferable are signed ids, which live in `Campfire.RailsCompat`).
 // ---------------------------------------------------------------------------------------------
 
-/// `enum :role, %i[ member administrator bot ]`
-type Role =
-    | Member = 0
-    | Administrator = 1
-    | Bot = 2
-
-module Role =
-    let name (role: Role) : string =
-        match role with
-        | Role.Member -> "member"
-        | Role.Administrator -> "administrator"
-        | _ -> "bot"
-
-    let fromName (name: string) : Role option =
-        match name with
-        | "member" -> Some Role.Member
-        | "administrator" -> Some Role.Administrator
-        | "bot" -> Some Role.Bot
-        | _ -> None
-
-    let toSql (role: Role) : SqlArg = I(int64 role)
-
-    let ofSql (value: int64) : Role =
-        match value with
-        | 0L -> Role.Member
-        | 1L -> Role.Administrator
-        | 2L -> Role.Bot
-        | other -> failwith $"role {other} out of range"
-
-/// `enum :status, %i[ active deactivated banned ], default: :active`
-type Status =
-    | Active = 0
-    | Deactivated = 1
-    | Banned = 2
-
-module Status =
-    let name (status: Status) : string =
-        match status with
-        | Status.Active -> "active"
-        | Status.Deactivated -> "deactivated"
-        | _ -> "banned"
-
-    let fromName (name: string) : Status option =
-        match name with
-        | "active" -> Some Status.Active
-        | "deactivated" -> Some Status.Deactivated
-        | "banned" -> Some Status.Banned
-        | _ -> None
-
-    let toSql (status: Status) : SqlArg = I(int64 status)
-
-    let ofSql (value: int64) : Status =
-        match value with
-        | 0L -> Status.Active
-        | 1L -> Status.Deactivated
-        | 2L -> Status.Banned
-        | other -> failwith $"status {other} out of range"
-
-type User =
-    { Id: int64
-      Name: string
-      EmailAddress: string option
-      PasswordDigest: string option
-      Role: Role
-      Status: Status
-      Bio: string option
-      BotToken: string option
-      CreatedAt: Timestamp
-      UpdatedAt: Timestamp }
-
-/// A password hashed for `password_digest`. Hashing takes about 250 ms at cost 12, so it's done
-/// before the write that saves it, never on the writer.
-type PasswordDigest = PasswordDigest of string
-
-/// Attributes for `User.create!`.
-type NewUser =
-    { Name: string
-      EmailAddress: string option
-      /// `has_secure_password`'s `password=`, already hashed.
-      PasswordDigest: PasswordDigest option
-      Role: Role
-      Bio: string option
-      BotToken: string option }
-
-module NewUser =
-    let create (name: string) : NewUser =
-        { Name = name
-          EmailAddress = None
-          PasswordDigest = None
-          Role = Role.Member
-          Bio = None
-          BotToken = None }
-
-/// Attributes for `user.update`. `None` leaves an attribute alone.
-type UserChanges =
-    { Name: string option
-      EmailAddress: string option option
-      PasswordDigest: PasswordDigest option
-      Role: Role option
-      Status: Status option
-      Bio: string option option
-      BotToken: string option option }
-
-module UserChanges =
-    let none : UserChanges =
-        { Name = None
-          EmailAddress = None
-          PasswordDigest = None
-          Role = None
-          Status = None
-          Bio = None
-          BotToken = None }
-
-module PasswordDigest =
-    let intoString (PasswordDigest digest) : string = digest
-
-    /// `BCrypt::Password.create(password, cost:)`, in the `$2a$` format bcrypt-ruby writes.
-    let digest (password: string) (cost: int) : string =
-        match Password.digestWithCost password cost with
-        | Ok digest -> digest
-        | Error e -> Err.fail (DbError.other $"{e}")
-
-    /// `BCrypt::Password.create(password, cost:)`. Blocking.
-    let create (password: string) (cost: int) : PasswordDigest = PasswordDigest(digest password cost)
-
-    /// `create` on the thread pool.
-    let hash (password: string) (cost: int) : System.Threading.Tasks.Task<PasswordDigest> =
-        System.Threading.Tasks.Task.Run(fun () -> create password cost)
-
+[<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module User =
+    // ---- The port's Conn-based readers, for the models that have not moved to EF yet (units 1.4-1.9 delete them, 1.11 the rest).
+
     /// `SELECT` and the columns `User.fromRow` reads, `FROM "users"`: queries built outside
     /// this module start with it.
     [<Literal>]
@@ -154,119 +30,120 @@ module User =
     [<Literal>]
     let private findByIdSql = Selects.User + " WHERE \"users\".\"id\" = ? LIMIT 1"
 
-    [<Literal>]
-    let private findActiveSql = Selects.User + " WHERE \"users\".\"status\" = 0 AND \"users\".\"id\" = ? LIMIT 1"
+    /// Reads a user from `Columns.User`, starting at column `offset`.
+    let fromRowAt (r: Row) (offset: int) : User =
+        { Id = r.Int64(offset + 0)
+          Name = r.Text(offset + 1)
+          EmailAddress = Option.toObj (r.OptText(offset + 2))
+          PasswordDigest = Option.toObj (r.OptText(offset + 3))
+          Role = Role.ofSql (r.Int64(offset + 4))
+          Status = Status.ofSql (r.Int64(offset + 5))
+          Bio = Option.toObj (r.OptText(offset + 6))
+          BotToken = Option.toObj (r.OptText(offset + 7))
+          CreatedAt = RailsTime.truncate ((r.Timestamp(offset + 8)).ToDateTimeOffset().UtcDateTime)
+          UpdatedAt = RailsTime.truncate ((r.Timestamp(offset + 9)).ToDateTimeOffset().UtcDateTime) }
 
-    [<Literal>]
-    let private findByEmailSql = Selects.User + " WHERE \"users\".\"email_address\" = ? LIMIT 1"
+    let fromRow (r: Row) : User = fromRowAt r 0
 
-    [<Literal>]
-    let private activeOrderedSql = Selects.User + " WHERE \"users\".\"status\" = 0 ORDER BY LOWER(name)"
+    /// `User.find_by_sql`: the users a query starting with `User.Select` returns.
+    let findBySql (conn: Conn) (sql: string) (args: SqlArg[]) : User list = conn.QueryAll(sql, args, fromRow)
 
-    [<Literal>]
-    let private activeSql = Selects.User + " WHERE \"users\".\"status\" = 0"
+    let findByIdLegacy (conn: Conn) (id: int64) : User option = conn.QueryOne(findByIdSql, [| I id |], fromRow)
 
-    [<Literal>]
-    let private activeFilteredSql = Selects.User + " WHERE \"users\".\"status\" = 0 AND (name like ?) ORDER BY LOWER(name)"
+    let findLegacy (conn: Conn) (id: int64) : User = findByIdLegacy conn id |> Err.orNotFound "User"
 
-    [<Literal>]
-    let private activeOrderedWithoutBotsSql = Selects.User + " WHERE \"users\".\"status\" = 0 AND \"users\".\"role\" != 2 ORDER BY LOWER(name)"
+    /// `User.where(id: ids)`
+    let whereIdsLegacy (conn: Conn) (ids: int64 list) : User list =
+        let sql = Selects.User + " WHERE \"users\".\"id\" IN (" + Sql.placeholders (List.length ids) + ")"
+        conn.QueryAll(sql, ids |> List.map I |> Array.ofList, fromRow)
 
-    [<Literal>]
-    let private activeBotsOrderedSql = Selects.User + " WHERE \"users\".\"status\" = 0 AND \"users\".\"role\" = 2 ORDER BY LOWER(name)"
+    /// `User.active.ordered`
+    let activeOrderedLegacy (conn: Conn) : User list =
+        conn.QueryAll(Selects.User + " WHERE \"users\".\"status\" = 0 ORDER BY LOWER(name)", [||], fromRow)
 
-    [<Literal>]
-    let private findActiveBotSql = Selects.User + " WHERE \"users\".\"status\" = 0 AND \"users\".\"role\" = 2 AND \"users\".\"id\" = ? LIMIT 1"
+    // ---- Finders and scopes (EF, LINQ; every captured value goes through `EF.Parameter` so the query cache keeps hitting)
 
-    [<Literal>]
-    let private findActiveByEmailSql = Selects.User + " WHERE \"users\".\"status\" = 0 AND \"users\".\"email_address\" = ? LIMIT 1"
+    /// `User.generate_bot_token`
+    let generateBotToken () : string = Sql.alphanumeric 12
 
-    [<Literal>]
-    let private authenticateBotSql =
-        Selects.User + " WHERE \"users\".\"status\" = 0 AND \"users\".\"role\" = 2 AND \"users\".\"id\" = ? AND \"users\".\"bot_token\" = ? LIMIT 1"
+    /// `User.find_by(id:)`
+    let findById (db: Ef.CampfireDb) (id: int64) : User option =
+        db.Users.Where(fun u -> u.Id = EF.Parameter id) |> Ef.Data.tryFirst
 
-    [<Literal>]
-    let private insertSql =
-        "INSERT INTO \"users\" (\"bio\", \"bot_token\", \"created_at\", \"email_address\", \"name\", \"password_digest\", \"role\", \"status\", \"updated_at\") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING \"id\""
+    /// `User.find`
+    let find (db: Ef.CampfireDb) (id: int64) : User = findById db id |> Err.orNotFound "User"
+
+    /// `User.active.find(id)`
+    let findActive (db: Ef.CampfireDb) (id: int64) : User =
+        db.Users.Where(fun u -> u.Status = Status.Active && u.Id = EF.Parameter id) |> Ef.Data.tryFirst |> Err.orNotFound "User"
+
+    let findByEmailAddress (db: Ef.CampfireDb) (emailAddress: string) : User option =
+        db.Users.Where(fun u -> u.EmailAddress = EF.Parameter emailAddress) |> Ef.Data.tryFirst
+
+    let all (db: Ef.CampfireDb) : User list = db.Users.ToList() |> List.ofSeq
+
+    let count (db: Ef.CampfireDb) : int64 = db.Users.LongCount()
+
+    /// `User.where(id: ids)`
+    let whereIds (db: Ef.CampfireDb) (ids: int64 list) : User list =
+        let wanted = Array.ofList ids
+        db.Users.Where(fun u -> Enumerable.Contains(EF.Parameter wanted, u.Id)).ToList() |> List.ofSeq
+
+    /// `User.active.ordered`
+    let activeOrdered (db: Ef.CampfireDb) : User list =
+        db.Users.Where(fun u -> u.Status = Status.Active).OrderBy(fun u -> u.Name.ToLower()).ToList() |> List.ofSeq
+
+    /// `User.active`
+    let active (db: Ef.CampfireDb) : User list =
+        db.Users.Where(fun u -> u.Status = Status.Active).ToList() |> List.ofSeq
+
+    /// `User.active.filtered_by(query).ordered`
+    let activeFilteredByOrdered (db: Ef.CampfireDb) (query: string) : User list =
+        let pattern = $"%%{query}%%"
+        db.Users
+            .Where(fun u -> u.Status = Status.Active && EF.Functions.Like(u.Name, EF.Parameter pattern))
+            .OrderBy(fun u -> u.Name.ToLower())
+            .ToList()
+        |> List.ofSeq
+
+    /// `User.active.ordered.without_bots`
+    let activeOrderedWithoutBots (db: Ef.CampfireDb) : User list =
+        db.Users
+            .Where(fun u -> u.Status = Status.Active && u.Role <> Role.Bot)
+            .OrderBy(fun u -> u.Name.ToLower())
+            .ToList()
+        |> List.ofSeq
+
+    /// `User.active_bots.ordered`
+    let activeBotsOrdered (db: Ef.CampfireDb) : User list =
+        db.Users
+            .Where(fun u -> u.Status = Status.Active && u.Role = Role.Bot)
+            .OrderBy(fun u -> u.Name.ToLower())
+            .ToList()
+        |> List.ofSeq
+
+    /// `User.active_bots.find(id)`
+    let findActiveBot (db: Ef.CampfireDb) (id: int64) : User =
+        db.Users.Where(fun u -> u.Status = Status.Active && u.Role = Role.Bot && u.Id = EF.Parameter id)
+        |> Ef.Data.tryFirst
+        |> Err.orNotFound "User"
+
+    /// `User.active.find_by(email_address:)`: the lookup half of `authenticate_by` (the sign-in lookup).
+    let findActiveByEmailAddress (db: Ef.CampfireDb) (emailAddress: string) : User option =
+        db.Users.Where(fun u -> u.Status = Status.Active && u.EmailAddress = EF.Parameter emailAddress) |> Ef.Data.tryFirst
+
+    let private dummyDigest = "$2a$12$FiKmSp4UhLvSB4Sd/ZUjQunyKP6.NjDRHdr5LnKUVk.BUn4Mq12WS"
 
     /// `MENTION_CONTENT_TYPE`
     [<Literal>]
     let MentionContentType = "application/vnd.campfire.mention"
 
-    let private dummyDigest = "$2a$12$FiKmSp4UhLvSB4Sd/ZUjQunyKP6.NjDRHdr5LnKUVk.BUn4Mq12WS"
-
-    /// Reads a user from `Columns.User`, starting at column `offset`.
-    let fromRowAt (r: Row) (offset: int) : User =
-        { Id = r.Int64(offset + 0)
-          Name = r.Text(offset + 1)
-          EmailAddress = r.OptText(offset + 2)
-          PasswordDigest = r.OptText(offset + 3)
-          Role = Role.ofSql (r.Int64(offset + 4))
-          Status = Status.ofSql (r.Int64(offset + 5))
-          Bio = r.OptText(offset + 6)
-          BotToken = r.OptText(offset + 7)
-          CreatedAt = r.Timestamp(offset + 8)
-          UpdatedAt = r.Timestamp(offset + 9) }
-
-    let fromRow (r: Row) : User = fromRowAt r 0
-
-    /// `User.generate_bot_token`
-    let generateBotToken () : string = Sql.alphanumeric 12
-
-    // Finders and scopes
-
-    /// `User.find_by_sql`: the users a query starting with `User.Select` returns.
-    let findBySql (conn: Conn) (sql: string) (args: SqlArg[]) : User list = conn.QueryAll(sql, args, fromRow)
-
-    let findById (conn: Conn) (id: int64) : User option = conn.QueryOne(findByIdSql, [| I id |], fromRow)
-
-    let find (conn: Conn) (id: int64) : User = findById conn id |> Err.orNotFound "User"
-
-    /// `User.active.find(id)`
-    let findActive (conn: Conn) (id: int64) : User =
-        conn.QueryOne(findActiveSql, [| I id |], fromRow) |> Err.orNotFound "User"
-
-    let findByEmailAddress (conn: Conn) (emailAddress: string) : User option =
-        conn.QueryOne(findByEmailSql, [| S emailAddress |], fromRow)
-
-    let all (conn: Conn) : User list = conn.QueryAll(Select, [||], fromRow)
-
-    let count (conn: Conn) : int64 = conn.Count("""SELECT COUNT(*) FROM "users" """, [||])
-
-    /// `User.where(id: ids)`
-    let whereIds (conn: Conn) (ids: int64 list) : User list =
-        let sql = Selects.User + " WHERE \"users\".\"id\" IN (" + Sql.placeholders (List.length ids) + ")"
-        conn.QueryAll(sql, ids |> List.map I |> Array.ofList, fromRow)
-
-    /// `User.active.ordered`
-    let activeOrdered (conn: Conn) : User list = conn.QueryAll(activeOrderedSql, [||], fromRow)
-
-    /// `User.active`
-    let active (conn: Conn) : User list = conn.QueryAll(activeSql, [||], fromRow)
-
-    /// `User.active.filtered_by(query).ordered`
-    let activeFilteredByOrdered (conn: Conn) (query: string) : User list =
-        conn.QueryAll(activeFilteredSql, [| S $"%%{query}%%" |], fromRow)
-
-    /// `User.active.ordered.without_bots`
-    let activeOrderedWithoutBots (conn: Conn) : User list = conn.QueryAll(activeOrderedWithoutBotsSql, [||], fromRow)
-
-    /// `User.active_bots.ordered`
-    let activeBotsOrdered (conn: Conn) : User list = conn.QueryAll(activeBotsOrderedSql, [||], fromRow)
-
-    /// `User.active_bots.find(id)`
-    let findActiveBot (conn: Conn) (id: int64) : User =
-        conn.QueryOne(findActiveBotSql, [| I id |], fromRow) |> Err.orNotFound "User"
-
-    /// `User.active.find_by(email_address:)`: the lookup half of `authenticate_by`.
-    let findActiveByEmailAddress (conn: Conn) (emailAddress: string) : User option =
-        conn.QueryOne(findActiveByEmailSql, [| S emailAddress |], fromRow)
-
     /// `has_secure_password`'s `authenticate`.
     let authenticate (user: User) (password: string) : bool =
         match user.PasswordDigest with
-        | Some digest when digest <> "" -> Password.verify password digest
-        | _ -> false
+        | null -> false
+        | "" -> false
+        | digest -> Password.verify password digest
 
     /// The password half of `User.active.authenticate_by(email_address:, password:)`, given
     /// what `findActiveByEmailAddress` found. Blocking (bcrypt), so it runs with no
@@ -284,176 +161,172 @@ module User =
                 None
 
     /// `User.authenticate_bot(bot_key)`: `"#{id}-#{bot_token}"`
-    let authenticateBot (conn: Conn) (botKey: string) : User option =
+    let authenticateBot (db: Ef.CampfireDb) (botKey: string) : User option =
         // Ruby's `split("-")` drops trailing empty fields; a key without a token finds nothing.
         match botKey.Split '-' with
         | parts when parts.Length >= 2 ->
-            let id = parts[0]
             let token = parts[1]
-            conn.QueryOne(authenticateBotSql, [| S id; S token |], fromRow)
+            // Rails compares `id` (an integer column) with the string: SQLite's integer affinity makes "12abc" never equal 12.
+            match Int64.TryParse parts[0] with
+            | true, id when string id = parts[0] ->
+                db.Users.Where(fun u ->
+                    u.Status = Status.Active && u.Role = Role.Bot && u.Id = EF.Parameter id && u.BotToken = EF.Parameter token)
+                |> Ef.Data.tryFirst
+            | _ -> None
         | _ -> None
 
-    // Creating
+    // ---- Creating
 
-    /// `after_create_commit :grant_membership_to_open_rooms`
-    let private grantMembershipToOpenRooms (tx: Tx) (userId: int64) : unit =
-        let roomIds =
-            tx.Conn.QueryAll("""SELECT "rooms"."id" FROM "rooms" WHERE "rooms"."type" = ?""", [| S "Rooms::Open" |], fun r -> r.Int64 0)
-        for batch in List.chunkBySize Room.MembershipInsertBatch roomIds do
-            let rows = batch |> List.map (fun _ -> $"({Time.SqliteNow}, ?, {Time.SqliteNow}, ?)")
-            let sql =
-                "INSERT INTO \"memberships\" (\"created_at\",\"room_id\",\"updated_at\",\"user_id\") VALUES "
-                + String.concat ", " rows
-                + " ON CONFLICT  DO NOTHING RETURNING \"id\""
-            let values = batch |> List.collect (fun roomId -> [ I roomId; I userId ]) |> Array.ofList
-            tx.Conn.ExecuteUncached(sql, values) |> ignore
+    /// `after_create_commit :grant_membership_to_open_rooms`: `Membership.insert_all` stamps the rows with SQLite's own clock
+    /// (millisecond text, as Rails' `insert_all` does), and leaves `involvement` to the column default. One statement for every
+    /// open room: a `FromSql`-family call because LINQ has no `INSERT ... SELECT`.
+    let private grantMembershipToOpenRooms (tx: Ef.Tx) (userId: int64) : unit =
+        tx.Db.Database.ExecuteSql(
+            $"INSERT INTO memberships (created_at, room_id, updated_at, user_id) SELECT STRFTIME('%%Y-%%m-%%d %%H:%%M:%%f', 'NOW'), rooms.id, STRFTIME('%%Y-%%m-%%d %%H:%%M:%%f', 'NOW'), {userId} FROM rooms WHERE rooms.type = 'Rooms::Open' ON CONFLICT DO NOTHING"
+        )
+        |> ignore
 
     /// `User.create!`: inserts, then grants memberships to every open room after commit.
-    let create (tx: Tx) (attributes: NewUser) : User =
+    let create (tx: Ef.Tx) (attributes: NewUser) : User =
         let now = tx.Now()
-        let passwordDigest = attributes.PasswordDigest |> Option.map PasswordDigest.intoString
-        let id =
-            tx.Conn.QueryRow(
-                insertSql,
-                [| Sql.optS attributes.Bio
-                   Sql.optS attributes.BotToken
-                   T now
-                   Sql.optS attributes.EmailAddress
-                   S attributes.Name
-                   Sql.optS passwordDigest
-                   Role.toSql attributes.Role
-                   Status.toSql Status.Active
-                   T now |],
-                fun r -> r.Int64 0
-            )
-        tx.AfterCommit(fun tx -> grantMembershipToOpenRooms tx id)
-        find tx.Conn id
+        let user =
+            Ef.Data.insert
+                tx.Db
+                { Id = 0L
+                  Name = attributes.Name
+                  EmailAddress = Option.toObj attributes.EmailAddress
+                  PasswordDigest = attributes.PasswordDigest |> Option.map PasswordDigest.intoString |> Option.toObj
+                  Role = attributes.Role
+                  Status = Status.Active
+                  Bio = Option.toObj attributes.Bio
+                  BotToken = Option.toObj attributes.BotToken
+                  CreatedAt = now
+                  UpdatedAt = now }
+        tx.AfterCommit(fun tx -> grantMembershipToOpenRooms tx user.Id)
+        user
+
+    /// `create_webhook!(url:)`, for the bot that owns it (the webhook model itself moves in unit 1.8).
+    let private addWebhook (tx: Ef.Tx) (userId: int64) (url: string) : unit =
+        Ef.Data.insert tx.Db ({ Id = 0L; UserId = userId; Url = url; CreatedAt = DateTime.MinValue; UpdatedAt = DateTime.MinValue }: Ef.Webhook)
+        |> ignore
 
     /// `User.create_bot!`
-    let createBot (tx: Tx) (name: string) (webhookUrl: string option) : User =
+    let createBot (tx: Ef.Tx) (name: string) (webhookUrl: string option) : User =
         let user =
             create tx { NewUser.create name with BotToken = Some(generateBotToken ()); Role = Role.Bot }
         match webhookUrl with
-        | Some url -> Webhook.create tx user.Id (Some url) |> ignore
+        | Some url -> addWebhook tx user.Id url
         | None -> ()
         user
 
-    // Updating
+    // ---- Updating
 
-    /// `user.update(attributes)`: writes only what changed, and nothing at all (not even
-    /// `updated_at`) when nothing did.
-    let update (tx: Tx) (user: User) (changes: UserChanges) : User =
+    /// `user.update(attributes)`: writes only what changed, and nothing at all (not even `updated_at`) when nothing did.
+    let update (tx: Ef.Tx) (user: User) (changes: UserChanges) : User =
         let mutable updated = user
-        let sets = ResizeArray<string * SqlArg>()
         match changes.Name with
-        | Some name when name <> user.Name ->
-            updated <- { updated with Name = name }
-            sets.Add("name", S name)
-        | _ -> ()
+        | Some name -> updated <- { updated with Name = name }
+        | None -> ()
         match changes.EmailAddress with
-        | Some email when email <> user.EmailAddress ->
-            updated <- { updated with EmailAddress = email }
-            sets.Add("email_address", Sql.optS email)
-        | _ -> ()
+        | Some email -> updated <- { updated with EmailAddress = Option.toObj email }
+        | None -> ()
         match changes.PasswordDigest with
-        | Some digest ->
-            let digest = PasswordDigest.intoString digest
-            updated <- { updated with PasswordDigest = Some digest }
-            sets.Add("password_digest", S digest)
+        | Some digest -> updated <- { updated with PasswordDigest = PasswordDigest.intoString digest }
         | None -> ()
         match changes.Role with
-        | Some role when role <> user.Role ->
-            updated <- { updated with Role = role }
-            sets.Add("role", Role.toSql role)
-        | _ -> ()
+        | Some role -> updated <- { updated with Role = role }
+        | None -> ()
         match changes.Status with
-        | Some status when status <> user.Status ->
-            updated <- { updated with Status = status }
-            sets.Add("status", Status.toSql status)
-        | _ -> ()
+        | Some status -> updated <- { updated with Status = status }
+        | None -> ()
         match changes.Bio with
-        | Some bio when bio <> user.Bio ->
-            updated <- { updated with Bio = bio }
-            sets.Add("bio", Sql.optS bio)
-        | _ -> ()
+        | Some bio -> updated <- { updated with Bio = Option.toObj bio }
+        | None -> ()
         match changes.BotToken with
-        | Some token when token <> user.BotToken ->
-            updated <- { updated with BotToken = token }
-            sets.Add("bot_token", Sql.optS token)
-        | _ -> ()
-        if sets.Count = 0 then
-            user
-        else
-            let now = tx.Now()
-            updated <- { updated with UpdatedAt = now }
-            sets.Add("updated_at", T now)
-            let assignments = sets |> Seq.map (fun (c, _) -> $"\"{c}\" = ?") |> String.concat ", "
-            let sql = $"UPDATE \"users\" SET {assignments} WHERE \"users\".\"id\" = ?"
-            tx.Conn.Execute(sql, Array.append (sets |> Seq.map snd |> Array.ofSeq) [| I user.Id |]) |> ignore
-            updated
+        | Some token -> updated <- { updated with BotToken = Option.toObj token }
+        | None -> ()
+        Ef.Data.update tx.Db user updated
+
+    /// `user.webhook`
+    let webhook (db: Ef.CampfireDb) (user: User) : Ef.Webhook option =
+        let id = user.Id
+        db.Webhooks.Where(fun w -> w.UserId = EF.Parameter id) |> Ef.Data.tryFirst
+
+    let webhookUrl (db: Ef.CampfireDb) (user: User) : string option =
+        webhook db user |> Option.bind (fun w -> Option.ofObj w.Url)
 
     /// `update_bot!`: the webhook first, then the user, in one transaction.
-    let updateBot (tx: Tx) (user: User) (changes: UserChanges) (webhookUrl: string option) : User =
-        let webhook = Webhook.findByUser tx.Conn user.Id
+    let updateBot (tx: Ef.Tx) (user: User) (changes: UserChanges) (webhookUrl: string option) : User =
+        let existing = webhook tx.Db user
         let url = webhookUrl |> Option.filter (fun u -> not (String.IsNullOrWhiteSpace u))
-        match url, webhook with
-        | Some url, Some webhook -> Webhook.updateUrl tx webhook url |> ignore
-        | Some url, None -> Webhook.create tx user.Id (Some url) |> ignore
-        | None, Some webhook -> Webhook.destroy tx webhook
+        match url, existing with
+        | Some url, Some webhook -> Ef.Data.update tx.Db webhook { webhook with Url = url } |> ignore
+        | Some url, None -> addWebhook tx user.Id url
+        | None, Some webhook -> Ef.Data.remove tx.Db webhook
         | None, None -> ()
         update tx user changes
 
-    let resetBotKey (tx: Tx) (user: User) : User =
+    let resetBotKey (tx: Ef.Tx) (user: User) : User =
         update tx user { UserChanges.none with BotToken = Some(Some(generateBotToken ())) }
 
     /// After commit: a connection authenticating meanwhile then either finds the sessions gone or
     /// is already listening for this (see `Campfire.Cable`'s connection setup).
-    let private closeRemoteConnections (tx: Tx) (user: User) (reconnect: bool) : unit =
+    let private closeRemoteConnections (tx: Ef.Tx) (user: User) (reconnect: bool) : unit =
         tx.EmitAfterCommit(DisconnectUser(user.Id, reconnect))
 
     /// `reset_remote_connections`: disconnect this user's sockets and let them reconnect.
-    let resetRemoteConnections (tx: Tx) (user: User) : unit = closeRemoteConnections tx user true
+    let resetRemoteConnections (tx: Ef.Tx) (user: User) : unit = closeRemoteConnections tx user true
 
     let private deactivatedEmailAddress (user: User) : string option =
         let uuid = Sql.uuid ()
-        user.EmailAddress |> Option.map (fun e -> e.Replace("@", $"-deactivated-{uuid}@"))
+        Option.ofObj user.EmailAddress |> Option.map (fun e -> e.Replace("@", $"-deactivated-{uuid}@"))
 
     /// `deactivate`: disconnects sockets first (mid-transaction, as Rails does), then removes
     /// non-direct memberships, push subscriptions, searches and sessions, and scrambles the
     /// email address.
-    let deactivate (tx: Tx) (user: User) : User =
+    let deactivate (tx: Ef.Tx) (user: User) : User =
         closeRemoteConnections tx user false
-        let conn = tx.Conn
-        conn.Execute(
-            """DELETE FROM "memberships" WHERE ("memberships"."id") IN (SELECT "memberships"."id" FROM "memberships" INNER JOIN "rooms" AS "room" ON "room"."id" = "memberships"."room_id" WHERE "memberships"."user_id" = ? AND "room"."type" != ?)""",
-            [| I user.Id; S "Rooms::Direct" |]
+        let db = tx.Db
+        let id = user.Id
+        // A subquery over `rooms`: LINQ (an F# lambda inside a lambda) cannot say it, so it is the SQL Rails writes.
+        db.Database.ExecuteSql(
+            $"DELETE FROM memberships WHERE id IN (SELECT memberships.id FROM memberships INNER JOIN rooms AS room ON room.id = memberships.room_id WHERE memberships.user_id = {id} AND room.type != 'Rooms::Direct')"
         )
         |> ignore
-        conn.Execute("""DELETE FROM "push_subscriptions" WHERE "push_subscriptions"."user_id" = ?""", [| I user.Id |]) |> ignore
-        conn.Execute("""DELETE FROM "searches" WHERE "searches"."user_id" = ?""", [| I user.Id |]) |> ignore
-        conn.Execute("""DELETE FROM "sessions" WHERE "sessions"."user_id" = ?""", [| I user.Id |]) |> ignore
+        db.PushSubscriptions.Where(fun p -> p.UserId = EF.Parameter id).ExecuteDelete() |> ignore
+        db.Searches.Where(fun s -> s.UserId = EF.Parameter id).ExecuteDelete() |> ignore
+        db.Sessions.Where(fun s -> s.UserId = EF.Parameter id).ExecuteDelete() |> ignore
         let email = deactivatedEmailAddress user
         update tx user { UserChanges.none with Status = Some Status.Deactivated; EmailAddress = Some email }
 
     /// `User::Bannable#ban`
-    let ban (tx: Tx) (user: User) : User =
+    let ban (tx: Ef.Tx) (user: User) : User =
+        let db = tx.Db
+        let id = user.Id
         // create_bans_from_sessions: `sessions.pluck(:ip_address).compact_blank.uniq`
-        let ips =
-            tx.Conn.QueryAll("""SELECT "sessions"."ip_address" FROM "sessions" WHERE "sessions"."user_id" = ?""", [| I user.Id |], fun r -> r.OptText 0)
+        let ips = db.Sessions.Where(fun s -> s.UserId = EF.Parameter id).Select(fun s -> s.IpAddress).ToList()
         let seen = ResizeArray<string>()
-        for ip in ips |> List.choose id |> List.filter (fun ip -> not (String.IsNullOrWhiteSpace ip)) do
-            if not (seen.Contains ip) then
-                Ban.create tx user.Id ip |> ignore
+        for ip in ips do
+            match ip with
+            | null -> ()
+            | ip when String.IsNullOrWhiteSpace ip || seen.Contains ip -> ()
+            | ip ->
+                Err.validate (Ban.validate ip)
+                Ef.Data.insert db ({ Id = 0L; UserId = id; IpAddress = ip; CreatedAt = DateTime.MinValue; UpdatedAt = DateTime.MinValue }: Ef.Ban)
+                |> ignore
                 seen.Add ip
         // apply_ban
         closeRemoteConnections tx user false
-        tx.Conn.Execute("""DELETE FROM "sessions" WHERE "sessions"."user_id" = ?""", [| I user.Id |]) |> ignore
-        tx.EmitAfterCommit(RemoveBannedContent user.Id)
+        db.Sessions.Where(fun s -> s.UserId = EF.Parameter id).ExecuteDelete() |> ignore
+        tx.EmitAfterCommit(RemoveBannedContent id)
         update tx user { UserChanges.none with Status = Some Status.Banned }
 
-    let unban (tx: Tx) (user: User) : User =
-        tx.Conn.Execute("""DELETE FROM "bans" WHERE "bans"."user_id" = ?""", [| I user.Id |]) |> ignore
+    let unban (tx: Ef.Tx) (user: User) : User =
+        let id = user.Id
+        tx.Db.Bans.Where(fun b -> b.UserId = EF.Parameter id).ExecuteDelete() |> ignore
         update tx user { UserChanges.none with Status = Some Status.Active }
+
+    // ---- Still on the port's writer (their models move in units 1.4-1.8)
 
     /// `remove_banned_content`: destroys every message the user wrote. Returns them so the
     /// caller can `broadcast_remove` each one.
@@ -468,17 +341,8 @@ module User =
         if (Webhook.findByUser tx.Conn user.Id).IsSome then
             tx.EmitAfterCommit(DeliverWebhook(user.Id, messageId))
 
-    // Associations
+    // ---- Attributes (pure)
 
-    let memberships (conn: Conn) (user: User) : Membership list = Membership.forUser conn user.Id
-
-    let sessions (conn: Conn) (user: User) : Session list = Session.forUser conn user.Id
-
-    let webhook (conn: Conn) (user: User) : Webhook option = Webhook.findByUser conn user.Id
-
-    let webhookUrl (conn: Conn) (user: User) : string option = webhook conn user |> Option.bind (fun w -> w.Url)
-
-    // Attributes
 
     /// `name.scan(/\b\w/).join`. Ruby's `\w` is ASCII-only, but `\b` treats any Unicode
     /// letter or digit as a word character, so "Émile" contributes nothing.
@@ -501,12 +365,12 @@ module User =
 
     /// `[ name, bio ].compact_blank.join(" – ")`
     let title (user: User) : string =
-        [ Some user.Name; user.Bio ]
+        [ Some user.Name; Option.ofObj user.Bio ]
         |> List.choose id
         |> List.filter (fun s -> not (String.IsNullOrWhiteSpace s))
         |> String.concat " – "
 
-    let botKey (user: User) : string = $"{user.Id}-{defaultArg user.BotToken String.Empty}"
+    let botKey (user: User) : string = $"{user.Id}-{(match user.BotToken with | null -> String.Empty | token -> token)}"
 
     let isMember (user: User) : bool = user.Role = Role.Member
 
@@ -527,7 +391,7 @@ module User =
     /// `attachable_plain_text_representation`
     let attachablePlainTextRepresentation (user: User) : string = $"@{user.Name}"
 
-    let reload (conn: Conn) (user: User) : User = find conn user.Id
+    let reload (db: Ef.CampfireDb) (user: User) : User = find db user.Id
 
 // ---------------------------------------------------------------------------------------------
 // Membership
@@ -688,7 +552,7 @@ module Membership =
 
     let room (conn: Conn) (membership: Membership) : Room = Room.find conn membership.RoomId
 
-    let user (conn: Conn) (membership: Membership) : User = User.find conn membership.UserId
+    let user (conn: Conn) (membership: Membership) : User = User.findLegacy conn membership.UserId
 
     // Involvement and read state
 
@@ -727,7 +591,7 @@ module Membership =
     let destroy (tx: Tx) (membership: Membership) : unit =
         tx.Conn.Execute("""DELETE FROM "memberships" WHERE "memberships"."id" = ?""", [| I membership.Id |]) |> ignore
         let userId = membership.UserId
-        tx.AfterCommit(fun tx -> User.resetRemoteConnections tx (User.find tx.Conn userId))
+        tx.AfterCommit(fun tx -> tx.EmitAfterCommit(DisconnectUser(userId, true)))
 
     // Membership::Connectable
 
@@ -1321,7 +1185,7 @@ module Message =
 
     let room (conn: Conn) (message: Message) : Room = Room.find conn message.RoomId
 
-    let creator (conn: Conn) (message: Message) : User = User.find conn message.CreatorId
+    let creator (conn: Conn) (message: Message) : User = User.findLegacy conn message.CreatorId
 
     let boosts (conn: Conn) (message: Message) : Boost list = Boost.forMessageOrdered conn message.Id
 
@@ -1649,7 +1513,7 @@ module Webhook =
         : string =
         let creator = Message.creator conn message
         let room = Room.find conn message.RoomId
-        let recipient = User.find conn webhook.UserId
+        let recipient = User.findLegacy conn webhook.UserId
         let html = Message.bodyHtml conn message
         let plain = withoutRecipientMentions (Message.plainTextBody conn richText message) recipient
 

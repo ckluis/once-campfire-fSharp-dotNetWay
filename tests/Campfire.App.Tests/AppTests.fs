@@ -179,7 +179,7 @@ let ``a rails issued session cookie authenticates`` () =
         use! test = bootSeeded "default"
         let sessions, _, forged = sessionVectors ()
         let session = sessions[0]
-        use! host = startPipeline (whoamiPipeline test.App)
+        use! host = startPipelineWith test.Booted.ConfigureServices (whoamiPipeline test.App)
 
         let! signedIn = host.Send(getWithCookie "/whoami" session.CookieHeader)
         Assert.Equal(200, signedIn.Status)
@@ -213,7 +213,7 @@ let ``the application chain blocks banned ips forgeries and old browsers`` () =
         use! test = bootSeeded "default"
         let sessions, _, _ = sessionVectors ()
         let cookie = sessions[0].CookieHeader
-        use! host = startPipeline (whoamiPipeline test.App)
+        use! host = startPipelineWith test.Booted.ConfigureServices (whoamiPipeline test.App)
         let post (name: string) (value: string) = (request "POST" "/whoami").With("cookie", cookie).With(name, value)
 
         // `ips.banned` in the seed's labels.
@@ -246,7 +246,7 @@ let ``allow browser keeps the platform it parsed for the layout`` () =
         use! test = bootSeeded "default"
         let kit = kitFor test.App
         use! host =
-            startPipeline (
+            startPipelineWith test.Booted.ConfigureServices (
                 Adapter.app
                     kit
                     [ Adapter.route kit "/platform" [ "GET", platformAction ]

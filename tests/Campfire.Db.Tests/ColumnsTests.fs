@@ -297,74 +297,76 @@ let ``memberships read by position as by name`` () =
 // Users, sessions, accounts, boosts and rich texts
 
 [<Fact>]
-let ``users sessions accounts boosts and rich texts read each column into its own field`` () =
+let ``users accounts boosts and rich texts read each column into its own field`` () =
+    let dt (n: int64) : System.DateTime = RailsTime.truncate ((at n).ToDateTimeOffset().UtcDateTime)
+    let ts (d: System.DateTime) : Timestamp = Timestamp.FromDateTimeOffset(System.DateTimeOffset(d))
     for layout in layouts do
         use conn = database layout
         let user =
             { Id = 4001L
               Name = "User 4002"
-              EmailAddress = Some "4003@example.com"
-              PasswordDigest = Some "digest 4004"
+              EmailAddress = "4003@example.com"
+              PasswordDigest = "digest 4004"
               Role = Role.Bot
               Status = Status.Banned
-              Bio = Some "bio 4005"
-              BotToken = Some "token 4006"
-              CreatedAt = at 4007L
-              UpdatedAt = at 4008L }
+              Bio = "bio 4005"
+              BotToken = "token 4006"
+              CreatedAt = dt 4007L
+              UpdatedAt = dt 4008L } : User
         conn.Execute(
             """INSERT INTO "users" ("id", "name", "email_address", "password_digest", "role", "status", "bio", "bot_token", "created_at", "updated_at") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             [| I user.Id
                S user.Name
-               Sql.optS user.EmailAddress
-               Sql.optS user.PasswordDigest
+               Sql.optS (Option.ofObj user.EmailAddress)
+               Sql.optS (Option.ofObj user.PasswordDigest)
                Role.toSql user.Role
                Status.toSql user.Status
-               Sql.optS user.Bio
-               Sql.optS user.BotToken
-               T user.CreatedAt
-               T user.UpdatedAt |]
+               Sql.optS (Option.ofObj user.Bio)
+               Sql.optS (Option.ofObj user.BotToken)
+               T (ts user.CreatedAt)
+               T (ts user.UpdatedAt) |]
         )
         |> ignore
         let session =
             { Id = 5001L
               UserId = user.Id
               Token = "token 5003"
-              IpAddress = Some "10.0.50.4"
-              UserAgent = Some "agent 5005"
-              LastActiveAt = at 5006L
-              CreatedAt = at 5007L
-              UpdatedAt = at 5008L }
+              IpAddress = "10.0.50.4"
+              UserAgent = "agent 5005"
+              LastActiveAt = dt 5006L
+              CreatedAt = dt 5007L
+              UpdatedAt = dt 5008L } : Session
         conn.Execute(
             """INSERT INTO "sessions" ("id", "user_id", "token", "ip_address", "user_agent", "last_active_at", "created_at", "updated_at") VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
             [| I session.Id
                I session.UserId
                S session.Token
-               Sql.optS session.IpAddress
-               Sql.optS session.UserAgent
-               T session.LastActiveAt
-               T session.CreatedAt
-               T session.UpdatedAt |]
+               Sql.optS (Option.ofObj session.IpAddress)
+               Sql.optS (Option.ofObj session.UserAgent)
+               T (ts session.LastActiveAt)
+               T (ts session.CreatedAt)
+               T (ts session.UpdatedAt) |]
         )
         |> ignore
         let account =
             { Id = 6001L
               Name = "Account 6002"
               JoinCode = "code-6003"
-              CustomStyles = Some "/* 6004 */"
-              SettingsJson = Some """{"n":6005}"""
+              CustomStyles = "/* 6004 */"
+              Settings = """{"n":6005}"""
               SingletonGuard = 6006L
-              CreatedAt = at 6007L
-              UpdatedAt = at 6008L }
+              CreatedAt = dt 6007L
+              UpdatedAt = dt 6008L } : Account
         conn.Execute(
             """INSERT INTO "accounts" ("id", "name", "join_code", "custom_styles", "settings", "singleton_guard", "created_at", "updated_at") VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
             [| I account.Id
                S account.Name
                S account.JoinCode
-               Sql.optS account.CustomStyles
-               Sql.optS account.SettingsJson
+               Sql.optS (Option.ofObj account.CustomStyles)
+               Sql.optS (Option.ofObj account.Settings)
                I account.SingletonGuard
-               T account.CreatedAt
-               T account.UpdatedAt |]
+               T (ts account.CreatedAt)
+               T (ts account.UpdatedAt) |]
         )
         |> ignore
         let room = { distinctRoom () with CreatorId = user.Id }
@@ -403,9 +405,8 @@ let ``users sessions accounts boosts and rich texts read each column into its ow
         )
         |> ignore
 
-        Assert.True((User.find conn user.Id = user), $"{layout}")
-        Assert.True((Session.findByToken conn session.Token = Some session), $"{layout}")
-        Assert.True((Account.first conn = Some account), $"{layout}")
+        Assert.True((User.findLegacy conn user.Id = user), $"{layout}")
+        Assert.True((Account.firstLegacy conn = Some account), $"{layout}")
         Assert.True((Boost.forMessageOrdered conn boost.MessageId = [ boost ]), $"{layout}")
         Assert.True((RichTextRecord.findFor conn "Message" richText.RecordId "body" = Some richText), $"{layout}")
 

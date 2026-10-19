@@ -78,7 +78,7 @@ module RoomsController =
     let ensurePermissionToCreateRooms (c: Ctx) : Task<Result<unit, Error>> =
         act {
             let! (user: User) = Concerns.requireCurrentUser c
-            let! account = c.App.Read(fun conn -> Account.first conn)
+            let! account = c.App.Read(fun conn -> Account.firstLegacy conn)
             let restricted =
                 account
                 |> Option.exists (fun account -> AccountSettings.restrictRoomCreationToAdministrators (Account.settings account))
@@ -114,7 +114,7 @@ module RoomsController =
         | ValueNone -> []
 
     /// `User.where(id: ids)`, as ids of existing users (in id order, like the query).
-    let existingUserIds (conn: Conn) (ids: int64 list) : int64 list = User.whereIds conn ids |> List.map (fun user -> user.Id)
+    let existingUserIds (conn: Conn) (ids: int64 list) : int64 list = User.whereIdsLegacy conn ids |> List.map (fun user -> user.Id)
 
     /// Renders `users/sidebars/rooms/_shared` for `room` outside a request.
     let renderSharedRoom (c: Ctx) (room: Room) : Task<Result<Rendered, Error>> =
@@ -123,7 +123,7 @@ module RoomsController =
         app.Read(fun conn ->
             let presenter = Presenter(conn, app, None)
             let sidebarRoom = presenter.SidebarRoom room
-            let account = Account.first conn
+            let account = Account.firstLegacy conn
             let html =
                 Page.renderDetachedAt app account baseUrl (fun _ -> Render.text (fun w -> SharedPartial.render w sidebarRoom))
             { Rendered.empty with SharedRoom = Some html })
@@ -150,7 +150,7 @@ module RoomsController =
                        // The page's message fragments come from the store the render then uses.
                        Messages = FragmentCache.withCache app.FragmentCache (fun () -> presenter.Messages messages)
                        Invitation = original && not (Message.paged conn room.Id)
-                       JoinCode = Account.first conn |> Option.map (fun account -> account.JoinCode) |> Option.defaultValue ""
+                       JoinCode = Account.firstLegacy conn |> Option.map (fun account -> account.JoinCode) |> Option.defaultValue ""
                        MessagesStreamName = Campfire.RailsCompat.Turbo.signedStreamName app.Secrets [ roomGid; "messages" ] }: Campfire.Views.Rooms.ShowView))
             return!
                 Page.framedPage

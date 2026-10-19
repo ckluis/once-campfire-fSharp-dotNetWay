@@ -41,11 +41,10 @@ let private revoke (app: TestApp) (how: Revoke) : Task =
     task {
         let roomId, kevin = id "designers", id "kevin"
         let! result =
-            app.Db.Write(fun tx ->
-                match how with
-                | RemoveMembership -> Room.revokeFrom tx (Room.find tx.Conn roomId) [ kevin ]
-                | Deactivate -> User.deactivate tx (User.find tx.Conn kevin) |> ignore
-                | Ban -> User.ban tx (User.find tx.Conn kevin) |> ignore)
+            match how with
+            | RemoveMembership -> app.Db.Write(fun tx -> Room.revokeFrom tx (Room.find tx.Conn roomId) [ kevin ])
+            | Deactivate -> app.WriteEf(fun tx -> User.deactivate tx (User.find tx.Db kevin) |> ignore)
+            | Ban -> app.WriteEf(fun tx -> User.ban tx (User.find tx.Db kevin) |> ignore)
         match result with
         | Ok() -> ()
         | Error error -> failwith (DbError.display error)

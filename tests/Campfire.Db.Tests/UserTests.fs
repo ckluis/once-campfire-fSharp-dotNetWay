@@ -8,10 +8,10 @@ open Campfire.Db.Tests.Support
 
 let private user (t: TestDb) (label: string) : User =
     let userId = id label
-    t.Read(fun c -> User.find c userId)
+    t.ReadEf(fun c -> User.find c userId)
 
 let private createNewUser (t: TestDb) : User =
-    t.Write(fun tx ->
+    t.WriteEf(fun tx ->
         User.create
             tx
             { NewUser.create "User" with
@@ -23,7 +23,7 @@ let ``user does not prevent very long passwords`` () =
     use t = new TestDb()
     let david = user t "david"
     let long = String.replicate 50 "secret"
-    t.Write(fun tx ->
+    t.WriteEf(fun tx ->
         User.update tx david { UserChanges.none with PasswordDigest = Some(PasswordDigest.create long 4) } |> ignore)
     Assert.True(User.authenticate (user t "david") long)
 
@@ -35,7 +35,7 @@ let ``creating users grants membership to the open rooms`` () =
     let user = createNewUser t
     Assert.Equal(before + openRooms, t.Read Membership.count)
     // grant_membership_to_open_rooms leaves involvement to the column default.
-    Assert.True(t.Read(fun c -> User.memberships c user) |> List.forall (fun m -> Membership.involvedIn m Mentions))
+    Assert.True(t.Read(fun c -> Membership.forUser c user.Id) |> List.forall (fun m -> Membership.involvedIn m Mentions))
 
 [<Fact>]
 let ``creating subsequent users makes them members`` () =
@@ -43,7 +43,7 @@ let ``creating subsequent users makes them members`` () =
     let user = createNewUser t
     Assert.True(User.isMember user)
     Assert.True(User.isActive user)
-    Assert.StartsWith("$2a$04$", user.PasswordDigest.Value)
+    Assert.StartsWith("$2a$04$", user.PasswordDigest)
 
 [<Fact>]
 let ``deactivating a user deletes push subscriptions searches memberships for non direct rooms and changes their email address`` () =
@@ -57,14 +57,14 @@ let ``deactivating a user deletes push subscriptions searches memberships for no
     let davidsSearches = t.Read(fun c -> Search.countForUser c david)
 
     let user = user t "david"
-    t.Write(fun tx -> User.deactivate tx user |> ignore)
+    t.WriteEf(fun tx -> User.deactivate tx user |> ignore)
 
     Assert.Equal(memberships - withoutDirects, t.Read Membership.count)
     Assert.Equal(subscriptions - davidsSubscriptions, t.Read PushSubscription.count)
     Assert.Equal(searches - davidsSearches, t.Read Search.count)
 
-    let reloaded = t.Read(fun c -> User.find c david)
-    let email = reloaded.EmailAddress.Value
+    let reloaded = t.ReadEf(fun c -> User.find c david)
+    let email = nonNull reloaded.EmailAddress
     Assert.True(email.StartsWith "david-deactivated-" && email.EndsWith "@37signals.com", email)
     Assert.Equal("david-deactivated-2e7de450-cf04-4fa8-9b02-ff5ab2d733e7@37signals.com".Length, email.Length)
     Assert.Equal(Status.Deactivated, reloaded.Status)
@@ -73,10 +73,10 @@ let ``deactivating a user deletes push subscriptions searches memberships for no
 [<Fact>]
 let ``deactivating a user deletes their sessions`` () =
     use t = new TestDb()
-    Assert.Equal(1L, t.Read(fun c -> Session.countForUser c (id "david")))
+    Assert.Equal(1L, t.ReadEf(fun c -> Session.countForUser c (id "david")))
     let david = user t "david"
-    t.Write(fun tx -> User.deactivate tx david |> ignore)
-    Assert.Equal(0L, t.Read(fun c -> Session.countForUser c (id "david")))
+    t.WriteEf(fun tx -> User.deactivate tx david |> ignore)
+    Assert.Equal(0L, t.ReadEf(fun c -> Session.countForUser c (id "david")))
 
 [<Fact>]
 let ``initials and title`` () =
@@ -87,7 +87,7 @@ let ``initials and title`` () =
     Assert.Equal("BB", User.initials (user t "bender"))
     let jz = { jz with Name = "Émile Zola" }
     Assert.Equal("Z", User.initials jz) // Ruby's \b sees É as a word character, \w doesn't
-    let jz = { jz with Bio = Some "  " }
+    let jz = { jz with Bio = "  " }
     Assert.Equal("Émile Zola", User.title jz)
 
 // User::Bot
@@ -95,40 +95,40 @@ let ``initials and title`` () =
 [<Fact>]
 let ``create bot`` () =
     use t = new TestDb()
-    let bot = t.Write(fun tx -> User.createBot tx "Bender" None)
-    let token = bot.BotToken.Value
+    let bot = t.WriteEf(fun tx -> User.createBot tx "Bender" None)
+    let token = nonNull bot.BotToken
     Assert.Equal(12, token.Length)
     Assert.Equal($"{bot.Id}-{token}", User.botKey bot)
     Assert.Equal(Role.Bot, bot.Role)
-    Assert.True(bot.PasswordDigest.IsNone)
+    Assert.Null(bot.PasswordDigest)
 
 [<Fact>]
 let ``create bot with webhook`` () =
     use t = new TestDb()
-    let bot = t.Write(fun tx -> User.createBot tx "Bot" (Some "http://x"))
-    Assert.Equal(Some "http://x", t.Read(fun c -> User.webhookUrl c bot))
+    let bot = t.WriteEf(fun tx -> User.createBot tx "Bot" (Some "http://x"))
+    Assert.Equal(Some "http://x", t.ReadEf(fun c -> User.webhookUrl c bot))
 
-    t.Write(fun tx -> User.updateBot tx bot { UserChanges.none with Name = Some "Bot2" } (Some "") |> ignore)
+    t.WriteEf(fun tx -> User.updateBot tx bot { UserChanges.none with Name = Some "Bot2" } (Some "") |> ignore)
     Assert.True((t.Read(fun c -> Webhook.findByUser c bot.Id)).IsNone)
-    Assert.Equal("Bot2", (t.Read(fun c -> User.find c bot.Id)).Name)
+    Assert.Equal("Bot2", (t.ReadEf(fun c -> User.find c bot.Id)).Name)
 
 [<Fact>]
 let ``reset bot key`` () =
     use t = new TestDb()
-    let bot = t.Write(fun tx -> User.createBot tx "Bender" None)
+    let bot = t.WriteEf(fun tx -> User.createBot tx "Bender" None)
     let first = User.botKey bot
-    let second = t.Write(fun tx -> User.botKey (User.resetBotKey tx bot))
+    let second = t.WriteEf(fun tx -> User.botKey (User.resetBotKey tx bot))
     Assert.NotEqual<string>(first, second)
-    Assert.True((t.Read(fun c -> User.authenticateBot c first)).IsNone)
-    Assert.True((t.Read(fun c -> User.authenticateBot c second)).IsSome)
+    Assert.True((t.ReadEf(fun c -> User.authenticateBot c first)).IsNone)
+    Assert.True((t.ReadEf(fun c -> User.authenticateBot c second)).IsSome)
 
 [<Fact>]
 let ``authenticate bot`` () =
     use t = new TestDb()
-    let bot = t.Write(fun tx -> User.createBot tx "Bender" None)
-    Assert.Equal(bot.Id, (t.Read(fun c -> User.authenticateBot c (User.botKey bot))).Value.Id)
-    Assert.True((t.Read(fun c -> User.authenticateBot c "nonsense")).IsNone)
-    Assert.True((t.Read(fun c -> User.authenticateBot c $"{bot.Id}-")).IsNone)
+    let bot = t.WriteEf(fun tx -> User.createBot tx "Bender" None)
+    Assert.Equal(bot.Id, (t.ReadEf(fun c -> User.authenticateBot c (User.botKey bot))).Value.Id)
+    Assert.True((t.ReadEf(fun c -> User.authenticateBot c "nonsense")).IsNone)
+    Assert.True((t.ReadEf(fun c -> User.authenticateBot c $"{bot.Id}-")).IsNone)
 
 [<Fact>]
 let ``deliver message by webhook`` () =
@@ -201,34 +201,34 @@ let ``can administer`` () =
 let ``ban creates bans from session ips and removes sessions`` () =
     use t = new TestDb()
     let kevin = id "kevin"
-    t.Write(fun tx ->
+    t.WriteEf(fun tx ->
         Session.start tx kevin (Some "ua") (Some "8.8.8.8") |> ignore
         Session.start tx kevin (Some "ua") (Some "8.8.8.8") |> ignore
         Session.start tx kevin (Some "ua") (Some "") |> ignore)
     t.Sink.Take() |> ignore
 
     let u = user t "kevin"
-    t.Write(fun tx -> User.ban tx u |> ignore)
+    t.WriteEf(fun tx -> User.ban tx u |> ignore)
 
     Assert.Equal<string list>([ "8.8.8.8" ], t.Read(fun c -> Ban.forUser c kevin) |> List.map (fun b -> b.IpAddress))
     Assert.True(t.Read(fun c -> Ban.banned c "8.8.8.8"))
-    Assert.Equal(0L, t.Read(fun c -> Session.countForUser c kevin))
-    Assert.Equal(Status.Banned, (t.Read(fun c -> User.find c kevin)).Status)
+    Assert.Equal(0L, t.ReadEf(fun c -> Session.countForUser c kevin))
+    Assert.Equal(Status.Banned, (t.ReadEf(fun c -> User.find c kevin)).Status)
     Assert.Equal<Event list>([ DisconnectUser(kevin, false); RemoveBannedContent kevin ], t.Events())
 
-    let u = t.Read(fun c -> User.find c kevin)
-    t.Write(fun tx -> User.unban tx u |> ignore)
+    let u = t.ReadEf(fun c -> User.find c kevin)
+    t.WriteEf(fun tx -> User.unban tx u |> ignore)
     Assert.False(t.Read(fun c -> Ban.banned c "8.8.8.8"))
-    Assert.Equal(Status.Active, (t.Read(fun c -> User.find c kevin)).Status)
+    Assert.Equal(Status.Active, (t.ReadEf(fun c -> User.find c kevin)).Status)
 
 [<Fact>]
 let ``ban rejects private session ips`` () =
     use t = new TestDb()
     let kevin = id "kevin"
-    t.Write(fun tx -> Session.start tx kevin None (Some "192.168.1.1") |> ignore)
+    t.WriteEf(fun tx -> Session.start tx kevin None (Some "192.168.1.1") |> ignore)
     let u = user t "kevin"
-    Assert.True(t.TryWrite(fun tx -> User.ban tx u) |> Result.isError)
-    Assert.Equal(Status.Active, (t.Read(fun c -> User.find c kevin)).Status) // rolled back
+    Assert.True(t.TryWriteEf(fun tx -> User.ban tx u) |> Result.isError)
+    Assert.Equal(Status.Active, (t.ReadEf(fun c -> User.find c kevin)).Status) // rolled back
 
 [<Fact>]
 let ``remove banned content`` () =

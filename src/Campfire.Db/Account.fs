@@ -1,21 +1,10 @@
-// Port of rust/crates/db/src/models/account.rs
+// Port of rust/crates/db/src/models/account.rs on EF Core (design section 4, unit 1.3).
 // `reference/app/models/account.rb` and `account/joinable.rb`
 namespace Campfire.Db
 
+open System.Linq
 open Campfire.RailsCompat
-// RailsCompat has a `Timestamp` of its own (an alias of DateTimeOffset); ours is the one models use.
-open Campfire.Db
-
-type Account =
-    { Id: int64
-      Name: string
-      JoinCode: string
-      CustomStyles: string option
-      /// The raw `settings` JSON column; read it through `Account.settings`.
-      SettingsJson: string option
-      SingletonGuard: int64
-      CreatedAt: Timestamp
-      UpdatedAt: Timestamp }
+open Campfire.Db.Ef
 
 /// `has_json :settings, restrict_room_creation_to_administrators: false`
 /// (`ActiveModel::SchematizedJson`): the stored hash with the schema defaults merged in.
@@ -85,30 +74,33 @@ module AccountSettings =
 
     let toJson (settings: AccountSettings) : string = Json.generate (Value.Object settings.Data)
 
+[<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module Account =
-    [<Literal>]
-    let private select = "SELECT " + Columns.Account + " FROM \"accounts\""
+    /// `Account.first` over the port's connection, for the controllers whose models have not moved to EF yet (unit 1.11 deletes it).
+    let firstLegacy (conn: Conn) : Account option =
+        let time (r: Row) (i: int) = RailsTime.truncate ((r.Timestamp i).ToDateTimeOffset().UtcDateTime)
+        conn.QueryOne(
+            "SELECT " + Columns.Account + " FROM \"accounts\" ORDER BY \"accounts\".\"id\" ASC LIMIT 1",
+            [||],
+            fun r ->
+                { Id = r.Int64 0
+                  Name = r.Text 1
+                  JoinCode = r.Text 2
+                  CustomStyles = Option.toObj (r.OptText 3)
+                  Settings = Option.toObj (r.OptText 4)
+                  SingletonGuard = r.Int64 5
+                  CreatedAt = time r 6
+                  UpdatedAt = time r 7 }
+        )
 
-    let private fromRow (r: Row) : Account =
-        { Id = r.Int64 0
-          Name = r.Text 1
-          JoinCode = r.Text 2
-          CustomStyles = r.OptText 3
-          SettingsJson = r.OptText 4
-          SingletonGuard = r.Int64 5
-          CreatedAt = r.Timestamp 6
-          UpdatedAt = r.Timestamp 7 }
+    let find (db: CampfireDb) (id: int64) : Account = db.Accounts.Find id |> Data.found "Account"
 
     /// `Account.first` (`Current.account`).
-    let first (conn: Conn) : Account option =
-        conn.QueryOne(select + " ORDER BY \"accounts\".\"id\" ASC LIMIT 1", [||], fromRow)
+    let first (db: CampfireDb) : Account option = db.Accounts.OrderBy(fun a -> a.Id) |> Data.tryFirst
 
-    let find (conn: Conn) (id: int64) : Account =
-        conn.QueryOne(select + " WHERE \"accounts\".\"id\" = ? LIMIT 1", [| I id |], fromRow) |> Err.orNotFound "Account"
+    let count (db: CampfireDb) : int64 = db.Accounts.LongCount()
 
-    let count (conn: Conn) : int64 = conn.Count("""SELECT COUNT(*) FROM "accounts" """, [||])
-
-    let settings (account: Account) : AccountSettings = AccountSettings.fromColumn account.SettingsJson
+    let settings (account: Account) : AccountSettings = AccountSettings.fromColumn (Option.ofObj account.Settings)
 
     /// `SecureRandom.alphanumeric(12).scan(/.{4}/).join("-")`
     let generateJoinCode () : string =
@@ -118,29 +110,23 @@ module Account =
     /// `Account.create!(name:)`: a fresh join code, and the settings defaults written out.
     let create (tx: Tx) (name: string) : Account =
         let now = tx.Now()
-        let joinCode = generateJoinCode ()
-        let settings = AccountSettings.toJson (AccountSettings.fromColumn None)
-        let id =
-            tx.Conn.QueryRow(
-                """INSERT INTO "accounts" ("created_at", "custom_styles", "join_code", "name", "settings", "singleton_guard", "updated_at") VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING "id" """,
-                [| T now; Null; S joinCode; S name; S settings; I 0L; T now |],
-                fun r -> r.Int64 0
-            )
-        find tx.Conn id
+        Data.insert
+            tx.Db
+            { Id = 0L
+              Name = name
+              JoinCode = generateJoinCode ()
+              CustomStyles = null
+              Settings = AccountSettings.toJson (AccountSettings.fromColumn None)
+              SingletonGuard = 0L
+              CreatedAt = now
+              UpdatedAt = now }
 
     /// `reset_join_code`
     let resetJoinCode (tx: Tx) (account: Account) : Account =
-        let joinCode = generateJoinCode ()
-        let now = tx.Now()
-        tx.Conn.Execute(
-            """UPDATE "accounts" SET "join_code" = ?, "updated_at" = ? WHERE "accounts"."id" = ?""",
-            [| S joinCode; T now; I account.Id |]
-        )
-        |> ignore
-        { account with JoinCode = joinCode; UpdatedAt = now }
+        Data.update tx.Db account { account with JoinCode = generateJoinCode () }
 
-    /// `update!(name:, custom_styles:, settings:)`. Only changed attributes are written; the
-    /// settings column is written when its (defaulted) hash changes.
+    /// `update!(name:, custom_styles:, settings:)`. Only changed attributes are written; the settings column is written when its
+    /// (defaulted) hash changes.
     let update
         (tx: Tx)
         (account: Account)
@@ -149,33 +135,17 @@ module Account =
         (settings: (string * string) list option)
         : Account =
         let mutable updated = account
-        let sets = ResizeArray<string * SqlArg>()
         match name with
-        | Some n when n <> updated.Name ->
-            updated <- { updated with Name = n }
-            sets.Add("name", S n)
-        | _ -> ()
+        | Some n -> updated <- { updated with Name = n }
+        | None -> ()
         match customStyles with
-        | Some styles when styles <> updated.CustomStyles ->
-            updated <- { updated with CustomStyles = styles }
-            sets.Add("custom_styles", Sql.optS styles)
-        | _ -> ()
+        | Some styles -> updated <- { updated with CustomStyles = Option.toObj styles }
+        | None -> ()
         match settings with
         | Some values ->
-            let original = AccountSettings.fromColumn updated.SettingsJson
+            let original = AccountSettings.fromColumn (Option.ofObj updated.Settings)
             let assigned = AccountSettings.assign values original
-            if updated.SettingsJson.IsNone || assigned <> original then
-                let json = AccountSettings.toJson assigned
-                updated <- { updated with SettingsJson = Some json }
-                sets.Add("settings", S json)
+            if isNull updated.Settings || assigned <> original then
+                updated <- { updated with Settings = AccountSettings.toJson assigned }
         | None -> ()
-        if sets.Count = 0 then
-            account
-        else
-            let now = tx.Now()
-            updated <- { updated with UpdatedAt = now }
-            sets.Add("updated_at", T now)
-            let assignments = sets |> Seq.map (fun (c, _) -> $"\"{c}\" = ?") |> String.concat ", "
-            let sql = $"UPDATE \"accounts\" SET {assignments} WHERE \"accounts\".\"id\" = ?"
-            tx.Conn.Execute(sql, Array.append (sets |> Seq.map snd |> Array.ofSeq) [| I account.Id |]) |> ignore
-            updated
+        Data.update tx.Db account updated

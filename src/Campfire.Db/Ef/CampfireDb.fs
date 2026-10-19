@@ -3,6 +3,7 @@ namespace Campfire.Db.Ef
 
 open Microsoft.EntityFrameworkCore
 open Microsoft.EntityFrameworkCore.Storage.ValueConversion
+open Campfire.Db
 
 type CampfireDb(options: DbContextOptions<CampfireDb>) =
     inherit DbContext(options)

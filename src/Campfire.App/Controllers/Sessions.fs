@@ -31,7 +31,7 @@ module Sessions =
     /// `redirect_to first_run_url if User.none?`
     let private ensureUserExists (c: Ctx) : Task<Result<unit, Error>> =
         act {
-            let! none = c.App.Read(fun conn -> Accounts.noUsers conn)
+            let! none = c.Read(fun db -> Accounts.noUsers db)
             if none then
                 let firstRun = c.UrlFor(Routes.firstRun ())
                 match c.RedirectTo firstRun with
@@ -43,7 +43,7 @@ module Sessions =
         act {
             do! c.RespondTo [ Format.Html ] |> Result.map ignore
             let emailAddress = match c.ParamStr "email_address" with null -> None | email -> Some email
-            let! helpContact = c.App.Read(fun conn -> Accounts.helpContact conn)
+            let! helpContact = c.Read(fun db -> Accounts.helpContact db)
             return!
                 Page.framedPage
                     c

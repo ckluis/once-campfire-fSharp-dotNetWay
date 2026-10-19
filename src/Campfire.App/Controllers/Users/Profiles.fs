@@ -80,10 +80,9 @@ module Profiles =
                 | ValueNone -> "✓"
 
             let! avatar = Assignment.stage c.App avatar
-            let! pending =
-                c.App.Write(fun tx ->
-                    User.update tx user changes |> ignore
-                    AttachmentWrites.assign tx (Record.user user.Id) "avatar" avatar)
+            let! (_: User) = c.Write(fun tx -> User.update tx user changes)
+            // The avatar goes through the port's writer until unit 1.7 moves the storage rows onto EF.
+            let! pending = c.App.Write(fun tx -> AttachmentWrites.assign tx (Record.user user.Id) "avatar" avatar)
             AttachmentWrites.analyzeLater c.App pending
 
             return! c.RedirectToWith(c.UrlFor(Routes.userProfile ()), { Redirect.Default with Notice = notice })

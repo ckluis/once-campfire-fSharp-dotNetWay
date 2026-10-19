@@ -18,7 +18,7 @@ let private fresh () : TestDb =
 
 let private createFirstRunUser (t: TestDb) : User =
     let digest = PasswordDigest.create "secret123456" 4
-    t.Write(fun tx -> FirstRun.create tx "User" "user@example.com" digest)
+    t.WriteEf(fun tx -> FirstRun.create tx "User" "user@example.com" digest)
 
 [<Fact>]
 let ``creating makes first user an administrator`` () =
@@ -43,9 +43,9 @@ let ``first room is an open room`` () =
 let ``first user can sign in`` () =
     use t = fresh ()
     createFirstRunUser t |> ignore
-    let found = t.Read(fun c -> User.findActiveByEmailAddress c "user@example.com")
+    let found = t.ReadEf(fun c -> User.findActiveByEmailAddress c "user@example.com")
     Assert.True((User.authenticated found "secret123456").IsSome)
     Assert.True((User.authenticated found "wrong").IsNone)
     Assert.True((User.authenticated found "").IsNone)
-    let missing = t.Read(fun c -> User.findActiveByEmailAddress c "nobody@example.com")
+    let missing = t.ReadEf(fun c -> User.findActiveByEmailAddress c "nobody@example.com")
     Assert.True((User.authenticated missing "secret123456").IsNone)

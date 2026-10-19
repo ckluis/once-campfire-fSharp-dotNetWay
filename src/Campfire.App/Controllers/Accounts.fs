@@ -23,7 +23,7 @@ module AccountsController =
     /// `Current.account` where the reference dereferences it (a nil account raises NoMethodError).
     let currentAccount (c: Ctx) : Task<Result<Account, Error>> =
         task {
-            match! c.App.Read(fun conn -> Account.first conn) with
+            match! c.Read(fun db -> Account.first db) with
             | Error e -> return Error e
             | Ok(Some account) -> return Ok account
             | Ok None -> return Error(Internal(exn "no account"))
@@ -36,7 +36,7 @@ module AccountsController =
             let! (account: Account) = currentAccount c
             do! c.RespondTo [ Format.Html ] |> Result.map ignore
             let canAdminister = Concerns.currentUser c |> Option.exists (fun user -> User.canAdminister user None false)
-            let! (users: User list) = c.App.ReadOffloaded(fun conn -> Accounts.accountUsers conn canAdminister)
+            let! (users: User list) = c.Read(fun db -> Accounts.accountUsers db canAdminister)
             let page = Pagination.Page.Create(c.ParamStr "page", int64 users.Length, PerPage)
 
             let secrets = c.App.Secrets
@@ -77,10 +77,9 @@ module AccountsController =
                 | _ -> None
             let! logo = Assignment.stage c.App (Assignment.fromParams parameters "logo")
 
-            let! pending =
-                c.App.Write(fun tx ->
-                    Account.update tx account name None settings |> ignore
-                    AttachmentWrites.assign tx (Record.account account.Id) "logo" logo)
+            let! (_: Account) = c.Write(fun tx -> Account.update tx account name None settings)
+            // The logo goes through the port's writer until unit 1.7 moves the storage rows onto EF.
+            let! pending = c.App.Write(fun tx -> AttachmentWrites.assign tx (Record.account account.Id) "logo" logo)
             AttachmentWrites.analyzeLater c.App pending
 
             return! c.RedirectToWith(c.UrlFor(Routes.editAccount ()), { Redirect.Default with Notice = "✓" })

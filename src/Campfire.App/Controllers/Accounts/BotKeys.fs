@@ -16,6 +16,6 @@ module BotKeys =
             do! Concerns.beforeActions c Before.Default
             do! Concerns.ensureCanAdminister c
             let! bot = Bots.findActiveBot c "bot_id"
-            let! (_: User) = c.App.Write(fun tx -> User.resetBotKey tx bot)
+            let! (_: User) = c.Write(fun tx -> User.resetBotKey tx bot)
             return! c.RedirectTo(c.UrlFor(Routes.accountBots ()))
         }

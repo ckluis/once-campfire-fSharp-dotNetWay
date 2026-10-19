@@ -39,3 +39,36 @@ module Data =
         services.AddScoped<CampfireDb>(fun _ -> factory.CreateDbContext()) |> ignore
         services.AddSingleton<WriteGate>(gate) |> ignore
         services.AddSingleton<TimeProvider>(time) |> ignore
+
+    /// `find_by!`: the record, or `RecordNotFound model` (a 404 in an action, as Active Record's rescue responses have it).
+    let found (model: string) (value: 'T | null) : 'T when 'T : not null =
+        match value with
+        | null -> Err.fail (RecordNotFound model)
+        | found -> found
+
+    /// `Model.create!`: add, save at once (inside the write's `BEGIN IMMEDIATE`) and return the entity, detached, with its id and
+    /// `RailsTimestamps`' times filled in (the tracker stays empty, as with `NoTracking`).
+    let insert (db: CampfireDb) (entity: 'T) : 'T when 'T : not null and 'T : not struct =
+        let entry = db.Add entity
+        db.SaveChanges() |> ignore
+        entry.State <- EntityState.Detached
+        entity
+
+    /// `record.update!`: `after` is the record with its changes; only the properties that differ from `before` are written, and
+    /// nothing at all (not even `updated_at`) when none does. `RailsTimestamps` stamps `updated_at` on the saved entity.
+    let update (db: CampfireDb) (before: 'T) (after: 'T) : 'T when 'T : not null and 'T : not struct =
+        let entry = db.Attach after
+        for property in entry.Metadata.GetProperties() do
+            match property.PropertyInfo with
+            | null -> ()
+            | info ->
+                if not (Object.Equals(info.GetValue before, info.GetValue after)) then
+                    entry.Property(property.Name).IsModified <- true
+        db.SaveChanges() |> ignore
+        entry.State <- EntityState.Detached
+        after
+
+    /// Deletes a row (`record.delete`: no callbacks).
+    let remove (db: CampfireDb) (entity: 'T) : unit when 'T : not null and 'T : not struct =
+        db.Remove entity |> ignore
+        db.SaveChanges() |> ignore

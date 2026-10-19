@@ -16,6 +16,6 @@ module JoinCodes =
             do! Concerns.beforeActions c Before.Default
             do! Concerns.ensureCanAdminister c
             let! (account: Account) = AccountsController.currentAccount c
-            let! (_: Account) = c.App.Write(fun tx -> Account.resetJoinCode tx account)
+            let! (_: Account) = c.Write(fun tx -> Account.resetJoinCode tx account)
             return! c.RedirectTo(c.UrlFor(Routes.editAccount ()))
         }

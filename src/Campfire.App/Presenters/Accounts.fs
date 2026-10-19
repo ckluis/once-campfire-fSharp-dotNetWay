@@ -10,6 +10,7 @@
 namespace Campfire.App.Presenters
 
 open System
+open System.Linq
 open System.Text
 open Campfire.App
 open Campfire.Db
@@ -48,22 +49,20 @@ module Accounts =
 
     /// `fresh_account_logo_path(size:)`: `v` is `Current.account&.updated_at&.to_fs(:number)`.
     let freshAccountLogoPath (account: Account option) (size: string option) : string =
-        let v = account |> Option.map (fun account -> Common.toFsNumber account.UpdatedAt)
+        let v = account |> Option.map (fun (account: Account) -> Common.toFsNumberOf account.UpdatedAt)
         Routes.freshAccountLogo v size
 
     /// `platform` as the views see it (`ApplicationPlatform.new(request.user_agent)`).
     let platform (c: Ctx) : Platform = ApplicationPlatform.toView (Current.platform c)
 
     /// `User.administrator.first`, for `accounts/_help_contact`.
-    let helpContact (conn: Conn) : HelpContact option =
-        conn.QueryOne(
-            """SELECT "users"."name", "users"."email_address" FROM "users" WHERE "users"."role" = 1 ORDER BY "users"."id" ASC LIMIT 1""",
-            [||],
-            fun r -> { Name = r.Text 0; EmailAddress = defaultArg (r.OptText 1) "" }
-        )
+    let helpContact (db: Campfire.Db.Ef.CampfireDb) : HelpContact option =
+        db.Users.Where(fun u -> u.Role = Campfire.Db.Role.Administrator).OrderBy(fun u -> u.Id)
+        |> Campfire.Db.Ef.Data.tryFirst
+        |> Option.map (fun user -> { Name = user.Name; EmailAddress = defaultArg (Option.ofObj user.EmailAddress) "" })
 
     /// `User.none?`
-    let noUsers (conn: Conn) : bool = User.count conn = 0L
+    let noUsers (db: Campfire.Db.Ef.CampfireDb) : bool = User.count db = 0L
 
     // --- Users -----------------------------------------------------------------------------------------
 
@@ -113,7 +112,7 @@ module Accounts =
         let users = Room.users conn room
         let members =
             match users |> List.filter (fun user -> user.Id <> membership.UserId) with
-            | [] -> [ User.find conn membership.UserId ]
+            | [] -> [ User.findLegacy conn membership.UserId ]
             | others -> others
         { RoomId = room.Id
           Unread = Membership.unread membership
@@ -175,9 +174,14 @@ module Accounts =
 
     /// AccountsController#account_users: `User.where(status: [ :active, :banned ])` for
     /// administrators, `User.active` otherwise; `.ordered.without_bots`.
-    let accountUsers (conn: Conn) (canAdminister: bool) : User list =
-        let status = if canAdminister then "\"users\".\"status\" IN (0, 2)" else "\"users\".\"status\" = 0"
-        User.findBySql conn $"{User.Select} WHERE {status} AND \"users\".\"role\" != 2 ORDER BY LOWER(name)" [||]
+    let accountUsers (db: Campfire.Db.Ef.CampfireDb) (canAdminister: bool) : User list =
+        let query = db.Users.Where(fun u -> u.Role <> Campfire.Db.Role.Bot)
+        let visible =
+            if canAdminister then
+                query.Where(fun u -> u.Status = Campfire.Db.Status.Active || u.Status = Campfire.Db.Status.Banned)
+            else
+                query.Where(fun u -> u.Status = Campfire.Db.Status.Active)
+        visible.OrderBy(fun u -> u.Name.ToLower()).ToList() |> List.ofSeq
 
     // --- Helpers ---------------------------------------------------------------------------------------
 
@@ -199,10 +203,10 @@ module Accounts =
 
     /// The fields `accounts/bots/_form` fills in: `image_tag bot.avatar` is the blob's absolute
     /// redirect URL.
-    let botForm (conn: Conn) (storage: Campfire.Storage.Storage) (baseUrl: string) (bot: User) : BotForm =
+    let botForm (conn: Conn) (storage: Campfire.Storage.Storage) (baseUrl: string) (bot: User) (webhookUrl: string option) : BotForm =
         let avatar = Attachments.attachedBlob conn "User" bot.Id "avatar"
         { Name = Some bot.Name
-          WebhookUrl = User.webhookUrl conn bot
+          WebhookUrl = webhookUrl
           AvatarAttachmentUrl =
             avatar |> Option.map (fun blob -> baseUrl + Campfire.Storage.Paths.blobRedirectPath storage.Verifier blob None) }
 

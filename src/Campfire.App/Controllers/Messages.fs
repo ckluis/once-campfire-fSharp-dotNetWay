@@ -296,7 +296,7 @@ module MessagesController =
         app.Read(fun conn ->
             let presenter = Presenter(conn, app, None)
             let view = presenter.Message message
-            let account = Account.first conn
+            let account = Account.firstLegacy conn
             let html = Page.renderDetachedAt app account baseUrl (fun ctx -> MessagesCached.message ctx view)
             let partials = { Rendered.empty with Message = Some html }
             app.Broadcasts.MessageCreate(conn, room, message, Rendered.partials partials))
@@ -309,7 +309,7 @@ module MessagesController =
         app.Read(fun conn ->
             let presenter = Presenter(conn, app, None)
             let view = presenter.Message message
-            let account = Account.first conn
+            let account = Account.firstLegacy conn
             let html =
                 Page.renderDetachedAt app account baseUrl (fun ctx -> Render.text (fun w -> PresentationPartial.render w ctx view))
             let partials = { Rendered.empty with MessagePresentation = Some html }
@@ -403,7 +403,7 @@ module MessagesController =
                         FragmentCache.withCache app.FragmentCache (fun () ->
                             let presenter = Presenter(conn, app, None)
                             let item = presenter.MessageItem message
-                            let account = Account.first conn
+                            let account = Account.firstLegacy conn
                             Page.renderDetachedAt app account baseUrl (fun ctx ->
                                 Render.plain (fun w -> CreateStream.render w ctx item kind))))
                 return c.Render(Status.Ok, Format.TurboStream, ReadOnlyMemory<byte> html)

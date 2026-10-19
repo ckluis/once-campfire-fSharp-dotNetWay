@@ -74,31 +74,33 @@ module Layout =
             let user = Current.currentUser c
             let userId = user |> Option.map (fun user -> user.Id)
             let lastRoom = Current.lastRoomCookie c
-            // One trip to a reader for all three: each trip is a hand-off to a reader thread and back.
-            match!
-                app.Read(fun conn ->
-                    let account = Account.first conn
-                    let hasLogo =
-                        match account with
-                        | Some account -> (Attachments.attachedBlob conn "Account" account.Id "logo").IsSome
-                        | None -> false
-                    let lastRoomVisitedId =
-                        match userId with
-                        | Some userId -> Current.lastRoomVisitedIn conn userId lastRoom |> Option.map (fun room -> room.Id)
-                        | None -> None
-                    account, hasLogo, lastRoomVisitedId)
-            with
+            match! c.Read Account.first with
             | Error e -> return Error e
-            | Ok(account, hasLogo, lastRoomVisitedId) ->
-                return
-                    Ok
-                        { CurrentUser = user |> Option.map (ViewContextBuilder.currentUser secrets)
-                          Account = ViewContextBuilder.accountSummary account hasLogo
-                          CustomStyles = account |> Option.bind (fun account -> account.CustomStyles)
-                          Platform = Accounts.platform c
-                          LastRoomVisitedId = lastRoomVisitedId
-                          VapidPublicKey = app.VapidPublicKey
-                          AppVersion = app.Config.AppVersion }
+            | Ok account ->
+                // The logo's attachment and the last room still live in the port's layer (units 1.4 and 1.7): one trip to a reader.
+                match!
+                    app.Read(fun conn ->
+                        let hasLogo =
+                            match account with
+                            | Some account -> (Attachments.attachedBlob conn "Account" account.Id "logo").IsSome
+                            | None -> false
+                        let lastRoomVisitedId =
+                            match userId with
+                            | Some userId -> Current.lastRoomVisitedIn conn userId lastRoom |> Option.map (fun room -> room.Id)
+                            | None -> None
+                        hasLogo, lastRoomVisitedId)
+                with
+                | Error e -> return Error e
+                | Ok(hasLogo, lastRoomVisitedId) ->
+                    return
+                        Ok
+                            { CurrentUser = user |> Option.map (ViewContextBuilder.currentUser secrets)
+                              Account = ViewContextBuilder.accountSummary account hasLogo
+                              CustomStyles = account |> Option.bind (fun account -> Option.ofObj account.CustomStyles)
+                              Platform = Accounts.platform c
+                              LastRoomVisitedId = lastRoomVisitedId
+                              VapidPublicKey = app.VapidPublicKey
+                              AppVersion = app.Config.AppVersion }
         }
 
     let private option (value: string | null) : string option =

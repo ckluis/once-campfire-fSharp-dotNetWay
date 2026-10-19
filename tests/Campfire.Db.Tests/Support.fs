@@ -7,6 +7,11 @@ open System.IO
 open Campfire.RailsCompat.Clock
 open Campfire.Db
 
+// D4 counts physical connections through a process-wide counter, so no other test may open one meanwhile; the suite is a few
+// seconds, so it runs one test at a time.
+[<assembly: Xunit.CollectionBehavior(DisableTestParallelization = true)>]
+do ()
+
 /// Unwraps an expected success.
 let unwrap (result: Result<'T, DbError>) : 'T =
     match result with
@@ -53,7 +58,14 @@ type TestDb(?fixtures: bool) =
                 Fixtures.load tx.Conn (Fixtures.referenceDir ()) { Now = tx.Now(); BcryptCost = 4 } |> ignore)
             |> unwrap
 
+    // EF Core beside the port's `Database` until unit 1.11: the same file, the same gate, the same sink and clock.
+    let time = Ef.ClockTimeProvider clock
+    let factory = Ef.Data.factory (Ef.Data.options (dir.File "test.sqlite3") time ignore)
+    let efEnv : Ef.Env = { Time = time; Sink = sink; RichText = BasicRichText(); BcryptCost = 4 }
+
     member _.Db : Database = db
+    member _.Factory : Microsoft.EntityFrameworkCore.IDbContextFactory<Ef.CampfireDb> = factory
+    member _.EfEnv : Ef.Env = efEnv
     member _.Sink : RecordingSink = sink
     member _.Clock : TestClock = clock
     member _.Dir : TempDir = dir
@@ -63,6 +75,17 @@ type TestDb(?fixtures: bool) =
     member _.TryWrite(f: Tx -> 'T) : Result<'T, DbError> = db.WriteBlocking f
 
     member _.Read(f: Conn -> 'T) : 'T = db.ReadBlocking f |> unwrap
+
+    /// `Writes.run` on a leased context: the EF writer (unit 1.3 onward), sharing the old writer's gate.
+    member _.TryWriteEf(f: Ef.Tx -> 'T) : Result<'T, DbError> =
+        use context = factory.CreateDbContext()
+        (Ef.Writes.run db.Gate efEnv context f).GetAwaiter().GetResult()
+
+    member this.WriteEf(f: Ef.Tx -> 'T) : 'T = this.TryWriteEf f |> unwrap
+
+    member _.ReadEf(f: Ef.CampfireDb -> 'T) : 'T =
+        use context = factory.CreateDbContext()
+        Ef.Reads.run context f |> unwrap
 
     member _.Now() : Timestamp = Timestamp.FromDateTimeOffset(clock.Now())
 

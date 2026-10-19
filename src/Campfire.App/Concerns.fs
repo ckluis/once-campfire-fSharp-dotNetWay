@@ -140,7 +140,7 @@ module Concerns =
     let findSessionByCookie (c: Ctx) : Task<Result<Session option, Error>> =
         match c.Cookies.Signed "session_token" with
         | null -> Task.FromResult(Ok None)
-        | token -> c.App.Read(fun conn -> Session.findByToken conn token)
+        | token -> c.Read(fun db -> Session.findByToken db token)
 
     /// `cookies.signed.permanent[:session_token] = { value: session.token, httponly: true, same_site: :lax }`
     let private setAuthenticationCookie (c: Ctx) (session: Session) : Result<unit, Error> =
@@ -154,7 +154,7 @@ module Concerns =
             let! user =
                 match user with
                 | Some user -> Task.FromResult(Ok(Some user))
-                | None -> c.App.Read(fun conn -> User.findById conn session.UserId)
+                | None -> c.Read(fun db -> User.findById db session.UserId)
             if setCookie then do! setAuthenticationCookie c session
             c.SetCurrent(CurrentSessionSlot session)
             match user with
@@ -176,12 +176,12 @@ module Concerns =
     /// cookie on every response.
     let resumeSession (c: Ctx) (session: Session) : Task<Result<unit, Error>> =
         act {
-            let refresh = Session.needsResume session (Timestamp.FromDateTimeOffset(c.Now()))
+            let refresh = Session.needsResume session (RailsTime.truncate (c.Now().UtcDateTime))
             let! session =
                 if refresh then
                     match userAgentAndIp c with
                     | Error e -> Task.FromResult(Error e)
-                    | Ok(userAgent, ip) -> c.App.Write(fun tx -> Session.resume tx session userAgent (Some ip))
+                    | Ok(userAgent, ip) -> c.Write(fun tx -> Session.resume tx session userAgent (Some ip))
                 else
                     Task.FromResult(Ok session)
             do! authenticatedAs c session None refresh
@@ -208,7 +208,7 @@ module Concerns =
                 | null -> return! Error(Internal(exn "undefined method 'strip' for bot_key"))
                 | key ->
                     let botKey = Ruby.strip key
-                    match! c.App.Read(fun conn -> User.authenticateBot conn botKey) with
+                    match! c.Read(fun db -> User.authenticateBot db botKey) with
                     | Some bot ->
                         c.SetCurrent(CurrentUserSlot bot)
                         Current.setAuthenticatedBy c BotKey
@@ -251,7 +251,7 @@ module Concerns =
             | None -> return Ok None
             | Some password ->
                 try
-                    let! digest = PasswordDigest.hash password c.App.Db.Env.BcryptCost
+                    let! digest = PasswordDigest.hash password c.App.Env.BcryptCost
                     return Ok(Some digest)
                 with e ->
                     return Error(Internal e)
@@ -265,7 +265,7 @@ module Concerns =
             if password = "" then
                 return Ok None
             else
-                match! c.App.Read(fun conn -> User.findActiveByEmailAddress conn emailAddress) with
+                match! c.Read(fun db -> User.findActiveByEmailAddress db emailAddress) with
                 | Error e -> return Error e
                 | Ok candidate ->
                     try
@@ -279,7 +279,7 @@ module Concerns =
     let startNewSessionFor (c: Ctx) (user: User) : Task<Result<Session, Error>> =
         act {
             let! userAgent, ip = userAgentAndIp c
-            let! session = c.App.Write(fun tx -> Session.start tx user.Id userAgent (Some ip))
+            let! session = c.Write(fun tx -> Session.start tx user.Id userAgent (Some ip))
             do! authenticatedAs c session (Some user) true
             return session
         }
@@ -289,13 +289,13 @@ module Concerns =
     let terminateCurrentSession (c: Ctx) : Task<Result<unit, Error>> =
         act {
             match currentSession c with
-            | Some session -> do! c.App.Write(fun tx -> Session.destroy tx session)
+            | Some session -> do! c.Write(fun tx -> Session.destroy tx session)
             | None -> ()
             c.ResetSession()
             c.Cookies.Delete "session_token"
             match currentUser c with
             | Some user ->
-                match! c.App.Db.Write(fun tx -> User.resetRemoteConnections tx user) with
+                match! Campfire.Db.Ef.Writes.run c.App.Gate c.App.Env c.Db (fun tx -> User.resetRemoteConnections tx user) with
                 | Ok() -> ()
                 | Error error ->
                     c.Kit.Logger.LogWarning("Could not disconnect remote connections on sign out: {Error}", DbError.display error)

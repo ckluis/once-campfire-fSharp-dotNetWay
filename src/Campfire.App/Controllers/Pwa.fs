@@ -31,7 +31,7 @@ module Pwa =
         act {
             do! Concerns.beforeActions c before
             do! c.RespondTo [ Format.Json ] |> Result.map ignore
-            let! account = c.App.Read(fun conn -> Account.first conn)
+            let! account = c.Read(fun db -> Account.first db)
             let logoPathSmall = Accounts.freshAccountLogoPath account (Some "small")
             let logoPath = Accounts.freshAccountLogoPath account None
             let baseUrl = c.UrlFor ""

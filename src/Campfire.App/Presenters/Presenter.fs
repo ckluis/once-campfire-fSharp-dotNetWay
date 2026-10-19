@@ -84,7 +84,7 @@ module PresenterSupport =
     /// `users/_user.json.jbuilder` (`json.cache! user`).
     let cachedUserJson (secrets: Secrets) (baseUrl: string) (user: User) : UserJson =
         let key (key: KeyBuf) =
-            jbuilderKey key "users/_user" "users" user.Id (user.UpdatedAt.ToDateTimeOffset()) baseUrl
+            jbuilderKey key "users/_user" "users" user.Id (DateTimeOffset(user.UpdatedAt)) baseUrl
         match FragmentCache.tryFetchValue key userCacheSize (fun () -> (Ok(userJson secrets baseUrl user): Result<UserJson, unit>)) with
         | Ok value -> value
         | Error() -> failwith "unreachable"
@@ -119,7 +119,7 @@ type Presenter(conn: Conn, app: AppState, requestHost: string option) =
         match users.TryGetValue id with
         | true, user -> user
         | _ ->
-            let user = User.find conn id
+            let user = User.findLegacy conn id
             users[id] <- user
             user
 

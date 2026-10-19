@@ -1,5 +1,5 @@
 // Design: plans/design-data-ef.md E2-E4. One record per Rails table; names, nullability and types follow `schema.sql`.
-// Role and Status are the enums in Models.fs (integers in the database); Involvement and RoomType here are the enum forms of the
+// Role and Status (Identity.fs) are integers in the database; Involvement and RoomType here are the enum forms of the
 // port's unions (strings in the database, through the converters in CampfireDb.fs). Unit 1.11 deletes the port's twins.
 namespace Campfire.Db.Ef
 
@@ -49,30 +49,6 @@ module Names =
         | other -> failwith $"unknown involvement '{other}'"
 
 [<CLIMutable>]
-type User =
-    { Id: int64
-      Name: string
-      EmailAddress: string | null
-      PasswordDigest: string | null
-      Role: Campfire.Db.Role
-      Status: Campfire.Db.Status
-      Bio: string | null
-      BotToken: string | null
-      CreatedAt: DateTime
-      UpdatedAt: DateTime }
-
-[<CLIMutable>]
-type Session =
-    { Id: int64
-      UserId: int64
-      Token: string
-      IpAddress: string | null
-      UserAgent: string | null
-      LastActiveAt: DateTime
-      CreatedAt: DateTime
-      UpdatedAt: DateTime }
-
-[<CLIMutable>]
 type Room =
     { Id: int64
       Name: string | null
@@ -119,18 +95,6 @@ type RichTextRecord =
       RecordId: int64
       Name: string
       Body: string | null
-      CreatedAt: DateTime
-      UpdatedAt: DateTime }
-
-[<CLIMutable>]
-type Account =
-    { Id: int64
-      Name: string
-      JoinCode: string
-      CustomStyles: string | null
-      /// The `settings` JSON text.
-      Settings: string | null
-      SingletonGuard: int64
       CreatedAt: DateTime
       UpdatedAt: DateTime }
 
