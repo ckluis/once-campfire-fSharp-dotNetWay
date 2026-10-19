@@ -297,7 +297,7 @@ waits for Phase 7, when `Boot.serve` becomes the builder (design-kit-auth sectio
 | W4 | a failing hook: logged, later hooks run, the first error is returned |
 | W5 | `WriteGate.InWrite` is true inside the body and the commit, false in the after-commit hooks and the event sink (a `DisconnectUser` emitted after commit reaches `Revocation` without tripping design-cable C16's guard), after `run` returns, and in a concurrent read |
 | W6 | 16 concurrent `Writes.run` posts: all rows present, no `SQLITE_BUSY`, never two bodies inside at once (a counter) |
-| W7 | an old-`Database` write and a `Writes.run` write started together both commit (the shared gate, migration rule) |
+| W7 | (retired in 1.11 with the old `Database`: the shared gate it tested has one user left) |
 | P1 | post through `Message.create`: the message, rich text, room `updated_at`, FTS row, unread memberships and the `PushMessage` event, with timestamps equal to the frozen clock; a boost touches message and room and reindexes |
 | P2 | search: `searchReachable` hits equal the port's on the seed for `coffee`, a quoted phrase, a NUL-separated query and `""` |
 | H1 | steady state: with a `LogTo` counter on `CoreEventId.QueryCompilationStarting`, request each of the five workloads as two different users, rooms and pages (post: two different rooms and bodies), then again with new ids: **zero compilations in the second round** |
