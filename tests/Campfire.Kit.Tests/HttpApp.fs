@@ -30,7 +30,6 @@ let private form (c: Ctx) = act { return c.Html "<form method=\"post\" action=\"
 
 let private create (c: Ctx) =
     act {
-        do! c.VerifyAuthenticityToken()
         let body =
             Value.Object
                 [ "method", Value.String c.Request.Method

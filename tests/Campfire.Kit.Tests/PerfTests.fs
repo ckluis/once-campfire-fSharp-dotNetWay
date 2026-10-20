@@ -37,7 +37,6 @@ let private withSession (c: Ctx) =
 
 let private post (c: Ctx) =
     act {
-        do! c.VerifyAuthenticityToken()
         let! message = c.Params.Require "message"
         let length = match message.Get "body" with ValueSome b -> (nonNull (b.ToS())).Length | ValueNone -> 0
         return! c.RedirectTo("/rooms/1?m=" + string length)

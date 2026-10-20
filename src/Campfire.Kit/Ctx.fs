@@ -637,46 +637,10 @@ type Ctx internal (kit: Kit, http: Microsoft.AspNetCore.Http.HttpContext, reques
 
     // --- Forgery protection ---------------------------------------------------------------------
 
-    member private _.ValidRequestOrigin() : Result<bool, Error> =
-        if not kit.Config.ForgeryProtectionOriginCheck then
-            Ok true
-        else
-            match request.Origin with
-            | "null" -> Error(InvalidAuthenticityToken "The browser returned a 'null' origin")
-            | null -> Ok true
-            | origin -> Ok(String.Equals(origin, request.BaseUrl, StringComparison.Ordinal))
-
-    /// The `verify_authenticity_token` before-action, by `Sec-Fetch-Site` rather than tokens (Rails
-    /// main's `protect_from_forgery using: :header_only`): pages carry no per-request token, so they
-    /// render the same until what they show changes. Browsers send the header on every request to a
-    /// secure origin; without it (an old browser, or plain HTTP where browsers don't send it) a
-    /// write is only allowed when neither the request nor the app uses SSL, where the
-    /// `SameSite=Lax` session cookie and the `Origin` check are the protection.
-    member this.VerifyAuthenticityToken() : Result<unit, Error> =
-        markedForSameOriginVerification <- request.IsGet
-        if request.IsGet || request.IsHead then
-            Ok()
-        else
-            match this.ValidRequestOrigin() with
-            | Error e -> Error e
-            | Ok false ->
-                let origin = match request.Origin with null -> "" | o -> o
-                Error(
-                    InvalidAuthenticityToken
-                        $"HTTP Origin header ({origin}) didn't match request.base_url ({request.BaseUrl})"
-                )
-            | Ok true ->
-                match request.Header Hdr.SecFetchSite with
-                | "same-origin"
-                | "same-site" -> Ok()
-                | null when not request.IsSsl && not kit.Config.ForceSsl -> Ok()
-                | "cross-site" -> Error(InvalidAuthenticityToken "Sec-Fetch-Site header (cross-site) indicates a cross-site request")
-                | other ->
-                    let shown =
-                        match other with
-                        | null -> "None"
-                        | o -> $"Some({CtxHelpers.debugString o})"
-                    Error(InvalidAuthenticityToken $"Sec-Fetch-Site header is missing or invalid ({shown})")
+    /// `verify_authenticity_token`'s mark for `verify_same_origin_request`: a GET that renders JavaScript for a non-XHR
+    /// request is a cross-origin `<script>` embed. The check itself is the framework's `ICsrfProtection`
+    /// (`Campfire.App.Web.Csrf`); only the mark stays here.
+    member _.MarkForSameOriginVerification() : unit = markedForSameOriginVerification <- request.IsGet
 
     // --- Finishing -----------------------------------------------------------------------------
 

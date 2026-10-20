@@ -108,7 +108,7 @@ module Mailbox =
     /// `Rails::Conductor::BaseController`: CSRF first, then `ensure_development_env`.
     let conductor (c: Ctx) : Task<Result<Response, Error>> =
         act {
-            do! c.VerifyAuthenticityToken()
+            do! Concerns.verifyAuthenticityToken c
             return c.Head Status.Forbidden
         }
 

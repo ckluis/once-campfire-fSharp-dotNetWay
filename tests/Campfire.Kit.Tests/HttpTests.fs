@@ -169,37 +169,6 @@ let ``missing required param is 400`` () =
         Assert.Equal(400, reply.Status)
     }
 
-let private postFrom (site: string option) : Req =
-    let request = post "/form"
-    let request = match site with Some site -> request.With("sec-fetch-site", site) | None -> request
-    request.Form "x=1"
-
-[<Fact>]
-let ``forgery protection trusts same site requests by sec fetch site`` () =
-    task {
-        use! app = sslApp ()
-        for site in [ "same-origin"; "same-site" ] do
-            let! ok = app.Send(postFrom (Some site))
-            Assert.True((ok.Status = 200), site)
-            Assert.Equal(Some(json """{"x": "1"}"""), (member' "params" ok.Json))
-        for site in [ Some "cross-site"; Some "none"; Some "bogus"; None ] do
-            let! forged = app.Send(postFrom site)
-            Assert.True((forged.Status = 422), $"{site}")
-            Assert.Equal("<h1>Unprocessable</h1>", forged.Text)
-            Assert.True(forged.Cookies.IsEmpty, "errors don't commit cookies")
-    }
-
-[<Fact>]
-let ``forgery protection allows a missing header only without ssl`` () =
-    task {
-        // Browsers send `Sec-Fetch-Site` only to secure origins, so plain HTTP can't require it.
-        use! app = defaultApp ()
-        let! reply = app.Send(postFrom None)
-        Assert.Equal(200, reply.Status)
-        let! reply = app.Send(postFrom (Some "cross-site"))
-        Assert.Equal(422, reply.Status)
-    }
-
 [<Fact>]
 let ``pages carry no forgery token or session`` () =
     task {
@@ -207,19 +176,6 @@ let ``pages carry no forgery token or session`` () =
         let! page = app.Send(get "/form")
         Assert.DoesNotContain("authenticity_token", page.Text)
         Assert.True(page.Cookies.IsEmpty, "rendering a form doesn't start a session")
-    }
-
-[<Fact>]
-let ``forgery protection checks the origin`` () =
-    task {
-        use! app = sslApp ()
-        let withOrigin (origin: string) = (post "/form").With("sec-fetch-site", "same-origin").With("origin", origin).WithBody ""
-        let! reply = app.Send(withOrigin "https://chat.example.com")
-        Assert.Equal(200, reply.Status)
-        let! reply = app.Send(withOrigin "https://evil.example")
-        Assert.Equal(422, reply.Status)
-        let! reply = app.Send(withOrigin "null")
-        Assert.Equal(422, reply.Status)
     }
 
 [<Fact>]

@@ -288,6 +288,14 @@ module Concerns =
         | ValueNone -> c.UrlFor(Routes.root ())
         | ValueSome other -> Campfire.RailsCompat.Json.encode other
 
+    /// `verify_authenticity_token`: the framework's `ICsrfProtection` (K5), and the mark `verify_same_origin_request` reads.
+    let verifyAuthenticityToken (c: Ctx) : Task<Result<unit, Error>> =
+        task {
+            c.MarkForSameOriginVerification()
+            let! verdict = Campfire.App.Web.Csrf.verifyAuthenticityToken c.Http
+            return verdict |> Result.mapError webError
+        }
+
     /// `deny_bots`: 403 for bot-key requests.
     let denyBots (c: Ctx) : Result<unit, Error> =
         match Campfire.App.Web.Authentication.denyBots c.Http with
@@ -364,7 +372,7 @@ module Concerns =
             do! rejectBannedIp c
             if before.Authentication = Required then do! requireAuthentication c
             if before.DenyBots then do! denyBots c
-            if before.ForgeryProtection && authenticatedBy c <> BotKey then do! c.VerifyAuthenticityToken()
+            if before.ForgeryProtection && authenticatedBy c <> BotKey then do! verifyAuthenticityToken c
             do! allowBrowser c
             if before.Authentication = RequireUnauthenticated then
                 let! (restored: bool) = restoreAuthentication c

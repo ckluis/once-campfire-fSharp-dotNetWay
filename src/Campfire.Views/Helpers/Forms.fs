@@ -117,7 +117,7 @@ type FormWith private (action: string, multipart: MultipartFlag) =
 
     /// `<form ...>` plus the `_method` hidden field (`html_options_for_form_with` +
     /// `extra_tags_for_form`). No `authenticity_token`: forgery protection is by `Sec-Fetch-Site`.
-    /// (See `Campfire.Kit`'s `Ctx.VerifyAuthenticityToken`.)
+    /// (See `Campfire.App.Web.Csrf`.)
     member this.Open(w: Out) : unit =
         let html = Attrs(data.Count + 6)
         html.AttrOpt("id", id).AttrOpt("class", cls).Merge(data) |> ignore

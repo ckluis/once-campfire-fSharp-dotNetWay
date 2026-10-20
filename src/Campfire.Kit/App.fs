@@ -26,8 +26,6 @@ type KitConfig =
       /// The HSTS header value sent with `ForceSsl` (`ssl_options = { hsts: { subdomains: true } }`).
       Hsts: string
       Session: SessionConfig
-      /// `forgery_protection_origin_check` (on since `load_defaults 5.0`).
-      ForgeryProtectionOriginCheck: bool
       /// `action_dispatch.default_headers` (`load_defaults 7.1`).
       DefaultHeaders: (string * string)[]
       /// `public/404.html`, `422.html`, `500.html`, ... (`ActionDispatch::PublicExceptions`).
@@ -40,7 +38,6 @@ type KitConfig =
           ForceSsl = false
           Hsts = "max-age=63072000; includeSubDomains"
           Session = SessionConfig.Default
-          ForgeryProtectionOriginCheck = true
           DefaultHeaders = KitDefaults.railsDefaultHeaders
           ErrorPages = ErrorPages.Empty
           MaxBodyBytes = ValueNone }

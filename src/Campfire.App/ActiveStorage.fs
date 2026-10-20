@@ -264,7 +264,7 @@ module ActiveStorage =
     /// `ActiveStorage::Blobs::RedirectController#show`
     let blobsRedirect (c: Ctx) : Task<Result<Response, Error>> =
         act {
-            do! c.VerifyAuthenticityToken()
+            do! Concerns.verifyAuthenticityToken c
             let! blob = setBlob c
             c.ExpiresIn(uint64 ServiceUrlsExpireIn, ExpiresIn.Default)
             let url = blobUrl c blob (disposition c)
@@ -274,7 +274,7 @@ module ActiveStorage =
     /// `ActiveStorage::Blobs::ProxyController#show`
     let blobsProxy (c: Ctx) : Task<Result<Response, Error>> =
         act {
-            do! c.VerifyAuthenticityToken()
+            do! Concerns.verifyAuthenticityToken c
             let! blob = setBlob c
             let disposition = disposition c
             match c.Request.Header "range" with
@@ -433,7 +433,7 @@ module ActiveStorage =
     /// `ActiveStorage::Representations::RedirectController#show`
     let representationsRedirect (c: Ctx) : Task<Result<Response, Error>> =
         act {
-            do! c.VerifyAuthenticityToken()
+            do! Concerns.verifyAuthenticityToken c
             let! blob = setBlob c
             let! image = setRepresentation c blob
             c.ExpiresIn(uint64 ServiceUrlsExpireIn, ExpiresIn.Default)
@@ -444,7 +444,7 @@ module ActiveStorage =
     /// `ActiveStorage::Representations::ProxyController#show`
     let representationsProxy (c: Ctx) : Task<Result<Response, Error>> =
         act {
-            do! c.VerifyAuthenticityToken()
+            do! Concerns.verifyAuthenticityToken c
             let! blob = setBlob c
             let! image = setRepresentation c blob
             match httpCacheForever c with
@@ -563,7 +563,7 @@ module ActiveStorage =
     /// `require_active_storage_authentication`.
     let directUploadsCreate (c: Ctx) : Task<Result<Response, Error>> =
         act {
-            do! c.VerifyAuthenticityToken()
+            do! Concerns.verifyAuthenticityToken c
             do! requireActiveStorageAuthentication c
             // `params.expect(blob: [:filename, :byte_size, :checksum, :content_type, metadata: {}])`
             let! blobParam = c.Params.Require "blob"

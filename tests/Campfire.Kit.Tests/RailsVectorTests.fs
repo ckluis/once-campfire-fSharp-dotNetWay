@@ -1,14 +1,11 @@
-// Port of rust/crates/kit/tests/rails_vectors.rs, and the "csrf" section of vectors/rails_compat.json
+// Port of rust/crates/kit/tests/rails_vectors.rs
 //
 // Old-browser-tab continuity: a session cookie and a signed cookie issued by the reference Rails
 // app (`vectors/rails_compat.json`) are accepted by the kit, and what the kit writes back decodes
 // to the same session. Forgery protection is by `Sec-Fetch-Site` rather than Rails' tokens, so a
 // tab opened before an upgrade keeps working without one.
 //
-// The Rust crate never reads the "csrf" section: the kit has no token to check. It does keep Rails'
-// `Origin` check, which the section's `origin` cases decide, and it must ignore a token Rails issued,
-// whatever Rails would have said about it, which the `validity` cases (Rails' own verdicts on tokens
-// for paths and methods) show. Each test asserts how many cases it ran.
+// The forgery check is the framework's `ICsrfProtection` now (unit 2.4); its matrix is `Web/CsrfTests.fs` in the App tests.
 module Campfire.Kit.Tests.RailsVectorTests
 
 open System
@@ -38,7 +35,6 @@ let private kitFromVectors () : Kit * Secrets * Timestamp =
 
 let private createSession (c: Ctx) =
     act {
-        do! c.VerifyAuthenticityToken()
         let session = c.Session()
         let csrf = match session.Get "_csrf_token" with ValueSome v -> v | ValueNone -> Value.Null
         let id = match session.Id with null -> Value.Null | id -> Value.String id
@@ -102,13 +98,6 @@ let ``rails sessions carry over`` () =
 
         let! noToken = postSession app cookie "same-origin" None None
         Assert.Equal(200, noToken.Status)
-
-        // A valid Rails token doesn't make a cross-site request acceptable.
-        let! crossSite = postSession app cookie "cross-site" (Some formToken) None
-        Assert.Equal(422, crossSite.Status)
-
-        let! crossOrigin = postSession app cookie "same-origin" None (Some "https://evil.example")
-        Assert.Equal(session.GetProperty("post_with_cross_origin_status").GetInt32(), crossOrigin.Status)
     }
 
 [<Fact>]
@@ -132,53 +121,3 @@ let private ctxFor (config: KitConfig) (meth: string) (headers: (string * string
         map.Append(k, v)
     let request = Request.Create(meth, meth, "/session", null, null, null, map, IPAddress.Loopback, ReadOnlyMemory.Empty, config.Proxy)
     Ctx(kit, Microsoft.AspNetCore.Http.DefaultHttpContext(), request, ParamMap(), ParamMap(), ParamMap(), CookieJar(kit.Secrets, kit.Clock))
-
-[<Fact>]
-let ``csrf origin cases`` () =
-    // Rails' `valid_request_origin?`: `true`, `false`, or "raises" for the `null` origin.
-    let cases = (root().GetProperty "csrf").GetProperty("origin").EnumerateArray() |> Seq.toArray
-    Assert.Equal(8, cases.Length)
-    for case in cases do
-        let baseUrl = Uri(str (case.GetProperty "base_url"))
-        let origin =
-            match case.GetProperty("origin").ValueKind with
-            | JsonValueKind.String -> [ "origin", str (case.GetProperty "origin") ]
-            | _ -> []
-        let host = if baseUrl.IsDefaultPort then baseUrl.Host else $"{baseUrl.Host}:{baseUrl.Port}"
-        let headers = [ "host", host; "sec-fetch-site", "same-origin" ] @ origin
-        let result = (ctxFor KitConfig.Default "POST" headers).VerifyAuthenticityToken()
-        let label = case.GetRawText()
-        match case.GetProperty("expected").ValueKind with
-        | JsonValueKind.True -> Assert.True(result.IsOk, label)
-        | JsonValueKind.False ->
-            match result with
-            | Error(InvalidAuthenticityToken message) -> Assert.Contains("didn't match request.base_url", message)
-            | other -> failwith $"{label}: {other}"
-        | _ ->
-            match result with
-            | Error(InvalidAuthenticityToken message) -> Assert.Contains("'null' origin", message)
-            | other -> failwith $"{label}: {other}"
-
-[<Fact>]
-let ``csrf tokens rails issued are ignored`` () =
-    let csrf = (root().GetProperty "csrf")
-    Assert.Equal(3, csrf.GetProperty("global_tokens").GetArrayLength())
-    Assert.Equal(8, csrf.GetProperty("form_tokens").GetArrayLength())
-    let cases = csrf.GetProperty("validity").EnumerateArray() |> Seq.toArray
-    Assert.Equal(189, cases.Length)
-    let mutable accepted = 0
-    for case in cases do
-        // Whatever Rails said about the token (`expected`), the kit looks at the site, not the token.
-        let meth = str (case.GetProperty "method")
-        let verify site =
-            (ctxFor KitConfig.Default meth [ "host", "campfire.test"; "sec-fetch-site", site ]).VerifyAuthenticityToken()
-        Assert.True((verify "same-origin").IsOk, case.GetRawText())
-        Assert.True((verify "same-site").IsOk, case.GetRawText())
-        match verify "cross-site" with
-        | Error(InvalidAuthenticityToken _) -> accepted <- accepted + 1
-        | other -> failwith $"{case.GetRawText()}: {other}"
-    Assert.Equal(189, accepted)
-    // The SSL policy: no header is refused when the app is behind TLS, whatever token came with it.
-    let tls = { KitConfig.Default with ForceSsl = true; Proxy = { ProxyConfig.Default with AssumeSsl = true } }
-    Assert.True(((ctxFor tls "POST" [ "host", "campfire.test" ]).VerifyAuthenticityToken()).IsError)
-    Assert.True(((ctxFor KitConfig.Default "POST" [ "host", "campfire.test" ]).VerifyAuthenticityToken()).IsOk)
