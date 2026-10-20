@@ -1279,3 +1279,34 @@ Code in `1b97abc` (the controllers and the Web pieces) and the commit after it (
   that moves a controller should delete the `Ctx` helper it stops using (2.13 deletes what is left). `Web.Native.wrap` must stay the way a Web row is finished until `Ctx.Finish` goes, when the legacy default
   `Cache-Control` and the version headers it set move into the same hook. Opus note 4 (`Flash`/`ReturnTo`/`SessionReset` in `Kit/Flash.fs`, `Current.LookupError` as a Kit error,
   `CookieJar.deleteCookieHeader`) is still 2.13's. A5's wall-clock timestamps are untouched.
+
+### Phase 2, unit 2.10: Controllers B (2026-10-20)
+
+Code in `d0fae99` (the controllers and the Web pieces) and `47aac9a` (what the replay found), then the dead-code and docs commit. Evidence in `bench/results/dotnetway-p2-10/` (`replay.log`,
+`cookie-roundtrip.log`, `pixel.log`, `verify.log`, `bench/`, `control/`; image `campfire-dotnetway:app` built from `47aac9a`).
+- **Built:** accounts (`edit`, `update`), `accounts/users`, `accounts/bots` and bot keys, join codes, custom styles, logos, `users` (join `new`/`create`, `show`) and `users/*` (avatars, bans, profiles, sidebars,
+  push subscriptions, test notifications) are Web actions: 37 route rows off `Legacy.wrap`'s sibling `make`. Pieces added: `Params.hashMembers` (`permit(settings: {})` from the form, query or JSON),
+  `Presenters.Uploads` (the framework's `Request.Form.Files` as an avatar or logo `Assignment`, the temp copy deleted by `Response.OnCompleted`; first runs use it too, so the try/finally there is gone),
+  `Before.ensureCanAdminister`, `Pages.turboStream` and `applyPageHeaders` (the paginated JSON headers), `Data.passwordDigest`, and `Native.useLiveResponse` (avatars and logos are `ActionController::Live`:
+  no default headers, default `Cache-Control` `no-cache`; the old `AppTests` and `RequestsTests` R5 caught this). `Params` counts an uploaded file's name, so a form with only `user[avatar]` still has `params[:user]`.
+  Dead code deleted: `Concerns.passwordDigest`/`authenticateBy`/`startNewSessionFor`/`terminateCurrentSession`/`postAuthenticatingUrl`/`ensureCanAdminister`, `Accounts.paramToS`/`stringAttribute` (-0.1 KLOC).
+- **Found by the replay and fixed:** `Respond.sendFile` passed a relative path to `Results.File`, which reads it under the web root; the container's storage directory is relative (`storage/files/..`), so any
+  uploaded avatar answered 500 in the image while every macOS test (absolute temp paths) passed. The path is absolute now; X5 covers a relative path (sabotage: without the fix X5 fails).
+- **Tests:** J1-J10 in `tests/Campfire.App.Tests/Web/ControllersBTests.fs` (administrator guard and 403 bodies; account form with the settings hash, form and JSON; the Turbo Stream people list and its 406; role
+  change, removal, 400/404 cases; bots end to end including the NOT NULL 500 and a human id; the join flow, wrong code, signed-in redirect, taken email; avatars: signed path, weak ETag, 304, forged token, WebP
+  variant; profile and sidebar; push subscription params, wrapped JSON, 400 on `{}`, foreign subscription 404/untouched; the logo's public caching and 304). `AttachmentTests` (avatar and logo uploads and removals) run
+  through the Web actions unchanged.
+- **Gates:** `CAMPFIRE_REQUIRE_SEED=1 bin/verify` (Release, warnaserror): 0 warnings, 1,082 tests, 1,076 passed, 0 failed, 6 skipped (the same 6); H1 green. `bin/pixel-parity --fast --only
+  'account/**,users/**,autocompletable/**'`: default 46/46, crowd 4/4, custom_styles 8/8, restricted 2/2 equal on screenshots, aria and loose DOM (first_run has no such states), PASSED in 201 s.
+  `controllers_a/replay.py`, three seeds on the final image: default 152 matched, 3 differed by design, 0 differed; crowd 15/0/0; first_run 11/0/0 (the first run, on `d0fae99`'s image: 149/3/3, the avatar 500 above).
+  `bin/cookie-roundtrip`: 20/20 both ways. `bin/clean-docker` and `bin/clean-parity` run.
+- **Speed (`bench/quick`, 3 reps, host 1.05-1.07):** room page 5,387/s c=16 (22.5x Rails), 1,642 c=1 (15.3x); messages page 5,107 (13.4x), 1,491 c=1 (6.84x); sidebar 5,579 (9.32x), 1,588 c=1
+  (**5.54x**); search 4,920 (12.1x), 1,401 c=1 (7.27x); post a message 1,838 c=16 (**5.57x**), 905 c=1 (**5.42x**). Every workload over the 5x floor, all 2xx, 0 errors, rows written equal answers.
+  Against 2.9 (post 5.62x/5.49x, sidebar c=1 5.43x) nothing moved beyond noise: the hot paths are still legacy rows. Same-day control (the port's image, sidebar and post, 1 rep): 94.5-99.2% of its
+  stored medians (sidebar 37,247 and 7,559; post 8,667 and 2,897), so the ratios are not flattered by the host. The thinnest are post c=1 (8.4% headroom), sidebar c=1 (10.8%) and post c=16 (11%).
+- **KLOC:** `bin/kloc` 39,077 by upstream's rules, **39,296 corrected (39.3 KLOC)**, from 39,030 / 39,249 (+0.05): the new Web pieces and `Uploads` against the shrunk controllers and the deleted `Ctx` helpers.
+  The `Ctx`-based `Layout`, `Page`, `Concerns` and the rooms/messages/search/autocompletable/QR/unfurl rows stay until 2.11-2.12 move them; 2.13 deletes what is left.
+- **Differences recorded (README, class B):** a JSON `null` param is read as a missing key (Rails keeps nil); no page can send it. The Live controllers' headers (already Rails' behaviour, now stated).
+- **For later units:** 2.11 moves autocompletable (the only `ApplyHeaders` and `Layout.load` caller left besides `Page`), QR code, unfurl links, searches and the Active Storage endpoints; `Page.framedPage` and
+  `Layout` can then go with the rooms/messages move in 2.12. `Native.useLiveResponse` is how a Live controller (Active Storage streaming in 2.11) is marked.
+

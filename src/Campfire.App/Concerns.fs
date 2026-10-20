@@ -201,70 +201,6 @@ module Concerns =
         else
             Ok()
 
-    /// `has_secure_password`'s `password=`, hashed on the blocking pool ahead of the write that saves
-    /// it, so bcrypt (about 250 ms) holds neither an async thread nor the database writer.
-    let passwordDigest (c: Ctx) (password: string option) : Task<Result<PasswordDigest option, Error>> =
-        task {
-            match password with
-            | None -> return Ok None
-            | Some password ->
-                try
-                    let! digest = PasswordDigest.hash password c.App.Env.BcryptCost
-                    return Ok(Some digest)
-                with e ->
-                    return Error(Internal e)
-        }
-
-    /// `User.active.authenticate_by(email_address:, password:)`: the user is looked up on a reader,
-    /// and the password checked once the reader is released.
-    let authenticateBy (c: Ctx) (emailAddress: string) (password: string) : Task<Result<User option, Error>> =
-        task {
-            // `authenticate_by` returns nil for a blank password before looking anything up.
-            if password = "" then
-                return Ok None
-            else
-                match! c.Read(fun db -> User.findActiveByEmailAddress db emailAddress) with
-                | Error e -> return Error e
-                | Ok candidate ->
-                    try
-                        let! user = Task.Run(fun () -> User.authenticated candidate password)
-                        return Ok user
-                    with e ->
-                        return Error(Internal e)
-        }
-
-    /// `start_new_session_for(user)`
-    let startNewSessionFor (c: Ctx) (user: User) : Task<Result<Session, Error>> =
-        task {
-            let! started = Campfire.App.Web.Authentication.startNewSessionFor c.Http user
-            match started with
-            | Ok session ->
-                syncCurrent c
-                return Ok session
-            | Error e -> return Error(webError e)
-        }
-
-    /// `terminate_current_session`: destroy the session, drop the cookie, reset the Rails session, and disconnect
-    /// the user's sockets (`reset_remote_connections`, errors only logged).
-    let terminateCurrentSession (c: Ctx) : Task<Result<unit, Error>> =
-        task {
-            let current = Campfire.App.Web.Current.get c.Http
-            current.Session <- currentSession c
-            current.User <- currentUser c
-            let! ended = Campfire.App.Web.Authentication.terminateCurrentSession c.Http
-            match ended with
-            | Ok() ->
-                c.ResetSession()
-                return Ok()
-            | Error e -> return Error(webError e)
-        }
-
-    /// `post_authenticating_url`: `session.delete(:return_to_after_authenticating) || root_url`.
-    let postAuthenticatingUrl (c: Ctx) : string =
-        match ReturnTo.take c.Http with
-        | null -> c.UrlFor(Routes.root ())
-        | url -> url
-
     /// `verify_authenticity_token`: the framework's `ICsrfProtection` (K5), and the mark `verify_same_origin_request` reads.
     let verifyAuthenticityToken (c: Ctx) : Task<Result<unit, Error>> =
         task {
@@ -278,13 +214,6 @@ module Concerns =
         match Campfire.App.Web.Authentication.denyBots c.Http with
         | Ok() -> Ok()
         | Error _ -> halt (head Status.Forbidden)
-
-    // --- Authorization -----------------------------------------------------------------------------
-
-    /// `ensure_can_administer`: 403 unless `Current.user.can_administer?` (no record).
-    let ensureCanAdminister (c: Ctx) : Result<unit, Error> =
-        let allowed = currentUser c |> Option.exists (fun user -> User.canAdminister user None false)
-        if allowed then Ok() else halt (head Status.Forbidden)
 
     // --- AllowBrowser --------------------------------------------------------------------------------
 

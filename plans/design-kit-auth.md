@@ -75,6 +75,17 @@ first-registered `OnStarting` callback, which runs last: Rails' session cookie l
 was a unit 2.5 difference that no replay had run since). Opus note 3 (remote IP) stands: the throttle and the ban check take the IP from
 `Connection.RemoteIpAddress`.
 
+Unit 2.10 (Controllers B): the account and user controllers are Web actions (`Accounts`, `accounts/*`, `UsersController`, `users/*`), 37
+route rows. Three pieces they needed beyond 2.9's: `Web.Params.hashMembers` (`permit(settings: {})`: the members of `account[settings]` from
+the form, the query or a JSON object), `Presenters.Uploads` (the framework's `Request.Form.Files` as an avatar or logo `Assignment`; the
+copy to a temp file is deleted by `Response.OnCompleted`, so a controller no longer deletes spooled files itself; first runs use it too),
+and `Web.Native.useLiveResponse` for the two `ActionController::Live` controllers (avatars, logos: `include ActiveStorage::Streaming`), which
+Rails answers without `default_headers` and whose default `Cache-Control` is `no-cache` (no `Rack::ETag` digest). `Params` now counts an uploaded
+file's name as a name, so a form with only `user[avatar]` makes `params[:user]` a hash (as Rack's multipart parser does). `Respond.sendFile`
+makes its path absolute: `Results.File` reads a relative one under the web root, and the container's storage directory is relative
+(the replay found the 500). A JSON `null` is read as a missing key (README, class B). Deleted as unused: `Concerns.passwordDigest`,
+`authenticateBy`, `startNewSessionFor`, `terminateCurrentSession`, `postAuthenticatingUrl`, `ensureCanAdminister`, and `Accounts.paramToS`/`stringAttribute`.
+
 ## 2. Spikes (scratch project, 2026-10-13, .NET SDK 10.0.401, Falco 5.2.0, the repo's `Campfire.RailsCompat`)
 
 `/private/tmp/claude-501/-Users-clank-Desktop-projects/fea4ed62-8823-4b82-bed5-fc54b6214d57/scratchpad/authspike/` (`Program.fs`,

@@ -135,6 +135,13 @@ specific to this port are listed below, each citing the reference file it depart
     `max-age=0, private, must-revalidate` for a 200 with a body and `no-cache` otherwise, set as the response starts; they
     carry no `ETag` (K14: the same DOM, pixels and data). A page rendered by a Web action is written by the kit's writer, so a
     page of cached fragments still goes out in parts. Tested by `ControllersATests` (N1, N2).
+  - The account and user controllers (accounts, bots, join codes, custom styles, logos, users, avatars, bans, profiles, sidebars,
+    push subscriptions) read their params through the framework's form, query and JSON readers (`Web.Params`): a JSON `null` is
+    read as a missing key, where Rails keeps a nil value (`{"user":{"name":null}}` updates nothing here; Rails raises on the NOT NULL
+    column; a nil `endpoint` in a push subscription is dropped from the lookup instead of matching `IS NULL`). A browser form cannot
+    send nil, so no page of the app can reach the difference. The two `ActionController::Live` controllers (avatars and logos, by
+    `include ActiveStorage::Streaming`) still answer without Rails' default headers and with `Cache-Control: no-cache` where
+    they set none. Reference: `Accounts::*`, `Users::*`. Tested by `ControllersBTests` (J1-J10).
   - A request body is capped at 16 MiB, files included, by Kestrel (413; Rust's front server did the same, Rails reads
     any size). Reference: `config/puma.rb` (no limit). Tested by `RequestsTests` (R4).
   - `VAPID_SUBJECT` without a `TLS_DOMAIN` defaults to this project's URL (`https://github.com/ckluis/once-campfire-fsharp`);

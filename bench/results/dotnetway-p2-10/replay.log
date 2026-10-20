@@ -44,15 +44,7 @@ http://127.0.0.1:4312  (seed: default, candidate, time: 2026-03-02 16:00:00)
 ✓ admin GET /autocompletable/users.json?query=e&page=1
 ✓ admin GET /autocompletable/users?room_id=486777696
 ✓ admin GET /users/eyJfcmFpbHMiOnsiZGF0YSI6MTI3MzI2MTQxLCJwdXIiOiJ1c2VyL2F2YXRhciJ9fQ--0ac8233a4786ee6c413408416bb81e7107534db5702d351533dc2ecd3876e97f/avatar
-✗ admin GET /users/eyJfcmFpbHMiOnsiZGF0YSI6MTQ5MDg3NjU5LCJwdXIiOiJ1c2VyL2F2YXRhciJ9fQ--3717de512c048bb2a011a08236969887ee56ae9f8bd2fb510959b9915f449e17/avatar
-    status 200 != 500
-    content-type: 'image/webp' != 'text/html; charset=UTF-8'
-    cache-control: 'max-age=1800, public, stale-while-revalidate=604800' != 'no-cache'
-    x-version: 'parity' != None
-    x-rev: 'parity' != None
-    content-disposition: 'inline; filename="5nlq52kvmcweobxncp0zy1zvu9bg"; filename*=UTF-8\'\'5nlq52kvmcweobxncp0zy1zvu9bg' != None
-    body:
-    binary bodies differ (3364 vs 4887 bytes)
+✓ admin GET /users/eyJfcmFpbHMiOnsiZGF0YSI6MTQ5MDg3NjU5LCJwdXIiOiJ1c2VyL2F2YXRhciJ9fQ--3717de512c048bb2a011a08236969887ee56ae9f8bd2fb510959b9915f449e17/avatar
 ✓ admin GET /users/x/avatar
 ✓ admin GET /users/bogus/avatar
 ✓ admin GET /account/logo
@@ -85,15 +77,7 @@ http://127.0.0.1:4312  (seed: default, candidate, time: 2026-03-02 16:00:00)
 ✓ admin GET /autocompletable/users.json?query=e&page=1 in a Turbo frame
 ✓ admin GET /autocompletable/users?room_id=486777696 in a Turbo frame
 ✓ admin GET /users/eyJfcmFpbHMiOnsiZGF0YSI6MTI3MzI2MTQxLCJwdXIiOiJ1c2VyL2F2YXRhciJ9fQ--0ac8233a4786ee6c413408416bb81e7107534db5702d351533dc2ecd3876e97f/avatar in a Turbo frame
-✗ admin GET /users/eyJfcmFpbHMiOnsiZGF0YSI6MTQ5MDg3NjU5LCJwdXIiOiJ1c2VyL2F2YXRhciJ9fQ--3717de512c048bb2a011a08236969887ee56ae9f8bd2fb510959b9915f449e17/avatar in a Turbo frame
-    status 200 != 500
-    content-type: 'image/webp' != 'text/html; charset=UTF-8'
-    cache-control: 'max-age=1800, public, stale-while-revalidate=604800' != 'no-cache'
-    x-version: 'parity' != None
-    x-rev: 'parity' != None
-    content-disposition: 'inline; filename="5nlq52kvmcweobxncp0zy1zvu9bg"; filename*=UTF-8\'\'5nlq52kvmcweobxncp0zy1zvu9bg' != None
-    body:
-    binary bodies differ (3364 vs 4887 bytes)
+✓ admin GET /users/eyJfcmFpbHMiOnsiZGF0YSI6MTQ5MDg3NjU5LCJwdXIiOiJ1c2VyL2F2YXRhciJ9fQ--3717de512c048bb2a011a08236969887ee56ae9f8bd2fb510959b9915f449e17/avatar in a Turbo frame
 ✓ admin GET /users/x/avatar in a Turbo frame
 ✓ admin GET /users/bogus/avatar in a Turbo frame
 ✓ admin GET /account/logo in a Turbo frame
@@ -161,13 +145,7 @@ http://127.0.0.1:4312  (seed: default, candidate, time: 2026-03-02 16:00:00)
 ✓   then GET /users/me/profile
 ✓ PATCH /users/me/profile with an avatar
 ✓   then GET /users/me/profile
-✗   then GET the avatar
-    status 200 != 500
-    content-type: 'image/webp' != 'text/html; charset=UTF-8'
-    cache-control: 'max-age=1800, public, stale-while-revalidate=604800' != 'no-cache'
-    x-version: 'parity' != None
-    x-rev: 'parity' != None
-    content-disposition: 'inline; filename="vr5d95wq1i1xefw2ouksdzv1y32d"; filename*=UTF-8\'\'vr5d95wq1i1xefw2ouksdzv1y32d' != None
+✓   then GET the avatar
 ✓ DELETE /users/<token>/avatar
 ✓ PATCH /account.<id> with a logo
 ✓   then GET /account/edit
@@ -178,7 +156,7 @@ http://127.0.0.1:4312  (seed: default, candidate, time: 2026-03-02 16:00:00)
 ✓ DELETE /account/users/<id>
 ✓   then GET /account/edit
 
-149 matched, 3 differed by design, 3 differed
+152 matched, 3 differed by design, 0 differed
 http://127.0.0.1:4311  (seed: crowd, runtime: docker, time: 2026-03-02 16:00:00)
 http://127.0.0.1:4312  (seed: crowd, candidate, time: 2026-03-02 16:00:00)
 ✓ crowd admin GET /account/edit
