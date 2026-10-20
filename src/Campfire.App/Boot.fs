@@ -54,28 +54,6 @@ module Boot =
                   | Some page -> status, page.Body
                   | None -> () ]
 
-    /// The raw request path, still percent-encoded and without its query (`request.uri().path()`).
-    let private rawPath (http: HttpContext) : string =
-        let target =
-            match http.Features.Get<IHttpRequestFeature>() with
-            | null -> http.Request.Path.Value
-            | feature -> feature.RawTarget
-        match target with
-        | null
-        | "" -> "/"
-        | target ->
-            let target = match target.IndexOf '?' with -1 -> target | q -> target.Substring(0, q)
-            if target.StartsWith '/' then
-                target
-            else
-                // Absolute form: `http://host/path`.
-                match target.IndexOf("://", StringComparison.Ordinal) with
-                | -1 -> target
-                | at ->
-                    match target.IndexOf('/', at + 3) with
-                    | -1 -> "/"
-                    | slash -> target.Substring slash
-
     let private headerValue (http: HttpContext) (name: string) : string option =
         match http.Request.Headers[name].ToString() with
         | "" -> None
@@ -109,7 +87,7 @@ module Boot =
             match
                 staticResponse
                     request.Method
-                    (rawPath http)
+                    (Web.Services.rawPath http)
                     (headerValue http "accept-encoding")
                     (headerValue http "range")
                     (headerValue http "if-modified-since")
@@ -117,19 +95,10 @@ module Boot =
             | ValueSome response -> Adapter.write kit http response (request.Method = "HEAD")
             | ValueNone -> next.Invoke http)
 
-    /// The Rails route table, with the app's fragment cache current while the action runs.
-    let dispatchWithFragmentCache (c: Ctx) : Task<Result<Response, Error>> =
-        FragmentCache.scoped c.App.FragmentCache (fun () -> RouteTable.dispatch c)
-
     /// The HTTP pipeline: public files, then `/cable`, then the Rails route table. `Rack::Deflater`
     /// (config.ru) is around the whole app, kit's pre-routing middleware inside it.
     let pipeline (app: AppState) (kit: Kit) (builder: IApplicationBuilder) : unit =
-        Adapter.useDeflater kit builder |> ignore
-        builder.Use(Adapter.railsMiddleware kit) |> ignore
-        builder.Use(publicFiles kit) |> ignore
-        builder.UseRouting() |> ignore
-        builder.UseFalco [ any Campfire.Cable.Protocol.DefaultMountPath (fun http -> Campfire.Cable.Endpoint.call app.Cable http) ] |> ignore
-        builder.UseFalcoNotFound(Adapter.dispatch kit dispatchWithFragmentCache) |> ignore
+        Web.Services.pipeline kit (publicFiles kit) (fun http -> Campfire.Cable.Endpoint.call app.Cable http) RouteTable.dispatch builder
 
     // --- Boot ----------------------------------------------------------------------------------------------
 
@@ -195,7 +164,10 @@ module Boot =
             return
                 { App = app
                   Pipeline = pipeline app kit
-                  ConfigureServices = fun services -> Campfire.Db.Ef.Data.addServices services dbFactory gate time
+                  ConfigureServices =
+                    fun services ->
+                        Campfire.Db.Ef.Data.addServices services dbFactory gate time
+                        Web.Services.add kit app services
                   Jobs = runner }
         }
 

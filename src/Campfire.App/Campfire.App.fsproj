@@ -41,6 +41,11 @@
     <Compile Include="Presenters/Page.fs" />
     <Compile Include="Presenters/EmojiRanges.fs" />
     <Compile Include="Presenters/Presenter.fs" />
+    <Compile Include="Web/Errors.fs" />
+    <Compile Include="Web/Action.fs" />
+    <Compile Include="Web/Current.fs" />
+    <Compile Include="Web/Legacy.fs" />
+    <Compile Include="Web/Services.fs" />
     <Compile Include="Concerns.fs" />
     <Compile Include="ActiveStorage.fs" />
     <Compile Include="Presenters/AttachmentWrites.fs" />
@@ -107,7 +112,12 @@
     <ProjectReference Include="../Campfire.Views/Campfire.Views.fsproj" />
   </ItemGroup>
   <ItemGroup>
+    <!-- K2: the one registered scheme must not become the default (Web/Services.fs sets the same switch for hosts that are not this executable). -->
+    <RuntimeHostConfigurationOption Include="Microsoft.AspNetCore.Authentication.SuppressAutoDefaultScheme" Value="true" />
+  </ItemGroup>
+  <ItemGroup>
     <PackageReference Include="Falco" />
+    <PackageReference Include="FsToolkit.ErrorHandling" />
   </ItemGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="Campfire.App.Tests" />

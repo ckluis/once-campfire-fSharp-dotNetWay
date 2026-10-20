@@ -3,6 +3,8 @@
   <ItemGroup>
     <PackageVersion Include="FSharp.Core" Version="10.1.401" />
     <PackageVersion Include="Falco" Version="5.2.0" />
+    <!-- taskResult { } for the Web/ actions (plans/design-kit-auth.md K8). -->
+    <PackageVersion Include="FsToolkit.ErrorHandling" Version="5.2.0" />
     <PackageVersion Include="Microsoft.Data.Sqlite" Version="10.0.13" />
     <!-- EF Core 10 (LTS) on the net11.0 runtime; NamingConventions 10.0.1 declares EF [10.0.1, 11.0.0), so EF 11 waits for its own build (design-data-ef E1). -->
     <PackageVersion Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.13" />

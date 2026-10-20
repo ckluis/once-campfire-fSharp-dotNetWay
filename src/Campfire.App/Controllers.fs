@@ -31,6 +31,7 @@ open System.Collections.Generic
 open System.Text
 open System.Text.RegularExpressions
 open System.Threading.Tasks
+open FsToolkit.ErrorHandling
 open Microsoft.Extensions.Logging
 open Campfire.RailsCompat
 open Campfire.Kit
@@ -45,7 +46,8 @@ type Route =
       /// `controller#action`, as `bin/rails routes` prints it.
       Endpoint: string
       Defaults: (string * string) list
-      Action: ActionFn
+      /// The row's action: `Legacy.wrap` of the old `Ctx` action until unit 2.13.
+      Action: Web.Action
       Regex: Regex
       Names: string[] }
 
@@ -143,7 +145,10 @@ module RouteTable =
           Pattern = pattern
           Endpoint = endpoint
           Defaults = []
-          Action = action
+          Action =
+            Web.Legacy.wrap (fun c ->
+                c.SetCurrent { Endpoint = endpoint }
+                Campfire.Views.FragmentCache.scoped c.App.FragmentCache (fun () -> action c))
           Regex = regex
           Names = names }
 
@@ -448,18 +453,22 @@ module RouteTable =
                 | None -> Ok None
                 | Some(route, m) -> pathParams route m |> Result.map (fun pathParams -> Some(route, pathParams))
 
-    /// `params` is body params, then query params, then path params (`request.parameters`).
-    let private installPathParams (c: Ctx) (pathParams: ParamMap) : unit =
-        c.Params.Merge pathParams
-        c.PathParams.Merge pathParams
-
-    /// The single entry point for everything but `/cable`: find the route, install its path params, run
-    /// its action.
-    let dispatch (c: Ctx) : Task<Result<Response, Error>> =
-        match recognize c.Request.Method (normalizePath c.Request.Path) with
-        | Error e -> Task.FromResult(Error e)
-        | Ok None -> Task.FromResult(Error NotFound)
+    /// The route a request names, its path parameters handed to the request (`RouteValues`, which a legacy `Ctx` reads).
+    let private recognizeRequest (http: Microsoft.AspNetCore.Http.HttpContext) : Result<Route, Web.Error> =
+        match recognize http.Request.Method (normalizePath (Web.Services.rawPath http)) with
+        | Error e -> Result.Error(Web.Legacy e)
+        | Ok None -> Result.Error Web.NotFound
         | Ok(Some(route, pathParams)) ->
-            installPathParams c pathParams
-            c.SetCurrent { Endpoint = route.Endpoint }
-            route.Action c
+            for i in 0 .. pathParams.Count - 1 do
+                match (pathParams.ValueAt i).AsStr with
+                | null -> ()
+                | value -> http.Request.RouteValues[pathParams.KeyAt i] <- value
+            Ok route
+
+    /// The single entry point for everything but `/cable`: find the route, run its action.
+    let dispatch: Web.Action =
+        fun http ->
+            taskResult {
+                let! route = recognizeRequest http
+                return! route.Action http
+            }
