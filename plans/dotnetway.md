@@ -1154,3 +1154,42 @@ Adversarial review of `063b940..40b674e` against `plans/design-kit-auth.md` and 
   legacy `Ctx` (`HttpContext.Items`, `c.Request.RemoteIp`), so 2.7 must move `bot_key` to `Web.Params` and the client facts to
   `Connection.RemoteIpAddress`; the `_method` override buffers and parses every form POST (multipart included) a second time until 2.7 reads params from
   `Request.Form`; `Flash` and `LookupError` sit in or on the Kit and move in 2.13.
+
+
+### Phase 2, unit 2.7: Params and formats (2026-10-20)
+
+Code in `1d8f41c` and the R4 fix after it. Evidence in `bench/results/dotnetway-p2-7/` (image `campfire-dotnetway:app` built from `8339b4d`).
+- **Built:** `Web/Params.fs`: `params[:k]` over route values, then the JSON or form body, then the query (path over body over query, the last repeated key
+  wins), `lookup` (absent, string, or structured: a hash, array, number or boolean, which Rails' `String` methods fail on), `value`, `nested`, `values`, `require`,
+  `requireString`, `permit`, `wrap` (`wrap_parameters`), `validate` (malformed JSON is a 400), and `load`, which `Action.run` calls before every action: a form is read
+  (the framework caches it) and a JSON body is read into memory once. `Web/Formats.fs`: `requested` (`request.formats`), `respondTo`, `negotiate`,
+  `isTurboFrame`, over the framework's `MediaTypeHeaderValue.TryParseList` with Rails' rules around it. Both are new code beside the kit's until 2.13.
+- **Opus notes applied:** (1) `BotKeyAuthenticationHandler` reads `bot_key` through `Params.lookup`, not the legacy `Ctx` in `HttpContext.Items`; B1-B6 green, B5 (a hash
+  key) still a 500. (2) The method override no longer calls `EnableBuffering` or rewinds: `Adapter.parseBody` takes a form from the framework's cached `Request.Form`
+  (text pairs into the kit's nested builder, `IFormFile`s copied to temp files the request deletes), so a form is parsed once, multipart included; a JSON body read by
+  `Params.load` is parsed by the kit from `HttpContext.Items`. R3 and R4 green. `Adapter.bodyLimit` now honours the kit's `MaxBodyBytes` (the Kit tests' small limits).
+  (3) `Authentication.restore`, `require` and `startNewSessionFor` lost their client callback: the user agent is the header, the IP is `Connection.RemoteIpAddress`
+  (IPv4-mapped unmapped). The hourly resume stays in `restore`; the change from K3 is recorded in `plans/design-kit-auth.md` ("Revisions made while building").
+  (7) C13 (`Origin: null` refused on the form, `_method` delete and JSON writes) is added and passes. A5's wall-clock timestamps are not touched.
+  Notes 4, 5 and 6 are for 2.8, 2.9 and 2.13.
+- **Tests:** P1-P4 in `tests/Campfire.App.Tests/Web/ParamsTests.fs` (precedence on a bare `HttpContext` and a bot key in the path over a wrong one in the query end to end;
+  `message[body]` from a form, a query string and JSON, and a message posted both ways; `wrap_parameters` incl. the model's attribute list, forms, and a body that has the key;
+  `ParameterMissing`, a blank string, malformed JSON as 400 end to end). `FormatsTests.fs` re-points the kit's `FormatTests` golden cases at `Web.Formats`.
+  Existing Kit tests that pinned Rack's form reader moved with the behaviour (raw form bytes are gone, a stray `%` in a form is literal and a 200); R4's client now retries
+  a connection reset and otherwise requires the app's own 413 log line (the baseline test already failed 2 runs in 6: the host closes while the client still sends).
+- **Golden cases:** every `FormatTests` case that is Rails behaviour and that the framework parser reproduces passes (browser-like lists, Turbo's type first,
+  quality order, single types, `text/*` expansion, path extension and `params[:format]`, XHR, negotiation). **Recorded class B (README):** Ruby's `to_f` reading of
+  odd `q` values (22 cases of `q values read like rails`), `text/xml` folding, and Rack's params parser edge cases (`ParamsTests`' type conflicts, depth limit,
+  `a[]]` shapes, the 2,755 `params_vectors.json` replays): the nested-hash parser is not rebuilt on `Web.Params`; the kit's `Params.fs` keeps serving the legacy
+  controllers' nested `Param` trees until they move (2.9-2.12) and goes in 2.13, and those Kit tests go with it.
+- **Gates:** `CAMPFIRE_REQUIRE_SEED=1 bin/verify` (Release, warnaserror): 0 warnings, 1,080 tests, 1,074 passed, 0 failed, 6 skipped (the same 6); H1 in that run and green.
+  `bin/pixel-parity --fast --only 'errors/**,auth/**,interactions/**'`: default 115/115, custom_styles 2/2, first_run 8/8 equal on screenshots, aria and loose DOM
+  (crowd and restricted have none), PASSED in 503 s. `bin/cookie-roundtrip`: 20/20. `bin/clean-parity` and `bin/clean-docker` run.
+- **Speed (`bench/quick`, 3 reps, host 1.07-1.08):** post a message 1,774/s c=16 (**5.37x** Rails) and 852/s c=1 (**5.11x**); sidebar 5,078 (8.48x) and 1,585 c=1 (5.53x);
+  search 4,767 (11.7x) and 1,298 c=1 (6.73x); messages page 4,798 (12.6x) and 1,407 c=1 (6.46x); room page 5,206 c=16 and 1,575 c=1. All over the 5x floor, all 2xx, 0 errors,
+  rows written equal answers. Against unit 2.6 every workload is 3-13% lower, GET pages included, which this unit does not touch; the same-day control (the F# port's image,
+  `control/`, sidebar and post only) ran 5% (c=16) and 12% (c=1) under its stored medians on the sidebar, so the host explains the GET numbers. The port's post rows in the
+  control swung to 47% under stored (warm-up did not settle), so they say nothing about post. **Post at c=1 has 2% headroom (5.11x), c=16 7%:** the next cost (compression in 2.8)
+  must come with a same-day control for post, and a shortfall is fixed by skipping work, not by moving the floor.
+- **KLOC:** `bin/kloc` 38,764 by upstream's rules, **38,983 corrected (39.0 KLOC)**, from 38,586 (+0.40: `Params.fs`, `Formats.fs` and the form copy in `Adapter.fs`, beside the kit's own params, which go in 2.13).
+- **Differences recorded (README, class B):** params from the framework's form reader and the `Accept` parser (above).

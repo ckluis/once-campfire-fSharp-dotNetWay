@@ -41,6 +41,14 @@ key), the flash semantics, Rails' params precedence and bracket names, the forma
 `params[:format]`, Turbo's MIME first), `redirect_to`'s host checks, the ETag combination of `fresh_when`, the public-exception
 renderer, Journey's recognizer.
 
+**Revisions made while building.** K3 (unit 2.7, Opus checkpoint note 3): the hourly resume stays in `Authentication.restore`, not in
+`OnValidatePrincipal`: Rails resumes only in `restore_authentication`, and unit 2.11's Active Storage check calls `AuthenticateAsync`
+without resuming. `restore` and `startNewSessionFor` no longer take a client callback into the legacy `Ctx`: the user agent is the request
+header and the IP is `Connection.RemoteIpAddress` (which `UseForwardedHeaders` has already set), IPv4-mapped addresses unmapped. K4: the
+bot-key handler reads `bot_key` through `Web.Params.lookup` (route, JSON or form body, query) and fails, a 500, for a hash or array. K10: the
+method override no longer buffers the body; the form it parses is the framework's cached `Request.Form`, which the kit's body parser and
+`Web.Params` both read (`Adapter.parseBody`), and `Adapter.bodyLimit` honours the kit's `MaxBodyBytes`.
+
 ## 2. Spikes (scratch project, 2026-10-13, .NET SDK 10.0.401, Falco 5.2.0, the repo's `Campfire.RailsCompat`)
 
 `/private/tmp/claude-501/-Users-clank-Desktop-projects/fea4ed62-8823-4b82-bed5-fc54b6214d57/scratchpad/authspike/` (`Program.fs`,

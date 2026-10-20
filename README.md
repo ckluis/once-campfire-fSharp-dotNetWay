@@ -100,6 +100,16 @@ specific to this port are listed below, each citing the reference file it depart
     404 here, Rails and Rust leave it a POST). The method is upper-cased after it (`_method=delete` is the `DELETE` row).
     Reference: `Rack::MethodOverride`. Tested by `RequestsTests` (R3) and `HttpTests` ("method override from form param
     and header").
+  - Params are the framework's readers (route values, `Request.Form`, the query string, a JSON body), in Rails' order
+    (path over body over query, the last repeated key wins). A form is read once, by the framework: a stray `%` in a form is
+    taken literally where Rack answers 400, the form's raw bytes are not kept, uploads are the framework's `IFormFile`s copied
+    to a temp file, and pairs that interleave other keys are grouped by name (`a[][b]`, `a[][c]` in an unusual order build
+    other array elements). Not reproduced: Rack's type-conflict errors (`a=1&a[]=2`) and its nesting depth limit.
+    Reference: `ActionDispatch::ParamBuilder`, `Rack::QueryParser`. Tested by `ParamsTests` (P1-P4) and `HttpTests`.
+  - Format negotiation parses the `Accept` header with the framework and keeps Rails' rules around it (`params[:format]`,
+    browser-like lists ignored, path extension, `text/*` expansion, Turbo's type first). A `q` Ruby's `to_f` reads and the
+    framework does not (`q=abc`, `q=1e17`) leaves the item at 1.0, and `text/xml` is not folded into `application/xml`.
+    Reference: `Mime::Type.parse`, `ActionDispatch::Http::MimeNegotiation`. Tested by `FormatsTests`.
   - A request body is capped at 16 MiB, files included, by Kestrel (413; Rust's front server did the same, Rails reads
     any size). Reference: `config/puma.rb` (no limit). Tested by `RequestsTests` (R4).
   - `VAPID_SUBJECT` without a `TLS_DOMAIN` defaults to this project's URL (`https://github.com/ckluis/once-campfire-fsharp`);
