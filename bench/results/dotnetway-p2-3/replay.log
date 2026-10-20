@@ -131,8 +131,7 @@ http://127.0.0.1:4312  (seed: default, candidate, time: 2026-03-02 16:00:00)
 ✓ POST /users/me/push_subscriptions (create)
 ✓ POST /users/me/push_subscriptions (existing)
 ✓   then GET /users/me/push_subscriptions
-✗ DELETE /session with push_subscription_endpoint
-    set-cookie ['session_token (deleted): expires, max-age, path, samesite'] != ['session_token (deleted): expires, httponly, path, samesite']
+✓ DELETE /session with push_subscription_endpoint
 ✓   then GET /users/me/push_subscriptions
 ✓ POST /join/<code>
 ✓   then GET /
@@ -142,8 +141,7 @@ http://127.0.0.1:4312  (seed: default, candidate, time: 2026-03-02 16:00:00)
 ✓ PUT /session/transfers/<id>
 ✓   then GET /users/me/profile
 ✓ POST /account/join_code
-✗ DELETE /session
-    set-cookie ['session_token (deleted): expires, max-age, path, samesite'] != ['session_token (deleted): expires, httponly, path, samesite']
+✓ DELETE /session
 ✓   then GET /users/me/profile
 ✓ PATCH /users/me/profile with an avatar
 ✓   then GET /users/me/profile
@@ -158,5 +156,4 @@ http://127.0.0.1:4312  (seed: default, candidate, time: 2026-03-02 16:00:00)
 ✓ DELETE /account/users/<id>
 ✓   then GET /account/edit
 
-150 matched, 3 differed by design, 2 differed
-time="2026-10-20T07:14:34-04:00" level=fatal msg="exit status 1"
+152 matched, 3 differed by design, 0 differed
