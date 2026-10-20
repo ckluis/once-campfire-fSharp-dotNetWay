@@ -570,6 +570,7 @@ module Adapter =
                 with e ->
                     ctx.Finish(Error(actionPanicked e))
             try
+                do! ctx.CommitSession()
                 do! write kit http response head
             finally
                 match parsed with

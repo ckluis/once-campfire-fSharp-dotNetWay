@@ -25,7 +25,6 @@ type KitConfig =
       ForceSsl: bool
       /// The HSTS header value sent with `ForceSsl` (`ssl_options = { hsts: { subdomains: true } }`).
       Hsts: string
-      Session: SessionConfig
       /// `action_dispatch.default_headers` (`load_defaults 7.1`).
       DefaultHeaders: (string * string)[]
       /// `public/404.html`, `422.html`, `500.html`, ... (`ActionDispatch::PublicExceptions`).
@@ -37,7 +36,6 @@ type KitConfig =
         { Proxy = ProxyConfig.Default
           ForceSsl = false
           Hsts = "max-age=63072000; includeSubDomains"
-          Session = SessionConfig.Default
           DefaultHeaders = KitDefaults.railsDefaultHeaders
           ErrorPages = ErrorPages.Empty
           MaxBodyBytes = ValueNone }

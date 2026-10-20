@@ -185,33 +185,33 @@ let ``session cookie is written only when the session changes`` () =
         let! untouched = app.Send(get "/noop")
         Assert.Empty untouched.Cookies
 
+        // Nothing stored and no cookie: reading starts no session.
+        let! none = app.Send(get "/session")
+        Assert.Equal(Some Value.Null, member' "value" none.Json)
+        Assert.Empty none.Cookies
+
         let! set = app.Send(formPost "/session" "value=%2Frooms%2F1")
         Assert.Equal(200, set.Status)
         let cookie = set.CookieJar
-        Assert.StartsWith("_campfire_session=", cookie)
+        Assert.StartsWith("_campfire_flash=", cookie)
 
-        // Reading it, or not touching it, sends no cookie back: the one the browser has stays.
+        // Reading takes it (`session.delete`), once.
         let! read = app.Send((get "/session").With("cookie", cookie))
         Assert.Equal(Some(Value.String "/rooms/1"), member' "value" read.Json)
-        Assert.True(read.Cookies.IsEmpty, $"{read.Cookies}")
-        let id = (member' "id" read.Json).Value.AsString.Value
-        Assert.Equal(32, id.Length)
+        let! again = app.Send((get "/session").With("cookie", cookie))
+        Assert.Equal(Some Value.Null, member' "value" again.Json)
         let! noop = app.Send((get "/noop").With("cookie", cookie))
         Assert.Empty noop.Cookies
-        let! same = app.Send((formPost "/session" "value=%2Frooms%2F1").With("cookie", cookie))
-        Assert.True(same.Cookies.IsEmpty, "writing the value it already holds changes nothing")
-        let! again = app.Send((get "/session").With("cookie", cookie))
-        Assert.Equal(Some(Value.String id), member' "id" again.Json)
 
-        // Resetting leaves nothing to keep, so the cookie goes.
+        // Resetting clears the session and the browser's cookie.
+        let! _ = app.Send((formPost "/session" "value=%2Frooms%2F2").With("cookie", cookie))
         let! reset = app.Send((request "DELETE" "/session").With("cookie", cookie))
-        Assert.True((reset.Cookies |> List.exists (fun c -> c.StartsWith "_campfire_session=;")), $"{reset.Cookies}")
-        let! after = app.Send((get "/session").With("cookie", reset.CookieJar))
+        Assert.True((reset.Cookies |> List.exists (fun c -> c.StartsWith "_campfire_flash=;")), $"{reset.Cookies}")
+        let! after = app.Send((get "/session").With("cookie", cookie))
         Assert.Equal(Some Value.Null, member' "value" after.Json)
-        Assert.NotEqual(Some(Value.String id), member' "id" after.Json)
 
-        // A tampered cookie reads as an empty session.
-        let! bogus = app.Send((get "/session").With("cookie", "_campfire_session=garbage"))
+        // A cookie naming no session reads as an empty one.
+        let! bogus = app.Send((get "/session").With("cookie", "_campfire_flash=garbage"))
         Assert.Equal(Some Value.Null, member' "value" bogus.Json)
     }
 
@@ -226,8 +226,7 @@ let ``flash survives exactly one redirect`` () =
 
         let! shown = app.Send((get "/flash").With("cookie", cookie))
         Assert.Equal(Some(Value.String "✓"), member' "notice" shown.Json)
-        // Shown, the flash is swept, and with it the only thing the session held.
-        Assert.True((shown.Cookies |> List.exists (fun c -> c.StartsWith "_campfire_session=;")), $"{shown.Cookies}")
+        // Shown, the flash is swept from the session.
         let! gone = app.Send((get "/flash").With("cookie", shown.CookieJar))
         Assert.Equal(Some Value.Null, member' "notice" gone.Json)
     }

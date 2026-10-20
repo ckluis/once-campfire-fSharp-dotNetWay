@@ -185,7 +185,11 @@ let private kitFor (app: AppState) : Kit = Kit(KitConfig.Production true, app.Se
 
 let private whoamiPipeline (app: AppState) : Microsoft.AspNetCore.Builder.IApplicationBuilder -> unit =
     let kit = kitFor app
-    Adapter.app kit [ Adapter.route kit "/whoami" [ "GET", whoami; "POST", whoami ] ]
+    let app = Adapter.app kit [ Adapter.route kit "/whoami" [ "GET", whoami; "POST", whoami ] ]
+    fun builder ->
+        // The sign-in redirect remembers the URL in the session (unit 2.5).
+        Microsoft.AspNetCore.Builder.SessionMiddlewareExtensions.UseSession builder |> ignore
+        app builder
 
 [<Fact>]
 let ``a rails issued session cookie authenticates`` () =

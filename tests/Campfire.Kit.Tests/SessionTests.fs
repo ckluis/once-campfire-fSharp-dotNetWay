@@ -1,4 +1,4 @@
-// Port of the #[cfg(test)] module in rust/crates/kit/src/session.rs
+// Port of the #[cfg(test)] module in rust/crates/kit/src/session.rs (the flash; the session itself is ASP.NET Core's since unit 2.5)
 module Campfire.Kit.Tests.SessionTests
 
 open System
@@ -31,9 +31,3 @@ let ``flash keep and legacy discard lists`` () =
     Assert.Null flash.Alert
     flash.Keep(ValueSome "notice")
     Assert.Equal(ValueSome(json """{"discard": [], "flashes": {"notice": "hi"}}"""), flash.ToSessionValue())
-
-[<Fact>]
-let ``sids are 32 hex chars`` () =
-    let sid = Session.GenerateSid()
-    Assert.Equal(32, sid.Length)
-    Assert.True(Seq.forall Char.IsAsciiHexDigit sid)

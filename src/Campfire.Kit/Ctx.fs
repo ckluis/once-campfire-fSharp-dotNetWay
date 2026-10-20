@@ -192,8 +192,6 @@ type Ctx internal (kit: Kit, http: Microsoft.AspNetCore.Http.HttpContext, reques
         merged.Merge pathParams
         merged
 
-    // Most requests never look at the session, so it exists once they do.
-    let mutable session: Session | null = null
     let mutable headers: HeaderMap = null
     let mutable flash: Flash | null = null
     let mutable extensions: Dictionary<Type, objnull> | null = null
@@ -292,31 +290,22 @@ type Ctx internal (kit: Kit, http: Microsoft.AspNetCore.Http.HttpContext, reques
 
     // --- Session and flash ---------------------------------------------------------------------
 
-    member private _.SessionObject: Session =
-        match session with
-        | null ->
-            let created = Session(kit.Config.Session)
-            session <- created
-            created
-        | existing -> existing
-
-    /// `session`, loaded from the cookie on first use.
-    member this.Session() : Session = this.SessionObject.Load cookies
-
-    /// `reset_session`: new session id, no data, no flash.
-    member this.ResetSession() : unit =
-        this.SessionObject.Reset()
+    /// `reset_session`: no data, no flash, and the browser's session cookie goes.
+    member _.ResetSession() : unit =
+        SessionReset.run http
         flash <- null
 
     /// `flash`, loaded from the session on first use.
-    member this.Flash() : Flash =
+    member _.Flash() : Flash =
         match flash with
         | null ->
-            let stored = this.Session().Get "flash"
-            let loaded = Flash.FromSessionValue stored
+            let loaded = Flash.load http
             flash <- loaded
             loaded
         | f -> f
+
+    /// Stores what the request wrote to the session (see `SessionReset.commit`).
+    member internal _.CommitSession() : System.Threading.Tasks.Task = SessionReset.commit http
 
     // --- Formats -------------------------------------------------------------------------------
 
@@ -658,31 +647,17 @@ type Ctx internal (kit: Kit, http: Microsoft.AspNetCore.Http.HttpContext, reques
         else
             Ok()
 
-    /// `commit_flash`, `commit_session`, then the cookie jar's `write`.
+    /// `commit_flash` (into the session), then the cookie jar's `write`.
     member private this.Commit(response: Response) : Result<unit, Error> =
         match flash with
         | null -> ()
         | pending ->
             flash <- null
-            let hasFlashKey = this.Session().ContainsKey "flash"
-            if not pending.IsEmpty || hasFlashKey then
-                match pending.ToSessionValue() with
-                | ValueSome value -> this.Session().Insert("flash", value)
-                | ValueNone -> this.Session().Insert("flash", Value.Null)
-        let committed =
-            match session with
-            | null -> Ok()
-            | session ->
-                if session.IsLoaded && session.ContainsKey "flash" && (session.Get "flash").IsNone then
-                    session.Remove "flash" |> ignore
-                session.Commit(cookies, this.Now())
-        match committed with
-        | Error e -> Error e
-        | Ok() ->
-            if cookies.HasChanges then
-                for cookie in cookies.SetCookieHeaders(request.IsSsl, request.Host) do
-                    response.Headers.Append(Hdr.SetCookie, cookie)
-            Ok()
+            Flash.commit http pending
+        if cookies.HasChanges then
+            for cookie in cookies.SetCookieHeaders(request.IsSsl, request.Host) do
+                response.Headers.Append(Hdr.SetCookie, cookie)
+        Ok()
 
     /// `handle_conditional_get!` and `merge_and_normalize_cache_control!`.
     member private this.ApplyCacheHeaders(response: Response) : unit =

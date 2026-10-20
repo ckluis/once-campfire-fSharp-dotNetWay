@@ -15,6 +15,7 @@
     <Compile Include="Web/AuthenticationTests.fs" />
     <Compile Include="Web/BotKeyTests.fs" />
     <Compile Include="Web/CsrfTests.fs" />
+    <Compile Include="Web/FlashTests.fs" />
     <Compile Include="AppTests.fs" />
     <Compile Include="JobsTests.fs" />
     <Compile Include="MiscTests.fs" />

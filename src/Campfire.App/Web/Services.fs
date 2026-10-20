@@ -68,6 +68,12 @@ module Services =
             options.Cookie.IsEssential <- true
             options.IdleTimeout <- TimeSpan.FromHours 2.0)
         |> ignore
+        // K10: cookies set through `Response.Cookies` (`last_room`, the session's own) are `secure` when the request is HTTPS,
+        // never below `Lax`.
+        services.Configure<CookiePolicyOptions>(fun (options: CookiePolicyOptions) ->
+            options.Secure <- CookieSecurePolicy.SameAsRequest
+            options.MinimumSameSitePolicy <- SameSiteMode.Lax)
+        |> ignore
         // K1: the `session_token` cookie; K4: the bot key, a second scheme (no policy scheme, no default).
         services
             .AddAuthentication()
@@ -88,6 +94,8 @@ module Services =
         Adapter.useDeflater kit builder |> ignore
         builder.Use(Adapter.railsMiddleware kit) |> ignore
         builder.Use(publicFiles) |> ignore
+        builder.UseCookiePolicy() |> ignore
+        builder.UseSession() |> ignore
         builder.UseRouting() |> ignore
         builder.UseFalco [ any Campfire.Cable.Protocol.DefaultMountPath cable ] |> ignore
         builder.UseFalcoNotFound(Campfire.App.Web.Action.run dispatch) |> ignore

@@ -34,6 +34,7 @@ namespace Campfire.App
 
 open System
 open System.Threading.Tasks
+open Microsoft.AspNetCore.Http
 open Microsoft.Extensions.Logging
 open Campfire.App.Presenters
 open Campfire.Kit
@@ -188,7 +189,7 @@ module Concerns =
     /// `request_authentication`: remember where we were, then off to sign in.
     let requestAuthentication (c: Ctx) : Result<unit, Error> =
         let url = c.Request.Url
-        c.Session().Insert("return_to_after_authenticating", url)
+        ReturnTo.set c.Http url
         let location = c.UrlFor(Routes.newSession ())
         match c.RedirectTo location with
         | Ok response -> halt response
@@ -282,11 +283,9 @@ module Concerns =
 
     /// `post_authenticating_url`: `session.delete(:return_to_after_authenticating) || root_url`.
     let postAuthenticatingUrl (c: Ctx) : string =
-        match c.Session().Remove "return_to_after_authenticating" with
-        | ValueSome(Campfire.RailsCompat.Value.String url) -> url
-        | ValueSome Campfire.RailsCompat.Value.Null
-        | ValueNone -> c.UrlFor(Routes.root ())
-        | ValueSome other -> Campfire.RailsCompat.Json.encode other
+        match ReturnTo.take c.Http with
+        | null -> c.UrlFor(Routes.root ())
+        | url -> url
 
     /// `verify_authenticity_token`: the framework's `ICsrfProtection` (K5), and the mark `verify_same_origin_request` reads.
     let verifyAuthenticityToken (c: Ctx) : Task<Result<unit, Error>> =
@@ -387,7 +386,10 @@ module Concerns =
     /// Only when it changes: Rails sets it on every room page.
     let rememberLastRoomVisited (c: Ctx) (roomId: int64) : unit =
         let roomId = string roomId
-        if c.Cookies.Get "last_room" <> roomId then c.Cookies.Set("last_room", (Cookie.New roomId).AsPermanent())
+        if c.Cookies.Get "last_room" <> roomId then
+            // `cookies.permanent`: 20 calendar years out on the harness's clock. `UseCookiePolicy` adds `secure`/`samesite`.
+            let expires = Campfire.RailsCompat.Cookies.permanentExpiresAt (c.Now())
+            c.Http.Response.Cookies.Append("last_room", roomId, CookieOptions(Path = "/", Expires = Nullable expires, SameSite = SameSiteMode.Lax))
 
     /// `last_room_visited`: the `last_room` cookie's room if the user is in it, else
     /// `Current.user.rooms.original`.

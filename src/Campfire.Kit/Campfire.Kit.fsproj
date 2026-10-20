@@ -6,7 +6,7 @@
     <Compile Include="Error.fs" />
     <Compile Include="Params.fs" />
     <Compile Include="Cookies.fs" />
-    <Compile Include="Session.fs" />
+    <Compile Include="Flash.fs" />
     <Compile Include="Request.fs" />
     <Compile Include="Exceptions.fs" />
     <Compile Include="App.fs" />

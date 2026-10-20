@@ -67,15 +67,14 @@ let private upload (c: Ctx) =
 let private sessionSet (c: Ctx) =
     act {
         let value = match c.ParamStr "value" with null -> "" | v -> v
-        c.Session().Insert("return_to_after_authenticating", value)
+        ReturnTo.set c.Http value
         return c.Head Status.Ok
     }
 
 let private sessionGet (c: Ctx) =
     act {
-        let session = c.Session()
-        let value = match session.Get "return_to_after_authenticating" with ValueSome v -> v | ValueNone -> Value.Null
-        return c.Json(Status.Ok, Value.Object [ "value", value; "id", text session.Id ])
+        let value = text (ReturnTo.take c.Http)
+        return c.Json(Status.Ok, Value.Object [ "value", value ])
     }
 
 let private sessionReset (c: Ctx) =

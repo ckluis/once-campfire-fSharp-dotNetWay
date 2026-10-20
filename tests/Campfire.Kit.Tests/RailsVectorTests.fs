@@ -1,9 +1,7 @@
 // Port of rust/crates/kit/tests/rails_vectors.rs
 //
-// Old-browser-tab continuity: a session cookie and a signed cookie issued by the reference Rails
-// app (`vectors/rails_compat.json`) are accepted by the kit, and what the kit writes back decodes
-// to the same session. Forgery protection is by `Sec-Fetch-Site` rather than Rails' tokens, so a
-// tab opened before an upgrade keeps working without one.
+// Old-browser-tab continuity: a signed cookie issued by the reference Rails app (`vectors/rails_compat.json`) is
+// accepted by the kit. Rails' encrypted session cookie is no longer read (unit 2.5, K6); App test F5 holds that.
 //
 // The forgery check is the framework's `ICsrfProtection` now (unit 2.4); its matrix is `Web/CsrfTests.fs` in the App tests.
 module Campfire.Kit.Tests.RailsVectorTests
@@ -33,16 +31,6 @@ let private kitFromVectors () : Kit * Secrets * Timestamp =
     let now = ts (str (root().GetProperty "now"))
     Kit(KitConfig.Default, secrets, TestClock.FrozenAt now, null), secrets, now
 
-let private createSession (c: Ctx) =
-    act {
-        let session = c.Session()
-        let csrf = match session.Get "_csrf_token" with ValueSome v -> v | ValueNone -> Value.Null
-        let id = match session.Id with null -> Value.Null | id -> Value.String id
-        let body = Value.Object [ "id", id; "csrf", csrf ]
-        session.Insert("return_to_after_authenticating", "/rooms/1")
-        return c.Json(Status.Ok, body)
-    }
-
 let private whoami (c: Ctx) =
     act {
         let token = match c.Cookies.Signed "session_token" with null -> Value.Null | t -> Value.String t
@@ -53,51 +41,8 @@ let private startApp () : Task<TestApp * Secrets * Timestamp> =
     task {
         let kit, secrets, now = kitFromVectors ()
         let route = Adapter.route kit
-        let! app = start kit [ route "/session" [ "POST", createSession ]; route "/whoami" [ "GET", whoami ] ]
+        let! app = start kit [ route "/whoami" [ "GET", whoami ] ]
         return app, secrets, now
-    }
-
-let private postSession (app: TestApp) (cookie: string) (site: string) (token: string option) (origin: string option) : Task<Reply> =
-    let request =
-        (post "/session").With("host", "localhost:3000").With("cookie", cookie).With("sec-fetch-site", site)
-    let request = match origin with Some origin -> request.With("origin", origin) | None -> request
-    let request =
-        match token with
-        | Some token -> request.Form $"authenticity_token={CookieJar.escape token}"
-        | None -> request.WithBody ""
-    app.Send request
-
-[<Fact>]
-let ``rails sessions carry over`` () =
-    task {
-        let! app, secrets, now = startApp ()
-        use _ = app
-        let session = root().GetProperty "session"
-        let sessionCookieRaw = str (session.GetProperty "session_cookie_raw")
-        let cookie = "_campfire_session=" + CookieJar.escape sessionCookieRaw
-        let formToken = str (session.GetProperty "session_form_token")
-
-        // A form from a page Rails rendered still posts its token; it's ignored, not required.
-        let! fromOldTab = postSession app cookie "same-origin" (Some formToken) None
-        Assert.Equal(200, fromOldTab.Status)
-        let setCookie = fromOldTab.Cookies |> List.exactlyOne
-        let expectedSession = session.GetProperty "session"
-        Assert.Equal(Some(Value.String(str (expectedSession.GetProperty "session_id"))), fromOldTab.Json.TryGet "id")
-        // Rails' token stays in the session, unused.
-        Assert.Equal(Some(Value.String(str (expectedSession.GetProperty "_csrf_token"))), fromOldTab.Json.TryGet "csrf")
-
-        // What we write back after a change is the same session plus the change, in Rails' format.
-        let raw = Cookies.unescape ((setCookie.Substring("_campfire_session=".Length)).Split(';')[0])
-        let decoded = (Cookies.decrypt secrets "_campfire_session" raw now).Value
-        let expected =
-            match (Json.parse (Text.Encoding.UTF8.GetBytes(expectedSession.GetRawText()))).Value with
-            | Value.Object entries -> Value.Object(entries @ [ "return_to_after_authenticating", Value.String "/rooms/1" ])
-            | other -> other
-        Assert.Equal(expected, decoded)
-        Assert.EndsWith("; path=/; expires=Mon, 01 Jan 2046 12:00:00 GMT; httponly; samesite=lax", setCookie)
-
-        let! noToken = postSession app cookie "same-origin" None None
-        Assert.Equal(200, noToken.Status)
     }
 
 [<Fact>]

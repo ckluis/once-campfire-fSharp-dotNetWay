@@ -169,9 +169,13 @@ let startProtocols (protocols: HttpProtocols) (kit: Kit) (endpoints: HttpEndpoin
             options.Listen(IPAddress.Loopback, 0, fun listen -> listen.Protocols <- protocols))
         |> ignore
         builder.Logging.ClearProviders() |> ignore
+        // The flash and the return-to URL live in ASP.NET Core's session (unit 2.5, K6).
+        builder.Services.AddDistributedMemoryCache() |> ignore
+        builder.Services.AddSession(fun options -> options.Cookie.Name <- SessionKeys.CookieName) |> ignore
         let app = builder.Build()
         peerFromHeader app
         configure app
+        app.UseSession() |> ignore
         Adapter.app kit endpoints app
         do! app.StartAsync()
         let addresses = (nonNull (app.Services.GetRequiredService<IServer>().Features.Get<IServerAddressesFeature>())).Addresses
