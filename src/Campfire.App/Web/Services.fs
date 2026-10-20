@@ -9,6 +9,7 @@ namespace Campfire.App.Web
 open System
 open Falco
 open Falco.Routing
+open Microsoft.AspNetCore.Authentication
 open Microsoft.AspNetCore.Authentication.Cookies
 open Microsoft.AspNetCore.Builder
 open Microsoft.AspNetCore.DataProtection
@@ -67,8 +68,12 @@ module Services =
             options.Cookie.IsEssential <- true
             options.IdleTimeout <- TimeSpan.FromHours 2.0)
         |> ignore
-        // K1: the `session_token` cookie. K4's bot-key scheme arrives with unit 2.3.
-        services.AddAuthentication().AddCookie(Schemes.Session, SessionCookie.configure) |> ignore
+        // K1: the `session_token` cookie; K4: the bot key, a second scheme (no policy scheme, no default).
+        services
+            .AddAuthentication()
+            .AddCookie(Schemes.Session, SessionCookie.configure)
+            .AddScheme<AuthenticationSchemeOptions, BotKeyAuthenticationHandler>(Schemes.BotKey, ignore)
+        |> ignore
         services
             .AddOptions<CookieAuthenticationOptions>(Schemes.Session)
             .Configure<Secrets, TimeProvider>(fun options secrets time ->

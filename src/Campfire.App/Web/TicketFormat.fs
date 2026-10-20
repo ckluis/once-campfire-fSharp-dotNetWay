@@ -18,6 +18,10 @@ module Schemes =
     [<Literal>]
     let Session = "Session"
 
+    /// The bot-key scheme (K4).
+    [<Literal>]
+    let BotKey = "BotKey"
+
     /// The cookie's name.
     [<Literal>]
     let SessionCookie = "session_token"

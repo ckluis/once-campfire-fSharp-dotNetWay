@@ -62,6 +62,11 @@ type RequestState(kit: Kit, http: HttpContext) =
 module Adapter =
     let private stateKey = "campfire.kit.state"
 
+    /// `HttpContext.Items` key under which `dispatch` leaves the request's `Ctx`, so an authentication handler can
+    /// read `params` (path, query and body) the way Rails' `bot_authentication` does.
+    [<Literal>]
+    let CtxItemKey = "campfire.kit.ctx"
+
     /// `Rack::MethodOverride::HTTP_METHODS`
     let private overridableMethods = [| "GET"; "HEAD"; "PUT"; "POST"; "DELETE"; "OPTIONS"; "PATCH"; "LINK"; "UNLINK" |]
 
@@ -546,6 +551,7 @@ module Adapter =
                 | null -> ()
                 | header -> cookies.AddHeader header
             let ctx = Ctx(kit, http, request, pathParams, queryParams, bodyParams, cookies)
+            http.Items[CtxItemKey] <- ctx
             let failure = if queryError.IsSome then queryError else bodyError
             let mutable result: Result<Response, Error> = Unchecked.defaultof<_>
             match failure with

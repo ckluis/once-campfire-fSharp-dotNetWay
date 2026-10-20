@@ -174,23 +174,15 @@ module Concerns =
             | Error e -> return Error(webError e)
         }
 
-    /// `bot_authentication`: `params[:bot_key].present?` and a matching active bot.
+    /// `bot_authentication`: `params[:bot_key].present?` and a matching active bot (K4: the bot-key scheme).
     let botAuthentication (c: Ctx) : Task<Result<bool, Error>> =
-        act {
-            match c.Params.Get "bot_key" |> ValueOption.filter (fun p -> p.IsPresent) with
-            | ValueNone -> return false
-            | ValueSome param ->
-                // `params[:bot_key].strip` raises NoMethodError for a hash or array.
-                match param.AsStr with
-                | null -> return! Error(Internal(exn "undefined method 'strip' for bot_key"))
-                | key ->
-                    let botKey = Ruby.strip key
-                    match! c.Read(fun db -> User.authenticateBot db botKey) with
-                    | Some bot ->
-                        c.SetCurrent(CurrentUserSlot bot)
-                        Current.setAuthenticatedBy c BotKey
-                        return true
-                    | None -> return false
+        task {
+            match! Campfire.App.Web.Authentication.botAuthenticate c.Http with
+            | Ok true ->
+                syncCurrent c
+                return Ok true
+            | Ok false -> return Ok false
+            | Error e -> return Error(webError e)
         }
 
     /// `request_authentication`: remember where we were, then off to sign in.
@@ -298,7 +290,9 @@ module Concerns =
 
     /// `deny_bots`: 403 for bot-key requests.
     let denyBots (c: Ctx) : Result<unit, Error> =
-        if authenticatedBy c = BotKey then halt (head Status.Forbidden) else Ok()
+        match Campfire.App.Web.Authentication.denyBots c.Http with
+        | Ok() -> Ok()
+        | Error _ -> halt (head Status.Forbidden)
 
     // --- Authorization -----------------------------------------------------------------------------
 

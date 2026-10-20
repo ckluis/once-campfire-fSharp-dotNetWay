@@ -11,14 +11,17 @@ namespace Campfire.App.Web
 
 open System
 open System.Security.Claims
+open System.Text.Encodings.Web
 open System.Threading.Tasks
 open Microsoft.AspNetCore.Authentication
 open Microsoft.AspNetCore.Authentication.Cookies
 open Microsoft.AspNetCore.Http
 open Microsoft.Extensions.DependencyInjection
 open Microsoft.Extensions.Logging
+open Microsoft.Extensions.Options
 open Campfire.App
 open Campfire.Db
+open Campfire.Ruby
 
 module SessionCookie =
     /// `cookies.signed.permanent[:session_token] = { httponly: true, same_site: :lax }`.
@@ -59,6 +62,39 @@ module SessionCookie =
 
     /// The client facts a session records: user agent and remote IP (an error when the IP cannot be told).
     type Client = unit -> Result<string option * string, Campfire.Kit.Error>
+
+/// K4: `bot_authentication` as a second scheme, tried after the session scheme and never chosen by path. The key is
+/// `params[:bot_key]` (path, query or body, read from the request's `Ctx`); a blank or unknown key is "no result" and
+/// a key that is not a string (a hash or array) fails, which `Authentication.require` answers with a 500 as Rails'
+/// `NoMethodError` does.
+type BotKeyAuthenticationHandler(options: IOptionsMonitor<AuthenticationSchemeOptions>, logger: ILoggerFactory, encoder: UrlEncoder) =
+    inherit AuthenticationHandler<AuthenticationSchemeOptions>(options, logger, encoder)
+
+    override this.HandleAuthenticateAsync() : Task<AuthenticateResult> =
+        let http = this.Context
+        match http.Items.TryGetValue Campfire.Kit.Adapter.CtxItemKey with
+        | true, (:? Campfire.Kit.Ctx as ctx) ->
+            match ctx.Params.Get "bot_key" |> ValueOption.filter (fun p -> p.IsPresent) with
+            | ValueNone -> Task.FromResult(AuthenticateResult.NoResult())
+            | ValueSome param ->
+                match param.AsStr with
+                | null -> Task.FromResult(AuthenticateResult.Fail(exn "undefined method 'strip' for bot_key"))
+                | key ->
+                    let botKey = Ruby.strip key
+                    let db = http.RequestServices.GetRequiredService<Campfire.Db.Ef.CampfireDb>()
+                    let current = Current.get http
+                    match Campfire.Db.Ef.Reads.run db (fun db -> User.authenticateBot db botKey) with
+                    | Ok(Some bot) ->
+                        current.User <- Some bot
+                        current.AuthenticatedBy <- AuthenticatedBy.BotKey
+                        let identity = ClaimsIdentity([ Claim(ClaimTypes.NameIdentifier, string bot.Id) ], this.Scheme.Name)
+                        let ticket = AuthenticationTicket(ClaimsPrincipal identity, this.Scheme.Name)
+                        Task.FromResult(AuthenticateResult.Success ticket)
+                    | Ok None -> Task.FromResult(AuthenticateResult.NoResult())
+                    | Error error ->
+                        current.LookupError <- Some(AppErrors.dbError error)
+                        Task.FromResult(AuthenticateResult.NoResult())
+        | _ -> Task.FromResult(AuthenticateResult.NoResult())
 
 module Authentication =
     /// The framework's `SignInAsync` writes no-cache headers of its own; Rails' response headers are the kit's, so
@@ -130,15 +166,37 @@ module Authentication =
                     return Ok true
         }
 
-    /// `require_authentication` up to its fallbacks: restore, else whatever `otherwise` does (the bot key, then the
-    /// redirect to sign in).
+    /// `bot_authentication`: the `BotKey` scheme. Fails (a 500) for a key that is not a string, or when the lookup
+    /// could not be made.
+    let botAuthenticate (http: HttpContext) : Task<Result<bool, Error>> =
+        task {
+            let! result = http.AuthenticateAsync Schemes.BotKey
+            let current = Current.get http
+            match current.LookupError with
+            | Some error when not result.Succeeded -> return Result.Error(Legacy error)
+            | _ ->
+                if result.Succeeded then return Ok true
+                elif isNull result.Failure then return Ok false
+                else return Result.Error(Internal(nonNull result.Failure))
+        }
+
+    /// `require_authentication`: restore (the session scheme), then the bot key, else whatever `otherwise` does (the
+    /// redirect to sign in, K2's challenge).
     let require (http: HttpContext) (client: SessionCookie.Client) (otherwise: unit -> Task<Result<unit, Error>>) : Task<Result<unit, Error>> =
         task {
             match! restore http client with
             | Result.Error error -> return Result.Error error
             | Ok true -> return Ok()
-            | Ok false -> return! otherwise ()
+            | Ok false ->
+                match! botAuthenticate http with
+                | Result.Error error -> return Result.Error error
+                | Ok true -> return Ok()
+                | Ok false -> return! otherwise ()
         }
+
+    /// `deny_bots`: 403 for a request a bot key authenticated.
+    let denyBots (http: HttpContext) : Result<unit, Error> =
+        if (Current.get http).AuthenticatedBy = AuthenticatedBy.BotKey then Result.Error(Error.Status 403) else Ok()
 
     /// `start_new_session_for(user)`: the `sessions` row, then the cookie.
     let startNewSessionFor (http: HttpContext) (client: SessionCookie.Client) (user: User) : Task<Result<Session, Error>> =
