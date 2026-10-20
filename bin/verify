@@ -22,6 +22,8 @@ guard() {
 guard 'a *Raw EF SQL call' 'FromSqlRaw|ExecuteSqlRaw|SqlQueryRaw' '^src/Campfire\.Db/Schema\.fs:'
 guard 'FormattableStringFactory' 'FormattableStringFactory' '^src/Campfire\.Db/(Models|Fixtures)\.fs:'
 guard "F#'s query { }" '(^|[^"$A-Za-z])query[[:space:]]*\{' '^$'
+# ADO.NET commands bypass EF's parameterization: only the constant pragmas (Interceptors.fs) and the backup's busy_timeout (Boot.fs).
+guard 'a hand-built ADO.NET command' 'CommandText|CreateCommand\(' '^src/Campfire\.(Db/Ef/Interceptors|App/Boot)\.fs:'
 dotnet build CampfireFs.slnx -c Release -warnaserror -v quiet -nologo
 if [ $# -eq 0 ]; then
   dotnet test --solution CampfireFs.slnx -c Release --no-build

@@ -14,8 +14,8 @@ type ClockTimeProvider(clock: SharedClock) =
     inherit TimeProvider()
     override _.GetUtcNow() : DateTimeOffset = clock.Now()
 
-/// Everything a model needs besides the context: the clock, where side effects go, the Action Text adapter (still the port's
-/// interface over `Conn`; unit 1.5a moves it onto `CampfireDb`) and BCrypt's cost.
+/// Everything a model needs besides the context: the clock, where side effects go, the Action Text adapter (over
+/// `CampfireDb`) and BCrypt's cost.
 type Env =
     { Time: TimeProvider
       Sink: EventSink

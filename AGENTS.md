@@ -89,8 +89,10 @@ Project references follow the crate graph. Don't add an edge Rust doesn't have.
   through intermediate strings, a DOM or a markup library.
 - No reflection-based serialization on request paths; use `Utf8JsonWriter` or source-generated
   `System.Text.Json`.
-- Hot queries are `FromSql` or `Find`, never compiled by EF in steady state (hot-path test H1 counts compilations). Reads run on
-  pooled contexts; every write goes through `Writes.run`, one at a time behind the `WriteGate`.
+- Queries are EF LINQ with `EF.Parameter` around every captured value (plans/design-data-ef.md, the LINQ-first revision);
+  `FromSql`/`ExecuteSql` only where LINQ can't say it or a workload fell under the floor, each recorded in the Phase log. Nothing
+  compiles in steady state (hot-path test H1 counts compilations). Reads run on pooled contexts; every write goes through
+  `Writes.run`, one at a time behind the `WriteGate`.
 - Anything Rust caches (page parts, ETags, gzip output, avatar paths), we cache the same way.
 - Performance changes come with before-and-after numbers from `bench/`, recorded under
   `bench/results/`.
@@ -152,8 +154,8 @@ Project references follow the crate graph. Don't add an edge Rust doesn't have.
   medians of `bench/results/phase7-start/`, "vs stored Rust baseline"): the five workloads at c=1 and c=16, 3 reps, `bench/run`'s validity checks and report, plus CPU per
   request from the container's cgroup; run it a unit at a time, `--only fsharp:1 --part 1/2` and so on, then `bench/quick report DIR`. Tier 2 builds nothing into
   an image: `bin/publish-mounted` (in colima) publishes the app as the Dockerfile does, and `bench/quick --mounted /var/tmp/campfire-mounted` runs it mounted over
-  `/opt/campfire`; `bench/quick log DIR --unit ... --tier 2 --change ... --kept true|false` appends to `bench/results/phase7-log.jsonl` (stamped with the commit the measured build came from: the mounted build's `REVISION` file or the image's revision label; pass `--commit` when building an image another way) and rebuilds `index.html` (its hero is the climb chart, `bench/progress/climb.py`). Tier 1 is
-  `dotnet run -c Release --project bench/db-micro` (the database path in process, ns and bytes per page);
+  `/opt/campfire`; `bench/quick log DIR --unit ... --tier 2 --change ... --kept true|false` appends to `bench/results/phase7-log.jsonl` (stamped with the commit the measured build came from: the mounted build's `REVISION` file or the image's revision label; pass `--commit` when building an image another way) and rebuilds `index.html` (its hero is the climb chart, `bench/progress/climb.py`). Tier 1 for the database path is
+  `HotPathTests` (H1-H3; `bench/db-micro` measured the deleted reader pool and writer thread and went with them in Phase 1);
   `bench/quick cpu` is CPU per request alone. Crypto and syscall costs differ between macOS and the container, so tier 1 for anything that touches them runs on Linux: `bench/micro-linux crypto-micro|log-micro [args]` runs a `bench/*-micro` project in the toolchain image on two pinned cores with tier-up at once (a single core leaves a hot loop unoptimized for seconds and the numbers swing 5x). `bench/lib/logcount` checks that the batched request log wrote every line (N requests, SIGTERM, count). `bench/run` keeps the last log lines of each rep in `APP-REP-logtail.txt`. Every run warms each route at its measured concurrency until the app is flat
   (`bench/lib/warmup.py`, `WARMUP_SECS`/`WARMUP_MAX_SECS`; `bench/warmup` draws the curve) and `bench/report` flags runs that did
   not settle. `bench/breakdown alloc` traces allocation by type and by the code that allocates, bytes per request (GC allocation ticks with stacks through dotnet-trace; `bench/alloc-analyze` reads the trace; build it once into `/var/tmp/alloc-analyze/out` in the toolchain image). `bench/breakdown perf` scales perf's shares to the unprofiled CPU per request and attributes allocation the same
