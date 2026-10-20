@@ -39,6 +39,11 @@ let ``D2 set_room sends a missing room back to the root with an alert`` () =
         let! missing = david.Get "/rooms/999999"
         Assert.Equal(302, missing.Status)
         Assert.Equal(Some "http://campfire.test/", missing.Location)
+        // The alert was stored with the redirect (a halting before-action commits the flash too).
+        let! root = david.Get "/"
+        Assert.Equal(302, root.Status)
+        let! landing = david.Get(Uri(root.Location.Value).PathAndQuery)
+        Assert.Contains("Room not found or inaccessible", landing.Text)
         // A direct room is not an open room's: `rooms/opens/:id` redirects, scoped to open and closed rooms.
         let! direct = david.Get $"/rooms/opens/{DIRECT_KEVIN_BENDER}"
         Assert.Equal(302, direct.Status)

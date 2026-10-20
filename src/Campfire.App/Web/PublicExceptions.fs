@@ -43,7 +43,14 @@ module PublicExceptions =
     /// An error as the public exception page: the status, the page or format body, and the headers every response has.
     let respond (error: Error) : HttpHandler =
         match error with
-        | Halt handler -> handler
+        | Halt handler ->
+            // A before-action that redirected with a flash (`set_room`'s alert) stores it as an answered action does.
+            fun http ->
+                task {
+                    do! Respond.commit http
+                    do! handler http
+                }
+                :> Task
         | other ->
             fun http ->
                 task {
