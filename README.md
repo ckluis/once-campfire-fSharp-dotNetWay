@@ -240,6 +240,8 @@ specific to this port are listed below, each citing the reference file it depart
   - A file an upload spooled is deleted when the response completes (`Uploads.assignmentNamed`), as Rails'
     `Rack::TempfileReaper` does. In Rust a `TempPath` goes when the `UploadedFile` drops, so an app that kept the file past
     the request could still read it there.
+  - A request header with a byte outside visible ASCII reaches the app as the framework hands it (Rust's `HeaderValue::to_str`
+    treated it as absent); only `Host` and `X-Request-Id` are read through that rule, for the redirect and the request id.
   - A POST that `_method=head` turned into a HEAD sends no body and announces no length: the host holds a POST's response
     to its `Content-Length`. A real HEAD keeps the length of the body it did not send (`Rack::Head`). Tested by
     `RequestsTests` (R3b).

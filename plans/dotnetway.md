@@ -1365,3 +1365,36 @@ Code in `eaeba8e` (the controllers and the Web pieces) and the fix commit after 
 - **Differences recorded (README, class B):** a bot API request keeps its raw body for bot API paths only; a JSON `null` attachment is "not given"; a non-empty hash/array `involvement` is a 500.
 - **For later units (2.13):** Opus note 3 (remote IP) is already true: nothing in the app calls the kit's `RemoteIp()`. Notes 4 and 5 remain for 2.13 and the limiter (`Flash`/`ReturnTo`/`SessionReset` and `Current.LookupError` in Kit,
   `Errors.respond` building a `Ctx`). The Ctx-based `Layout`, `Page` (`renderDetached*`, `Rendered`), `Concerns` (the before-chain the unit tests still call) are what is left of the legacy side besides the fallback rows.
+
+### Phase 2, unit 2.13: Delete (2026-10-20)
+
+Code in `3a7e9cb` (the deletion and the rehoming) and `09bf227` (HEAD-from-POST, the moved tests, README and design note). Evidence in `bench/results/dotnetway-p2-13/` (`verify.log`, `pixel.log`, `realtime.log`, `replay.log`,
+`cookie-roundtrip.log`, `bench/`, `control/`). The pixel, realtime and replay runs used the image built from `3a7e9cb` (`build.log`); `09bf227` adds one HEAD rule and tests, so `bench/` and `control/` ran on an image built from it
+(`build-final.log`).
+- **Deleted:** `Web/Legacy.fs`, `Concerns.fs`, the `Ctx`-based `Layout`/`CtxApp`/`Current` slots, and in `Campfire.Kit`: `Ctx`, `Actions`, `Adapter`, `Params`, `Body`, `Multipart`, `Cookies`, `Format`, `Request`, `Response`, `Error`,
+  `Exceptions`, `KitClock`, `App`, `Generations`, `Deflater`, `Splice`, `Flash`. `grep -rnw Ctx src` is empty. Every route row is a Web action (the 41 fallback rows too). `Campfire.Kit` is `Front/` and `Server.fs`, with no
+  reference to RailsCompat, Ruby or Falco. Tests retired with their code: `CtxTests`, `AdapterTests`, `BodyTests`, `ParamsTests`, `ParamsVectorTests`, `CookiesTests`, `SessionTests`, `FormatTests`, `ClockTests`, `RequestTests`,
+  `ResponseTests`, `DeflaterTests`, `SpliceTests`, `HttpTests`/`HttpApp`, `LoggingTests`, `PerfTests`, `RailsVectorTests`, `DifferentialTests` and `Harness`/`Helpers`; also `Views.Tests/KitIntegrationTests`, `bin/kit-differential`,
+  `reference-tools/kit` and `bench/kit` (a bench of the old kit's `Ctx`).
+- **Rehomed (not rewritten), in `Campfire.App/Web`:** `Errors.fs` (one error type; `AppState.ReadEf`/`WriteEf`, the staging helpers and `IntegrationJobs` use it; `Errors.status`/`display`), `Flash.fs` (`Flash`, `ReturnTo`,
+  `SessionReset`: Opus note 4), `Edge.fs` (`EdgeConfig` replaces `Kit`/`KitConfig`; forwarded headers, `assume_ssl`, request id, `X-Runtime`, HSTS, method override, body cap), `Outgoing.fs` (Puma's header writing and the
+  file/range/stream body, for Active Storage and the public files), `PageParts.fs` (`Splice` and `Generations`, for the compressed page cache), and `CacheControl`/`ExpiresIn`/`SendOptions` in `Respond.fs`. `Pages.send` writes a rendered
+  page. `Front.configureKestrel`, `FrontCache.hasWord` and `FrontCrc` took what Front used from the kit. The sign-out cookie is a literal in `Authentication.fs` (bytes unchanged); the Cable connection reads `session_token`
+  with the framework's cookie parser. Decisions and why `Splice`/`Generations` stayed: `plans/design-kit-auth.md`, unit 2.13.
+- **Tests:** the Kit suite is Front's, Server's and the request log's (65 passed, 1 skipped); Splice and Generations tests are `Web/PagePartsTests.fs`; the CRC and word tests are Front's; R3b (a POST that `_method=head` turned into a
+  HEAD announces no length), R7 (request heads as large as Puma and hyper accept, 431 and 414 past them) and R8 (Kestrel's three request-line rules) replace the `AdapterTests` they came from. The AppTests that drove the old chain
+  (`whoami`, the platform check) run the Web chain through `Services.pipeline`. C13 (`Origin: null`) was already in `CsrfTests`.
+- **Gates:** `CAMPFIRE_REQUIRE_SEED=1 bin/verify` (Release, warnaserror): 0 warnings, 969 tests, 963 passed, 0 failed, 6 skipped (the same environmental 6); H1 green. `bin/pixel-parity --fast` on every state: PASSED in 1,449 s, default
+  361/361, crowd 12/12, custom_styles 16/16, first_run 8/8, restricted 4/4 equal on screenshots, aria and loose DOM. `realtime/**` one state at a time (13 states): all pass. `controllers_a/replay.py`: default 152 matched, 3 differed
+  by design, 0 differed; crowd 15/0/0; first_run 11/0/0. `bin/cookie-roundtrip`: 20/20 (the Cable cookie parse and the sign-out cookie changed). `bin/clean-docker` and `bin/clean-parity` run; disk 21-29 GB free during the bench.
+- **Speed (`bench/quick`, 3 reps, host 1.04-1.06):** room page 5,545/s c=16 (23.2x Rails), 1,706 c=1 (15.9x); messages page 5,243 (13.8x), 1,538 c=1 (7.06x); sidebar 5,712 (9.54x), 1,645 c=1 (**5.74x**); search 5,082 (12.5x),
+  1,455 c=1 (7.55x); post a message 1,902 c=16 (**5.76x**), 952 c=1 (**5.70x**). Every workload over the 5x floor, all 2xx, 0 errors, decoded bytes equal Rust's, rows written equal answers. Post a message and the sidebar c=1 gained
+  against 2.12 (5.51x/5.38x, 5.21x). The thinnest workload now has 14% headroom. The same-day control (the port's image, 1 rep) ran at
+  0.99-1.00 of its stored medians for the sidebar and post c=1, so the host is as fast as the stored session and the ratios stand unadjusted (the control's post c=16 warm-up did not settle). Opus note 6 (compression) needed no fix.
+- **KLOC:** `bin/kloc` 35,064 by upstream's rules, **35,283 corrected (35.3 KLOC)**, from 39,423 (-4.1): Kit 2,838 (Front only), App 12,277. The plan projected 32.7-33.3 for the whole phase: `Edge`, `Outgoing`, `PageParts`,
+  `Flash` and `Errors` are 1.0 KLOC the plan did not list as kept, and the kept `Splice`/`Generations` are 0.5 of it.
+- **Differences recorded:** none new in behaviour. README's request-handling entries were rewritten for the Web layer (the kit's route-case and `Allow` entries went with `Adapter.route`; the route table is exact); the
+  HEAD-from-POST rule is stated there. Not carried over: a request header with a byte outside visible ASCII is no longer treated as absent in general (the framework hands the app what it was sent; only `Host` and
+  `X-Request-Id` are read through the visible-ASCII rule).
+- **For Phase 3 and later:** A5 still compares timestamps with the wall clock rather than the frozen harness clock (design risk 11). `Campfire.Kit` keeps `Front/` and `Server.fs` until Phase 7. The phase gates (plan section 4): the
+  matrix, `db-differential` (sessions are written; not rerun in this unit, which touches no schema or model) and the same-day-control bench were run per unit; `bin/db-differential` remains for the phase close.
