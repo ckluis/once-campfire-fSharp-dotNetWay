@@ -105,6 +105,23 @@ let ``R2 assume_ssl makes every request https`` () =
     }
 
 [<Fact>]
+let ``R3b a post that _method turned into a head sends no body and announces none`` () =
+    task {
+        use! test = bootSeeded "default"
+        // The wire says POST, so the host would hold the response to its Content-Length: with the body dropped as for any
+        // HEAD, there is none.
+        let! reply = test.Send((request "POST" "/session/new").Form(formBody [ "_method", "head" ]))
+        Assert.Equal(200, reply.Status)
+        Assert.Empty reply.Body
+        Assert.True((reply.Header "content-length" = None || reply.Header "content-length" = Some "0"), $"{reply.Headers}")
+        // A real HEAD keeps the length of the body it did not send.
+        let! head = test.Send(request "HEAD" "/session/new")
+        Assert.Equal(200, head.Status)
+        Assert.Empty head.Body
+        Assert.True((match head.Header "content-length" with Some n -> int n > 0 | None -> false), $"{head.Headers}")
+    }
+
+[<Fact>]
 let ``R3 a form's _method reaches the DELETE and PATCH rows`` () =
     task {
         use! test = bootSeeded "default"
@@ -287,4 +304,57 @@ let ``R6 an exception outside an action is the public 500 page, JSON for a JSON 
         let! action = (anonymous test).Send(get $"/rooms/{ALL_TALK}?bot_key[a]=b")
         Assert.Equal(500, action.Status)
         Assert.Equal<byte[]>(page, action.Body)
+    }
+
+[<Fact>]
+let ``R7 a request head as large as puma and hyper accept is served`` () =
+    task {
+        use! test = bootSeeded "default"
+        // Kestrel's own limits are 32 KB of headers and an 8 KB request line; Rails (Puma: 112 KB, 12 KB of URI) and the Rust
+        // port (hyper: 417,792 bytes of headers, a 65,534-byte URI) serve these, and a browser with many cookies on a shared
+        // domain would otherwise get 431 on every page.
+        let! cookie = test.Send((get "/session/new").With("cookie", "a=" + String('x', 40_000) + "; b=seen"))
+        Assert.Equal(200, cookie.Status)
+        let nineCookies = String.Join("; ", [ for i in 1..9 -> $"c{i}=" + String('y', 4_000) ]) + "; b=seen"
+        let! many = test.Send((get "/session/new").With("cookie", nineCookies))
+        Assert.Equal(200, many.Status)
+        let! header = test.Send((get "/session/new").With("x-big", String('z', 70_000)))
+        Assert.Equal(200, header.Status)
+        let! url = test.Send(get ("/session/new?q=" + String('q', 10_000)))
+        Assert.Equal(200, url.Status)
+        // Past hyper's header buffer the Rust port answers 431; so does this.
+        let! tooBig = test.Send((get "/session/new").With("x-big", String('z', 450_000)))
+        Assert.Equal(431, tooBig.Status)
+        // hyper caps the URI at 65,534 bytes and answers 414 past it; so does this.
+        let! longUrl = test.Send(get ("/session/new?q=" + String('q', 65_000)))
+        Assert.Equal(200, longUrl.Status)
+        let! tooLongUrl = test.Send(get ("/session/new?q=" + String('q', 70_000)))
+        Assert.Equal(414, tooLongUrl.Status)
+    }
+
+/// Send `request` as written and return the reply's status line.
+let private statusLineOf (port: int) (request: string) : Task<string> =
+    task {
+        use client = new System.Net.Sockets.TcpClient()
+        do! client.ConnectAsync(System.Net.IPAddress.Loopback, port)
+        let stream = client.GetStream()
+        do! stream.WriteAsync(Encoding.ASCII.GetBytes request)
+        use received = new MemoryStream()
+        do! stream.CopyToAsync received
+        let text = Encoding.Latin1.GetString(received.ToArray())
+        return text.Substring(0, text.IndexOf "\r\n")
+    }
+
+[<Fact>]
+let ``R8 kestrel's request line rules differ from puma's and hyper's in three recorded ways`` () =
+    task {
+        use! test = bootSeeded "default"
+        // Each of these is fixed in Kestrel's parser and can't be configured; README "Known differences" lists them
+        // (Rails and the Rust port answer 200, 200 and `HTTP/1.0 200 OK`, and 302 for the null byte on /rooms/%00).
+        let! nul = statusLineOf test.Port "GET /session/new%00 HTTP/1.1\r\nHost: chat.example.com\r\nConnection: close\r\n\r\n"
+        Assert.Equal("HTTP/1.1 400 Bad Request", nul)
+        let! authority = statusLineOf test.Port "GET http://evil.example/session/new HTTP/1.1\r\nHost: x\r\nConnection: close\r\n\r\n"
+        Assert.Equal("HTTP/1.1 400 Bad Request", authority)
+        let! old = statusLineOf test.Port "GET /session/new HTTP/1.0\r\nHost: chat.example.com\r\n\r\n"
+        Assert.Equal("HTTP/1.1 200 OK", old)
     }

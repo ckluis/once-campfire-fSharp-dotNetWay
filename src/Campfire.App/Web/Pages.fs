@@ -199,6 +199,7 @@ module Pages =
                 for (name, value) in headers do
                     response.Headers.Append(name, value)
                 response.ContentLength <- Nullable(int64 (match body with Bytes bytes -> bytes.Length | Parts parts -> parts.BodyLength))
+                if Edge.headFromPost http then response.ContentLength <- Nullable()
                 try
                     if not (HttpMethods.IsHead http.Request.Method) then
                         let compressed =

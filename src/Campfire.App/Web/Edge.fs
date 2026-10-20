@@ -228,6 +228,10 @@ module Edge =
 
     let private wireMethodKey = "campfire.web.wire-post"
 
+    /// Whether a HEAD request is a POST on the wire that `_method=head` turned into one. The host holds a POST's response to
+    /// its `Content-Length`, so a body dropped as for any HEAD must not announce one.
+    let headFromPost (http: HttpContext) : bool = HttpMethods.IsHead http.Request.Method && http.Items.ContainsKey wireMethodKey
+
     /// `Rack::MethodOverride` (K10): `UseHttpMethodOverride` reads `_method` from the form, then the method is upper-cased
     /// (the framework sets it as sent, `delete`). The form it reads is the framework's cached one, which `Web.Params` reads
     /// too. A `_method` that is no HTTP verb makes the request that verb, which no route answers (404);

@@ -300,6 +300,9 @@ module RawSql =
 type Test(booted: Booted, dir: string, host: Host, logs: CapturingLoggers) =
     member _.Booted = booted
 
+    /// The loopback port the app listens on.
+    member _.Port = host.Port
+
     /// What the app logged.
     member _.Logs: string = logs.Text
     member _.App = booted.App

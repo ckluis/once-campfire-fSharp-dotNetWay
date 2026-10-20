@@ -95,7 +95,7 @@ specific to this port are listed below, each citing the reference file it depart
     or return-to URL (sign-in then lands on the root). A request with no session cookie never loads the session. `last_room`
     is written through `Response.Cookies` (attribute order differs from Rails', class A). Reference:
     `config/initializers/session_store.rb`. Tested by `FlashTests` (F1-F8).
-  - Proxy headers are the framework's `UseForwardedHeaders` (`Web/Services.fs`, `Adapter.configureForwardedHeaders`):
+  - Proxy headers are the framework's `UseForwardedHeaders` (`Web/Services.fs`, `Edge.configureForwardedHeaders`):
     `X-Forwarded-For`, `-Proto` and `-Host` are honoured from Rails' `TRUSTED_PROXIES` ranges only, walked from the right
     with no forward limit, so a public peer's `X-Forwarded-For` is ignored where Rails (and the Rust port) believe it. Not
     read at all: `Forwarded`, `X-Forwarded-Ssl`, `X-Forwarded-Scheme`, and `Client-Ip` (so there is no
@@ -140,7 +140,7 @@ specific to this port are listed below, each citing the reference file it depart
   - The responses of the controllers moved to `HttpContext` (sessions, first run, welcome, PWA, transfers, health, Turbo Native,
     Action Mailbox) carry Rails' default headers, a default `Content-Type` and, where they set none, `Cache-Control`
     `max-age=0, private, must-revalidate` for a 200 with a body and `no-cache` otherwise, set as the response starts; they
-    carry no `ETag` (K14: the same DOM, pixels and data). A page rendered by a Web action is written by the kit's writer, so a
+    carry no `ETag` (K14: the same DOM, pixels and data). A page rendered by a Web action is written by `Pages`, so a
     page of cached fragments still goes out in parts. Tested by `ControllersATests` (N1, N2).
   - The account and user controllers (accounts, bots, join codes, custom styles, logos, users, avatars, bans, profiles, sidebars,
     push subscriptions) read their params through the framework's form, query and JSON readers (`Web.Params`): a JSON `null` is
@@ -155,9 +155,8 @@ specific to this port are listed below, each citing the reference file it depart
     Rust's names its own. Tested by `ConfigTests` ("vapid subject defaults to the tls domain").
   - A response header whose first line is empty reaches the wire as a line of its own (the first line of a
     `Content-Disposition` that begins with a line break, which Puma writes), where Kestrel's `Append` would drop a
-    lone empty value; the kit hands such a name's values over as one list. Tested by `AdapterTests` ("a header whose
-    first line is empty is written as a line of its own") and `AppTests` ("proxied blobs write odd dispositions as
-    puma does").
+    lone empty value; `Web/Outgoing.fs` hands such a name's values over as one list. Tested by `AppTests` ("proxied blobs
+    write odd dispositions as puma does").
   - Route recognition looks a path's routes up by its first segment and tries their regexes in table order (Rust asks a
     `RegexSet` for the first of a verb's patterns that match). The answer is the same for every path of the
     generated corpus. Tested by `RouteTableTests` ("recognizes like a first match scan").
@@ -192,10 +191,10 @@ specific to this port are listed below, each citing the reference file it depart
   `pwa/manifest`, which doesn't match the sub-state, and ours is kept no larger than Rust's. Tested by `ParityATests`
   ("pwa manifest is valid json whatever the account is called").
 
-- **Response headers set before the response exists** (`Ctx.SetHeader`, e.g. `X-Version` in a before-action)
-  keep every line of a multi-line value. The Rust port keeps only the first line; Puma writes them all
-  (puma 7.2.1, `Puma::Request#str_headers`, the reference's server). Tested by `AdapterTests`
-  ("header values go out as UTF-8 and without control characters").
+- **A response header value with a line break** (the `?disposition=` of a proxied blob, the one header the app builds from
+  the request) keeps every line, and a line holding another control character is left out. The Rust port keeps only the first
+  line; Puma writes them all (puma 7.2.1, `Puma::Request#str_headers`, the reference's server). Tested by `AppTests`
+  ("proxied blobs write odd dispositions as puma does").
 
 - **Front server** (`Campfire.Kit`, Thruster's job; Thruster 0.1.23 is the reference, `rust/crates/kit/src/front`
   the port it follows):
@@ -209,12 +208,11 @@ specific to this port are listed below, each citing the reference file it depart
     URI (414 past that; Kestrel limits the whole request line, so the edge moves by the method's length). Kestrel's
     own 8 KB line and 32 KB headers refused cookies and URLs Rails serves. Puma stops at
     112 KB of headers and answers 400 above 12 KB of URI (10 KB of query), where this port and the Rust port serve
-    them. Tested by `AdapterTests` ("a request head as large as puma and hyper accept is served").
+    them. Tested by `RequestsTests` (R7).
   - Three request-line rules are fixed in Kestrel's parser and can't be configured, so they differ from Puma's and
     hyper's: a `%00` in the path is 400 (Rails and Rust redirect or route it as any path); an absolute-form target
     whose authority differs from `Host` is 400 (both serve it); an HTTP/1.0 request is answered with an
-    `HTTP/1.1` status line (both answer `HTTP/1.0`). Tested by `AdapterTests` ("kestrel's request line rules differ
-    from puma's and hyper's in three recorded ways").
+    `HTTP/1.1` status line (both answer `HTTP/1.0`). Tested by `RequestsTests` (R8).
   - Cleartext HTTP/2 (`H2C_ENABLED`) on a port that also serves HTTP/1.1 reads each connection's first
     bytes for HTTP/2's preface and tells Kestrel which protocol to speak through an internal Kestrel
     feature (`Campfire.Kit/Front/Conn.fs`, `FrontH2c`); if a Kestrel release changes it, the port serves
@@ -230,30 +228,21 @@ specific to this port are listed below, each citing the reference file it depart
     requires (Pebble refuses requests without it), and renews at most once an hour for CAs whose
     certificates live less than 30 days.
 
-- **Request and response handling** (`Campfire.Kit`; `rust/crates/kit/src/{adapter,ctx,params,request}.rs` is
-  the port it follows, the reference is Rails 8.1 on Puma 7.2.1):
+- **Request and response handling** (`Campfire.App`'s `Web/` folder, which unit 2.13 of the .NET way made the whole request
+  layer; `rust/crates/kit/src/{adapter,ctx,params,request}.rs` is what it replaced, the reference is Rails 8.1 on Puma 7.2.1):
   - A request for a method a route doesn't have is Rails' 404 page (`ActionController::RoutingError`, as in
     `reference/config/routes.rb`: no route, no `Allow`). Rust's axum router also answers with the 404
-    (`method_not_allowed_fallback`) but still adds an `Allow` header; ASP.NET's doesn't. Tested by
-    `AdapterTests` ("a HEAD answered 304 has no content length, and an unknown method is a 404 without Allow").
-  - Kestrel doesn't write `Content-Length: 0` for a HEAD that answers 204 or 304, where Rust's hyper does.
-    Puma writes a `Content-Length` only when the response has one (`Puma::Request#prepare_response`, which
-    skips it for 204), and Rails sets none on a 304. Tested by the same test.
-  - `Ctx.Json(status, Value)` writes floats as the json gem does (`1e+15`, `0.00000015`: `Json.generate`),
-    which is what `render json:` gives in Rails (json 2.21.2 in the reference). Rust's `Ctx::json` goes through
-    serde_json (`1000000000000000.0`, `1.5e-7`). Tested by `RailsCompat.Tests` ("floats match the json gem").
-  - `Adapter.route` and `routeAny` match through ASP.NET endpoint routing, which compares literal segments
-    without regard to case (`/PAGE` is `/page`) and ignores a trailing slash. Rails is case-sensitive
-    (`/Rooms/1` is a 404; `reference/config/routes.rb`, Journey) and, like ASP.NET, ignores the slash; axum,
-    which Rust uses, is strict about both. Pinned by `AdapterTests` (same test as above). The app must
-    not depend on the difference: an unknown-case path is a 200 here and a 404 in the references.
-  - The files a multipart body spooled are deleted when the request ends (`Adapter.cleanUp`), as Rails'
-    `Rack::TempfileReaper` does. In Rust a `TempPath` goes when the `UploadedFile` drops, so an app that
-    kept the file past the request could still read it there. Tested by `AdapterTests` ("a multipart body
-    over the limit is 413 and leaves no temp files").
-  - A request header with a byte outside visible ASCII (0x20-0x7e, and tab) is treated as absent, as Rust's
-    `HeaderValue::to_str` does; Rails/Rack would hand the app its bytes. Tested by `AdapterTests` ("a header
-    with anything but visible ascii in it is no header").
+    (`method_not_allowed_fallback`) but still adds an `Allow` header; the route table adds none. Tested by `RouteTableTests`
+    and `SeamTests` (the table dispatches an unknown path to the 404 page).
+  - `Pages.json` writes floats as the json gem does (`1e+15`, `0.00000015`: `Json.generate`), which is what `render json:`
+    gives in Rails (json 2.21.2 in the reference). Rust's `Ctx::json` goes through serde_json (`1000000000000000.0`,
+    `1.5e-7`). Tested by `RailsCompat.Tests` ("floats match the json gem").
+  - A file an upload spooled is deleted when the response completes (`Uploads.assignmentNamed`), as Rails'
+    `Rack::TempfileReaper` does. In Rust a `TempPath` goes when the `UploadedFile` drops, so an app that kept the file past
+    the request could still read it there.
+  - A POST that `_method=head` turned into a HEAD sends no body and announces no length: the host holds a POST's response
+    to its `Content-Length`. A real HEAD keeps the length of the body it did not send (`Rack::Head`). Tested by
+    `RequestsTests` (R3b).
 
 - **Cable** (`Campfire.Cable`; `rust/crates/cable` is the port it follows, Action Cable 8.1 on Puma, with
   websocket-driver, is the reference): the `101 Switching Protocols` is written by Kestrel, so `Connection` is

@@ -114,6 +114,29 @@ first pixel-parity run found the alert missing on `rooms/show/non_member`. Delet
 `lastRoomVisited` and `Page.framedPage`/`content`/`contentInApplicationLayout`/`bare`/`rendererBaseUrl`. Opus note 3 (remote IP): already true
 since 2.7, nothing in the app calls the kit's `RemoteIp()` any more.
 
+Unit 2.13 (Delete): `Legacy.wrap`, `Ctx`, `ActionFn`/`act`, `Concerns`, the `Ctx`-based `Layout` and the kit's request layer are gone, so every route row is a
+Web action (the `actionNotFound` and `missingController` fallbacks too: a Web action answering `NotFound` and `Internal`). `Campfire.Kit` is `Front/` and
+`Server.fs` only (and no longer references RailsCompat, Ruby or Falco); `Front.configureKestrel` is where `Adapter.configureKestrel` went, `hasWord` is in
+`Front/Cache.fs` and the CRC-32 in `Front/Compression.fs`. What the plan listed as deleted but the app still needs was rehomed, not rewritten:
+`Web/Errors.fs` is the one error type (`WithStatus` added for `RecordInvalid`'s 422; `Errors.status` and `Errors.display` replace the kit's, with the framework's
+reason phrases), and `AppState.ReadEf`/`WriteEf` and the staging helpers now answer in it (the `Legacy` case is gone); `Web/Flash.fs` holds `Flash`,
+`ReturnTo` and `SessionReset` (Opus note 4); `Web/Edge.fs` holds `EdgeConfig` (the settings the kit's `Kit`/`KitConfig` carried that anything read:
+trusted proxies as `System.Net.IPNetwork`, `assume_ssl`, `force_ssl` and HSTS, the default headers, the error pages; `Kit` itself is gone, the logger comes from
+`AppState.Loggers`, the clock from `TimeProvider`) with the forwarded-headers, `assume_ssl`, request id, `X-Runtime`, method override and 16 MiB body cap
+middleware that `Adapter` held, plus `Edge.headFromPost` (a POST that `_method=head` turned into a HEAD announces no length, as the old writer did).
+`Respond.fs` takes `CacheControl`, `ExpiresIn` and `SendOptions`; `Formats.shouldApplyVary` is the kit's vary rule on the Web negotiation; `Pages.send` writes a
+rendered page (a buffer, or a page in parts with its compressed form kept) straight to the response. Two kept pieces differ from the plan's list: (1)
+**`Splice.fs` and `Generations.fs` moved to `Web/PageParts.fs` instead of going**, because the compressed-page cache (K11's 2.8 fix for the room page's 35%
+loss) is keyed by the page's ETag digest, which is the fragments' remembered SHAs; without them the room page is hashed or compressed per request. (2)
+**`Web/Outgoing.fs` keeps Puma's header writing** (`HeaderMap.SetPumaValue`, the empty-first-line rule and a body of a file, a range or a stream) for the Active
+Storage endpoints and the public files, whose header values come from the request or the filesystem and which the framework's header collection refuses
+(`?disposition=%0A..`); everything else is `Pages`, `Respond` and the framework. The Cable connection reads `session_token` with the framework's
+`CookieHeaderValue` parser and RailsCompat's verifier. Retired with their code: the Kit tests of `Ctx`, the adapter, params, body, cookies, format, request,
+response, session, deflater, splice, the Kit-vs-Rust differential and HTTP replays, the performance micro-bench of the old kit, `bin/kit-differential`,
+`reference-tools/kit` and `bench/kit`; kept and moved: the splice tests (`Web/PagePartsTests.fs`), the CRC and word-match tests (Front's), the request-head
+limit and request-line tests (`RequestsTests` R7, R8) and the HEAD-from-POST test (R3b). Opus note 7: C13 (`Origin: null`) was already in `CsrfTests`;
+A5 still compares with the wall clock.
+
 ## 2. Spikes (scratch project, 2026-10-13, .NET SDK 10.0.401, Falco 5.2.0, the repo's `Campfire.RailsCompat`)
 
 `/private/tmp/claude-501/-Users-clank-Desktop-projects/fea4ed62-8823-4b82-bed5-fc54b6214d57/scratchpad/authspike/` (`Program.fs`,

@@ -187,6 +187,7 @@ module Outgoing =
                 | OnDisk file -> response.Headers.Insert("content-length", string file.Len)
                 | NoBody
                 | Streamed _ -> ()
+                if head && Edge.headFromPost http then response.Headers.Remove "content-length"
                 copyHeaders http response
                 try
                     try
