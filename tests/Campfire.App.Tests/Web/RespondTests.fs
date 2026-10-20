@@ -263,6 +263,8 @@ let ``X5 send_file answers ranges, with Rails' Content-Disposition`` () =
                 match http.Request.Path.Value with
                 | "/file" -> ok (Respond.sendFile path { Campfire.Kit.SendOptions.Default with Filename = "notes ü.txt" })
                 | "/inline" -> ok (Respond.sendFile path (Campfire.Kit.SendOptions.Inline "text/plain"))
+                // The storage directory may be relative (`storage/files/..`): `Results.File` would read it under the web root.
+                | "/relative" -> ok (Respond.sendFile (Path.GetRelativePath(Environment.CurrentDirectory, path)) Campfire.Kit.SendOptions.Default)
                 | "/missing" -> ok (Respond.sendFile (path + ".gone") Campfire.Kit.SendOptions.Default)
                 | _ -> ok (Result.Error NotFound)
             use! host = startRoutes test routes
@@ -283,6 +285,10 @@ let ``X5 send_file answers ranges, with Rails' Content-Disposition`` () =
             Assert.Equal<byte[]>(content[995..], tail.Body)
             let! beyond = host.Send((get "/file").With("range", "bytes=5000-"))
             Assert.Equal(416, beyond.Status)
+
+            let! relative = host.Send(get "/relative")
+            Assert.Equal(200, relative.Status)
+            Assert.Equal<byte[]>(content, relative.Body)
 
             let! inline' = host.Send(get "/inline")
             Assert.StartsWith("inline; filename=", (inline'.Header "content-disposition").Value)
