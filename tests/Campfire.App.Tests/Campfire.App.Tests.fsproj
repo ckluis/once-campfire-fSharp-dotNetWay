@@ -12,6 +12,7 @@
     <Compile Include="PlatformTests.fs" />
     <Compile Include="RouteTableTests.fs" />
     <Compile Include="Web/SeamTests.fs" />
+    <Compile Include="Web/AuthenticationTests.fs" />
     <Compile Include="AppTests.fs" />
     <Compile Include="JobsTests.fs" />
     <Compile Include="MiscTests.fs" />

@@ -44,6 +44,8 @@
     <Compile Include="Web/Errors.fs" />
     <Compile Include="Web/Action.fs" />
     <Compile Include="Web/Current.fs" />
+    <Compile Include="Web/TicketFormat.fs" />
+    <Compile Include="Web/Authentication.fs" />
     <Compile Include="Web/Legacy.fs" />
     <Compile Include="Web/Services.fs" />
     <Compile Include="Concerns.fs" />

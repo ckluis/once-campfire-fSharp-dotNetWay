@@ -369,7 +369,7 @@ let private copyDir (from: string) (target: string) : unit =
 let configFor (root: string) (extra: (string * string) list) : AppConfig =
     let secret = defaultArg (parityEnv "SECRET_KEY_BASE") "test-secret-key-base"
     let vars =
-        dict (
+        Map.ofList (
             [ "SECRET_KEY_BASE", secret
               "DISABLE_SSL", "true"
               "APP_VERSION", "parity"
@@ -377,7 +377,7 @@ let configFor (root: string) (extra: (string * string) list) : AppConfig =
               "CAMPFIRE_STORAGE_PATH", root ]
             @ extra
         )
-    match AppConfig.fromLookup (fun name -> match vars.TryGetValue name with | true, value -> value | _ -> null) with
+    match AppConfig.fromLookup (fun name -> match Map.tryFind name vars with Some value -> value | None -> null) with
     | Ok config -> config
     | Error message -> failwith message
 
@@ -392,7 +392,7 @@ let private startWith dbOptions (config: AppConfig) (dir: string) : Task<Test> =
 let private start (config: AppConfig) (dir: string) : Task<Test> = startWith ignore config dir
 
 /// An app booted over a private copy of seed `name`, with `dbOptions` applied to the EF context options (tests: `LogTo`).
-let bootSeededWith dbOptions (name: string) : Task<Test> =
+let bootSeededConfigured dbOptions (extra: (string * string) list) (name: string) : Task<Test> =
     task {
         match Repo.seed name with
         | None ->
@@ -406,11 +406,14 @@ let bootSeededWith dbOptions (name: string) : Task<Test> =
                 if File.Exists from then File.Copy(from, Path.Combine(dir, "db", file))
             let storage = Path.Combine(seed, "storage")
             if Directory.Exists storage then copyDir storage (Path.Combine(dir, "files"))
-            let! test = startWith dbOptions (configFor dir []) dir
+            let! test = startWith dbOptions (configFor dir extra) dir
             let labels = Path.Combine(seed, "labels.json")
             if File.Exists labels then test.Labels <- Some((JsonDocument.Parse(File.ReadAllText labels)).RootElement.Clone())
             return test
     }
+
+/// `bootSeededConfigured` with no environment of its own.
+let bootSeededWith dbOptions (name: string) : Task<Test> = bootSeededConfigured dbOptions [] name
 
 /// An app booted over a private copy of seed `name`, or a skip when the seed isn't built.
 let bootSeeded (name: string) : Task<Test> = bootSeededWith ignore name

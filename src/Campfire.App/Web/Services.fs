@@ -9,6 +9,7 @@ namespace Campfire.App.Web
 open System
 open Falco
 open Falco.Routing
+open Microsoft.AspNetCore.Authentication.Cookies
 open Microsoft.AspNetCore.Builder
 open Microsoft.AspNetCore.DataProtection
 open Microsoft.AspNetCore.Http
@@ -66,8 +67,15 @@ module Services =
             options.Cookie.IsEssential <- true
             options.IdleTimeout <- TimeSpan.FromHours 2.0)
         |> ignore
-        // K1/K4 register their schemes in units 2.2 and 2.3.
-        services.AddAuthentication() |> ignore
+        // K1: the `session_token` cookie. K4's bot-key scheme arrives with unit 2.3.
+        services.AddAuthentication().AddCookie(Schemes.Session, SessionCookie.configure) |> ignore
+        services
+            .AddOptions<CookieAuthenticationOptions>(Schemes.Session)
+            .Configure<Secrets, TimeProvider>(fun options secrets time ->
+                options.TicketDataFormat <- RailsSignedTicketFormat(secrets, time)
+                options.TimeProvider <- time
+                options.Events.OnValidatePrincipal <- Func<CookieValidatePrincipalContext, System.Threading.Tasks.Task>(SessionCookie.validatePrincipal))
+        |> ignore
 
     /// The app's branch of the host: the kit's pre-routing middleware, public files, `/cable`, then the route table
     /// (`dispatch`) as Falco's not-found handler, so ASP.NET Core's own routing never rewrites a path.

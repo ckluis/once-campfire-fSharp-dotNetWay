@@ -136,65 +136,42 @@ module Concerns =
 
     // --- Authentication ----------------------------------------------------------------------------
 
-    /// `Authentication::SessionLookup#find_session_by_cookie`
-    let findSessionByCookie (c: Ctx) : Task<Result<Session option, Error>> =
-        match c.Cookies.Signed "session_token" with
-        | null -> Task.FromResult(Ok None)
-        | token -> c.Read(fun db -> Session.findByToken db token)
-
-    /// `cookies.signed.permanent[:session_token] = { value: session.token, httponly: true, same_site: :lax }`
-    let private setAuthenticationCookie (c: Ctx) (session: Session) : Result<unit, Error> =
-        let cookie = (Cookie.New session.Token).AsPermanent().AsHttpOnly().WithSameSite(ValueSome SameSite.Lax)
-        c.Cookies.SetSigned("session_token", cookie)
-
-    /// `authenticated_as(session)`: `Current.session = session` (which sets `Current.user` to
-    /// `session.user`), `authenticated_by` session, and, with `setCookie`, a fresh `session_token` cookie.
-    let private authenticatedAs (c: Ctx) (session: Session) (user: User option) (setCookie: bool) : Task<Result<unit, Error>> =
-        act {
-            let! user =
-                match user with
-                | Some user -> Task.FromResult(Ok(Some user))
-                | None -> c.Read(fun db -> User.findById db session.UserId)
-            if setCookie then do! setAuthenticationCookie c session
-            c.SetCurrent(CurrentSessionSlot session)
-            match user with
-            | Some user -> c.SetCurrent(CurrentUserSlot user)
-            | None -> ()
-            Current.setAuthenticatedBy c BySession
-        }
-
     let private userAgentAndIp (c: Ctx) : Result<string option * string, Error> =
         match c.Request.RemoteIp() with
         | Error e -> Error e
         | Ok ip -> Ok((match c.Request.UserAgent with null -> None | ua -> Some ua), ip)
 
-    /// `resume_session(session)`: refresh its activity (at most hourly), then authenticate as it.
-    ///
-    /// Only a session due for its refresh goes to the database writer, so other requests don't queue
-    /// behind every write for nothing. The `session_token` cookie is re-signed on the same schedule
-    /// rather than on every request as Rails does, which keeps its 20-year expiry rolling without a
-    /// cookie on every response.
-    let resumeSession (c: Ctx) (session: Session) : Task<Result<unit, Error>> =
-        act {
-            let refresh = Session.needsResume session (RailsTime.truncate (c.Now().UtcDateTime))
-            let! session =
-                if refresh then
-                    match userAgentAndIp c with
-                    | Error e -> Task.FromResult(Error e)
-                    | Ok(userAgent, ip) -> c.Write(fun tx -> Session.resume tx session userAgent (Some ip))
-                else
-                    Task.FromResult(Ok session)
-            do! authenticatedAs c session None refresh
+    let private webError (error: Campfire.App.Web.Error) : Error = Campfire.App.Web.Errors.toKit error
+
+    /// The session cookie scheme's answers (`Web.Authentication`), as the `Ctx` slots the legacy actions read.
+    let private syncCurrent (c: Ctx) : unit =
+        let current = Campfire.App.Web.Current.get c.Http
+        match current.Session with
+        | Some session -> c.SetCurrent(CurrentSessionSlot session)
+        | None -> ()
+        match current.User with
+        | Some user ->
+            c.SetCurrent(CurrentUserSlot user)
+            Current.setAuthenticatedBy c current.AuthenticatedBy
+        | None -> ()
+
+    /// `Authentication::SessionLookup#find_session_by_cookie`
+    let findSessionByCookie (c: Ctx) : Task<Result<Session option, Error>> =
+        task {
+            let! found = Campfire.App.Web.Authentication.session c.Http
+            return found |> Result.mapError webError
         }
 
-    /// `restore_authentication`: resume the session named by the `session_token` cookie.
+    /// `restore_authentication`: resume the session named by the `session_token` cookie (K3: the cookie scheme).
     let restoreAuthentication (c: Ctx) : Task<Result<bool, Error>> =
-        act {
-            match! findSessionByCookie c with
-            | Some session ->
-                do! resumeSession c session
-                return true
-            | None -> return false
+        task {
+            let! restored = Campfire.App.Web.Authentication.restore c.Http (fun () -> userAgentAndIp c)
+            match restored with
+            | Ok true ->
+                syncCurrent c
+                return Ok true
+            | Ok false -> return Ok false
+            | Error e -> return Error(webError e)
         }
 
     /// `bot_authentication`: `params[:bot_key].present?` and a matching active bot.
@@ -227,11 +204,21 @@ module Concerns =
 
     /// `require_authentication`: `restore_authentication || bot_authentication || request_authentication`.
     let requireAuthentication (c: Ctx) : Task<Result<unit, Error>> =
-        act {
-            let! restored = restoreAuthentication c
-            if not restored then
-                let! bot = botAuthentication c
-                if not bot then do! requestAuthentication c
+        task {
+            let otherwise () : Task<Result<unit, Campfire.App.Web.Error>> =
+                task {
+                    let! bot = botAuthentication c
+                    match bot with
+                    | Error e -> return Error(Campfire.App.Web.Error.Legacy e)
+                    | Ok true -> return Ok()
+                    | Ok false ->
+                        match requestAuthentication c with
+                        | Error e -> return Error(Campfire.App.Web.Error.Legacy e)
+                        | Ok() -> return Ok()
+                }
+            let! required = Campfire.App.Web.Authentication.require c.Http (fun () -> userAgentAndIp c) otherwise
+            syncCurrent c
+            return required |> Result.mapError webError
         }
 
     /// `redirect_signed_in_user_to_root`
@@ -277,29 +264,28 @@ module Concerns =
 
     /// `start_new_session_for(user)`
     let startNewSessionFor (c: Ctx) (user: User) : Task<Result<Session, Error>> =
-        act {
-            let! userAgent, ip = userAgentAndIp c
-            let! session = c.Write(fun tx -> Session.start tx user.Id userAgent (Some ip))
-            do! authenticatedAs c session (Some user) true
-            return session
+        task {
+            let! started = Campfire.App.Web.Authentication.startNewSessionFor c.Http (fun () -> userAgentAndIp c) user
+            match started with
+            | Ok session ->
+                syncCurrent c
+                return Ok session
+            | Error e -> return Error(webError e)
         }
 
-    /// `terminate_current_session`: destroy the session, reset the Rails session, drop the cookie,
-    /// and disconnect the user's sockets (`reset_remote_connections`, errors only logged).
+    /// `terminate_current_session`: destroy the session, drop the cookie, reset the Rails session, and disconnect
+    /// the user's sockets (`reset_remote_connections`, errors only logged).
     let terminateCurrentSession (c: Ctx) : Task<Result<unit, Error>> =
-        act {
-            match currentSession c with
-            | Some session -> do! c.Write(fun tx -> Session.destroy tx session)
-            | None -> ()
-            c.ResetSession()
-            c.Cookies.Delete "session_token"
-            match currentUser c with
-            | Some user ->
-                match! Campfire.Db.Ef.Writes.run c.App.Gate c.App.Env c.Db (fun tx -> User.resetRemoteConnections tx user) with
-                | Ok() -> ()
-                | Error error ->
-                    c.Kit.Logger.LogWarning("Could not disconnect remote connections on sign out: {Error}", DbError.display error)
-            | None -> ()
+        task {
+            let current = Campfire.App.Web.Current.get c.Http
+            current.Session <- currentSession c
+            current.User <- currentUser c
+            let! ended = Campfire.App.Web.Authentication.terminateCurrentSession c.Http
+            match ended with
+            | Ok() ->
+                c.ResetSession()
+                return Ok()
+            | Error e -> return Error(webError e)
         }
 
     /// `post_authenticating_url`: `session.delete(:return_to_after_authenticating) || root_url`.

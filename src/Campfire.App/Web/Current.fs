@@ -13,6 +13,8 @@ type Current() =
     member val User: User option = None with get, set
     member val AuthenticatedBy = Anonymous with get, set
     member val Platform: ApplicationPlatform option = None with get, set
+    /// A database failure while the cookie scheme looked the session up (the scheme can only reject; `Authentication.restore` reports it).
+    member val LookupError: Campfire.Kit.Error option = None with get, set
 
 module Current =
     /// This request's `Current`, made on first use.
