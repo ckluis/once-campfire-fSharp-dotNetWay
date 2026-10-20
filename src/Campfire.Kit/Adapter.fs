@@ -69,6 +69,11 @@ module Adapter =
     [<Literal>]
     let CtxItemKey = "campfire.kit.ctx"
 
+    /// Where a JSON body read ahead of `dispatch` (by `Web.Params.load`) waits, as a `byte[]`; `dispatch` parses it from
+    /// there and leaves its own copy for the same accessors. Until unit 2.13 deletes `Ctx`.
+    [<Literal>]
+    let JsonBodyItemKey = "campfire.web.params.json-body"
+
     /// hyper's default `max_buf_size` (8192 + 4096 * 100): the most bytes of request line and headers the
     /// Rust port reads before it answers 431.
     let private maxRequestHead = 417_792
@@ -149,16 +154,66 @@ module Adapter =
             (announced.HasValue && announced.Value > 0L) || http.Request.Headers.ContainsKey "transfer-encoding"
         | feature -> feature.CanHaveBody
 
+    /// The form the framework has read (the method override reads a POST's; `ReadFormAsync` caches it): text fields
+    /// and files as the kit's pairs, files spooled to temp files the request deletes when it is done.
+    let private formBody (http: HttpContext) : Task<Result<ParsedBody, BodyError>> =
+        task {
+            let files = ResizeArray<UploadedFile>()
+            try
+                let! form = http.Request.ReadFormAsync()
+                let pairs = ResizeArray<RawPair>()
+                for kv in form do
+                    for value in kv.Value do
+                        pairs.Add(Params.textPair kv.Key value)
+                for file in form.Files do
+                    let path = UploadedFile.NewTempPath()
+                    let target = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.None)
+                    try
+                        do! file.CopyToAsync target
+                    finally
+                        target.Dispose()
+                    let headers = String.Join("\r\n", [ for h in file.Headers -> $"{h.Key}: {h.Value}" ])
+                    let uploaded =
+                        new UploadedFile(RequestBody.normalizeFilename file.FileName, file.ContentType, headers, file.Length, path)
+                    files.Add uploaded
+                    pairs.Add(Params.filePair file.Name uploaded)
+                match Params.fromPairs pairs with
+                | Ok pars -> return Ok { Raw = ReadOnlyMemory.Empty; Params = Ok pars; Files = files.ToArray() }
+                | Error e ->
+                    for file in files do file.Delete()
+                    return Ok { ParsedBody.empty with Params = Error e }
+            with
+            | :? Microsoft.AspNetCore.Http.BadHttpRequestException as e when e.StatusCode = 413 ->
+                for file in files do file.Delete()
+                return Error TooLarge
+            | :? Microsoft.AspNetCore.Http.BadHttpRequestException as e ->
+                for file in files do file.Delete()
+                return Error(Read e.Message)
+            | :? InvalidDataException as e ->
+                for file in files do file.Delete()
+                return Error(Read e.Message)
+            | :? IOException ->
+                for file in files do file.Delete()
+                return Error(Read "unreadable body")
+        }
+
     /// Read and parse the request's body. One with nothing to read is not read (an empty multipart
-    /// body is still a malformed one).
+    /// body is still a malformed one). A form is the framework's (`Request.Form`, read once); a JSON body read ahead by
+    /// `Web.Params.load` is parsed from the copy it left.
     let private parseBody (kit: Kit) (http: HttpContext) (originalMethod: string) : Task<Result<ParsedBody, BodyError>> =
         let abandoned = (stateOf kit http).BodyAbandoned
         let multipart =
             match RequestHeaders.get http.Request.Headers Hdr.ContentType with
             | null -> false
             | ct -> ct.StartsWith("multipart/", StringComparison.OrdinalIgnoreCase)
-        if not abandoned && (canHaveBody http || multipart) then
-            RequestBody.parse originalMethod http.Request.Headers (contentLength http) http.Request.Body kit.Config.MaxBodyBytes
+        if not abandoned && http.Request.HasFormContentType then
+            formBody http
+        elif not abandoned && (canHaveBody http || multipart) then
+            let body: Stream =
+                match http.Items.TryGetValue JsonBodyItemKey with
+                | true, (:? (byte[]) as bytes) -> new MemoryStream(bytes)
+                | _ -> http.Request.Body
+            RequestBody.parse originalMethod http.Request.Headers (contentLength http) body kit.Config.MaxBodyBytes
         else
             Task.FromResult(
                 Ok
@@ -469,8 +524,8 @@ module Adapter =
     let private wireMethodKey = "campfire.kit.wire-post"
 
     /// `Rack::MethodOverride` (K10): `UseHttpMethodOverride` reads `_method` from the form, then the method is upper-cased
-    /// (the framework sets it as sent, `delete`). The form is read through a buffered body that is rewound afterwards, so
-    /// the kit's own body parser still sees the bytes (unit 2.7 retires it). A `_method` that is no HTTP verb makes
+    /// (the framework sets it as sent, `delete`). The form it reads is the framework's cached one: the kit's body
+    /// parser and `Web.Params` read `Request.Form`, not the bytes. A `_method` that is no HTTP verb makes
     /// the request that verb, which no route answers (404); `X-HTTP-Method-Override` is not read.
     let useMethodOverride (kit: Kit) (app: IApplicationBuilder) : unit =
         let options = HttpMethodOverrideOptions(FormFieldName = "_method")
@@ -478,7 +533,6 @@ module Adapter =
             Func<HttpContext, RequestDelegate, Task>(fun http next ->
                 if HttpMethods.IsPost http.Request.Method then
                     http.Items[wireMethodKey] <- box true
-                    if http.Request.HasFormContentType then http.Request.EnableBuffering(1 <<< 20, MaxRequestBody + (1L <<< 20))
                 next.Invoke http)
         )
         |> ignore
@@ -486,7 +540,6 @@ module Adapter =
         app.Use(
             Func<HttpContext, RequestDelegate, Task>(fun http next ->
                 let request = http.Request
-                if request.Body.CanSeek && request.Body.Position <> 0L then request.Body.Position <- 0L
                 if http.Items.ContainsKey wireMethodKey && not (HttpMethods.IsPost request.Method) then
                     (stateOf kit http).OriginalMethod <- "POST"
                     request.Method <- request.Method.ToUpperInvariant()
@@ -502,12 +555,17 @@ module Adapter =
         options.ValueLengthLimit <- int MaxRequestBody
         options.MultipartBodyLengthLimit <- MaxRequestBody
 
-    /// Caps the body at `MaxRequestBody`; Kestrel answers a longer one with a 413 as it is read.
-    let bodyLimit: Func<HttpContext, RequestDelegate, Task> =
+    /// Caps the body at `MaxRequestBody` (or the kit's own smaller `MaxBodyBytes`); Kestrel answers a longer one with a 413
+    /// as it is read, whoever reads it: the form the method override parses, the kit's body parser.
+    let bodyLimit (kit: Kit) : Func<HttpContext, RequestDelegate, Task> =
+        let limit =
+            match kit.Config.MaxBodyBytes with
+            | ValueSome bytes -> min MaxRequestBody (int64 bytes)
+            | ValueNone -> MaxRequestBody
         Func<HttpContext, RequestDelegate, Task>(fun http next ->
             match http.Features.Get<IHttpMaxRequestBodySizeFeature>() with
             | null -> ()
-            | feature -> if not feature.IsReadOnly then feature.MaxRequestBodySize <- Nullable MaxRequestBody
+            | feature -> if not feature.IsReadOnly then feature.MaxRequestBodySize <- Nullable limit
             next.Invoke http)
 
     /// Wrap every response the kit writes in `Rack::Deflater` (`config.ru`'s `use Rack::Deflater`).
@@ -548,6 +606,11 @@ module Adapter =
                     | Ok pars -> struct (body.Raw, pars, ValueNone)
                     | Error e -> struct (body.Raw, ParamMap(), ValueSome(Error.ofParamError e))
                 | Error error -> struct (ReadOnlyMemory<byte>.Empty, ParamMap(), ValueSome(Status(BodyError.status error)))
+            if raw.Length > 0 && not (http.Items.ContainsKey JsonBodyItemKey) then
+                match RequestHeaders.get http.Request.Headers Hdr.ContentType with
+                | null -> ()
+                | ct when ct.Contains("json", StringComparison.OrdinalIgnoreCase) -> http.Items[JsonBodyItemKey] <- raw.ToArray()
+                | _ -> ()
             let struct (path, query, authority) = splitTarget http
             let request =
                 Request(meth, originalMethod, path, query, authority, state.Ssl, http.Request.Headers, peerOf http, raw, kit.Config.Proxy)
@@ -645,7 +708,7 @@ module Adapter =
         builder.UseForwardedHeaders(ForwardedHeadersOptions() |> fun o -> configureForwardedHeaders kit.Config.Proxy o; o) |> ignore
         builder.Use(assumeSsl kit) |> ignore
         builder.Use(defaultHeaders kit) |> ignore
-        builder.Use(bodyLimit) |> ignore
+        builder.Use(bodyLimit kit) |> ignore
         useMethodOverride kit builder
         builder.UseRouting() |> ignore
         builder.UseFalco endpoints |> ignore

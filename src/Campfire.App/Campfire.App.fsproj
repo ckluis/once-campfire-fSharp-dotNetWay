@@ -42,6 +42,8 @@
     <Compile Include="Presenters/EmojiRanges.fs" />
     <Compile Include="Presenters/Presenter.fs" />
     <Compile Include="Web/Errors.fs" />
+    <Compile Include="Web/Params.fs" />
+    <Compile Include="Web/Formats.fs" />
     <Compile Include="Web/Action.fs" />
     <Compile Include="Web/Current.fs" />
     <Compile Include="Web/TicketFormat.fs" />

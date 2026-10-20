@@ -211,14 +211,31 @@ let ``R4 a chunked body over 16 MiB is 413 with the public page`` () =
     task {
         use! test = bootSeeded "default"
         use client = new HttpClient(new SocketsHttpHandler(UseCookies = false))
-        // No `Content-Length`: the host's limit trips as the body is read, and `UseExceptionHandler` answers.
-        let content = new StreamContent(new ChunkStream(18, 1024 * 1024))
-        content.Headers.ContentType <- Headers.MediaTypeHeaderValue "text/plain"
-        use message = new HttpRequestMessage(HttpMethod.Post, $"http://127.0.0.1:{test.Host.Port}/rooms/{ALL_TALK}/{BENDER_KEY}/messages", Content = content)
-        message.Headers.Host <- "campfire.test"
-        use! reply = client.SendAsync message
-        let! text = reply.Content.ReadAsStringAsync()
-        Assert.True((int reply.StatusCode = 413), $"{int reply.StatusCode} {text} {test.Logs}")
+        // No `Content-Length`: the host's limit trips as the body is read, and `UseExceptionHandler` answers. The host
+        // may close the connection while the client is still sending, so the client sometimes sees a reset instead of the
+        // answer (a race of the client's, not of the app): try again until a reply arrives.
+        let attempt () =
+            task {
+                let content = new StreamContent(new ChunkStream(18, 1024 * 1024))
+                content.Headers.ContentType <- Headers.MediaTypeHeaderValue "text/plain"
+                use message = new HttpRequestMessage(HttpMethod.Post, $"http://127.0.0.1:{test.Host.Port}/rooms/{ALL_TALK}/{BENDER_KEY}/messages", Content = content)
+                message.Headers.Host <- "campfire.test"
+                try
+                    use! reply = client.SendAsync message
+                    let! text = reply.Content.ReadAsStringAsync()
+                    return Some(int reply.StatusCode, text)
+                with :? HttpRequestException ->
+                    return None
+            }
+        let mutable answer = None
+        let mutable tries = 0
+        while answer.IsNone && tries < 10 do
+            let! got = attempt ()
+            answer <- got
+            tries <- tries + 1
+        match answer with
+        | Some(status, text) -> Assert.True((status = 413), $"{status} {text} {test.Logs}")
+        | None -> Assert.Fail $"no reply in {tries} tries: {test.Logs}"
     }
 
 [<Fact>]

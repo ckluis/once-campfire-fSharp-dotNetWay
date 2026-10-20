@@ -17,6 +17,8 @@
     <Compile Include="Web/CsrfTests.fs" />
     <Compile Include="Web/FlashTests.fs" />
     <Compile Include="Web/RequestsTests.fs" />
+    <Compile Include="Web/ParamsTests.fs" />
+    <Compile Include="Web/FormatsTests.fs" />
     <Compile Include="AppTests.fs" />
     <Compile Include="JobsTests.fs" />
     <Compile Include="MiscTests.fs" />

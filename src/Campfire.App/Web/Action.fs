@@ -17,7 +17,10 @@ module Action =
                 let! result =
                     task {
                         try
-                            return! action http
+                            // The body is read once, here, for the accessors in `Params`; a body it cannot read is a 400.
+                            match! Params.load http with
+                            | Result.Error error -> return Result.Error error
+                            | Ok() -> return! action http
                         with e ->
                             return Result.Error(Internal e)
                     }

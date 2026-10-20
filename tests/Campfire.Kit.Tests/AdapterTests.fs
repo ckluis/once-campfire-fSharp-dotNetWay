@@ -384,7 +384,8 @@ let ``an http2 request body without a content length is read`` () =
         Assert.Equal(System.Net.HttpVersion.Version20, response.Version)
         let! body = response.Content.ReadAsStringAsync()
         Assert.Equal(Some(json """{"a": "1", "b": ["2", "3"]}"""), (json body).TryGet "params")
-        Assert.Equal(Some(Value.String "a=1&b[]=2&b[]=3"), (json body).TryGet "raw")
+        // A form is the framework's (`Request.Form`, read once), so the raw bytes are not kept (class B).
+        Assert.Equal(Some(Value.String ""), (json body).TryGet "raw")
         // And a GET, with no body to read.
         use get' = new System.Net.Http.HttpRequestMessage(System.Net.Http.HttpMethod.Get, uri)
         use! response = send get'

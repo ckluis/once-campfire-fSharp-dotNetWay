@@ -1,4 +1,4 @@
-// plans/design-kit-auth.md section 5, unit 2.4 (CSRF): C1-C12. The whole app over a parity seed; the forgery check is
+// plans/design-kit-auth.md section 5, unit 2.4 (CSRF): C1-C13. The whole app over a parity seed; the forgery check is
 // .NET 11's `ICsrfProtection`, called from the before-action chain (K5): a form post, a Turbo-style `DELETE` through
 // `_method` and a JSON `PATCH`, each against every Fetch Metadata and `Origin` case, and the denial is Rails' 422 page.
 module Campfire.App.Tests.Web.CsrfTests
@@ -158,4 +158,14 @@ let ``C12 under assume_ssl a browser's https Origin matches`` () =
         // Behind a proxy that says https, the same.
         let! viaProxy = send test (snd writes.Head) [ "x-forwarded-proto", "https"; "origin", "https://campfire.test" ]
         allowed "x-forwarded-proto" viaProxy
+    }
+
+[<Fact>]
+let ``C13 Origin null is refused`` () =
+    task {
+        use! test = bootSeeded "default"
+        // A sandboxed frame or a redirect chain sends `Origin: null`; it is no origin the page can match.
+        for name, build in writes do
+            let! reply = send test build [ "origin", "null" ]
+            forged $"{name} with Origin: null" reply
     }

@@ -103,7 +103,7 @@ module Services =
         Adapter.useDeflater kit builder |> ignore
         builder.Use(Adapter.defaultHeaders kit) |> ignore
         builder.Use(publicFiles) |> ignore
-        builder.Use(Adapter.bodyLimit) |> ignore
+        builder.Use(Adapter.bodyLimit kit) |> ignore
         Adapter.useMethodOverride kit builder
         builder.UseCookiePolicy() |> ignore
         builder.UseSession() |> ignore

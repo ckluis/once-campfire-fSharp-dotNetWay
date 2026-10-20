@@ -43,7 +43,8 @@ let ``errors are logged as they were raised`` () =
         let! query = app.Send(get "/echo/1?a=%")
         let! form = app.Send(formPost "/echo/1" "b=%")
         Assert.Equal(400, query.Status)
-        Assert.Equal(400, form.Status)
+        // A form is read by the framework, which takes a stray `%` literally (class B); only the query is refused.
+        Assert.Equal(200, form.Status)
         let! failing = app.Send(get "/fail")
         Assert.Equal(500, failing.Status)
 
@@ -51,7 +52,7 @@ let ``errors are logged as they were raised`` () =
         // Malformed params, as they were rejected.
         let rejected = "request rejected error=bad request: invalid %-encoding (%)"
         let count = (text.Split(rejected).Length) - 1
-        Assert.True((count = 2), text)
+        Assert.True((count = 1), text)
         Assert.DoesNotContain("bad request: bad request", text)
         // A failure, with what caused it.
         Assert.Contains("request failed error=saving the upload: disk full path=\"/fail\"", text)

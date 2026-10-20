@@ -60,11 +60,18 @@ module SessionCookie =
                     context.RejectPrincipal()
             Task.CompletedTask
 
-    /// The client facts a session records: user agent and remote IP (an error when the IP cannot be told).
-    type Client = unit -> Result<string option * string, Campfire.Kit.Error>
+    /// The client facts a session records: the user agent and the remote IP, which is the framework's
+    /// `Connection.RemoteIpAddress` (`UseForwardedHeaders` has already swapped in a trusted proxy's address).
+    let client (http: HttpContext) : string option * string =
+        let ip =
+            match http.Connection.RemoteIpAddress with
+            | null -> ""
+            | ip -> (if ip.IsIPv4MappedToIPv6 then ip.MapToIPv4() else ip).ToString()
+        let userAgent = match http.Request.Headers.UserAgent.ToString() with "" -> None | ua -> Some ua
+        userAgent, ip
 
 /// K4: `bot_authentication` as a second scheme, tried after the session scheme and never chosen by path. The key is
-/// `params[:bot_key]` (path, query or body, read from the request's `Ctx`); a blank or unknown key is "no result" and
+/// `params[:bot_key]` (path, query or body, read by `Params`); a blank or unknown key is "no result" and
 /// a key that is not a string (a hash or array) fails, which `Authentication.require` answers with a 500 as Rails'
 /// `NoMethodError` does.
 type BotKeyAuthenticationHandler(options: IOptionsMonitor<AuthenticationSchemeOptions>, logger: ILoggerFactory, encoder: UrlEncoder) =
@@ -72,29 +79,25 @@ type BotKeyAuthenticationHandler(options: IOptionsMonitor<AuthenticationSchemeOp
 
     override this.HandleAuthenticateAsync() : Task<AuthenticateResult> =
         let http = this.Context
-        match http.Items.TryGetValue Campfire.Kit.Adapter.CtxItemKey with
-        | true, (:? Campfire.Kit.Ctx as ctx) ->
-            match ctx.Params.Get "bot_key" |> ValueOption.filter (fun p -> p.IsPresent) with
-            | ValueNone -> Task.FromResult(AuthenticateResult.NoResult())
-            | ValueSome param ->
-                match param.AsStr with
-                | null -> Task.FromResult(AuthenticateResult.Fail(exn "undefined method 'strip' for bot_key"))
-                | key ->
-                    let botKey = Ruby.strip key
-                    let db = http.RequestServices.GetRequiredService<Campfire.Db.Ef.CampfireDb>()
-                    let current = Current.get http
-                    match Campfire.Db.Ef.Reads.run db (fun db -> User.authenticateBot db botKey) with
-                    | Ok(Some bot) ->
-                        current.User <- Some bot
-                        current.AuthenticatedBy <- AuthenticatedBy.BotKey
-                        let identity = ClaimsIdentity([ Claim(ClaimTypes.NameIdentifier, string bot.Id) ], this.Scheme.Name)
-                        let ticket = AuthenticationTicket(ClaimsPrincipal identity, this.Scheme.Name)
-                        Task.FromResult(AuthenticateResult.Success ticket)
-                    | Ok None -> Task.FromResult(AuthenticateResult.NoResult())
-                    | Error error ->
-                        current.LookupError <- Some(AppErrors.dbError error)
-                        Task.FromResult(AuthenticateResult.NoResult())
-        | _ -> Task.FromResult(AuthenticateResult.NoResult())
+        match Params.lookup http "bot_key" with
+        | Absent -> Task.FromResult(AuthenticateResult.NoResult())
+        | Str blank when not (Params.isPresent (Str blank)) -> Task.FromResult(AuthenticateResult.NoResult())
+        | Structured -> Task.FromResult(AuthenticateResult.Fail(exn "undefined method 'strip' for bot_key"))
+        | Str key ->
+            let botKey = Ruby.strip key
+            let db = http.RequestServices.GetRequiredService<Campfire.Db.Ef.CampfireDb>()
+            let current = Current.get http
+            match Campfire.Db.Ef.Reads.run db (fun db -> User.authenticateBot db botKey) with
+            | Ok(Some bot) ->
+                current.User <- Some bot
+                current.AuthenticatedBy <- AuthenticatedBy.BotKey
+                let identity = ClaimsIdentity([ Claim(ClaimTypes.NameIdentifier, string bot.Id) ], this.Scheme.Name)
+                let ticket = AuthenticationTicket(ClaimsPrincipal identity, this.Scheme.Name)
+                Task.FromResult(AuthenticateResult.Success ticket)
+            | Ok None -> Task.FromResult(AuthenticateResult.NoResult())
+            | Error error ->
+                current.LookupError <- Some(AppErrors.dbError error)
+                Task.FromResult(AuthenticateResult.NoResult())
 
 module Authentication =
     /// The framework's `SignInAsync` writes no-cache headers of its own; Rails' response headers are the kit's, so
@@ -138,7 +141,7 @@ module Authentication =
     /// `restore_authentication`: resume the session named by the `session_token` cookie. `Session#resume` writes the
     /// row at most hourly and, on that schedule, the cookie is signed again (Rails signs it on every request; the
     /// difference is recorded in the README's known differences).
-    let restore (http: HttpContext) (client: SessionCookie.Client) : Task<Result<bool, Error>> =
+    let restore (http: HttpContext) : Task<Result<bool, Error>> =
         task {
             let! found = session http
             match found with
@@ -149,19 +152,17 @@ module Authentication =
                 let services = http.RequestServices
                 let time = services.GetRequiredService<TimeProvider>()
                 if Session.needsResume session (RailsTime.now time) then
-                    match client () with
-                    | Result.Error error -> return Result.Error(Legacy error)
-                    | Ok(userAgent, ip) ->
-                        let app = services.GetRequiredService<AppState>()
-                        let db = services.GetRequiredService<Campfire.Db.Ef.CampfireDb>()
-                        let! resumed =
-                            Campfire.Db.Ef.Writes.run app.Gate app.Env db (fun tx -> Session.resume tx session userAgent (Some ip))
-                        match resumed with
-                        | Result.Error error -> return Result.Error(dbFailure error)
-                        | Ok resumed ->
-                            current.Session <- Some resumed
-                            do! issue http (principalFor resumed.Token)
-                            return Ok true
+                    let userAgent, ip = SessionCookie.client http
+                    let app = services.GetRequiredService<AppState>()
+                    let db = services.GetRequiredService<Campfire.Db.Ef.CampfireDb>()
+                    let! resumed =
+                        Campfire.Db.Ef.Writes.run app.Gate app.Env db (fun tx -> Session.resume tx session userAgent (Some ip))
+                    match resumed with
+                    | Result.Error error -> return Result.Error(dbFailure error)
+                    | Ok resumed ->
+                        current.Session <- Some resumed
+                        do! issue http (principalFor resumed.Token)
+                        return Ok true
                 else
                     return Ok true
         }
@@ -182,9 +183,9 @@ module Authentication =
 
     /// `require_authentication`: restore (the session scheme), then the bot key, else whatever `otherwise` does (the
     /// redirect to sign in, K2's challenge).
-    let require (http: HttpContext) (client: SessionCookie.Client) (otherwise: unit -> Task<Result<unit, Error>>) : Task<Result<unit, Error>> =
+    let require (http: HttpContext) (otherwise: unit -> Task<Result<unit, Error>>) : Task<Result<unit, Error>> =
         task {
-            match! restore http client with
+            match! restore http with
             | Result.Error error -> return Result.Error error
             | Ok true -> return Ok()
             | Ok false ->
@@ -199,24 +200,22 @@ module Authentication =
         if (Current.get http).AuthenticatedBy = AuthenticatedBy.BotKey then Result.Error(Error.Status 403) else Ok()
 
     /// `start_new_session_for(user)`: the `sessions` row, then the cookie.
-    let startNewSessionFor (http: HttpContext) (client: SessionCookie.Client) (user: User) : Task<Result<Session, Error>> =
+    let startNewSessionFor (http: HttpContext) (user: User) : Task<Result<Session, Error>> =
         task {
-            match client () with
-            | Result.Error error -> return Result.Error(Legacy error)
-            | Ok(userAgent, ip) ->
-                let services = http.RequestServices
-                let app = services.GetRequiredService<AppState>()
-                let db = services.GetRequiredService<Campfire.Db.Ef.CampfireDb>()
-                let! started = Campfire.Db.Ef.Writes.run app.Gate app.Env db (fun tx -> Session.start tx user.Id userAgent (Some ip))
-                match started with
-                | Result.Error error -> return Result.Error(dbFailure error)
-                | Ok session ->
-                    do! issue http (principalFor session.Token)
-                    let current = Current.get http
-                    current.Session <- Some session
-                    current.User <- Some user
-                    current.AuthenticatedBy <- BySession
-                    return Ok session
+            let userAgent, ip = SessionCookie.client http
+            let services = http.RequestServices
+            let app = services.GetRequiredService<AppState>()
+            let db = services.GetRequiredService<Campfire.Db.Ef.CampfireDb>()
+            let! started = Campfire.Db.Ef.Writes.run app.Gate app.Env db (fun tx -> Session.start tx user.Id userAgent (Some ip))
+            match started with
+            | Result.Error error -> return Result.Error(dbFailure error)
+            | Ok session ->
+                do! issue http (principalFor session.Token)
+                let current = Current.get http
+                current.Session <- Some session
+                current.User <- Some user
+                current.AuthenticatedBy <- BySession
+                return Ok session
         }
 
     /// `terminate_current_session` less the Rails session (unit 2.5): destroy the row, delete the cookie, and

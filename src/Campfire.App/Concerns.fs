@@ -137,11 +137,6 @@ module Concerns =
 
     // --- Authentication ----------------------------------------------------------------------------
 
-    let private userAgentAndIp (c: Ctx) : Result<string option * string, Error> =
-        match c.Request.RemoteIp() with
-        | Error e -> Error e
-        | Ok ip -> Ok((match c.Request.UserAgent with null -> None | ua -> Some ua), ip)
-
     let private webError (error: Campfire.App.Web.Error) : Error = Campfire.App.Web.Errors.toKit error
 
     /// The session cookie scheme's answers (`Web.Authentication`), as the `Ctx` slots the legacy actions read.
@@ -166,7 +161,7 @@ module Concerns =
     /// `restore_authentication`: resume the session named by the `session_token` cookie (K3: the cookie scheme).
     let restoreAuthentication (c: Ctx) : Task<Result<bool, Error>> =
         task {
-            let! restored = Campfire.App.Web.Authentication.restore c.Http (fun () -> userAgentAndIp c)
+            let! restored = Campfire.App.Web.Authentication.restore c.Http
             match restored with
             | Ok true ->
                 syncCurrent c
@@ -192,7 +187,7 @@ module Concerns =
                 match requestAuthentication c with
                 | Error e -> Task.FromResult(Error(Campfire.App.Web.Error.Legacy e))
                 | Ok() -> Task.FromResult(Ok())
-            let! required = Campfire.App.Web.Authentication.require c.Http (fun () -> userAgentAndIp c) otherwise
+            let! required = Campfire.App.Web.Authentication.require c.Http otherwise
             syncCurrent c
             return required |> Result.mapError webError
         }
@@ -241,7 +236,7 @@ module Concerns =
     /// `start_new_session_for(user)`
     let startNewSessionFor (c: Ctx) (user: User) : Task<Result<Session, Error>> =
         task {
-            let! started = Campfire.App.Web.Authentication.startNewSessionFor c.Http (fun () -> userAgentAndIp c) user
+            let! started = Campfire.App.Web.Authentication.startNewSessionFor c.Http user
             match started with
             | Ok session ->
                 syncCurrent c
