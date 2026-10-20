@@ -88,6 +88,20 @@ specific to this port are listed below, each citing the reference file it depart
     or return-to URL (sign-in then lands on the root). A request with no session cookie never loads the session. `last_room`
     is written through `Response.Cookies` (attribute order differs from Rails', class A). Reference:
     `config/initializers/session_store.rb`. Tested by `FlashTests` (F1-F8).
+  - Proxy headers are the framework's `UseForwardedHeaders` (`Web/Services.fs`, `Adapter.configureForwardedHeaders`):
+    `X-Forwarded-For`, `-Proto` and `-Host` are honoured from Rails' `TRUSTED_PROXIES` ranges only, walked from the right
+    with no forward limit, so a public peer's `X-Forwarded-For` is ignored where Rails (and the Rust port) believe it. Not
+    read at all: `Forwarded`, `X-Forwarded-Ssl`, `X-Forwarded-Scheme`, and `Client-Ip` (so there is no
+    `IpSpoofAttackError`, a 500 in Rails). `assume_ssl` (unless `DISABLE_SSL`) is a one-line middleware that makes every
+    request `https`. Reference: `ActionDispatch::RemoteIp`, `ActionDispatch::AssumeSSL`. Tested by `RequestsTests`
+    (R1, R2) and `HttpTests` ("remote ip from peer and proxies").
+  - The method override is `UseHttpMethodOverride` on the form field `_method` only: `X-HTTP-Method-Override` is not read,
+    a POST without a content type is not a form, and a `_method` that is not an HTTP verb makes the request that verb (a
+    404 here, Rails and Rust leave it a POST). The method is upper-cased after it (`_method=delete` is the `DELETE` row).
+    Reference: `Rack::MethodOverride`. Tested by `RequestsTests` (R3) and `HttpTests` ("method override from form param
+    and header").
+  - A request body is capped at 16 MiB, files included, by Kestrel (413; Rust's front server did the same, Rails reads
+    any size). Reference: `config/puma.rb` (no limit). Tested by `RequestsTests` (R4).
   - `VAPID_SUBJECT` without a `TLS_DOMAIN` defaults to this project's URL (`https://github.com/ckluis/once-campfire-fsharp`);
     Rust's names its own. Tested by `ConfigTests` ("vapid subject defaults to the tls domain").
   - A response header whose first line is empty reaches the wire as a line of its own (the first line of a

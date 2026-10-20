@@ -1098,3 +1098,37 @@ Code in `72ed71d`. Evidence in `bench/results/dotnetway-p2-5/`.
 - **Speed (`bench/quick`, all workloads, 3 reps, host 1.04-1.10):** room page 5,393/s c=16 (22.5x Rails), 1,612 c=1 (15.1x); messages page 5,130 (13.5x), 1,466 c=1 (6.7x); sidebar 5,734 (9.6x), 1,641 c=1 (5.73x); search 4,955 (12.1x), 1,382 c=1 (7.2x); post a message 1,822 c=16 (5.52x), 891 c=1 (5.34x). All over the 5x floor, all 2xx, 0 errors. Against unit 2.4 (quiet host) post is -0.5% at c=16 and -2% at c=1, sidebar c=1 -5% (6.03x to 5.73x) at a host probe of 1.07 against 1.06: within the run-to-run swing, so no speed fix was needed. Post c=1 headroom is 7%.
 - **KLOC:** `bin/kloc` 38,488 by upstream's rules, **38,700 corrected (38.7 KLOC)**, from 38,781 (-0.08).
 - **Differences recorded:** the Rails session (README, class B): flash and return-to in server memory under `_campfire_flash`, Rails' cookie untouched; `last_room` attribute order (class A).
+
+### Phase 2, unit 2.6: Requests (2026-10-20)
+
+Code in `ce87a52`. Evidence in `bench/results/dotnetway-p2-6/`.
+- **Built:** the pipeline is now `UseExceptionHandler(Errors.exceptionHandler)`, `UseForwardedHeaders`, the `assume_ssl` middleware, the
+  default headers (request id, `X-Runtime`, HSTS, secure cookies, `force_ssl`'s redirect), public files, a 16 MiB body cap,
+  `UseHttpMethodOverride(_method)` and the upper-casing step, then cookie policy, session and routing. `Adapter.configureForwardedHeaders`
+  fills `ForwardedHeadersOptions` from `TRUSTED_PROXIES` (`KnownProxies` cleared, no forward limit); `Request.fs` lost the hand-written
+  `Forwarded`/`X-Forwarded-*` parsing, `calculateRemoteIp` and the `Client-Ip` spoofing check (`Request.RemoteIp` is the peer the
+  framework left, `Host` the header it left); `RequestState.Ssl` is `Request.IsHttps`, and `Csrf` no longer borrows `https` for its call
+  (unit 2.4's stopgap). `Errors.exceptionHandler` renders an escaped exception as Rails' 500 page, a `BadHttpRequestException` with its status
+  (413 for the body cap) and an unreadable form as 400; it marks the body abandoned so the renderer does not parse it again.
+  `Adapter.app` (the Kit's own test pipeline) uses the same pieces.
+- **Differences from the design note, on purpose:** the override reads the form through a buffered body (`EnableBuffering`, rewound after) because the
+  kit's body parser still needs the bytes until unit 2.7, so a form POST is parsed twice for now (small: the bench shows no cost on post). `FormOptions`
+  carries Rack's `params_limit` (4096 pairs) and the 16 MiB cap. An empty `KnownIPNetworks` list would make the framework trust every peer; `TRUSTED_PROXIES`
+  is never empty. The kit's own `Body.fs`/`Multipart.fs` map Kestrel's 413 to their `TooLarge` instead of a 400.
+- **Tests:** R1-R6 in `tests/Campfire.App.Tests/Web/RequestsTests.fs` (8 tests: R1 trusted and untrusted peers, R2 forwarded proto/host with secure cookies and
+  `assume_ssl` with HSTS, R3 `_method` delete/DELETE/patch/multipart/bogus/header/JSON, R4 urlencoded, multipart, raw and chunked bodies over 16 MiB,
+  R5 request id sanitized/generated and default headers on pages not on `/account/logo`, R6 the exception handler and a throwing action). A sabotage run
+  (no upper-casing, no forwarded headers, no `assume_ssl`) failed R1, R2 and R3. Kit tests moved with the behaviour: `RequestTests` (the proxy cases are now
+  the framework's), `HttpTests` (`X-HTTP-Method-Override` and `Client-Ip` are not read, a public peer's `X-Forwarded-For` is ignored, `_method=bogus` is a 404),
+  and the differential's `request` cases that depend on proxy headers are no longer compared with Rust's hand-written answers.
+- **Gates:** `CAMPFIRE_REQUIRE_SEED=1 bin/verify` (Release, warnaserror): 0 warnings, 1,063 tests, 1,057 passed, 0 failed, 6 skipped (the same 6); H1 in that run and
+  green. `bin/pixel-parity --fast --only 'errors/**,auth/**,interactions/**'` on the `ce87a52` image: default 115/115, custom_styles 2/2, first_run 8/8 equal on
+  screenshots, aria and loose DOM (crowd and restricted have no such states), PASSED in 519 s. `bin/cookie-roundtrip`: 20/20. `bin/clean-parity` and
+  `bin/clean-docker` run.
+- **Speed (`bench/quick`, all workloads, 3 reps, host 1.04-1.07):** post a message 1,836/s c=16 (5.56x Rails) and 909/s c=1 (5.45x); sidebar 5,850/s (9.77x) and 1,666/s c=1
+  (5.81x); search 5,015 (12.3x) and 1,400 c=1 (7.27x); messages page 5,167 (13.6x) and 1,495 c=1 (6.86x); room page 5,511 c=16 and 1,649 c=1. All over the 5x floor, all 2xx, 0 errors,
+  rows written equal answers. Against unit 2.5: post +1% (5.52x to 5.56x) and +2% c=1, sidebar c=1 +1.5%: no speed fix needed; post c=1 headroom is 9%.
+- **KLOC:** `bin/kloc` 38,390 by upstream's rules, **38,602 corrected (38.6 KLOC)**, from 38,700 (-0.10: mostly `Request.fs`, which lost the proxy parsing).
+- **Differences recorded (README, class B):** proxy headers (trusted ranges only, a public peer's `X-Forwarded-For` ignored, no `Forwarded`/`X-Forwarded-Ssl`/`X-Forwarded-Scheme`/`Client-Ip`), the
+  method override (`_method` only, a non-verb `_method` is that verb), the 16 MiB body cap.
+
