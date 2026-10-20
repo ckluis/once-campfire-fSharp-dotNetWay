@@ -19,23 +19,13 @@ let private remoteIp (r: Request) : string =
     | Error e -> failwith $"{e}"
 
 [<Fact>]
-let ``remote ip skips trusted proxies`` () =
+let ``remote ip is the peer`` () =
+    // `UseForwardedHeaders` swaps a trusted proxy's `X-Forwarded-For` in for the peer before the request is built
+    // (`HttpTests` "remote ip from peer and proxies"); `Client-Ip` and the header itself are not read here.
     let proxy = ProxyConfig.Default
-    Assert.Equal("203.0.113.9", remoteIp (request [ "x-forwarded-for", "203.0.113.9, 10.0.0.2" ] "127.0.0.1" proxy))
     Assert.Equal("198.51.100.7", remoteIp (request [] "198.51.100.7" proxy))
-    // As in Rails, a forwarded address is believed even from a public peer: `remote_ip` is
-    // only as trustworthy as the proxy in front.
-    Assert.Equal("203.0.113.9", remoteIp (request [ "x-forwarded-for", "203.0.113.9" ] "198.51.100.7" proxy))
-    Assert.Equal("10.0.0.3", remoteIp (request [ "x-forwarded-for", "10.0.0.3" ] "127.0.0.1" proxy))
-    Assert.Equal("2001:db8::1", remoteIp (request [ "forwarded", "for=\"[2001:db8::1]:4711\"" ] "::1" proxy))
-
-[<Fact>]
-let ``remote ip spoofing check`` () =
-    let proxy = ProxyConfig.Default
-    match (request [ "client-ip", "1.1.1.1"; "x-forwarded-for", "2.2.2.2" ] "127.0.0.1" proxy).RemoteIp() with
-    | Error IpSpoofAttack -> ()
-    | other -> failwith $"{other}"
-    Assert.Equal("2.2.2.2", remoteIp (request [ "client-ip", "2.2.2.2"; "x-forwarded-for", "2.2.2.2" ] "127.0.0.1" proxy))
+    Assert.Equal("198.51.100.7", remoteIp (request [ "client-ip", "1.1.1.1"; "x-forwarded-for", "2.2.2.2" ] "198.51.100.7" proxy))
+    Assert.Equal("::1", remoteIp (request [] "::1" proxy))
 
 [<Fact>]
 let ``host and protocol`` () =
@@ -45,15 +35,6 @@ let ``host and protocol`` () =
     Assert.Equal(3000, r.Port)
     Assert.Equal("http://chat.example.com:3000", r.BaseUrl)
     Assert.Equal("http://chat.example.com:3000/rooms/1?x=1", r.Url)
-
-    let r =
-        request
-            [ "host", "internal:80"; "x-forwarded-host", "a.example, chat.example.com"; "x-forwarded-proto", "https" ]
-            "127.0.0.1"
-            proxy
-    Assert.Equal("chat.example.com", r.Host)
-    Assert.True r.IsSsl
-    Assert.Equal("https://chat.example.com", r.BaseUrl)
 
     let assume = { ProxyConfig.Default with AssumeSsl = true }
     let r = request [ "host", "chat.example.com" ] "127.0.0.1" assume

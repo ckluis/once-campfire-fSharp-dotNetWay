@@ -22,6 +22,7 @@ open Falco
 open Microsoft.AspNetCore.Builder
 open Microsoft.AspNetCore.Http
 open Microsoft.AspNetCore.Http.Features
+open Microsoft.AspNetCore.HttpOverrides
 open Microsoft.AspNetCore.Server.Kestrel.Core
 open Microsoft.Extensions.Logging
 open Microsoft.Extensions.Primitives
@@ -39,14 +40,15 @@ type RequestState(kit: Kit, http: HttpContext) =
 
     member val Started = Stopwatch.GetTimestamp() with get, set
 
-    /// Whether the request is HTTPS, as the proxy headers and the connection say.
-    member val Ssl = false with get, set
+    /// Whether the request is HTTPS: the scheme `UseForwardedHeaders` and the `assume_ssl` middleware settled on.
+    member _.Ssl = http.Request.IsHttps
 
     /// The method on the wire when `_method` overrode it (`rack.methodoverride.original_method`).
     member val OriginalMethod: string | null = null with get, set
 
-    /// The body, when the pre-routing middleware had to read it to find `_method`.
-    member val Parsed: ParsedBody voption = ValueNone with get, set
+    /// The body is not to be read: an exception handler answering for a request whose body already failed (a 413 from the
+    /// host's limit) must not parse it again.
+    member val BodyAbandoned = false with get, set
 
     /// Whether the app wraps its responses in `Rack::Deflater` (see `Adapter.useDeflater`).
     member val Deflate = false with get, set
@@ -66,9 +68,6 @@ module Adapter =
     /// read `params` (path, query and body) the way Rails' `bot_authentication` does.
     [<Literal>]
     let CtxItemKey = "campfire.kit.ctx"
-
-    /// `Rack::MethodOverride::HTTP_METHODS`
-    let private overridableMethods = [| "GET"; "HEAD"; "PUT"; "POST"; "DELETE"; "OPTIONS"; "PATCH"; "LINK"; "UNLINK" |]
 
     /// hyper's default `max_buf_size` (8192 + 4096 * 100): the most bytes of request line and headers the
     /// Rust port reads before it answers 431.
@@ -97,7 +96,6 @@ module Adapter =
         | true, (:? RequestState as state) -> state
         | _ ->
             let state = RequestState(kit, http)
-            state.Ssl <- kit.Config.Proxy.AssumeSsl || RequestHeaders.schemeIsHttps http.Request.Headers http.Request.Scheme
             http.Items[stateKey] <- state
             state
 
@@ -154,11 +152,12 @@ module Adapter =
     /// Read and parse the request's body. One with nothing to read is not read (an empty multipart
     /// body is still a malformed one).
     let private parseBody (kit: Kit) (http: HttpContext) (originalMethod: string) : Task<Result<ParsedBody, BodyError>> =
+        let abandoned = (stateOf kit http).BodyAbandoned
         let multipart =
             match RequestHeaders.get http.Request.Headers Hdr.ContentType with
             | null -> false
             | ct -> ct.StartsWith("multipart/", StringComparison.OrdinalIgnoreCase)
-        if canHaveBody http || multipart then
+        if not abandoned && (canHaveBody http || multipart) then
             RequestBody.parse originalMethod http.Request.Headers (contentLength http) http.Request.Body kit.Config.MaxBodyBytes
         else
             Task.FromResult(
@@ -167,6 +166,9 @@ module Adapter =
                       Params = Ok(ParamMap())
                       Files = Array.empty }
             )
+
+    /// Mark a request's body as not to be parsed (see `RequestState.BodyAbandoned`).
+    let abandonBody (kit: Kit) (http: HttpContext) : unit = (stateOf kit http).BodyAbandoned <- true
 
     // --- writing responses ------------------------------------------------------------------------
 
@@ -402,12 +404,10 @@ module Adapter =
     /// `ActionDispatch::SSL#redirect_to_https`: 301 for GET/HEAD, 308 otherwise.
     let private redirectToHttps (http: HttpContext) : Response =
         let headers = http.Request.Headers
+        // `UseForwardedHeaders` has already folded a trusted proxy's `X-Forwarded-Host` into `Host`.
         let host =
-            match RequestHeaders.get headers Hdr.XForwardedHost with
-            | null ->
-                match RequestHeaders.get headers Hdr.Host with
-                | null -> "localhost"
-                | h -> h.Substring(h.LastIndexOf ',' + 1).Trim()
+            match RequestHeaders.get headers Hdr.Host with
+            | null -> "localhost"
             | h -> h.Substring(h.LastIndexOf ',' + 1).Trim()
         let host =
             match host.LastIndexOf ':' with
@@ -419,54 +419,10 @@ module Adapter =
             if http.Request.Method = "GET" || http.Request.Method = "HEAD" then Status.MovedPermanently else Status.PermanentRedirect
         Response(status).ContentType("text/html").Header(Hdr.Location, $"https://{host}{target}")
 
-    /// `Rack::MethodOverride`, which needs the parsed form body, so POST bodies that can carry a
-    /// form are parsed here and handed on. Answers the status itself when the body is refused.
-    let private methodOverride (kit: Kit) (state: RequestState) (http: HttpContext) : Task<Response voption> =
-        task {
-            if http.Request.Method <> "POST" then
-                return ValueNone
-            else
-                let media = RequestHeaders.mediaType (RequestHeaders.get http.Request.Headers Hdr.ContentType)
-                let formData =
-                    match media with
-                    | null -> true
-                    | media ->
-                        media = "application/x-www-form-urlencoded"
-                        || media = "multipart/form-data"
-                        || media = "multipart/related"
-                        || media = "multipart/mixed"
-                // Only form data can carry `_method`, so other bodies (JSON, a raw upload) are left for the
-                // action to read, rather than parsed here for every POST, before routing.
-                let mutable refused = ValueNone
-                let mutable fromParam: string | null = null
-                if formData then
-                    match! parseBody kit http "POST" with
-                    | Error error -> refused <- ValueSome(Response(BodyError.status error))
-                    | Ok parsed ->
-                        state.Parsed <- ValueSome parsed
-                        match parsed.Params with
-                        | Ok pars -> fromParam <- pars.Str "_method"
-                        | Error _ -> ()
-                match refused with
-                | ValueSome response -> return ValueSome response
-                | ValueNone ->
-                    let candidate =
-                        match fromParam with
-                        | null -> RequestHeaders.get http.Request.Headers Hdr.XHttpMethodOverride
-                        | m -> m
-                    match candidate with
-                    | null -> ()
-                    | candidate ->
-                        let overridden = candidate.ToUpperInvariant()
-                        if Array.contains overridden overridableMethods then
-                            state.OriginalMethod <- "POST"
-                            http.Request.Method <- overridden
-                    return ValueNone
-        }
-
-    /// Middleware that runs before routing: request id, forced SSL, and `_method` override (which
-    /// needs the parsed form body, so POST bodies are parsed here and handed on).
-    let railsMiddleware (kit: Kit) : Func<HttpContext, RequestDelegate, Task> =
+    /// The request id, `X-Runtime`, HSTS and secure cookies (`onStarting`), and `force_ssl`'s redirect: what
+    /// `ActionDispatch::RequestId`, `Rack::Runtime` and `ActionDispatch::SSL` do before routing. It runs after
+    /// `UseForwardedHeaders` and the `assume_ssl` middleware, so `Request.IsHttps` is settled.
+    let defaultHeaders (kit: Kit) : Func<HttpContext, RequestDelegate, Task> =
         Func<HttpContext, RequestDelegate, Task>(fun http next ->
             task {
                 let state = stateOf kit http
@@ -482,14 +438,77 @@ module Adapter =
                     let response = redirectToHttps http
                     do! write kit http response (http.Request.Method = "HEAD")
                 else
-                    // Only a POST can carry `_method`, and most requests are not.
-                    let! refused =
-                        if http.Request.Method = "POST" then methodOverride kit state http else Task.FromResult ValueNone
-                    match refused with
-                    | ValueSome response -> do! write kit http response (http.Request.Method = "HEAD")
-                    | ValueNone -> do! next.Invoke http
+                    do! next.Invoke http
             }
             :> Task)
+
+    /// `ForwardedHeadersOptions` for a proxy configuration (K10): `X-Forwarded-For`, `-Proto` and `-Host`, honoured from
+    /// `TRUSTED_PROXIES` ranges only and with no forward limit, which is how `ActionDispatch::RemoteIp` walks the list.
+    let configureForwardedHeaders (proxy: ProxyConfig) (options: ForwardedHeadersOptions) : unit =
+        options.ForwardedHeaders <-
+            ForwardedHeaders.XForwardedFor ||| ForwardedHeaders.XForwardedProto ||| ForwardedHeaders.XForwardedHost
+        options.ForwardLimit <- Nullable()
+        options.RequireHeaderSymmetry <- false
+        options.KnownProxies.Clear()
+        options.KnownIPNetworks.Clear()
+        for net in proxy.TrustedProxies do
+            options.KnownIPNetworks.Add(System.Net.IPNetwork(IPAddress(net.Addr), net.Prefix))
+
+    /// `ActionDispatch::AssumeSSL`: with `assume_ssl` (production, unless `DISABLE_SSL`) every request is HTTPS, so cookies
+    /// are `secure`, URLs are `https` and a browser's `Origin` matches.
+    let assumeSsl (kit: Kit) : Func<HttpContext, RequestDelegate, Task> =
+        let assume = kit.Config.Proxy.AssumeSsl
+        Func<HttpContext, RequestDelegate, Task>(fun http next ->
+            if assume then http.Request.Scheme <- "https"
+            next.Invoke http)
+
+    /// The kit's cap on a request body, the 16 MiB Rust's front server had: more is a 413.
+    [<Literal>]
+    let MaxRequestBody = 16L * 1024L * 1024L
+
+    let private wireMethodKey = "campfire.kit.wire-post"
+
+    /// `Rack::MethodOverride` (K10): `UseHttpMethodOverride` reads `_method` from the form, then the method is upper-cased
+    /// (the framework sets it as sent, `delete`). The form is read through a buffered body that is rewound afterwards, so
+    /// the kit's own body parser still sees the bytes (unit 2.7 retires it). A `_method` that is no HTTP verb makes
+    /// the request that verb, which no route answers (404); `X-HTTP-Method-Override` is not read.
+    let useMethodOverride (kit: Kit) (app: IApplicationBuilder) : unit =
+        let options = HttpMethodOverrideOptions(FormFieldName = "_method")
+        app.Use(
+            Func<HttpContext, RequestDelegate, Task>(fun http next ->
+                if HttpMethods.IsPost http.Request.Method then
+                    http.Items[wireMethodKey] <- box true
+                    if http.Request.HasFormContentType then http.Request.EnableBuffering(1 <<< 20, MaxRequestBody + (1L <<< 20))
+                next.Invoke http)
+        )
+        |> ignore
+        app.UseHttpMethodOverride options |> ignore
+        app.Use(
+            Func<HttpContext, RequestDelegate, Task>(fun http next ->
+                let request = http.Request
+                if request.Body.CanSeek && request.Body.Position <> 0L then request.Body.Position <- 0L
+                if http.Items.ContainsKey wireMethodKey && not (HttpMethods.IsPost request.Method) then
+                    (stateOf kit http).OriginalMethod <- "POST"
+                    request.Method <- request.Method.ToUpperInvariant()
+                next.Invoke http)
+        )
+        |> ignore
+
+    /// Limits for the framework's form reader, which `_method` goes through: Rack's `params_limit` (4096 pairs) and the
+    /// kit's body cap.
+    let configureForms (options: FormOptions) : unit =
+        options.ValueCountLimit <- 4096
+        options.KeyLengthLimit <- 65536
+        options.ValueLengthLimit <- int MaxRequestBody
+        options.MultipartBodyLengthLimit <- MaxRequestBody
+
+    /// Caps the body at `MaxRequestBody`; Kestrel answers a longer one with a 413 as it is read.
+    let bodyLimit: Func<HttpContext, RequestDelegate, Task> =
+        Func<HttpContext, RequestDelegate, Task>(fun http next ->
+            match http.Features.Get<IHttpMaxRequestBodySizeFeature>() with
+            | null -> ()
+            | feature -> if not feature.IsReadOnly then feature.MaxRequestBodySize <- Nullable MaxRequestBody
+            next.Invoke http)
 
     /// Wrap every response the kit writes in `Rack::Deflater` (`config.ru`'s `use Rack::Deflater`).
     let useDeflater (kit: Kit) (app: IApplicationBuilder) : IApplicationBuilder =
@@ -521,12 +540,7 @@ module Adapter =
                         match Convert.ToString(value, Globalization.CultureInfo.InvariantCulture) with
                         | null -> ()
                         | text -> pathParams.Insert(kv.Key, Param.Str text)
-            let mutable parsed: Result<ParsedBody, BodyError> = Unchecked.defaultof<_>
-            match state.Parsed with
-            | ValueSome already -> parsed <- Ok already
-            | ValueNone ->
-                let! read = parseBody kit http originalMethod
-                parsed <- read
+            let! parsed = parseBody kit http originalMethod
             let struct (raw, bodyParams, bodyError) =
                 match parsed with
                 | Ok body ->
@@ -628,7 +642,11 @@ module Adapter =
     /// Finish an app: Rails-style 404s for unknown paths *and* unknown methods (`route` sends those
     /// to `notFound`), the pre-routing middleware, then the routes.
     let app (kit: Kit) (endpoints: HttpEndpoint list) (builder: IApplicationBuilder) : unit =
-        builder.Use(railsMiddleware kit) |> ignore
+        builder.UseForwardedHeaders(ForwardedHeadersOptions() |> fun o -> configureForwardedHeaders kit.Config.Proxy o; o) |> ignore
+        builder.Use(assumeSsl kit) |> ignore
+        builder.Use(defaultHeaders kit) |> ignore
+        builder.Use(bodyLimit) |> ignore
+        useMethodOverride kit builder
         builder.UseRouting() |> ignore
         builder.UseFalco endpoints |> ignore
         builder.UseFalcoNotFound(notFound kit) |> ignore

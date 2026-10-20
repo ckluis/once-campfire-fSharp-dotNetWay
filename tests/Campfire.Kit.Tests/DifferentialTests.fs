@@ -50,6 +50,17 @@ let rec private toValue (e: JsonElement) : Value =
     | JsonValueKind.Array -> Value.Array [ for item in e.EnumerateArray() -> toValue item ]
     | _ -> Value.Object [ for p in e.EnumerateObject() -> p.Name, toValue p.Value ]
 
+/// Whether a `request` case asks about what proxy headers say (host, scheme, client address). Since unit 2.6 those are
+/// the framework's (`UseForwardedHeaders` from `TRUSTED_PROXIES` ranges only, no `Forwarded`/`X-Forwarded-Ssl`/
+/// `X-Forwarded-Scheme`, no `Client-Ip` spoofing check: README Known differences), tested by R1/R2 and `HttpTests`, so
+/// they no longer answer as the Rust kit's hand-written version did.
+let private proxyDependent (input: JsonElement) : bool =
+    input.GetProperty("op").GetString() = "request"
+    && (input.GetProperty "headers").EnumerateArray()
+       |> Seq.exists (fun pair ->
+           let name = (pair[0].GetString() |> nonNull).ToLowerInvariant()
+           name.StartsWith "x-forwarded-" || name = "forwarded" || name = "client-ip")
+
 [<Fact>]
 let ``the kit answers as the rust kit did`` () =
     let lines = File.ReadAllLines(Repo.path "tests/Campfire.Kit.Tests/differential.jsonl")
@@ -63,7 +74,7 @@ let ``the kit answers as the rust kit did`` () =
         let rust = toValue (document.RootElement.GetProperty "rust")
         use answer = JsonDocument.Parse(Operations.run (input.GetRawText()), JsonDocumentOptions(MaxDepth = 400))
         let ours = toValue answer.RootElement
-        if rust <> ours then
+        if rust <> ours && not (proxyDependent input) then
             failures.Add $"{input.GetRawText().Substring(0, min 300 (input.GetRawText().Length))}\n  rust: {rust}\n  ours: {ours}"
     for (op, count) in expected do
         let found = match counts.TryGetValue op with | true, n -> n | _ -> 0

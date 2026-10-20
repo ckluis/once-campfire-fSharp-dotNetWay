@@ -94,13 +94,12 @@ module IpNet =
         let bytes = ip.GetAddressBytes()
         bytes.Length = net.Addr.Length && maskEq net.Addr bytes net.Prefix
 
-/// How to read proxy headers (`ActionDispatch::RemoteIp`, `ActionDispatch::AssumeSSL`).
+/// How to read proxy headers: which peers `UseForwardedHeaders` trusts (`ActionDispatch::RemoteIp`) and whether the
+/// `assume_ssl` middleware makes every request HTTPS (`ActionDispatch::AssumeSSL`).
 type ProxyConfig =
     {
         /// `config.action_dispatch.trusted_proxies`; Rails' `TRUSTED_PROXIES` by default.
         TrustedProxies: IpNet[]
-        /// `config.action_dispatch.ip_spoofing_check`.
-        IpSpoofingCheck: bool
         /// `config.assume_ssl`: treat every request as HTTPS (TLS terminates at the proxy).
         AssumeSsl: bool
     }
@@ -113,7 +112,6 @@ module ProxyConfig =
 
     let Default: ProxyConfig =
         { TrustedProxies = defaultTrustedProxies
-          IpSpoofingCheck = true
           AssumeSsl = false }
 
 module RequestHeaders =
@@ -144,121 +142,6 @@ module RequestHeaders =
             let baseType = (if cut < 0 then ct else ct.Substring(0, cut)).Trim().ToLowerInvariant()
             if baseType = "" then null else baseType
 
-    let private isSplitChar (c: char) = c = ',' || c = ' ' || c = '\t'
-
-    /// `value.trim().split([',', ' ', '\t']).filter(non-empty)`
-    let splitHeader (value: string) : string[] =
-        value.Trim().Split([| ','; ' '; '\t' |], StringSplitOptions.RemoveEmptyEntries)
-
-    /// `Rack::Utils.forwarded_values(header)[param]`, for the simple unquoted and quoted forms.
-    let forwardedValues (header: string) (param: string) : string list =
-        [ for element in header.Split [| ','; ';' |] do
-              match element.IndexOf '=' with
-              | -1 -> ()
-              | eq ->
-                  if String.Equals(element.Substring(0, eq).Trim(), param, StringComparison.OrdinalIgnoreCase) then
-                      element.Substring(eq + 1).Trim().Trim('"') ]
-
-    let private schemes = [| "https"; "http"; "wss"; "ws" |]
-
-    /// `Rack::Request#scheme` → `ssl?`. `scheme` is the connection's, as the server reports it.
-    let schemeIsHttps (headers: IHeaderDictionary) (scheme: string | null) : bool =
-        if get headers Hdr.XForwardedSsl = "on" then
-            true
-        else
-            let fromForwarded =
-                match get headers Hdr.Forwarded with
-                | null -> ValueNone
-                | forwarded ->
-                    match forwardedValues forwarded "proto" |> List.tryLast with
-                    | Some proto when Array.contains proto schemes -> ValueSome(proto = "https" || proto = "wss")
-                    | _ -> ValueNone
-            match fromForwarded with
-            | ValueSome ssl -> ssl
-            | ValueNone ->
-                let fromHeader (name: string) =
-                    match get headers name with
-                    | null -> ValueNone
-                    | value ->
-                        match splitHeader value |> Array.rev |> Array.tryFind (fun s -> Array.contains s schemes) with
-                        | Some scheme -> ValueSome(scheme = "https" || scheme = "wss")
-                        | None -> ValueNone
-                match fromHeader Hdr.XForwardedProto with
-                | ValueSome ssl -> ssl
-                | ValueNone ->
-                    match fromHeader Hdr.XForwardedScheme with
-                    | ValueSome ssl -> ssl
-                    | ValueNone -> scheme = "https"
-
-    /// Strip a port and IPv6 brackets: `Rack::Request#split_authority(...)[1]`.
-    let private authorityAddress (authority: string) : string =
-        let authority = authority.Trim()
-        if authority.StartsWith '[' then
-            let rest = authority.Substring 1
-            match rest.IndexOf ']' with
-            | -1 -> rest
-            | close -> rest.Substring(0, close)
-        elif (IpNet.tryParseIp authority).IsSome then
-            authority
-        else
-            match authority.LastIndexOf ':' with
-            | -1 -> authority
-            | colon ->
-                let host = authority.Substring(0, colon)
-                let port = authority.Substring(colon + 1)
-                if Seq.forall Char.IsAsciiDigit port && not (host.Contains ':') then host else authority
-
-    let private sanitizeIps (ips: string seq) : ResizeArray<IPAddress> =
-        let parsed = ResizeArray<IPAddress>()
-        for ip in ips do
-            match IpNet.tryParseIp (ip.Trim([| '['; ']' |])) with
-            | ValueSome ip -> parsed.Add ip
-            | ValueNone -> ()
-        parsed
-
-    let private forwardedFor (headers: IHeaderDictionary) : string list =
-        let fromForwarded =
-            match get headers Hdr.Forwarded with
-            | null -> []
-            | forwarded -> forwardedValues forwarded "for"
-        if not fromForwarded.IsEmpty then
-            fromForwarded |> List.map authorityAddress
-        else
-            match get headers Hdr.XForwardedFor with
-            | null -> []
-            | value -> splitHeader value |> Array.map authorityAddress |> List.ofArray
-
-    /// `ActionDispatch::RemoteIp::GetIp#calculate_ip`.
-    let calculateRemoteIp (headers: IHeaderDictionary) (peer: IPAddress | null) (proxy: ProxyConfig) : Result<string, unit> =
-        let clientIps =
-            match get headers Hdr.ClientIp with
-            | null -> ResizeArray()
-            | header -> sanitizeIps (header.Trim().Split [| ','; ' '; '\t' |])
-        clientIps.Reverse()
-        let forwardedIps = sanitizeIps (forwardedFor headers)
-        forwardedIps.Reverse()
-        let spoofed =
-            proxy.IpSpoofingCheck
-            && clientIps.Count > 0
-            && forwardedIps.Count > 0
-            && not (forwardedIps.Contains clientIps[clientIps.Count - 1])
-        if spoofed then
-            Error()
-        else
-            let ips = ResizeArray<IPAddress>(forwardedIps)
-            ips.AddRange clientIps
-            let trusted (ip: IPAddress) = proxy.TrustedProxies |> Array.exists (fun net -> IpNet.contains net ip)
-            let candidates = ResizeArray<IPAddress>(ips)
-            if not (isNull peer) then candidates.Add(nonNull peer)
-            let chosen =
-                match candidates |> Seq.tryFind (fun ip -> not (trusted ip)) with
-                | Some ip -> Some ip
-                | None ->
-                    if ips.Count > 0 then Some ips[ips.Count - 1]
-                    elif isNull peer then None
-                    else Some(nonNull peer)
-            Ok(match chosen with Some ip -> ip.ToString() | None -> "")
-
 /// The request as a Rails controller sees it. Built by the adapter; `Headers` is the host's own
 /// header collection, so reading a header costs no copy.
 [<Sealed>]
@@ -273,9 +156,8 @@ type Request
         headers: IHeaderDictionary,
         peer: IPAddress | null,
         body: ReadOnlyMemory<byte>,
-        proxy: ProxyConfig
+        _proxy: ProxyConfig
     ) =
-    let mutable remoteIp: Result<string, unit> voption = ValueNone
     let mutable rawHost: string | null = null
 
     /// `ActionDispatch::RequestId`: the id the response's `X-Request-Id` carries, for logging.
@@ -284,8 +166,8 @@ type Request
     /// The method the app sees (after `Rack::MethodOverride`).
     member _.Method = meth
 
-    /// A request whose TLS-ness is worked out from the proxy headers and the connection's scheme
-    /// (`Rack::Request#ssl?`), as `AssumeSsl` and the headers say.
+    /// A request whose TLS-ness is the scheme the pipeline settled on (`UseForwardedHeaders` and the `assume_ssl`
+    /// middleware have already run in the app; a test builds one by hand with the same two inputs).
     static member Create
         (
             meth: string,
@@ -299,7 +181,7 @@ type Request
             body: ReadOnlyMemory<byte>,
             proxy: ProxyConfig
         ) : Request =
-        let ssl = proxy.AssumeSsl || RequestHeaders.schemeIsHttps headers scheme
+        let ssl = proxy.AssumeSsl || scheme = "https"
         Request(meth, originalMethod, path, query, authority, ssl, headers, peer, body, proxy)
 
     /// The method on the wire (`request.method` in Rails).
@@ -344,19 +226,14 @@ type Request
     member private this.RawHostWithPort: string =
         match rawHost with
         | null ->
+            // `UseForwardedHeaders` has already put a trusted proxy's `X-Forwarded-Host` in `Host`.
             let computed =
-                match this.Header Hdr.XForwardedHost with
-                | forwarded when not (String.IsNullOrWhiteSpace forwarded) ->
-                    let forwarded = nonNull forwarded
-                    let last = forwarded.Substring(forwarded.LastIndexOf ',' + 1)
-                    last.TrimStart()
-                | _ ->
-                    match this.Header Hdr.Host with
-                    | null ->
-                        match authority with
-                        | null -> "localhost"
-                        | authority -> authority
-                    | host -> host
+                match this.Header Hdr.Host with
+                | null ->
+                    match authority with
+                    | null -> "localhost"
+                    | authority -> authority
+                | host -> host
             rawHost <- computed
             computed
         | raw -> raw
@@ -414,15 +291,9 @@ type Request
     /// into params instead.
     member _.RawPost: ReadOnlyMemory<byte> = body
 
-    /// `request.remote_ip`, per `ActionDispatch::RemoteIp::GetIp`.
+    /// `request.remote_ip`: the peer once `UseForwardedHeaders` has swapped in a trusted proxy's `X-Forwarded-For`
+    /// (the walk from the right over `TRUSTED_PROXIES` is the framework's). No `Client-Ip` spoofing check.
     member _.RemoteIp() : Result<string, Error> =
-        let computed =
-            match remoteIp with
-            | ValueSome computed -> computed
-            | ValueNone ->
-                let computed = RequestHeaders.calculateRemoteIp headers peer proxy
-                remoteIp <- ValueSome computed
-                computed
-        match computed with
-        | Ok ip -> Ok ip
-        | Error() -> Error IpSpoofAttack
+        match peer with
+        | null -> Ok ""
+        | ip -> Ok(ip.ToString())

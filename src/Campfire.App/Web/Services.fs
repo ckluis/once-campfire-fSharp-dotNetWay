@@ -12,6 +12,7 @@ open Falco.Routing
 open Microsoft.AspNetCore.Authentication
 open Microsoft.AspNetCore.Authentication.Cookies
 open Microsoft.AspNetCore.Builder
+open Microsoft.AspNetCore.Diagnostics
 open Microsoft.AspNetCore.DataProtection
 open Microsoft.AspNetCore.Http
 open Microsoft.AspNetCore.Http.Features
@@ -74,6 +75,11 @@ module Services =
             options.Secure <- CookieSecurePolicy.SameAsRequest
             options.MinimumSameSitePolicy <- SameSiteMode.Lax)
         |> ignore
+        // K10: `X-Forwarded-For/-Proto/-Host` from Rails' `TRUSTED_PROXIES` only; form limits for `_method`'s reader.
+        services.Configure<Microsoft.AspNetCore.Builder.ForwardedHeadersOptions>(fun options ->
+            Adapter.configureForwardedHeaders kit.Config.Proxy options)
+        |> ignore
+        services.Configure<FormOptions>(Adapter.configureForms) |> ignore
         // K1: the `session_token` cookie; K4: the bot key, a second scheme (no policy scheme, no default).
         services
             .AddAuthentication()
@@ -91,9 +97,14 @@ module Services =
     /// The app's branch of the host: the kit's pre-routing middleware, public files, `/cable`, then the route table
     /// (`dispatch`) as Falco's not-found handler, so ASP.NET Core's own routing never rewrites a path.
     let pipeline (kit: Kit) (publicFiles: Func<HttpContext, RequestDelegate, System.Threading.Tasks.Task>) (cable: HttpHandler) (dispatch: Campfire.App.Web.Action) (builder: IApplicationBuilder) : unit =
+        builder.UseExceptionHandler(ExceptionHandlerOptions(ExceptionHandler = Errors.exceptionHandler)) |> ignore
+        builder.UseForwardedHeaders() |> ignore
+        builder.Use(Adapter.assumeSsl kit) |> ignore
         Adapter.useDeflater kit builder |> ignore
-        builder.Use(Adapter.railsMiddleware kit) |> ignore
+        builder.Use(Adapter.defaultHeaders kit) |> ignore
         builder.Use(publicFiles) |> ignore
+        builder.Use(Adapter.bodyLimit) |> ignore
+        Adapter.useMethodOverride kit builder
         builder.UseCookiePolicy() |> ignore
         builder.UseSession() |> ignore
         builder.UseRouting() |> ignore

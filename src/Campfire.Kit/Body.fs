@@ -389,6 +389,8 @@ module RequestBody =
                         else
                             return Ok(ReadOnlyMemory<byte>(collected.ToArray()))
                 with
+                // The host's 16 MiB cap on a body (`Adapter.bodyLimit`) trips as it is read.
+                | :? BadHttpRequestException as e when e.StatusCode = 413 -> return Error TooLarge
                 | :? BadHttpRequestException as e -> return Error(Read e.Message)
                 | :? IOException -> return Error(Read "unreadable body")
                 | :? OperationCanceledException -> return Error(Read "unreadable body")

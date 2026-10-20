@@ -65,7 +65,7 @@ let private context (meth: string) (target: string) (headers: (string * string) 
 /// Allocated bytes and microseconds per request over `n` requests after a warm-up.
 let private measure (name: string) (n: int) (make: unit -> HttpContext) (run: HttpContext -> Task) : struct (int64 * float) =
     let kit = kit.Value
-    let step = Adapter.railsMiddleware kit
+    let step = Adapter.defaultHeaders kit
     for _ in 1..2000 do
         let http = make ()
         (step.Invoke(http, RequestDelegate run)).GetAwaiter().GetResult()
@@ -131,8 +131,8 @@ let ``breakdown of a small request`` () =
     let http = context "GET" "/rooms/5" [] [||]
     stage "DefaultHttpContext" 20000 (fun () -> box (context "GET" "/rooms/5" [] [||]))
     stage "Guid request id" 100000 (fun () -> box (Guid.NewGuid().ToString()))
-    stage "headers.TryGetValue x4" 100000 (fun () ->
-        box (RequestHeaders.schemeIsHttps http.Request.Headers "http"))
+    stage "headers.TryGetValue" 100000 (fun () ->
+        box (RequestHeaders.get http.Request.Headers "x-forwarded-proto"))
     let headers = http.Request.Headers
     stage "Request.Create" 100000 (fun () ->
         box (Request.Create("GET", "GET", "/rooms/5", null, null, "http", headers, IPAddress.Loopback, ReadOnlyMemory.Empty, kit.Config.Proxy)))

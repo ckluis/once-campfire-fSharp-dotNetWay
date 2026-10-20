@@ -8,6 +8,7 @@ namespace Campfire.App.Web
 
 open System.Threading.Tasks
 open Falco
+open Microsoft.AspNetCore.Diagnostics
 open Microsoft.AspNetCore.Http
 open Microsoft.Extensions.DependencyInjection
 open Campfire.Kit
@@ -53,3 +54,20 @@ module Errors =
                 let kit = http.RequestServices.GetRequiredService<Kit>()
                 let failure: Result<Response, Campfire.Kit.Error> = Result.Error(toKit other)
                 Adapter.dispatch kit (fun _ -> Task.FromResult failure) http
+
+    /// `UseExceptionHandler`'s handler (K13): what escaped the pipeline, rendered like any action's failure. A request the
+    /// host refused (`BadHttpRequestException`: 413 for a body over the limit, 408, 400) keeps its status; a form the
+    /// framework could not read is a 400; anything else is Rails' 500 with `public/500.html`.
+    let exceptionHandler: RequestDelegate =
+        RequestDelegate(fun http ->
+            let error =
+                match http.Features.Get<IExceptionHandlerFeature>() with
+                | null -> Internal(exn "exception handler without an exception")
+                | feature ->
+                    match feature.Error with
+                    | :? BadHttpRequestException as e -> Status e.StatusCode
+                    | :? System.IO.InvalidDataException -> Status 400
+                    | e -> Internal e
+            let kit = http.RequestServices.GetRequiredService<Kit>()
+            Adapter.abandonBody kit http
+            respond error http)

@@ -128,8 +128,9 @@ let ``method override from form param and header`` () =
         let! reply = app.Send(formPost "/echo/1" "_method=delete")
         Assert.Equal(Some(Value.String "DELETE"), member' "method" reply.Json)
 
+        // `X-HTTP-Method-Override` is not read: `_method` is the only override (README Known differences).
         let! reply = app.Send((post "/echo/1").With("x-http-method-override", "patch").WithBody "")
-        Assert.Equal(Some(Value.String "PATCH"), member' "method" reply.Json)
+        Assert.Equal(Some(Value.String "POST"), member' "method" reply.Json)
 
         // JSON bodies aren't forms: `_method` there doesn't count.
         let! reply =
@@ -137,8 +138,9 @@ let ``method override from form param and header`` () =
         Assert.Equal(Some(Value.String "POST"), member' "method" reply.Json)
         Assert.Equal(Some(json "[1, 2]"), (member' "params" reply.Json) |> Option.bind (member' "a"))
 
+        // A `_method` that is no HTTP verb makes the request that verb (upper-cased); no route answers it.
         let! reply = app.Send(formPost "/echo/1" "_method=bogus")
-        Assert.Equal(Some(Value.String "POST"), member' "method" reply.Json)
+        Assert.Equal(404, reply.Status)
     }
 
 [<Fact>]
@@ -409,8 +411,14 @@ let ``remote ip from peer and proxies`` () =
         let! reply = app.Send((get "/echo/1").With("x-test-peer", "198.51.100.4"))
         Assert.Equal(Some(Value.String "198.51.100.4"), member' "remote_ip" reply.Json)
 
+        // `Client-Ip` is not read, so there is no spoofing check (README Known differences).
         let! reply = app.Send((get "/echo/1").With("client-ip", "1.1.1.1").With("x-forwarded-for", "2.2.2.2"))
-        Assert.Equal(500, reply.Status)
+        Assert.Equal(200, reply.Status)
+        Assert.Equal(Some(Value.String "2.2.2.2"), member' "remote_ip" reply.Json)
+
+        // A public peer is no proxy: its `X-Forwarded-For` is ignored (Rails would believe it).
+        let! reply = app.Send((get "/echo/1").With("x-forwarded-for", "203.0.113.9").With("x-test-peer", "198.51.100.4"))
+        Assert.Equal(Some(Value.String "198.51.100.4"), member' "remote_ip" reply.Json)
     }
 
 [<Fact>]

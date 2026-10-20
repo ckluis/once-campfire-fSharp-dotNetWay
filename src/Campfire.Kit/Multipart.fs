@@ -316,6 +316,8 @@ module Multipart =
                                 stop <- stop + n
                                 return Ok()
                     with
+                    // The host's 16 MiB cap on a body (`Adapter.bodyLimit`) trips as it is read.
+                    | :? Microsoft.AspNetCore.Http.BadHttpRequestException as e when e.StatusCode = 413 -> return Error StreamSizeExceeded
                     | :? InvalidOperationException
                     | :? IOException
                     | :? OperationCanceledException
