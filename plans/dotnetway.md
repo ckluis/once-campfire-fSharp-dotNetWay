@@ -1046,3 +1046,14 @@ Code in `54254bb`. No behaviour change.
 - **Speed (`bench/quick`, post a message and sidebar, 1 rep on the `54254bb` image, `bench/results/dotnetway-p2-1/new`; host 1.04-1.08):** post 1,853/s c=16 (5.61x Rails) and 935/s c=1 (5.60x), against unit 2.0's same-day control 5.60x and 5.67x; sidebar 5,800/s (9.69x) and 1,762/s c=1 (6.15x). All over the floor; the seam adds one singleton lookup per request. All 2xx, 0 errors, rows written equal answers.
 - **KLOC:** `bin/kloc` 38,169 by upstream's rules, **38,381 corrected (38.4 KLOC)**, from 38,395 (-0.01: Boot lost 40 lines, `Web/` added 0.22 and the route table's wrapper 0.01, all of it scaffolding the later units fill or delete).
 - **Differences recorded:** none visible. `bin/clean-docker` and `bin/clean-parity` run.
+
+### Phase 2, unit 2.2: Cookie auth (2026-10-20)
+
+Code in `2038298`; this entry and the evidence close it (a first attempt was cut off by a session limit after the code commit).
+- **Built:** `Web/TicketFormat.fs` and `Web/Authentication.fs` (`restore`, `require`, `session`, `startNewSessionFor`, `terminateCurrentSession`), a cookie scheme whose ticket is Rails' signed-cookie bytes, and `OnValidatePrincipal` as the session lookup. The legacy `Concerns` call these through `c.Http`; the Kit jar's `session_token` paths are gone. Cable's own cookie check is untouched (Phase 3).
+- **Differences from the design note, on purpose:** the hourly resume write is `restore`'s, not the event's (it needs the kit's remote IP until unit 2.6), and the re-issue is a `SignInAsync`, not `ShouldRenew`.
+- **Tests:** A1-A8 in `tests/Campfire.App.Tests/Web/AuthenticationTests.fs` (9 tests, A3 has two).
+- **Gates:** `CAMPFIRE_REQUIRE_SEED=1 bin/verify` re-run on 2026-10-20: 0 warnings, 1,037 tests, 1,031 passed, 0 failed, 6 skipped (the same 6); H1 in that run and green. `bin/cookie-roundtrip` 20/20 both ways. `rails_compat_verify_rust.rb` on a cookie our app minted: 51 checks, 0 failures. `bin/pixel-parity` auth/**: PASSED; a realtime state: PASSED.
+- **Speed (`bench/quick`, 3 reps, `bench/results/dotnetway-p2-2/bench`):** room page 27.3x (c=16) and 19.0x (c=1) Rails; post a message 5.70x (c=16) and 5.69x (c=1) Rails. All over the 5x floor, about 14% headroom on post; no speed fix needed.
+- **KLOC:** `bin/kloc` 38,513 by upstream's rules, **38,725 corrected (38.7 KLOC)**.
+- **Differences recorded:** none visible.
