@@ -175,17 +175,6 @@ module Concerns =
             | Error e -> return Error(webError e)
         }
 
-    /// `bot_authentication`: `params[:bot_key].present?` and a matching active bot (K4: the bot-key scheme).
-    let botAuthentication (c: Ctx) : Task<Result<bool, Error>> =
-        task {
-            match! Campfire.App.Web.Authentication.botAuthenticate c.Http with
-            | Ok true ->
-                syncCurrent c
-                return Ok true
-            | Ok false -> return Ok false
-            | Error e -> return Error(webError e)
-        }
-
     /// `request_authentication`: remember where we were, then off to sign in.
     let requestAuthentication (c: Ctx) : Result<unit, Error> =
         let url = c.Request.Url
@@ -198,17 +187,11 @@ module Concerns =
     /// `require_authentication`: `restore_authentication || bot_authentication || request_authentication`.
     let requireAuthentication (c: Ctx) : Task<Result<unit, Error>> =
         task {
+            // `Web.Authentication.require` has already tried the session and the bot key; this is the challenge.
             let otherwise () : Task<Result<unit, Campfire.App.Web.Error>> =
-                task {
-                    let! bot = botAuthentication c
-                    match bot with
-                    | Error e -> return Error(Campfire.App.Web.Error.Legacy e)
-                    | Ok true -> return Ok()
-                    | Ok false ->
-                        match requestAuthentication c with
-                        | Error e -> return Error(Campfire.App.Web.Error.Legacy e)
-                        | Ok() -> return Ok()
-                }
+                match requestAuthentication c with
+                | Error e -> Task.FromResult(Error(Campfire.App.Web.Error.Legacy e))
+                | Ok() -> Task.FromResult(Ok())
             let! required = Campfire.App.Web.Authentication.require c.Http (fun () -> userAgentAndIp c) otherwise
             syncCurrent c
             return required |> Result.mapError webError

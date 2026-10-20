@@ -1132,3 +1132,25 @@ Code in `ce87a52`. Evidence in `bench/results/dotnetway-p2-6/`.
 - **Differences recorded (README, class B):** proxy headers (trusted ranges only, a public peer's `X-Forwarded-For` ignored, no `Forwarded`/`X-Forwarded-Ssl`/`X-Forwarded-Scheme`/`Client-Ip`), the
   method override (`_method` only, a non-verb `_method` is that verb), the 16 MiB body cap.
 
+
+### Phase 2, checkpoint after 2.6: Opus review (2026-10-20) - GO, with notes for 2.7-2.13
+
+Adversarial review of `063b940..40b674e` against `plans/design-kit-auth.md` and D1-D9. Evidence in `bench/results/dotnetway-p2-ck/`.
+- **Re-run here:** `CAMPFIRE_REQUIRE_SEED=1 bin/verify` (after the fix below): 0 warnings, 1,063 tests, 1,057 passed, 0 failed, 6 skipped (the same 6);
+  H1 green. `bin/cookie-roundtrip` on the `ce87a52` image: 20/20 both ways. `bin/pixel-parity --fast --only 'users/**,search/**,welcome/**'` (a slice no
+  unit had run) on the `ce87a52` image: default 44/44, custom_styles 4/4 equal on screenshots, aria and loose DOM (the other seeds have no such states),
+  PASSED in 148 s. `bin/clean-parity` run. The units' own evidence (status files, pixel and cookie logs, `env.txt` image revisions) matches their entries;
+  2.2 and 2.3 reused an earlier attempt's colima evidence, as their entries say.
+- **Checked and holding:** the ticket is Rails' signed bytes (A1-A4, round trip); no default scheme (A7, B6, the switch set twice); the lookup in
+  `OnValidatePrincipal` rejects an unknown token or a missing user without deleting the cookie (A2, A8); the before-action order is the one
+  `reference-tools/campfire/callbacks.rb` dumped (Ruby includes right to left), CSRF after `deny_bots` and skipped for bot keys; `ICsrfProtection`
+  compares `Origin` with the scheme and host the forwarded-headers and `assume_ssl` middleware left; one session store (`ISession`, `_campfire_flash`),
+  the encrypted Rails session gone; `KnownProxies`/`KnownIPNetworks` cleared before `TRUSTED_PROXIES` is added; return-to is the request's own URL and
+  the redirect keeps the kit's host checks.
+- **Fixed:** `Concerns.requireAuthentication`'s challenge tried the bot key a second time after `Web.Authentication.require` had (harmless, the
+  handler's result is cached per request, but dead code); it is now only the redirect, and the unused legacy `Concerns.botAuthentication` is deleted.
+- **KLOC:** `bin/kloc` 38,374 by upstream's rules, **38,586 corrected (38.6 KLOC)**, from 38,602.
+- **Notes for 2.7-2.13:** in the checkpoint's StructuredOutput (orchestrator) and summarized: the bot-key handler and the session resume still read the
+  legacy `Ctx` (`HttpContext.Items`, `c.Request.RemoteIp`), so 2.7 must move `bot_key` to `Web.Params` and the client facts to
+  `Connection.RemoteIpAddress`; the `_method` override buffers and parses every form POST (multipart included) a second time until 2.7 reads params from
+  `Request.Form`; `Flash` and `LookupError` sit in or on the Kit and move in 2.13.
