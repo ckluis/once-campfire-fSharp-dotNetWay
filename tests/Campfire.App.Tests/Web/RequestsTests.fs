@@ -274,7 +274,7 @@ let ``R6 an exception outside an action is the public 500 page, JSON for a JSON 
         // The app's own handler, in front of a terminal that throws (as the session store or a framework piece could).
         use! host =
             startPipelineWith test.Booted.ConfigureServices (fun builder ->
-                builder.UseExceptionHandler(ExceptionHandlerOptions(ExceptionHandler = Campfire.App.Web.Errors.exceptionHandler)) |> ignore
+                builder.UseExceptionHandler(ExceptionHandlerOptions(ExceptionHandler = Campfire.App.Web.PublicExceptions.exceptionHandler)) |> ignore
                 builder.Run(fun _ -> failwith "boom"))
         let! html = host.Send((get "/anything").With("accept", "text/html"))
         Assert.Equal(500, html.Status)

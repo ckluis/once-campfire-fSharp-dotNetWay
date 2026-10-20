@@ -50,16 +50,9 @@ type RequestState(kit: Kit, http: HttpContext) =
     /// host's limit) must not parse it again.
     member val BodyAbandoned = false with get, set
 
-    /// Whether the app wraps its responses in `Rack::Deflater` (see `Adapter.useDeflater`).
-    member val Deflate = false with get, set
-
     /// The response comes from outside the middleware the kit installs below `ActionDispatch::Static`
-    /// (`Rack::Runtime`, `ActionDispatch::RequestId`): public files, and the deflater's own 406.
+    /// (`Rack::Runtime`, `ActionDispatch::RequestId`): public files.
     member val SkipRequestHeaders = false with get, set
-
-    /// The response is the deflater's 406, which replaces everything below it, `ActionDispatch::SSL` too:
-    /// no HSTS, no `secure` on cookies.
-    member val Replaced = false with get, set
 
 module Adapter =
     let private stateKey = "campfire.kit.state"
@@ -254,73 +247,9 @@ module Adapter =
                 let name = map.NameAt i
                 if written.Add name then headers.Append(name, StringValues(Array.ofList (map.GetAll name)))
 
-    /// Send `file` (or the range of it), through `gzip` when there is one.
-    let private writeFile (http: HttpContext) (file: FileBody) (gzip: Deflater.GzipWriter | null) : Task =
-        task {
-            match gzip with
-            | null -> do! http.Response.SendFileAsync(file.Path, file.Offset, Nullable file.Len)
-            | gzip ->
-                use stream =
-                    new FileStream(
-                        file.Path,
-                        FileMode.Open,
-                        FileAccess.Read,
-                        FileShare.Read,
-                        64 * 1024,
-                        FileOptions.Asynchronous ||| FileOptions.SequentialScan
-                    )
-                stream.Seek(file.Offset, SeekOrigin.Begin) |> ignore
-                let buffer = ArrayPool<byte>.Shared.Rent(64 * 1024)
-                try
-                    let mutable remaining = file.Len
-                    while remaining > 0L do
-                        let! n = stream.ReadAsync(Memory<byte>(buffer, 0, int (min remaining (int64 buffer.Length))))
-                        if n = 0 then
-                            remaining <- 0L
-                        else
-                            remaining <- remaining - int64 n
-                            do! gzip.Write(ReadOnlyMemory<byte>(buffer, 0, n))
-                finally
-                    ArrayPool<byte>.Shared.Return buffer
-        }
-
-    /// A single-buffer body as one gzip member: from the cache when it repeats (it was digested for
-    /// its ETag), compressed afresh when it has no digest.
-    let private gzipSingle (body: ReadOnlyMemory<byte>) (digest: BodyDigest voption) (mtime: uint32) : ReadOnlyMemory<byte> =
-        match digest with
-        | ValueSome digest -> Deflater.gzipDigested body digest mtime
-        | ValueNone -> ReadOnlyMemory<byte>(Deflater.gzipMember body.Span mtime)
-
-    let private writeGzipped (http: HttpContext) (response: Response) (mtime: uint32) : Task =
-        task {
-            let output = http.Response.Body
-            match response.Body with
-            | Body.Empty ->
-                let writer = new Deflater.GzipWriter(output, mtime)
-                do! writer.Finish()
-            | Body.Parts parts ->
-                parts.WriteGzip(http.Response.BodyWriter, mtime)
-                let! _ = http.Response.BodyWriter.FlushAsync()
-                ()
-            | Body.Bytes bytes -> do! output.WriteAsync(gzipSingle bytes response.BodyDigest mtime)
-            | Body.Pooled pooled -> do! output.WriteAsync(gzipSingle pooled.Memory response.BodyDigest mtime)
-            | Body.File file ->
-                let writer = new Deflater.GzipWriter(output, mtime)
-                do! writeFile http file writer
-                do! writer.Finish()
-            | Body.Stream stream ->
-                use stream = stream
-                let writer = new Deflater.GzipWriter(output, mtime)
-                let buffer = ArrayPool<byte>.Shared.Rent(64 * 1024)
-                try
-                    let mutable reading = true
-                    while reading do
-                        let! n = stream.ReadAsync(Memory<byte>(buffer))
-                        if n = 0 then reading <- false else do! writer.Write(ReadOnlyMemory<byte>(buffer, 0, n))
-                finally
-                    ArrayPool<byte>.Shared.Return buffer
-                do! writer.Finish()
-        }
+    /// Send `file` (or the range of it).
+    let private writeFile (http: HttpContext) (file: FileBody) : Task =
+        http.Response.SendFileAsync(file.Path, file.Offset, Nullable file.Len)
 
     let private writePlain (http: HttpContext) (response: Response) : Task =
         task {
@@ -332,7 +261,7 @@ module Adapter =
                 parts.WritePlain http.Response.BodyWriter
                 let! _ = http.Response.BodyWriter.FlushAsync().AsTask()
                 ()
-            | Body.File file -> do! writeFile http file null
+            | Body.File file -> do! writeFile http file
             | Body.Stream stream ->
                 use stream = stream
                 do! stream.CopyToAsync http.Response.Body
@@ -346,14 +275,11 @@ module Adapter =
         | _ -> ()
 
     /// Hand a finished response to the host, streaming files and dropping HEAD bodies (`Rack::Head`)
-    /// while keeping their `Content-Length`; with `Rack::Deflater` around the app (see `useDeflater`),
-    /// gzip it for a client that accepts that.
+    /// while keeping their `Content-Length`. Compression is the framework's (`UseResponseCompression`).
     let write (kit: Kit) (http: HttpContext) (response: Response) (head: bool) : Task =
         task {
             let state = stateOf kit http
             if response.StaticFile then state.SkipRequestHeaders <- true
-            let appSetLength = response.Headers.Contains Hdr.ContentLength
-            let mutable response = response
             // A file that can't be opened is a bare 500, before any header goes out.
             let unreadable =
                 match response.Body with
@@ -373,19 +299,6 @@ module Adapter =
                 | Body.File file -> response.Headers.Insert(Hdr.ContentLength, string file.Len)
                 | Body.Empty
                 | Body.Stream _ -> ()
-                let mutable gzipMtime: uint32 voption = ValueNone
-                if state.Deflate then
-                    let accept = RequestHeaders.get http.Request.Headers Hdr.AcceptEncoding
-                    match Deflater.apply accept response appSetLength with
-                    | Unchanged -> ()
-                    | Gzip mtime -> gzipMtime <- ValueSome mtime
-                    | NotAcceptable ->
-                        // The deflater answers outside the layers below it.
-                        state.SkipRequestHeaders <- true
-                        state.Replaced <- true
-                        releaseBody response.Body
-                        let struct (path, query, _) = splitTarget http
-                        response <- Deflater.notAcceptable (match query with null -> path | q -> path + "?" + q)
                 // A POST that `_method` turned into a HEAD is still a POST on the wire, whose body the host
                 // expects to be as long as the response says: with no body written, it says nothing.
                 if head && not (isNull state.OriginalMethod) then response.Headers.Remove Hdr.ContentLength
@@ -395,9 +308,7 @@ module Adapter =
                         if head then
                             ()
                         else
-                            match gzipMtime with
-                            | ValueNone -> do! writePlain http response
-                            | ValueSome mtime -> do! writeGzipped http response mtime
+                            do! writePlain http response
                     with
                     // The client went away; the host has nothing more to say about it.
                     | :? OperationCanceledException
@@ -436,7 +347,7 @@ module Adapter =
                         let seconds = Stopwatch.GetElapsedTime(state.Started).TotalSeconds
                         headers[Hdr.XRuntime] <- seconds.ToString("F6", Globalization.CultureInfo.InvariantCulture)
                 let config = state.Kit.Config
-                if config.ForceSsl && state.Ssl && not state.Replaced then
+                if config.ForceSsl && state.Ssl then
                     headers[Hdr.StrictTransportSecurity] <- config.Hsts
                     flagCookiesAsSecure headers
             | _ -> ()
@@ -567,14 +478,6 @@ module Adapter =
             | null -> ()
             | feature -> if not feature.IsReadOnly then feature.MaxRequestBodySize <- Nullable limit
             next.Invoke http)
-
-    /// Wrap every response the kit writes in `Rack::Deflater` (`config.ru`'s `use Rack::Deflater`).
-    let useDeflater (kit: Kit) (app: IApplicationBuilder) : IApplicationBuilder =
-        app.Use(
-            Func<HttpContext, RequestDelegate, Task>(fun http next ->
-                (stateOf kit http).Deflate <- true
-                next.Invoke http)
-        )
 
     // --- running actions -----------------------------------------------------------------------------
 

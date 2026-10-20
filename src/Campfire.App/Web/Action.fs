@@ -9,7 +9,7 @@ open Microsoft.AspNetCore.Http
 type Action = HttpContext -> Task<Result<HttpHandler, Error>>
 
 module Action =
-    /// The Falco handler for an action: `Ok h` is `h`, `Halt h` is `h`, any other error is rendered by `Errors.respond`.
+    /// The Falco handler for an action: `Ok h` is `h`, `Halt h` is `h`, any other error is rendered by `PublicExceptions.respond`.
     /// A throwing action is an exception like any other: Rails answers 500 with `public/500.html`.
     let run (action: Action) : HttpHandler =
         fun http ->
@@ -25,8 +25,10 @@ module Action =
                             return Result.Error(Internal e)
                     }
                 match result with
-                | Ok handler -> do! handler http
-                | Result.Error error -> do! Errors.respond error http
+                | Ok handler ->
+                    do! Respond.commit http
+                    do! handler http
+                | Result.Error error -> do! PublicExceptions.respond error http
             }
             :> Task
 

@@ -1,5 +1,5 @@
 // What the adapter does that rust/crates/kit/tests/http.rs reaches only through axum: writing every kind
-// of body (buffer, pooled buffer, file, stream), `Rack::Deflater` around them, the responses that
+// of body (buffer, pooled buffer, file, stream), the responses that
 // bypass the kit's headers, and how a request reaches an action over the wire.
 module Campfire.Kit.Tests.AdapterTests
 
@@ -18,13 +18,6 @@ open Campfire.Kit.Tests.Helpers
 open Campfire.Kit.Tests.Harness
 
 let private page = String.replicate 200 "<div class=\"message\">Hello there</div>\n"
-
-let private gunzip (bytes: byte[]) : string =
-    use input = new MemoryStream(bytes)
-    use gzip = new GZipStream(input, CompressionMode.Decompress)
-    use output = new MemoryStream()
-    gzip.CopyTo output
-    Encoding.UTF8.GetString(output.ToArray())
 
 let private tempFile (content: string) : string =
     let path = Path.Combine(Path.GetTempPath(), "kit-adapter-" + Guid.NewGuid().ToString("N"))
@@ -84,24 +77,20 @@ let private staticFiles (kit: Kit) (app: IApplicationBuilder) : unit =
     )
     |> ignore
 
-let private startApp (deflate: bool) (config: KitConfig) : Task<TestApp * string> =
+let private startApp (config: KitConfig) : Task<TestApp * string> =
     task {
         let path = tempFile page
         let kit = kitWith { config with ErrorPages = ErrorPages.Of [ 404, bytesOf "<h1>Not found</h1>"; 500, bytesOf "<h1>Boom</h1>" ] } (obj ())
         let! app =
             startWith kit (routes kit path) (fun builder ->
-                // config.ru: the deflater is the outermost layer.
-                if deflate then Adapter.useDeflater kit builder |> ignore
                 staticFiles kit builder)
         return app, path
     }
 
-let private gz (req: Req) = req.With("accept-encoding", "gzip, deflate")
-
 [<Fact>]
 let ``every kind of body is written whole`` () =
     task {
-        let! app, path = startApp false KitConfig.Default
+        let! app, path = startApp KitConfig.Default
         use _ = app
         try
             for target in [ "/page"; "/stream"; "/file" ] do
@@ -114,8 +103,8 @@ let ``every kind of body is written whole`` () =
             let! empty = app.Send(get "/empty")
             Assert.Equal(200, empty.Status)
             Assert.Empty empty.Body
-            // Not a deflater app: nothing is gzipped, whatever the client accepts.
-            let! plain = app.Send(gz (get "/page"))
+            // The kit's writer never compresses (the pipeline's `UseResponseCompression` does).
+            let! plain = app.Send(get "/page")
             Assert.Null(plain.Header "content-encoding" |> Option.toObj)
             Assert.Equal(Some(string page.Length), plain.Header "content-length")
         finally
@@ -123,58 +112,9 @@ let ``every kind of body is written whole`` () =
     }
 
 [<Fact>]
-let ``the deflater gzips every kind of body for a client that accepts it`` () =
-    task {
-        let! app, path = startApp true KitConfig.Default
-        use _ = app
-        try
-            for target in [ "/page"; "/stream"; "/file" ] do
-                let! reply = app.Send(gz (get target))
-                Assert.Equal(200, reply.Status)
-                Assert.Equal(Some "gzip", reply.Header "content-encoding")
-                Assert.Equal(None, reply.Header "content-length")
-                Assert.Equal(Some "chunked", reply.Header "transfer-encoding")
-                Assert.True(reply.HeaderValues("vary") |> List.exists (fun v -> v.Contains "Accept-Encoding"), target)
-                Assert.True((gunzip reply.Body = page), target)
-            let! pooled = app.Send(gz (get "/pooled"))
-            Assert.Equal(Some "gzip", pooled.Header "content-encoding")
-            Assert.Equal(page, (json (gunzip pooled.Body)).TryGet("page").Value.AsString.Value)
-            // A response with an empty body is gzipped too: its length is the server's doing.
-            let! empty = app.Send(gz (get "/empty"))
-            Assert.Equal(Some "gzip", empty.Header "content-encoding")
-            Assert.Equal("", gunzip empty.Body)
-            // Without Accept-Encoding it goes out plain, but still varies on it.
-            let! plain = app.Send(get "/page")
-            Assert.Equal(None, plain.Header "content-encoding")
-            Assert.Equal(page, plain.Text)
-            Assert.True(plain.HeaderValues("vary") |> List.exists (fun v -> v.Contains "Accept-Encoding"))
-        finally
-            File.Delete path
-    }
-
-[<Fact>]
-let ``a gzipped page keeps its etag and answers conditional gets`` () =
-    task {
-        let! app, path = startApp true KitConfig.Default
-        use _ = app
-        try
-            let! plain = app.Send(get "/page")
-            let! gzipped = app.Send(gz (get "/page"))
-            Assert.Equal(plain.Header "etag", gzipped.Header "etag")
-            // The second gzip of the same body comes from the cache, and is the same bytes.
-            let! again = app.Send(gz (get "/page"))
-            Assert.Equal<byte[]>(gzipped.Body, again.Body)
-            let! conditional = app.Send((gz (get "/page")).With("if-none-match", nonNull (plain.Header "etag" |> Option.toObj)))
-            Assert.Equal(304, conditional.Status)
-            Assert.Empty conditional.Body
-        finally
-            File.Delete path
-    }
-
-[<Fact>]
 let ``a HEAD answered 304 has no content length, and an unknown method is a 404 without Allow`` () =
     task {
-        let! app, path = startApp false KitConfig.Default
+        let! app, path = startApp KitConfig.Default
         use _ = app
         try
             let! plain = app.Send(get "/page")
@@ -199,59 +139,9 @@ let ``a HEAD answered 304 has no content length, and an unknown method is a 404 
     }
 
 [<Fact>]
-let ``the deflater on HEAD, and when nothing is acceptable`` () =
-    task {
-        let! app, path = startApp true KitConfig.Default
-        use _ = app
-        try
-            let! head = app.Send(gz ((get "/page").AsMethod "HEAD"))
-            Assert.Equal(200, head.Status)
-            Assert.Equal(Some "gzip", head.Header "content-encoding")
-            Assert.Equal(None, head.Header "content-length")
-            Assert.Empty head.Body
-
-            let! refused = app.Send((get "/page").With("accept-encoding", "identity;q=0"))
-            Assert.Equal(406, refused.Status)
-            Assert.Equal(Some "text/plain", refused.Header "content-type")
-            Assert.Equal("An acceptable encoding for the requested resource /page could not be found.", refused.Text)
-            // It comes from outside the kit's own middleware.
-            Assert.Equal(None, refused.Header "x-request-id")
-            Assert.Equal(None, refused.Header "strict-transport-security")
-        finally
-            File.Delete path
-    }
-
-[<Fact>]
-let ``static files skip the request headers and are gzipped with their mtime`` () =
-    task {
-        let! app, path = startApp true KitConfig.Default
-        use _ = app
-        try
-            let! plain = app.Send(get "/static.css")
-            Assert.Equal(200, plain.Status)
-            Assert.Equal(None, plain.Header "x-request-id")
-            Assert.Equal(None, plain.Header "x-runtime")
-            let! gzipped = app.Send(gz (get "/static.css"))
-            Assert.Equal(Some "gzip", gzipped.Header "content-encoding")
-            // The gzip header carries the file's Last-Modified (100 seconds after the epoch).
-            Assert.Equal<byte[]>([| 100uy; 0uy; 0uy; 0uy |], gzipped.Body[4..7])
-            Assert.Equal(page, gunzip gzipped.Body)
-            // A length of 0 the app set is left alone (error pages and empty files).
-            let! emptied = app.Send(gz (get "/static-empty.css"))
-            Assert.Equal(None, emptied.Header "content-encoding")
-            Assert.Equal(Some "0", emptied.Header "content-length")
-            // The kit's own responses do have them.
-            let! kits = app.Send(get "/page")
-            Assert.True(kits.Header("x-request-id").IsSome)
-            Assert.True(kits.Header("x-runtime").IsSome)
-        finally
-            File.Delete path
-    }
-
-[<Fact>]
 let ``errors in actions are rails error pages`` () =
     task {
-        let! app, path = startApp false KitConfig.Default
+        let! app, path = startApp KitConfig.Default
         use _ = app
         try
             let! boom = app.Send(get "/boom")
@@ -277,7 +167,7 @@ let ``errors in actions are rails error pages`` () =
 [<Fact>]
 let ``requests reach the action as the proxy headers and the target describe them`` () =
     task {
-        let! app, path = startApp false KitConfig.Default
+        let! app, path = startApp KitConfig.Default
         use _ = app
         try
             let! reply = app.Send((get "/echo?x=1").With("x-forwarded-proto", "https").With("host", "chat.example.com"))
@@ -303,7 +193,7 @@ let ``requests reach the action as the proxy headers and the target describe the
 [<Fact>]
 let ``request bodies are bounded by the limit whether or not their length is announced`` () =
     task {
-        let! app, path = startApp false { KitConfig.Default with MaxBodyBytes = ValueSome 64 }
+        let! app, path = startApp { KitConfig.Default with MaxBodyBytes = ValueSome 64 }
         use _ = app
         try
             let! announced = app.Send(formPost "/echo" (String.replicate 100 "a=1&"))
@@ -329,7 +219,7 @@ let ``request bodies are bounded by the limit whether or not their length is ann
 [<Fact>]
 let ``a multipart body over the limit is 413 and leaves no temp files`` () =
     task {
-        let! app, path = startApp false { KitConfig.Default with MaxBodyBytes = ValueSome 2000 }
+        let! app, path = startApp { KitConfig.Default with MaxBodyBytes = ValueSome 2000 }
         use _ = app
         try
             let marker = "kit-413-" + Guid.NewGuid().ToString("N")
@@ -398,7 +288,7 @@ let ``an http2 request body without a content length is read`` () =
 [<Fact>]
 let ``a post that _method turned into a head sends no body`` () =
     task {
-        let! app, path = startApp false KitConfig.Default
+        let! app, path = startApp KitConfig.Default
         use _ = app
         try
             // The wire says POST, so the host would hold the response to its Content-Length: with the body
@@ -415,7 +305,7 @@ let ``a post that _method turned into a head sends no body`` () =
 [<Fact>]
 let ``a header with anything but visible ascii in it is no header`` () =
     task {
-        let! app, path = startApp false KitConfig.Default
+        let! app, path = startApp KitConfig.Default
         use _ = app
         try
             // As `HeaderValue::to_str` sees it in Rust, a value with a byte from 0x80 isn't there at all, so
@@ -430,25 +320,9 @@ let ``a header with anything but visible ascii in it is no header`` () =
 
 
 [<Fact>]
-let ``the deflater's 406 is outside the SSL middleware too`` () =
-    task {
-        let tls = { KitConfig.Default with ForceSsl = true; Proxy = { ProxyConfig.Default with AssumeSsl = true } }
-        let! app, path = startApp true tls
-        use _ = app
-        try
-            let! ok = app.Send(get "/page")
-            Assert.Equal(Some "max-age=63072000; includeSubDomains", ok.Header "strict-transport-security")
-            let! refused = app.Send((get "/page").With("accept-encoding", "identity;q=0, *;q=0"))
-            Assert.Equal(406, refused.Status)
-            Assert.Equal(None, refused.Header "strict-transport-security")
-        finally
-            File.Delete path
-    }
-
-[<Fact>]
 let ``a header whose first line is empty is written as a line of its own`` () =
     task {
-        let! app, path = startApp false KitConfig.Default
+        let! app, path = startApp KitConfig.Default
         use _ = app
         try
             // Puma writes a value with a line break line by line, so a leading break leaves a header line with
@@ -463,7 +337,7 @@ let ``a header whose first line is empty is written as a line of its own`` () =
 [<Fact>]
 let ``a request head as large as puma and hyper accept is served`` () =
     task {
-        let! app, path = startApp false KitConfig.Default
+        let! app, path = startApp KitConfig.Default
         use _ = app
         try
             // Kestrel's own limits are 32 KB of headers and an 8 KB request line; Rails (Puma: 112 KB, 12 KB of
@@ -514,7 +388,7 @@ let private statusLineOf (app: TestApp) (request: string) : Task<string> =
 [<Fact>]
 let ``kestrel's request line rules differ from puma's and hyper's in three recorded ways`` () =
     task {
-        let! app, path = startApp false KitConfig.Default
+        let! app, path = startApp KitConfig.Default
         use _ = app
         try
             // Each of these is fixed in Kestrel's parser and can't be configured; README "Known differences" lists them

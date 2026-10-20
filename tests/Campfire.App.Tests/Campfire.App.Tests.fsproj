@@ -19,6 +19,7 @@
     <Compile Include="Web/RequestsTests.fs" />
     <Compile Include="Web/ParamsTests.fs" />
     <Compile Include="Web/FormatsTests.fs" />
+    <Compile Include="Web/RespondTests.fs" />
     <Compile Include="AppTests.fs" />
     <Compile Include="JobsTests.fs" />
     <Compile Include="MiscTests.fs" />

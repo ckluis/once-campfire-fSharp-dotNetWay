@@ -4,9 +4,9 @@
 // wired the way the reference's middleware and initializers are. `AppState` (`AppState.fs`) is what
 // controllers, channels, jobs and integrations share. Actions reach it with `c.App`.
 //
-// Request flow (mirroring the Rails middleware order): `Rack::Deflater` (config.ru) -> kit's pre-routing
-// middleware (`ActionDispatch::SSL`, request id, `_method` override) -> public files
-// (`ActionDispatch::Static`, from `Campfire.Assets`) -> `/cable` (Action Cable) or the Rails route table
+// Request flow (mirroring the Rails middleware order): kit's pre-routing middleware
+// (`ActionDispatch::SSL`, request id, `_method` override) -> public files
+// (`ActionDispatch::Static`, from `Campfire.Assets`) -> `UseResponseCompression` -> `/cable` (Action Cable) or the Rails route table
 // (`RouteTable.dispatch`). The `/cable` endpoint is Falco's; the route table is what Falco falls back to
 // for every other path, so ASP.NET Core's own routing never sees (and never rewrites) a path.
 namespace Campfire.App
@@ -95,8 +95,8 @@ module Boot =
             | ValueSome response -> Adapter.write kit http response (request.Method = "HEAD")
             | ValueNone -> next.Invoke http)
 
-    /// The HTTP pipeline: public files, then `/cable`, then the Rails route table. `Rack::Deflater`
-    /// (config.ru) is around the whole app, kit's pre-routing middleware inside it.
+    /// The HTTP pipeline: public files, then `/cable`, then the Rails route table. The framework's response compression
+    /// (K11) is behind the public files, which are served precompressed.
     let pipeline (app: AppState) (kit: Kit) (builder: IApplicationBuilder) : unit =
         Web.Services.pipeline kit (publicFiles kit) (fun http -> Campfire.Cable.Endpoint.call app.Cable http) RouteTable.dispatch builder
 

@@ -2,15 +2,11 @@
 //
 // The cases are Rails' exception kinds (`ActionDispatch::ExceptionWrapper.rescue_responses`), plus `Halt` for a
 // before-action that rendered or redirected. Until unit 2.13 the legacy `Campfire.Kit.Error` rides along as
-// `Legacy`, and `respond` renders every error through the kit's existing `Ctx.Finish` (the public pages, the
-// log line, the default headers), so a Web action's failure is byte for byte a legacy action's.
+// `Legacy`. `PublicExceptions` (unit 2.8) renders them.
 namespace Campfire.App.Web
 
-open System.Threading.Tasks
 open Falco
-open Microsoft.AspNetCore.Diagnostics
 open Microsoft.AspNetCore.Http
-open Microsoft.Extensions.DependencyInjection
 open Campfire.Kit
 
 type Error =
@@ -43,31 +39,3 @@ module Errors =
         | Internal e -> Campfire.Kit.Error.Internal e
         | Legacy error -> error
         | Halt _ -> Campfire.Kit.Error.Internal(exn "Halt has no kit error")
-
-    /// `ActionDispatch::PublicExceptions` for an error: `public/<status>.html`, or the JSON/XML body for another
-    /// format. `Halt` is the response itself.
-    let respond (error: Error) : HttpHandler =
-        match error with
-        | Halt handler -> handler
-        | other ->
-            fun http ->
-                let kit = http.RequestServices.GetRequiredService<Kit>()
-                let failure: Result<Response, Campfire.Kit.Error> = Result.Error(toKit other)
-                Adapter.dispatch kit (fun _ -> Task.FromResult failure) http
-
-    /// `UseExceptionHandler`'s handler (K13): what escaped the pipeline, rendered like any action's failure. A request the
-    /// host refused (`BadHttpRequestException`: 413 for a body over the limit, 408, 400) keeps its status; a form the
-    /// framework could not read is a 400; anything else is Rails' 500 with `public/500.html`.
-    let exceptionHandler: RequestDelegate =
-        RequestDelegate(fun http ->
-            let error =
-                match http.Features.Get<IExceptionHandlerFeature>() with
-                | null -> Internal(exn "exception handler without an exception")
-                | feature ->
-                    match feature.Error with
-                    | :? BadHttpRequestException as e -> Status e.StatusCode
-                    | :? System.IO.InvalidDataException -> Status 400
-                    | e -> Internal e
-            let kit = http.RequestServices.GetRequiredService<Kit>()
-            Adapter.abandonBody kit http
-            respond error http)

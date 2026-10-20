@@ -205,8 +205,6 @@ type private FakeParts(text: string) =
         member _.BodyLength = bytes.Length
         member _.Etag() = String('a', 64)
         member _.WritePlain writer = writer.Write(ReadOnlySpan<byte> bytes)
-        member _.Gzip _ = ReadOnlyMemory<byte>(Array.empty)
-        member _.WriteGzip(_, _) = ()
 
 [<Fact>]
 let ``a page in parts gets its etag from the parts`` () =

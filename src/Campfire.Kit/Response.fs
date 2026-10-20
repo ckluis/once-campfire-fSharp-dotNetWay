@@ -340,8 +340,7 @@ type HeaderMap() =
             for i in 0 .. last - 1 do
                 if HeaderMap.IsValidValue lines[i] then this.Append(name, lines[i])
 
-/// The SHA-256 `Rack::ETag` took of a response's whole body: the body's identity, so the gzip of a
-/// body that repeats (the sidebar) comes from the gzip cache instead of being deflated again.
+/// A SHA-256, as four words: the identity of a fragment or a text of a page in parts.
 [<Struct>]
 type BodyDigest =
     { A: uint64
@@ -435,8 +434,8 @@ type PooledBufferWriter(initialCapacity: int) =
                 buffer <- null
                 ArrayPool<byte>.Shared.Return rented
 
-/// A page of cached fragments, in parts: the ETag and gzip reuse the fragments' digests and
-/// compressed pieces instead of working through the whole body, which is never joined. The
+/// A page of cached fragments, in parts: the ETag reuses the fragments' digests instead of working through the whole
+/// body, which is never joined. The
 /// implementation is the response cache's (`rust/crates/kit/src/deflater/splice.rs`).
 type IPageParts =
     abstract BodyLength: int
@@ -444,10 +443,6 @@ type IPageParts =
     abstract Etag: unit -> string
     /// The page's bytes, part after part.
     abstract WritePlain: System.Buffers.IBufferWriter<byte> -> unit
-    /// The page as one gzip member with this modification time.
-    abstract Gzip: mtime: uint32 -> ReadOnlyMemory<byte>
-    /// The same member written into the response's pipe, piece by piece.
-    abstract WriteGzip: writer: System.Buffers.IBufferWriter<byte> * mtime: uint32 -> unit
 
 /// A file (or a byte range of one) to stream from disk.
 type FileBody = { Path: string; Offset: int64; Len: int64 }
@@ -606,9 +601,6 @@ type Response(status: int) =
     member val Status: int = status with get, set
     member val Headers: HeaderMap = HeaderMap() with get, set
     member val Body: Body = Body.Empty with get, set
-
-    /// The body's SHA-256, when `Rack::ETag` digested it.
-    member val BodyDigest: BodyDigest voption = ValueNone with get, set
 
     /// Marks a response `ActionDispatch::Static` served (a public file or an asset): the middleware
     /// below `Static` in the reference (`Rack::Runtime`, `ActionDispatch::RequestId`) never saw it.

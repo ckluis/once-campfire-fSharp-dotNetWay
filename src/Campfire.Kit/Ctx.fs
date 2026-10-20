@@ -85,14 +85,8 @@ module private CtxHelpers =
                     if String.Equals(v, etag, StringComparison.Ordinal) || v = "*" then fresh <- true
                 fresh
 
-    let private digestOf (hash: ReadOnlySpan<byte>) : BodyDigest =
-        { A = Buffers.Binary.BinaryPrimitives.ReadUInt64LittleEndian(hash.Slice(0, 8))
-          B = Buffers.Binary.BinaryPrimitives.ReadUInt64LittleEndian(hash.Slice(8, 8))
-          C = Buffers.Binary.BinaryPrimitives.ReadUInt64LittleEndian(hash.Slice(16, 8))
-          D = Buffers.Binary.BinaryPrimitives.ReadUInt64LittleEndian(hash.Slice(24, 8)) }
-
     /// The hex of `Rack::ETag`'s digest of a non-empty body. A page of cached fragments hashes its
-    /// parts' digests rather than the whole body; another body keeps its SHA-256 for the gzip cache.
+    /// parts' digests rather than the whole body; another body is hashed whole.
     let bodyEtag (response: Response) : string | null =
         let ofMemory (memory: ReadOnlyMemory<byte>) : string | null =
             if memory.Length = 0 then
@@ -100,7 +94,6 @@ module private CtxHelpers =
             else
                 let hash = Array.zeroCreate<byte> 32
                 SHA256.HashData(memory.Span, Span<byte>(hash)) |> ignore
-                response.BodyDigest <- ValueSome(digestOf (ReadOnlySpan<byte>(hash)))
                 Convert.ToHexStringLower(ReadOnlySpan<byte>(hash, 0, 16))
         match response.Body with
         | Body.Parts parts -> parts.Etag()
@@ -423,7 +416,7 @@ type Ctx internal (kit: Kit, http: Microsoft.AspNetCore.Http.HttpContext, reques
         renderedFormat <- ValueSome template
         this.RenderAs(status, $"{template.String}; charset=utf-8", body)
 
-    /// `Render` for a page the response cache holds in parts (`IPageParts`): its ETag and gzip reuse
+    /// `Render` for a page the response cache holds in parts (`IPageParts`): its ETag reuses
     /// the parts' digests and compressed pieces, and the body is never joined.
     member this.RenderParts(status: int, template: Format, parts: IPageParts) : Response =
         renderedFormat <- ValueSome template
