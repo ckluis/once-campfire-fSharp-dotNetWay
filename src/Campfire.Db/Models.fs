@@ -28,7 +28,8 @@ module User =
 
     /// `User.find_by(id:)`
     let findById (db: Ef.CampfireDb) (id: int64) : User option =
-        db.Users.FromSql($"SELECT * FROM users WHERE id = {id} LIMIT 1") |> Ef.Data.sqlFirst
+        if Ef.FastReads.enabled then Ef.FastReads.userById db id
+        else db.Users.FromSql($"SELECT * FROM users WHERE id = {id} LIMIT 1") |> Ef.Data.sqlFirst
 
     /// `User.find`
     let find (db: Ef.CampfireDb) (id: int64) : User = findById db id |> Err.orNotFound "User"
@@ -403,7 +404,8 @@ module Membership =
 
     /// `room.memberships.find_by(user:)` / `user.memberships.find_by(room_id:)`
     let findByRoomAndUser (db: Ef.CampfireDb) (roomId: int64) (userId: int64) : Membership option =
-        db.Memberships.FromSql($"SELECT * FROM memberships WHERE room_id = {roomId} AND user_id = {userId} LIMIT 1") |> Ef.Data.sqlFirst
+        if Ef.FastReads.enabled then Ef.FastReads.membershipByRoomAndUser db roomId userId
+        else db.Memberships.FromSql($"SELECT * FROM memberships WHERE room_id = {roomId} AND user_id = {userId} LIMIT 1") |> Ef.Data.sqlFirst
 
     let private ofRow (r: MembershipRoomRow) : Membership * Room =
         let time (text: string) = RailsTime.ofDb text
@@ -588,7 +590,8 @@ module Room =
     // ---- Finders and scopes (EF, LINQ)
 
     let findById (db: Ef.CampfireDb) (id: int64) : Room option =
-        db.Rooms.FromSql($"SELECT * FROM rooms WHERE id = {id} LIMIT 1") |> Ef.Data.sqlFirst
+        if Ef.FastReads.enabled then Ef.FastReads.roomById db id
+        else db.Rooms.FromSql($"SELECT * FROM rooms WHERE id = {id} LIMIT 1") |> Ef.Data.sqlFirst
 
     let find (db: Ef.CampfireDb) (id: int64) : Room = findById db id |> Err.orNotFound "Room"
 
@@ -602,7 +605,9 @@ module Room =
         db.Rooms.LongCount(fun r -> r.Type = EF.Parameter roomType)
 
     /// `Room.original`: the oldest room.
-    let original (db: Ef.CampfireDb) : Room option = db.Rooms.OrderBy(fun r -> r.CreatedAt) |> Ef.Data.tryFirst
+    let original (db: Ef.CampfireDb) : Room option =
+        if Ef.FastReads.enabled then Ef.FastReads.originalRoom db
+        else db.Rooms.OrderBy(fun r -> r.CreatedAt) |> Ef.Data.tryFirst
 
     // `Current.user.rooms` and its scopes: the rooms of the user's memberships.
 
@@ -614,10 +619,12 @@ module Room =
 
     /// `user.rooms.find_by(id:)`
     let findForUser (db: Ef.CampfireDb) (userId: int64) (roomId: int64) : Room option =
-        db.Rooms.FromSql(
-            $"SELECT rooms.* FROM rooms INNER JOIN memberships ON rooms.id = memberships.room_id WHERE memberships.user_id = {userId} AND rooms.id = {roomId} LIMIT 1"
-        )
-        |> Ef.Data.sqlFirst
+        if Ef.FastReads.enabled then Ef.FastReads.roomForUser db userId roomId
+        else
+            db.Rooms.FromSql(
+                $"SELECT rooms.* FROM rooms INNER JOIN memberships ON rooms.id = memberships.room_id WHERE memberships.user_id = {userId} AND rooms.id = {roomId} LIMIT 1"
+            )
+            |> Ef.Data.sqlFirst
 
     /// `user.rooms.directs` / `.opens` / `.closeds`
     let forUserOfType (db: Ef.CampfireDb) (userId: int64) (roomType: RoomType) : Room list =
@@ -875,7 +882,8 @@ module Message =
         db.Messages.Where(fun m -> m.RoomId = EF.Parameter roomId)
 
     let findById (db: Ef.CampfireDb) (id: int64) : Message option =
-        db.Messages.FromSql($"SELECT * FROM messages WHERE id = {id} LIMIT 1") |> Ef.Data.sqlFirst
+        if Ef.FastReads.enabled then Ef.FastReads.messageById db id
+        else db.Messages.FromSql($"SELECT * FROM messages WHERE id = {id} LIMIT 1") |> Ef.Data.sqlFirst
 
     let find (db: Ef.CampfireDb) (id: int64) : Message = findById db id |> Err.orNotFound "Message"
 
@@ -910,7 +918,8 @@ module Message =
 
     /// `room.messages.last_page`: the newest 40, oldest first.
     let lastPage (db: Ef.CampfireDb) (roomId: int64) : Message list =
-        (inRoom db roomId).OrderByDescending(fun m -> m.CreatedAt).Take(40).ToList() |> List.ofSeq |> List.rev
+        if Ef.FastReads.enabled then Ef.FastReads.lastPage db roomId
+        else (inRoom db roomId).OrderByDescending(fun m -> m.CreatedAt).Take(40).ToList() |> List.ofSeq |> List.rev
 
     /// `room.messages.first_page`
     let firstPage (db: Ef.CampfireDb) (roomId: int64) : Message list =
@@ -919,9 +928,12 @@ module Message =
     /// `room.messages.page_before(message)`
     let pageBefore (db: Ef.CampfireDb) (roomId: int64) (message: Message) : Message list =
         let at = message.CreatedAt
-        (inRoom db roomId).Where(fun m -> m.CreatedAt < EF.Parameter at).OrderByDescending(fun m -> m.CreatedAt).Take(40).ToList()
-        |> List.ofSeq
-        |> List.rev
+        if Ef.FastReads.enabled then
+            Ef.FastReads.pageBefore db roomId at
+        else
+            (inRoom db roomId).Where(fun m -> m.CreatedAt < EF.Parameter at).OrderByDescending(fun m -> m.CreatedAt).Take(40).ToList()
+            |> List.ofSeq
+            |> List.rev
 
     /// `room.messages.page_after(message)`
     let pageAfter (db: Ef.CampfireDb) (roomId: int64) (message: Message) : Message list =

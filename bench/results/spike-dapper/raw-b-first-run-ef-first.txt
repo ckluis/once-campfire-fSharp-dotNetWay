@@ -1,0 +1,26 @@
+b | identity | room page | 414046 chars | all four bodies equal after masking csrf: True
+b | identity | messages page | 381684 chars | all four bodies equal after masking csrf: True
+b | seq c=1 | room page | round 1 | ef | mean 3564.7 us | p50 2996.6 us | cpu 5927.8 us/req | alloc 3812978 B/req | load { 4.15 10.74 11.74 }
+b | seq c=1 | room page | round 1 | dapper | mean 1405.3 us | p50 821.7 us | cpu 2706.6 us/req | alloc 3602518 B/req | load { 4.05 10.62 11.69 }
+b | seq c=1 | room page | round 2 | ef | mean 2042.9 us | p50 1268.4 us | cpu 3287.8 us/req | alloc 3921479 B/req | load { 4.13 10.52 11.65 }
+b | seq c=1 | room page | round 2 | dapper | mean 1351.0 us | p50 787.6 us | cpu 2388.9 us/req | alloc 3612729 B/req | load { 4.13 10.52 11.65 }
+b | seq c=1 | room page | round 3 | ef | mean 2042.2 us | p50 1267.0 us | cpu 3277.5 us/req | alloc 3921478 B/req | load { 4.04 10.40 11.60 }
+b | seq c=1 | room page | round 3 | dapper | mean 1408.2 us | p50 818.7 us | cpu 2464.4 us/req | alloc 3600724 B/req | load { 4.20 10.32 11.57 }
+b | seq c=1 | room page | round 4 | ef | mean 1975.4 us | p50 1222.8 us | cpu 3160.4 us/req | alloc 3934970 B/req | load { 4.26 10.24 11.53 }
+b | seq c=1 | room page | round 4 | dapper | mean 1419.6 us | p50 737.0 us | cpu 2397.9 us/req | alloc 3588134 B/req | load { 4.32 10.15 11.49 }
+b | seq c=1 | room page | round 5 | ef | mean 2518.8 us | p50 1846.7 us | cpu 3944.9 us/req | alloc 3857533 B/req | load { 4.61 10.11 11.47 }
+b | seq c=1 | room page | round 5 | dapper | mean 1751.6 us | p50 1200.5 us | cpu 2940.5 us/req | alloc 3530507 B/req | load { 4.64 10.03 11.43 }
+b | seq c=1 | room page | round 6 | ef | mean 2577.5 us | p50 1873.2 us | cpu 3996.9 us/req | alloc 3869005 B/req | load { 4.91 9.99 11.41 }
+b | seq c=1 | room page | round 6 | dapper | mean 1740.9 us | p50 1172.4 us | cpu 2922.3 us/req | alloc 3537030 B/req | load { 5.08 9.94 11.39 }
+b | seq c=1 | messages page | round 1 | ef | mean 2603.5 us | p50 1864.3 us | cpu 3988.2 us/req | alloc 3671312 B/req | load { 5.07 9.86 11.35 }
+b | seq c=1 | messages page | round 1 | dapper | mean 1911.8 us | p50 1328.3 us | cpu 3110.4 us/req | alloc 3317903 B/req | load { 5.23 9.81 11.32 }
+b | seq c=1 | messages page | round 2 | ef | mean 2711.0 us | p50 2039.7 us | cpu 4094.8 us/req | alloc 3676463 B/req | load { 5.13 9.72 11.28 }
+b | seq c=1 | messages page | round 2 | dapper | mean 1349.4 us | p50 703.2 us | cpu 2195.0 us/req | alloc 3274771 B/req | load { 5.12 9.64 11.24 }
+b | seq c=1 | messages page | round 3 | ef | mean 1792.3 us | p50 1008.1 us | cpu 2751.4 us/req | alloc 3629708 B/req | load { 5.12 9.64 11.24 }
+b | seq c=1 | messages page | round 3 | dapper | mean 1319.6 us | p50 663.2 us | cpu 2118.8 us/req | alloc 3247775 B/req | load { 5.03 9.54 11.20 }
+b | seq c=1 | messages page | round 4 | ef | mean 1749.1 us | p50 948.2 us | cpu 2652.5 us/req | alloc 3613918 B/req | load { 5.11 9.48 11.17 }
+b | seq c=1 | messages page | round 4 | dapper | mean 1330.8 us | p50 655.5 us | cpu 2126.4 us/req | alloc 3257853 B/req | load { 5.11 9.48 11.17 }
+b | seq c=1 | messages page | round 5 | ef | mean 1740.2 us | p50 950.2 us | cpu 2640.2 us/req | alloc 3619224 B/req | load { 4.78 9.34 11.11 }
+b | seq c=1 | messages page | round 5 | dapper | mean 1337.9 us | p50 666.6 us | cpu 2146.3 us/req | alloc 3252077 B/req | load { 4.87 9.29 11.08 }
+b | seq c=1 | messages page | round 6 | ef | mean 1739.4 us | p50 951.5 us | cpu 2656.7 us/req | alloc 3604543 B/req | load { 4.56 9.15 11.02 }
+b | seq c=1 | messages page | round 6 | dapper | mean 1345.7 us | p50 664.5 us | cpu 2142.0 us/req | alloc 3258095 B/req | load { 4.56 9.15 11.02 }

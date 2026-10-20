@@ -1,0 +1,25 @@
+== Db tests (EF reads)
+  Finished:    Campfire.Db.Tests (ID = '70ee46e3f729e13388c03699ae86f9757292e2e07f6267dd1d0a1585fe1ea04d')
+=== TEST EXECUTION SUMMARY ===
+   Campfire.Db.Tests  Total: 161, Errors: 0, Failed: 0, Skipped: 3, Not Run: 0, Time: 5.090s
+== Storage tests
+  Finished:    Campfire.Storage.Tests (ID = '0a7fc6f0d610ef70e87dc2280a56076dcff3eb711f49cca62f923523d45cc8f1')
+=== TEST EXECUTION SUMMARY ===
+   Campfire.Storage.Tests  Total: 42, Errors: 0, Failed: 3, Skipped: 0, Not Run: 0, Time: 5.862s
+== App tests (EF reads)
+        --- End of stack trace from previous location ---
+H3: 891 posts in 3.0 s = 295 posts/s (0 not 2xx)
+  Finished:    Campfire.App.Tests (ID = '51563f2e291e2a15612028d79310d99fe80b19f37453226e12fe32895ba76155')
+=== TEST EXECUTION SUMMARY ===
+   Campfire.App.Tests  Total: 207, Errors: 0, Failed: 6, Skipped: 1, Not Run: 0, Time: 10.573s
+== App tests (CAMPFIRE_READS=dapper)
+        tests/Campfire.App.Tests/HotPathTests.fs(129,0): at Campfire.App.Tests.HotPathTests.H2 each workload's statements are listed and carry no literal user value@112.MoveNext()
+        --- End of stack trace from previous location ---
+  Finished:    Campfire.App.Tests (ID = '51563f2e291e2a15612028d79310d99fe80b19f37453226e12fe32895ba76155')
+=== TEST EXECUTION SUMMARY ===
+   Campfire.App.Tests  Total: 207, Errors: 0, Failed: 7, Skipped: 1, Not Run: 0, Time: 10.867s
+== Db tests (CAMPFIRE_READS=dapper)
+  Finished:    Campfire.Db.Tests (ID = '70ee46e3f729e13388c03699ae86f9757292e2e07f6267dd1d0a1585fe1ea04d')
+=== TEST EXECUTION SUMMARY ===
+   Campfire.Db.Tests  Total: 161, Errors: 0, Failed: 0, Skipped: 3, Not Run: 0, Time: 4.971s
+ALLDONE

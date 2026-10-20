@@ -1,0 +1,25 @@
+## a. read sets alone, in process, single thread, default seed, warm. load { 7.58 14.97 13.17 }
+a | room page (9 statements) | round 1 | ef | 472.5 us/page | 463893 B/page | load { 6.96 14.47 13.02 }
+a | room page (9 statements) | round 1 | dapper | 144.2 us/page | 130464 B/page | load { 6.96 14.47 13.02 }
+a | room page (9 statements) | round 2 | ef | 396.2 us/page | 462173 B/page | load { 7.61 14.35 13.00 }
+a | room page (9 statements) | round 2 | dapper | 142.7 us/page | 130464 B/page | load { 7.61 14.35 13.00 }
+a | room page (9 statements) | round 3 | ef | 371.9 us/page | 462173 B/page | load { 6.97 14.00 12.89 }
+a | room page (9 statements) | round 3 | dapper | 140.2 us/page | 130464 B/page | load { 6.97 14.00 12.89 }
+a | room page (9 statements) | round 4 | ef | 375.0 us/page | 462173 B/page | load { 6.82 13.73 12.81 }
+a | room page (9 statements) | round 4 | dapper | 140.8 us/page | 130464 B/page | load { 6.82 13.73 12.81 }
+a | room page (9 statements) | round 5 | ef | 373.2 us/page | 462173 B/page | load { 6.54 13.44 12.72 }
+a | room page (9 statements) | round 5 | dapper | 139.0 us/page | 130464 B/page | load { 6.54 13.44 12.72 }
+a | room page (9 statements) | round 6 | ef | 370.5 us/page | 462173 B/page | load { 6.46 13.20 12.64 }
+a | room page (9 statements) | round 6 | dapper | 138.3 us/page | 130464 B/page | load { 6.46 13.20 12.64 }
+a | messages page (9 statements) | round 1 | ef | 375.3 us/page | 490748 B/page | load { 6.24 12.93 12.55 }
+a | messages page (9 statements) | round 1 | dapper | 135.9 us/page | 133248 B/page | load { 6.24 12.93 12.55 }
+a | messages page (9 statements) | round 2 | ef | 370.3 us/page | 490743 B/page | load { 5.90 12.64 12.45 }
+a | messages page (9 statements) | round 2 | dapper | 129.8 us/page | 133248 B/page | load { 5.90 12.64 12.45 }
+a | messages page (9 statements) | round 3 | ef | 354.0 us/page | 490743 B/page | load { 5.38 12.30 12.33 }
+a | messages page (9 statements) | round 3 | dapper | 129.0 us/page | 133248 B/page | load { 5.38 12.30 12.33 }
+a | messages page (9 statements) | round 4 | ef | 351.0 us/page | 490743 B/page | load { 4.79 11.95 12.20 }
+a | messages page (9 statements) | round 4 | dapper | 127.6 us/page | 133248 B/page | load { 4.79 11.95 12.20 }
+a | messages page (9 statements) | round 5 | ef | 350.3 us/page | 490743 B/page | load { 4.51 11.65 12.10 }
+a | messages page (9 statements) | round 5 | dapper | 127.3 us/page | 133248 B/page | load { 4.51 11.65 12.10 }
+a | messages page (9 statements) | round 6 | ef | 353.3 us/page | 490743 B/page | load { 4.05 11.31 11.97 }
+a | messages page (9 statements) | round 6 | dapper | 128.9 us/page | 133248 B/page | load { 4.05 11.31 11.97 }

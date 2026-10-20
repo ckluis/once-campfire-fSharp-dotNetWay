@@ -56,6 +56,9 @@ module Blob =
 
     /// The blob attached to `record` under `name` (`has_one_attached`): the first attachment's, by id.
     let attached (db: Ef.CampfireDb) (recordType: string) (recordId: int64) (name: string) : Blob option =
+        if Ef.FastReads.enabled then
+            Ef.FastReads.attachedBlob db recordType recordId name |> Option.map ofEntity
+        else
         db.Attachments
             .Where(fun a -> a.RecordType = EF.Parameter recordType && a.RecordId = EF.Parameter recordId && a.Name = EF.Parameter name)
             .OrderBy(fun a -> a.Id)

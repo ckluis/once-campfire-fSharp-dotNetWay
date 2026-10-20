@@ -80,7 +80,9 @@ module Account =
     let find (db: CampfireDb) (id: int64) : Account = db.Accounts.Find id |> Data.found "Account"
 
     /// `Account.first` (`Current.account`).
-    let first (db: CampfireDb) : Account option = db.Accounts.FromSql($"SELECT * FROM accounts ORDER BY id LIMIT 1") |> Data.sqlFirst
+    let first (db: CampfireDb) : Account option =
+        if FastReads.enabled then FastReads.accountFirst db
+        else db.Accounts.FromSql($"SELECT * FROM accounts ORDER BY id LIMIT 1") |> Data.sqlFirst
 
     let count (db: CampfireDb) : int64 = db.Accounts.LongCount()
 

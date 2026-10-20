@@ -13,6 +13,7 @@
     <Compile Include="RichText.fs" />
     <Compile Include="Ef/Interceptors.fs" />
     <Compile Include="Ef/Data.fs" />
+    <Compile Include="Ef/FastReads.fs" />
     <Compile Include="Ef/Writes.fs" />
     <Compile Include="Schema.fs" />
     <Compile Include="Sound.fs" />
@@ -34,6 +35,7 @@
     <PackageReference Include="Microsoft.Data.Sqlite" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" />
     <PackageReference Include="EFCore.NamingConventions" />
+    <PackageReference Include="Dapper" />
   </ItemGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="Campfire.Db.Tests" />
