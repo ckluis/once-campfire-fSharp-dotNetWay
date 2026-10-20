@@ -1,0 +1,21 @@
+pixel-parity: dotnetway vs the Rails reference, layers pixels,aria,loose, seeds default,crowd,custom_styles,first_run,restricted (fast: chromium, light, no breakpoint sweep)
+pixel-parity: VM free 38G, parity/out 328M
+seed default: 115/115 screenshots pixel-equal; 115/115 aria equal; 115/115 loose equal  [445s]
+pixel-parity: VM free 38G, parity/out 328M
+seed crowd: 0/0 screenshots pixel-equal; 0/0 aria equal; 0/0 loose equal  [4s]
+pixel-parity: VM free 38G, parity/out 329M
+seed custom_styles: 2/2 screenshots pixel-equal; 2/2 aria equal; 2/2 loose equal  [19s]
+pixel-parity: VM free 38G, parity/out 334M
+seed first_run: 8/8 screenshots pixel-equal; 8/8 aria equal; 8/8 loose equal  [37s]
+pixel-parity: VM free 38G, parity/out 334M
+seed restricted: 0/0 screenshots pixel-equal; 0/0 aria equal; 0/0 loose equal  [3s]
+pixel-parity: PASSED, the UI is pixel-identical in 508s; reports under /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/parity/out/pixel-parity-20261020T173238Z
+parity/out: 2081 MB -> 2060 MB
+Total reclaimed space: 0B
+Total:	0B
+TYPE            TOTAL     ACTIVE    SIZE      RECLAIMABLE
+Images          13        0         18.57GB   10.79GB (58%)
+Containers      0         0         0B        0B
+Local Volumes   2         0         910.3MB   910.3MB (100%)
+Build Cache     84        0         6.715GB   6.367GB
+VM disk on macOS:  19G	/Users/clank/.colima/_lima/_disks/colima/datadisk

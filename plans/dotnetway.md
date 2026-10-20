@@ -1193,3 +1193,47 @@ Code in `1d8f41c` and the R4 fix after it. Evidence in `bench/results/dotnetway-
   must come with a same-day control for post, and a shortfall is fixed by skipping work, not by moving the floor.
 - **KLOC:** `bin/kloc` 38,764 by upstream's rules, **38,983 corrected (39.0 KLOC)**, from 38,586 (+0.40: `Params.fs`, `Formats.fs` and the form copy in `Adapter.fs`, beside the kit's own params, which go in 2.13).
 - **Differences recorded (README, class B):** params from the framework's form reader and the `Accept` parser (above).
+
+### Phase 2, unit 2.8: Responses and compression (2026-10-20)
+
+Code in `55b4e67` (Respond, compression, deletions) and the page-compression commit after it. Evidence in `bench/results/dotnetway-p2-8/` (image `campfire-dotnetway:app`
+built from the second commit; `first/` is the bench of the first commit, kept because it is the shortfall).
+- **Built:** `Web/Respond.fs`: `redirectTo`/`redirectToWith`/`redirectBackOrTo` (Rails' unsafe-redirect rules: another host, a protocol-relative URL or a path-relative one is
+  `UnsafeRedirect`, a 500; `AllowOtherHost`, `Notice`, `Alert`, status), `freshWhen`/`stale` (typed `If-None-Match` / `If-Modified-Since`, strict freshness, the
+  validator + Turbo Frame + template + flash digest, weak/strong ETag, `Cache-Control` `max-age=0, private|public, must-revalidate`), `expiresIn`, `sendFile` (`Results.File`
+  with range processing, Rails' `Content-Disposition`), and the request's flash (`flash`, committed with the session by `commit`, which `Action.run` calls before the
+  handler writes). `Web/PublicExceptions.fs`: the public pages straight to the response (Opus note 4's `Errors.respond` through `Adapter.dispatch` and a whole `Ctx` is gone).
+  Compression is `UseResponseCompression` in `Services.pipeline` behind the public files (gzip and Brotli at their fastest, HTTPS included, MIME list plus turbo-stream,
+  `text/javascript`, SVG and the manifest), with a `SkipSmall` decorator of the framework's provider: nothing under 256 bytes (Opus note 6).
+  **Deleted:** `Adapter.useDeflater`, the writer's gzip path, `Rack::Deflater`'s selection/406/`shouldDeflate`, the gzip member cache and `GzipWriter` (`Deflater.fs` keeps `hasWord` and
+  the CRC-32 that Front shares), `BodyDigest` on `Response`, and Splice's gzip pieces (`Crc`, `Piece`, dictionary compression, the text-piece cache; it keeps the part digests and the
+  ETag). Kit tests that pinned them went: `DeflaterTests` (selection, `q` values, round trips), eight `SpliceTests`, six `AdapterTests` (the deflater's, with the static-file mtime and the 406).
+- **The shortfall and what fixed it:** the first bench of plain `UseResponseCompression` put the **messages page at 4.47x Rails at c=1 (floor 5x)** and the room page 35-40% down
+  (room c=1 990/s from 1,575; c=16 3,633 from 5,206; `first/bench/`). The same day's identity run of that build (`first/identity/`, `--gzip 0`) was still 24% down on the room page at c=1
+  (1,195/s): even with nothing to compress, the middleware's body wrapper copies a 416 KB page through a `StreamPipeWriter` instead of Kestrel's pipe, and with gzip the page is compressed afresh
+  each request (decoded 416,122 bytes, 36,812 on the wire). Not a change of floor: skipped work. `Adapter.write` now asks the framework's `IResponseCompressionProvider` for the encoding,
+  compresses a `Body.Parts` page once with that provider's own stream, keeps the bytes in a 16 MiB `Generations` map by (encoding, the page's ETag digest) and writes them already
+  encoded (`Content-Encoding`, `Vary`, `Content-Length`), so the middleware leaves them alone. Sidebar, search and post bodies are small enough that the middleware's own work is within noise.
+- **Tests:** X1-X5 in `tests/Campfire.App.Tests/Web/RespondTests.fs` (redirect matrix incl. the flash notice across a redirect; 304 for a matching ETag, `*`, a list, `If-Modified-Since`;
+  the strict-freshness case; `expires_in`'s `Cache-Control` and `Date`; gzip, Brotli, `gzip, br`, `identity`, a turbo-stream write, `Vary`, one `Content-Encoding`, small bodies and a
+  redirect uncompressed, a room page's second request the same bytes; `send_file` 200/206/416, `Content-Disposition`, a missing file's 500). `RoomsTests` "pages of messages go out in
+  parts" now expects the gzipped page's `Content-Length`. Opus note 5 (F8: no session store reads or writes without `_campfire_flash`) stays green; the rate limiter is 2.9.
+- **Gates (second commit's image):** `CAMPFIRE_REQUIRE_SEED=1 bin/verify` (Release, warnaserror): 0 warnings, 1,064 tests, 1,058 passed, 0 failed, 6 skipped (the same 6; 16 fewer than 2.7's
+  1,080: the deleted deflater/splice/adapter tests, plus 5 new X tests); H1 green. `bin/pixel-parity --fast --only 'errors/**,auth/**,interactions/**'` on the final image: default 115/115,
+  custom_styles 2/2, first_run 8/8 equal on screenshots, aria and loose DOM (crowd and restricted have none), PASSED in 508 s (`pixel.log`; `pixel-before-cache.log` is the same slice, also 115/115, on the image
+  of the first commit). `bin/cookie-roundtrip`: 20/20 (`cookie-roundtrip.log`). `bin/clean-parity` and `bin/clean-docker` run. Network layer Network layer on the real image through Front (`curl` against `candidate up`): `/session/new` with `Accept-Encoding: gzip` -> one
+  `Content-Encoding: gzip`, `br` -> `br`, `gzip, br` -> `br`, `identity` -> none; `Vary: Accept-Encoding` on all; a precompressed asset -> one `Content-Encoding: gzip`, no re-encoding.
+  A first full pixel run failed only `auth/sign_in/error` ("candidate not ready: 7 in flight") while two parity containers of an earlier session (`campfire-candidate-4312`,
+  `campfire-reference-4311`, up 5 hours) were still running in the 6 GB VM; with them removed that state alone passed 2/2 and the whole slice passed 115/115.
+- **Speed (`bench/quick`, 3 reps, host 1.06-1.09, second commit):** room page 5,492/s c=16 (23.0x Rails), 1,654 c=1 (15.4x); messages page 5,160 (13.6x), 1,495 c=1 (**6.86x**);
+  sidebar 5,544 (9.26x), 1,564 c=1 (**5.46x**); search 4,802 (11.8x), 1,361 c=1 (7.06x); post a message 1,832 c=16 (**5.55x**), 913 c=1 (**5.47x**). Every workload over the 5x floor, all 2xx,
+  0 errors, rows written equal answers. Against 2.7 (this morning's `dotnetway-p2-7`) post c=1 is +7% (852 -> 913) and nothing is below it: no regression from sessions, CSRF, auth or compression
+  on the five workloads. Same-day control (the F# port's image, `control/`, sidebar and post, 1 rep): sidebar 7,204 c=1 (90% of its stored median) and 36,480 c=16 (97%); post c=1 2,895 (95%); post
+  c=16 5,348 (60%, warm-up reached its maximum, as in 2.7), so today's host sits 3-10% under the stored session and the ratios above are conservative. The thinnest are sidebar c=1 (9% headroom)
+  and post c=1/c=16 (9-11%).
+- **KLOC:** `bin/kloc` 38,548 by upstream's rules, **38,767 corrected (38.8 KLOC)**, from 38,983 (-0.22: the deflater, the gzip cache and Splice's pieces and CRC out, `Respond.fs` and
+  `PublicExceptions.fs` in, and the page-compression map).
+- **Differences recorded (README, class B):** compression types/size/Brotli and no 406 (`Rack::Deflater`); `send_file` answers ranges; `fresh_when`'s ETag text is not Rails'. No
+  `Rack::ETag` body hash from Web actions (K14), and the default `Cache-Control` of a 200 that set none stays with the legacy writer: **2.13 must move it** (an `OnStarting` hook) when `Ctx.Finish` goes.
+- **For later units:** note 4's `Flash`/`ReturnTo`/`SessionReset` in `Kit/Flash.fs`, `Current.LookupError` as a `Campfire.Kit.Error` and `CookieJar.deleteCookieHeader` are 2.13's
+  (Kit's `Ctx` is still there). A5's wall-clock timestamps are untouched. Opus note 1's `Origin: null` test (C13) was 2.7's.

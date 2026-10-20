@@ -48,6 +48,16 @@ header and the IP is `Connection.RemoteIpAddress` (which `UseForwardedHeaders` h
 bot-key handler reads `bot_key` through `Web.Params.lookup` (route, JSON or form body, query) and fails, a 500, for a hash or array. K10: the
 method override no longer buffers the body; the form it parses is the framework's cached `Request.Form`, which the kit's body parser and
 `Web.Params` both read (`Adapter.parseBody`), and `Adapter.bodyLimit` honours the kit's `MaxBodyBytes`.
+K11 (unit 2.8): `UseResponseCompression` sits behind the public files, not around the whole app, because assets are served precompressed;
+a `SkipSmall` decorator of the framework's provider leaves a response whose `Content-Length` is under 256 bytes alone (Opus note 6: skip
+the work, not the floor). Splice's gzip pieces, the CRC combining and the gzip cache are deleted, the part digests and the ETag stay until 2.13.
+The first bench of the plain framework compression left the messages page at 4.5x Rails (c=1) and the room page 35% down (a ~400 KB page
+compressed per request, after a copy through the middleware's stream), so `Adapter.write` keeps the compressed form of a `Body.Parts` page by
+(encoding, ETag digest) in a bounded `Generations` map, made with the framework provider's own stream, and writes it already encoded.
+K13 (Opus note 4): `Web/PublicExceptions.fs` renders the public pages straight to the response (it replaces `Errors.respond`'s
+`Adapter.dispatch` through a `Ctx`); the status and message still come from `Campfire.Kit.Error` until 2.13. `Respond.commit` (flash, then
+the session) runs in `Action.run` and in the renderer before the response starts. `Respond.fs` has no default `Cache-Control` for a 200
+that set none: it stays with the legacy writer, and 2.13 must move it (a middleware's `OnStarting`) when `Ctx.Finish` goes.
 
 ## 2. Spikes (scratch project, 2026-10-13, .NET SDK 10.0.401, Falco 5.2.0, the repo's `Campfire.RailsCompat`)
 

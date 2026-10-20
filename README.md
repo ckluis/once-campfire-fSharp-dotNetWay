@@ -110,6 +110,21 @@ specific to this port are listed below, each citing the reference file it depart
     browser-like lists ignored, path extension, `text/*` expansion, Turbo's type first). A `q` Ruby's `to_f` reads and the
     framework does not (`q=abc`, `q=1e17`) leaves the item at 1.0, and `text/xml` is not folded into `application/xml`.
     Reference: `Mime::Type.parse`, `ActionDispatch::Http::MimeNegotiation`. Tested by `FormatsTests`.
+  - Responses are compressed by the framework's `UseResponseCompression` (gzip and Brotli, HTTPS included), not `Rack::Deflater`:
+    only the types in its list (HTML, JSON, JavaScript, CSS, SVG, XML, plain text and Turbo's streams), nothing under 256 bytes,
+    nothing the public files already serve precompressed, and Brotli when the client asks for it; `Rack::Deflater` gzipped
+    every body whatever its type or size and answered 406 to a client that refused every encoding. A page of cached fragments
+    (a room page, a page of messages) is compressed once per encoding and kept, by the digest of its parts, in a 16 MiB
+    bounded map, with the framework's provider's bytes; it is no longer built from gzip pieces stored per fragment, so a
+    changed page costs one compression of the whole page. Reference: `config.ru` (`Rack::Deflater`). Tested by `RespondTests`
+    (X4) and `RoomsTests` ("pages of messages go out in parts").
+  - `send_file` answers a `Range` request with 206 or 416 (the framework's range processing); Rails' `send_file` sends the whole
+    file. `redirect_to`, `fresh_when`, `stale?` and `expires_in` keep Rails' rules (unsafe-redirect checks, strict freshness, the
+    ETag combination of the validator, a Turbo Frame and the flash), on the framework's typed `If-None-Match` and
+    `If-Modified-Since`; a `fresh_when` ETag digests the same parts as Rails (validator, Turbo Frame, template, flash) but writes the flash
+    differently, so it is not byte-equal to Rails' or the Rust port's. No
+    page gets `Rack::ETag`'s body hash from a Web action (K14). Reference: `ActionController::Redirecting`,
+    `ActionController::ConditionalGet`, `ActionController::DataStreaming`. Tested by `RespondTests` (X1-X3, X5).
   - A request body is capped at 16 MiB, files included, by Kestrel (413; Rust's front server did the same, Rails reads
     any size). Reference: `config/puma.rb` (no limit). Tested by `RequestsTests` (R4).
   - `VAPID_SUBJECT` without a `TLS_DOMAIN` defaults to this project's URL (`https://github.com/ckluis/once-campfire-fsharp`);
@@ -181,8 +196,8 @@ specific to this port are listed below, each citing the reference file it depart
     feature (`Campfire.Kit/Front/Conn.fs`, `FrontH2c`); if a Kestrel release changes it, the port serves
     HTTP/1.1 only and logs a warning. Tested by `FrontTests` ("speaks h2c only when enabled").
   - Compressed responses carry the same decoded bytes as Rust's, not the same compressed bytes (.NET's
-    deflate and ZstdSharp are not flate2 and libzstd); the Rust test that pins the SHA-256 of a spliced gzip
-    member checks the ETag and the decoded body instead.
+    deflate and ZstdSharp are not flate2 and libzstd); the app's own compression is the framework's, and the Rust test
+    that pins the SHA-256 of a spliced gzip member is gone with the spliced gzip (unit 2.8).
   - `HTTP_IDLE_TIMEOUT`, `HTTP_READ_TIMEOUT` and `HTTP_WRITE_TIMEOUT` above 49 days are clamped to 49 days,
     the longest .NET's timers can wait. Thruster and the Rust port accept any number of seconds; a value
     that large means "never" in all three. Tested by `FrontConfigTests`.
@@ -224,8 +239,8 @@ specific to this port are listed below, each citing the reference file it depart
 
 - **Views** (`Campfire.Views`; `rust/crates/views` is the port it follows). None of these changes a byte of
   output, which `bin/views-differential` compares with the Rust crate's on thousands of cases:
-  - The view fragment cache counts what the page-splicing layer keeps for each fragment (its SHA-256 and compressed
-    pieces) in the fragment's entry, and drops them with it. Rust keeps them in a bounded map in the kit, keyed by
+  - The view fragment cache counts what the page-splicing layer keeps for each fragment (its SHA-256; the compressed
+    pieces went in unit 2.8) in the fragment's entry, and drops them with it. Rust keeps them in a bounded map in the kit, keyed by
     the address of the fragment's `Arc`, which a .NET object can't be found by (and `Campfire.Views` may not
     reference `Campfire.Kit`). A fragment's entry therefore costs its bytes plus its pieces' as of the last time it
     was used, and a page's fragments that keep being shown stay while the rest age out. Tested by
