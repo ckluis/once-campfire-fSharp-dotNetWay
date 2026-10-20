@@ -59,6 +59,22 @@ K13 (Opus note 4): `Web/PublicExceptions.fs` renders the public pages straight t
 the session) runs in `Action.run` and in the renderer before the response starts. `Respond.fs` has no default `Cache-Control` for a 200
 that set none: it stays with the legacy writer, and 2.13 must move it (a middleware's `OnStarting`) when `Ctx.Finish` goes.
 
+K15 and the Web actions (unit 2.9): the limiter is `Web/LoginThrottle.fs`, a `PartitionedRateLimiter<string>` singleton registered in
+`Services.add`, one fixed window (10 per 3 minutes) per `SessionCookie.client` IP, acquired in `Sessions.create` after `Before.chain`; it
+never touches the session store, so F8 (no store reads or writes for a request without `_campfire_flash`) stays green. The first Web
+actions needed the pieces K8 names but earlier units left behind `Legacy.wrap`: `Web/Before.fs` (the chain; its record is `Before` with `Auth`
+for the authentication choice, since `Authentication` is already a module here), `Web/Pages.fs` (the layout's data, the page and
+Turbo-Frame writers over the kit's `Adapter.write`, so a page of cached fragments still goes out in parts and compressed once),
+`Web/Data.fs` (reads and writes on the request's `CampfireDb`) and `Web/Native.fs`. `Native.wrap` is what `Ctx.Finish` did for the
+legacy rows, less the digest (K14): at response start, Rails' default headers, a default `Content-Type`, and `Cache-Control`
+(`max-age=0, private, must-revalidate` for a 200 with a body, `no-cache` otherwise) where the action set none; an error page is
+Rails' middleware and gets only the default headers (no `Cache-Control`, and not the chain's `X-Version`/`X-Rev`: `PublicExceptions`
+removes them). `Pages.endpoint` carries the matched row for the layout choice that `MatchedRoute` carried. The session middleware's own
+`no-cache,no-store`, `Pragma` and `Expires` (set when it establishes its cookie, over what the action said) are put back by the kit's
+first-registered `OnStarting` callback, which runs last: Rails' session cookie leaves the cache headers alone (the replay found this: it
+was a unit 2.5 difference that no replay had run since). Opus note 3 (remote IP) stands: the throttle and the ban check take the IP from
+`Connection.RemoteIpAddress`.
+
 ## 2. Spikes (scratch project, 2026-10-13, .NET SDK 10.0.401, Falco 5.2.0, the repo's `Campfire.RailsCompat`)
 
 `/private/tmp/claude-501/-Users-clank-Desktop-projects/fea4ed62-8823-4b82-bed5-fc54b6214d57/scratchpad/authspike/` (`Program.fs`,

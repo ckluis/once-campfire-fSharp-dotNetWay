@@ -117,7 +117,8 @@ specific to this port are listed below, each citing the reference file it depart
     (a room page, a page of messages) is compressed once per encoding and kept, by the digest of its parts, in a 16 MiB
     bounded map, with the framework's provider's bytes; it is no longer built from gzip pieces stored per fragment, so a
     changed page costs one compression of the whole page. Reference: `config.ru` (`Rack::Deflater`). Tested by `RespondTests`
-    (X4) and `RoomsTests` ("pages of messages go out in parts").
+    (X4) and `RoomsTests` ("pages of messages go out in parts"). `Vary: Accept-Encoding` is sent on every compressible response, also to a
+    client that sent no `Accept-Encoding` (`Rack::Deflater` adds it only for one that did).
   - `send_file` answers a `Range` request with 206 or 416 (the framework's range processing); Rails' `send_file` sends the whole
     file. `redirect_to`, `fresh_when`, `stale?` and `expires_in` keep Rails' rules (unsafe-redirect checks, strict freshness, the
     ETag combination of the validator, a Turbo Frame and the flash), on the framework's typed `If-None-Match` and

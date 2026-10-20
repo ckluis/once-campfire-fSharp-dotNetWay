@@ -1237,3 +1237,45 @@ built from the second commit; `first/` is the bench of the first commit, kept be
   `Rack::ETag` body hash from Web actions (K14), and the default `Cache-Control` of a 200 that set none stays with the legacy writer: **2.13 must move it** (an `OnStarting` hook) when `Ctx.Finish` goes.
 - **For later units:** note 4's `Flash`/`ReturnTo`/`SessionReset` in `Kit/Flash.fs`, `Current.LookupError` as a `Campfire.Kit.Error` and `CookieJar.deleteCookieHeader` are 2.13's
   (Kit's `Ctx` is still there). A5's wall-clock timestamps are untouched. Opus note 1's `Origin: null` test (C13) was 2.7's.
+
+### Phase 2, unit 2.9: Controllers A (2026-10-20)
+
+Code in `1b97abc` (the controllers and the Web pieces) and the commit after it (what the replay found). Evidence in `bench/results/dotnetway-p2-9/` (`replay.log`,
+`cookie-roundtrip.log`, `pixel.log`, `verify.log`, `bench/`, `control/`; image `campfire-dotnetway:app` built from the second commit).
+- **Built:** sessions (`new`, `create`, `destroy`), first runs, welcome, PWA (manifest, service worker), session transfers, `Rails::HealthController`, Turbo Native
+  navigation and the Action Mailbox ingress and conductor rows are Web actions (`HttpContext -> Task<Result<HttpHandler, Error>>`, `taskResult`), 29 route rows. The pieces they needed
+  and earlier units had left behind `Legacy.wrap`: `Web/Before.fs` (the seven-step chain on `HttpContext`, same order and skips as `Concerns.beforeActions`; its record is
+  `Before` with an `Auth` field because `Authentication` is a module here), `Web/Pages.fs` (the layout's data, `ViewContext`, the application-layout and Turbo-Frame writers over the
+  kit's `Adapter.write`, the incompatible-browser page), `Web/Data.fs` (reads and writes on the request's `CampfireDb`), `Web/Native.fs` (what `Ctx.Finish` gave a response, less the
+  digest: Rails' default headers, a default `Content-Type` and `Cache-Control`, as the response starts), `Controllers/Rails.fs` (health, Turbo Native, mailbox), and
+  `Respond.head`/`urlFor`(host_with_port rules)/`resetSession`. The route table has `getN`/`postN`/... for Web rows; they set the matched endpoint and scope the fragment cache as `make` does.
+  **K15:** `Web/LoginThrottle.fs`, a `PartitionedRateLimiter<string>` singleton (fixed window per remote IP, 10 per 3 minutes), acquired in `Sessions.create` after the chain; the
+  `Sessions.increment` counter and its test are gone. Opus note 5: it never touches the session store, and F8 stays green.
+  `FirstRuns.create`'s avatar comes from `Request.Form.Files` (copied to a temp file, deleted after staging), since the kit's param map is not on a Web action.
+- **Found by the replay and fixed (not specific to a controller):** (1) a response the session middleware sets its cookie on got `Cache-Control: no-cache,no-store`, `Pragma` and `Expires` over the
+  action's (unit 2.5's session; no replay had run since); the kit's first-registered `OnStarting` callback runs last and puts the status's default back (also fixes the legacy rows).
+  (2) `PublicExceptions` (unit 2.8) added `Cache-Control: no-cache` to an error page, which Rails' middleware does not send, and left the chain's `X-Version`/`X-Rev` on it. Both gone; N9.
+  `replay.py` now masks the `_campfire_flash` cookie (K6), accepts a missing ETag where Rails sends one (K14) and ignores `Accept-Encoding` in `Vary` (K11, class A: the framework adds it
+  to a compressible response whatever the request asked; recorded in the README).
+- **Tests:** N1-N9 in `tests/Campfire.App.Tests/Web/ControllersATests.fs` (default and version headers, cache control and no digest; redirect and `head`; health HTML/JSON/406; Turbo Native;
+  conductor CSRF order; PWA; root redirects and `last_room`; the per-IP throttle; error pages). Sabotage: a limit of 11 and a changed default `Cache-Control` made N1, N8, F7 and
+  `PresenterAccountsTests` "rejects bad passwords and rate limits sign ins" fail.
+- **Gates:** `CAMPFIRE_REQUIRE_SEED=1 bin/verify` (Release, warnaserror): 0 warnings, 1,072 tests, 1,066 passed, 0 failed, 6 skipped (the same 6); H1 green. A first run failed `Kit FrontAcmeTests
+  cached certificates load and are forgotten by obtaining` once and passed on the immediate re-run with no change in Kit's Front (a timing flake, as the earlier `FrontTests` one). `bin/pixel-parity --fast --only
+  'auth/**,pwa/**,welcome/**'`: default 54/54, custom_styles 2/2, first_run 8/8 equal on screenshots, aria and loose DOM (crowd and restricted have no such states), PASSED in 254 s (`pwa/**` and
+  `welcome/**` match no state: the PWA files and the welcome page are not captured pages; their answers are in `replay.log` and N6/N7). `controllers_a/replay.py`, three seeds on the final image:
+  default 152 matched, 3 differed by design, 0 differed; crowd 15/0/0; first_run 11/0/0 (the first run, on the first commit's image: 138 matched, 14 differed, all the items above). `bin/cookie-roundtrip`:
+  20/20 both ways. `bin/clean-docker` and `bin/clean-parity` run.
+- **Speed (`bench/quick`, 3 reps, host 1.05-1.08):** room page 5,413/s c=16 (22.6x Rails), 1,647 c=1 (15.4x); messages page 5,099 (13.4x), 1,489 c=1 (6.83x); sidebar 5,469 (9.14x), 1,556 c=1
+  (**5.43x**); search 4,917 (12.1x), 1,392 c=1 (7.22x); post a message 1,854 c=16 (**5.62x**), 916 c=1 (**5.49x**). Every workload over the 5x floor, all 2xx, 0 errors, rows written equal answers.
+  Against 2.8 (post 5.55x/5.47x, sidebar c=1 5.46x) nothing moved beyond noise: the hot paths are still legacy rows, and the unit adds to them only the kit's cache-header check at response start.
+  Same-day control (the port's image, sidebar and post, 1 rep): 97-99% of its stored medians (sidebar 37,363 and 7,792; post 8,805 and 3,034), so the ratios are not flattered by the host.
+  The thinnest are sidebar c=1 (8.6% headroom), post c=1 (9.8%) and post c=16 (12%).
+- **KLOC:** `bin/kloc` 39,030 by upstream's rules, **39,249 corrected (39.2 KLOC)**, from 38,767 (+0.48): the Web pieces (+~0.75) and the native controllers are in while the `Ctx`-based `Layout`,
+  `Page`, `Concerns` and the legacy rows stay until their units move (2.13 deletes them); the controllers themselves shrank slightly.
+- **Differences recorded (README, class B):** the sign-in throttle's wall-clock windows in server memory (K15), and the headers of a Web action's response (default `Cache-Control`, no body ETag).
+  Class A, in the 2.8 compression entry's spirit: `Vary: Accept-Encoding` on a compressible response to a client that sent no `Accept-Encoding`.
+- **For later units:** `Concerns`, `Presenters/ViewContext.fs`'s `Layout` module and `Page.fs` are now duplicated by `Web/Before.fs` and `Web/Pages.fs` until 2.10-2.12 move their callers; each unit
+  that moves a controller should delete the `Ctx` helper it stops using (2.13 deletes what is left). `Web.Native.wrap` must stay the way a Web row is finished until `Ctx.Finish` goes, when the legacy default
+  `Cache-Control` and the version headers it set move into the same hook. Opus note 4 (`Flash`/`ReturnTo`/`SessionReset` in `Kit/Flash.fs`, `Current.LookupError` as a Kit error,
+  `CookieJar.deleteCookieHeader`) is still 2.13's. A5's wall-clock timestamps are untouched.
