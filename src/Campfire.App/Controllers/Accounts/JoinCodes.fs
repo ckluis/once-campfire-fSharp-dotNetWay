@@ -1,21 +1,22 @@
 // Port of rust/crates/campfire/src/controllers/accounts/join_codes.rs
 //
-// `Accounts::JoinCodesController` (reference/app/controllers/accounts/join_codes_controller.rb).
+// `Accounts::JoinCodesController` (reference/app/controllers/accounts/join_codes_controller.rb). A Web action (unit 2.10).
 namespace Campfire.App.Controllers
 
-open System.Threading.Tasks
-open Campfire.Kit
+open FsToolkit.ErrorHandling
 open Campfire.App
 open Campfire.Db
 open Campfire.Routes
+open Campfire.App.Web
 
 module JoinCodes =
     /// `Current.account.reset_join_code`
-    let create (c: Ctx) : Task<Result<Response, Error>> =
-        act {
-            do! Concerns.beforeActions c Before.Default
-            do! Concerns.ensureCanAdminister c
-            let! (account: Account) = AccountsController.currentAccount c
-            let! (_: Account) = c.Write(fun tx -> Account.resetJoinCode tx account)
-            return! c.RedirectTo(c.UrlFor(Routes.editAccount ()))
-        }
+    let create: Web.Action =
+        fun http ->
+            taskResult {
+                do! Before.chain Before.Default http
+                do! Before.ensureCanAdminister http
+                let! (account: Account) = AccountsController.currentAccount http
+                let! (_: Account) = Data.write http (fun tx -> Account.resetJoinCode tx account)
+                return! Respond.redirectTo http (Respond.urlFor http (Routes.editAccount ()))
+            }

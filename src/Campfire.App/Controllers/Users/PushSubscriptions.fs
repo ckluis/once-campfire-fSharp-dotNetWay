@@ -7,41 +7,45 @@ namespace Campfire.App.Controllers
 open System
 open System.Linq
 open System.Threading.Tasks
+open FsToolkit.ErrorHandling
+open Microsoft.AspNetCore.Http
 open Microsoft.EntityFrameworkCore
 open Campfire.Views
-open Campfire.Kit
 open Campfire.App
 open Campfire.App.Integrations
 open Campfire.App.Presenters
 open Campfire.Db
 open Campfire.Routes
 open Campfire.Ruby
+open Campfire.App.Web
 
 module PushSubscriptions =
     module IndexPage = Campfire.Views.Templates.Users.PushSubscriptions.Index
 
     let private indexSize = RenderSize()
 
-    /// `params.require(:push_subscription).permit(:endpoint, :p256dh_key, :auth_key)`
-    let private pushSubscriptionParams (c: Ctx) : Result<Campfire.Kit.ParamMap, Error> =
-        c.Params.Require "push_subscription"
-        |> Result.map (fun param -> param.Permit(Params.permitKeys [ "endpoint"; "p256dh_key"; "auth_key" ]))
+    /// `params.require(:push_subscription).permit(:endpoint, :p256dh_key, :auth_key)`: the scalar members given, in the order
+    /// permitted.
+    let private pushSubscriptionParams (http: HttpContext) : Result<(string * string) list, Error> =
+        Params.require http "push_subscription"
+        |> Result.map (fun scope ->
+            let permitted = Params.permit scope [ "endpoint"; "p256dh_key"; "auth_key" ]
+            [ for key in [ "endpoint"; "p256dh_key"; "auth_key" ] do
+                  match Map.tryFind key permitted with
+                  | Some value -> yield key, value
+                  | None -> () ])
 
     /// `Current.user.push_subscriptions.find_by(push_subscription_params)`: only the given keys are
     /// conditions (none at all finds the user's first subscription); nil is `IS NULL`.
-    let private findBy (db: Ef.CampfireDb) (userId: int64) (parameters: Campfire.Kit.ParamMap) : Ef.PushSubscription option =
+    let private findBy (db: Ef.CampfireDb) (userId: int64) (parameters: (string * string) list) : Ef.PushSubscription option =
         let mutable query = db.PushSubscriptions.Where(fun p -> p.UserId = EF.Parameter userId)
-        for struct (key, param) in parameters.Iter do
-            let value: string | null = param.ToS()
+        for (key, v) in parameters do
             query <-
-                match key, value with
-                | "endpoint", null -> query.Where(fun p -> p.Endpoint = null)
-                | "endpoint", v -> query.Where(fun p -> p.Endpoint = EF.Parameter v)
-                | "p256dh_key", null -> query.Where(fun p -> p.P256dhKey = null)
-                | "p256dh_key", v -> query.Where(fun p -> p.P256dhKey = EF.Parameter v)
-                | "auth_key", null -> query.Where(fun p -> p.AuthKey = null)
-                | "auth_key", v -> query.Where(fun p -> p.AuthKey = EF.Parameter v)
-                | other, _ -> failwith $"push_subscription key {other} is not permitted"
+                match key with
+                | "endpoint" -> query.Where(fun p -> p.Endpoint = EF.Parameter v)
+                | "p256dh_key" -> query.Where(fun p -> p.P256dhKey = EF.Parameter v)
+                | "auth_key" -> query.Where(fun p -> p.AuthKey = EF.Parameter v)
+                | other -> failwith $"push_subscription key {other} is not permitted"
         Ef.Data.tryFirst query
 
     /// `RestrictedHTTP::PrivateNetworkGuard.resolve(endpoint_uri.host)`, done ahead of the (synchronous)
@@ -77,79 +81,85 @@ module PushSubscriptions =
             return PushSubscription.validate (resolver resolved) subscription
         }
 
-    let index (c: Ctx) : Task<Result<Response, Error>> =
-        act {
-            do! Concerns.beforeActions c Before.Default
-            do! c.RespondTo [ Format.Html ] |> Result.map ignore
-            let! (user: User) = Concerns.requireCurrentUser c
-            let! subscriptions = c.Read(fun db -> PushSubscription.forUser db user.Id)
-            let pushSubscriptions = subscriptions |> List.map Accounts.pushSubscription
-            return!
-                Page.framedPage
-                    c
-                    Status.Ok
-                    indexSize
-                    (fun w ctx -> IndexPage.render w ctx pushSubscriptions)
-                    IndexPage.head
-                    (fun w ctx -> IndexPage.content w ctx pushSubscriptions)
-        }
+    let index: Web.Action =
+        fun http ->
+            taskResult {
+                do! Before.chain Before.Default http
+                do! Formats.respondTo http [ Format.Html ] |> Result.map ignore
+                let! (user: User) = Current.requireUser http
+                let! subscriptions = Data.read http (fun db -> PushSubscription.forUser db user.Id)
+                let pushSubscriptions = subscriptions |> List.map Accounts.pushSubscription
+                return!
+                    Pages.framedPage
+                        http
+                        200
+                        indexSize
+                        (fun w ctx -> IndexPage.render w ctx pushSubscriptions)
+                        IndexPage.head
+                        (fun w ctx -> IndexPage.content w ctx pushSubscriptions)
+            }
 
-    let create (c: Ctx) : Task<Result<Response, Error>> =
-        act {
-            c.WrapParameters("push_subscription", ValueNone)
-            do! Concerns.beforeActions c Before.Default
-            let! (user: User) = Concerns.requireCurrentUser c
-            let userId = user.Id
-            let! parameters = pushSubscriptionParams c
+    let create: Web.Action =
+        fun http ->
+            taskResult {
+                Params.wrap http "push_subscription" ValueNone
+                do! Before.chain Before.Default http
+                let! (user: User) = Current.requireUser http
+                let userId = user.Id
+                let! parameters = pushSubscriptionParams http
 
-            let! existing = c.Read(fun db -> findBy db userId parameters)
-            match existing with
-            // Existing endpoints must pass current validations
-            | Some subscription ->
-                let! errors = validate subscription
-                if Errors.isEmpty errors then
-                    let id = subscription.Id
-                    let! () =
-                        c.Write(fun tx ->
-                            let now = tx.Now()
-                            tx.Db.PushSubscriptions
-                                .Where(fun p -> p.Id = EF.Parameter id)
-                                .ExecuteUpdate(fun u -> u.SetProperty((fun p -> p.UpdatedAt), now) |> ignore)
-                            |> ignore)
-                    return c.Head Status.Ok
-                else
-                    return c.Head Status.UnprocessableEntity
-            | None ->
-                let value key = Accounts.paramToS parameters key
-                let subscription =
-                    PushSubscription.build userId (Option.toObj (value "endpoint")) (Option.toObj (value "p256dh_key")) (Option.toObj (value "auth_key")) c.Request.UserAgent
-                let! resolved = resolveEndpoint subscription
-                let! result = c.TryWrite(fun tx -> PushSubscription.create tx subscription (resolver resolved))
-                match result with
-                | Ok _ -> return c.Head Status.Ok
-                | Error(RecordInvalid _) -> return c.Head Status.UnprocessableEntity
-                | Error error -> return! Error(Internal(Exception(DbError.display error)))
-        }
+                let! existing = Data.read http (fun db -> findBy db userId parameters)
+                match existing with
+                // Existing endpoints must pass current validations
+                | Some subscription ->
+                    let! errors = validate subscription
+                    if Errors.isEmpty errors then
+                        let id = subscription.Id
+                        let! () =
+                            Data.write http (fun tx ->
+                                let now = tx.Now()
+                                tx.Db.PushSubscriptions
+                                    .Where(fun p -> p.Id = EF.Parameter id)
+                                    .ExecuteUpdate(fun u -> u.SetProperty((fun p -> p.UpdatedAt), now) |> ignore)
+                                |> ignore)
+                        return Respond.head http 200
+                    else
+                        return Respond.head http 422
+                | None ->
+                    let value key = parameters |> List.tryFind (fun (k, _) -> k = key) |> Option.map snd |> Option.toObj
+                    let userAgent =
+                        match http.Request.Headers.UserAgent with
+                        | values when values.Count = 0 -> null
+                        | values -> values.ToString()
+                    let subscription = PushSubscription.build userId (value "endpoint") (value "p256dh_key") (value "auth_key") userAgent
+                    let! resolved = resolveEndpoint subscription
+                    let! result = Data.tryWrite http (fun tx -> PushSubscription.create tx subscription (resolver resolved)) |> Task.map Ok
+                    match result with
+                    | Ok _ -> return Respond.head http 200
+                    | Result.Error(RecordInvalid _) -> return Respond.head http 422
+                    | Result.Error error -> return! Result.Error(Internal(Exception(DbError.display error)))
+            }
 
     /// `@push_subscriptions.destroy_by(id: params[:id])`
-    let destroy (c: Ctx) : Task<Result<Response, Error>> =
-        act {
-            do! Concerns.beforeActions c Before.Default
-            let! (user: User) = Concerns.requireCurrentUser c
-            let userId = user.Id
-            match (match c.ParamStr "id" with null -> None | id -> Ruby.integerCast id) with
-            | Some id ->
-                let! () =
-                    c.Write(fun tx ->
-                        let found =
-                            try
-                                Some(PushSubscription.find tx.Db id)
-                            with DbException(RecordNotFound _) ->
-                                None
-                        match found with
-                        | Some subscription when subscription.UserId = userId -> PushSubscription.destroy tx subscription
-                        | _ -> ())
-                ()
-            | None -> ()
-            return! c.RedirectTo(c.UrlFor(Routes.userPushSubscriptions ()))
-        }
+    let destroy: Web.Action =
+        fun http ->
+            taskResult {
+                do! Before.chain Before.Default http
+                let! (user: User) = Current.requireUser http
+                let userId = user.Id
+                match (match Params.value http "id" with null -> None | id -> Ruby.integerCast id) with
+                | Some id ->
+                    let! () =
+                        Data.write http (fun tx ->
+                            let found =
+                                try
+                                    Some(PushSubscription.find tx.Db id)
+                                with DbException(RecordNotFound _) ->
+                                    None
+                            match found with
+                            | Some subscription when subscription.UserId = userId -> PushSubscription.destroy tx subscription
+                            | _ -> ())
+                    ()
+                | None -> ()
+                return! Respond.redirectTo http (Respond.urlFor http (Routes.userPushSubscriptions ()))
+            }

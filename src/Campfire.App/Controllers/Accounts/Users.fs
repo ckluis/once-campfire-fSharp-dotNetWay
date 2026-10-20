@@ -1,73 +1,78 @@
 // Port of rust/crates/campfire/src/controllers/accounts/users.rs
 //
-// `Accounts::UsersController` (reference/app/controllers/accounts/users_controller.rb): the
-// people list's next pages, role changes and removal.
+// `Accounts::UsersController` (reference/app/controllers/accounts/users_controller.rb): the people list's next pages, role
+// changes and removal. Web actions (unit 2.10).
 namespace Campfire.App.Controllers
 
-open System.Threading.Tasks
+open System
+open FsToolkit.ErrorHandling
+open Microsoft.AspNetCore.Http
 open Campfire.Views
-open Campfire.Kit
 open Campfire.App
 open Campfire.App.Presenters
 open Campfire.Db
 open Campfire.Routes
 open Campfire.Ruby
+open Campfire.App.Web
 
 module AccountUsers =
     /// `set_page_and_extract_portion_from User.active.ordered.without_bots, per_page: 500`,
     /// rendered as `index.turbo_stream.erb` (the only template, so other formats are 406).
-    let index (c: Ctx) : Task<Result<Response, Error>> =
-        act {
-            do! Concerns.beforeActions c Before.Default
-            do! c.RespondTo [ Format.TurboStream ] |> Result.map ignore
-            let! (users: User list) = c.Read User.activeOrderedWithoutBots
-            let page = Pagination.Page.Create(c.ParamStr "page", int64 users.Length, [ 500L ])
-            let secrets = c.App.Secrets
-            let users = page.Records users |> List.map (Common.userSummary secrets)
-            let nextPage = if page.IsLast then None else Some(string page.NextParam)
+    let index: Web.Action =
+        fun http ->
+            taskResult {
+                do! Before.chain Before.Default http
+                do! Formats.respondTo http [ Format.TurboStream ] |> Result.map ignore
+                let! (users: User list) = Data.read http User.activeOrderedWithoutBots
+                let page = Pagination.Page.Create(Params.value http "page", int64 users.Length, [ 500L ])
+                let secrets = (Data.app http).Secrets
+                let users = page.Records users |> List.map (Common.userSummary secrets)
+                let nextPage = if page.IsLast then None else Some(string page.NextParam)
 
-            let! layout = Layout.load c
-            let html =
-                Layout.render layout c (fun ctx ->
-                    Render.page 0 (fun w -> Campfire.Views.Templates.Accounts.Users.IndexTurboStream.render w ctx users nextPage))
-            page.ApplyHeaders c
-            return c.TurboStream(System.ReadOnlyMemory<byte> html.Text)
-        }
+                let! layout = Pages.load http
+                let html =
+                    Pages.render layout http (fun ctx ->
+                        Render.page 0 (fun w -> Campfire.Views.Templates.Accounts.Users.IndexTurboStream.render w ctx users nextPage))
+                Pages.applyPageHeaders http page
+                return Pages.turboStream http (ReadOnlyMemory<byte> html.Text)
+            }
 
     /// `User.active.find(params[:user_id] || params[:id])`
-    let private setUser (c: Ctx) : Task<Result<User, Error>> =
+    let private setUser (http: HttpContext) : Result<User, Error> =
         let id =
-            match c.ParamStr "user_id" with
-            | null -> c.ParamStr "id"
+            match Params.value http "user_id" with
+            | null -> Params.value http "id"
             | id -> id
         match (match id with null -> None | id -> Ruby.integerCast id) with
-        | None -> Task.FromResult(Error NotFound)
-        | Some id -> c.Read(fun db -> User.findActive db id)
+        | None -> Result.Error NotFound
+        | Some id -> Data.read http (fun db -> User.findActive db id)
 
-    let private redirectToEditAccount (c: Ctx) : Task<Result<Response, Error>> =
-        Task.FromResult(c.RedirectTo(c.UrlFor(Routes.editAccount ())))
+    let private redirectToEditAccount (http: HttpContext) : Result<Falco.HttpHandler, Error> =
+        Respond.redirectTo http (Respond.urlFor http (Routes.editAccount ()))
 
     /// `@user.update(role: params.require(:user)[:role].presence_in(%w[ member administrator ]) || "member")`
-    let update (c: Ctx) : Task<Result<Response, Error>> =
-        act {
-            do! Concerns.beforeActions c Before.Default
-            do! Concerns.ensureCanAdminister c
-            let! (user: User) = setUser c
-            let! required = c.Params.Require "user"
-            let role =
-                match required.Get "role" with
-                | ValueSome(Param.Str "administrator") -> Role.Administrator
-                | _ -> Role.Member
-            let! (_: User) = c.Write(fun tx -> User.update tx user { UserChanges.none with Role = Some role })
-            return! redirectToEditAccount c
-        }
+    let update: Web.Action =
+        fun http ->
+            taskResult {
+                do! Before.chain Before.Default http
+                do! Before.ensureCanAdminister http
+                let! (user: User) = setUser http
+                let! required = Params.require http "user"
+                let role =
+                    match required.Get "role" with
+                    | Str "administrator" -> Role.Administrator
+                    | _ -> Role.Member
+                let! (_: User) = Data.write http (fun tx -> User.update tx user { UserChanges.none with Role = Some role })
+                return! redirectToEditAccount http
+            }
 
     /// `@user.deactivate`
-    let destroy (c: Ctx) : Task<Result<Response, Error>> =
-        act {
-            do! Concerns.beforeActions c Before.Default
-            do! Concerns.ensureCanAdminister c
-            let! (user: User) = setUser c
-            let! (_: User) = c.Write(fun tx -> User.deactivate tx user)
-            return! redirectToEditAccount c
-        }
+    let destroy: Web.Action =
+        fun http ->
+            taskResult {
+                do! Before.chain Before.Default http
+                do! Before.ensureCanAdminister http
+                let! (user: User) = setUser http
+                let! (_: User) = Data.write http (fun tx -> User.deactivate tx user)
+                return! redirectToEditAccount http
+            }

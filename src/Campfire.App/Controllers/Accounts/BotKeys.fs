@@ -1,21 +1,22 @@
 // Port of rust/crates/campfire/src/controllers/accounts/bots/keys.rs
 //
-// `Accounts::Bots::KeysController` (reference/app/controllers/accounts/bots/keys_controller.rb).
+// `Accounts::Bots::KeysController` (reference/app/controllers/accounts/bots/keys_controller.rb). A Web action (unit 2.10).
 namespace Campfire.App.Controllers
 
-open System.Threading.Tasks
-open Campfire.Kit
+open FsToolkit.ErrorHandling
 open Campfire.App
 open Campfire.Db
 open Campfire.Routes
+open Campfire.App.Web
 
 module BotKeys =
     /// `User.active_bots.find(params[:bot_id]).reset_bot_key`
-    let update (c: Ctx) : Task<Result<Response, Error>> =
-        act {
-            do! Concerns.beforeActions c Before.Default
-            do! Concerns.ensureCanAdminister c
-            let! bot = Bots.findActiveBot c "bot_id"
-            let! (_: User) = c.Write(fun tx -> User.resetBotKey tx bot)
-            return! c.RedirectTo(c.UrlFor(Routes.accountBots ()))
-        }
+    let update: Web.Action =
+        fun http ->
+            taskResult {
+                do! Before.chain Before.Default http
+                do! Before.ensureCanAdminister http
+                let! bot = Bots.findActiveBot http "bot_id"
+                let! (_: User) = Data.write http (fun tx -> User.resetBotKey tx bot)
+                return! Respond.redirectTo http (Respond.urlFor http (Routes.accountBots ()))
+            }

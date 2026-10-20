@@ -16,6 +16,14 @@ open Microsoft.Extensions.DependencyInjection
 open Microsoft.Net.Http.Headers
 
 module Native =
+    let private liveKey = "campfire.web.live"
+
+    /// `include ActiveStorage::Streaming` makes a controller `ActionController::Live`: its responses carry none of
+    /// `action_dispatch.default_headers`, and `Rack::ETag` cannot digest them, so a default `Cache-Control` is `no-cache`.
+    let useLiveResponse (http: HttpContext) : unit = http.Items[liveKey] <- box true
+
+    let private isLive (http: HttpContext) : bool = http.Items.ContainsKey liveKey
+
     let private headersOnStarting =
         Func<obj, Task>(fun state ->
             match state with
@@ -23,13 +31,15 @@ module Native =
                 let response = http.Response
                 let headers = response.Headers
                 let kit = http.RequestServices.GetRequiredService<Campfire.Kit.Kit>()
-                for (name, value) in kit.Config.DefaultHeaders do
-                    if not (headers.ContainsKey name) then headers.Append(name, value)
+                let live = isLive http
+                if not live then
+                    for (name, value) in kit.Config.DefaultHeaders do
+                        if not (headers.ContainsKey name) then headers.Append(name, value)
                 let status = response.StatusCode
                 if not (headers.ContainsKey HeaderNames.ContentType) && not (Respond.noContent status) then
                     headers.ContentType <- "text/html; charset=utf-8"
                 if not (headers.ContainsKey HeaderNames.CacheControl) then
-                    let digestible = (status = 200 || status = 201) && response.ContentLength.GetValueOrDefault() > 0L
+                    let digestible = not live && (status = 200 || status = 201) && response.ContentLength.GetValueOrDefault() > 0L
                     headers.CacheControl <- (if digestible then "max-age=0, private, must-revalidate" else "no-cache")
             | _ -> ()
             Task.CompletedTask)

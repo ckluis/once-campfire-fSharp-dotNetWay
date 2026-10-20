@@ -1,15 +1,15 @@
 // Port of rust/crates/campfire/src/controllers/accounts/custom_styles.rs
 //
-// `Accounts::CustomStylesController` (reference/app/controllers/accounts/custom_styles_controller.rb).
+// `Accounts::CustomStylesController` (reference/app/controllers/accounts/custom_styles_controller.rb). Web actions (unit 2.10).
 namespace Campfire.App.Controllers
 
-open System.Threading.Tasks
+open FsToolkit.ErrorHandling
 open Campfire.Views
-open Campfire.Kit
 open Campfire.App
 open Campfire.App.Presenters
 open Campfire.Db
 open Campfire.Routes
+open Campfire.App.Web
 
 module CustomStyles =
     module EditPage = Campfire.Views.Templates.Accounts.CustomStyles.Edit
@@ -17,33 +17,38 @@ module CustomStyles =
     let private editSize = RenderSize()
 
     /// `before_action :ensure_can_administer, :set_account`
-    let edit (c: Ctx) : Task<Result<Response, Error>> =
-        act {
-            do! Concerns.beforeActions c Before.Default
-            do! Concerns.ensureCanAdminister c
-            let! (account: Account) = AccountsController.currentAccount c
-            do! c.RespondTo [ Format.Html ] |> Result.map ignore
-            let customStyles = Option.ofObj account.CustomStyles
-            return!
-                Page.framedPage
-                    c
-                    Status.Ok
-                    editSize
-                    (fun w ctx -> EditPage.render w ctx customStyles)
-                    EditPage.head
-                    (fun w ctx -> EditPage.content w ctx customStyles)
-        }
+    let edit: Web.Action =
+        fun http ->
+            taskResult {
+                do! Before.chain Before.Default http
+                do! Before.ensureCanAdminister http
+                let! (account: Account) = AccountsController.currentAccount http
+                do! Formats.respondTo http [ Format.Html ] |> Result.map ignore
+                let customStyles = Option.ofObj account.CustomStyles
+                return!
+                    Pages.framedPage
+                        http
+                        200
+                        editSize
+                        (fun w ctx -> EditPage.render w ctx customStyles)
+                        EditPage.head
+                        (fun w ctx -> EditPage.content w ctx customStyles)
+            }
 
     /// `@account.update!(params.require(:account).permit(:custom_styles))`
-    let update (c: Ctx) : Task<Result<Response, Error>> =
-        act {
-            do! Concerns.beforeActions c Before.Default
-            do! Concerns.ensureCanAdminister c
-            let! (account: Account) = AccountsController.currentAccount c
-            let! required = c.Params.Require "account"
-            let parameters = required.Permit(Params.permitKeys [ "custom_styles" ])
-            let customStyles =
-                if parameters.ContainsKey "custom_styles" then Some(Accounts.paramToS parameters "custom_styles") else None
-            let! (_: Account) = c.Write(fun tx -> Account.update tx account None customStyles None)
-            return! c.RedirectToWith(c.UrlFor(Routes.editAccountCustomStyles ()), { Redirect.Default with Notice = "✓" })
-        }
+    let update: Web.Action =
+        fun http ->
+            taskResult {
+                do! Before.chain Before.Default http
+                do! Before.ensureCanAdminister http
+                let! (account: Account) = AccountsController.currentAccount http
+                let! required = Params.require http "account"
+                let parameters = Params.permit required [ "custom_styles" ]
+                let customStyles = Map.tryFind "custom_styles" parameters |> Option.map Some
+                let! (_: Account) = Data.write http (fun tx -> Account.update tx account None customStyles None)
+                return!
+                    Respond.redirectToWith
+                        http
+                        (Respond.urlFor http (Routes.editAccountCustomStyles ()))
+                        { RedirectOptions.Default with Notice = "✓" }
+            }

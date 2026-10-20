@@ -177,3 +177,39 @@ module AttachmentWrites =
                 | Error e -> return Error e
             | Ok _ -> return Ok None
         }
+
+/// Uploads as a Web action reads them (unit 2.10): from the framework's `Request.Form.Files`.
+module Uploads =
+    /// What `record.avatar = params[:user][:avatar]` gets: an uploaded file is `Create` (copied to a temp file that is deleted when
+    /// the response completes), `""` is `Delete`, a key that was not given is `Unchanged`, and any other value is not a file.
+    /// The second value is whether the key was given at all (a file, or any non-nil value).
+    let assignment (http: Microsoft.AspNetCore.Http.HttpContext) (scope: Campfire.App.Web.Scope) (key: string) : Assignment<Upload> * bool =
+        let file =
+            if http.Request.HasFormContentType then http.Request.Form.Files.GetFile $"{scope.Name}[{key}]" else null
+        match file with
+        | null ->
+            match scope.Get key with
+            | Campfire.App.Web.Absent -> Unchanged, false
+            | Campfire.App.Web.Str "" -> Delete, true
+            | Campfire.App.Web.Str _
+            | Campfire.App.Web.Structured -> Invalid, true
+        | file ->
+            let path = UploadedFile.NewTempPath()
+            use target = new System.IO.FileStream(path, System.IO.FileMode.Create, System.IO.FileAccess.Write, System.IO.FileShare.None)
+            use source = file.OpenReadStream()
+            source.CopyTo target
+            target.Dispose()
+            let headers = String.Join("\r\n", [ for h in file.Headers -> $"{h.Key}: {h.Value}" ])
+            let uploaded = new UploadedFile(file.FileName, file.ContentType, headers, file.Length, path)
+            http.Response.OnCompleted(fun () ->
+                uploaded.Delete()
+                Task.CompletedTask)
+            Create { File = uploaded; Filename = uploaded.OriginalFilename; ContentType = Option.ofObj uploaded.ContentType }, true
+
+    /// `Assignment.stage` with the failure as a Web error.
+    let stage (http: Microsoft.AspNetCore.Http.HttpContext) (assignment: Assignment<Upload>) =
+        task {
+            let app = Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<AppState>(http.RequestServices)
+            let! staged = Assignment.stage app assignment
+            return staged |> Result.mapError Campfire.App.Web.Error.Legacy
+        }

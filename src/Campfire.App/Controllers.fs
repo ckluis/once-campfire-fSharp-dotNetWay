@@ -178,62 +178,62 @@ module RouteTable =
                 put "/session(.:format)" "sessions#update" (actionNotFound)
                 deleteN "/session(.:format)" "sessions#destroy" (Sessions.destroy)
                 postN "/session(.:format)" "sessions#create" (Sessions.create)
-                get "/account/users(.:format)" "accounts/users#index" (AccountUsers.index)
+                getN "/account/users(.:format)" "accounts/users#index" (AccountUsers.index)
                 post "/account/users(.:format)" "accounts/users#create" (actionNotFound)
                 get "/account/users/new(.:format)" "accounts/users#new" (actionNotFound)
                 get "/account/users/:id/edit(.:format)" "accounts/users#edit" (actionNotFound)
                 get "/account/users/:id(.:format)" "accounts/users#show" (actionNotFound)
-                patch "/account/users/:id(.:format)" "accounts/users#update" (AccountUsers.update)
-                put "/account/users/:id(.:format)" "accounts/users#update" (AccountUsers.update)
-                delete "/account/users/:id(.:format)" "accounts/users#destroy" (AccountUsers.destroy)
-                patch "/account/bots/:bot_id/key(.:format)" "accounts/bots/keys#update" (BotKeys.update)
-                put "/account/bots/:bot_id/key(.:format)" "accounts/bots/keys#update" (BotKeys.update)
-                get "/account/bots(.:format)" "accounts/bots#index" (Bots.index)
-                post "/account/bots(.:format)" "accounts/bots#create" (Bots.create)
-                get "/account/bots/new(.:format)" "accounts/bots#new" (Bots.``new``)
-                get "/account/bots/:id/edit(.:format)" "accounts/bots#edit" (Bots.edit)
+                patchN "/account/users/:id(.:format)" "accounts/users#update" (AccountUsers.update)
+                putN "/account/users/:id(.:format)" "accounts/users#update" (AccountUsers.update)
+                deleteN "/account/users/:id(.:format)" "accounts/users#destroy" (AccountUsers.destroy)
+                patchN "/account/bots/:bot_id/key(.:format)" "accounts/bots/keys#update" (BotKeys.update)
+                putN "/account/bots/:bot_id/key(.:format)" "accounts/bots/keys#update" (BotKeys.update)
+                getN "/account/bots(.:format)" "accounts/bots#index" (Bots.index)
+                postN "/account/bots(.:format)" "accounts/bots#create" (Bots.create)
+                getN "/account/bots/new(.:format)" "accounts/bots#new" (Bots.``new``)
+                getN "/account/bots/:id/edit(.:format)" "accounts/bots#edit" (Bots.edit)
                 get "/account/bots/:id(.:format)" "accounts/bots#show" (actionNotFound)
-                patch "/account/bots/:id(.:format)" "accounts/bots#update" (Bots.update)
-                put "/account/bots/:id(.:format)" "accounts/bots#update" (Bots.update)
-                delete "/account/bots/:id(.:format)" "accounts/bots#destroy" (Bots.destroy)
-                post "/account/join_code(.:format)" "accounts/join_codes#create" (JoinCodes.create)
-                get "/account/logo(.:format)" "accounts/logos#show" (Logos.show)
-                delete "/account/logo(.:format)" "accounts/logos#destroy" (Logos.destroy)
-                get "/account/custom_styles/edit(.:format)" "accounts/custom_styles#edit" (CustomStyles.edit)
-                patch "/account/custom_styles(.:format)" "accounts/custom_styles#update" (CustomStyles.update)
-                put "/account/custom_styles(.:format)" "accounts/custom_styles#update" (CustomStyles.update)
+                patchN "/account/bots/:id(.:format)" "accounts/bots#update" (Bots.update)
+                putN "/account/bots/:id(.:format)" "accounts/bots#update" (Bots.update)
+                deleteN "/account/bots/:id(.:format)" "accounts/bots#destroy" (Bots.destroy)
+                postN "/account/join_code(.:format)" "accounts/join_codes#create" (JoinCodes.create)
+                getN "/account/logo(.:format)" "accounts/logos#show" (Logos.show)
+                deleteN "/account/logo(.:format)" "accounts/logos#destroy" (Logos.destroy)
+                getN "/account/custom_styles/edit(.:format)" "accounts/custom_styles#edit" (CustomStyles.edit)
+                patchN "/account/custom_styles(.:format)" "accounts/custom_styles#update" (CustomStyles.update)
+                putN "/account/custom_styles(.:format)" "accounts/custom_styles#update" (CustomStyles.update)
                 get "/account/new(.:format)" "accounts#new" (actionNotFound)
-                get "/account/edit(.:format)" "accounts#edit" (AccountsController.edit)
+                getN "/account/edit(.:format)" "accounts#edit" (AccountsController.edit)
                 get "/account(.:format)" "accounts#show" (actionNotFound)
-                patch "/account(.:format)" "accounts#update" (AccountsController.update)
-                put "/account(.:format)" "accounts#update" (AccountsController.update)
+                patchN "/account(.:format)" "accounts#update" (AccountsController.update)
+                putN "/account(.:format)" "accounts#update" (AccountsController.update)
                 delete "/account(.:format)" "accounts#destroy" (actionNotFound)
                 post "/account(.:format)" "accounts#create" (actionNotFound)
-                get "/join/:join_code(.:format)" "users#new" (UsersController.``new``)
-                post "/join/:join_code(.:format)" "users#create" (UsersController.create)
+                getN "/join/:join_code(.:format)" "users#new" (UsersController.``new``)
+                postN "/join/:join_code(.:format)" "users#create" (UsersController.create)
                 get "/qr_code/:id(.:format)" "qr_code#show" (QrCode.show)
-                get "/users/:user_id/avatar(.:format)" "users/avatars#show" (Avatars.show)
-                delete "/users/:user_id/avatar(.:format)" "users/avatars#destroy" (Avatars.destroy)
-                delete "/users/:user_id/ban(.:format)" "users/bans#destroy" (Bans.destroy)
-                post "/users/:user_id/ban(.:format)" "users/bans#create" (Bans.create)
-                get "/users/:user_id/sidebar(.:format)" "users/sidebars#show" (Sidebars.show) |> withDefaults meDefaults
+                getN "/users/:user_id/avatar(.:format)" "users/avatars#show" (Avatars.show)
+                deleteN "/users/:user_id/avatar(.:format)" "users/avatars#destroy" (Avatars.destroy)
+                deleteN "/users/:user_id/ban(.:format)" "users/bans#destroy" (Bans.destroy)
+                postN "/users/:user_id/ban(.:format)" "users/bans#create" (Bans.create)
+                getN "/users/:user_id/sidebar(.:format)" "users/sidebars#show" (Sidebars.show) |> withDefaults meDefaults
                 get "/users/:user_id/profile/new(.:format)" "users/profiles#new" (actionNotFound) |> withDefaults meDefaults
                 get "/users/:user_id/profile/edit(.:format)" "users/profiles#edit" (actionNotFound) |> withDefaults meDefaults
-                get "/users/:user_id/profile(.:format)" "users/profiles#show" (Profiles.show) |> withDefaults meDefaults
-                patch "/users/:user_id/profile(.:format)" "users/profiles#update" (Profiles.update) |> withDefaults meDefaults
-                put "/users/:user_id/profile(.:format)" "users/profiles#update" (Profiles.update) |> withDefaults meDefaults
+                getN "/users/:user_id/profile(.:format)" "users/profiles#show" (Profiles.show) |> withDefaults meDefaults
+                patchN "/users/:user_id/profile(.:format)" "users/profiles#update" (Profiles.update) |> withDefaults meDefaults
+                putN "/users/:user_id/profile(.:format)" "users/profiles#update" (Profiles.update) |> withDefaults meDefaults
                 delete "/users/:user_id/profile(.:format)" "users/profiles#destroy" (actionNotFound) |> withDefaults meDefaults
                 post "/users/:user_id/profile(.:format)" "users/profiles#create" (actionNotFound) |> withDefaults meDefaults
-                post "/users/:user_id/push_subscriptions/:push_subscription_id/test_notifications(.:format)" "users/push_subscriptions/test_notifications#create" (TestNotifications.create) |> withDefaults meDefaults
-                get "/users/:user_id/push_subscriptions(.:format)" "users/push_subscriptions#index" (PushSubscriptions.index) |> withDefaults meDefaults
-                post "/users/:user_id/push_subscriptions(.:format)" "users/push_subscriptions#create" (PushSubscriptions.create) |> withDefaults meDefaults
+                postN "/users/:user_id/push_subscriptions/:push_subscription_id/test_notifications(.:format)" "users/push_subscriptions/test_notifications#create" (TestNotifications.create) |> withDefaults meDefaults
+                getN "/users/:user_id/push_subscriptions(.:format)" "users/push_subscriptions#index" (PushSubscriptions.index) |> withDefaults meDefaults
+                postN "/users/:user_id/push_subscriptions(.:format)" "users/push_subscriptions#create" (PushSubscriptions.create) |> withDefaults meDefaults
                 get "/users/:user_id/push_subscriptions/new(.:format)" "users/push_subscriptions#new" (actionNotFound) |> withDefaults meDefaults
                 get "/users/:user_id/push_subscriptions/:id/edit(.:format)" "users/push_subscriptions#edit" (actionNotFound) |> withDefaults meDefaults
                 get "/users/:user_id/push_subscriptions/:id(.:format)" "users/push_subscriptions#show" (actionNotFound) |> withDefaults meDefaults
                 patch "/users/:user_id/push_subscriptions/:id(.:format)" "users/push_subscriptions#update" (actionNotFound) |> withDefaults meDefaults
                 put "/users/:user_id/push_subscriptions/:id(.:format)" "users/push_subscriptions#update" (actionNotFound) |> withDefaults meDefaults
-                delete "/users/:user_id/push_subscriptions/:id(.:format)" "users/push_subscriptions#destroy" (PushSubscriptions.destroy) |> withDefaults meDefaults
-                get "/users/:id(.:format)" "users#show" (UsersController.show)
+                deleteN "/users/:user_id/push_subscriptions/:id(.:format)" "users/push_subscriptions#destroy" (PushSubscriptions.destroy) |> withDefaults meDefaults
+                getN "/users/:id(.:format)" "users#show" (UsersController.show)
                 get "/autocompletable/users(.:format)" "autocompletable/users#index" (AutocompletableUsers.index)
                 get "/rooms/:room_id/messages(.:format)" "messages#index" (MessagesController.index)
                 post "/rooms/:room_id/messages(.:format)" "messages#create" (MessagesController.create)

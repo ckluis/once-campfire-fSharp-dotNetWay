@@ -67,6 +67,11 @@ module Before =
             if not (Respond.noBody status) then http.Response.ContentLength <- 0L
             Task.CompletedTask
 
+    /// `ensure_can_administer`: `head :forbidden` unless the current user can administer.
+    let ensureCanAdminister (http: HttpContext) : Result<unit, Error> =
+        let allowed = Current.user http |> Option.exists (fun user -> User.canAdminister user None false)
+        if allowed then Ok() else Action.halt (head 403)
+
     /// `set_version_headers`: `X-Version` and `X-Rev` (`config/initializers/version.rb`); Rails drops a header set to nil.
     let private setVersionHeaders (http: HttpContext) : unit =
         let config = (Data.app http).Config

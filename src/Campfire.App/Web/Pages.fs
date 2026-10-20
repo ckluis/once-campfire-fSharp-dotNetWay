@@ -159,6 +159,10 @@ module Pages =
     let renderText (http: HttpContext) (status: int) (contentType: string) (body: string) : HttpHandler =
         renderAs http status contentType (ReadOnlyMemory<byte>(Encoding.UTF8.GetBytes body))
 
+    /// A Turbo Stream response (`render turbo_stream:` / `index.turbo_stream.erb`).
+    let turboStream (http: HttpContext) (body: ReadOnlyMemory<byte>) : HttpHandler =
+        renderAs http 200 Campfire.Kit.Response.TurboStreamUtf8 body
+
     /// `render html:`
     let html (http: HttpContext) (body: string) : HttpHandler =
         renderText http 200 Campfire.Kit.Response.HtmlUtf8 body
@@ -166,6 +170,18 @@ module Pages =
     /// `render json:`
     let json (http: HttpContext) (status: int) (value: Campfire.RailsCompat.Value) : HttpHandler =
         renderAs http status Campfire.Kit.Response.JsonUtf8 (ReadOnlyMemory<byte>(Encoding.UTF8.GetBytes(Campfire.RailsCompat.Json.generate value)))
+
+    /// `set_paginated_headers` (after_action), for JSON requests: `X-Total-Count`, and a `Link` to the next page unless this is the last.
+    let applyPageHeaders (http: HttpContext) (page: Pagination.Page) : unit =
+        let json =
+            match Formats.requested http with
+            | Ok(first :: _) -> first = Format.Json
+            | _ -> false
+        if json then
+            http.Response.Headers["x-total-count"] <- string page.RecordsCount
+            if not page.IsLast then
+                let url = Pagination.Url.withPage (requestUrl http) (string page.NextParam)
+                http.Response.Headers["link"] <- $"<{url}>; rel=\"next\""
 
     /// A recorded page (its text and the cached fragments it holds) as a response in the HTML format, spliced into parts
     /// when it holds fragments big enough for a part.

@@ -1,16 +1,17 @@
 // Port of rust/crates/campfire/src/controllers/accounts/bots.rs
 //
-// `Accounts::BotsController` (reference/app/controllers/accounts/bots_controller.rb).
+// `Accounts::BotsController` (reference/app/controllers/accounts/bots_controller.rb). Web actions (unit 2.10).
 namespace Campfire.App.Controllers
 
-open System.Threading.Tasks
+open FsToolkit.ErrorHandling
+open Microsoft.AspNetCore.Http
 open Campfire.Views
-open Campfire.Kit
 open Campfire.App
 open Campfire.App.Presenters
 open Campfire.Db
 open Campfire.Routes
 open Campfire.Ruby
+open Campfire.App.Web
 
 module Bots =
     module IndexPage = Campfire.Views.Templates.Accounts.Bots.Index
@@ -22,123 +23,131 @@ module Bots =
     let private editSize = RenderSize()
 
     /// ApplicationController's chain, then `ensure_can_administer`.
-    let private before (c: Ctx) : Task<Result<unit, Error>> =
-        act {
-            do! Concerns.beforeActions c Before.Default
-            do! Concerns.ensureCanAdminister c
+    let private before (http: HttpContext) =
+        taskResult {
+            do! Before.chain Before.Default http
+            do! Before.ensureCanAdminister http
         }
 
-    let findActiveBot (c: Ctx) (key: string) : Task<Result<User, Error>> =
-        match (match c.ParamStr key with null -> None | id -> Ruby.integerCast id) with
-        | None -> Task.FromResult(Error NotFound)
-        | Some id -> c.Read(fun db -> User.findActiveBot db id)
+    let findActiveBot (http: HttpContext) (key: string) : Result<User, Error> =
+        match (match Params.value http key with null -> None | id -> Ruby.integerCast id) with
+        | None -> Result.Error NotFound
+        | Some id -> Data.read http (fun db -> User.findActiveBot db id)
 
     /// `User.active_bots.find(params[:id])`
-    let private setBot (c: Ctx) : Task<Result<User, Error>> = findActiveBot c "id"
+    let private setBot (http: HttpContext) : Result<User, Error> = findActiveBot http "id"
 
-    /// `params.require(:user).permit(:name, :avatar, :webhook_url)`
-    let private botParams (c: Ctx) : Result<Campfire.Kit.ParamMap, Error> =
-        c.Params.Require "user" |> Result.map (fun user -> user.Permit(Params.permitKeys [ "name"; "avatar"; "webhook_url" ]))
+    /// `params.require(:user).permit(:name, :avatar, :webhook_url)`: the hash, and its scalar members.
+    let private botParams (http: HttpContext) : Result<Scope * Map<string, string>, Error> =
+        Params.require http "user" |> Result.map (fun user -> user, Params.permit user [ "name"; "webhook_url" ])
 
-    let private redirectToBots (c: Ctx) : Task<Result<Response, Error>> =
-        Task.FromResult(c.RedirectTo(c.UrlFor(Routes.accountBots ())))
+    let private redirectToBots (http: HttpContext) : Result<Falco.HttpHandler, Error> =
+        Respond.redirectTo http (Respond.urlFor http (Routes.accountBots ()))
 
     /// `@bots = User.active_bots.ordered`
-    let index (c: Ctx) : Task<Result<Response, Error>> =
-        act {
-            do! before c
-            do! c.RespondTo [ Format.Html ] |> Result.map ignore
-            let secrets = c.App.Secrets
-            let! users = c.Read User.activeBotsOrdered
-            let! bots = c.Read(fun db -> users |> List.map (Accounts.bot db secrets))
-            return!
-                Page.framedPage
-                    c
-                    Status.Ok
-                    indexSize
-                    (fun w ctx -> IndexPage.render w ctx bots)
-                    IndexPage.head
-                    (fun w ctx -> IndexPage.content w ctx bots)
-        }
+    let index: Web.Action =
+        fun http ->
+            taskResult {
+                do! before http
+                do! Formats.respondTo http [ Format.Html ] |> Result.map ignore
+                let secrets = (Data.app http).Secrets
+                let! users = Data.read http User.activeBotsOrdered
+                let! bots = Data.read http (fun db -> users |> List.map (Accounts.bot db secrets))
+                return!
+                    Pages.framedPage
+                        http
+                        200
+                        indexSize
+                        (fun w ctx -> IndexPage.render w ctx bots)
+                        IndexPage.head
+                        (fun w ctx -> IndexPage.content w ctx bots)
+            }
 
-    let ``new`` (c: Ctx) : Task<Result<Response, Error>> =
-        act {
-            do! before c
-            do! c.RespondTo [ Format.Html ] |> Result.map ignore
-            let bot = Campfire.Views.Accounts.BotForm.empty
-            return!
-                Page.framedPage
-                    c
-                    Status.Ok
-                    newSize
-                    (fun w ctx -> NewPage.render w ctx bot)
-                    NewPage.head
-                    (fun w ctx -> NewPage.content w ctx bot)
-        }
+    let ``new``: Web.Action =
+        fun http ->
+            taskResult {
+                do! before http
+                do! Formats.respondTo http [ Format.Html ] |> Result.map ignore
+                let bot = Campfire.Views.Accounts.BotForm.empty
+                return!
+                    Pages.framedPage
+                        http
+                        200
+                        newSize
+                        (fun w ctx -> NewPage.render w ctx bot)
+                        NewPage.head
+                        (fun w ctx -> NewPage.content w ctx bot)
+            }
 
     /// `User.create_bot! bot_params`
-    let create (c: Ctx) : Task<Result<Response, Error>> =
-        act {
-            do! before c
-            let! parameters = botParams c
-            // users.name is NOT NULL.
-            let! name =
-                match Accounts.paramToS parameters "name" with
-                | Some name -> Ok name
-                | None -> Error(Internal(exn "NOT NULL constraint failed: users.name"))
-            // `create_webhook!(url: webhook_url) if webhook_url`: any non-nil value, "" included.
-            let webhookUrl = Accounts.paramToS parameters "webhook_url"
-            let! avatar = Assignment.stage c.App (Assignment.fromParams parameters "avatar")
-            let! pending =
-                c.Write(fun tx ->
-                    let bot = User.createBot tx name webhookUrl
-                    AttachmentWrites.assign tx (Record.user bot.Id) "avatar" avatar)
-            AttachmentWrites.analyzeLater c.App pending
-            return! redirectToBots c
-        }
+    let create: Web.Action =
+        fun http ->
+            taskResult {
+                do! before http
+                let! user, parameters = botParams http
+                // users.name is NOT NULL.
+                let! name =
+                    match Map.tryFind "name" parameters with
+                    | Some name -> Ok name
+                    | None -> Result.Error(Internal(exn "NOT NULL constraint failed: users.name"))
+                // `create_webhook!(url: webhook_url) if webhook_url`: any non-nil value, "" included.
+                let webhookUrl = Map.tryFind "webhook_url" parameters
+                let avatar, _ = Uploads.assignment http user "avatar"
+                let! avatar = Uploads.stage http avatar
+                let! pending =
+                    Data.write http (fun tx ->
+                        let bot = User.createBot tx name webhookUrl
+                        AttachmentWrites.assign tx (Record.user bot.Id) "avatar" avatar)
+                AttachmentWrites.analyzeLater (Data.app http) pending
+                return! redirectToBots http
+            }
 
-    let edit (c: Ctx) : Task<Result<Response, Error>> =
-        act {
-            do! before c
-            let! (bot: User) = setBot c
-            do! c.RespondTo [ Format.Html ] |> Result.map ignore
-            let storage = c.App.Storage
-            let baseUrl = c.UrlFor ""
-            let botId = bot.Id
-            let! webhookUrl = c.Read(fun db -> User.webhookUrl db bot)
-            let! form = c.Read(fun db -> Accounts.botForm db storage baseUrl bot webhookUrl)
-            return!
-                Page.framedPage
-                    c
-                    Status.Ok
-                    editSize
-                    (fun w ctx -> EditPage.render w ctx botId form)
-                    EditPage.head
-                    (fun w ctx -> EditPage.content w ctx botId form)
-        }
+    let edit: Web.Action =
+        fun http ->
+            taskResult {
+                do! before http
+                let! (bot: User) = setBot http
+                do! Formats.respondTo http [ Format.Html ] |> Result.map ignore
+                let storage = (Data.app http).Storage
+                let baseUrl = Respond.urlFor http ""
+                let botId = bot.Id
+                let! webhookUrl = Data.read http (fun db -> User.webhookUrl db bot)
+                let! form = Data.read http (fun db -> Accounts.botForm db storage baseUrl bot webhookUrl)
+                return!
+                    Pages.framedPage
+                        http
+                        200
+                        editSize
+                        (fun w ctx -> EditPage.render w ctx botId form)
+                        EditPage.head
+                        (fun w ctx -> EditPage.content w ctx botId form)
+            }
 
     /// `@bot.update_bot! bot_params`: the webhook first, then the bot, in one transaction.
-    let update (c: Ctx) : Task<Result<Response, Error>> =
-        act {
-            do! before c
-            let! (bot: User) = setBot c
-            let! parameters = botParams c
-            let changes = { UserChanges.none with Name = Accounts.paramToS parameters "name" }
-            let webhookUrl = Accounts.paramToS parameters "webhook_url"
-            let! avatar = Assignment.stage c.App (Assignment.fromParams parameters "avatar")
-            let! pending =
-                c.Write(fun tx ->
-                    User.updateBot tx bot changes webhookUrl |> ignore
-                    AttachmentWrites.assign tx (Record.user bot.Id) "avatar" avatar)
-            AttachmentWrites.analyzeLater c.App pending
-            return! redirectToBots c
-        }
+    let update: Web.Action =
+        fun http ->
+            taskResult {
+                do! before http
+                let! (bot: User) = setBot http
+                let! user, parameters = botParams http
+                let changes = { UserChanges.none with Name = Map.tryFind "name" parameters }
+                let webhookUrl = Map.tryFind "webhook_url" parameters
+                let avatar, _ = Uploads.assignment http user "avatar"
+                let! avatar = Uploads.stage http avatar
+                let! pending =
+                    Data.write http (fun tx ->
+                        User.updateBot tx bot changes webhookUrl |> ignore
+                        AttachmentWrites.assign tx (Record.user bot.Id) "avatar" avatar)
+                AttachmentWrites.analyzeLater (Data.app http) pending
+                return! redirectToBots http
+            }
 
     /// `@bot.deactivate`
-    let destroy (c: Ctx) : Task<Result<Response, Error>> =
-        act {
-            do! before c
-            let! (bot: User) = setBot c
-            let! (_: User) = c.Write(fun tx -> User.deactivate tx bot)
-            return! redirectToBots c
-        }
+    let destroy: Web.Action =
+        fun http ->
+            taskResult {
+                do! before http
+                let! (bot: User) = setBot http
+                let! (_: User) = Data.write http (fun tx -> User.deactivate tx bot)
+                return! redirectToBots http
+            }

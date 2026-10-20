@@ -37,3 +37,16 @@ module Data =
             let! result = tryWrite http f
             return result |> Result.mapError (fun error -> Legacy(AppErrors.dbError error))
         }
+
+    /// `password=`: BCrypt on the thread pool, `None` for no password.
+    let passwordDigest (http: HttpContext) (password: string option) : Task<Result<PasswordDigest option, Error>> =
+        task {
+            match password with
+            | None -> return Ok None
+            | Some password ->
+                try
+                    let! digest = PasswordDigest.hash password (app http).Env.BcryptCost
+                    return Ok(Some digest)
+                with e ->
+                    return Result.Error(Internal e)
+        }

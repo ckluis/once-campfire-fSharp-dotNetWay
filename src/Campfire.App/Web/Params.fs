@@ -117,7 +117,9 @@ module Params =
             | v when v.Count > 0 -> Str(last v)
             | _ -> if names |> Seq.exists (fun n -> n.StartsWith(key + "[", StringComparison.Ordinal)) then Structured else Absent
         let form = form http
-        match lookup (fun k -> form[k]) (form.Keys :> seq<string>) with
+        // An uploaded file is a name too (`user[avatar]` alone makes `params[:user]` a hash).
+        let names = if form.Files.Count = 0 then form.Keys :> seq<string> else Seq.append form.Keys (form.Files |> Seq.map (fun f -> f.Name))
+        match lookup (fun k -> form[k]) names with
         | Absent -> lookup (fun k -> http.Request.Query[k]) (http.Request.Query.Keys :> seq<string>)
         | found -> found
 
@@ -198,6 +200,41 @@ module Params =
             let fromForm = (form http)[$"{key}[]"]
             let strings = if fromForm.Count > 0 then fromForm else http.Request.Query[$"{key}[]"]
             [ for s in strings -> s |> nonNull ]
+
+    /// `params[:a][:b]` as a hash of scalars (`permit(b: {})`): the members `a[b][k]` of the form or query, or the properties of a
+    /// JSON object, by name and as text. `None` when `b` is not a hash.
+    let hashMembers (http: HttpContext) (outer: string) (inner: string) : (string * string) list option =
+        let text (element: JsonElement) : string =
+            match element.ValueKind with
+            | JsonValueKind.String -> element.GetString() |> nonNull
+            | JsonValueKind.Null | JsonValueKind.Undefined -> ""
+            | JsonValueKind.True -> "true"
+            | JsonValueKind.False -> "false"
+            | _ -> element.GetRawText()
+        match jsonRoot http with
+        | Ok(ValueSome root) ->
+            match jsonProperty root outer with
+            | ValueSome obj ->
+                match jsonProperty obj inner with
+                | ValueSome members when members.ValueKind = JsonValueKind.Object ->
+                    Some [ for p in members.EnumerateObject() -> p.Name, text p.Value ]
+                | _ -> None
+            | ValueNone -> None
+        | _ ->
+            let prefix = $"{outer}[{inner}]["
+            let members (keys: string seq) (get: string -> StringValues) =
+                [ for key in keys do
+                      if key.StartsWith(prefix, StringComparison.Ordinal) && key.EndsWith("]", StringComparison.Ordinal) then
+                          let name = key.Substring(prefix.Length, key.Length - prefix.Length - 1)
+                          if name.Length > 0 && not (name.Contains '[') && not (name.Contains ']') then
+                              yield name, last (get key) ]
+            let form = form http
+            match members form.Keys (fun k -> form[k]) with
+            | [] ->
+                match members http.Request.Query.Keys (fun k -> http.Request.Query[k]) with
+                | [] -> None
+                | found -> Some found
+            | found -> Some found
 
     /// `ActionController::Parameters#present?` for a scalar: not blank.
     let isPresent (value: ParamValue) : bool =
