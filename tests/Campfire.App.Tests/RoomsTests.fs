@@ -342,7 +342,7 @@ let ``a room page has the same etag cold and warm`` () =
     }
 
 /// A page of messages goes out in parts that are never joined: as they are to a client without
-/// gzip, gzipped from their stored pieces, and as just its length for HEAD. It's the same page with
+/// gzip, gzipped once and kept by the page's identity, and as just its length for HEAD. It's the same page with
 /// the same ETag every way (a room page, its Turbo-Frame version, and a page of older messages).
 [<Fact>]
 let ``pages of messages go out in parts`` () =
@@ -375,7 +375,7 @@ let ``pages of messages go out in parts`` () =
 
             let! gzipped = david.Send(send "GET" true)
             Assert.Equal(Some "gzip", gzipped.Header "content-encoding")
-            Assert.Equal(None, gzipped.Header "content-length")
+            Assert.Equal(Some(string gzipped.Body.Length), gzipped.Header "content-length")
             use decoder = new GZipStream(new MemoryStream(gzipped.Body), CompressionMode.Decompress)
             use decoded = new MemoryStream()
             decoder.CopyTo decoded

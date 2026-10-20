@@ -209,7 +209,11 @@ let ``X4 HTML and turbo-stream responses are gzipped or Brotli'd once, with Vary
         Assert.Equal(Some "gzip", gzipped.Header "content-encoding")
         Assert.Equal([ "gzip" ], gzipped.HeaderValues "content-encoding")
         Assert.True((String.Join(", ", gzipped.HeaderValues "vary")).Contains "Accept-Encoding", $"{gzipped.Headers}")
-        Assert.Equal(None, gzipped.Header "content-length")
+        // A room page is a page of cached fragments: its compressed form is kept by the page's identity, so the second
+        // request is the same bytes, and a change of the page is another page.
+        let! again = page (Some "gzip")
+        Assert.Equal<byte[]>(gzipped.Body, again.Body)
+        Assert.Equal(Some(string gzipped.Body.Length), gzipped.Header "content-length")
         Assert.Equal<byte[]>(plain.Body, gunzip gzipped.Body)
         Assert.True((gzipped.Body.Length < plain.Body.Length / 2), $"{gzipped.Body.Length} of {plain.Body.Length}")
         // The validators are the page's, compressed or not.

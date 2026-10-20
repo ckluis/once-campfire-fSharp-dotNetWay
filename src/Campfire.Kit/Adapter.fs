@@ -23,7 +23,9 @@ open Microsoft.AspNetCore.Builder
 open Microsoft.AspNetCore.Http
 open Microsoft.AspNetCore.Http.Features
 open Microsoft.AspNetCore.HttpOverrides
+open Microsoft.AspNetCore.ResponseCompression
 open Microsoft.AspNetCore.Server.Kestrel.Core
+open Microsoft.Extensions.DependencyInjection
 open Microsoft.Extensions.Logging
 open Microsoft.Extensions.Primitives
 open Campfire.Kit
@@ -267,6 +269,40 @@ module Adapter =
                 do! stream.CopyToAsync http.Response.Body
         }
 
+    /// The compressed form of a page of cached fragments, kept by the page's identity (its ETag digest, which covers every byte)
+    /// and the encoding. A room page is ~400 KB of HTML that repeats from one request to the next, so compressing it afresh
+    /// (and copying it through the compression middleware's stream) was the unit 2.8 shortfall against the 5x floor; the
+    /// bytes themselves are the framework's provider's (`IResponseCompressionProvider`, gzip or Brotli at their fastest).
+    module private PageCompression =
+        let private gate = obj ()
+
+        let private kept =
+            Generations<string, byte[]>(16 * 1024 * 1024, (fun key bytes -> key.Length + bytes.Length + CacheCosts.EntryOverhead))
+
+        /// The encoding and bytes of `parts` for a request that takes compression, or nothing.
+        let compressed (http: HttpContext) (parts: IPageParts) : struct (string * byte[]) voption =
+            match http.RequestServices.GetService<IResponseCompressionProvider>() with
+            | null -> ValueNone
+            | provider ->
+                if provider.CheckRequestAcceptsCompression http && provider.ShouldCompressResponse http then
+                    match provider.GetCompressionProvider http with
+                    | null -> ValueNone
+                    | encoder ->
+                        let key = String.Concat(encoder.EncodingName, ":", parts.Etag())
+                        match lock gate (fun () -> kept.Get(key, id)) with
+                        | ValueSome bytes -> ValueSome(struct (encoder.EncodingName, bytes))
+                        | ValueNone ->
+                            let plain = ArrayBufferWriter<byte>(parts.BodyLength)
+                            parts.WritePlain plain
+                            use output = new MemoryStream()
+                            (use stream = encoder.CreateStream output
+                             stream.Write plain.WrittenSpan)
+                            let bytes = output.ToArray()
+                            lock gate (fun () -> kept.Insert(key, bytes))
+                            ValueSome(struct (encoder.EncodingName, bytes))
+                else
+                    ValueNone
+
     /// Release what a response holds once it has been written (or dropped).
     let private releaseBody (body: Body) : unit =
         match body with
@@ -308,7 +344,18 @@ module Adapter =
                         if head then
                             ()
                         else
-                            do! writePlain http response
+                            let compressed =
+                                match response.Body with
+                                | Body.Parts parts -> PageCompression.compressed http parts
+                                | _ -> ValueNone
+                            match compressed with
+                            | ValueSome(struct (encoding, bytes)) ->
+                                // Already encoded, so the compression middleware leaves it (and its `Vary`) alone.
+                                http.Response.Headers.ContentEncoding <- encoding
+                                http.Response.Headers.Append("Vary", "Accept-Encoding")
+                                http.Response.ContentLength <- Nullable(int64 bytes.Length)
+                                do! http.Response.Body.WriteAsync bytes
+                            | ValueNone -> do! writePlain http response
                     with
                     // The client went away; the host has nothing more to say about it.
                     | :? OperationCanceledException
