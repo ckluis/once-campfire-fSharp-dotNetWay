@@ -213,7 +213,8 @@ let ``R4 a chunked body over 16 MiB is 413 with the public page`` () =
         use client = new HttpClient(new SocketsHttpHandler(UseCookies = false))
         // No `Content-Length`: the host's limit trips as the body is read, and `UseExceptionHandler` answers. The host
         // may close the connection while the client is still sending, so the client sometimes sees a reset instead of the
-        // answer (a race of the client's, not of the app): try again until a reply arrives.
+        // answer (a race of the client's, not of the app): try again a few times, and if the reset keeps winning, the
+        // app's own log must still say it refused the body with a 413.
         let attempt () =
             task {
                 let content = new StreamContent(new ChunkStream(18, 1024 * 1024))
@@ -229,13 +230,13 @@ let ``R4 a chunked body over 16 MiB is 413 with the public page`` () =
             }
         let mutable answer = None
         let mutable tries = 0
-        while answer.IsNone && tries < 10 do
+        while answer.IsNone && tries < 4 do
             let! got = attempt ()
             answer <- got
             tries <- tries + 1
         match answer with
         | Some(status, text) -> Assert.True((status = 413), $"{status} {text} {test.Logs}")
-        | None -> Assert.Fail $"no reply in {tries} tries: {test.Logs}"
+        | None -> Assert.True((test.Logs.Contains "request rejected error=413 Payload Too Large"), $"no reply in {tries} tries, and no 413 logged: {test.Logs}")
     }
 
 [<Fact>]
