@@ -1,0 +1,24 @@
+=== dotnetway:1 1/2 19:27:47 mac-free 20Gi load 6.67 6.30 5.83
+rc=0 19:32:26 load 4.57 5.22 5.45
+=== dotnetway:1 2/2 19:32:26 mac-free 20Gi load 4.57 5.22 5.45
+rc=0 19:36:19 load 4.02 4.28 4.94
+=== fsharp:1 1/2 19:36:19 mac-free 20Gi load 4.02 4.28 4.94
+rc=0 19:42:27 load 13.99 7.29 5.84
+=== fsharp:1 2/2 19:42:27 mac-free 20Gi load 13.99 7.29 5.84
+rc=0 19:47:05 load 6.96 7.26 6.23
+=== fsharp:2 1/2 19:47:05 mac-free 20Gi load 6.96 7.26 6.23
+rc=0 19:53:34 load 5.67 5.75 5.74
+=== fsharp:2 2/2 19:53:34 mac-free 20Gi load 5.67 5.75 5.74
+rc=0 19:58:20 load 9.80 7.17 6.26
+=== dotnetway:2 1/2 19:58:20 mac-free 20Gi load 9.80 7.17 6.26
+rc=0 20:05:11 load 4.29 6.88 6.55
+=== dotnetway:2 2/2 20:05:11 mac-free 20Gi load 4.29 6.88 6.55
+rc=0 20:10:23 load 6.95 6.21 6.21
+=== dotnetway:3 1/2 20:10:23 mac-free 20Gi load 6.95 6.21 6.21
+rc=0 20:18:03 load 5.21 5.95 6.11
+=== dotnetway:3 2/2 20:18:03 mac-free 20Gi load 5.21 5.95 6.11
+rc=0 20:21:43 load 3.99 5.55 5.96
+=== fsharp:3 1/2 20:21:43 mac-free 20Gi load 3.99 5.55 5.96
+rc=0 20:27:55 load 7.94 5.87 5.80
+=== fsharp:3 2/2 20:27:55 mac-free 20Gi load 7.94 5.87 5.80
+rc=0 20:34:54 load 9.32 9.41 7.65

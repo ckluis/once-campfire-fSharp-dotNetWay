@@ -987,3 +987,24 @@ Tests: `SqlTests`, `ColumnsTests`, `DatabaseTests`, `TimeTests` retired (their R
 Gates: `CAMPFIRE_REQUIRE_SEED=1 bin/verify` (Release, warnaserror): 0 warnings, 1,021 tests, 1,015 passed, 0 failed, 6 environmental skips (1,070 before: 49 tests retired, none added). Image rebuilt from `df697be` (`bench/results/dotnetway-p1-11/build.log`), `bin/clean-docker` run. `bin/db-differential`: ok (fixtures and scenario match ruby, export database, schema identity, Rails boots on our file; `db-differential.log`). `bin/pixel-parity --fast` on every state: PASSED in 1,671 s, default 361/361, crowd 12/12, custom_styles 16/16, first_run 8/8, restricted 4/4, screenshots, aria and loose equal (one default cell, `auth/sign_in/rate_limited`, was captured again and matched; `pixel-parity.log`); `bin/clean-parity` run. `bin/cookie-roundtrip`: 20/20 checks passed (`cookie-roundtrip.log`). `bin/verify`'s guards unchanged (no `*Raw` outside `Schema.fs`; `FormattableStringFactory` only in `Models.fs` and `Fixtures.fs`; no `query { }`). No `Conn` of the database layer is left in `src` (Kit's `Front/Conn.fs` is the HTTP connection).
 `bin/kloc`: 38,132 by upstream's rules (38.1 KLOC; 38,343 corrected), down from 39,257 at 1.10. Differences recorded: none.
 Owed at the phase close, not in this unit: `bench/quick` against a same-day control with 3 reps (1.10's figures are one rep each), `bin/pixel-parity` on the lean default matrix (this unit ran `--fast`), the phase review.
+
+### Phase 1: gate (2026-10-19) - DONE
+
+Evidence: `bench/results/dotnetway-p1/` (gate run on `aa1cc73`, resumed after a session limit) and `bench/results/dotnetway-p1-fix/` (the sidebar fix and its re-run, on `6ef24da`).
+
+**Pixel gate (lean, `--fast` off, slices with `--only`, realtime one state at a time), on `aa1cc73`:** every cell equal on screenshots, aria and loose (the loose layer re-counted over all 940 cells after Phase 0's `loose.ts` fix): default 860/860, crowd 24/24, custom_styles 32/32, first_run 16/16, restricted 8/8 = 940/940 on each layer (logs in `dotnetway-p1/pixels/`). After the sidebar fix (image rebuilt from `6ef24da`): rooms/** (default 170, crowd 16, custom_styles 8, restricted 4), realtime/unread_in_sidebar 8, realtime/new_room_in_sidebar 8, users/** (default 72, custom_styles 4): all equal on the three layers (`dotnetway-p1-fix/pixels/`).
+**Other gates:** `CAMPFIRE_REQUIRE_SEED=1 bin/verify` 1,021 tests, 1,015 passed, 0 failed, 6 environmental skips (before and after the fix); `bin/db-differential` ok; `bin/cookie-roundtrip` 20/20.
+
+**Finding and fix.** The first 3-rep bench had every workload over the 5x-Rails floor except sidebar c=1 (4.118x Rails, 1,180 req/s vs 287). The sidebar's three remaining `Where(lambda)` statements (direct rooms of the user, member ids of those rooms, placeholder users) each paid the ~60 us expression-tree rebuild (unit 1.10). LINQ first was not available for them: prebuilt expressions cannot capture the per-request user id without a lambda, and the one statement that could be merged was (the direct rooms' member ids are now one `FromSql` over a subselect, so the sidebar runs 9 statements, not 10). Per the design's floor rule, they are now `FromSql` (`Room.forUserOfType`, `Room.userIdsOfDirectRoomsOf`, `User.activeExcluding`; same SQL semantics, same order). Reason recorded: sidebar c=1 under the floor, 60 us x 3 per request.
+
+**Speed (`bench/quick`, 5 workloads, c=1 and c=16, 3 reps, final code; Rails medians from phase7-final; same-session control = the F# port's image, 3 reps, in `dotnetway-p1-fix/control.md`; host load 4-14 during the run, probes 1.0-1.13, `room_show c=16` flagged noisy):**
+| workload | c=16 req/s | x Rails | c=1 req/s | x Rails | vs port, same session (c=16 / c=1) |
+|---|---:|---:|---:|---:|---|
+| room page | 6,013 | 25.1x | 1,250 | 11.7x | 0.16 / 0.17 |
+| messages page | 5,178 | 13.6x | 1,501 | 6.9x | 0.13 / 0.19 |
+| sidebar | 5,896 | 9.9x | 1,703 | 5.9x | 0.16 / 0.22 |
+| search | 5,071 | 12.4x | 1,480 | 7.7x | 0.15 / 0.26 |
+| post a message | 1,857 | 5.6x | 930 | 5.6x | 0.50 / 0.41 |
+All ten cells are over the 5x floor; none is a blocker. Thinnest: post (5.57-5.63x) and sidebar c=1 (5.94x). All responses 2xx, 0 connection errors in 30 runs; post rows written equal the 2xx answers. The ratio to the port is recorded, not a gate.
+
+`bin/kloc`: 38,141 by upstream's rules (38.1 KLOC; 38,352 corrected). Differences recorded: none visible. `bin/clean-docker` and `bin/clean-parity` run.

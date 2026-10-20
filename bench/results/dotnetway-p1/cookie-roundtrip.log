@@ -1,0 +1,26 @@
+cookie-roundtrip: A. sign in on Rails (campfire-reference:app), switch the storage to ours (campfire-dotnetway:app)
+cookie-roundtrip: rails up (campfire-reference:app)
+cookie-roundtrip:   ok    Rails: a visitor with no cookie is not signed in (control)
+cookie-roundtrip:   ok    Rails: signing in answers with a redirect
+cookie-roundtrip:   ok    Rails: the cookie signs David in
+cookie-roundtrip:   ok    Rails: David posts
+cookie-roundtrip:   ok    Rails: the post is in the database
+cookie-roundtrip: ours up (campfire-dotnetway:app)
+cookie-roundtrip:   ok    ours: a visitor with no cookie is not signed in (control)
+cookie-roundtrip:   ok    ours: the cookie Rails minted still signs David in (no new sign-in)
+cookie-roundtrip:   ok    ours: the room shows the message Rails stored
+cookie-roundtrip:   ok    ours: David, signed in by Rails' cookie, posts
+cookie-roundtrip: B. sign in on ours, switch the storage back to Rails
+cookie-roundtrip:   ok    ours: signing in answers with a redirect
+cookie-roundtrip:   ok    ours: the cookie signs David in
+cookie-roundtrip:   ok    ours: David posts
+cookie-roundtrip:   ok    ours: the A2 post is in the database
+cookie-roundtrip:   ok    ours: the B1 post is in the database
+cookie-roundtrip: rails up (campfire-reference:app)
+cookie-roundtrip:   ok    Rails: a visitor with no cookie is not signed in (control)
+cookie-roundtrip:   ok    Rails: the cookie ours minted still signs David in (no new sign-in)
+cookie-roundtrip:   ok    Rails: the cookie from A (Rails -> ours -> Rails) still signs David in
+cookie-roundtrip:   ok    Rails: the room shows the message ours stored
+cookie-roundtrip:   ok    Rails: David, signed in by our cookie, posts
+cookie-roundtrip:   ok    Rails: the B2 post is in the database
+cookie-roundtrip: 20/20 checks passed; PASSED, the cookies and the storage went both ways
