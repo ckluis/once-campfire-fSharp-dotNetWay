@@ -179,6 +179,7 @@ let ``K6 a direct upload read back: disk PUT, redirect, proxy, ranges and the di
         let! redirect = (anonymous test).Get $"/rails/active_storage/blobs/redirect/{signedId}/hello.png"
         Assert.Equal(302, redirect.Status)
         Assert.Equal(Some "max-age=300, private", redirect.Header "cache-control")
+        Assert.Equal(Some "SAMEORIGIN", redirect.Header "x-frame-options")
         let! file = (anonymous test).Get(pathOf (redirect.Location.Value))
         Assert.Equal(200, file.Status)
         Assert.Equal("hello", file.Text)
@@ -193,6 +194,8 @@ let ``K6 a direct upload read back: disk PUT, redirect, proxy, ranges and the di
         Assert.Equal(200, whole.Status)
         Assert.Equal("hello", whole.Text)
         Assert.Equal(Some "bytes", whole.Header "accept-ranges")
+        // The proxy is `ActionController::Live` (`include ActiveStorage::Streaming`): none of the default headers.
+        Assert.Equal(None, whole.Header "x-frame-options")
         Assert.Contains("public", (whole.Header "cache-control").Value)
         Assert.Contains("immutable", (whole.Header "cache-control").Value)
         Assert.True((whole.Header "etag").IsSome)

@@ -170,6 +170,7 @@ module ActiveStorageControllers =
     let blobsProxy: Web.Action =
         fun http ->
             taskResult {
+                Native.useLiveResponse http // `include ActiveStorage::Streaming`
                 do! Csrf.verifyAuthenticityToken http
                 let! blob = setBlob http
                 let disposition = disposition http
@@ -213,6 +214,7 @@ module ActiveStorageControllers =
     let representationsProxy: Web.Action =
         fun http ->
             taskResult {
+                Native.useLiveResponse http // `include ActiveStorage::Streaming`
                 do! Csrf.verifyAuthenticityToken http
                 let! blob = setBlob http
                 let! image = setRepresentation http blob
