@@ -75,6 +75,13 @@ The differences the Rust port lists from Rails apply here too (see its README). 
 specific to this port are listed below, each citing the reference file it departs from.
 
 - **Application** (`Campfire.App`; `rust/crates/campfire` is the port it follows):
+  - Forgery protection is .NET 11's token-less `ICsrfProtection` (`Web/Csrf.fs`), called where Rails runs
+    `verify_authenticity_token`, so the Rust README's entry on it is replaced: `Sec-Fetch-Site` first (`same-origin` and
+    `none` pass; `cross-site` and **`same-site`**, another subdomain, are 422), then `Origin` against the request's scheme and
+    host for a browser without Fetch Metadata. A write with neither header (not a browser) passes, over HTTPS too, where
+    Rust refused it. Pages carry no tokens, so open tabs keep working across a switch; after a switch back to Rails a tab
+    this port rendered needs a reload. Bot-key requests skip the check, as in Rails. Reference:
+    `ActionController::RequestForgeryProtection` (the `:header_only` strategy). Tested by `CsrfTests` (C1-C12).
   - `VAPID_SUBJECT` without a `TLS_DOMAIN` defaults to this project's URL (`https://github.com/ckluis/once-campfire-fsharp`);
     Rust's names its own. Tested by `ConfigTests` ("vapid subject defaults to the tls domain").
   - A response header whose first line is empty reaches the wire as a line of its own (the first line of a
