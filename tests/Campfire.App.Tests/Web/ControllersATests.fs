@@ -40,8 +40,12 @@ let ``N2 a redirect and a bare head answer no-cache with the default headers`` (
         let! root = test.Send(get "/")
         Assert.Equal(302, root.Status)
         Assert.Equal(Some "http://campfire.test/session/new", root.Location)
-        // (The session middleware widens it to `no-cache,no-store` when it sets its cookie for the return-to URL.)
-        Assert.StartsWith("no-cache", root.Header "cache-control" |> Option.defaultValue "")
+        // The redirect stores the return-to URL, so the session middleware sets its cookie; Rails' session cookie leaves the cache
+        // headers alone, and so do we (the middleware's `no-cache,no-store`, `Pragma` and `Expires` are put back).
+        Assert.Equal(Some "no-cache", root.Header "cache-control")
+        Assert.Equal(None, root.Header "pragma")
+        Assert.Equal(None, root.Header "expires")
+        Assert.True((root.SetCookies |> List.exists (fun c -> c.StartsWith "_campfire_flash=")), "the session cookie is set")
         Assert.Equal(Some "SAMEORIGIN", root.Header "x-frame-options")
         let! ingress = test.Send(request "POST" "/rails/action_mailbox/relay/inbound_emails")
         Assert.Equal(404, ingress.Status)
@@ -148,4 +152,17 @@ let ``N8 the sign in limit is per client address`` () =
         Assert.Equal(429, stillLimited.Status)
         let! signedIn = second.Form("post", "/session", [ "email_address", test.Label "emails.david"; "password", "secret123456" ])
         Assert.Equal(302, signedIn.Status)
+    }
+
+[<Fact>]
+let ``N9 an error page carries none of the chain's headers and no cache control`` () =
+    task {
+        use! test = bootSeeded "default"
+        // `respond_to` offers HTML only: 406, rendered by Rails' middleware, outside the controller.
+        let! refused = test.Send((get "/session/new.json").With("user-agent", chromeAgent))
+        Assert.Equal(406, refused.Status)
+        Assert.Equal(None, refused.Header "x-version")
+        Assert.Equal(None, refused.Header "x-rev")
+        Assert.Equal(None, refused.Header "cache-control")
+        Assert.Equal(Some "SAMEORIGIN", refused.Header "x-frame-options")
     }

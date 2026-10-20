@@ -2,7 +2,7 @@
 //
 // Rails renders a public page only for an exception (`head :forbidden` stays empty): `public/<status>.html` as it is, or for
 // another format `{ status:, error: }` as that format's body. The renderer writes straight to the response, with the
-// default headers and `no-cache` Rails' middleware add, and the log line `ShowExceptions` writes. Statuses and messages
+// default headers Rails' middleware adds (and no `Cache-Control`: `Rack::ETag` digests only 200s), and the log line `ShowExceptions` writes. Statuses and messages
 // are `Campfire.Kit.Error`'s while the kit's `Ctx` lives (unit 2.13).
 namespace Campfire.App.Web
 
@@ -80,7 +80,9 @@ module PublicExceptions =
                     response.Headers.ContentLength <- Nullable(int64 body.Length)
                     for (name, value) in kit.Config.DefaultHeaders do
                         if not (response.Headers.ContainsKey name) then response.Headers.Append(name, value)
-                    if not (response.Headers.ContainsKey HeaderNames.CacheControl) then response.Headers.CacheControl <- "no-cache"
+                    // A page rendered by a middleware outside the controller carries none of the controller's headers.
+                    response.Headers.Remove "x-version" |> ignore
+                    response.Headers.Remove "x-rev" |> ignore
                     if not body.IsEmpty then do! response.Body.WriteAsync body
                 }
                 :> Task

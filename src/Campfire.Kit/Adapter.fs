@@ -393,6 +393,21 @@ module Adapter =
                     if not (headers.ContainsKey Hdr.XRuntime) then
                         let seconds = Stopwatch.GetElapsedTime(state.Started).TotalSeconds
                         headers[Hdr.XRuntime] <- seconds.ToString("F6", Globalization.CultureInfo.InvariantCulture)
+                // The session middleware marks the response it establishes its cookie on as uncacheable (`no-cache,no-store`,
+                // `Pragma`, `Expires`), over what the action said; Rails' session cookie leaves the cache headers alone.
+                // This callback was registered first, so it runs after the middleware's: put back what a response of this
+                // status carries by default.
+                if headers.CacheControl.ToString() = "no-cache,no-store"
+                   && headers.Pragma.ToString() = "no-cache"
+                   && headers.Expires.ToString() = "-1" then
+                    headers.Remove "Pragma" |> ignore
+                    headers.Remove "Expires" |> ignore
+                    let response = state.Http.Response
+                    headers.CacheControl <-
+                        (if (response.StatusCode = 200 || response.StatusCode = 201) && response.ContentLength.GetValueOrDefault() > 0L then
+                             "max-age=0, private, must-revalidate"
+                         else
+                             "no-cache")
                 let config = state.Kit.Config
                 if config.ForceSsl && state.Ssl then
                     headers[Hdr.StrictTransportSecurity] <- config.Hsts

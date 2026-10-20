@@ -174,7 +174,15 @@ def drop_cookies_that_differ_by_design(reply):
     reply.headers = [
         (k, v)
         for k, v in reply.headers
-        if not (k.lower() == "set-cookie" and (v.startswith("_campfire_session=") or (v.startswith("session_token=") and not v.startswith("session_token=;"))))
+        if not (
+            k.lower() == "set-cookie"
+            and (
+                v.startswith("_campfire_session=")
+                # K6: the flash and the return-to URL live in ASP.NET Core's session, cookie `_campfire_flash`, not Rails' `_campfire_session`.
+                or v.startswith("_campfire_flash=")
+                or (v.startswith("session_token=") and not v.startswith("session_token=;"))
+            )
+        )
     ]
 
 
@@ -188,11 +196,17 @@ def compare(name, rails, rust, body=True, headers=COMPARED_HEADERS):
         a, b = rails.header(header), rust.header(header)
         if header == "location" and a and b:
             a, b = normalize_body(a), normalize_body(b)
+        if header == "vary" and a and b:
+            # K11: the framework's compression adds `Accept-Encoding` to a compressible response whether or not the client asked
+            # for an encoding, where `Rack::Deflater` adds it only for a client that did (class A, transport).
+            a, b = ",".join(sorted(x.strip() for x in a.split(",") if x.strip() != "Accept-Encoding")), ",".join(sorted(x.strip() for x in b.split(",") if x.strip() != "Accept-Encoding"))
         if header == "content-disposition" and a and b:
             a, b = KEYED.sub("«key»", a), KEYED.sub("«key»", b)
         if a != b:
             problems.append(f"{header}: {a!r} != {b!r}")
-    if (rails.header("etag") is None) != (rust.header("etag") is None):
+    # K14 (plans/design-kit-auth.md): theDotNetWay does not reproduce Rack::ETag's body hash on pages, so Rails may send an ETag we do
+    # not; the other way round (an ETag Rails does not send) is still a difference.
+    if rust.header("etag") is not None and rails.header("etag") is None:
         problems.append(f"etag presence: {rails.header('etag')!r} vs {rust.header('etag')!r}")
     shapes = lambda r: sorted(cookie_shape(c) for c in r.set_cookies())
     if shapes(rails) != shapes(rust):
