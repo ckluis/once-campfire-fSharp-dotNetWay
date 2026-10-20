@@ -125,6 +125,15 @@ specific to this port are listed below, each citing the reference file it depart
     differently, so it is not byte-equal to Rails' or the Rust port's. No
     page gets `Rack::ETag`'s body hash from a Web action (K14). Reference: `ActionController::Redirecting`,
     `ActionController::ConditionalGet`, `ActionController::DataStreaming`. Tested by `RespondTests` (X1-X3, X5).
+  - Sign-in throttling (`rate_limit to: 10, within: 3.minutes` on `sessions#create`) is the framework's `PartitionedRateLimiter`, a fixed
+    window per remote IP in server memory, acquired inside the action after the before-action chain (as Rails' callback runs).
+    Its windows run on wall-clock time, not the frozen harness clock, and a restart empties them (Rails' cache entries are in
+    the cache store). Reference: `SessionsController` (`rate_limit`). Tested by `FlashTests` (F7) and `ControllersATests` (N8).
+  - The responses of the controllers moved to `HttpContext` (sessions, first run, welcome, PWA, transfers, health, Turbo Native,
+    Action Mailbox) carry Rails' default headers, a default `Content-Type` and, where they set none, `Cache-Control`
+    `max-age=0, private, must-revalidate` for a 200 with a body and `no-cache` otherwise, set as the response starts; they
+    carry no `ETag` (K14: the same DOM, pixels and data). A page rendered by a Web action is written by the kit's writer, so a
+    page of cached fragments still goes out in parts. Tested by `ControllersATests` (N1, N2).
   - A request body is capped at 16 MiB, files included, by Kestrel (413; Rust's front server did the same, Rails reads
     any size). Reference: `config/puma.rb` (no limit). Tested by `RequestsTests` (R4).
   - `VAPID_SUBJECT` without a `TLS_DOMAIN` defaults to this project's URL (`https://github.com/ckluis/once-campfire-fsharp`);

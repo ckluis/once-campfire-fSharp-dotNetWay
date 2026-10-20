@@ -47,10 +47,15 @@
     <Compile Include="Web/Respond.fs" />
     <Compile Include="Web/PublicExceptions.fs" />
     <Compile Include="Web/Action.fs" />
+    <Compile Include="Web/Data.fs" />
+    <Compile Include="Web/Native.fs" />
     <Compile Include="Web/Current.fs" />
     <Compile Include="Web/TicketFormat.fs" />
     <Compile Include="Web/Authentication.fs" />
     <Compile Include="Web/Csrf.fs" />
+    <Compile Include="Web/Pages.fs" />
+    <Compile Include="Web/Before.fs" />
+    <Compile Include="Web/LoginThrottle.fs" />
     <Compile Include="Web/Legacy.fs" />
     <Compile Include="Web/Services.fs" />
     <Compile Include="Concerns.fs" />
@@ -102,6 +107,7 @@
     <Compile Include="Controllers/Rooms/Involvements.fs" />
     <Compile Include="Controllers/Rooms/Refreshes.fs" />
     <Compile Include="Controllers/Searches.fs" />
+    <Compile Include="Controllers/Rails.fs" />
     <Compile Include="Controllers.fs" />
     <Compile Include="Boot.fs" />
     <Compile Include="Program.fs" />

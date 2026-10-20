@@ -32,6 +32,7 @@ open System.Text
 open System.Text.RegularExpressions
 open System.Threading.Tasks
 open FsToolkit.ErrorHandling
+open Microsoft.Extensions.DependencyInjection
 open Microsoft.Extensions.Logging
 open Campfire.RailsCompat
 open Campfire.Kit
@@ -80,38 +81,6 @@ module private Fallbacks =
             c.Kit.Logger.LogError("route {Endpoint} is not ported yet", endpoint)
             Task.FromResult(Error(Status 501))
 
-/// `Rails::HealthController`
-module Health =
-    let show (c: Ctx) : Task<Result<Response, Error>> =
-        act {
-            let! format = c.RespondTo [ Format.Html; Format.Json ]
-            if format = Format.Json then
-                let timestamp = DateTimeOffset.FromUnixTimeSeconds(c.Now().ToUnixTimeSeconds()).ToString("yyyy-MM-dd'T'HH:mm:ss'Z'")
-                return c.Json(Status.Ok, Value.Object [ "status", Value.String "up"; "timestamp", Value.String timestamp ])
-            else
-                return c.Html """<!DOCTYPE html><html><body style="background-color: green"></body></html>"""
-        }
-
-/// `Turbo::Native::NavigationController` (turbo-rails)
-module TurboNative =
-    let recede (c: Ctx) : Task<Result<Response, Error>> = act { return c.Html "Going back…" }
-
-    let resume (c: Ctx) : Task<Result<Response, Error>> = act { return c.Html "Staying put…" }
-
-    let refresh (c: Ctx) : Task<Result<Response, Error>> = act { return c.Html "Refreshing…" }
-
-/// Action Mailbox's ingress and conductor routes, which Campfire doesn't use.
-module Mailbox =
-    /// `ActionMailbox::BaseController#ensure_configured`: no ingress is configured.
-    let ingressNotConfigured (c: Ctx) : Task<Result<Response, Error>> = act { return c.Head Status.NotFound }
-
-    /// `Rails::Conductor::BaseController`: CSRF first, then `ensure_development_env`.
-    let conductor (c: Ctx) : Task<Result<Response, Error>> =
-        act {
-            do! Concerns.verifyAuthenticityToken c
-            return c.Head Status.Forbidden
-        }
-
 module RouteTable =
     let private actionNotFound = Fallbacks.actionNotFound
     let private missingController = Fallbacks.missingController
@@ -152,8 +121,29 @@ module RouteTable =
           Regex = regex
           Names = names }
 
+    /// A row whose action is a Web action (`HttpContext -> Task<Result<HttpHandler, Error>>`): the matched endpoint is left for
+    /// the layout choice, the fragment cache is scoped as for any action, and what it answers gets the default headers.
+    let private makeNative (verb: string) (pattern: string) (endpoint: string) (action: Web.Action) : Route =
+        let regex, names = compile pattern
+        { Verb = verb
+          Pattern = pattern
+          Endpoint = endpoint
+          Defaults = []
+          Action =
+            Web.Native.wrap (fun http ->
+                http.Items[Web.Pages.EndpointKey] <- endpoint
+                let app = http.RequestServices.GetRequiredService<AppState>()
+                Campfire.Views.FragmentCache.scoped app.FragmentCache (fun () -> action http))
+          Regex = regex
+          Names = names }
+
     let private withDefaults (defaults: (string * string) list) (route: Route) : Route = { route with Defaults = defaults }
 
+    let private getN = makeNative "GET"
+    let private postN = makeNative "POST"
+    let private patchN = makeNative "PATCH"
+    let private putN = makeNative "PUT"
+    let private deleteN = makeNative "DELETE"
     let private get = make "GET"
     let private post = make "POST"
     let private patch = make "PATCH"
@@ -170,24 +160,24 @@ module RouteTable =
     let routes: Lazy<Route[]> =
         lazy
             [|
-                get "/" "welcome#show" (Welcome.show)
+                getN "/" "welcome#show" (Welcome.show)
                 get "/first_run/new(.:format)" "first_runs#new" (actionNotFound)
                 get "/first_run/edit(.:format)" "first_runs#edit" (actionNotFound)
-                get "/first_run(.:format)" "first_runs#show" (FirstRuns.show)
+                getN "/first_run(.:format)" "first_runs#show" (FirstRuns.show)
                 patch "/first_run(.:format)" "first_runs#update" (actionNotFound)
                 put "/first_run(.:format)" "first_runs#update" (actionNotFound)
                 delete "/first_run(.:format)" "first_runs#destroy" (actionNotFound)
-                post "/first_run(.:format)" "first_runs#create" (FirstRuns.create)
-                get "/session/transfers/:id(.:format)" "sessions/transfers#show" (SessionTransfers.show)
-                patch "/session/transfers/:id(.:format)" "sessions/transfers#update" (SessionTransfers.update)
-                put "/session/transfers/:id(.:format)" "sessions/transfers#update" (SessionTransfers.update)
-                get "/session/new(.:format)" "sessions#new" (Sessions.``new``)
+                postN "/first_run(.:format)" "first_runs#create" (FirstRuns.create)
+                getN "/session/transfers/:id(.:format)" "sessions/transfers#show" (SessionTransfers.show)
+                patchN "/session/transfers/:id(.:format)" "sessions/transfers#update" (SessionTransfers.update)
+                putN "/session/transfers/:id(.:format)" "sessions/transfers#update" (SessionTransfers.update)
+                getN "/session/new(.:format)" "sessions#new" (Sessions.``new``)
                 get "/session/edit(.:format)" "sessions#edit" (actionNotFound)
                 get "/session(.:format)" "sessions#show" (actionNotFound)
                 patch "/session(.:format)" "sessions#update" (actionNotFound)
                 put "/session(.:format)" "sessions#update" (actionNotFound)
-                delete "/session(.:format)" "sessions#destroy" (Sessions.destroy)
-                post "/session(.:format)" "sessions#create" (Sessions.create)
+                deleteN "/session(.:format)" "sessions#destroy" (Sessions.destroy)
+                postN "/session(.:format)" "sessions#create" (Sessions.create)
                 get "/account/users(.:format)" "accounts/users#index" (AccountUsers.index)
                 post "/account/users(.:format)" "accounts/users#create" (actionNotFound)
                 get "/account/users/new(.:format)" "accounts/users#new" (actionNotFound)
@@ -318,26 +308,26 @@ module RouteTable =
                 get "/searches(.:format)" "searches#index" (SearchesController.index)
                 post "/searches(.:format)" "searches#create" (SearchesController.create)
                 post "/unfurl_link(.:format)" "unfurl_links#create" (UnfurlLinks.create)
-                get "/webmanifest(.:format)" "pwa#manifest" (Pwa.manifest)
-                get "/service-worker(.:format)" "pwa#service_worker" (Pwa.serviceWorker)
-                get "/up(.:format)" "rails/health#show" (Health.show)
-                get "/recede_historical_location(.:format)" "turbo/native/navigation#recede" (TurboNative.recede)
-                get "/resume_historical_location(.:format)" "turbo/native/navigation#resume" (TurboNative.resume)
-                get "/refresh_historical_location(.:format)" "turbo/native/navigation#refresh" (TurboNative.refresh)
-                post "/rails/action_mailbox/postmark/inbound_emails(.:format)" "action_mailbox/ingresses/postmark/inbound_emails#create" (Mailbox.ingressNotConfigured)
-                post "/rails/action_mailbox/relay/inbound_emails(.:format)" "action_mailbox/ingresses/relay/inbound_emails#create" (Mailbox.ingressNotConfigured)
-                post "/rails/action_mailbox/sendgrid/inbound_emails(.:format)" "action_mailbox/ingresses/sendgrid/inbound_emails#create" (Mailbox.ingressNotConfigured)
-                get "/rails/action_mailbox/mandrill/inbound_emails(.:format)" "action_mailbox/ingresses/mandrill/inbound_emails#health_check" (Mailbox.ingressNotConfigured)
-                post "/rails/action_mailbox/mandrill/inbound_emails(.:format)" "action_mailbox/ingresses/mandrill/inbound_emails#create" (Mailbox.ingressNotConfigured)
-                post "/rails/action_mailbox/mailgun/inbound_emails/mime(.:format)" "action_mailbox/ingresses/mailgun/inbound_emails#create" (Mailbox.ingressNotConfigured)
-                get "/rails/conductor/action_mailbox/inbound_emails(.:format)" "rails/conductor/action_mailbox/inbound_emails#index" (Mailbox.conductor)
-                post "/rails/conductor/action_mailbox/inbound_emails(.:format)" "rails/conductor/action_mailbox/inbound_emails#create" (Mailbox.conductor)
-                get "/rails/conductor/action_mailbox/inbound_emails/new(.:format)" "rails/conductor/action_mailbox/inbound_emails#new" (Mailbox.conductor)
-                get "/rails/conductor/action_mailbox/inbound_emails/:id(.:format)" "rails/conductor/action_mailbox/inbound_emails#show" (Mailbox.conductor)
-                get "/rails/conductor/action_mailbox/inbound_emails/sources/new(.:format)" "rails/conductor/action_mailbox/inbound_emails/sources#new" (Mailbox.conductor)
-                post "/rails/conductor/action_mailbox/inbound_emails/sources(.:format)" "rails/conductor/action_mailbox/inbound_emails/sources#create" (Mailbox.conductor)
-                post "/rails/conductor/action_mailbox/:inbound_email_id/reroute(.:format)" "rails/conductor/action_mailbox/reroutes#create" (Mailbox.conductor)
-                post "/rails/conductor/action_mailbox/:inbound_email_id/incinerate(.:format)" "rails/conductor/action_mailbox/incinerates#create" (Mailbox.conductor)
+                getN "/webmanifest(.:format)" "pwa#manifest" (Pwa.manifest)
+                getN "/service-worker(.:format)" "pwa#service_worker" (Pwa.serviceWorker)
+                getN "/up(.:format)" "rails/health#show" (Health.show)
+                getN "/recede_historical_location(.:format)" "turbo/native/navigation#recede" (TurboNative.recede)
+                getN "/resume_historical_location(.:format)" "turbo/native/navigation#resume" (TurboNative.resume)
+                getN "/refresh_historical_location(.:format)" "turbo/native/navigation#refresh" (TurboNative.refresh)
+                postN "/rails/action_mailbox/postmark/inbound_emails(.:format)" "action_mailbox/ingresses/postmark/inbound_emails#create" (Mailbox.ingressNotConfigured)
+                postN "/rails/action_mailbox/relay/inbound_emails(.:format)" "action_mailbox/ingresses/relay/inbound_emails#create" (Mailbox.ingressNotConfigured)
+                postN "/rails/action_mailbox/sendgrid/inbound_emails(.:format)" "action_mailbox/ingresses/sendgrid/inbound_emails#create" (Mailbox.ingressNotConfigured)
+                getN "/rails/action_mailbox/mandrill/inbound_emails(.:format)" "action_mailbox/ingresses/mandrill/inbound_emails#health_check" (Mailbox.ingressNotConfigured)
+                postN "/rails/action_mailbox/mandrill/inbound_emails(.:format)" "action_mailbox/ingresses/mandrill/inbound_emails#create" (Mailbox.ingressNotConfigured)
+                postN "/rails/action_mailbox/mailgun/inbound_emails/mime(.:format)" "action_mailbox/ingresses/mailgun/inbound_emails#create" (Mailbox.ingressNotConfigured)
+                getN "/rails/conductor/action_mailbox/inbound_emails(.:format)" "rails/conductor/action_mailbox/inbound_emails#index" (Mailbox.conductor)
+                postN "/rails/conductor/action_mailbox/inbound_emails(.:format)" "rails/conductor/action_mailbox/inbound_emails#create" (Mailbox.conductor)
+                getN "/rails/conductor/action_mailbox/inbound_emails/new(.:format)" "rails/conductor/action_mailbox/inbound_emails#new" (Mailbox.conductor)
+                getN "/rails/conductor/action_mailbox/inbound_emails/:id(.:format)" "rails/conductor/action_mailbox/inbound_emails#show" (Mailbox.conductor)
+                getN "/rails/conductor/action_mailbox/inbound_emails/sources/new(.:format)" "rails/conductor/action_mailbox/inbound_emails/sources#new" (Mailbox.conductor)
+                postN "/rails/conductor/action_mailbox/inbound_emails/sources(.:format)" "rails/conductor/action_mailbox/inbound_emails/sources#create" (Mailbox.conductor)
+                postN "/rails/conductor/action_mailbox/:inbound_email_id/reroute(.:format)" "rails/conductor/action_mailbox/reroutes#create" (Mailbox.conductor)
+                postN "/rails/conductor/action_mailbox/:inbound_email_id/incinerate(.:format)" "rails/conductor/action_mailbox/incinerates#create" (Mailbox.conductor)
                 get "/rails/active_storage/blobs/redirect/:signed_id/*filename(.:format)" "active_storage/blobs/redirect#show" (ActiveStorage.blobsRedirect)
                 get "/rails/active_storage/blobs/proxy/:signed_id/*filename(.:format)" "active_storage/blobs/proxy#show" (ActiveStorage.blobsProxy)
                 get "/rails/active_storage/blobs/:signed_id/*filename(.:format)" "active_storage/blobs/redirect#show" (ActiveStorage.blobsRedirect)

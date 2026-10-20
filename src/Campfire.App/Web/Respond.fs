@@ -19,6 +19,7 @@ open System.Text
 open System.Threading.Tasks
 open Falco
 open Microsoft.AspNetCore.Http
+open Microsoft.AspNetCore.Http.Features
 open Microsoft.Net.Http.Headers
 open Campfire.Kit
 
@@ -86,6 +87,33 @@ module Respond =
         | _ -> ()
         SessionReset.commit http
 
+    /// `reset_session`: no data, no flash, and the browser's session cookie goes.
+    let resetSession (http: HttpContext) : unit =
+        SessionReset.run http
+        http.Items.Remove flashItem |> ignore
+
+    /// The raw request path, still percent-encoded and without its query (`PATH_INFO`).
+    let rawPath (http: HttpContext) : string =
+        let target =
+            match http.Features.Get<IHttpRequestFeature>() with
+            | null -> http.Request.Path.Value
+            | feature -> feature.RawTarget
+        match target with
+        | null
+        | "" -> "/"
+        | target ->
+            let target = match target.IndexOf '?' with -1 -> target | q -> target.Substring(0, q)
+            if target.StartsWith '/' then
+                target
+            else
+                // Absolute form: `http://host/path`.
+                match target.IndexOf("://", StringComparison.Ordinal) with
+                | -1 -> target
+                | at ->
+                    match target.IndexOf('/', at + 3) with
+                    | -1 -> "/"
+                    | slash -> target.Substring slash
+
     // --- redirects -----------------------------------------------------------------------------------
 
     /// The host of an absolute or protocol-relative URL, null for paths.
@@ -132,7 +160,13 @@ module Respond =
         out.Append('"').ToString()
 
     /// An absolute URL for `path` on this request's host (what `*_url` helpers produce).
-    let urlFor (http: HttpContext) (path: string) : string = $"{http.Request.Scheme}://{http.Request.Host}{path}"
+    let urlFor (http: HttpContext) (path: string) : string =
+        let request = http.Request
+        let host = request.Host
+        // `request.host_with_port`: the port only when it is not the scheme's default.
+        let authority =
+            if host.Port.HasValue && host.Port.Value = (if request.IsHttps then 443 else 80) then host.Host else host.ToString()
+        $"{request.Scheme}://{authority}{path}"
 
     /// `_url_host_allowed?`: a path, or a URL on this request's host.
     let private hostAllowed (http: HttpContext) (url: string) : bool =
@@ -181,6 +215,27 @@ module Respond =
                     http.Response.Headers.Location <- location
                     http.Response.ContentLength <- 0L
                     Task.CompletedTask)
+
+    /// `100..=199 | 204 | 205 | 304`: a bare `head` leaves the content type off these.
+    let noContent (status: int) : bool = Status.hasNoContent status
+
+    /// A status that carries no body (`1xx`, `204`, `304`).
+    let noBody (status: int) : bool = Status.hasNoBody status
+
+    /// `head status`: no body, and unless the status has none a bare content type of the request's format.
+    let head (http: HttpContext) (status: int) : HttpHandler =
+        let contentType =
+            if Status.hasNoContent status then
+                null
+            else
+                match Formats.requested http with
+                | Ok(first :: _) when first <> Any -> Formats.mimeType first
+                | _ -> "text/html"
+        fun (http: HttpContext) ->
+            http.Response.StatusCode <- status
+            if not (isNull contentType) then http.Response.ContentType <- contentType
+            if not (Status.hasNoBody status) then http.Response.ContentLength <- 0L
+            Task.CompletedTask
 
     /// `redirect_to location` (302).
     let redirectTo (http: HttpContext) (location: string) : Result<HttpHandler, Campfire.App.Web.Error> =

@@ -62,26 +62,7 @@ module Services =
     let SuppressAutoDefaultScheme = "Microsoft.AspNetCore.Authentication.SuppressAutoDefaultScheme"
 
     /// The raw request path, still percent-encoded and without its query (`PATH_INFO`).
-    let rawPath (http: HttpContext) : string =
-        let target =
-            match http.Features.Get<IHttpRequestFeature>() with
-            | null -> http.Request.Path.Value
-            | feature -> feature.RawTarget
-        match target with
-        | null
-        | "" -> "/"
-        | target ->
-            let target = match target.IndexOf '?' with -1 -> target | q -> target.Substring(0, q)
-            if target.StartsWith '/' then
-                target
-            else
-                // Absolute form: `http://host/path`.
-                match target.IndexOf("://", StringComparison.Ordinal) with
-                | -1 -> target
-                | at ->
-                    match target.IndexOf('/', at + 3) with
-                    | -1 -> "/"
-                    | slash -> target.Substring slash
+    let rawPath (http: HttpContext) : string = Respond.rawPath http
 
     /// Registers the app's services on the host (`Front.serveWithLines`'s `configureServices`, and the tests' hosts).
     let add (kit: Kit) (app: AppState) (services: IServiceCollection) : unit =
@@ -117,6 +98,8 @@ module Services =
             Compression.SkipSmall(ResponseCompressionProvider(sp, sp.GetRequiredService<IOptions<ResponseCompressionOptions>>()))
             :> IResponseCompressionProvider)
         |> ignore
+        // K15: ten sign-in attempts per client IP in three minutes.
+        services.AddSingleton<System.Threading.RateLimiting.PartitionedRateLimiter<string>>(fun _ -> LoginThrottle.create ()) |> ignore
         // K1: the `session_token` cookie; K4: the bot key, a second scheme (no policy scheme, no default).
         services
             .AddAuthentication()

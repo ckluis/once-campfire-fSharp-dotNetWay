@@ -1,52 +1,43 @@
 // Port of rust/crates/campfire/src/controllers/sessions.rs
 //
-// `SessionsController` (reference/app/controllers/sessions_controller.rb): sign in and out. Pulled
-// into the boot unit because signing in is what proves the image boots; `sessions/transfers` follows
-// with the rest of the controllers.
+// `SessionsController` (reference/app/controllers/sessions_controller.rb): sign in and out. A Web action (unit 2.9): the
+// before-action chain is `Web.Before`, the response is `Web.Pages`/`Web.Respond`, and `rate_limit to: 10, within: 3.minutes`
+// is the framework's limiter (K15, `Web.LoginThrottle`), acquired inside the action after the chain.
 namespace Campfire.App.Controllers
 
-open System
-open System.Collections.Generic
 open System.Threading.Tasks
-open Campfire.RailsCompat
-open Campfire.Kit
+open FsToolkit.ErrorHandling
 open Campfire.App
 open Campfire.App.Presenters
 open Campfire.Db
 open Campfire.Routes
 open Campfire.Views.Templates.Sessions
+open Campfire.App.Web
 
 module Sessions =
-    /// `rate_limit to: 10, within: 3.minutes, only: :create`
-    [<Literal>]
-    let private RateLimitTo = 10UL
-
-    let private rateLimitWithin = TimeSpan.FromMinutes 3.0
-
     [<Literal>]
     let private Rejection = "Too many requests or unauthorized."
 
     let private newSize = Campfire.Views.RenderSize()
 
     /// `redirect_to first_run_url if User.none?`
-    let private ensureUserExists (c: Ctx) : Task<Result<unit, Error>> =
-        act {
-            let! none = c.Read(fun db -> Accounts.noUsers db)
-            if none then
-                let firstRun = c.UrlFor(Routes.firstRun ())
-                match c.RedirectTo firstRun with
-                | Ok response -> return! halt response
-                | Error e -> return! Error e
-        }
+    let private ensureUserExists (http: Microsoft.AspNetCore.Http.HttpContext) : Result<unit, Error> =
+        match Data.read http (fun db -> Accounts.noUsers db) with
+        | Result.Error e -> Result.Error e
+        | Ok false -> Ok()
+        | Ok true ->
+            match Respond.redirectTo http (Respond.urlFor http (Routes.firstRun ())) with
+            | Ok handler -> Action.halt handler
+            | Result.Error e -> Result.Error e
 
-    let private renderNew (c: Ctx) (status: int) : Task<Result<Response, Error>> =
-        act {
-            do! c.RespondTo [ Format.Html ] |> Result.map ignore
-            let emailAddress = match c.ParamStr "email_address" with null -> None | email -> Some email
-            let! helpContact = c.Read(fun db -> Accounts.helpContact db)
+    let private renderNew (http: Microsoft.AspNetCore.Http.HttpContext) (status: int) : Result<Falco.HttpHandler, Error> =
+        result {
+            do! Formats.respondTo http [ Format.Html ] |> Result.map ignore
+            let emailAddress = match Params.value http "email_address" with null -> None | email -> Some email
+            let! helpContact = Data.read http (fun db -> Accounts.helpContact db)
             return!
-                Page.framedPage
-                    c
+                Pages.framedPage
+                    http
                     status
                     newSize
                     (fun w ctx -> New.render w ctx emailAddress helpContact)
@@ -55,78 +46,84 @@ module Sessions =
         }
 
     /// `flash.now[:alert] = "Too many requests or unauthorized."; render :new, status:`
-    let private renderRejection (c: Ctx) (status: int) : Task<Result<Response, Error>> =
-        c.Flash().Now("alert", Rejection)
-        renderNew c status
-
-    // --- Rate limiting ---------------------------------------------------------------------------------
-
-    /// The Rails cache entries `rate_limit` counts in: `"rate-limit:sessions:#{request.remote_ip}"`,
-    /// incremented with `expires_in: within`, which (like Redis' `EXPIRE ... NX`) only sets the expiry
-    /// when the counter starts. One process holds them all, like one Redis would.
-    let private rateLimits = Dictionary<string, struct (uint64 * DateTimeOffset)>()
-
-    /// Counts a hit under `key` in a fixed window that starts at the first hit.
-    let increment (key: string) (now: DateTimeOffset) : uint64 =
-        lock rateLimits (fun () ->
-            for expired in [ for KeyValue(k, struct (_, expiresAt)) in rateLimits do if expiresAt <= now then k ] do
-                rateLimits.Remove expired |> ignore
-            let struct (count, expiresAt) =
-                match rateLimits.TryGetValue key with
-                | true, entry -> entry
-                | _ -> struct (0UL, now + rateLimitWithin)
-            rateLimits[key] <- struct (count + 1UL, expiresAt)
-            count + 1UL)
+    let private renderRejection (http: Microsoft.AspNetCore.Http.HttpContext) (status: int) : Result<Falco.HttpHandler, Error> =
+        (Respond.flash http).Now("alert", Rejection)
+        renderNew http status
 
     /// `rate_limiting(to:, within:, by: -> { request.remote_ip }, with: -> { render_rejection :too_many_requests })`
-    let private rateLimit (c: Ctx) : Task<Result<unit, Error>> =
-        act {
-            let! ip = c.Request.RemoteIp()
-            if increment $"rate-limit:sessions:{ip}" (c.Now()) > RateLimitTo then
-                let! response = renderRejection c 429
-                return! halt response
-        }
+    let private rateLimit (http: Microsoft.AspNetCore.Http.HttpContext) : Result<unit, Error> =
+        let _, ip = SessionCookie.client http
+        if LoginThrottle.hit http ip then
+            Ok()
+        else
+            match renderRejection http 429 with
+            | Ok handler -> Action.halt handler
+            | Result.Error e -> Result.Error e
 
-    // --- Actions ---------------------------------------------------------------------------------------
+    /// `User.active.authenticate_by(email_address:, password:)`: the user is looked up on a reader, and the password
+    /// checked once the reader is released.
+    let private authenticateBy (http: Microsoft.AspNetCore.Http.HttpContext) (emailAddress: string) (password: string) : Task<Result<User option, Error>> =
+        task {
+            // `authenticate_by` returns nil for a blank password before looking anything up.
+            if password = "" then
+                return Ok None
+            else
+                match Data.read http (fun db -> User.findActiveByEmailAddress db emailAddress) with
+                | Result.Error e -> return Result.Error e
+                | Ok candidate ->
+                    try
+                        let! user = Task.Run(fun () -> User.authenticated candidate password)
+                        return Ok user
+                    with e ->
+                        return Result.Error(Internal e)
+        }
 
     /// `allow_unauthenticated_access only: %i[ new create ]`, `before_action :ensure_user_exists, only: :new`
-    let ``new`` (c: Ctx) : Task<Result<Response, Error>> =
-        act {
-            do! Concerns.beforeActions c (Before.allowUnauthenticatedAccess Before.Default)
-            do! ensureUserExists c
-            return! renderNew c Status.Ok
-        }
+    let ``new``: Web.Action =
+        fun http ->
+            taskResult {
+                do! Before.chain (Before.allowUnauthenticatedAccess Before.Default) http
+                do! ensureUserExists http
+                return! renderNew http 200
+            }
 
-    let create (c: Ctx) : Task<Result<Response, Error>> =
-        act {
-            do! Concerns.beforeActions c (Before.allowUnauthenticatedAccess Before.Default)
-            do! rateLimit c
-            let emailAddress = c.ParamStr "email_address"
-            let password = c.ParamStr "password"
-            let! user =
-                match emailAddress, password with
-                | null, _
-                | _, null -> Task.FromResult(Ok None)
-                | email, password -> Concerns.authenticateBy c email password
-            match user with
-            | Some user ->
-                let! (_: Session) = Concerns.startNewSessionFor c user
-                let location = Concerns.postAuthenticatingUrl c
-                return! c.RedirectTo location
-            | None -> return! renderRejection c 401
-        }
+    let create: Web.Action =
+        fun http ->
+            taskResult {
+                do! Before.chain (Before.allowUnauthenticatedAccess Before.Default) http
+                do! rateLimit http
+                let emailAddress = Params.value http "email_address"
+                let password = Params.value http "password"
+                let! user =
+                    match emailAddress, password with
+                    | null, _
+                    | _, null -> Task.FromResult(Ok None)
+                    | email, password -> authenticateBy http email password
+                match user with
+                | Some user ->
+                    let! (_: Session) = Authentication.startNewSessionFor http user
+                    // `post_authenticating_url`: `session.delete(:return_to_after_authenticating) || root_url`
+                    let location =
+                        match Campfire.Kit.ReturnTo.take http with
+                        | null -> Respond.urlFor http (Routes.root ())
+                        | url -> url
+                    return! Respond.redirectTo http location
+                | None -> return! renderRejection http 401
+            }
 
     /// `Push::Subscription.destroy_by(endpoint: params[:push_subscription_endpoint], user_id: Current.user.id)`
-    let private removePushSubscription (c: Ctx) : Task<Result<unit, Error>> =
-        match c.ParamStr "push_subscription_endpoint", Concerns.currentUser c with
+    let private removePushSubscription (http: Microsoft.AspNetCore.Http.HttpContext) : Task<Result<unit, Error>> =
+        match Params.value http "push_subscription_endpoint", Current.user http with
         | null, _
         | _, None -> Task.FromResult(Ok())
-        | endpoint, Some user -> c.Write(fun tx -> PushSubscription.destroyByEndpoint tx user.Id endpoint)
+        | endpoint, Some user -> Data.write http (fun tx -> PushSubscription.destroyByEndpoint tx user.Id endpoint)
 
-    let destroy (c: Ctx) : Task<Result<Response, Error>> =
-        act {
-            do! Concerns.beforeActions c Before.Default
-            do! removePushSubscription c
-            do! Concerns.terminateCurrentSession c
-            return! c.RedirectTo(c.UrlFor(Routes.root ()))
-        }
+    let destroy: Web.Action =
+        fun http ->
+            taskResult {
+                do! Before.chain Before.Default http
+                do! removePushSubscription http
+                do! Authentication.terminateCurrentSession http
+                Respond.resetSession http
+                return! Respond.redirectTo http (Respond.urlFor http (Routes.root ()))
+            }

@@ -93,17 +93,6 @@ let ``no body of the safe length fails to parse`` () =
         | Ok _ -> ()
         | Error e -> failwith $"{e.Message}: {body.Substring(0, 40)}"
 
-// --- controllers/sessions.rs ---------------------------------------------------------------------------------------
-
-[<Fact>]
-let ``counts within a fixed window`` () =
-    let start = DateTimeOffset.Parse "2024-06-01T12:00:00Z"
-    let key = "rate-limit:sessions:test-window"
-    for expected in 1..11 do
-        Assert.Equal(uint64 expected, Sessions.increment key (start.AddSeconds(float expected)))
-    // The window started at the first hit and doesn't slide.
-    Assert.Equal(1UL, Sessions.increment key (start.AddSeconds 181.0))
-
 // --- active_storage.rs ---------------------------------------------------------------------------------------------
 
 [<Fact>]
