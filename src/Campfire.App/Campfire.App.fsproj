@@ -107,6 +107,7 @@
     <Compile Include="Controllers/Rooms/Involvements.fs" />
     <Compile Include="Controllers/Rooms/Refreshes.fs" />
     <Compile Include="Controllers/Searches.fs" />
+    <Compile Include="Controllers/ActiveStorage.fs" />
     <Compile Include="Controllers/Rails.fs" />
     <Compile Include="Controllers.fs" />
     <Compile Include="Boot.fs" />

@@ -211,7 +211,7 @@ module RouteTable =
                 post "/account(.:format)" "accounts#create" (actionNotFound)
                 getN "/join/:join_code(.:format)" "users#new" (UsersController.``new``)
                 postN "/join/:join_code(.:format)" "users#create" (UsersController.create)
-                get "/qr_code/:id(.:format)" "qr_code#show" (QrCode.show)
+                getN "/qr_code/:id(.:format)" "qr_code#show" QrCode.show
                 getN "/users/:user_id/avatar(.:format)" "users/avatars#show" (Avatars.show)
                 deleteN "/users/:user_id/avatar(.:format)" "users/avatars#destroy" (Avatars.destroy)
                 deleteN "/users/:user_id/ban(.:format)" "users/bans#destroy" (Bans.destroy)
@@ -234,7 +234,7 @@ module RouteTable =
                 put "/users/:user_id/push_subscriptions/:id(.:format)" "users/push_subscriptions#update" (actionNotFound) |> withDefaults meDefaults
                 deleteN "/users/:user_id/push_subscriptions/:id(.:format)" "users/push_subscriptions#destroy" (PushSubscriptions.destroy) |> withDefaults meDefaults
                 getN "/users/:id(.:format)" "users#show" (UsersController.show)
-                get "/autocompletable/users(.:format)" "autocompletable/users#index" (AutocompletableUsers.index)
+                getN "/autocompletable/users(.:format)" "autocompletable/users#index" AutocompletableUsers.index
                 get "/rooms/:room_id/messages(.:format)" "messages#index" (MessagesController.index)
                 post "/rooms/:room_id/messages(.:format)" "messages#create" (MessagesController.create)
                 get "/rooms/:room_id/messages/new(.:format)" "messages#new" (actionNotFound)
@@ -304,10 +304,10 @@ module RouteTable =
                 patch "/messages/:id(.:format)" "messages#update" (MessagesController.update)
                 put "/messages/:id(.:format)" "messages#update" (MessagesController.update)
                 delete "/messages/:id(.:format)" "messages#destroy" (MessagesController.destroy)
-                delete "/searches/clear(.:format)" "searches#clear" (SearchesController.clear)
-                get "/searches(.:format)" "searches#index" (SearchesController.index)
-                post "/searches(.:format)" "searches#create" (SearchesController.create)
-                post "/unfurl_link(.:format)" "unfurl_links#create" (UnfurlLinks.create)
+                deleteN "/searches/clear(.:format)" "searches#clear" SearchesController.clear
+                getN "/searches(.:format)" "searches#index" SearchesController.index
+                postN "/searches(.:format)" "searches#create" SearchesController.create
+                postN "/unfurl_link(.:format)" "unfurl_links#create" UnfurlLinks.create
                 getN "/webmanifest(.:format)" "pwa#manifest" (Pwa.manifest)
                 getN "/service-worker(.:format)" "pwa#service_worker" (Pwa.serviceWorker)
                 getN "/up(.:format)" "rails/health#show" (Health.show)
@@ -328,15 +328,15 @@ module RouteTable =
                 postN "/rails/conductor/action_mailbox/inbound_emails/sources(.:format)" "rails/conductor/action_mailbox/inbound_emails/sources#create" (Mailbox.conductor)
                 postN "/rails/conductor/action_mailbox/:inbound_email_id/reroute(.:format)" "rails/conductor/action_mailbox/reroutes#create" (Mailbox.conductor)
                 postN "/rails/conductor/action_mailbox/:inbound_email_id/incinerate(.:format)" "rails/conductor/action_mailbox/incinerates#create" (Mailbox.conductor)
-                get "/rails/active_storage/blobs/redirect/:signed_id/*filename(.:format)" "active_storage/blobs/redirect#show" (ActiveStorage.blobsRedirect)
-                get "/rails/active_storage/blobs/proxy/:signed_id/*filename(.:format)" "active_storage/blobs/proxy#show" (ActiveStorage.blobsProxy)
-                get "/rails/active_storage/blobs/:signed_id/*filename(.:format)" "active_storage/blobs/redirect#show" (ActiveStorage.blobsRedirect)
-                get "/rails/active_storage/representations/redirect/:signed_blob_id/:variation_key/*filename(.:format)" "active_storage/representations/redirect#show" (ActiveStorage.representationsRedirect)
-                get "/rails/active_storage/representations/proxy/:signed_blob_id/:variation_key/*filename(.:format)" "active_storage/representations/proxy#show" (ActiveStorage.representationsProxy)
-                get "/rails/active_storage/representations/:signed_blob_id/:variation_key/*filename(.:format)" "active_storage/representations/redirect#show" (ActiveStorage.representationsRedirect)
-                get "/rails/active_storage/disk/:encoded_key/*filename(.:format)" "active_storage/disk#show" (ActiveStorage.diskShow)
-                put "/rails/active_storage/disk/:encoded_token(.:format)" "active_storage/disk#update" (ActiveStorage.diskUpdate)
-                post "/rails/active_storage/direct_uploads(.:format)" "active_storage/direct_uploads#create" (ActiveStorage.directUploadsCreate)
+                getN "/rails/active_storage/blobs/redirect/:signed_id/*filename(.:format)" "active_storage/blobs/redirect#show" ActiveStorageControllers.blobsRedirect
+                getN "/rails/active_storage/blobs/proxy/:signed_id/*filename(.:format)" "active_storage/blobs/proxy#show" ActiveStorageControllers.blobsProxy
+                getN "/rails/active_storage/blobs/:signed_id/*filename(.:format)" "active_storage/blobs/redirect#show" ActiveStorageControllers.blobsRedirect
+                getN "/rails/active_storage/representations/redirect/:signed_blob_id/:variation_key/*filename(.:format)" "active_storage/representations/redirect#show" ActiveStorageControllers.representationsRedirect
+                getN "/rails/active_storage/representations/proxy/:signed_blob_id/:variation_key/*filename(.:format)" "active_storage/representations/proxy#show" ActiveStorageControllers.representationsProxy
+                getN "/rails/active_storage/representations/:signed_blob_id/:variation_key/*filename(.:format)" "active_storage/representations/redirect#show" ActiveStorageControllers.representationsRedirect
+                getN "/rails/active_storage/disk/:encoded_key/*filename(.:format)" "active_storage/disk#show" ActiveStorageControllers.diskShow
+                putN "/rails/active_storage/disk/:encoded_token(.:format)" "active_storage/disk#update" ActiveStorageControllers.diskUpdate
+                postN "/rails/active_storage/direct_uploads(.:format)" "active_storage/direct_uploads#create" ActiveStorageControllers.directUploadsCreate
             |]
 
     /// One verb's routes in table order, indexed by the first segment of their pattern: every pattern

@@ -10,6 +10,7 @@ namespace Campfire.App.Web
 
 open System
 open System.IO
+open System.Text
 open System.Text.Json
 open System.Threading.Tasks
 open Microsoft.AspNetCore.Http
@@ -42,21 +43,49 @@ module Params =
             let media = (match ct.IndexOf ';' with -1 -> ct | i -> ct.Substring(0, i)).Trim().ToLowerInvariant()
             media = "application/json" || media = "text/x-json" || media = "application/jsonrequest" || media = "application/problem+json"
 
+    let private strictUtf8 = UTF8Encoding(false, true)
+
+    /// Rails answers 400 for a query whose percent-escapes are not UTF-8 (`ActionDispatch::Request::Utils.check_param_encoding`);
+    /// the framework's parser would hand the action U+FFFD instead.
+    let private invalidQueryEncoding (http: HttpContext) : bool =
+        match http.Request.QueryString.Value with
+        | null -> false
+        | query when query.IndexOf '%' < 0 -> false
+        | query ->
+            let bytes = ResizeArray<byte>(query.Length)
+            let hex (c: char) = Uri.IsHexDigit c
+            let mutable i = 0
+            while i < query.Length do
+                if query[i] = '%' && i + 2 < query.Length && hex query[i + 1] && hex query[i + 2] then
+                    bytes.Add(Convert.ToByte(query.Substring(i + 1, 2), 16))
+                    i <- i + 3
+                else
+                    let width = if Char.IsHighSurrogate query[i] && i + 1 < query.Length then 2 else 1
+                    bytes.AddRange(Encoding.UTF8.GetBytes(query.Substring(i, width)))
+                    i <- i + width
+            try
+                strictUtf8.GetString(bytes.ToArray()) |> ignore
+                false
+            with :? DecoderFallbackException -> true
+
     /// Make the body readable by the synchronous accessors: the form is read (the framework caches it), a JSON body is
     /// read into memory once and kept. A form the framework cannot read is a 400, as in Rails.
     let load (http: HttpContext) : Task<Result<unit, Error>> =
         task {
             try
-                if http.Request.HasFormContentType then
-                    let! _ = http.Request.ReadFormAsync()
-                    return Ok()
-                elif isJson http && not (http.Items.ContainsKey JsonBodyKey) then
-                    use buffer = new MemoryStream()
-                    do! http.Request.Body.CopyToAsync buffer
-                    http.Items[JsonBodyKey] <- buffer.ToArray()
-                    return Ok()
+                if invalidQueryEncoding http then
+                    return Result.Error(BadRequest "Invalid query parameters: Invalid encoding for parameter")
                 else
-                    return Ok()
+                    if http.Request.HasFormContentType then
+                        let! _ = http.Request.ReadFormAsync()
+                        return Ok()
+                    elif isJson http && not (http.Items.ContainsKey JsonBodyKey) then
+                        use buffer = new MemoryStream()
+                        do! http.Request.Body.CopyToAsync buffer
+                        http.Items[JsonBodyKey] <- buffer.ToArray()
+                        return Ok()
+                    else
+                        return Ok()
             with
             | :? InvalidDataException as e -> return Result.Error(BadRequest e.Message)
         }
@@ -235,6 +264,33 @@ module Params =
                 | [] -> None
                 | found -> Some found
             | found -> Some found
+
+    /// `params[:a][:b]` as text when it is a string or a JSON number (Active Storage's JavaScript sends `byte_size` as a number).
+    let nestedText (http: HttpContext) (outer: string) (inner: string) : string | null =
+        match jsonRoot http with
+        | Ok(ValueSome root) ->
+            match jsonProperty root outer with
+            | ValueSome obj ->
+                match jsonProperty obj inner with
+                | ValueSome element when element.ValueKind = JsonValueKind.Number -> element.GetRawText()
+                | ValueSome element -> (match jsonValue element with Str s -> s | _ -> null)
+                | ValueNone -> null
+            | ValueNone -> null
+        | _ -> nested http outer inner
+
+    /// `params[:a][:b]` as the hash it is (`permit(b: {})`), `None` when `b` is not a hash.
+    let hashJson (http: HttpContext) (outer: string) (inner: string) : Campfire.RailsCompat.Value option =
+        match jsonRoot http with
+        | Ok(ValueSome root) ->
+            match jsonProperty root outer with
+            | ValueSome obj ->
+                match jsonProperty obj inner with
+                | ValueSome members when members.ValueKind = JsonValueKind.Object -> Campfire.Storage.JsonValue.parse (members.GetRawText())
+                | _ -> None
+            | ValueNone -> None
+        | _ ->
+            hashMembers http outer inner
+            |> Option.map (fun members -> Campfire.RailsCompat.Value.Object [ for key, value in members -> key, Campfire.RailsCompat.Value.String value ])
 
     /// `ActionController::Parameters#present?` for a scalar: not blank.
     let isPresent (value: ParamValue) : bool =

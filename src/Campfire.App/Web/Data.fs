@@ -50,3 +50,12 @@ module Data =
                 with e ->
                     return Result.Error(Internal e)
         }
+
+    /// Runs `f` with a presenter on the request's context and host (`MessagesController#present`).
+    let present (http: HttpContext) (f: Campfire.App.Presenters.Presenter -> 'T) : Result<'T, Error> =
+        let app = app http
+        let requestHost = Some http.Request.Host.Host
+        read http (fun db ->
+            let presenter = Campfire.App.Presenters.Presenter(db, app, requestHost)
+            // The Jbuilder partials (`json.cache!`) read the fragment cache on this thread.
+            Campfire.Views.FragmentCache.withCache app.FragmentCache (fun () -> f presenter))
