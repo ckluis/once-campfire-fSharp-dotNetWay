@@ -21,9 +21,16 @@ module Data =
     /// The request's database context.
     let db (http: HttpContext) : Campfire.Db.Ef.CampfireDb = http.RequestServices.GetRequiredService<Campfire.Db.Ef.CampfireDb>()
 
+    /// A database failure as a Web error: a missing record is `NotFound` (what `rescue_from RecordNotFound` matches), the rest is
+    /// the `Legacy` error `AppErrors.dbError` maps it to.
+    let webError (error: DbError) : Error =
+        match error with
+        | RecordNotFound _ -> NotFound
+        | other -> Legacy(AppErrors.dbError other)
+
     /// `Reads.run` over the request's context.
     let read (http: HttpContext) (f: Campfire.Db.Ef.CampfireDb -> 'T) : Result<'T, Error> =
-        Campfire.Db.Ef.Reads.run (db http) f |> Result.mapError (fun error -> Legacy(AppErrors.dbError error))
+        Campfire.Db.Ef.Reads.run (db http) f |> Result.mapError webError
 
     /// `Writes.run` over the request's context, the failure left as a `DbError` for actions that rescue one
     /// (`ActiveRecord::RecordNotUnique`).
@@ -35,7 +42,7 @@ module Data =
     let write (http: HttpContext) (f: Campfire.Db.Ef.Tx -> 'T) : Task<Result<'T, Error>> =
         task {
             let! result = tryWrite http f
-            return result |> Result.mapError (fun error -> Legacy(AppErrors.dbError error))
+            return result |> Result.mapError webError
         }
 
     /// `password=`: BCrypt on the thread pool, `None` for no password.

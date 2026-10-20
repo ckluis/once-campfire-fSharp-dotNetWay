@@ -4,67 +4,68 @@
 // bots boost with the raw request body as the content.
 namespace Campfire.App.Controllers
 
-open System.Threading.Tasks
+open FsToolkit.ErrorHandling
+open Microsoft.AspNetCore.Http
 open Campfire.App
 open Campfire.Db
-open Campfire.Kit
 open Campfire.Ruby
 open Campfire.Views
+open Campfire.App.Web
 
 module BoostsByBots =
     let private before: Before = Before.allowBotAccess Before.Default
 
     /// The room among `Current.user.rooms`, then its message; `head :not_found` without one.
-    let private setMessage (c: Ctx) : Task<Result<Message, Error>> =
-        act {
-            let! (user: User) = Concerns.requireCurrentUser c
-            let roomId = match c.ParamStr "room_id" with null -> None | id -> Ruby.integerCast id
-            let messageId = match c.ParamStr "message_id" with null -> None | id -> Ruby.integerCast id
-            let! (room: Room option) = c.Read(fun db -> roomId |> Option.bind (fun id -> Room.findForUser db user.Id id))
+    let private setMessage (http: HttpContext) : Result<Message, Error> =
+        result {
+            let! (user: User) = Current.requireUser http
+            let roomId = match Params.value http "room_id" with null -> None | id -> Ruby.integerCast id
+            let messageId = match Params.value http "message_id" with null -> None | id -> Ruby.integerCast id
+            let! (room: Room option) = Data.read http (fun db -> roomId |> Option.bind (fun id -> Room.findForUser db user.Id id))
             let! (message: Message option) =
                 match room, messageId with
                 | Some room, Some id ->
-                    c.Read(fun db -> Message.findById db id |> Option.filter (fun message -> message.RoomId = room.Id))
-                | _ -> Task.FromResult(Ok None)
+                    Data.read http (fun db -> Message.findById db id |> Option.filter (fun message -> message.RoomId = room.Id))
+                | _ -> Ok None
             match message with
             | Some message -> return message
-            | None -> return! halt (Concerns.head Status.NotFound)
+            | None -> return! Action.halt (Before.head 404)
         }
 
-    let create (c: Ctx) : Task<Result<Response, Error>> =
-        act {
-            do! Concerns.beforeActions c before
-            let! (message: Message) = setMessage c
-            // ensure_content_present
-            let content = ByBots.rawRequestBody c
-            if ByBots.isBlank content then return! halt (Concerns.head Status.UnprocessableEntity)
-            let! (boost: Boost) = BoostsController.createBoost c message (Some content)
-            do! BoostsController.broadcastCreate c message boost
+    let create: Web.Action =
+        fun http ->
+            taskResult {
+                do! Before.chain before http
+                let! (message: Message) = setMessage http
+                // ensure_content_present
+                let content = Params.rawBody http
+                if ByBots.isBlank content then do! Action.halt (Before.head 422)
+                let! (boost: Boost) = BoostsController.createBoost http message (Some content)
+                do! BoostsController.broadcastCreate http message boost
 
-            // render :show, status: :created
-            do! c.RespondTo [ Format.Json ] |> Result.map ignore
-            let baseUrl = c.UrlFor ""
-            let! (body: string) =
-                MessagesController.present c (fun presenter ->
-                    MessagesJson.boostsByBotsShow (presenter.BoostJson(boost, message, baseUrl)))
-            return c.Render(Status.Created, Format.Json, body)
-        }
+                // render :show, status: :created
+                do! Formats.respondTo http [ Format.Json ] |> Result.map ignore
+                let baseUrl = Respond.urlFor http ""
+                let! (body: string) =
+                    Data.present http (fun presenter -> MessagesJson.boostsByBotsShow (presenter.BoostJson(boost, message, baseUrl)))
+                return Pages.renderText http 201 Campfire.Kit.Response.JsonUtf8 body
+            }
 
-    let destroy (c: Ctx) : Task<Result<Response, Error>> =
-        act {
-            do! Concerns.beforeActions c before
-            let! (message: Message) = setMessage c
-            // set_boost, with `rescue ActiveRecord::RecordNotFound` -> head :not_found
-            let! boost =
-                task {
-                    match! BoostsController.setBoost c message with
-                    | Ok boost -> return Ok(Some boost)
-                    | Error NotFound -> return Ok None
-                    | Error e -> return Error e
-                }
-            match boost with
-            | None -> return Concerns.head Status.NotFound
-            | Some boost ->
-                do! BoostsController.destroyBoost c message boost
-                return c.Head Status.NoContent
-        }
+    let destroy: Web.Action =
+        fun http ->
+            taskResult {
+                do! Before.chain before http
+                let! (message: Message) = setMessage http
+                // set_boost, with `rescue ActiveRecord::RecordNotFound` -> head :not_found
+                let boost =
+                    match BoostsController.setBoost http message with
+                    | Ok boost -> Ok(Some boost)
+                    | Result.Error NotFound -> Ok None
+                    | Result.Error e -> Result.Error e
+                let! boost = boost
+                match boost with
+                | None -> return Before.head 404
+                | Some boost ->
+                    do! BoostsController.destroyBoost http message boost
+                    return Respond.head http 204
+            }

@@ -55,6 +55,18 @@ module Pages =
             let lastRoom = lastRoomCookie http
             Data.read http (fun db -> Campfire.App.Current.lastRoomVisitedIn db user.Id lastRoom)
 
+    /// `remember_last_room_visited`: `cookies.permanent[:last_room] = @room.id`, only when it changes (Rails sets it on every room page).
+    let rememberLastRoomVisited (http: HttpContext) (roomId: int64) : unit =
+        let roomId = string roomId
+        if http.Request.Cookies["last_room"] <> roomId then
+            // `cookies.permanent`: 20 calendar years out on the harness's clock. `UseCookiePolicy` adds `secure`/`samesite`.
+            let expires = Campfire.RailsCompat.Cookies.permanentExpiresAt (Data.now http)
+            http.Response.Cookies.Append("last_room", roomId, CookieOptions(Path = "/", Expires = Nullable expires, SameSite = SameSiteMode.Lax))
+
+    /// The base of the URLs in a render outside the request during it: `SetCurrentRequest`'s `default_url_options` carry only the
+    /// host and protocol, so a request to `http://localhost:3999` broadcasts `http://localhost/...` links.
+    let rendererBaseUrl (http: HttpContext) : string = $"{http.Request.Scheme}://{http.Request.Host.Host}"
+
     // --- the layout -----------------------------------------------------------------------------------
 
     /// `Current.account`, `Current.user`, `last_room_visited` and the platform. With no account yet (first run) the
@@ -185,8 +197,8 @@ module Pages =
 
     /// A recorded page (its text and the cached fragments it holds) as a response in the HTML format, spliced into parts
     /// when it holds fragments big enough for a part.
-    let private recorded (http: HttpContext) (status: int) (page: RecordedPage) : Campfire.Kit.Response =
-        let response = Campfire.Kit.Response(status).ContentType $"{Campfire.Kit.Format.Html.String}; charset=utf-8"
+    let private recordedAs (http: HttpContext) (status: int) (contentType: string) (page: RecordedPage) : Campfire.Kit.Response =
+        let response = Campfire.Kit.Response(status).ContentType contentType
         if page.Fragments.Length = 0 then
             response.Body <- Campfire.Kit.Body.Bytes(ReadOnlyMemory<byte> page.Text)
         else
@@ -194,6 +206,9 @@ module Pages =
             | Ok parts -> response.Body <- Campfire.Kit.Body.Parts parts
             | Result.Error whole -> response.Body <- Campfire.Kit.Body.Bytes whole
         withVary http response
+
+    let private recorded (http: HttpContext) (status: int) (page: RecordedPage) : Campfire.Kit.Response =
+        recordedAs http status $"{Campfire.Kit.Format.Html.String}; charset=utf-8" page
 
     /// A page rendered in the application layout: plus the `Link` preload header `stylesheet_link_tag` adds.
     let private page (http: HttpContext) (status: int) (html: RecordedPage) : HttpHandler =
@@ -245,6 +260,36 @@ module Pages =
         (content: Out -> ViewContext -> unit)
         : Result<HttpHandler, Error> =
         pageOrFrame http status (fun ctx -> size.Render(fun w -> render w ctx)) (fun ctx -> Layouts.frame size head (fun w -> content w ctx))
+
+    /// A content-only template: Rails wraps it in the application layout, or in turbo-rails' `layouts/turbo_rails/frame` when the
+    /// request carries a `Turbo-Frame` header.
+    let content (http: HttpContext) (status: int) (render: Out -> ViewContext -> unit) : Result<HttpHandler, Error> =
+        pageOrFrame
+            http
+            status
+            (fun ctx -> Render.page 0 (fun w -> Layouts.Application.render w ctx (Layouts.Application.create (Render.html (fun w -> render w ctx)))))
+            (fun ctx -> Render.page 0 (fun w -> Templates.Layouts.TurboRails.Frame.render w (fun _ -> ()) (fun w -> render w ctx)))
+
+    /// A content-only template in the application layout even for Turbo-Frame requests: a controller that declares its own
+    /// `layout` (`MessagesController`) replaces turbo-rails' frame layout choice.
+    let contentInApplicationLayout (http: HttpContext) (status: int) (render: Out -> ViewContext -> unit) : Result<HttpHandler, Error> =
+        match findTemplate http Format.Html with
+        | Result.Error e -> Result.Error e
+        | Ok() ->
+            pageInAnyFormat
+                http
+                status
+                (fun ctx -> Render.page 0 (fun w -> Layouts.Application.render w ctx (Layouts.Application.create (Render.html (fun w -> render w ctx)))))
+
+    /// A template rendered with `layout false` (or a turbo stream), no layout, labelled with the template's format.
+    let bare (http: HttpContext) (status: int) (template: Format) (body: ViewContext -> RecordedPage) : Result<HttpHandler, Error> =
+        match findTemplate http template with
+        | Result.Error e -> Result.Error e
+        | Ok() ->
+            load http
+            |> Result.map (fun layout ->
+                let html = render layout http body
+                write (recordedAs http status (Formats.mimeType template + "; charset=utf-8") html))
 
     // --- AllowBrowser ---------------------------------------------------------------------------------
 

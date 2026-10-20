@@ -25,7 +25,6 @@
 //     let show (c: Ctx) =
 //         act {
 //             do! Concerns.beforeActions c Before.Default
-//             let! membership, room = Concerns.setRoom c   // RoomScoped
 //             ...
 //         }
 //
@@ -284,51 +283,4 @@ module Concerns =
                 let! (restored: bool) = restoreAuthentication c
                 ignore restored
                 do! redirectSignedInUserToRoot c
-        }
-
-    // --- TrackedRoomVisit ----------------------------------------------------------------------------
-
-    /// `remember_last_room_visited`: `cookies.permanent[:last_room] = @room.id`.
-    ///
-    /// Only when it changes: Rails sets it on every room page.
-    let rememberLastRoomVisited (c: Ctx) (roomId: int64) : unit =
-        let roomId = string roomId
-        if c.Cookies.Get "last_room" <> roomId then
-            // `cookies.permanent`: 20 calendar years out on the harness's clock. `UseCookiePolicy` adds `secure`/`samesite`.
-            let expires = Campfire.RailsCompat.Cookies.permanentExpiresAt (c.Now())
-            c.Http.Response.Cookies.Append("last_room", roomId, CookieOptions(Path = "/", Expires = Nullable expires, SameSite = SameSiteMode.Lax))
-
-    /// `last_room_visited`: the `last_room` cookie's room if the user is in it, else
-    /// `Current.user.rooms.original`.
-    let lastRoomVisited (c: Ctx) : Task<Result<Room option, Error>> =
-        match currentUser c with
-        | None -> Task.FromResult(Ok None)
-        | Some user ->
-            let lastRoom = lastRoomCookie c
-            c.Read(fun db -> lastRoomVisitedIn db user.Id lastRoom)
-
-    // --- RoomScoped ----------------------------------------------------------------------------------
-
-    /// `RoomScoped#set_room`: `Current.user.memberships.find_by!(room_id: params[:room_id])`, 404
-    /// otherwise. Returns the membership and its room.
-    let setRoom (c: Ctx) : Task<Result<Membership * Room, Error>> =
-        task {
-            match requireCurrentUser c with
-            | Error e -> return Error e
-            | Ok user ->
-                match (match c.ParamStr "room_id" with null -> None | id -> Ruby.integerCast id) with
-                | None -> return Error NotFound
-                | Some roomId ->
-                    return!
-                        c.Read(fun db ->
-                            let membership =
-                                Membership.findByRoomAndUser db roomId user.Id |> Err.orNotFound "Membership"
-                            // `@membership.room` is nil when the room is gone (memberships have no foreign key to
-                            // rooms), and the action fails on it: a 500, where `Membership#room`'s
-                            // `RecordNotFound` would be a 404.
-                            let room =
-                                match Room.findById db membership.RoomId with
-                                | Some room -> room
-                                | None -> Err.fail (DbError.other "the membership's room is gone")
-                            membership, room)
         }

@@ -337,13 +337,14 @@ let ``a room page has the same etag cold and warm`` () =
         let! cold = david.Get $"/rooms/{HQ}"
         let! warm = david.Get $"/rooms/{HQ}"
         Assert.Equal(cold.Text, warm.Text)
-        Assert.True((cold.Header "etag").IsSome)
+        // K14: a page carries no body hash (Rack::ETag is not reproduced); only `fresh_when` pages have an ETag.
+        Assert.Equal(None, cold.Header "etag")
         Assert.Equal(cold.Header "etag", warm.Header "etag")
     }
 
 /// A page of messages goes out in parts that are never joined: as they are to a client without
 /// gzip, gzipped once and kept by the page's identity, and as just its length for HEAD. It's the same page with
-/// the same ETag every way (a room page, its Turbo-Frame version, and a page of older messages).
+/// the same ETag (where it has one, K14) every way (a room page, its Turbo-Frame version, and a page of older messages).
 [<Fact>]
 let ``pages of messages go out in parts`` () =
     task {
@@ -388,6 +389,10 @@ let ``pages of messages go out in parts`` () =
                 if not gzip then
                     Assert.True(head.Body.Length = 0, path)
                     Assert.Equal(plain.Header "content-length", head.Header "content-length")
-            Assert.True((plain.Header "etag" |> Option.exists (fun etag -> etag.StartsWith "W/")), path)
+            // K14: only the `fresh_when` page (`messages#index`) has an ETag, a weak one.
+            if path.Contains "/messages" then
+                Assert.True((plain.Header "etag" |> Option.exists (fun etag -> etag.StartsWith "W/")), path)
+            else
+                Assert.Equal(None, plain.Header "etag")
             Assert.Equal(plain.Header "etag", gzipped.Header "etag")
     }

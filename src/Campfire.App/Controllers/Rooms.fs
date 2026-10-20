@@ -10,18 +10,19 @@
 namespace Campfire.App.Controllers
 
 open System
-open System.Threading.Tasks
+open FsToolkit.ErrorHandling
+open Microsoft.AspNetCore.Http
 open Campfire.App
 open Campfire.App.Channels
 open Campfire.App.Presenters
 open Campfire.Db
-open Campfire.Kit
 open Campfire.Routes
 open Campfire.Ruby
 open Campfire.Views
+open Campfire.App.Web
 
 /// `room_scope`: which of `Current.user.rooms` a controller may act on.
-type Scope =
+type RoomScope =
     /// `Current.user.rooms` (RoomsController)
     | All
     /// `Current.user.rooms.without_directs` (opens, closeds)
@@ -29,8 +30,8 @@ type Scope =
     /// `Current.user.rooms.directs` (directs)
     | Directs
 
-module Scope =
-    let includes (scope: Scope) (room: Room) : bool =
+module RoomScope =
+    let includes (scope: RoomScope) (room: Room) : bool =
         match scope with
         | All -> true
         | WithoutDirects -> room.Type <> RoomType.Direct
@@ -46,82 +47,83 @@ module RoomsController =
 
     /// `set_room`: `room_scope.find_by(id: params[:room_id] || params[:id])`, or back to the root with
     /// an alert.
-    let setRoom (c: Ctx) (scope: Scope) : Task<Result<Room, Error>> =
-        act {
-            let! (user: User) = Concerns.requireCurrentUser c
+    let setRoom (http: HttpContext) (scope: RoomScope) : Result<Room, Error> =
+        result {
+            let! (user: User) = Current.requireUser http
             let id =
-                match c.ParamStr "room_id" with
-                | null -> c.ParamStr "id"
+                match Params.value http "room_id" with
+                | null -> Params.value http "id"
                 | id -> id
             let! (room: Room option) =
                 match (match id with null -> None | id -> Ruby.integerCast id) with
-                | Some id -> c.Read(fun db -> Room.findForUser db user.Id id)
-                | None -> Task.FromResult(Ok None)
-            match room |> Option.filter (Scope.includes scope) with
+                | Some id -> Data.read http (fun db -> Room.findForUser db user.Id id)
+                | None -> Ok None
+            match room |> Option.filter (RoomScope.includes scope) with
             | Some room -> return room
             | None ->
-                let root = c.UrlFor(Routes.root ())
-                let! redirect = c.RedirectToWith(root, { Redirect.Default with Alert = "Room not found or inaccessible" })
-                return! halt redirect
+                let! redirect =
+                    Respond.redirectToWith
+                        http
+                        (Respond.urlFor http (Routes.root ()))
+                        { RedirectOptions.Default with Alert = "Room not found or inaccessible" }
+                return! Action.halt redirect
         }
 
     /// `ensure_can_administer`: `head :forbidden unless Current.user.can_administer?(@room)`.
-    let ensureCanAdminister (c: Ctx) (room: Room) : Result<unit, Error> =
-        match Concerns.requireCurrentUser c with
-        | Error e -> Error e
+    let ensureCanAdminister (http: HttpContext) (room: Room) : Result<unit, Error> =
+        match Current.requireUser http with
+        | Result.Error e -> Result.Error e
         | Ok user ->
             if User.canAdminister user (Some room.CreatorId) false then
                 Ok()
             else
-                halt (Concerns.head Status.Forbidden)
+                Action.halt (Before.head 403)
 
     /// `ensure_permission_to_create_rooms`
-    let ensurePermissionToCreateRooms (c: Ctx) : Task<Result<unit, Error>> =
-        act {
-            let! (user: User) = Concerns.requireCurrentUser c
-            let! account = c.Read Account.first
+    let ensurePermissionToCreateRooms (http: HttpContext) : Result<unit, Error> =
+        result {
+            let! (user: User) = Current.requireUser http
+            let! account = Data.read http Account.first
             let restricted =
                 account
                 |> Option.exists (fun account -> AccountSettings.restrictRoomCreationToAdministrators (Account.settings account))
             if restricted && not (User.isAdministrator user) then
-                return! halt (Concerns.head Status.Forbidden)
+                return! Action.halt (Before.head 403)
         }
 
     // --- Helpers -----------------------------------------------------------------------------------
 
-    let redirectToRoot (c: Ctx) : Result<Response, Error> = c.RedirectTo(c.UrlFor(Routes.root ()))
+    let redirectToRoot (http: HttpContext) : Result<Falco.HttpHandler, Error> = Respond.redirectTo http (Respond.urlFor http (Routes.root ()))
 
-    let redirectToRoom (c: Ctx) (roomId: int64) : Result<Response, Error> = c.RedirectTo(c.UrlFor(Routes.room roomId))
+    let redirectToRoom (http: HttpContext) (roomId: int64) : Result<Falco.HttpHandler, Error> =
+        Respond.redirectTo http (Respond.urlFor http (Routes.room roomId))
 
     /// `params.require(:room).permit(:name)`: `Some name` when the name was submitted.
-    let roomNameParam (c: Ctx) : Result<string option option, Error> =
-        c.Params.Require "room"
+    let roomNameParam (http: HttpContext) : Result<string option option, Error> =
+        Params.require http "room"
         |> Result.map (fun room ->
-            let permitted = room.Permit(Params.permitKeys [ "name" ])
-            match permitted.Get "name" with
-            | ValueSome(Param.Str name) -> Some(Some name)
-            | ValueSome _ -> Some None
-            | ValueNone -> None)
+            match room.Get "name" with
+            | Str name -> Some(Some name)
+            | Structured -> Some None
+            | Absent -> None)
 
     /// `params.fetch(:user_ids, [])` as ids `User.where(id:)` can match.
-    let userIdsParam (c: Ctx) : int64 list =
-        let ofStr (value: Param) : int64 option =
-            match value with
-            | Param.Str value -> Ruby.integerCast value
-            | _ -> None
-        match c.Param "user_ids" with
-        | ValueSome(Param.Array values) -> values |> Seq.choose ofStr |> List.ofSeq
-        | ValueSome value -> ofStr value |> Option.toList
-        | ValueNone -> []
+    let userIdsParam (http: HttpContext) : int64 list =
+        match Params.values http "user_ids" with
+        | [] ->
+            match Params.lookup http "user_ids" with
+            | Str value -> Ruby.integerCast value |> Option.toList
+            | _ -> []
+        | values -> values |> List.choose Ruby.integerCast
 
     /// `User.where(id: ids)`, as ids of existing users (in id order, like the query).
     let existingUserIds (db: Campfire.Db.Ef.CampfireDb) (ids: int64 list) : int64 list = User.whereIds db ids |> List.map (fun user -> user.Id)
 
     /// Renders `users/sidebars/rooms/_shared` for `room` outside a request.
-    let renderSharedRoom (c: Ctx) (room: Room) : Task<Result<Rendered, Error>> =
-        let app = c.App
-        let baseUrl = Page.rendererBaseUrl c
-        c.Read(fun db ->
+    let renderSharedRoom (http: HttpContext) (room: Room) : Result<Rendered, Error> =
+        let app = Data.app http
+        let baseUrl = Pages.rendererBaseUrl http
+        Data.read http (fun db ->
             let presenter = Presenter(db, app, None)
             let sidebarRoom = presenter.SidebarRoom room
             let account = Account.first db
@@ -130,15 +132,15 @@ module RoomsController =
             { Rendered.empty with SharedRoom = Some html })
 
     /// `rooms/show` with `find_messages`: the page around `params[:message_id]`, else the last page.
-    let private renderShow (c: Ctx) (room: Room) : Task<Result<Response, Error>> =
-        act {
-            let app = c.App
-            let! (user: User) = Concerns.requireCurrentUser c
-            let messageId = match c.ParamStr "message_id" with null -> None | id -> Ruby.integerCast id
-            let requestHost = Some c.Request.Host
-            let! original = c.Read(fun db -> Room.original db |> Option.exists (fun original -> original.Id = room.Id))
+    let private renderShow (http: HttpContext) (room: Room) : Result<Falco.HttpHandler, Error> =
+        result {
+            let app = Data.app http
+            let! (user: User) = Current.requireUser http
+            let messageId = match Params.value http "message_id" with null -> None | id -> Ruby.integerCast id
+            let requestHost = Some http.Request.Host.Host
             let! show =
-                c.Read(fun db ->
+                Data.read http (fun db ->
+                    let original = Room.original db |> Option.exists (fun original -> original.Id = room.Id)
                     let messages =
                         match messageId |> Option.bind (fun id -> Message.findById db id) with
                         | Some message when message.RoomId = room.Id -> Message.pageAround db room.Id message
@@ -154,59 +156,63 @@ module RoomsController =
                        JoinCode = Account.first db |> Option.map (fun account -> account.JoinCode) |> Option.defaultValue ""
                        MessagesStreamName = Campfire.RailsCompat.Turbo.signedStreamName app.Secrets [ roomGid; "messages" ] }: Campfire.Views.Rooms.ShowView))
             return!
-                Page.framedPage
-                    c
-                    Status.Ok
+                Pages.framedPage
+                    http
+                    200
                     showSize
                     (fun w ctx -> ShowPage.render w ctx show)
                     (fun w -> ShowPage.head w show)
                     (fun w ctx -> ShowPage.content w ctx show)
         }
 
-    let destroyRoom (c: Ctx) (room: Room) : Task<Result<Response, Error>> =
-        act {
-            do! c.Write(fun tx -> Room.destroy tx room)
+    let destroyRoom (http: HttpContext) (room: Room) : Threading.Tasks.Task<Result<Falco.HttpHandler, Error>> =
+        taskResult {
+            do! Data.write http (fun tx -> Room.destroy tx room)
             // broadcast_remove_to :rooms, target: [ @room, :list ]
-            c.App.Broadcasts.RoomRemove room
-            return! redirectToRoot c
+            (Data.app http).Broadcasts.RoomRemove room
+            return! redirectToRoot http
         }
 
     // --- Actions -----------------------------------------------------------------------------------
 
     /// `index`: `redirect_to room_url(Current.user.rooms.last)` (inherited by the room-type
     /// controllers). With no rooms, `room_url(nil)` raises.
-    let index (c: Ctx) : Task<Result<Response, Error>> =
-        act {
-            do! Concerns.beforeActions c Before.Default
-            let! (user: User) = Concerns.requireCurrentUser c
-            let! (room: Room option) = c.Read(fun db -> Room.lastForUser db user.Id)
-            match room with
-            | None -> return! Error(Internal(exn "No route matches room_url(nil)"))
-            | Some room -> return! c.RedirectTo(c.UrlFor(Routes.room room.Id))
-        }
+    let index: Web.Action =
+        fun http ->
+            taskResult {
+                do! Before.chain Before.Default http
+                let! (user: User) = Current.requireUser http
+                let! (room: Room option) = Data.read http (fun db -> Room.lastForUser db user.Id)
+                match room with
+                | None -> return! Result.Error(Internal(exn "No route matches room_url(nil)"))
+                | Some room -> return! redirectToRoom http room.Id
+            }
 
     /// `show`, also `GET /rooms/:room_id/@:message_id`.
-    let show (c: Ctx) : Task<Result<Response, Error>> =
-        act {
-            do! Concerns.beforeActions c Before.Default
-            let! (room: Room) = setRoom c All
-            Concerns.rememberLastRoomVisited c room.Id
-            return! renderShow c room
-        }
+    let show: Web.Action =
+        fun http ->
+            taskResult {
+                do! Before.chain Before.Default http
+                let! (room: Room) = setRoom http All
+                Pages.rememberLastRoomVisited http room.Id
+                return! renderShow http room
+            }
 
     /// `destroy` (RoomsController and `Rooms::DirectsController`).
-    let destroy (c: Ctx) : Task<Result<Response, Error>> =
-        act {
-            do! Concerns.beforeActions c Before.Default
-            let! (room: Room) = setRoom c All
-            do! ensureCanAdminister c room
-            return! destroyRoom c room
-        }
+    let destroy: Web.Action =
+        fun http ->
+            taskResult {
+                do! Before.chain Before.Default http
+                let! (room: Room) = setRoom http All
+                do! ensureCanAdminister http room
+                return! destroyRoom http room
+            }
 
     /// `destroy` inherited by `Rooms::OpensController` and `Rooms::ClosedsController`, whose
     /// `set_room` doesn't run for it: `nil.destroy` raises NoMethodError.
-    let destroyWithoutRoom (c: Ctx) : Task<Result<Response, Error>> =
-        act {
-            do! Concerns.beforeActions c Before.Default
-            return! Error(Internal(exn "undefined method 'destroy' for nil"))
-        }
+    let destroyWithoutRoom: Web.Action =
+        fun http ->
+            taskResult {
+                do! Before.chain Before.Default http
+                return! Result.Error(Internal(exn "undefined method 'destroy' for nil"))
+            }

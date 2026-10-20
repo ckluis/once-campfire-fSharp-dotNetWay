@@ -183,12 +183,15 @@ module Uploads =
     /// What `record.avatar = params[:user][:avatar]` gets: an uploaded file is `Create` (copied to a temp file that is deleted when
     /// the response completes), `""` is `Delete`, a key that was not given is `Unchanged`, and any other value is not a file.
     /// The second value is whether the key was given at all (a file, or any non-nil value).
-    let assignment (http: Microsoft.AspNetCore.Http.HttpContext) (scope: Campfire.App.Web.Scope) (key: string) : Assignment<Upload> * bool =
-        let file =
-            if http.Request.HasFormContentType then http.Request.Form.Files.GetFile $"{scope.Name}[{key}]" else null
+    let assignmentNamed
+        (http: Microsoft.AspNetCore.Http.HttpContext)
+        (fileName: string)
+        (value: Campfire.App.Web.ParamValue)
+        : Assignment<Upload> * bool =
+        let file = if http.Request.HasFormContentType then http.Request.Form.Files.GetFile fileName else null
         match file with
         | null ->
-            match scope.Get key with
+            match value with
             | Campfire.App.Web.Absent -> Unchanged, false
             | Campfire.App.Web.Str "" -> Delete, true
             | Campfire.App.Web.Str _
@@ -205,6 +208,10 @@ module Uploads =
                 uploaded.Delete()
                 Task.CompletedTask)
             Create { File = uploaded; Filename = uploaded.OriginalFilename; ContentType = Option.ofObj uploaded.ContentType }, true
+
+    /// `record.avatar = params[:user][:avatar]` for the nested name `scope[key]`.
+    let assignment (http: Microsoft.AspNetCore.Http.HttpContext) (scope: Campfire.App.Web.Scope) (key: string) : Assignment<Upload> * bool =
+        assignmentNamed http $"{scope.Name}[{key}]" (scope.Get key)
 
     /// `Assignment.stage` with the failure as a Web error.
     let stage (http: Microsoft.AspNetCore.Http.HttpContext) (assignment: Assignment<Upload>) =

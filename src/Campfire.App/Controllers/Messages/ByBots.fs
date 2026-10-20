@@ -6,68 +6,72 @@
 namespace Campfire.App.Controllers
 
 open System
-open System.Text
-open System.Threading.Tasks
+open FsToolkit.ErrorHandling
+open Microsoft.AspNetCore.Http
 open Campfire.App
+open Campfire.App.Presenters
 open Campfire.Db
-open Campfire.Kit
 open Campfire.Routes
 open Campfire.Ruby
 open Campfire.Views
+open Campfire.App.Web
 
 module ByBots =
     let private before: Before = Before.allowBotAccess Before.Default
 
     /// `set_room`: `Current.user.rooms.find_by(id: params[:room_id])`, else `head :not_found`.
-    let private setRoom (c: Ctx) : Task<Result<Room, Error>> =
-        act {
-            let! (user: User) = Concerns.requireCurrentUser c
+    let private setRoom (http: HttpContext) : Result<Room, Error> =
+        result {
+            let! (user: User) = Current.requireUser http
             let! room =
-                match (match c.ParamStr "room_id" with null -> None | id -> Ruby.integerCast id) with
-                | Some id -> c.Read(fun db -> Room.findForUser db user.Id id)
-                | None -> Task.FromResult(Ok None)
+                match (match Params.value http "room_id" with null -> None | id -> Ruby.integerCast id) with
+                | Some id -> Data.read http (fun db -> Room.findForUser db user.Id id)
+                | None -> Ok None
             match room with
             | Some room -> return room
-            | None -> return! halt (Concerns.head Status.NotFound)
+            | None -> return! Action.halt (Before.head 404)
         }
-
-    /// `RawRequestBody#raw_request_body`: the whole body, as UTF-8.
-    let rawRequestBody (c: Ctx) : string = Encoding.UTF8.GetString c.Request.RawPost.Span
 
     /// `String#blank?`: empty or only whitespace.
     let isBlank (value: string) : bool = value |> Seq.forall Char.IsWhiteSpace
 
+    /// `params[:attachment]`: an uploaded file, else the value the key holds.
+    let private attachmentParam (http: HttpContext) : bool * ParamValue =
+        let file = if http.Request.HasFormContentType then http.Request.Form.Files.GetFile "attachment" else null
+        not (isNull file), Params.lookup http "attachment"
+
     /// `head :unprocessable_content if params[:attachment].blank? && raw_request_body.blank?`
-    let private ensureBodyOrAttachmentPresent (c: Ctx) : Result<unit, Error> =
+    let private ensureBodyOrAttachmentPresent (http: HttpContext) : Result<unit, Error> =
+        let isFile, value = attachmentParam http
         let attachmentBlank =
-            match c.Params.Get "attachment" with
-            | ValueSome param -> param.IsBlank
-            | ValueNone -> true
-        if attachmentBlank && isBlank (rawRequestBody c) then
-            halt (Concerns.head Status.UnprocessableEntity)
+            not isFile
+            && (match value with
+                | Absent -> true
+                | Str value -> isBlank value
+                | Structured -> false)
+        if attachmentBlank && isBlank (Params.rawBody http) then
+            Action.halt (Before.head 422)
         else
             Ok()
 
     /// `params[:attachment] ? params.permit(:attachment) : { body: raw_request_body }`
-    let private messageParams (c: Ctx) : MessageParams =
-        match c.Params.Get "attachment" with
-        | ValueSome param when (match param with Param.Null -> false | _ -> true) ->
-            let permitted = c.Params.Permit(Params.permitKeys [ "attachment" ])
-            { MessagesController.MessageParamsNone with Attachment = MessagesController.attachmentAssignment permitted }
-        | _ ->
-            { MessagesController.MessageParamsNone with Body = Some(rawRequestBody c) }
+    let private messageParams (http: HttpContext) : MessageParams =
+        let isFile, value = attachmentParam http
+        if isFile || value <> Absent then
+            let assignment, _ = Uploads.assignmentNamed http "attachment" value
+            { MessagesController.MessageParamsNone with
+                Attachment = (match assignment with Unchanged -> None | assignment -> Some assignment) }
+        else
+            { MessagesController.MessageParamsNone with Body = Some(Params.rawBody http) }
 
     /// `X-Total-Count`, and a `Link` to the next page when there is one.
-    let private setPaginationHeaders (c: Ctx) (room: Room) (messages: Message list) : Task<Result<unit, Error>> =
-        act {
-            let after =
-                match c.Params.Get "after" with
-                | ValueSome param -> param.IsPresent
-                | ValueNone -> false
+    let private setPaginationHeaders (http: HttpContext) (room: Room) (messages: Message list) : Result<unit, Error> =
+        result {
+            let after = Params.isPresent (Params.lookup http "after")
             let roomId = room.Id
             let first, last = List.tryHead messages, List.tryLast messages
             let! count, nextPage =
-                c.Read(fun db ->
+                Data.read http (fun db ->
                     let count = Message.countInRoom db roomId
                     let nextPage =
                         match first, last with
@@ -76,81 +80,83 @@ module ByBots =
                         | Some first, Some _ -> if Message.existsBefore db roomId first then Some("before", first.Id) else None
                         | _ -> None
                     count, nextPage)
-            c.SetHeader("x-total-count", string count)
+            http.Response.Headers["x-total-count"] <- string count
             match nextPage with
             | Some(key, id) ->
                 let botKey =
-                    match c.ParamStr "bot_key" with
+                    match Params.value http "bot_key" with
                     | null -> ""
                     | key -> key
-                let url = c.UrlFor $"{Routes.roomBotMessages roomId botKey}?{key}={id}"
-                c.SetHeader("link", $"<{url}>; rel=\"next\"")
+                let url = Respond.urlFor http $"{Routes.roomBotMessages roomId botKey}?{key}={id}"
+                http.Response.Headers["link"] <- $"<{url}>; rel=\"next\""
             | None -> ()
         }
 
     /// `render :show` (`messages/by_bots/show.json.jbuilder`).
-    let private renderShow (c: Ctx) (message: Message) : Task<Result<Response, Error>> =
-        act {
-            let baseUrl = c.UrlFor ""
+    let private renderShow (http: HttpContext) (message: Message) : Result<Falco.HttpHandler, Error> =
+        result {
+            let baseUrl = Respond.urlFor http ""
             let! (body: string) =
-                MessagesController.present c (fun presenter ->
-                    MessagesJson.byBotsShow (presenter.MessageJson(message, baseUrl)))
-            return c.Render(Status.Ok, Format.Json, body)
+                Data.present http (fun presenter -> MessagesJson.byBotsShow (presenter.MessageJson(message, baseUrl)))
+            return Pages.renderText http 200 Campfire.Kit.Response.JsonUtf8 body
         }
 
-    let index (c: Ctx) : Task<Result<Response, Error>> =
-        act {
-            do! Concerns.beforeActions c before
-            let! (room: Room) = setRoom c
-            let! (messages: Message list) = MessagesController.findPagedMessages c room
-            do! setPaginationHeaders c room messages
-            do! c.RespondTo [ Format.Json ] |> Result.map ignore
-            let baseUrl = c.UrlFor ""
-            let! (body: string) =
-                MessagesController.present c (fun presenter ->
-                    let jsons = messages |> List.map (fun m -> presenter.MessageJson(m, baseUrl))
-                    MessagesJson.byBotsIndex jsons)
-            return c.Render(Status.Ok, Format.Json, body)
-        }
+    let index: Web.Action =
+        fun http ->
+            taskResult {
+                do! Before.chain before http
+                let! (room: Room) = setRoom http
+                let! (messages: Message list) = MessagesController.findPagedMessages http room
+                do! setPaginationHeaders http room messages
+                do! Formats.respondTo http [ Format.Json ] |> Result.map ignore
+                let baseUrl = Respond.urlFor http ""
+                let! (body: string) =
+                    Data.present http (fun presenter ->
+                        let jsons = messages |> List.map (fun m -> presenter.MessageJson(m, baseUrl))
+                        MessagesJson.byBotsIndex jsons)
+                return Pages.renderText http 200 Campfire.Kit.Response.JsonUtf8 body
+            }
 
-    let create (c: Ctx) : Task<Result<Response, Error>> =
-        act {
-            do! Concerns.beforeActions c before
-            let! (room: Room) = setRoom c
-            do! ensureBodyOrAttachmentPresent c
-            // MessagesController#create
-            let attributes = messageParams c
-            let! (message: Message) = MessagesController.createMessage c room attributes
-            do! MessagesController.broadcastCreate c room message
-            do! MessagesController.deliverWebhooksToBots c room message
+    let create: Web.Action =
+        fun http ->
+            taskResult {
+                do! Before.chain before http
+                let! (room: Room) = setRoom http
+                do! ensureBodyOrAttachmentPresent http
+                // MessagesController#create
+                let attributes = messageParams http
+                let! (message: Message) = MessagesController.createMessage http room attributes
+                do! MessagesController.broadcastCreate http room message
+                do! MessagesController.deliverWebhooksToBots http room message
 
-            let location = c.UrlFor(Routes.message message.Id)
-            return! c.HeadWithLocation(Status.Created, location)
-        }
+                return! Respond.headWithLocation http 201 (Respond.urlFor http (Routes.message message.Id))
+            }
 
-    let update (c: Ctx) : Task<Result<Response, Error>> =
-        act {
-            do! Concerns.beforeActions c before
-            let! (room: Room) = setRoom c
-            let! (message: Message) = MessagesController.setMessage c room
-            do! MessagesController.ensureCanAdminister c message
-            // MessagesController#update
-            let attributes = messageParams c
-            let! (message: Message) = MessagesController.updateMessage c message attributes
-            do! MessagesController.broadcastReplace c room message
-            let! format = c.RespondTo [ Format.Html; Format.Json ]
-            if format.Is "json" then
-                return! renderShow c message
-            else
-                return! c.RedirectTo(c.UrlFor(Routes.roomMessage room.Id message.Id))
-        }
+    let update: Web.Action =
+        fun http ->
+            taskResult {
+                do! Before.chain before http
+                let! (room: Room) = setRoom http
+                let! (message: Message) = MessagesController.setMessage http room
+                do! MessagesController.ensureCanAdminister http message
+                // MessagesController#update
+                let attributes = messageParams http
+                let! (message: Message) = MessagesController.updateMessage http message attributes
+                do! MessagesController.broadcastReplace http room message
+                let! format = Formats.respondTo http [ Format.Html; Format.Json ]
+                if format = Format.Json then
+                    return! renderShow http message
+                else
+                    return! Respond.redirectTo http (Respond.urlFor http (Routes.roomMessage room.Id message.Id))
+            }
 
-    let destroy (c: Ctx) : Task<Result<Response, Error>> =
-        act {
-            do! Concerns.beforeActions c before
-            let! (room: Room) = setRoom c
-            let! (message: Message) = MessagesController.setMessage c room
-            do! MessagesController.ensureCanAdminister c message
-            do! MessagesController.destroyMessage c room message
-            return c.Head Status.NoContent
-        }
+    let destroy: Web.Action =
+        fun http ->
+            taskResult {
+                do! Before.chain before http
+                let! (room: Room) = setRoom http
+                let! (message: Message) = MessagesController.setMessage http room
+                do! MessagesController.ensureCanAdminister http message
+                do! MessagesController.destroyMessage http room message
+                return Respond.head http 204
+            }

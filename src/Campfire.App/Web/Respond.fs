@@ -247,6 +247,15 @@ module Respond =
         | "" -> redirectTo http fallback
         | referer -> if hostAllowed http referer then redirectTo http referer else redirectTo http fallback
 
+    /// `head status, location:` (`head :created, location: message_url(...)`): no body and a `Location` header, with no host check.
+    let headWithLocation (http: HttpContext) (status: int) (location: string) : Result<HttpHandler, Campfire.App.Web.Error> =
+        computeLocation http location
+        |> Result.map (fun location ->
+            let written = head http status
+            fun (http: HttpContext) ->
+                http.Response.Headers.Location <- location
+                written http)
+
     // --- cache headers -------------------------------------------------------------------------------
 
     /// `expires_in seconds, public:, stale_while_revalidate:, ...`

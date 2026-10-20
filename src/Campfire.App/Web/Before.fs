@@ -26,6 +26,7 @@ open Falco
 open Microsoft.AspNetCore.Http
 open Campfire.Db
 open Campfire.Routes
+open Campfire.Ruby
 
 /// How a controller's `allow_unauthenticated_access` / `require_unauthenticated_access` change the chain for one action.
 type Auth =
@@ -71,6 +72,25 @@ module Before =
     let ensureCanAdminister (http: HttpContext) : Result<unit, Error> =
         let allowed = Current.user http |> Option.exists (fun user -> User.canAdminister user None false)
         if allowed then Ok() else Action.halt (head 403)
+
+    /// `RoomScoped#set_room`: `Current.user.memberships.find_by!(room_id: params[:room_id])`, 404 otherwise. Returns the membership and
+    /// its room.
+    let setRoom (http: HttpContext) : Result<Membership * Room, Error> =
+        match Current.requireUser http with
+        | Result.Error e -> Result.Error e
+        | Ok user ->
+            match (match Params.value http "room_id" with null -> None | id -> Ruby.integerCast id) with
+            | None -> Result.Error NotFound
+            | Some roomId ->
+                Data.read http (fun db ->
+                    let membership = Membership.findByRoomAndUser db roomId user.Id |> Err.orNotFound "Membership"
+                    // `@membership.room` is nil when the room is gone (memberships have no foreign key to rooms), and the action
+                    // fails on it: a 500, where `Membership#room`'s `RecordNotFound` would be a 404.
+                    let room =
+                        match Room.findById db membership.RoomId with
+                        | Some room -> room
+                        | None -> Err.fail (DbError.other "the membership's room is gone")
+                    membership, room)
 
     /// `set_version_headers`: `X-Version` and `X-Rev` (`config/initializers/version.rb`); Rails drops a header set to nil.
     let private setVersionHeaders (http: HttpContext) : unit =

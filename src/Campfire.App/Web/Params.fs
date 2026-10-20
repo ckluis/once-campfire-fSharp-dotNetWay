@@ -34,6 +34,16 @@ module Params =
     [<Literal>]
     let JsonBodyKey = Campfire.Kit.Adapter.JsonBodyItemKey
 
+    /// Where `Services.keepRawBody` leaves the bytes of a bot API request's body (`request.raw_post`).
+    [<Literal>]
+    let RawBodyKey = "campfire.web.raw-body"
+
+    /// `RawRequestBody#raw_request_body`: the whole body as UTF-8; empty for a multipart body or a route that does not keep it.
+    let rawBody (http: HttpContext) : string =
+        match http.Items.TryGetValue RawBodyKey with
+        | true, (:? (byte[]) as bytes) -> Encoding.UTF8.GetString bytes
+        | _ -> ""
+
     let private wrapKey = "campfire.web.wrap-parameters"
 
     let private isJson (http: HttpContext) : bool =

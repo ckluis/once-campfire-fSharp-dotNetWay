@@ -114,6 +114,31 @@ module Services =
                 options.Events.OnValidatePrincipal <- Func<CookieValidatePrincipalContext, System.Threading.Tasks.Task>(SessionCookie.validatePrincipal))
         |> ignore
 
+    /// A bot API path: `/rooms/:room_id/:bot_key/messages...`, the only routes that read `raw_request_body`.
+    let private isBotApiPath (path: string) : bool =
+        path.StartsWith("/rooms/", StringComparison.Ordinal)
+        && (let segments = path.Split '/'
+            segments.Length >= 5 && (segments[4] = "messages" || segments[4].StartsWith("messages.", StringComparison.Ordinal)))
+
+    /// Keeps the bytes of a bot API request's body for `Params.rawBody`, ahead of the method override, which reads a form body
+    /// and would consume them (`curl -d 'Hello'` is a form post). The stream is rewound for the readers after it. A multipart body
+    /// is not kept: its `raw_request_body` is not what the bot posted, and the attachment is the message.
+    let keepRawBody: Func<HttpContext, RequestDelegate, System.Threading.Tasks.Task> =
+        Func<HttpContext, RequestDelegate, System.Threading.Tasks.Task>(fun http next ->
+            task {
+                let request = http.Request
+                let hasBody = not (HttpMethods.IsGet request.Method || HttpMethods.IsHead request.Method)
+                let multipart = (match request.ContentType with null -> false | ct -> ct.StartsWith("multipart/", StringComparison.OrdinalIgnoreCase))
+                if hasBody && not multipart && isBotApiPath (rawPath http) then
+                    use buffer = new System.IO.MemoryStream()
+                    do! request.Body.CopyToAsync buffer
+                    let bytes = buffer.ToArray()
+                    http.Items[Params.RawBodyKey] <- box bytes
+                    request.Body <- new System.IO.MemoryStream(bytes, false)
+                return! next.Invoke http
+            }
+            :> System.Threading.Tasks.Task)
+
     /// The app's branch of the host: the kit's pre-routing middleware, public files, `/cable`, then the route table
     /// (`dispatch`) as Falco's not-found handler, so ASP.NET Core's own routing never rewrites a path.
     let pipeline (kit: Kit) (publicFiles: Func<HttpContext, RequestDelegate, System.Threading.Tasks.Task>) (cable: HttpHandler) (dispatch: Campfire.App.Web.Action) (builder: IApplicationBuilder) : unit =
@@ -125,6 +150,7 @@ module Services =
         builder.Use(publicFiles) |> ignore
         builder.UseResponseCompression() |> ignore
         builder.Use(Adapter.bodyLimit kit) |> ignore
+        builder.Use(keepRawBody) |> ignore
         Adapter.useMethodOverride kit builder
         builder.UseCookiePolicy() |> ignore
         builder.UseSession() |> ignore

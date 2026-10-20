@@ -83,7 +83,7 @@ module IntegrationJobs =
     /// it canonicalized (as `MessagesController` does; there's no request host in a job).
     let private createTextReply (app: AppState) (room: Room) (bot: User) (text: string) : Task<Result<Message, string>> =
         task {
-            match! MessagesController.canonicalizeBody app text None with
+            match! MessageStaging.canonicalizeBody app text None with
             | Error error -> return Error(kitFailure error)
             | Ok body ->
                 let newMessage: NewMessage =
@@ -114,12 +114,12 @@ module IntegrationJobs =
                 // The blob, its attachment and the message are one write.
                 match!
                     writeEf app (fun tx ->
-                        let blob = MessagesController.saveStaged tx staged
+                        let blob = MessageStaging.saveStaged tx staged
                         Message.create tx (newMessage blob), blob)
                 with
                 | Error error -> return Error(failure error)
                 | Ok(message, blob) ->
-                    match! MessagesController.processAttachment app blob with
+                    match! MessageStaging.processAttachment app blob with
                     | Error error -> return Error(kitFailure error)
                     | Ok() ->
                         match readEf app (fun db -> Message.find db message.Id) with

@@ -23,6 +23,7 @@
     <Compile Include="Web/ControllersATests.fs" />
     <Compile Include="Web/ControllersBTests.fs" />
     <Compile Include="Web/ControllersCTests.fs" />
+    <Compile Include="Web/ControllersDTests.fs" />
     <Compile Include="AppTests.fs" />
     <Compile Include="JobsTests.fs" />
     <Compile Include="MiscTests.fs" />

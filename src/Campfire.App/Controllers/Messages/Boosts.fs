@@ -4,66 +4,67 @@
 // `show`/`edit`/`update` routes have no action or template (`action_not_found`).
 namespace Campfire.App.Controllers
 
-open System.Threading.Tasks
+open FsToolkit.ErrorHandling
+open Microsoft.AspNetCore.Http
 open Campfire.App
 open Campfire.App.Presenters
 open Campfire.Db
-open Campfire.Kit
 open Campfire.Routes
 open Campfire.Ruby
 open Campfire.Views
+open Campfire.App.Web
 
 module BoostsController =
     module IndexPage = Campfire.Views.Templates.Messages.Boosts.Index
     module NewPage = Campfire.Views.Templates.Messages.Boosts.New
 
     /// `Current.user.reachable_messages.find(params[:message_id])`
-    let private setMessage (c: Ctx) : Task<Result<Message, Error>> =
-        act {
-            let! (user: User) = Concerns.requireCurrentUser c
-            match (match c.ParamStr "message_id" with null -> None | id -> Ruby.integerCast id) with
-            | None -> return! Error NotFound
-            | Some id -> return! c.Read(fun db -> Message.findReachable db user.Id id)
+    let private setMessage (http: HttpContext) : Result<Message, Error> =
+        result {
+            let! (user: User) = Current.requireUser http
+            match (match Params.value http "message_id" with null -> None | id -> Ruby.integerCast id) with
+            | None -> return! Result.Error NotFound
+            | Some id -> return! Data.read http (fun db -> Message.findReachable db user.Id id)
         }
 
     /// `@message.boosts.find_by!(id: params[:id], booster: Current.user)`
-    let setBoost (c: Ctx) (message: Message) : Task<Result<Boost, Error>> =
-        act {
-            let! (user: User) = Concerns.requireCurrentUser c
-            match (match c.ParamStr "id" with null -> None | id -> Ruby.integerCast id) with
-            | None -> return! Error NotFound
+    let setBoost (http: HttpContext) (message: Message) : Result<Boost, Error> =
+        result {
+            let! (user: User) = Current.requireUser http
+            match (match Params.value http "id" with null -> None | id -> Ruby.integerCast id) with
+            | None -> return! Result.Error NotFound
             | Some id ->
                 let messageId = message.Id
-                return! c.Read(fun db -> Boost.findByMessageAndBooster db messageId id user.Id)
+                return! Data.read http (fun db -> Boost.findByMessageAndBooster db messageId id user.Id)
         }
 
     /// `@message.boosts.create!(content:)`, boosted by `Current.user`.
-    let createBoost (c: Ctx) (message: Message) (content: string option) : Task<Result<Boost, Error>> =
-        act {
-            let! (user: User) = Concerns.requireCurrentUser c
+    let createBoost (http: HttpContext) (message: Message) (content: string option) : System.Threading.Tasks.Task<Result<Boost, Error>> =
+        taskResult {
+            let! (user: User) = Current.requireUser http
             let messageId = message.Id
             // A nil content violates the column's NOT NULL (ActiveRecord::NotNullViolation, a 500).
             let! content =
                 match content with
                 | Some content -> Ok content
-                | None -> Error(Internal(exn "NOT NULL constraint failed: boosts.content"))
-            return! c.Write(fun tx -> Boost.create tx messageId user.Id content)
+                | None -> Result.Error(Internal(exn "NOT NULL constraint failed: boosts.content"))
+            return! Data.write http (fun tx -> Boost.create tx messageId user.Id content)
         }
 
     /// `@boost.destroy!` then `broadcast_remove`.
-    let destroyBoost (c: Ctx) (message: Message) (boost: Boost) : Task<Result<unit, Error>> =
-        act {
-            do! c.Write(fun tx -> Boost.destroy tx boost)
+    let destroyBoost (http: HttpContext) (message: Message) (boost: Boost) : System.Threading.Tasks.Task<Result<unit, Error>> =
+        taskResult {
+            do! Data.write http (fun tx -> Boost.destroy tx boost)
             let roomId = message.RoomId
-            let! (room: Room) = c.Read(fun db -> Room.find db roomId)
-            c.App.Broadcasts.BoostRemove(room, boost)
+            let! (room: Room) = Data.read http (fun db -> Room.find db roomId)
+            (Data.app http).Broadcasts.BoostRemove(room, boost)
         }
 
     /// `broadcast_create`: `messages/boosts/_boost` appended to the message's boosts.
-    let broadcastCreate (c: Ctx) (message: Message) (boost: Boost) : Task<Result<unit, Error>> =
-        let app = c.App
-        let baseUrl = Page.rendererBaseUrl c
-        c.Read(fun db ->
+    let broadcastCreate (http: HttpContext) (message: Message) (boost: Boost) : Result<unit, Error> =
+        let app = Data.app http
+        let baseUrl = Pages.rendererBaseUrl http
+        Data.read http (fun db ->
             let presenter = Presenter(db, app, None)
             let view = presenter.Boost boost
             let account = Account.first db
@@ -72,47 +73,51 @@ module BoostsController =
             let partials = { Rendered.empty with Boost = Some html }
             app.Broadcasts.BoostCreate(room, message, boost, Rendered.partials partials))
 
-    let index (c: Ctx) : Task<Result<Response, Error>> =
-        act {
-            do! Concerns.beforeActions c Before.Default
-            let! (message: Message) = setMessage c
-            do! c.RespondTo [ Format.Html ] |> Result.map ignore
-            let! view = MessagesController.present c (fun presenter -> presenter.Message message)
-            return! Page.content c Status.Ok (fun w ctx -> IndexPage.render w ctx view)
-        }
+    let index: Web.Action =
+        fun http ->
+            taskResult {
+                do! Before.chain Before.Default http
+                let! (message: Message) = setMessage http
+                do! Formats.respondTo http [ Format.Html ] |> Result.map ignore
+                let! view = Data.present http (fun presenter -> presenter.Message message)
+                return! Pages.content http 200 (fun w ctx -> IndexPage.render w ctx view)
+            }
 
-    let ``new`` (c: Ctx) : Task<Result<Response, Error>> =
-        act {
-            do! Concerns.beforeActions c Before.Default
-            let! (message: Message) = setMessage c
-            do! c.RespondTo [ Format.Html ] |> Result.map ignore
-            let! (current: User) = Concerns.requireCurrentUser c
-            let user = PresenterSupport.userView c.App.Secrets current
-            let! view = MessagesController.present c (fun presenter -> presenter.Message message)
-            return! Page.content c Status.Ok (fun w ctx -> NewPage.render w ctx view user)
-        }
+    let ``new``: Web.Action =
+        fun http ->
+            taskResult {
+                do! Before.chain Before.Default http
+                let! (message: Message) = setMessage http
+                do! Formats.respondTo http [ Format.Html ] |> Result.map ignore
+                let! (current: User) = Current.requireUser http
+                let user = PresenterSupport.userView (Data.app http).Secrets current
+                let! view = Data.present http (fun presenter -> presenter.Message message)
+                return! Pages.content http 200 (fun w ctx -> NewPage.render w ctx view user)
+            }
 
-    let create (c: Ctx) : Task<Result<Response, Error>> =
-        act {
-            do! Concerns.beforeActions c Before.Default
-            let! (message: Message) = setMessage c
-            // params.require(:boost).permit(:content)
-            let! (boost: Param) = c.Params.Require "boost"
-            let content =
-                match (boost.Permit(Params.permitKeys [ "content" ])).Get "content" with
-                | ValueSome(Param.Str content) -> Some content
-                | _ -> None
-            let! (boost: Boost) = createBoost c message content
-            do! broadcastCreate c message boost
-            return! c.RedirectTo(c.UrlFor(Routes.messageBoosts message.Id))
-        }
+    let create: Web.Action =
+        fun http ->
+            taskResult {
+                do! Before.chain Before.Default http
+                let! (message: Message) = setMessage http
+                // params.require(:boost).permit(:content)
+                let! boost = Params.require http "boost"
+                let content =
+                    match boost.Get "content" with
+                    | Str content -> Some content
+                    | _ -> None
+                let! (boost: Boost) = createBoost http message content
+                do! broadcastCreate http message boost
+                return! Respond.redirectTo http (Respond.urlFor http (Routes.messageBoosts message.Id))
+            }
 
-    let destroy (c: Ctx) : Task<Result<Response, Error>> =
-        act {
-            do! Concerns.beforeActions c Before.Default
-            let! (message: Message) = setMessage c
-            let! (boost: Boost) = setBoost c message
-            do! destroyBoost c message boost
-            // No destroy template: `head :no_content`.
-            return c.Head Status.NoContent
-        }
+    let destroy: Web.Action =
+        fun http ->
+            taskResult {
+                do! Before.chain Before.Default http
+                let! (message: Message) = setMessage http
+                let! (boost: Boost) = setBoost http message
+                do! destroyBoost http message boost
+                // No destroy template: `head :no_content`.
+                return Respond.head http 204
+            }
