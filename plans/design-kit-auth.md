@@ -99,6 +99,21 @@ and `Params.hashJson` (a JSON number as text, a hash member as a `Value`: direct
 `Params.load` for a query whose percent-escapes are not UTF-8 (`ActionDispatch::Request::Utils.check_param_encoding`; the framework's parser
 would pass U+FFFD and every Web action would answer 200: the old kit refused it, and `AppTests` caught the loss).
 
+Unit 2.12 (Controllers D, the hot paths): rooms and `rooms/*` (opens, closeds, directs, involvements, refreshes), messages, boosts,
+boosts by bots and messages by bots are Web actions (55 route rows; the 41 left on `Legacy.wrap` are `actionNotFound` and `missingController`
+fallbacks, which 2.13 deletes with the `Ctx`). New pieces: `Before.setRoom` (`RoomScoped#set_room`), `Pages.content` /
+`contentInApplicationLayout` / `bare` (the layout-less and content-only renders), `Pages.rememberLastRoomVisited` and `rendererBaseUrl`,
+`Respond.headWithLocation`, `Uploads.assignmentNamed` (a top-level `attachment` file, which `Params.lookup` does not see by name) and
+`Params.rawBody`. `Data.read` and `Data.write` now map a missing record to `Web.NotFound` (the actions match on it; before, it rode as
+`Legacy NotFound`). The Ctx-free message helpers (`canonicalBody`, `saveStaged`, `processAttachment`) moved to `MessageStaging`, because
+`IntegrationJobs` calls them from jobs and they speak the kit's `Error`. Two decisions: (1) `raw_request_body` needs the bytes of a form
+post (`curl -d 'Hello'` is one), which the method override consumes; `Services.keepRawBody` reads them ahead of it for bot API paths only,
+so the hot post-a-message path and every other form post pay nothing (the 2.7 note about not buffering stands). (2) A before-action that
+halts with a redirect and a flash (`set_room`'s "Room not found or inaccessible") is committed by `PublicExceptions.respond` for `Halt`: the
+first pixel-parity run found the alert missing on `rooms/show/non_member`. Deleted as unused: `Concerns.setRoom`, `rememberLastRoomVisited`,
+`lastRoomVisited` and `Page.framedPage`/`content`/`contentInApplicationLayout`/`bare`/`rendererBaseUrl`. Opus note 3 (remote IP): already true
+since 2.7, nothing in the app calls the kit's `RemoteIp()` any more.
+
 ## 2. Spikes (scratch project, 2026-10-13, .NET SDK 10.0.401, Falco 5.2.0, the repo's `Campfire.RailsCompat`)
 
 `/private/tmp/claude-501/-Users-clank-Desktop-projects/fea4ed62-8823-4b82-bed5-fc54b6214d57/scratchpad/authspike/` (`Program.fs`,

@@ -1340,3 +1340,28 @@ Code in `af92395` (the controllers and the Web pieces) and `14c1a93` (the Live p
 - **Differences recorded (README, class B):** the mention list reads a hash or array `filter`/`query` as an empty string.
 - **For later units:** `Data.present` replaces `MessagesController.present` for 2.12's rows (the messages controllers still call the `Ctx` one). `Page.framedPage` and `Layout.load` have no caller left but the rooms and messages
   rows. `Native.useLiveResponse` is done for Active Storage; the `Ctx.UseLiveResponse` it replaces goes in 2.13.
+
+### Phase 2, unit 2.12: Controllers D (hot paths) (2026-10-20)
+
+Code in `eaeba8e` (the controllers and the Web pieces) and the fix commit after it (a halting before-action commits its flash), then the docs and evidence commit. Evidence in `bench/results/dotnetway-p2-12/` (`verify.log`,
+`pixel.log`, `realtime.log`, `replay.log`, `bench/`, `control/`; image `campfire-dotnetway:app` built from the fix commit, which is the code of the unit).
+- **Built:** rooms and `rooms/*` (opens, closeds, directs, involvements, refreshes), messages (`/rooms/:id/messages` and `/messages`), boosts, boosts by bots and messages by bots are Web actions: 55 route rows off `Legacy.wrap`'s sibling `make`;
+  what is left there are the 41 `actionNotFound`/`missingController` fallback rows. New: `Before.setRoom`, `Pages.content`/`contentInApplicationLayout`/`bare`/`rememberLastRoomVisited`/`rendererBaseUrl`, `Respond.headWithLocation`,
+  `Uploads.assignmentNamed`, `Params.rawBody` (kept by `Services.keepRawBody` for bot API paths only, ahead of the method override, so a `curl -d 'Hello'` form post keeps its raw body and no other route buffers), and `Data.read`/`write` map a missing record to
+  `Web.NotFound`. The Ctx-free staging helpers are `MessageStaging` (jobs call them). Dead legacy code deleted: `Concerns.setRoom`/`rememberLastRoomVisited`/`lastRoomVisited`, `Page.framedPage`/`content`/`contentInApplicationLayout`/`bare`/`rendererBaseUrl`.
+- **Found and fixed on the way:** (1) the first `bin/pixel-parity` found `rooms/show/non_member` different (2 cells): `set_room` redirects with an alert, and a `Halt` answered through `PublicExceptions.respond` never committed the flash.
+  `respond` now commits for `Halt`; test D2 follows the redirect and reads the alert. (2) `AppTests`/`RoomsTests` expected a body ETag on a room page; K14 says pages carry none, so the two tests now assert none on the page and a weak one on `messages#index` (`fresh_when`).
+  (3) `Params.lookup` does not see a top-level multipart file by name (the bot API's `attachment`), so `Uploads.assignmentNamed` takes the file name apart from the value.
+- **Tests:** D1-D5 in `tests/Campfire.App.Tests/Web/ControllersDTests.fs` (a bot's form and JSON raw bodies, blank and empty bodies 422; `set_room`'s alert and the scope of opens; `last_room` set once; refresh `since`; involvement blank, name, bad name and hash).
+  The existing `MessagesTests`, `RoomsTests` and the bot API test cover the rest.
+- **Gates:** `CAMPFIRE_REQUIRE_SEED=1 bin/verify` (Release, warnaserror): 0 warnings, 1,093 tests, 1,087 passed, 0 failed, 6 skipped (the same 6); H1 green. `bin/pixel-parity --fast --only 'rooms/**,messages/**'`: default 134/134, crowd 8/8,
+  custom_styles 4/4, restricted 2/2 equal on screenshots, aria and loose DOM (first_run has none), PASSED. `realtime/**` one state at a time (13 states, `--seeds default`): 2/2 cells equal each, all 13 pass.
+  `controllers_a/replay.py`: default 152 matched, 3 differed by design, 0 differed; crowd 15/0/0; first_run 11/0/0. `bin/cookie-roundtrip` not rerun: the unit touches no cookie but `last_room`, which Rails reads as before.
+  `bin/clean-docker` and `bin/clean-parity` run.
+- **Speed (`bench/quick`, 3 reps, host 1.08-1.09):** room page 5,210/s c=16 (21.8x Rails), 1,553 c=1 (14.5x); messages page 4,872 (12.8x), 1,412 c=1 (6.48x); sidebar 5,234 (8.74x), 1,493 c=1 (**5.21x**); search 4,784 (11.7x), 1,332 c=1 (6.91x);
+  post a message 1,820 c=16 (**5.51x**), 897 c=1 (**5.38x**). Every workload over the 5x floor, all 2xx, 0 errors, rows written equal answers. Post a message gained against 2.11 (5.25x/5.24x), the sidebar c=1 lost a little (5.33x to 5.21x, 4.2% headroom).
+  The same-day control (the port's image, 1 rep) ran at 88-93% of its stored medians for sidebar and post c=1 (0.879x, 0.930x), so the host is slower today than in 2.11 (0.95-0.97); adjusted by the control the sidebar c=1 is about 5.9x. Thinnest now: sidebar c=1 (4.2% raw headroom), then post c=1 (7.5%); the sidebar c=16 warm-up did not settle.
+- **KLOC:** `bin/kloc` 39,204 by upstream's rules, **39,423 corrected (39.4 KLOC)**, from 39,158 / 39,377 (+0.05): the new Web pieces and tests against the shrunk controllers; 2.13 deletes the `Ctx` side.
+- **Differences recorded (README, class B):** a bot API request keeps its raw body for bot API paths only; a JSON `null` attachment is "not given"; a non-empty hash/array `involvement` is a 500.
+- **For later units (2.13):** Opus note 3 (remote IP) is already true: nothing in the app calls the kit's `RemoteIp()`. Notes 4 and 5 remain for 2.13 and the limiter (`Flash`/`ReturnTo`/`SessionReset` and `Current.LookupError` in Kit,
+  `Errors.respond` building a `Ctx`). The Ctx-based `Layout`, `Page` (`renderDetached*`, `Rendered`), `Concerns` (the before-chain the unit tests still call) are what is left of the legacy side besides the fallback rows.

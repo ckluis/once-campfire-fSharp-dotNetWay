@@ -84,6 +84,11 @@ specific to this port are listed below, each citing the reference file it depart
     `ActionController::RequestForgeryProtection` (the `:header_only` strategy). Tested by `CsrfTests` (C1-C12).
   - The mention list (`autocompletable/users`) reads a `filter` or `query` that is a hash or array as an empty string (Rails would
     search for the hash's `to_s`, which matches nothing either way). Reference: `app/controllers/autocompletable/users_controller.rb`.
+  - A bot API request (`/rooms/:room_id/:bot_key/messages...`) keeps the bytes of its body for `raw_request_body` before the method
+    override reads a form body, so `curl -d 'Hello'` posts "Hello" as in Rails; no other route keeps raw bytes, and a multipart body's
+    `raw_request_body` is empty. A JSON `null` for `message[attachment]` or the bot API's `attachment` is "not given" (Rails' `nil` removes
+    the attachment); `""` removes it as in Rails. `involvement` given as a non-empty hash or array is a 500 (an empty one is blank, as
+    in Rails). References: `app/controllers/concerns/raw_request_body.rb`, `app/controllers/messages/by_bots_controller.rb`.
   - The flash and `return_to_after_authenticating` live in ASP.NET Core's session (server memory, cookie `_campfire_flash`),
     not in Rails' encrypted `_campfire_session`, which is neither read nor written (it stays in the browser untouched, so a
     switch back to Rails keeps it). A restart, or a switch either way in the middle of a redirect, loses a pending notice
