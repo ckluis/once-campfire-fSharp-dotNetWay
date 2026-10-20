@@ -1,41 +1,78 @@
 // plans/design-kit-auth.md section 3 (Web/Errors.fs): the errors a Web action can return.
 //
 // The cases are Rails' exception kinds (`ActionDispatch::ExceptionWrapper.rescue_responses`), plus `Halt` for a
-// before-action that rendered or redirected. Until unit 2.13 the legacy `Campfire.Kit.Error` rides along as
-// `Legacy`. `PublicExceptions` (unit 2.8) renders them.
+// before-action that rendered or redirected. `PublicExceptions` (unit 2.8) renders them; `Errors.status` is the status
+// Rails answers with and `Errors.display` the text its log line shows.
 namespace Campfire.App.Web
 
+open System
 open Falco
 open Microsoft.AspNetCore.Http
-open Campfire.Kit
 
 type Error =
     | NotFound
+    /// `ActionController::BadRequest`, a parameter that cannot be built, a body that cannot be parsed.
     | BadRequest of string
+    /// `ActionController::ParameterMissing`.
     | ParameterMissing of string
+    /// `ActionController::UnknownFormat` / `MissingExactTemplate`.
     | UnknownFormat
+    /// `ActionController::InvalidAuthenticityToken` (the `:exception` forgery strategy).
     | InvalidAuthenticityToken of string
+    /// `ActionController::InvalidCrossOriginRequest`.
     | InvalidCrossOriginRequest
+    /// `ActionController::Redirecting::UnsafeRedirectError` and friends (a 500).
     | UnsafeRedirect of string
+    /// Any other status an action wants to answer with.
     | Status of int
+    /// Like `Status`, keeping the error that caused it for the log line (`ActiveRecord::RecordInvalid` is a 422).
+    | WithStatus of int * exn
     | Internal of exn
     /// A before-action rendered or redirected: stop and send this.
     | Halt of HttpHandler
-    /// A kit error (until unit 2.13 deletes the kit's `Ctx`).
-    | Legacy of Campfire.Kit.Error
 
 module Errors =
-    /// The kit error an error stands for (`Halt` has none).
-    let toKit (error: Error) : Campfire.Kit.Error =
+    /// `{:#}` of an `anyhow::Error`: the message and then each cause, joined with ": ".
+    let private chain (error: exn) : string =
+        let messages = ResizeArray<string>()
+        let mutable current: exn | null = error
+        while not (isNull current) do
+            let e = nonNull current
+            messages.Add e.Message
+            current <- e.InnerException
+        String.Join(": ", messages)
+
+    let private statusText (code: int) : string =
+        match Microsoft.AspNetCore.WebUtilities.ReasonPhrases.GetReasonPhrase code with
+        | "" -> string code
+        | reason -> $"{code} {reason}"
+
+    /// The error's text as the log line shows it (`{error:#}`): its message, with causes.
+    let display (error: Error) : string =
         match error with
-        | NotFound -> Campfire.Kit.Error.NotFound
-        | BadRequest message -> Campfire.Kit.Error.BadRequest message
-        | ParameterMissing name -> Campfire.Kit.Error.ParameterMissing name
-        | UnknownFormat -> Campfire.Kit.Error.UnknownFormat
-        | InvalidAuthenticityToken message -> Campfire.Kit.Error.InvalidAuthenticityToken message
-        | InvalidCrossOriginRequest -> Campfire.Kit.Error.InvalidCrossOriginRequest
-        | UnsafeRedirect message -> Campfire.Kit.Error.UnsafeRedirect message
-        | Status status -> Campfire.Kit.Error.Status status
-        | Internal e -> Campfire.Kit.Error.Internal e
-        | Legacy error -> error
-        | Halt _ -> Campfire.Kit.Error.Internal(exn "Halt has no kit error")
+        | Halt _ -> "halted"
+        | BadRequest message -> $"bad request: {message}"
+        | ParameterMissing message -> $"param is missing or the value is empty or invalid: {message}"
+        | InvalidAuthenticityToken message -> $"invalid authenticity token: {message}"
+        | InvalidCrossOriginRequest -> "invalid cross-origin request"
+        | UnknownFormat -> "unknown format"
+        | NotFound -> "not found"
+        | UnsafeRedirect message -> $"unsafe redirect: {message}"
+        | Status code -> statusText code
+        | WithStatus(code, cause) -> $"{statusText code}: {chain cause}"
+        | Internal cause -> chain cause
+
+    /// The status Rails answers an error with (`ActionDispatch::ExceptionWrapper.rescue_responses`).
+    let status (error: Error) : int =
+        match error with
+        | Halt _ -> StatusCodes.Status500InternalServerError
+        | BadRequest _
+        | ParameterMissing _ -> StatusCodes.Status400BadRequest
+        | InvalidAuthenticityToken _
+        | InvalidCrossOriginRequest -> StatusCodes.Status422UnprocessableEntity
+        | UnknownFormat -> StatusCodes.Status406NotAcceptable
+        | NotFound -> StatusCodes.Status404NotFound
+        | Status code
+        | WithStatus(code, _) -> code
+        | UnsafeRedirect _
+        | Internal _ -> StatusCodes.Status500InternalServerError

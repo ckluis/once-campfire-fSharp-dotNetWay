@@ -1,5 +1,5 @@
 // plans/design-kit-auth.md section 4, unit 2.1 (the seam): the services later units use resolve from a request on
-// net11.0, `Action.run`, `Legacy.wrap` and `Current` behave, and the route table's rows are wrapped.
+// net11.0, `Action.run` and `Current` behave, and the route table's rows are wrapped.
 module Campfire.App.Tests.Web.SeamTests
 
 open System
@@ -84,24 +84,6 @@ let ``Action.run sends the handler an action returns, a halt as it is, and an er
         Assert.Equal(422, unprocessable.Status)
         let! boom = host.Send(get "/boom")
         Assert.Equal(500, boom.Status)
-    }
-
-[<Fact>]
-let ``Legacy.wrap runs a Ctx action, which reads the path parameters the route handed the request`` () =
-    task {
-        use! test = bootSeeded "default"
-        let old: ActionFn =
-            fun c ->
-                let id = c.Params.Str "id"
-                Task.FromResult(Ok(c.Html $"{id}|{c.Request.Method}"))
-        let wrapped = Legacy.wrap old
-        let action: Action =
-            fun http ->
-                http.Request.RouteValues["id"] <- "42"
-                wrapped http
-        use! host = actionHost test action
-        let! reply = host.Send(get "/anything?id=7")
-        Assert.Equal((200, "42|GET"), (reply.Status, reply.Text))
     }
 
 [<Fact>]

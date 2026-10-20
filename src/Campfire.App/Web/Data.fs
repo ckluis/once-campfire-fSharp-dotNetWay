@@ -1,13 +1,14 @@
 // plans/design-kit-auth.md section 4, unit 2.9 (Web/Data.fs): the database as a Web action reaches it.
 //
-// The request's `CampfireDb` is the scoped context the host leased from the pooled factory (`Ctx.Db` is the same
-// service). Reads run on it where the action is (synchronous EF, E6); writes go through `Writes.run`, one at a time
-// behind the `WriteGate`. A failure is the `Legacy` error `AppErrors.dbError` maps it to, until unit 2.13.
+// The request's `CampfireDb` is the scoped context the host leased from the pooled factory (the
+// `CampfireDb` service). Reads run on it where the action is (synchronous EF, E6); writes go through `Writes.run`, one at a time
+// behind the `WriteGate`. A failure is the error `AppErrors.dbError` maps it to.
 namespace Campfire.App.Web
 
 open System.Threading.Tasks
 open Microsoft.AspNetCore.Http
 open Microsoft.Extensions.DependencyInjection
+open System
 open Campfire.App
 open Campfire.Db
 
@@ -16,17 +17,17 @@ module Data =
     let app (http: HttpContext) : AppState = http.RequestServices.GetRequiredService<AppState>()
 
     /// `Time.current` on the harness's clock (frozen in the parity runs).
-    let now (http: HttpContext) : System.DateTimeOffset = http.RequestServices.GetRequiredService<Campfire.Kit.Kit>().Clock.Now()
+    let now (http: HttpContext) : System.DateTimeOffset = http.RequestServices.GetRequiredService<TimeProvider>().GetUtcNow()
 
     /// The request's database context.
     let db (http: HttpContext) : Campfire.Db.Ef.CampfireDb = http.RequestServices.GetRequiredService<Campfire.Db.Ef.CampfireDb>()
 
     /// A database failure as a Web error: a missing record is `NotFound` (what `rescue_from RecordNotFound` matches), the rest is
-    /// the `Legacy` error `AppErrors.dbError` maps it to.
+    /// the error `AppErrors.dbError` maps it to.
     let webError (error: DbError) : Error =
         match error with
         | RecordNotFound _ -> NotFound
-        | other -> Legacy(AppErrors.dbError other)
+        | other -> AppErrors.dbError other
 
     /// `Reads.run` over the request's context.
     let read (http: HttpContext) (f: Campfire.Db.Ef.CampfireDb -> 'T) : Result<'T, Error> =

@@ -34,6 +34,6 @@ module UnfurlLinks =
                 | Str url ->
                     match! opengraphJson http url with
                     // `render json: opengraph`
-                    | Some(json: string) -> return Pages.renderText http 200 Campfire.Kit.Response.JsonUtf8 json
+                    | Some(json: string) -> return Pages.renderText http 200 Pages.JsonUtf8 json
                     | None -> return Respond.head http 204
             }

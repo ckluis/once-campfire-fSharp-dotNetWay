@@ -132,3 +132,9 @@ let ``not modified compares etags`` () =
     Assert.False(FrontCache.wasNotModified cached "W/\"abc\"")
     Assert.False(FrontCache.wasNotModified (response "x") "\"abc\"")
     Assert.False(FrontCache.wasNotModified cached null)
+
+[<Fact>]
+let ``words`` () =
+    Assert.True(FrontCache.hasWord "no-transform, public" "no-transform")
+    Assert.False(FrontCache.hasWord "xno-transform" "no-transform")
+    Assert.True(FrontCache.hasWord "identity" "identity")

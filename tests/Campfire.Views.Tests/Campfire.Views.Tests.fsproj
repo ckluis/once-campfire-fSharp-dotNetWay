@@ -26,15 +26,12 @@
     <Compile Include="MessagesViewsTests.fs" />
     <Compile Include="RoomsViewsTests.fs" />
     <Compile Include="SearchesViewsTests.fs" />
-    <Compile Include="KitIntegrationTests.fs" />
     <Compile Include="DifferentialTests.fs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="../../src/Campfire.Views/Campfire.Views.fsproj" />
     <!-- Only the tests read the DOM: the HTML tokenizer ports the one the Rust crate's dev-dependency is. -->
     <ProjectReference Include="../../src/Campfire.RichText/Campfire.RichText.fsproj" />
-    <!-- Only the tests join the two: Campfire.App will, as the Rust app does. See KitIntegrationTests. -->
-    <ProjectReference Include="../../src/Campfire.Kit/Campfire.Kit.fsproj" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="xunit.v3" />

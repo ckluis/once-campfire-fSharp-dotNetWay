@@ -17,7 +17,6 @@ open Falco
 open Microsoft.AspNetCore.Http
 open Campfire.RailsCompat
 open Campfire.Ruby
-open Campfire.Kit
 open Campfire.App
 open Campfire.Db
 open Campfire.Storage
@@ -108,13 +107,13 @@ module ActiveStorageControllers =
                 ContentTypes.forcedDisposition (Campfire.Storage.Blob.contentType blob)
                 |> Option.orElse disposition
                 |> Option.defaultValue "inline"
-            // `send_file`'s headers on a kit response: the writer puts a header value that holds a line break on the wire as Puma does,
+            // `send_file`'s headers on an `Outgoing` response: the writer puts a header value that holds a line break on the wire as Puma does,
             // which the framework's own file result would refuse (the disposition comes from the query).
-            let response = Campfire.Kit.Response(200).ContentType(ContentTypes.forServing (Campfire.Storage.Blob.contentType blob))
-            response.Header(Hdr.ContentDisposition, ContentDisposition.format disposition (Filename.sanitized blob.Filename)) |> ignore
+            let response = Outgoing(200).ContentType(ContentTypes.forServing (Campfire.Storage.Blob.contentType blob))
+            response.Header("content-disposition", ContentDisposition.format disposition (Filename.sanitized blob.Filename)) |> ignore
             response.Header("content-transfer-encoding", "binary") |> ignore
-            response.Body <- Body.File { Path = path; Offset = 0L; Len = FileInfo(path).Length }
-            Ok(Pages.write (response.Header("accept-ranges", "bytes")))
+            response.Body <- OutgoingBody.OnDisk { Path = path; Offset = 0L; Len = FileInfo(path).Length }
+            Ok(Outgoing.handler (response.Header("accept-ranges", "bytes")))
 
     /// `send_blob_byte_range_data(blob, range_header)`
     let private sendBlobByteRangeData (http: HttpContext) (blob: Campfire.Storage.Blob) (range: string) : Result<HttpHandler, Web.Error> =
@@ -128,7 +127,7 @@ module ActiveStorageControllers =
                 let contentTypeForServing = ContentTypes.forServing (Campfire.Storage.Blob.contentType blob)
                 let contentType, parts, contentRange =
                     match ranges with
-                    | [ (start, stop) ] -> contentTypeForServing, [ File(path, start, stop) ], Some $"bytes {start}-{stop}/{size}"
+                    | [ (start, stop) ] -> contentTypeForServing, [ BodyPart.File(path, start, stop) ], Some $"bytes {start}-{stop}/{size}"
                     | _ ->
                         // `SecureRandom.hex`: 16 random bytes.
                         let boundary = Convert.ToHexStringLower(Security.Cryptography.RandomNumberGenerator.GetBytes 16)
@@ -136,23 +135,23 @@ module ActiveStorageControllers =
                             [ for (start, stop) in ranges do
                                   let heading =
                                       $"\r\n--{boundary}\r\nContent-Type: {contentTypeForServing}\r\nContent-Range: bytes {start}-{stop}/{size}\r\n\r\n"
-                                  Bytes(Text.Encoding.UTF8.GetBytes heading)
-                                  File(path, start, stop)
-                              Bytes(Text.Encoding.UTF8.GetBytes $"\r\n--{boundary}--\r\n") ]
+                                  BodyPart.Bytes(Text.Encoding.UTF8.GetBytes heading)
+                                  BodyPart.File(path, start, stop)
+                              BodyPart.Bytes(Text.Encoding.UTF8.GetBytes $"\r\n--{boundary}--\r\n") ]
                         $"multipart/byteranges; boundary={boundary}", parts, None
                 let disposition = ContentTypes.forcedDisposition (Campfire.Storage.Blob.contentType blob) |> Option.defaultValue "inline"
-                let response = Campfire.Kit.Response(206).ContentType contentType
+                let response = Outgoing(206).ContentType contentType
                 response.Header("content-transfer-encoding", "binary") |> ignore
-                response.Header(Hdr.ContentDisposition, ContentDisposition.format disposition (Filename.sanitized blob.Filename)) |> ignore
+                response.Header("content-disposition", ContentDisposition.format disposition (Filename.sanitized blob.Filename)) |> ignore
                 let length = ActiveStorage.partsLen parts
                 response.Body <- ActiveStorage.partsBody parts
                 match response.Body with
-                | Body.Stream _ -> response.Header(Hdr.ContentLength, string length) |> ignore
+                | OutgoingBody.Streamed _ -> response.Header("content-length", string length) |> ignore
                 | _ -> ()
                 match contentRange with
                 | Some contentRange -> response.Header("content-range", contentRange) |> ignore
                 | None -> ()
-                Ok(Pages.write (response.Header("accept-ranges", "bytes")))
+                Ok(Outgoing.handler (response.Header("accept-ranges", "bytes")))
         | _ -> Ok(Respond.head http 416)
 
     /// `ActiveStorage::Blobs::RedirectController#show`
@@ -193,7 +192,7 @@ module ActiveStorageControllers =
             match Variation.decode app.Storage.Verifier key (Data.now http) with
             | Ok variation ->
                 let! image = ActiveStorage.processedRepresentation app blob variation
-                return image |> Result.mapError Legacy
+                return image
             | Result.Error StorageError.InvalidSignature -> return Action.halt (Before.head 404)
             | Result.Error error -> return Result.Error(storageToError error)
         }
@@ -240,12 +239,12 @@ module ActiveStorageControllers =
             | Result.Error(StorageError.Io(:? DirectoryNotFoundException)) -> Ok(Respond.head http 404)
             | Result.Error error -> Result.Error(storageToError error)
             | Ok served ->
-                let response = Campfire.Kit.Response(served.Status)
+                let response = Outgoing(served.Status)
                 for (name, value) in served.Headers do
                     response.Header(name, value) |> ignore
                 // `served.Headers` carries the Content-Length of every part together.
                 response.Body <- ActiveStorage.partsBody served.Body
-                Ok(Pages.write response)
+                Ok(Outgoing.handler response)
 
     /// `ActiveStorage::DiskController#show`, plus the initializer's `after_action` cache header.
     let diskShow: Web.Action =
@@ -354,7 +353,7 @@ module ActiveStorageControllers =
                     // The upload's PUT body is read into memory, so it's capped like other bodies: don't hand out
                     // a URL for more than it will accept. (Campfire's editor only attaches mentions and embeds;
                     // files go up with the message form.)
-                    | Some byteSize when byteSize < 0L || byteSize > int64 RequestBody.MaxBufferedBody -> return! Result.Error(statusError 413)
+                    | Some byteSize when byteSize < 0L || byteSize > Edge.MaxRequestBody -> return! Result.Error(statusError 413)
                     | Some byteSize ->
                         let storage = (Data.app http).Storage
                         let contentType = text "content_type"
@@ -376,6 +375,6 @@ module ActiveStorageControllers =
                                 (DiskService.urlPathForDirectUpload storage.Service storage.Verifier blob.Key expiresAt contentType byteSize checksum)
                         let signedId = Paths.signedBlobId storage.Verifier blob.Id None
                         let json = directUploadJson blob signedId url contentType
-                        return Pages.renderText http 200 Response.JsonUtf8 json
+                        return Pages.renderText http 200 Pages.JsonUtf8 json
                 | _ -> return! Result.Error(statusError 422)
             }

@@ -1,6 +1,6 @@
-// Ports of the #[cfg(test)] module in rust/crates/kit/src/deflater/splice.rs, less its gzip pieces (unit 2.8; its `Generations`
-// test is in DeflaterTests, beside the cache it tests)
-module Campfire.Kit.Tests.SpliceTests
+// Ports of the #[cfg(test)] module in rust/crates/kit/src/deflater/splice.rs, less its gzip pieces (unit 2.8), moved with the code to the app in unit 2.13, with the
+// `Generations` test
+module Campfire.App.Tests.Web.PagePartsTests
 
 open System
 open System.Buffers
@@ -8,7 +8,7 @@ open System.Collections.Generic
 open System.Security.Cryptography
 open System.Text
 open Xunit
-open Campfire.Kit
+open Campfire.App.Web
 
 let private utf8 (s: string) = Encoding.UTF8.GetBytes s
 let private hex (bytes: byte[]) = Convert.ToHexStringLower bytes
@@ -249,3 +249,22 @@ let ``texts that share a recent slot each get their own sha256`` () =
     for _ in 1..4 do
         Assert.Equal(sha one, (SpliceCaches.textSha (ReadOnlyMemory<byte> one)).A)
         Assert.Equal(sha two, (SpliceCaches.textSha (ReadOnlyMemory<byte> two)).A)
+
+[<Fact>]
+let ``generations stay within their budget and keep what is read`` () =
+    let budget = 64 * 1024
+    let size = 1024
+    let map = Generations<byte, int>(budget, (fun _ size -> size))
+    for n in 0..255 do
+        map.Insert(byte n, size)
+        Assert.True((map.Get(0uy, ignore)).IsSome, "what's read stays")
+        let held = map.Count * size
+        // Each generation may overshoot half the budget by the entry that filled it.
+        Assert.True(held <= budget + 2 * size, $"{held} bytes held")
+    Assert.True((map.Get(255uy, ignore)).IsSome, "the latest is kept")
+    Assert.True((map.Get(1uy, ignore)).IsNone, "what isn't read ages out")
+
+    let map = Generations<byte, int>(budget, (fun _ size -> size))
+    map.Insert(1uy, size)
+    map.Insert(1uy, size)
+    Assert.Equal(size, map.YoungCost)

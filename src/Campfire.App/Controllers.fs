@@ -15,11 +15,10 @@
 // The module is `RouteTable` because F# can't have a module `Controllers` beside the namespace of that
 // name that holds the controllers themselves.
 //
-// ## Porting a controller
+// ## Adding a controller
 //
-// Add `Controllers/Rooms.fs` (etc.) before this file in the project, write `show (c: Ctx)` actions that
-// start with their before-action chain (see `Concerns`), and put `Rooms.show` in the matching rows in
-// place of `unported "rooms#show"`, which answers 501 until its controller lands. Declared routes whose
+// Add `Controllers/Rooms.fs` (etc.) before this file in the project, write `show (http: HttpContext)` actions that
+// start with their before-action chain (see `Web/Before.fs`), and put `Rooms.show` in the matching rows. Declared routes whose
 // action Rails doesn't define (e.g. `first_runs#edit`) answer 404 like
 // `AbstractController::ActionNotFound`: they map to `actionNotFound`. Never reorder, add or remove rows:
 // the table must stay identical to `bin/rails routes` (checked by the tests against
@@ -35,7 +34,6 @@ open FsToolkit.ErrorHandling
 open Microsoft.Extensions.DependencyInjection
 open Microsoft.Extensions.Logging
 open Campfire.RailsCompat
-open Campfire.Kit
 open Campfire.Routes
 open Campfire.App.Controllers
 
@@ -47,7 +45,7 @@ type Route =
       /// `controller#action`, as `bin/rails routes` prints it.
       Endpoint: string
       Defaults: (string * string) list
-      /// The row's action: `Legacy.wrap` of the old `Ctx` action until unit 2.13.
+      /// The row's action.
       Action: Web.Action
       Regex: Regex
       Names: string[] }
@@ -64,27 +62,21 @@ type Route =
 
 /// A declared route whose action the controller doesn't define (`AbstractController::ActionNotFound`).
 module private Fallbacks =
-    let actionNotFound (_: Ctx) : Task<Result<Response, Error>> = Task.FromResult(Error NotFound)
+    let actionNotFound: Web.Action = fun _ -> Task.FromResult(Result.Error Web.NotFound)
 
     /// A declared route whose controller doesn't exist, e.g. `resource :settings` under rooms: the
     /// reference answers 500 (the controller constant fails to load).
-    let missingController (c: Ctx) : Task<Result<Response, Error>> =
-        let endpoint =
-            match c.Current<MatchedRoute>() with
-            | ValueSome route -> route.Endpoint
-            | ValueNone -> "?"
-        Task.FromResult(Error(Internal(exn $"uninitialized constant for {endpoint}")))
-
-    /// A route whose controller isn't ported yet (Phase 5's later units): 501, and a log line saying which.
-    let unported (endpoint: string) : ActionFn =
-        fun c ->
-            c.Kit.Logger.LogError("route {Endpoint} is not ported yet", endpoint)
-            Task.FromResult(Error(Status 501))
+    let missingController: Web.Action =
+        fun http ->
+            let endpoint =
+                match http.Items[Web.Pages.EndpointKey] with
+                | :? string as endpoint -> endpoint
+                | _ -> "?"
+            Task.FromResult(Result.Error(Web.Internal(exn $"uninitialized constant for {endpoint}")))
 
 module RouteTable =
     let private actionNotFound = Fallbacks.actionNotFound
     let private missingController = Fallbacks.missingController
-    let private unported = Fallbacks.unported
 
     /// A Journey path spec as an anchored regex, plus its parameter names in order.
     let compile (pattern: string) : Regex * string[] =
@@ -108,19 +100,6 @@ module RouteTable =
         regex.Append "\\z" |> ignore
         Regex(regex.ToString(), RegexOptions.CultureInvariant ||| RegexOptions.Compiled), names.ToArray()
 
-    let private make (verb: string) (pattern: string) (endpoint: string) (action: ActionFn) : Route =
-        let regex, names = compile pattern
-        { Verb = verb
-          Pattern = pattern
-          Endpoint = endpoint
-          Defaults = []
-          Action =
-            Web.Legacy.wrap (fun c ->
-                c.SetCurrent { Endpoint = endpoint }
-                Campfire.Views.FragmentCache.scoped c.App.FragmentCache (fun () -> action c))
-          Regex = regex
-          Names = names }
-
     /// A row whose action is a Web action (`HttpContext -> Task<Result<HttpHandler, Error>>`): the matched endpoint is left for
     /// the layout choice, the fragment cache is scoped as for any action, and what it answers gets the default headers.
     let private makeNative (verb: string) (pattern: string) (endpoint: string) (action: Web.Action) : Route =
@@ -139,16 +118,11 @@ module RouteTable =
 
     let private withDefaults (defaults: (string * string) list) (route: Route) : Route = { route with Defaults = defaults }
 
-    let private getN = makeNative "GET"
-    let private postN = makeNative "POST"
-    let private patchN = makeNative "PATCH"
-    let private putN = makeNative "PUT"
-    let private deleteN = makeNative "DELETE"
-    let private get = make "GET"
-    let private post = make "POST"
-    let private patch = make "PATCH"
-    let private put = make "PUT"
-    let private delete = make "DELETE"
+    let private get = makeNative "GET"
+    let private post = makeNative "POST"
+    let private patch = makeNative "PATCH"
+    let private put = makeNative "PUT"
+    let private delete = makeNative "DELETE"
 
     /// `scope path: ":bot_key", defaults: { format: :json }`
     let private botDefaults = [ "format", "json" ]
@@ -160,183 +134,183 @@ module RouteTable =
     let routes: Lazy<Route[]> =
         lazy
             [|
-                getN "/" "welcome#show" (Welcome.show)
+                get "/" "welcome#show" (Welcome.show)
                 get "/first_run/new(.:format)" "first_runs#new" (actionNotFound)
                 get "/first_run/edit(.:format)" "first_runs#edit" (actionNotFound)
-                getN "/first_run(.:format)" "first_runs#show" (FirstRuns.show)
+                get "/first_run(.:format)" "first_runs#show" (FirstRuns.show)
                 patch "/first_run(.:format)" "first_runs#update" (actionNotFound)
                 put "/first_run(.:format)" "first_runs#update" (actionNotFound)
                 delete "/first_run(.:format)" "first_runs#destroy" (actionNotFound)
-                postN "/first_run(.:format)" "first_runs#create" (FirstRuns.create)
-                getN "/session/transfers/:id(.:format)" "sessions/transfers#show" (SessionTransfers.show)
-                patchN "/session/transfers/:id(.:format)" "sessions/transfers#update" (SessionTransfers.update)
-                putN "/session/transfers/:id(.:format)" "sessions/transfers#update" (SessionTransfers.update)
-                getN "/session/new(.:format)" "sessions#new" (Sessions.``new``)
+                post "/first_run(.:format)" "first_runs#create" (FirstRuns.create)
+                get "/session/transfers/:id(.:format)" "sessions/transfers#show" (SessionTransfers.show)
+                patch "/session/transfers/:id(.:format)" "sessions/transfers#update" (SessionTransfers.update)
+                put "/session/transfers/:id(.:format)" "sessions/transfers#update" (SessionTransfers.update)
+                get "/session/new(.:format)" "sessions#new" (Sessions.``new``)
                 get "/session/edit(.:format)" "sessions#edit" (actionNotFound)
                 get "/session(.:format)" "sessions#show" (actionNotFound)
                 patch "/session(.:format)" "sessions#update" (actionNotFound)
                 put "/session(.:format)" "sessions#update" (actionNotFound)
-                deleteN "/session(.:format)" "sessions#destroy" (Sessions.destroy)
-                postN "/session(.:format)" "sessions#create" (Sessions.create)
-                getN "/account/users(.:format)" "accounts/users#index" (AccountUsers.index)
+                delete "/session(.:format)" "sessions#destroy" (Sessions.destroy)
+                post "/session(.:format)" "sessions#create" (Sessions.create)
+                get "/account/users(.:format)" "accounts/users#index" (AccountUsers.index)
                 post "/account/users(.:format)" "accounts/users#create" (actionNotFound)
                 get "/account/users/new(.:format)" "accounts/users#new" (actionNotFound)
                 get "/account/users/:id/edit(.:format)" "accounts/users#edit" (actionNotFound)
                 get "/account/users/:id(.:format)" "accounts/users#show" (actionNotFound)
-                patchN "/account/users/:id(.:format)" "accounts/users#update" (AccountUsers.update)
-                putN "/account/users/:id(.:format)" "accounts/users#update" (AccountUsers.update)
-                deleteN "/account/users/:id(.:format)" "accounts/users#destroy" (AccountUsers.destroy)
-                patchN "/account/bots/:bot_id/key(.:format)" "accounts/bots/keys#update" (BotKeys.update)
-                putN "/account/bots/:bot_id/key(.:format)" "accounts/bots/keys#update" (BotKeys.update)
-                getN "/account/bots(.:format)" "accounts/bots#index" (Bots.index)
-                postN "/account/bots(.:format)" "accounts/bots#create" (Bots.create)
-                getN "/account/bots/new(.:format)" "accounts/bots#new" (Bots.``new``)
-                getN "/account/bots/:id/edit(.:format)" "accounts/bots#edit" (Bots.edit)
+                patch "/account/users/:id(.:format)" "accounts/users#update" (AccountUsers.update)
+                put "/account/users/:id(.:format)" "accounts/users#update" (AccountUsers.update)
+                delete "/account/users/:id(.:format)" "accounts/users#destroy" (AccountUsers.destroy)
+                patch "/account/bots/:bot_id/key(.:format)" "accounts/bots/keys#update" (BotKeys.update)
+                put "/account/bots/:bot_id/key(.:format)" "accounts/bots/keys#update" (BotKeys.update)
+                get "/account/bots(.:format)" "accounts/bots#index" (Bots.index)
+                post "/account/bots(.:format)" "accounts/bots#create" (Bots.create)
+                get "/account/bots/new(.:format)" "accounts/bots#new" (Bots.``new``)
+                get "/account/bots/:id/edit(.:format)" "accounts/bots#edit" (Bots.edit)
                 get "/account/bots/:id(.:format)" "accounts/bots#show" (actionNotFound)
-                patchN "/account/bots/:id(.:format)" "accounts/bots#update" (Bots.update)
-                putN "/account/bots/:id(.:format)" "accounts/bots#update" (Bots.update)
-                deleteN "/account/bots/:id(.:format)" "accounts/bots#destroy" (Bots.destroy)
-                postN "/account/join_code(.:format)" "accounts/join_codes#create" (JoinCodes.create)
-                getN "/account/logo(.:format)" "accounts/logos#show" (Logos.show)
-                deleteN "/account/logo(.:format)" "accounts/logos#destroy" (Logos.destroy)
-                getN "/account/custom_styles/edit(.:format)" "accounts/custom_styles#edit" (CustomStyles.edit)
-                patchN "/account/custom_styles(.:format)" "accounts/custom_styles#update" (CustomStyles.update)
-                putN "/account/custom_styles(.:format)" "accounts/custom_styles#update" (CustomStyles.update)
+                patch "/account/bots/:id(.:format)" "accounts/bots#update" (Bots.update)
+                put "/account/bots/:id(.:format)" "accounts/bots#update" (Bots.update)
+                delete "/account/bots/:id(.:format)" "accounts/bots#destroy" (Bots.destroy)
+                post "/account/join_code(.:format)" "accounts/join_codes#create" (JoinCodes.create)
+                get "/account/logo(.:format)" "accounts/logos#show" (Logos.show)
+                delete "/account/logo(.:format)" "accounts/logos#destroy" (Logos.destroy)
+                get "/account/custom_styles/edit(.:format)" "accounts/custom_styles#edit" (CustomStyles.edit)
+                patch "/account/custom_styles(.:format)" "accounts/custom_styles#update" (CustomStyles.update)
+                put "/account/custom_styles(.:format)" "accounts/custom_styles#update" (CustomStyles.update)
                 get "/account/new(.:format)" "accounts#new" (actionNotFound)
-                getN "/account/edit(.:format)" "accounts#edit" (AccountsController.edit)
+                get "/account/edit(.:format)" "accounts#edit" (AccountsController.edit)
                 get "/account(.:format)" "accounts#show" (actionNotFound)
-                patchN "/account(.:format)" "accounts#update" (AccountsController.update)
-                putN "/account(.:format)" "accounts#update" (AccountsController.update)
+                patch "/account(.:format)" "accounts#update" (AccountsController.update)
+                put "/account(.:format)" "accounts#update" (AccountsController.update)
                 delete "/account(.:format)" "accounts#destroy" (actionNotFound)
                 post "/account(.:format)" "accounts#create" (actionNotFound)
-                getN "/join/:join_code(.:format)" "users#new" (UsersController.``new``)
-                postN "/join/:join_code(.:format)" "users#create" (UsersController.create)
-                getN "/qr_code/:id(.:format)" "qr_code#show" QrCode.show
-                getN "/users/:user_id/avatar(.:format)" "users/avatars#show" (Avatars.show)
-                deleteN "/users/:user_id/avatar(.:format)" "users/avatars#destroy" (Avatars.destroy)
-                deleteN "/users/:user_id/ban(.:format)" "users/bans#destroy" (Bans.destroy)
-                postN "/users/:user_id/ban(.:format)" "users/bans#create" (Bans.create)
-                getN "/users/:user_id/sidebar(.:format)" "users/sidebars#show" (Sidebars.show) |> withDefaults meDefaults
+                get "/join/:join_code(.:format)" "users#new" (UsersController.``new``)
+                post "/join/:join_code(.:format)" "users#create" (UsersController.create)
+                get "/qr_code/:id(.:format)" "qr_code#show" QrCode.show
+                get "/users/:user_id/avatar(.:format)" "users/avatars#show" (Avatars.show)
+                delete "/users/:user_id/avatar(.:format)" "users/avatars#destroy" (Avatars.destroy)
+                delete "/users/:user_id/ban(.:format)" "users/bans#destroy" (Bans.destroy)
+                post "/users/:user_id/ban(.:format)" "users/bans#create" (Bans.create)
+                get "/users/:user_id/sidebar(.:format)" "users/sidebars#show" (Sidebars.show) |> withDefaults meDefaults
                 get "/users/:user_id/profile/new(.:format)" "users/profiles#new" (actionNotFound) |> withDefaults meDefaults
                 get "/users/:user_id/profile/edit(.:format)" "users/profiles#edit" (actionNotFound) |> withDefaults meDefaults
-                getN "/users/:user_id/profile(.:format)" "users/profiles#show" (Profiles.show) |> withDefaults meDefaults
-                patchN "/users/:user_id/profile(.:format)" "users/profiles#update" (Profiles.update) |> withDefaults meDefaults
-                putN "/users/:user_id/profile(.:format)" "users/profiles#update" (Profiles.update) |> withDefaults meDefaults
+                get "/users/:user_id/profile(.:format)" "users/profiles#show" (Profiles.show) |> withDefaults meDefaults
+                patch "/users/:user_id/profile(.:format)" "users/profiles#update" (Profiles.update) |> withDefaults meDefaults
+                put "/users/:user_id/profile(.:format)" "users/profiles#update" (Profiles.update) |> withDefaults meDefaults
                 delete "/users/:user_id/profile(.:format)" "users/profiles#destroy" (actionNotFound) |> withDefaults meDefaults
                 post "/users/:user_id/profile(.:format)" "users/profiles#create" (actionNotFound) |> withDefaults meDefaults
-                postN "/users/:user_id/push_subscriptions/:push_subscription_id/test_notifications(.:format)" "users/push_subscriptions/test_notifications#create" (TestNotifications.create) |> withDefaults meDefaults
-                getN "/users/:user_id/push_subscriptions(.:format)" "users/push_subscriptions#index" (PushSubscriptions.index) |> withDefaults meDefaults
-                postN "/users/:user_id/push_subscriptions(.:format)" "users/push_subscriptions#create" (PushSubscriptions.create) |> withDefaults meDefaults
+                post "/users/:user_id/push_subscriptions/:push_subscription_id/test_notifications(.:format)" "users/push_subscriptions/test_notifications#create" (TestNotifications.create) |> withDefaults meDefaults
+                get "/users/:user_id/push_subscriptions(.:format)" "users/push_subscriptions#index" (PushSubscriptions.index) |> withDefaults meDefaults
+                post "/users/:user_id/push_subscriptions(.:format)" "users/push_subscriptions#create" (PushSubscriptions.create) |> withDefaults meDefaults
                 get "/users/:user_id/push_subscriptions/new(.:format)" "users/push_subscriptions#new" (actionNotFound) |> withDefaults meDefaults
                 get "/users/:user_id/push_subscriptions/:id/edit(.:format)" "users/push_subscriptions#edit" (actionNotFound) |> withDefaults meDefaults
                 get "/users/:user_id/push_subscriptions/:id(.:format)" "users/push_subscriptions#show" (actionNotFound) |> withDefaults meDefaults
                 patch "/users/:user_id/push_subscriptions/:id(.:format)" "users/push_subscriptions#update" (actionNotFound) |> withDefaults meDefaults
                 put "/users/:user_id/push_subscriptions/:id(.:format)" "users/push_subscriptions#update" (actionNotFound) |> withDefaults meDefaults
-                deleteN "/users/:user_id/push_subscriptions/:id(.:format)" "users/push_subscriptions#destroy" (PushSubscriptions.destroy) |> withDefaults meDefaults
-                getN "/users/:id(.:format)" "users#show" (UsersController.show)
-                getN "/autocompletable/users(.:format)" "autocompletable/users#index" AutocompletableUsers.index
-                getN "/rooms/:room_id/messages(.:format)" "messages#index" (MessagesController.index)
-                postN "/rooms/:room_id/messages(.:format)" "messages#create" (MessagesController.create)
+                delete "/users/:user_id/push_subscriptions/:id(.:format)" "users/push_subscriptions#destroy" (PushSubscriptions.destroy) |> withDefaults meDefaults
+                get "/users/:id(.:format)" "users#show" (UsersController.show)
+                get "/autocompletable/users(.:format)" "autocompletable/users#index" AutocompletableUsers.index
+                get "/rooms/:room_id/messages(.:format)" "messages#index" (MessagesController.index)
+                post "/rooms/:room_id/messages(.:format)" "messages#create" (MessagesController.create)
                 get "/rooms/:room_id/messages/new(.:format)" "messages#new" (actionNotFound)
-                getN "/rooms/:room_id/messages/:id/edit(.:format)" "messages#edit" (MessagesController.edit)
-                getN "/rooms/:room_id/messages/:id(.:format)" "messages#show" (MessagesController.show)
-                patchN "/rooms/:room_id/messages/:id(.:format)" "messages#update" (MessagesController.update)
-                putN "/rooms/:room_id/messages/:id(.:format)" "messages#update" (MessagesController.update)
-                deleteN "/rooms/:room_id/messages/:id(.:format)" "messages#destroy" (MessagesController.destroy)
-                postN "/rooms/:room_id/:bot_key/messages/:message_id/boosts(.:format)" "messages/boosts/by_bots#create" (BoostsByBots.create) |> withDefaults botDefaults
-                deleteN "/rooms/:room_id/:bot_key/messages/:message_id/boosts/:id(.:format)" "messages/boosts/by_bots#destroy" (BoostsByBots.destroy) |> withDefaults botDefaults
-                getN "/rooms/:room_id/:bot_key/messages(.:format)" "messages/by_bots#index" (ByBots.index) |> withDefaults botDefaults
-                postN "/rooms/:room_id/:bot_key/messages(.:format)" "messages/by_bots#create" (ByBots.create) |> withDefaults botDefaults
-                patchN "/rooms/:room_id/:bot_key/messages/:id(.:format)" "messages/by_bots#update" (ByBots.update) |> withDefaults botDefaults
-                putN "/rooms/:room_id/:bot_key/messages/:id(.:format)" "messages/by_bots#update" (ByBots.update) |> withDefaults botDefaults
-                deleteN "/rooms/:room_id/:bot_key/messages/:id(.:format)" "messages/by_bots#destroy" (ByBots.destroy) |> withDefaults botDefaults
-                getN "/rooms/:room_id/refresh(.:format)" "rooms/refreshes#show" (Refreshes.show)
+                get "/rooms/:room_id/messages/:id/edit(.:format)" "messages#edit" (MessagesController.edit)
+                get "/rooms/:room_id/messages/:id(.:format)" "messages#show" (MessagesController.show)
+                patch "/rooms/:room_id/messages/:id(.:format)" "messages#update" (MessagesController.update)
+                put "/rooms/:room_id/messages/:id(.:format)" "messages#update" (MessagesController.update)
+                delete "/rooms/:room_id/messages/:id(.:format)" "messages#destroy" (MessagesController.destroy)
+                post "/rooms/:room_id/:bot_key/messages/:message_id/boosts(.:format)" "messages/boosts/by_bots#create" (BoostsByBots.create) |> withDefaults botDefaults
+                delete "/rooms/:room_id/:bot_key/messages/:message_id/boosts/:id(.:format)" "messages/boosts/by_bots#destroy" (BoostsByBots.destroy) |> withDefaults botDefaults
+                get "/rooms/:room_id/:bot_key/messages(.:format)" "messages/by_bots#index" (ByBots.index) |> withDefaults botDefaults
+                post "/rooms/:room_id/:bot_key/messages(.:format)" "messages/by_bots#create" (ByBots.create) |> withDefaults botDefaults
+                patch "/rooms/:room_id/:bot_key/messages/:id(.:format)" "messages/by_bots#update" (ByBots.update) |> withDefaults botDefaults
+                put "/rooms/:room_id/:bot_key/messages/:id(.:format)" "messages/by_bots#update" (ByBots.update) |> withDefaults botDefaults
+                delete "/rooms/:room_id/:bot_key/messages/:id(.:format)" "messages/by_bots#destroy" (ByBots.destroy) |> withDefaults botDefaults
+                get "/rooms/:room_id/refresh(.:format)" "rooms/refreshes#show" (Refreshes.show)
                 get "/rooms/:room_id/settings(.:format)" "rooms/settings#show" (missingController)
-                getN "/rooms/:room_id/involvement(.:format)" "rooms/involvements#show" (Involvements.show)
-                patchN "/rooms/:room_id/involvement(.:format)" "rooms/involvements#update" (Involvements.update)
-                putN "/rooms/:room_id/involvement(.:format)" "rooms/involvements#update" (Involvements.update)
-                getN "/rooms/:room_id/@:message_id(.:format)" "rooms#show" (RoomsController.show)
-                getN "/rooms(.:format)" "rooms#index" (RoomsController.index)
+                get "/rooms/:room_id/involvement(.:format)" "rooms/involvements#show" (Involvements.show)
+                patch "/rooms/:room_id/involvement(.:format)" "rooms/involvements#update" (Involvements.update)
+                put "/rooms/:room_id/involvement(.:format)" "rooms/involvements#update" (Involvements.update)
+                get "/rooms/:room_id/@:message_id(.:format)" "rooms#show" (RoomsController.show)
+                get "/rooms(.:format)" "rooms#index" (RoomsController.index)
                 post "/rooms(.:format)" "rooms#create" (actionNotFound)
                 get "/rooms/new(.:format)" "rooms#new" (actionNotFound)
                 get "/rooms/:id/edit(.:format)" "rooms#edit" (actionNotFound)
-                getN "/rooms/:id(.:format)" "rooms#show" (RoomsController.show)
+                get "/rooms/:id(.:format)" "rooms#show" (RoomsController.show)
                 patch "/rooms/:id(.:format)" "rooms#update" (actionNotFound)
                 put "/rooms/:id(.:format)" "rooms#update" (actionNotFound)
-                deleteN "/rooms/:id(.:format)" "rooms#destroy" (RoomsController.destroy)
-                getN "/rooms/opens(.:format)" "rooms/opens#index" (RoomsController.index)
-                postN "/rooms/opens(.:format)" "rooms/opens#create" (Opens.create)
-                getN "/rooms/opens/new(.:format)" "rooms/opens#new" (Opens.``new``)
-                getN "/rooms/opens/:id/edit(.:format)" "rooms/opens#edit" (Opens.edit)
-                getN "/rooms/opens/:id(.:format)" "rooms/opens#show" (Opens.show)
-                patchN "/rooms/opens/:id(.:format)" "rooms/opens#update" (Opens.update)
-                putN "/rooms/opens/:id(.:format)" "rooms/opens#update" (Opens.update)
-                deleteN "/rooms/opens/:id(.:format)" "rooms/opens#destroy" (RoomsController.destroyWithoutRoom)
-                getN "/rooms/closeds(.:format)" "rooms/closeds#index" (RoomsController.index)
-                postN "/rooms/closeds(.:format)" "rooms/closeds#create" (Closeds.create)
-                getN "/rooms/closeds/new(.:format)" "rooms/closeds#new" (Closeds.``new``)
-                getN "/rooms/closeds/:id/edit(.:format)" "rooms/closeds#edit" (Closeds.edit)
-                getN "/rooms/closeds/:id(.:format)" "rooms/closeds#show" (Closeds.show)
-                patchN "/rooms/closeds/:id(.:format)" "rooms/closeds#update" (Closeds.update)
-                putN "/rooms/closeds/:id(.:format)" "rooms/closeds#update" (Closeds.update)
-                deleteN "/rooms/closeds/:id(.:format)" "rooms/closeds#destroy" (RoomsController.destroyWithoutRoom)
-                getN "/rooms/directs(.:format)" "rooms/directs#index" (RoomsController.index)
-                postN "/rooms/directs(.:format)" "rooms/directs#create" (Directs.create)
-                getN "/rooms/directs/new(.:format)" "rooms/directs#new" (Directs.``new``)
-                getN "/rooms/directs/:id/edit(.:format)" "rooms/directs#edit" (Directs.edit)
-                getN "/rooms/directs/:id(.:format)" "rooms/directs#show" (Directs.show)
+                delete "/rooms/:id(.:format)" "rooms#destroy" (RoomsController.destroy)
+                get "/rooms/opens(.:format)" "rooms/opens#index" (RoomsController.index)
+                post "/rooms/opens(.:format)" "rooms/opens#create" (Opens.create)
+                get "/rooms/opens/new(.:format)" "rooms/opens#new" (Opens.``new``)
+                get "/rooms/opens/:id/edit(.:format)" "rooms/opens#edit" (Opens.edit)
+                get "/rooms/opens/:id(.:format)" "rooms/opens#show" (Opens.show)
+                patch "/rooms/opens/:id(.:format)" "rooms/opens#update" (Opens.update)
+                put "/rooms/opens/:id(.:format)" "rooms/opens#update" (Opens.update)
+                delete "/rooms/opens/:id(.:format)" "rooms/opens#destroy" (RoomsController.destroyWithoutRoom)
+                get "/rooms/closeds(.:format)" "rooms/closeds#index" (RoomsController.index)
+                post "/rooms/closeds(.:format)" "rooms/closeds#create" (Closeds.create)
+                get "/rooms/closeds/new(.:format)" "rooms/closeds#new" (Closeds.``new``)
+                get "/rooms/closeds/:id/edit(.:format)" "rooms/closeds#edit" (Closeds.edit)
+                get "/rooms/closeds/:id(.:format)" "rooms/closeds#show" (Closeds.show)
+                patch "/rooms/closeds/:id(.:format)" "rooms/closeds#update" (Closeds.update)
+                put "/rooms/closeds/:id(.:format)" "rooms/closeds#update" (Closeds.update)
+                delete "/rooms/closeds/:id(.:format)" "rooms/closeds#destroy" (RoomsController.destroyWithoutRoom)
+                get "/rooms/directs(.:format)" "rooms/directs#index" (RoomsController.index)
+                post "/rooms/directs(.:format)" "rooms/directs#create" (Directs.create)
+                get "/rooms/directs/new(.:format)" "rooms/directs#new" (Directs.``new``)
+                get "/rooms/directs/:id/edit(.:format)" "rooms/directs#edit" (Directs.edit)
+                get "/rooms/directs/:id(.:format)" "rooms/directs#show" (Directs.show)
                 patch "/rooms/directs/:id(.:format)" "rooms/directs#update" (actionNotFound)
                 put "/rooms/directs/:id(.:format)" "rooms/directs#update" (actionNotFound)
-                deleteN "/rooms/directs/:id(.:format)" "rooms/directs#destroy" (Directs.destroy)
-                getN "/messages/:message_id/boosts(.:format)" "messages/boosts#index" (BoostsController.index)
-                postN "/messages/:message_id/boosts(.:format)" "messages/boosts#create" (BoostsController.create)
-                getN "/messages/:message_id/boosts/new(.:format)" "messages/boosts#new" (BoostsController.``new``)
+                delete "/rooms/directs/:id(.:format)" "rooms/directs#destroy" (Directs.destroy)
+                get "/messages/:message_id/boosts(.:format)" "messages/boosts#index" (BoostsController.index)
+                post "/messages/:message_id/boosts(.:format)" "messages/boosts#create" (BoostsController.create)
+                get "/messages/:message_id/boosts/new(.:format)" "messages/boosts#new" (BoostsController.``new``)
                 get "/messages/:message_id/boosts/:id/edit(.:format)" "messages/boosts#edit" (actionNotFound)
                 get "/messages/:message_id/boosts/:id(.:format)" "messages/boosts#show" (actionNotFound)
                 patch "/messages/:message_id/boosts/:id(.:format)" "messages/boosts#update" (actionNotFound)
                 put "/messages/:message_id/boosts/:id(.:format)" "messages/boosts#update" (actionNotFound)
-                deleteN "/messages/:message_id/boosts/:id(.:format)" "messages/boosts#destroy" (BoostsController.destroy)
-                getN "/messages(.:format)" "messages#index" (MessagesController.index)
-                postN "/messages(.:format)" "messages#create" (MessagesController.create)
+                delete "/messages/:message_id/boosts/:id(.:format)" "messages/boosts#destroy" (BoostsController.destroy)
+                get "/messages(.:format)" "messages#index" (MessagesController.index)
+                post "/messages(.:format)" "messages#create" (MessagesController.create)
                 get "/messages/new(.:format)" "messages#new" (actionNotFound)
-                getN "/messages/:id/edit(.:format)" "messages#edit" (MessagesController.edit)
-                getN "/messages/:id(.:format)" "messages#show" (MessagesController.show)
-                patchN "/messages/:id(.:format)" "messages#update" (MessagesController.update)
-                putN "/messages/:id(.:format)" "messages#update" (MessagesController.update)
-                deleteN "/messages/:id(.:format)" "messages#destroy" (MessagesController.destroy)
-                deleteN "/searches/clear(.:format)" "searches#clear" SearchesController.clear
-                getN "/searches(.:format)" "searches#index" SearchesController.index
-                postN "/searches(.:format)" "searches#create" SearchesController.create
-                postN "/unfurl_link(.:format)" "unfurl_links#create" UnfurlLinks.create
-                getN "/webmanifest(.:format)" "pwa#manifest" (Pwa.manifest)
-                getN "/service-worker(.:format)" "pwa#service_worker" (Pwa.serviceWorker)
-                getN "/up(.:format)" "rails/health#show" (Health.show)
-                getN "/recede_historical_location(.:format)" "turbo/native/navigation#recede" (TurboNative.recede)
-                getN "/resume_historical_location(.:format)" "turbo/native/navigation#resume" (TurboNative.resume)
-                getN "/refresh_historical_location(.:format)" "turbo/native/navigation#refresh" (TurboNative.refresh)
-                postN "/rails/action_mailbox/postmark/inbound_emails(.:format)" "action_mailbox/ingresses/postmark/inbound_emails#create" (Mailbox.ingressNotConfigured)
-                postN "/rails/action_mailbox/relay/inbound_emails(.:format)" "action_mailbox/ingresses/relay/inbound_emails#create" (Mailbox.ingressNotConfigured)
-                postN "/rails/action_mailbox/sendgrid/inbound_emails(.:format)" "action_mailbox/ingresses/sendgrid/inbound_emails#create" (Mailbox.ingressNotConfigured)
-                getN "/rails/action_mailbox/mandrill/inbound_emails(.:format)" "action_mailbox/ingresses/mandrill/inbound_emails#health_check" (Mailbox.ingressNotConfigured)
-                postN "/rails/action_mailbox/mandrill/inbound_emails(.:format)" "action_mailbox/ingresses/mandrill/inbound_emails#create" (Mailbox.ingressNotConfigured)
-                postN "/rails/action_mailbox/mailgun/inbound_emails/mime(.:format)" "action_mailbox/ingresses/mailgun/inbound_emails#create" (Mailbox.ingressNotConfigured)
-                getN "/rails/conductor/action_mailbox/inbound_emails(.:format)" "rails/conductor/action_mailbox/inbound_emails#index" (Mailbox.conductor)
-                postN "/rails/conductor/action_mailbox/inbound_emails(.:format)" "rails/conductor/action_mailbox/inbound_emails#create" (Mailbox.conductor)
-                getN "/rails/conductor/action_mailbox/inbound_emails/new(.:format)" "rails/conductor/action_mailbox/inbound_emails#new" (Mailbox.conductor)
-                getN "/rails/conductor/action_mailbox/inbound_emails/:id(.:format)" "rails/conductor/action_mailbox/inbound_emails#show" (Mailbox.conductor)
-                getN "/rails/conductor/action_mailbox/inbound_emails/sources/new(.:format)" "rails/conductor/action_mailbox/inbound_emails/sources#new" (Mailbox.conductor)
-                postN "/rails/conductor/action_mailbox/inbound_emails/sources(.:format)" "rails/conductor/action_mailbox/inbound_emails/sources#create" (Mailbox.conductor)
-                postN "/rails/conductor/action_mailbox/:inbound_email_id/reroute(.:format)" "rails/conductor/action_mailbox/reroutes#create" (Mailbox.conductor)
-                postN "/rails/conductor/action_mailbox/:inbound_email_id/incinerate(.:format)" "rails/conductor/action_mailbox/incinerates#create" (Mailbox.conductor)
-                getN "/rails/active_storage/blobs/redirect/:signed_id/*filename(.:format)" "active_storage/blobs/redirect#show" ActiveStorageControllers.blobsRedirect
-                getN "/rails/active_storage/blobs/proxy/:signed_id/*filename(.:format)" "active_storage/blobs/proxy#show" ActiveStorageControllers.blobsProxy
-                getN "/rails/active_storage/blobs/:signed_id/*filename(.:format)" "active_storage/blobs/redirect#show" ActiveStorageControllers.blobsRedirect
-                getN "/rails/active_storage/representations/redirect/:signed_blob_id/:variation_key/*filename(.:format)" "active_storage/representations/redirect#show" ActiveStorageControllers.representationsRedirect
-                getN "/rails/active_storage/representations/proxy/:signed_blob_id/:variation_key/*filename(.:format)" "active_storage/representations/proxy#show" ActiveStorageControllers.representationsProxy
-                getN "/rails/active_storage/representations/:signed_blob_id/:variation_key/*filename(.:format)" "active_storage/representations/redirect#show" ActiveStorageControllers.representationsRedirect
-                getN "/rails/active_storage/disk/:encoded_key/*filename(.:format)" "active_storage/disk#show" ActiveStorageControllers.diskShow
-                putN "/rails/active_storage/disk/:encoded_token(.:format)" "active_storage/disk#update" ActiveStorageControllers.diskUpdate
-                postN "/rails/active_storage/direct_uploads(.:format)" "active_storage/direct_uploads#create" ActiveStorageControllers.directUploadsCreate
+                get "/messages/:id/edit(.:format)" "messages#edit" (MessagesController.edit)
+                get "/messages/:id(.:format)" "messages#show" (MessagesController.show)
+                patch "/messages/:id(.:format)" "messages#update" (MessagesController.update)
+                put "/messages/:id(.:format)" "messages#update" (MessagesController.update)
+                delete "/messages/:id(.:format)" "messages#destroy" (MessagesController.destroy)
+                delete "/searches/clear(.:format)" "searches#clear" SearchesController.clear
+                get "/searches(.:format)" "searches#index" SearchesController.index
+                post "/searches(.:format)" "searches#create" SearchesController.create
+                post "/unfurl_link(.:format)" "unfurl_links#create" UnfurlLinks.create
+                get "/webmanifest(.:format)" "pwa#manifest" (Pwa.manifest)
+                get "/service-worker(.:format)" "pwa#service_worker" (Pwa.serviceWorker)
+                get "/up(.:format)" "rails/health#show" (Health.show)
+                get "/recede_historical_location(.:format)" "turbo/native/navigation#recede" (TurboNative.recede)
+                get "/resume_historical_location(.:format)" "turbo/native/navigation#resume" (TurboNative.resume)
+                get "/refresh_historical_location(.:format)" "turbo/native/navigation#refresh" (TurboNative.refresh)
+                post "/rails/action_mailbox/postmark/inbound_emails(.:format)" "action_mailbox/ingresses/postmark/inbound_emails#create" (Mailbox.ingressNotConfigured)
+                post "/rails/action_mailbox/relay/inbound_emails(.:format)" "action_mailbox/ingresses/relay/inbound_emails#create" (Mailbox.ingressNotConfigured)
+                post "/rails/action_mailbox/sendgrid/inbound_emails(.:format)" "action_mailbox/ingresses/sendgrid/inbound_emails#create" (Mailbox.ingressNotConfigured)
+                get "/rails/action_mailbox/mandrill/inbound_emails(.:format)" "action_mailbox/ingresses/mandrill/inbound_emails#health_check" (Mailbox.ingressNotConfigured)
+                post "/rails/action_mailbox/mandrill/inbound_emails(.:format)" "action_mailbox/ingresses/mandrill/inbound_emails#create" (Mailbox.ingressNotConfigured)
+                post "/rails/action_mailbox/mailgun/inbound_emails/mime(.:format)" "action_mailbox/ingresses/mailgun/inbound_emails#create" (Mailbox.ingressNotConfigured)
+                get "/rails/conductor/action_mailbox/inbound_emails(.:format)" "rails/conductor/action_mailbox/inbound_emails#index" (Mailbox.conductor)
+                post "/rails/conductor/action_mailbox/inbound_emails(.:format)" "rails/conductor/action_mailbox/inbound_emails#create" (Mailbox.conductor)
+                get "/rails/conductor/action_mailbox/inbound_emails/new(.:format)" "rails/conductor/action_mailbox/inbound_emails#new" (Mailbox.conductor)
+                get "/rails/conductor/action_mailbox/inbound_emails/:id(.:format)" "rails/conductor/action_mailbox/inbound_emails#show" (Mailbox.conductor)
+                get "/rails/conductor/action_mailbox/inbound_emails/sources/new(.:format)" "rails/conductor/action_mailbox/inbound_emails/sources#new" (Mailbox.conductor)
+                post "/rails/conductor/action_mailbox/inbound_emails/sources(.:format)" "rails/conductor/action_mailbox/inbound_emails/sources#create" (Mailbox.conductor)
+                post "/rails/conductor/action_mailbox/:inbound_email_id/reroute(.:format)" "rails/conductor/action_mailbox/reroutes#create" (Mailbox.conductor)
+                post "/rails/conductor/action_mailbox/:inbound_email_id/incinerate(.:format)" "rails/conductor/action_mailbox/incinerates#create" (Mailbox.conductor)
+                get "/rails/active_storage/blobs/redirect/:signed_id/*filename(.:format)" "active_storage/blobs/redirect#show" ActiveStorageControllers.blobsRedirect
+                get "/rails/active_storage/blobs/proxy/:signed_id/*filename(.:format)" "active_storage/blobs/proxy#show" ActiveStorageControllers.blobsProxy
+                get "/rails/active_storage/blobs/:signed_id/*filename(.:format)" "active_storage/blobs/redirect#show" ActiveStorageControllers.blobsRedirect
+                get "/rails/active_storage/representations/redirect/:signed_blob_id/:variation_key/*filename(.:format)" "active_storage/representations/redirect#show" ActiveStorageControllers.representationsRedirect
+                get "/rails/active_storage/representations/proxy/:signed_blob_id/:variation_key/*filename(.:format)" "active_storage/representations/proxy#show" ActiveStorageControllers.representationsProxy
+                get "/rails/active_storage/representations/:signed_blob_id/:variation_key/*filename(.:format)" "active_storage/representations/redirect#show" ActiveStorageControllers.representationsRedirect
+                get "/rails/active_storage/disk/:encoded_key/*filename(.:format)" "active_storage/disk#show" ActiveStorageControllers.diskShow
+                put "/rails/active_storage/disk/:encoded_token(.:format)" "active_storage/disk#update" ActiveStorageControllers.diskUpdate
+                post "/rails/active_storage/direct_uploads(.:format)" "active_storage/direct_uploads#create" ActiveStorageControllers.directUploadsCreate
             |]
 
     /// One verb's routes in table order, indexed by the first segment of their pattern: every pattern
@@ -384,7 +358,7 @@ module RouteTable =
 
     /// `Journey::Router::Utils.unescape_uri`, then Rails' check that the parameter is valid UTF-8
     /// (`ActionController::BadRequest` otherwise).
-    let private unescapeUri (value: string) : Result<string, Error> =
+    let private unescapeUri (value: string) : Result<string, Web.Error> =
         let source = Encoding.UTF8.GetBytes value
         let bytes = ResizeArray<byte>(source.Length)
         let hex (b: byte) = if Char.IsAsciiHexDigit(char b) then Convert.ToInt32(string (char b), 16) else -1
@@ -399,31 +373,36 @@ module RouteTable =
         try
             Ok(UTF8Encoding(false, true).GetString(bytes.ToArray()))
         with :? DecoderFallbackException ->
-            Error(BadRequest "Invalid path parameters: Invalid encoding")
+            Result.Error(Web.BadRequest "Invalid path parameters: Invalid encoding")
 
     /// A matched route's path parameters: its defaults, then its captures (percent-decoded), then
     /// `controller` and `action`.
-    let pathParams (route: Route) (m: Match) : Result<ParamMap, Error> =
-        let pathParams = ParamMap()
+    let pathParams (route: Route) (m: Match) : Result<(string * string)[], Web.Error> =
+        let pathParams = ResizeArray<string * string>()
+        // A later value for a name replaces the earlier one in place (a hash insert).
+        let insert (name: string) (value: string) : unit =
+            match pathParams.FindIndex(fun (n, _) -> n = name) with
+            | -1 -> pathParams.Add((name, value))
+            | i -> pathParams[i] <- (name, value)
         for (name, value) in route.Defaults do
-            pathParams.Insert(name, Param.Str value)
+            insert name value
         let mutable failure = None
         for i in 0 .. route.Names.Length - 1 do
             let group = m.Groups[i + 1]
             if failure.IsNone && group.Success then
                 match unescapeUri group.Value with
-                | Ok value -> pathParams.Insert(route.Names[i], Param.Str value)
-                | Error e -> failure <- Some e
+                | Ok value -> insert route.Names[i] value
+                | Result.Error e -> failure <- Some e
         match failure with
-        | Some e -> Error e
+        | Some e -> Result.Error e
         | None ->
-            pathParams.Insert("controller", Param.Str route.Controller)
-            pathParams.Insert("action", Param.Str route.ActionName)
-            Ok pathParams
+            insert "controller" route.Controller
+            insert "action" route.ActionName
+            Ok(pathParams.ToArray())
 
     /// The first route matching `method` and the normalized `path`, with its path parameters
     /// (defaults, then captures, then `controller`/`action`). HEAD requests match GET routes.
-    let recognize (meth: string) (path: string) : Result<(Route * ParamMap) option, Error> =
+    let recognize (meth: string) (path: string) : Result<(Route * (string * string)[]) option, Web.Error> =
         let verb = if meth = "HEAD" then "GET" else meth
         match byVerb.Value.TryGetValue verb with
         // Every pattern starts with a slash, so a path that doesn't can't match.
@@ -443,16 +422,14 @@ module RouteTable =
                 | None -> Ok None
                 | Some(route, m) -> pathParams route m |> Result.map (fun pathParams -> Some(route, pathParams))
 
-    /// The route a request names, its path parameters handed to the request (`RouteValues`, which a legacy `Ctx` reads).
+    /// The route a request names, its path parameters handed to the request (`RouteValues`).
     let private recognizeRequest (http: Microsoft.AspNetCore.Http.HttpContext) : Result<Route, Web.Error> =
         match recognize http.Request.Method (normalizePath (Web.Services.rawPath http)) with
-        | Error e -> Result.Error(Web.Legacy e)
+        | Result.Error e -> Result.Error e
         | Ok None -> Result.Error Web.NotFound
         | Ok(Some(route, pathParams)) ->
-            for i in 0 .. pathParams.Count - 1 do
-                match (pathParams.ValueAt i).AsStr with
-                | null -> ()
-                | value -> http.Request.RouteValues[pathParams.KeyAt i] <- value
+            for (name, value) in pathParams do
+                http.Request.RouteValues[name] <- value
             Ok route
 
     /// The single entry point for everything but `/cable`: find the route, run its action.

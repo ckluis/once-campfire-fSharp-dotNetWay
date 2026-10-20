@@ -29,8 +29,10 @@
     <Compile Include="Integrations/WebPushPool.fs" />
     <Compile Include="Integrations/Webhook.fs" />
     <Compile Include="Jobs.fs" />
+    <Compile Include="Web/Errors.fs" />
     <Compile Include="AppState.fs" />
     <Compile Include="Current.fs" />
+    <Compile Include="Web/PageParts.fs" />
     <Compile Include="FragmentGlue.fs" />
     <Compile Include="Presenters/Common.fs" />
     <Compile Include="Presenters/RichText.fs" />
@@ -41,10 +43,12 @@
     <Compile Include="Presenters/Page.fs" />
     <Compile Include="Presenters/EmojiRanges.fs" />
     <Compile Include="Presenters/Presenter.fs" />
-    <Compile Include="Web/Errors.fs" />
     <Compile Include="Web/Params.fs" />
     <Compile Include="Web/Formats.fs" />
+    <Compile Include="Web/Flash.fs" />
     <Compile Include="Web/Respond.fs" />
+    <Compile Include="Web/Edge.fs" />
+    <Compile Include="Web/Outgoing.fs" />
     <Compile Include="Web/PublicExceptions.fs" />
     <Compile Include="Web/Action.fs" />
     <Compile Include="Web/Data.fs" />
@@ -56,9 +60,7 @@
     <Compile Include="Web/Pages.fs" />
     <Compile Include="Web/Before.fs" />
     <Compile Include="Web/LoginThrottle.fs" />
-    <Compile Include="Web/Legacy.fs" />
     <Compile Include="Web/Services.fs" />
-    <Compile Include="Concerns.fs" />
     <Compile Include="ActiveStorage.fs" />
     <Compile Include="Presenters/AttachmentWrites.fs" />
     <Compile Include="RichText.fs" />

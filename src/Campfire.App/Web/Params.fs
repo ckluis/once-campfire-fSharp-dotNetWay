@@ -30,9 +30,9 @@ type Scope =
       Many: string -> string list }
 
 module Params =
-    /// Where the kit's `dispatch` leaves a JSON body it has read, for a handler that runs after it (until 2.13).
+    /// Where `load` leaves a JSON body it has read, for the accessors.
     [<Literal>]
-    let JsonBodyKey = Campfire.Kit.Adapter.JsonBodyItemKey
+    let JsonBodyKey = "campfire.web.params.json-body"
 
     /// Where `Services.keepRawBody` leaves the bytes of a bot API request's body (`request.raw_post`).
     [<Literal>]

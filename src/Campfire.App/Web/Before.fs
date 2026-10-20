@@ -113,7 +113,7 @@ module Before =
 
     /// `request_authentication`: remember where we were, then off to sign in.
     let private requestAuthentication (http: HttpContext) : Result<unit, Error> =
-        Campfire.Kit.ReturnTo.set http (Pages.requestUrl http)
+        ReturnTo.set http (Pages.requestUrl http)
         match Respond.redirectTo http (Respond.urlFor http (Routes.newSession ())) with
         | Ok handler -> Action.halt handler
         | Result.Error e -> Result.Error e

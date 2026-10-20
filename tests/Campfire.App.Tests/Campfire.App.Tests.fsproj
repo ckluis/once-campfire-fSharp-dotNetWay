@@ -11,6 +11,7 @@
     <Compile Include="UserAgentTests.fs" />
     <Compile Include="PlatformTests.fs" />
     <Compile Include="RouteTableTests.fs" />
+    <Compile Include="Web/PagePartsTests.fs" />
     <Compile Include="Web/SeamTests.fs" />
     <Compile Include="Web/AuthenticationTests.fs" />
     <Compile Include="Web/BotKeyTests.fs" />

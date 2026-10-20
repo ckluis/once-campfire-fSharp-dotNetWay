@@ -58,7 +58,7 @@ module FirstRuns =
                     | Some name -> Ok name
                     | None -> Result.Error(Internal(exn "NOT NULL constraint failed: users.name"))
                 let app = Data.app http
-                let! avatar = Assignment.stage app avatar |> Task.map (Result.mapError Legacy)
+                let! avatar = Assignment.stage app avatar
                 let! passwordDigest =
                     task {
                         try

@@ -15,7 +15,6 @@ open System.Text
 open Microsoft.EntityFrameworkCore
 open Campfire.App
 open Campfire.Db
-open Campfire.Kit
 open Campfire.RailsCompat
 open Campfire.Routes
 open Campfire.Views
@@ -52,9 +51,6 @@ module Accounts =
     let freshAccountLogoPath (account: Account option) (size: string option) : string =
         let v = account |> Option.map (fun (account: Account) -> Common.toFsNumberOf account.UpdatedAt)
         Routes.freshAccountLogo v size
-
-    /// `platform` as the views see it (`ApplicationPlatform.new(request.user_agent)`).
-    let platform (c: Ctx) : Platform = ApplicationPlatform.toView (Current.platform c)
 
     /// `User.administrator.first`, for `accounts/_help_contact`.
     let helpContact (db: Campfire.Db.Ef.CampfireDb) : HelpContact option =

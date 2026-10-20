@@ -16,6 +16,19 @@ open Microsoft.Extensions.Logging
 open Microsoft.Extensions.Logging.Abstractions
 open Campfire.Kit
 
+/// Collects the lines logged to it.
+type CapturingLogger() =
+    let lines = ResizeArray<string>()
+
+    member _.Text: string = lock lines (fun () -> String.Join("\n", lines))
+
+    interface ILogger with
+        member _.BeginScope(_: 'state) : IDisposable | null = null
+        member _.IsEnabled(_: LogLevel) = true
+
+        member _.Log(level: LogLevel, _: EventId, state: 'state, error: exn | null, formatter: Func<'state, exn | null, string>) =
+            lock lines (fun () -> lines.Add $"{level}: {formatter.Invoke(state, error)}")
+
 let freePort () : int =
     let listener = new TcpListener(IPAddress.Loopback, 0)
     listener.Start()

@@ -15,7 +15,7 @@ open Xunit
 open Campfire.App
 open Campfire.Views
 
-let private splice (page: RecordedPage) : Campfire.Kit.PageParts =
+let private splice (page: RecordedPage) : Campfire.App.Web.PageParts =
     match FragmentGlue.splice page with
     | Ok parts -> parts
     | Error _ -> failwith "a page of messages has fragments big enough for parts"

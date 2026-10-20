@@ -49,7 +49,7 @@ module SessionTransfers =
                 | Some user ->
                     let! (_: Session) = Authentication.startNewSessionFor http user
                     let location =
-                        match Campfire.Kit.ReturnTo.take http with
+                        match ReturnTo.take http with
                         | null -> Respond.urlFor http (Routes.root ())
                         | url -> url
                     return! Respond.redirectTo http location

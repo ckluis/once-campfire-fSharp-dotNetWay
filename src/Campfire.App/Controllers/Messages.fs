@@ -10,7 +10,7 @@ open System.Threading.Tasks
 open Campfire.App
 open Campfire.App.Channels
 open Campfire.Db
-open Campfire.Kit
+open Campfire.App.Web
 open Campfire.RichText
 open Campfire.Routes
 open Campfire.Ruby
@@ -25,9 +25,11 @@ type MessageParams =
       Attachment: Assignment<Upload> option
       ClientMessageId: string option }
 
-/// The Ctx-free pieces of writing a message: the canonical body, a staged blob's row, and `process_attachment`. They report the kit's
-/// `Error` (`IntegrationJobs` calls them from jobs); the controller maps it to `Legacy`.
+/// The request-free pieces of writing a message: the canonical body, a staged blob's row, and `process_attachment`. They report the Web
+/// `Error` (`IntegrationJobs` calls them from jobs).
 module MessageStaging =
+    open FsToolkit.ErrorHandling
+
     /// Assigning something that isn't an upload, a signed blob id, nil or "".
     let invalidAttachment () : Error = Internal(exn "Could not find or build blob: expected attachable")
 
@@ -53,7 +55,7 @@ module MessageStaging =
     /// `blob.analyze`: its `after_update` touches the attached records (a message also touches its room). The file is
     /// analyzed off the writer; the metadata and the touches are one write.
     let analyzeAttachment (app: AppState) (blob: Campfire.Storage.Blob) : Task<Result<Campfire.Storage.Blob, Error>> =
-        act {
+        taskResult {
             let! metadata = ActiveStorage.analyzedMetadata app blob
             return!
                 app.WriteEf(fun tx ->
@@ -66,7 +68,7 @@ module MessageStaging =
     /// `Message#process_attachment`: analyze the blob now (its `after_update` touches the message),
     /// then generate the video preview or the `:thumb` representation.
     let processAttachment (app: AppState) (blob: Campfire.Storage.Blob) : Task<Result<unit, Error>> =
-        act {
+        taskResult {
             let! blob = analyzeAttachment app blob
             if Campfire.Storage.Blob.isVideo blob then
                 // attachment.preview(format: :webp).processed
@@ -111,10 +113,6 @@ module MessagesController =
         { Body = None
           Attachment = None
           ClientMessageId = None }
-
-    /// A kit failure from the staging helpers, as a Web error.
-    let private legacy (task: System.Threading.Tasks.Task<Result<'T, Campfire.Kit.Error>>) : System.Threading.Tasks.Task<Result<'T, Error>> =
-        task |> TaskResult.mapError Legacy
 
     // --- Before-actions and params ---------------------------------------------------------------
 
@@ -182,7 +180,7 @@ module MessagesController =
         taskResult {
             match body with
             | Some body ->
-                let! canonical = legacy (MessageStaging.canonicalizeBody (Data.app http) body (Some http.Request.Host.Host))
+                let! canonical = (MessageStaging.canonicalizeBody (Data.app http) body (Some http.Request.Host.Host))
                 return Some canonical
             | None -> return None
         }
@@ -201,7 +199,7 @@ module MessagesController =
                     | Some assignment ->
                         match! Uploads.stage http assignment with
                         | Create staged -> return Some staged
-                        | Invalid -> return! Result.Error(Legacy(MessageStaging.invalidAttachment ()))
+                        | Invalid -> return! Result.Error(MessageStaging.invalidAttachment ())
                         | _ -> return None
                     | None -> return None
                 }
@@ -227,7 +225,7 @@ module MessagesController =
             | None -> return message
             | Some blob ->
                 let id = message.Id
-                do! legacy (MessageStaging.processAttachment app blob)
+                do! (MessageStaging.processAttachment app blob)
                 return! Data.read http (fun db -> Message.find db id)
         }
 
@@ -243,7 +241,7 @@ module MessagesController =
                     match attributes.Attachment with
                     | Some assignment ->
                         match! Uploads.stage http assignment with
-                        | Invalid -> return! Result.Error(Legacy(MessageStaging.invalidAttachment ()))
+                        | Invalid -> return! Result.Error(MessageStaging.invalidAttachment ())
                         | Create staged -> return Some(Some staged)
                         | _ -> return Some None
                     | None -> return None

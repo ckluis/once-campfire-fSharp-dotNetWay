@@ -12,7 +12,6 @@ open Microsoft.Extensions.Logging
 open Campfire.App.Channels
 open Campfire.App.Integrations
 open Campfire.Db
-open Campfire.Kit
 open Campfire.RailsCompat
 open Campfire.RailsCompat.Clock
 open Campfire.Storage
@@ -22,12 +21,12 @@ module AppErrors =
     /// A database error raised in an action, as Active Record's `rescue_responses` answer it
     /// (activerecord/lib/active_record/railtie.rb): `RecordNotFound` is a 404, `RecordInvalid` a 422,
     /// and anything else a 500.
-    let dbError (error: DbError) : Campfire.Kit.Error =
+    let dbError (error: DbError) : Campfire.App.Web.Error =
         match error with
-        | RecordNotFound _ -> Campfire.Kit.Error.NotFound
-        | RecordInvalid _ -> Campfire.Kit.Error.WithStatus(Status.UnprocessableEntity, Exception(DbError.display error))
-        | Sqlite e -> Campfire.Kit.Error.Internal e
-        | Other e -> Campfire.Kit.Error.Internal e
+        | RecordNotFound _ -> Campfire.App.Web.NotFound
+        | RecordInvalid _ -> Campfire.App.Web.WithStatus(422, Exception(DbError.display error))
+        | Sqlite e -> Campfire.App.Web.Internal e
+        | Other e -> Campfire.App.Web.Internal e
 
 /// Everything that outlives a request.
 [<Sealed; NoComparison; NoEquality>]
@@ -84,12 +83,12 @@ type AppState
 
     /// `Reads.run` over a context leased for the call, for what has no request (jobs, integrations), with errors mapped as `Read`
     /// maps them.
-    member _.ReadEf<'T>(f: Campfire.Db.Ef.CampfireDb -> 'T) : Task<Result<'T, Campfire.Kit.Error>> =
+    member _.ReadEf<'T>(f: Campfire.Db.Ef.CampfireDb -> 'T) : Task<Result<'T, Campfire.App.Web.Error>> =
         use context = dbFactory.CreateDbContext()
         Task.FromResult(Campfire.Db.Ef.Reads.run context f |> Result.mapError AppErrors.dbError)
 
     /// `Writes.run` over a context leased for the write, for what has no request, with errors mapped as `Write` maps them.
-    member _.WriteEf<'T>(f: Campfire.Db.Ef.Tx -> 'T) : Task<Result<'T, Campfire.Kit.Error>> =
+    member _.WriteEf<'T>(f: Campfire.Db.Ef.Tx -> 'T) : Task<Result<'T, Campfire.App.Web.Error>> =
         task {
             use context = dbFactory.CreateDbContext()
             let! result = Campfire.Db.Ef.Writes.run gate env context f
@@ -97,33 +96,3 @@ type AppState
         }
 
 type App = AppState
-
-/// `c.app()` in actions.
-[<AutoOpen>]
-module CtxApp =
-    type Campfire.Kit.Ctx with
-        member c.App: AppState = c.State<AppState>()
-
-        /// The request's `CampfireDb`: scoped, leased from the pooled factory and returned when the request ends.
-        member c.Db : Campfire.Db.Ef.CampfireDb = c.Http.RequestServices.GetRequiredService<Campfire.Db.Ef.CampfireDb>()
-
-        /// `Reads.run` over the request's context for actions, whose errors become responses as `AppErrors.dbError` maps them.
-        /// Synchronous EF (E6): the read runs where the action is.
-        member c.Read<'T>(f: Campfire.Db.Ef.CampfireDb -> 'T) : Task<Result<'T, Campfire.Kit.Error>> =
-            let result = Campfire.Db.Ef.Reads.run c.Db f |> Result.mapError AppErrors.dbError
-            Task.FromResult result
-
-        /// `Writes.run` over the request's context, the failure left as a `DbError` for actions that rescue one
-        /// (`ActiveRecord::RecordNotUnique`).
-        member c.TryWrite<'T>(f: Campfire.Db.Ef.Tx -> 'T) : Task<Result<'T, DbError>> =
-            let app = c.App
-            Campfire.Db.Ef.Writes.run app.Gate app.Env c.Db f
-
-        /// `Writes.run` over the request's context: the gate, `BEGIN IMMEDIATE`, the body, `SaveChanges`, `COMMIT`, then the
-        /// after-commit queue; errors become responses as `AppErrors.dbError` maps them.
-        member c.Write<'T>(f: Campfire.Db.Ef.Tx -> 'T) : Task<Result<'T, Campfire.Kit.Error>> =
-            task {
-                let app = c.App
-                let! result = Campfire.Db.Ef.Writes.run app.Gate app.Env c.Db f
-                return result |> Result.mapError AppErrors.dbError
-            }

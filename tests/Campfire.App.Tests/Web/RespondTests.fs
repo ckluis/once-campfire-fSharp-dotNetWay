@@ -171,13 +171,13 @@ let ``X3 expires_in writes Rails' Cache-Control, public and stale-while-revalida
         let routes (http: HttpContext) =
             match http.Request.Path.Value with
             | "/avatar" ->
-                Respond.expiresIn http 300UL { Campfire.Kit.ExpiresIn.Default with Public = true; StaleWhileRevalidate = ValueSome 1800UL }
+                Respond.expiresIn http 300UL { ExpiresIn.Default with Public = true; StaleWhileRevalidate = ValueSome 1800UL }
                 ok (Ok(Response.ofPlainText "avatar"))
             | "/private" ->
-                Respond.expiresIn http 60UL Campfire.Kit.ExpiresIn.Default
+                Respond.expiresIn http 60UL ExpiresIn.Default
                 ok (Ok(Response.ofPlainText "private"))
             | "/immutable" ->
-                Respond.expiresIn http 3153600000UL { Campfire.Kit.ExpiresIn.Default with Public = true; Immutable = true }
+                Respond.expiresIn http 3153600000UL { ExpiresIn.Default with Public = true; Immutable = true }
                 ok (Ok(Response.ofPlainText "blob"))
             | _ -> ok (Result.Error NotFound)
         use! host = startRoutes test routes
@@ -261,11 +261,11 @@ let ``X5 send_file answers ranges, with Rails' Content-Disposition`` () =
         try
             let routes (http: HttpContext) =
                 match http.Request.Path.Value with
-                | "/file" -> ok (Respond.sendFile path { Campfire.Kit.SendOptions.Default with Filename = "notes ü.txt" })
-                | "/inline" -> ok (Respond.sendFile path (Campfire.Kit.SendOptions.Inline "text/plain"))
+                | "/file" -> ok (Respond.sendFile path { SendOptions.Default with Filename = "notes ü.txt" })
+                | "/inline" -> ok (Respond.sendFile path (SendOptions.Inline "text/plain"))
                 // The storage directory may be relative (`storage/files/..`): `Results.File` would read it under the web root.
-                | "/relative" -> ok (Respond.sendFile (Path.GetRelativePath(Environment.CurrentDirectory, path)) Campfire.Kit.SendOptions.Default)
-                | "/missing" -> ok (Respond.sendFile (path + ".gone") Campfire.Kit.SendOptions.Default)
+                | "/relative" -> ok (Respond.sendFile (Path.GetRelativePath(Environment.CurrentDirectory, path)) SendOptions.Default)
+                | "/missing" -> ok (Respond.sendFile (path + ".gone") SendOptions.Default)
                 | _ -> ok (Result.Error NotFound)
             use! host = startRoutes test routes
 

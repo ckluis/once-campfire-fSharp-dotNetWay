@@ -5,7 +5,6 @@
 namespace Campfire.App.Controllers
 
 open FsToolkit.ErrorHandling
-open Campfire.Kit
 open Campfire.App
 open Campfire.App.Web
 

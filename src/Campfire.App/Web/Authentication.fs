@@ -5,8 +5,7 @@
 // a before-action asks: `restore` is `restore_authentication`, `require` is `require_authentication`'s first
 // step. The session lookup is the cookie handler's `OnValidatePrincipal` (token -> `sessions` row -> user; either
 // gone rejects the principal). The hourly `Session#resume` write and the cookie's re-issue are `restore`'s, not the
-// event's, because they need the request's client address, which the kit still derives (forwarded headers arrive in
-// unit 2.6); the re-issue goes through `SignInAsync` so the framework writes the cookie.
+// event's (Rails resumes only in `restore_authentication`); the re-issue goes through `SignInAsync` so the framework writes the cookie.
 namespace Campfire.App.Web
 
 open System
@@ -100,7 +99,7 @@ type BotKeyAuthenticationHandler(options: IOptionsMonitor<AuthenticationSchemeOp
                 Task.FromResult(AuthenticateResult.NoResult())
 
 module Authentication =
-    /// The framework's `SignInAsync` writes no-cache headers of its own; Rails' response headers are the kit's, so
+    /// The framework's `SignInAsync` writes no-cache headers of its own; Rails' response headers are the app's, so
     /// they are put back as they were.
     let private keepingHeaders (http: HttpContext) (work: unit -> Task) : Task =
         task {
@@ -126,7 +125,7 @@ module Authentication =
     let private principalFor (token: string) : ClaimsPrincipal =
         ClaimsPrincipal(ClaimsIdentity([ Claim(Schemes.TokenClaim, token) ], Schemes.Session))
 
-    let private dbFailure (error: DbError) : Error = Legacy(AppErrors.dbError error)
+    let private dbFailure (error: DbError) : Error = AppErrors.dbError error
 
     /// `find_session_by_cookie`: the session the cookie names, without resuming it.
     let session (http: HttpContext) : Task<Result<Session option, Error>> =
@@ -134,7 +133,7 @@ module Authentication =
             let! result = http.AuthenticateAsync Schemes.Session
             let current = Current.get http
             match current.LookupError with
-            | Some error -> return Result.Error(Legacy error)
+            | Some error -> return Result.Error error
             | None -> return Ok(if result.Succeeded then current.Session else None)
         }
 
@@ -174,7 +173,7 @@ module Authentication =
             let! result = http.AuthenticateAsync Schemes.BotKey
             let current = Current.get http
             match current.LookupError with
-            | Some error when not result.Succeeded -> return Result.Error(Legacy error)
+            | Some error when not result.Succeeded -> return Result.Error error
             | _ ->
                 if result.Succeeded then return Ok true
                 elif isNull result.Failure then return Ok false
@@ -235,13 +234,13 @@ module Authentication =
             | Ok() ->
                 // Rails' `cookies.delete(:session_token)` (`max-age=0`, no `httponly`), which the framework's
                 // `SignOutAsync` does not write; the principal is not cached past this request.
-                http.Response.Headers.Append("Set-Cookie", Campfire.Kit.CookieJar.deleteCookieHeader Schemes.SessionCookie Campfire.Kit.DeleteOptions.Default)
+                http.Response.Headers.Append("Set-Cookie", $"{Schemes.SessionCookie}=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT; samesite=lax")
                 match current.User with
                 | Some user ->
                     match! Campfire.Db.Ef.Writes.run app.Gate app.Env db (fun tx -> User.resetRemoteConnections tx user) with
                     | Ok() -> ()
                     | Result.Error error ->
-                        services.GetRequiredService<Campfire.Kit.Kit>().Logger.LogWarning("Could not disconnect remote connections on sign out: {Error}", DbError.display error)
+                        (services.GetRequiredService<AppState>().Loggers.CreateLogger "campfire").LogWarning("Could not disconnect remote connections on sign out: {Error}", DbError.display error)
                 | None -> ()
                 return Ok()
         }

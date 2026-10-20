@@ -220,7 +220,7 @@ let startPipelineWith (configureServices: IServiceCollection -> unit) (pipeline:
         let builder = WebApplication.CreateSlimBuilder()
         configureServices builder.Services
         builder.WebHost.ConfigureKestrel(fun (options: KestrelServerOptions) ->
-            Adapter.configureKestrel options
+            Campfire.Kit.Front.configureKestrel options
             options.Listen(IPAddress.Loopback, 0))
         |> ignore
         builder.Logging.ClearProviders() |> ignore

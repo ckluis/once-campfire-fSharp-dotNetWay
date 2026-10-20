@@ -104,7 +104,7 @@ module Sessions =
                     let! (_: Session) = Authentication.startNewSessionFor http user
                     // `post_authenticating_url`: `session.delete(:return_to_after_authenticating) || root_url`
                     let location =
-                        match Campfire.Kit.ReturnTo.take http with
+                        match ReturnTo.take http with
                         | null -> Respond.urlFor http (Routes.root ())
                         | url -> url
                     return! Respond.redirectTo http location

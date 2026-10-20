@@ -4,10 +4,9 @@
 // is klauspost/compress v1.18.6's `gzhttp` with a 1 KB minimum size, gzip level 6, zstd (preferred
 // over gzip at equal quality) and 32 bytes of BREACH jitter.
 //
-// The app's own `Rack::Deflater` (`Deflater`) already gzips nearly every response for clients that
-// accept gzip, and `gzhttp` leaves encoded responses alone. What it adds is `Vary: Accept-Encoding`
-// on every response, and compression of what the app sent unencoded: zstd for clients that accept
-// zstd but not gzip, and bodies `Rack::Deflater` skipped.
+// The app compresses what it renders (the framework's response compression), and `gzhttp` leaves encoded responses
+// alone. What it adds is `Vary: Accept-Encoding` on every response, and compression of what the app sent unencoded: zstd
+// for clients that accept zstd but not gzip, and bodies the app skipped.
 //
 // What Rust's `Compression::apply` does to a response is split here: the choices that depend on the
 // headers and the start of the body are `FrontResponse`'s (Handler.fs), which owns the response
@@ -272,6 +271,62 @@ module FrontCompression =
 
 /// A streaming gzip or zstd encoder: `Write` takes the next piece of the body and returns what the
 /// encoder has ready (possibly nothing), `Finish` the rest.
+/// The CRC-32 the gzip writer keeps (zlib's `crc32`).
+module internal FrontCrc =
+    let private slicingTables: uint32[][] =
+        let tables = Array.init 8 (fun _ -> Array.zeroCreate<uint32> 256)
+        for n in 0..255 do
+            let mutable c = uint32 n
+            for _ in 0..7 do
+                c <- if c &&& 1u <> 0u then 0xEDB88320u ^^^ (c >>> 1) else c >>> 1
+            tables[0][n] <- c
+        for n in 0..255 do
+            let mutable c = tables[0][n]
+            for k in 1..7 do
+                c <- tables[0][int (c &&& 0xFFu)] ^^^ (c >>> 8)
+                tables[k][n] <- c
+        tables
+
+    /// The running CRC-32 (IEEE, as zlib's `crc32`) of `data` after what `crc` covers, by slicing-by-8
+    /// tables: what runs where the CPU has no CRC instruction (and what the tests check the other against).
+    let crc32Software (crc: uint32) (data: ReadOnlySpan<byte>) : uint32 =
+        let t = slicingTables
+        let mutable c = ~~~crc
+        let mutable i = 0
+        while i + 8 <= data.Length do
+            let lo = BinaryPrimitives.ReadUInt32LittleEndian(data.Slice i) ^^^ c
+            let hi = BinaryPrimitives.ReadUInt32LittleEndian(data.Slice(i + 4))
+            c <-
+                t[7][int (lo &&& 0xFFu)]
+                ^^^ t[6][int ((lo >>> 8) &&& 0xFFu)]
+                ^^^ t[5][int ((lo >>> 16) &&& 0xFFu)]
+                ^^^ t[4][int (lo >>> 24)]
+                ^^^ t[3][int (hi &&& 0xFFu)]
+                ^^^ t[2][int ((hi >>> 8) &&& 0xFFu)]
+                ^^^ t[1][int ((hi >>> 16) &&& 0xFFu)]
+                ^^^ t[0][int (hi >>> 24)]
+            i <- i + 8
+        while i < data.Length do
+            c <- t[0][int ((c ^^^ uint32 data[i]) &&& 0xFFu)] ^^^ (c >>> 8)
+            i <- i + 1
+        ~~~c
+
+    /// The same by the ARM CRC-32 instructions.
+    let private crc32Arm (crc: uint32) (data: ReadOnlySpan<byte>) : uint32 =
+        let mutable c = ~~~crc
+        let mutable i = 0
+        while i + 8 <= data.Length do
+            c <- System.Runtime.Intrinsics.Arm.Crc32.Arm64.ComputeCrc32(c, BinaryPrimitives.ReadUInt64LittleEndian(data.Slice i))
+            i <- i + 8
+        while i < data.Length do
+            c <- System.Runtime.Intrinsics.Arm.Crc32.ComputeCrc32(c, data[i])
+            i <- i + 1
+        ~~~c
+
+    /// The running CRC-32 (IEEE, as zlib's `crc32`) of `data` after what `crc` covers.
+    let crc32Update (crc: uint32) (data: ReadOnlySpan<byte>) : uint32 =
+        if System.Runtime.Intrinsics.Arm.Crc32.Arm64.IsSupported then crc32Arm crc data else crc32Software crc data
+
 [<Sealed>]
 type FrontEncoder(encoding: Encoding, jitter: string | null) =
     let output = new MemoryStream()
@@ -307,7 +362,7 @@ type FrontEncoder(encoding: Encoding, jitter: string | null) =
             output.Write(ReadOnlySpan<byte>(header ()))
         if data.Length > 0 then
             if encoding = Encoding.Gzip then
-                crc <- Deflater.crc32Update crc data
+                crc <- FrontCrc.crc32Update crc data
                 size <- size + uint32 data.Length
             stream.Write data
         take ()

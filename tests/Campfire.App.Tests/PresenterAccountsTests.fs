@@ -14,7 +14,6 @@ open Xunit
 open Campfire.App
 open Campfire.App.Tests.Support
 open Campfire.Db
-open Campfire.Kit
 open Campfire.Tests
 
 let private host = "campfire.test"
@@ -135,7 +134,7 @@ let ``direct uploads are refused past the body limit`` () =
         let! small = b.Write(post (create 5))
         Assert.True((small.Status = 200), small.Text)
         Assert.True(small.Text.Contains "/rails/active_storage/disk/", small.Text)
-        let! large = b.Write(post (create (RequestBody.MaxBufferedBody + 1)))
+        let! large = b.Write(post (create (int Campfire.App.Web.Edge.MaxRequestBody + 1)))
         Assert.Equal(413, large.Status)
     }
 
@@ -433,7 +432,7 @@ let ``a ban from a private address is unprocessable`` () =
         Assert.True(reply.Text.Contains "That didn’t work (422)", reply.Text)
 
         let! user = app.ReadEf(fun db -> User.find db jz)
-        Assert.Equal(Status.Active, (user |> Result.defaultWith (fun e -> failwith (Error.display e))).Status)
+        Assert.Equal(Status.Active, (user |> Result.defaultWith (fun e -> failwith (Campfire.App.Web.Errors.display e))).Status)
         let bans = test.Sql(fun conn -> RawSql.scalar<int64> conn "SELECT COUNT(*) FROM bans WHERE user_id = ?" [ jz ])
         Assert.Equal(0L, bans)
     }

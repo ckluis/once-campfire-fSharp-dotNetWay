@@ -23,31 +23,21 @@ open System.Linq
 open System.Threading.Tasks
 open Microsoft.EntityFrameworkCore
 open Campfire.Db
-open Campfire.Kit
+open Campfire.App.Web
 open Campfire.Storage
 open Campfire.App
 
-/// An uploaded file (`ActionDispatch::Http::UploadedFile`), still in its multipart tempfile.
+/// An uploaded file (`ActionDispatch::Http::UploadedFile`), still in its tempfile (`Path`), which the response deletes when it
+/// completes.
 type Upload =
-    { File: UploadedFile
+    { Path: string
       Filename: string
       ContentType: string option }
 
 module Upload =
-    /// The upload in `param`, if it is one. `""` and nil mean "no change" to the controllers
-    /// here (`params.permit(...).compact` / `avatar=` with nil or "" deletes, see `Assignment`).
-    let fromParam (param: Param voption) : Upload option =
-        match param with
-        | ValueSome(Param.File file) ->
-            Some
-                { File = file
-                  Filename = file.OriginalFilename
-                  ContentType = Option.ofObj file.ContentType }
-        | _ -> None
-
     /// Uploads the file to storage for a blob whose row is saved next, off the async threads.
     let stage (app: AppState) (upload: Upload) : Task<Result<Staged, Error>> =
-        ActiveStorage.stageFile app upload.File.Path (Filename upload.Filename) upload.ContentType
+        ActiveStorage.stageFile app upload.Path (Filename upload.Filename) upload.ContentType
 
 /// What `record.avatar = value` does with a permitted param value: `Create` holds the `Upload`,
 /// then, once staged, the `Staged` blob.
@@ -62,19 +52,6 @@ type Assignment<'U> =
     | Invalid
 
 module Assignment =
-    let fromParams (parameters: ParamMap) (key: string) : Assignment<Upload> =
-        if not (parameters.ContainsKey key) then
-            Unchanged
-        else
-            match parameters.Get key with
-            | ValueNone -> Delete
-            | ValueSome Param.Null -> Delete
-            | ValueSome(Param.Str "") -> Delete
-            | ValueSome param ->
-                match Upload.fromParam (ValueSome param) with
-                | Some upload -> Create upload
-                | None -> Invalid
-
     /// Uploads a new file, so the save only has rows to write.
     let stage (app: AppState) (assignment: Assignment<Upload>) : Task<Result<Assignment<Staged>, Error>> =
         task {
@@ -197,17 +174,20 @@ module Uploads =
             | Campfire.App.Web.Str _
             | Campfire.App.Web.Structured -> Invalid, true
         | file ->
-            let path = UploadedFile.NewTempPath()
+            // A new temp file named as Rack names them (`RackMultipart...`).
+            let path = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "RackMultipart" + Guid.NewGuid().ToString("N"))
             use target = new System.IO.FileStream(path, System.IO.FileMode.Create, System.IO.FileAccess.Write, System.IO.FileShare.None)
             use source = file.OpenReadStream()
             source.CopyTo target
             target.Dispose()
-            let headers = String.Join("\r\n", [ for h in file.Headers -> $"{h.Key}: {h.Value}" ])
-            let uploaded = new UploadedFile(file.FileName, file.ContentType, headers, file.Length, path)
             http.Response.OnCompleted(fun () ->
-                uploaded.Delete()
+                (try
+                    System.IO.File.Delete path
+                 with
+                 | :? System.IO.IOException
+                 | :? UnauthorizedAccessException -> ())
                 Task.CompletedTask)
-            Create { File = uploaded; Filename = uploaded.OriginalFilename; ContentType = Option.ofObj uploaded.ContentType }, true
+            Create { Path = path; Filename = file.FileName; ContentType = Some file.ContentType }, true
 
     /// `record.avatar = params[:user][:avatar]` for the nested name `scope[key]`.
     let assignment (http: Microsoft.AspNetCore.Http.HttpContext) (scope: Campfire.App.Web.Scope) (key: string) : Assignment<Upload> * bool =
@@ -218,5 +198,5 @@ module Uploads =
         task {
             let app = Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<AppState>(http.RequestServices)
             let! staged = Assignment.stage app assignment
-            return staged |> Result.mapError Campfire.App.Web.Error.Legacy
+            return staged
         }

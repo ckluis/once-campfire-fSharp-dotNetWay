@@ -13,10 +13,9 @@ open System.Threading.Tasks
 open Microsoft.AspNetCore.Antiforgery
 open Microsoft.AspNetCore.Http
 open Microsoft.Extensions.DependencyInjection
-open Campfire.Kit
 
 module Csrf =
-    /// Why a request was refused, for the log line `Ctx.Finish` writes.
+    /// Why a request was refused, for the log line the refusal writes.
     let private reason (http: HttpContext) : string =
         match http.Request.Headers["Sec-Fetch-Site"].ToString() with
         | "" ->

@@ -10,7 +10,7 @@
 // Rails' `send_file` does not do: README Known differences), and compression is `UseResponseCompression` (K11).
 //
 // Not reproduced (K14): `Rack::ETag`'s body hash on every page. The default `Cache-Control` for a 200 that set none
-// stays with the legacy writer until 2.13 deletes it.
+// is `Native.wrap`'s.
 namespace Campfire.App.Web
 
 open System
@@ -21,7 +21,135 @@ open Falco
 open Microsoft.AspNetCore.Http
 open Microsoft.AspNetCore.Http.Features
 open Microsoft.Net.Http.Headers
-open Campfire.Kit
+
+/// `Cache-Control` directives set by `expires_in`, `fresh_when(public:)`, `no_store` and friends,
+/// normalized like `ActionDispatch::Http::Cache::Response#merge_and_normalize_cache_control!`.
+[<CustomEquality; NoComparison>]
+type CacheControl =
+    { MaxAge: uint64 voption
+      Public: bool
+      Private: bool
+      MustRevalidate: bool
+      NoCache: bool
+      NoStore: bool
+      MustUnderstand: bool
+      StaleWhileRevalidate: uint64 voption
+      StaleIfError: uint64 voption
+      Immutable: bool
+      Extras: string list }
+
+    override this.Equals(other: obj) =
+        match other with
+        | :? CacheControl as o ->
+            this.MaxAge = o.MaxAge
+            && this.Public = o.Public
+            && this.Private = o.Private
+            && this.MustRevalidate = o.MustRevalidate
+            && this.NoCache = o.NoCache
+            && this.NoStore = o.NoStore
+            && this.MustUnderstand = o.MustUnderstand
+            && this.StaleWhileRevalidate = o.StaleWhileRevalidate
+            && this.StaleIfError = o.StaleIfError
+            && this.Immutable = o.Immutable
+            && this.Extras = o.Extras
+        | _ -> false
+
+    override this.GetHashCode() = hash (this.MaxAge, this.Public, this.NoStore, this.NoCache)
+
+    member this.IsEmpty: bool =
+        this.MaxAge.IsNone
+        && not this.Public
+        && not this.Private
+        && not this.MustRevalidate
+        && not this.NoCache
+        && not this.NoStore
+        && not this.MustUnderstand
+        && this.StaleWhileRevalidate.IsNone
+        && this.StaleIfError.IsNone
+        && not this.Immutable
+        && this.Extras.IsEmpty
+
+    member this.ToHeader() : string | null =
+        if this.IsEmpty then
+            null
+        else
+            let options = ResizeArray<string>()
+            if this.NoStore then
+                if this.Private then options.Add "private"
+                if this.MustUnderstand then options.Add "must-understand"
+                options.Add "no-store"
+            elif this.NoCache then
+                if this.Public then options.Add "public"
+                options.Add "no-cache"
+                options.AddRange this.Extras
+            else
+                match this.MaxAge with
+                | ValueSome maxAge -> options.Add $"max-age={maxAge}"
+                | ValueNone -> ()
+                options.Add(if this.Public then "public" else "private")
+                if this.MustRevalidate then options.Add "must-revalidate"
+                match this.StaleWhileRevalidate with
+                | ValueSome swr -> options.Add $"stale-while-revalidate={swr}"
+                | ValueNone -> ()
+                match this.StaleIfError with
+                | ValueSome sie -> options.Add $"stale-if-error={sie}"
+                | ValueNone -> ()
+                if this.Immutable then options.Add "immutable"
+                options.AddRange this.Extras
+            String.Join(", ", options)
+
+module CacheControl =
+    /// No directives at all (`Cache-Control` left to the middleware).
+    let Empty: CacheControl =
+        { MaxAge = ValueNone
+          Public = false
+          Private = false
+          MustRevalidate = false
+          NoCache = false
+          NoStore = false
+          MustUnderstand = false
+          StaleWhileRevalidate = ValueNone
+          StaleIfError = ValueNone
+          Immutable = false
+          Extras = [] }
+
+/// Options for `expires_in`.
+type ExpiresIn =
+    { Public: bool
+      MustRevalidate: bool
+      StaleWhileRevalidate: uint64 voption
+      StaleIfError: uint64 voption
+      Immutable: bool }
+
+module ExpiresIn =
+    let Default: ExpiresIn =
+        { Public = false
+          MustRevalidate = false
+          StaleWhileRevalidate = ValueNone
+          StaleIfError = ValueNone
+          Immutable = false }
+
+/// Options for `send_file` / `send_data`.
+type SendOptions =
+    { Filename: string | null
+      /// `type:`; defaults to the filename's MIME type, else `application/octet-stream`.
+      ContentType: string | null
+      /// `disposition:`; null omits the header. Defaults to `attachment`.
+      Disposition: string | null
+      Status: int }
+
+module SendOptions =
+    let Default: SendOptions =
+        { Filename = null
+          ContentType = null
+          Disposition = "attachment"
+          Status = 200 }
+
+    /// `type: content_type, disposition: "inline"`
+    let Inline (contentType: string) : SendOptions =
+        { Default with
+            ContentType = contentType
+            Disposition = "inline" }
 
 /// Options for `redirect_to`.
 type RedirectOptions =
@@ -216,16 +344,16 @@ module Respond =
                     http.Response.ContentLength <- 0L
                     Task.CompletedTask)
 
-    /// `100..=199 | 204 | 205 | 304`: a bare `head` leaves the content type off these.
-    let noContent (status: int) : bool = Status.hasNoContent status
-
     /// A status that carries no body (`1xx`, `204`, `304`).
-    let noBody (status: int) : bool = Status.hasNoBody status
+    let noBody (status: int) : bool = (status >= 100 && status <= 199) || status = 204 || status = 304
+
+    /// `100..=199 | 204 | 205 | 304`: a bare `head` leaves the content type off these.
+    let noContent (status: int) : bool = noBody status || status = 205
 
     /// `head status`: no body, and unless the status has none a bare content type of the request's format.
     let head (http: HttpContext) (status: int) : HttpHandler =
         let contentType =
-            if Status.hasNoContent status then
+            if noContent status then
                 null
             else
                 match Formats.requested http with
@@ -234,7 +362,7 @@ module Respond =
         fun (http: HttpContext) ->
             http.Response.StatusCode <- status
             if not (isNull contentType) then http.Response.ContentType <- contentType
-            if not (Status.hasNoBody status) then http.Response.ContentLength <- 0L
+            if not (noBody status) then http.Response.ContentLength <- 0L
             Task.CompletedTask
 
     /// `redirect_to location` (302).

@@ -4,22 +4,7 @@
     <IsPackable>false</IsPackable>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="../Shared/Repo.fs" Link="Repo.fs" />
-    <Compile Include="../../reference-tools/kit/differential/fsharp/Operations.fs" Link="Operations.fs" />
-    <Compile Include="Helpers.fs" />
-    <Compile Include="Harness.fs" />
-    <Compile Include="FormatTests.fs" />
-    <Compile Include="ClockTests.fs" />
-    <Compile Include="ParamsTests.fs" />
-    <Compile Include="CookiesTests.fs" />
-    <Compile Include="SessionTests.fs" />
-    <Compile Include="RequestTests.fs" />
-    <Compile Include="ResponseTests.fs" />
-    <Compile Include="BodyTests.fs" />
-    <Compile Include="DeflaterTests.fs" />
-    <Compile Include="SpliceTests.fs" />
     <Compile Include="ServerTests.fs" />
-    <Compile Include="LoggingTests.fs" />
     <Compile Include="FrontHarness.fs" />
     <Compile Include="FrontConfigTests.fs" />
     <Compile Include="FrontCacheTests.fs" />
@@ -30,14 +15,6 @@
     <Compile Include="FrontTests.fs" />
     <Compile Include="RequestLogTests.fs" />
     <Compile Include="FrontAcmeIntegrationTests.fs" />
-    <Compile Include="HttpApp.fs" />
-    <Compile Include="HttpTests.fs" />
-    <Compile Include="CtxTests.fs" />
-    <Compile Include="AdapterTests.fs" />
-    <Compile Include="PerfTests.fs" />
-    <Compile Include="ParamsVectorTests.fs" />
-    <Compile Include="RailsVectorTests.fs" />
-    <Compile Include="DifferentialTests.fs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="../../src/Campfire.Kit/Campfire.Kit.fsproj" />

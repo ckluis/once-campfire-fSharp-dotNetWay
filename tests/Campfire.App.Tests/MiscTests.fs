@@ -11,20 +11,9 @@ open Campfire.App.Presenters
 open Campfire.App.Controllers
 open Campfire.App.Tests.Support
 open Campfire.Db
-open Campfire.Kit
 open Campfire.RailsCompat
 open Campfire.RailsCompat.Clock
 open Campfire.Storage
-
-// --- concerns.rs ---------------------------------------------------------------------------------------------
-
-[<Fact>]
-let ``before builders`` () =
-    let before = Before.Default |> Before.allowBotAccess |> Before.skipForgeryProtection
-    Assert.Equal(Required, before.Authentication)
-    Assert.False before.DenyBots
-    Assert.False before.ForgeryProtection
-    Assert.Equal(RequireUnauthenticated, (Before.requireUnauthenticatedAccess Before.Default).Authentication)
 
 // --- rich_text.rs --------------------------------------------------------------------------------------------
 
@@ -104,13 +93,13 @@ let ``byte ranges are not read into memory`` () =
             let range start stop = FileServer.File(path, start, stop)
 
             match ActiveStorage.partsBody [ range 10UL 199_999UL ] with
-            | Body.File body -> Assert.Equal((10L, 199_990L), (body.Offset, body.Len))
+            | Campfire.App.Web.OutgoingBody.OnDisk body -> Assert.Equal((10L, 199_990L), (body.Offset, body.Len))
             | other -> failwith $"a single range should be a file body, got {other}"
 
             let parts = [ FileServer.Bytes "<"B; range 0UL 2UL; FileServer.Bytes ">"B; range 100_000UL 170_000UL ]
             let length = ActiveStorage.partsLen parts
             match ActiveStorage.partsBody parts with
-            | Body.Stream stream ->
+            | Campfire.App.Web.OutgoingBody.Streamed stream ->
                 use stream = stream
                 use streamed = new MemoryStream()
                 do! stream.CopyToAsync streamed

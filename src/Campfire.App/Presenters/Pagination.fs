@@ -6,7 +6,6 @@ namespace Campfire.App.Presenters
 
 open System
 open System.Text
-open Campfire.Kit
 open Campfire.Ruby
 
 module Pagination =
@@ -128,16 +127,3 @@ module Pagination =
 
         /// `page.next_param`
         member _.NextParam: int64 = number + 1L
-
-        /// `set_paginated_headers` (after_action), for JSON requests: `X-Total-Count`, and a `Link`
-        /// to the next page unless this is the last one.
-        member this.ApplyHeaders(c: Ctx) : unit =
-            let json =
-                match c.Formats() with
-                | Ok(first :: _) -> first.Is "json"
-                | _ -> false
-            if json then
-                c.SetHeader("x-total-count", string recordsCount)
-                if not this.IsLast then
-                    let url = Url.withPage c.Request.Url (string this.NextParam)
-                    c.SetHeader("link", $"<{url}>; rel=\"next\"")

@@ -167,6 +167,21 @@ module FrontCache =
         | -1 -> struct (rest, "", authority)
         | q -> struct (rest.Substring(0, q), rest.Substring(q + 1), authority)
 
+    /// `/\bword\b/`
+    let hasWord (haystack: string) (word: string) : bool =
+        let isWord (c: char) = Char.IsAsciiLetterOrDigit c || c = '_'
+        let mutable found = false
+        let mutable from = 0
+        while not found && from <= haystack.Length - word.Length do
+            match haystack.IndexOf(word, from, StringComparison.Ordinal) with
+            | -1 -> from <- haystack.Length
+            | i ->
+                let beforeOk = i = 0 || not (isWord haystack[i - 1])
+                let afterOk = i + word.Length >= haystack.Length || not (isWord haystack[i + word.Length])
+                if beforeOk && afterOk then found <- true
+                from <- i + 1
+        found
+
     /// `shouldCacheRequest`: GET or HEAD, not an upgrade, not a range; and (unlike Thruster) not a
     /// very long URI. `uriLength` is the length of the path and query.
     let shouldCacheRequest (meth: string) (connection: string | null) (upgrade: string | null) (range: string | null) (uriLength: int) : bool =
@@ -210,7 +225,7 @@ module FrontCache =
             ValueNone
         elif vary.Contains '*' then
             ValueNone
-        elif not (Deflater.hasWord cacheControl "public") || Deflater.hasWord cacheControl "no-cache" then
+        elif not (hasWord cacheControl "public") || hasWord cacheControl "no-cache" then
             ValueNone
         else
             let struct (sMatched, sSeconds) = maxAge cacheControl "s-max-age="

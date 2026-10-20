@@ -48,7 +48,7 @@ module BoostsByBots =
                 let baseUrl = Respond.urlFor http ""
                 let! (body: string) =
                     Data.present http (fun presenter -> MessagesJson.boostsByBotsShow (presenter.BoostJson(boost, message, baseUrl)))
-                return Pages.renderText http 201 Campfire.Kit.Response.JsonUtf8 body
+                return Pages.renderText http 201 Pages.JsonUtf8 body
             }
 
     let destroy: Web.Action =

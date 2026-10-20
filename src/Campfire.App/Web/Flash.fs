@@ -6,7 +6,7 @@
 // `flash.now`, `keep`). The `Flash` module loads it from the session and writes the survivors back; `ReturnTo` is the
 // URL a sign-in returns to. Nothing touches the session unless the request carried its cookie or is writing to it, so
 // a page that uses neither costs the store nothing.
-namespace Campfire.Kit
+namespace Campfire.App.Web
 
 open System
 open System.Collections.Generic
@@ -16,7 +16,7 @@ open Microsoft.AspNetCore.Http
 open Microsoft.AspNetCore.Http.Features
 open Campfire.RailsCompat
 
-/// Where the session lives for the request: its cookie and the keys the kit keeps in it.
+/// Where the session lives for the request: its cookie and the keys the app keeps in it.
 module SessionKeys =
     /// K6: not Rails' `_campfire_session`, so a person coming over from Rails logs no unprotect warning and Rails' cookie
     /// (and what it holds) survives a switch back.
@@ -29,9 +29,9 @@ module SessionKeys =
     [<Literal>]
     let ReturnTo = "return_to_after_authenticating"
 
-    /// `HttpContext.Items` mark: the session was written, so `Ctx.CommitSession` stores it before the response goes out.
+    /// `HttpContext.Items` mark: the session was written, so `SessionReset.commit` stores it before the response goes out.
     [<Literal>]
-    let DirtyItem = "campfire.kit.session.dirty"
+    let DirtyItem = "campfire.web.session.dirty"
 
     /// Whether the request carries the session's cookie, and so may have something stored.
     let hasCookie (http: HttpContext) : bool = http.Request.Cookies.ContainsKey CookieName

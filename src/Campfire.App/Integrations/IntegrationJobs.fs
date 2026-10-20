@@ -20,7 +20,7 @@ open Campfire.Views
 module IntegrationJobs =
     let private failure (error: DbError) : string = DbError.display error
 
-    let private kitFailure (error: Campfire.Kit.Error) : string = sprintf "%A" error
+    let private kitFailure (error: Campfire.App.Web.Error) : string = sprintf "%A" error
 
     /// `Reads.run` on a context leased for the call (an integration has no request), the failure left as a `DbError`.
     let private readEf (app: AppState) (f: Ef.CampfireDb -> 'T) : Result<'T, DbError> =

@@ -26,7 +26,7 @@
 //   reference caches fragments in Redis (`redis_cache_store`) with no `maxmemory`; this store is
 //   in the process, so it's bounded like Rails' `MemoryStore` (default `size` 32 MB), evicting the
 //   least recently used fragments. See `Campfire.Views.FragmentCache`.
-// - `CAMPFIRE_FROZEN_TIME` (`Campfire.Kit.KitClock`): pins the clock, for parity runs.
+// - `CAMPFIRE_FROZEN_TIME` (`Boot`): pins the clock, for parity runs.
 // - `CAMPFIRE_LOG`: a `Microsoft.Extensions.Logging` level (`debug`, `info`, ...) that replaces the
 //   one `RAILS_LOG_LEVEL` gives (Rust's `CAMPFIRE_LOG` is a tracing filter; see Program.fs).
 //

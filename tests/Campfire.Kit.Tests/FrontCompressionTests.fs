@@ -249,3 +249,21 @@ let ``guard vetoes user specific responses`` () =
         Assert.Equal(Some "gzip", plain.Get "content-encoding")
         do! server.Stop()
     }
+
+[<Fact>]
+let ``the crc matches the reference polynomial on every path`` () =
+    // The standard check value for "123456789".
+    Assert.Equal(0xCBF43926u, FrontCrc.crc32Update 0u (ReadOnlySpan<byte>(Encoding.ASCII.GetBytes "123456789")))
+    // The table version, which runs where the CPU has no CRC instruction, agrees with whichever runs here.
+    Assert.Equal(0xCBF43926u, FrontCrc.crc32Software 0u (ReadOnlySpan<byte>(Encoding.ASCII.GetBytes "123456789")))
+    let random = Random 7
+    for size in [ 0; 1; 7; 8; 9; 63; 64; 65; 1000; 65537 ] do
+        let data = Array.zeroCreate<byte> size
+        random.NextBytes data
+        Assert.Equal(FrontCrc.crc32Software 0u (ReadOnlySpan<byte> data), FrontCrc.crc32Update 0u (ReadOnlySpan<byte> data))
+        Assert.Equal(FrontCrc.crc32Software 12345u (ReadOnlySpan<byte> data), FrontCrc.crc32Update 12345u (ReadOnlySpan<byte> data))
+    // Updating in pieces equals updating at once.
+    let data = Array.init 5000 (fun i -> byte (i * 13))
+    let once = FrontCrc.crc32Update 0u (ReadOnlySpan<byte> data)
+    let pieces = FrontCrc.crc32Update (FrontCrc.crc32Update 0u (ReadOnlySpan<byte>(data, 0, 1234))) (ReadOnlySpan<byte>(data, 1234, 3766))
+    Assert.Equal(once, pieces)

@@ -1,7 +1,6 @@
 // plans/design-kit-auth.md section 4, unit 2.9 (Web/Native.fs): what every response of a Web action has.
 //
-// `Ctx.Finish` gave the legacy actions `action_dispatch.default_headers`, a default `Content-Type` and
-// `Cache-Control`, and `Rack::ETag`'s digest. A Web action's response gets the first three as the response starts
+// A Web action's response gets `action_dispatch.default_headers`, a default `Content-Type` and `Cache-Control` as the response starts
 // (`OnStarting`, only where the action did not set them), and no digest (K14: the same DOM, pixels and data; hashing every
 // body is cost for no visible effect). An error does not pass through here: `PublicExceptions` is Rails' middleware, which
 // writes its own headers. The default `Cache-Control` is Rails' for a page with a body (`max-age=0, private,
@@ -30,10 +29,10 @@ module Native =
             | :? HttpContext as http ->
                 let response = http.Response
                 let headers = response.Headers
-                let kit = http.RequestServices.GetRequiredService<Campfire.Kit.Kit>()
+                let edge = http.RequestServices.GetRequiredService<EdgeConfig>()
                 let live = isLive http
                 if not live then
-                    for (name, value) in kit.Config.DefaultHeaders do
+                    for (name, value) in edge.DefaultHeaders do
                         if not (headers.ContainsKey name) then headers.Append(name, value)
                 let status = response.StatusCode
                 if not (headers.ContainsKey HeaderNames.ContentType) && not (Respond.noContent status) then

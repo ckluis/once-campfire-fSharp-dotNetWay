@@ -10,7 +10,6 @@ open Microsoft.Extensions.DependencyInjection
 open Xunit
 open Campfire.App.Tests.Support
 open Campfire.App.Web
-open Campfire.Kit
 open Campfire.RailsCompat
 
 let private davidSessionId = 481019661L
@@ -137,7 +136,7 @@ let ``A4 padding is percent-encoded on the wire both ways`` () =
         let wire = cookieValue header
         Assert.True(wire.Contains "%3D%3D--", header)
         Assert.DoesNotContain("=", wire)
-        Assert.Equal(CookieJar.escape (Uri.UnescapeDataString wire), wire)
+        Assert.Equal(Cookies.escape (Uri.UnescapeDataString wire), wire)
         Assert.Equal(Some "not-a-session-token", Cookies.verifySigned test.App.Secrets "session_token" (Uri.UnescapeDataString wire) DateTimeOffset.UtcNow)
         // In: the forged vector's cookie arrives with `%3D%3D`; its signature is valid, and it is the lookup that refuses it.
         let _, _, forged = sessionVectors ()
@@ -254,7 +253,7 @@ let ``A8 a session whose user is gone is not signed in`` () =
                 "INSERT INTO sessions (user_id, token, ip_address, user_agent, last_active_at, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)"
                 [ box 999999999L; box token; box "127.0.0.1"; box "Test"; box now; box now; box now ])
         let signed = Cookies.sign test.App.Secrets "session_token" token (Some(Cookies.permanentExpiresAt DateTimeOffset.UtcNow))
-        let! reply = test.Send(getWithCookie "/account/edit" $"session_token={CookieJar.escape signed}")
+        let! reply = test.Send(getWithCookie "/account/edit" $"session_token={Cookies.escape signed}")
         Assert.Equal(302, reply.Status)
         Assert.Equal(Some "http://campfire.test/session/new", reply.Location)
     }

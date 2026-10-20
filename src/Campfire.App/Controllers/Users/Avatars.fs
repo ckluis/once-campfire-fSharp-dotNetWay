@@ -12,7 +12,6 @@ open FsToolkit.ErrorHandling
 open Microsoft.AspNetCore.Http
 open Campfire.Views
 open Campfire.Assets
-open Campfire.Kit
 open Campfire.App
 open Campfire.App.Presenters
 open Campfire.Db
@@ -57,7 +56,6 @@ module Avatars =
     /// `avatar.variant(:square).processed if avatar.variable?` (`resize_to_limit: [512, 512], format: :webp`).
     let private avatarVariant (http: HttpContext) (user: User) : Task<Result<Campfire.Storage.Blob option, Web.Error>> =
         AttachmentWrites.processedVariant (Data.app http) (Record.user user.Id) "avatar" (Variation.resizeToLimit 512L 512L (Some "webp"))
-        |> Task.map (Result.mapError Legacy)
 
     let private assetDirectory = lazy (Directory.CreateTempSubdirectory "campfire-assets-")
 

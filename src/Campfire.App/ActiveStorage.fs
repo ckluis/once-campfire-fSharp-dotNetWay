@@ -23,7 +23,7 @@ open System.Threading.Tasks
 open Microsoft.EntityFrameworkCore
 open Campfire.RailsCompat
 open Campfire.Ruby
-open Campfire.Kit
+open Campfire.App.Web
 open Campfire.App.Presenters
 open Campfire.Db
 open Campfire.Storage
@@ -120,12 +120,12 @@ module ActiveStorage =
 
     /// The body for byte ranges of files and the bytes between them: a single range is sent as a
     /// file body and several are streamed, so neither is read into memory up front.
-    let partsBody (parts: BodyPart list) : Body =
+    let partsBody (parts: BodyPart list) : OutgoingBody =
         match parts with
-        | [ File(path, start, stop) ] -> Body.File { Path = path; Offset = int64 start; Len = int64 (stop - start + 1UL) }
-        | [ Bytes bytes ] -> Body.Bytes(ReadOnlyMemory<byte> bytes)
-        | [] -> Body.Empty
-        | parts -> Body.Stream(new PartsStream(parts))
+        | [ File(path, start, stop) ] -> OutgoingBody.OnDisk { Path = path; Offset = int64 start; Len = int64 (stop - start + 1UL) }
+        | [ Bytes bytes ] -> OutgoingBody.InMemory(ReadOnlyMemory<byte> bytes)
+        | [] -> OutgoingBody.NoBody
+        | parts -> OutgoingBody.Streamed(new PartsStream(parts))
 
     let partsLen (parts: BodyPart list) : uint64 =
         parts

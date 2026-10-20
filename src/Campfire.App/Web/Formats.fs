@@ -132,6 +132,15 @@ module Formats =
         let compact = String(accept.ToCharArray() |> Array.filter (fun c -> not (Char.IsWhiteSpace c)))
         compact.Contains(",*/*", StringComparison.Ordinal) || compact.Contains("*/*,", StringComparison.Ordinal)
 
+    /// `valid_accept_header`: the `Accept` header (or an XHR's content type) is what names the format.
+    let private validAcceptHeader (request: HttpRequest) : bool =
+        let accept = request.Headers.Accept.ToString().Trim()
+        let xhr = String.Equals(request.Headers["X-Requested-With"].ToString(), "XMLHttpRequest", StringComparison.OrdinalIgnoreCase)
+        (xhr && (accept <> "" || not (String.IsNullOrEmpty request.ContentType))) || (accept <> "" && not (browserLike accept))
+
+    /// `request.should_apply_vary_header?`: the format came from the `Accept` header, not a format parameter.
+    let shouldApplyVary (http: HttpContext) : bool = isNull (Params.value http "format") && validAcceptHeader http.Request
+
     /// `request.formats`: what the request asks for, most wanted first.
     let requested (http: HttpContext) : Result<Format list, Error> =
         let request = http.Request
@@ -139,8 +148,7 @@ module Formats =
         let xhr = String.Equals(request.Headers["X-Requested-With"].ToString(), "XMLHttpRequest", StringComparison.OrdinalIgnoreCase)
         match Params.value http "format" with
         | null ->
-            let valid = (xhr && (accept <> "" || not (String.IsNullOrEmpty request.ContentType))) || (accept <> "" && not (browserLike accept))
-            if valid then
+            if validAcceptHeader request then
                 if accept = "" then
                     match request.ContentType with
                     | null -> Ok []

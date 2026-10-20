@@ -7,7 +7,6 @@ open System.Text.Json
 open System.Text.RegularExpressions
 open Xunit
 open Campfire.App
-open Campfire.Kit
 open Campfire.Tests
 
 type private RailsRoute =
@@ -68,11 +67,8 @@ let ``the table is rails routes in order`` () =
     Assert.Equal(177, ours.Length)
 
 /// Params of a recognized route as strings, without `controller` and `action`.
-let private paramStrings (pathParams: ParamMap) : Map<string, string> =
-    Map.ofList
-        [ for struct (k, v) in pathParams.Iter do
-              if k <> "controller" && k <> "action" then
-                  k, (match v.AsStr with null -> failwith "a path param is a string" | s -> s) ]
+let private paramStrings (pathParams: (string * string)[]) : Map<string, string> =
+    Map.ofList [ for (k, v) in pathParams do if k <> "controller" && k <> "action" then k, v ]
 
 [<Fact>]
 let ``recognizes paths like rails`` () =
@@ -89,11 +85,11 @@ let ``recognizes paths like rails`` () =
         | None, Ok(Some(route, _)) -> Assert.True(List.contains route.Controller missingControllers, $"{label} matched {route.Endpoint}")
         | None, Ok None -> ()
         | Some endpoint, Ok None -> failwith $"{label} should be {endpoint}"
-        | _, Error e -> failwith $"{label}: {Error.display e}"
+        | _, Result.Error e -> failwith $"{label}: {Campfire.App.Web.Errors.display e}"
 
 /// Recognition the straightforward way: try the verb's routes in table order and take the first whose
 /// regex matches. `recognize` must agree with it on every path.
-let private recognizeByScanning (meth: string) (path: string) : Result<(Route * ParamMap) option, Error> =
+let private recognizeByScanning (meth: string) (path: string) : Result<(Route * (string * string)[]) option, Campfire.App.Web.Error> =
     let verb = if meth = "HEAD" then "GET" else meth
     let mutable found = None
     for route in RouteTable.routes.Value do
@@ -107,14 +103,14 @@ let private recognizeByScanning (meth: string) (path: string) : Result<(Route * 
 /// The matched row's index and params, or the error, in a form that compares.
 type private Outcome = Result<(int * (string * string) list) option, string>
 
-let private outcome (recognized: Result<(Route * ParamMap) option, Error>) : Outcome =
+let private outcome (recognized: Result<(Route * (string * string)[]) option, Campfire.App.Web.Error>) : Outcome =
     match recognized with
     | Ok(Some(route, pathParams)) ->
         let row = RouteTable.routes.Value |> Array.findIndex (fun r -> obj.ReferenceEquals(r, route))
-        let pairs = [ for struct (k, v) in pathParams.Iter -> k, (match v.ToS() with null -> "" | text -> text) ]
+        let pairs = List.ofArray pathParams
         Ok(Some(row, pairs))
     | Ok None -> Ok None
-    | Error e -> Error(Error.display e)
+    | Result.Error e -> Result.Error(Campfire.App.Web.Errors.display e)
 
 /// A route pattern's paths: with and without the format, and with its params filled in with ids,
 /// words, percent-escapes and raw UTF-8 (which the server passes through unescaped, and which the

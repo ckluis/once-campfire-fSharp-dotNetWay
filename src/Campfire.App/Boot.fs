@@ -2,9 +2,9 @@
 //
 // Boot: configuration, the database (`db:prepare`), storage, the cable server, jobs and the HTTP stack,
 // wired the way the reference's middleware and initializers are. `AppState` (`AppState.fs`) is what
-// controllers, channels, jobs and integrations share. Actions reach it with `c.App`.
+// controllers, channels, jobs and integrations share. Actions reach it with `Data.app`.
 //
-// Request flow (mirroring the Rails middleware order): kit's pre-routing middleware
+// Request flow (mirroring the Rails middleware order): the pre-routing middleware (`Web.Edge`)
 // (`ActionDispatch::SSL`, request id, `_method` override) -> public files
 // (`ActionDispatch::Static`, from `Campfire.Assets`) -> `UseResponseCompression` -> `/cable` (Action Cable) or the Rails route table
 // (`RouteTable.dispatch`). The `/cable` endpoint is Falco's; the route table is what Falco falls back to
@@ -37,7 +37,7 @@ open Campfire.Views
 [<NoComparison; NoEquality>]
 type Booted =
     { App: AppState
-      /// What `Front.serve` builds the app's pipeline with (the kit's `Adapter.app` and what the app puts in it).
+      /// What `Front.serve` builds the app's pipeline with (the app's `Web.Services.pipeline`).
       Pipeline: IApplicationBuilder -> unit
       /// Registers `CampfireDb`, its factory, the `WriteGate` and the `TimeProvider` (`Front.serveWithLines`'s `configureServices`).
       ConfigureServices: IServiceCollection -> unit
@@ -46,9 +46,9 @@ type Booted =
 module Boot =
     // --- The HTTP stack ----------------------------------------------------------------------------------
 
-    /// The error pages kit renders (`ActionDispatch::PublicExceptions`), from the embedded `public/`.
-    let errorPages () : ErrorPages =
-        ErrorPages.Of
+    /// The error pages the app renders (`ActionDispatch::PublicExceptions`), from the embedded `public/`.
+    let errorPages () : Web.ErrorPages =
+        Web.ErrorPages
             [ for status in [ 404; 422; 500; 502 ] do
                   match Assets.serve (Serve.StaticRequest.create "GET" $"/{status}.html") with
                   | Some page -> status, page.Body
@@ -60,9 +60,9 @@ module Boot =
         | value -> Some value
 
     /// `ActionDispatch::Static`: the public file (including digested `/assets`) a request names, as the
-    /// response the kit writes. The body is the embedded bytes themselves (never copied), and an empty
+    /// response `Web.Outgoing` writes. The body is the embedded bytes themselves (never copied), and an empty
     /// one (HEAD, 304) keeps the `Content-Length` the served headers carry.
-    let staticResponse (meth: string) (path: string) (acceptEncoding: string option) (range: string option) (ifModifiedSince: string option) : Response voption =
+    let staticResponse (meth: string) (path: string) (acceptEncoding: string option) (range: string option) (ifModifiedSince: string option) : Web.Outgoing voption =
         match
             Assets.serve
                 { Method = meth
@@ -73,15 +73,15 @@ module Boot =
         with
         | None -> ValueNone
         | Some served ->
-            let response = Response(served.Status)
-            if served.Body.IsEmpty then () else response.Body <- Body.Bytes served.Body
+            let response = Web.Outgoing(served.Status)
+            if served.Body.IsEmpty then () else response.Body <- Web.OutgoingBody.InMemory served.Body
             response.StaticFile <- true
             for (name, value) in served.Headers do
-                if HeaderMap.IsValidValue value then response.Headers.Append(name.ToLowerInvariant(), value)
+                if Web.HeaderMap.IsValidValue value then response.Headers.Append(name.ToLowerInvariant(), value)
             ValueSome response
 
     /// `ActionDispatch::Static`: serve `public/` (including digested `/assets`) before routing.
-    let publicFiles (kit: Kit) : Func<HttpContext, RequestDelegate, Task> =
+    let publicFiles : Func<HttpContext, RequestDelegate, Task> =
         Func<HttpContext, RequestDelegate, Task>(fun http next ->
             let request = http.Request
             match
@@ -92,15 +92,27 @@ module Boot =
                     (headerValue http "range")
                     (headerValue http "if-modified-since")
             with
-            | ValueSome response -> Adapter.write kit http response (request.Method = "HEAD")
+            | ValueSome response ->
+                Web.Outgoing.write ((http.RequestServices.GetRequiredService<AppState>()).Loggers.CreateLogger "campfire") http response
             | ValueNone -> next.Invoke http)
 
     /// The HTTP pipeline: public files, then `/cable`, then the Rails route table. The framework's response compression
     /// (K11) is behind the public files, which are served precompressed.
-    let pipeline (app: AppState) (kit: Kit) (builder: IApplicationBuilder) : unit =
-        Web.Services.pipeline kit (publicFiles kit) (fun http -> Campfire.Cable.Endpoint.call app.Cable http) RouteTable.dispatch builder
+    let pipeline (app: AppState) (edge: Web.EdgeConfig) (builder: IApplicationBuilder) : unit =
+        Web.Services.pipeline edge publicFiles (fun http -> Campfire.Cable.Endpoint.call app.Cable http) RouteTable.dispatch builder
 
     // --- Boot ----------------------------------------------------------------------------------------------
+
+    /// The process clock: frozen at `CAMPFIRE_FROZEN_TIME` (an RFC 3339 timestamp such as `2024-06-01T12:00:00Z`) when set, the
+    /// system clock otherwise. The parity runs pin it.
+    let private clockFromEnv () : Result<SharedClock, string> =
+        match Environment.GetEnvironmentVariable "CAMPFIRE_FROZEN_TIME" with
+        | null -> Ok(SystemClock())
+        | value when String.IsNullOrWhiteSpace value -> Ok(SystemClock())
+        | value ->
+            match Timestamps.tryParse (value.Trim()) with
+            | Some now -> Ok(TestClock.FrozenAt now)
+            | None -> Error $"CAMPFIRE_FROZEN_TIME={value} is not an RFC 3339 timestamp"
 
     /// Boots the app from `config`: prepares the database, restores the reference's boot-time side
     /// effects, and builds the HTTP stack.
@@ -113,11 +125,10 @@ module Boot =
             StoragePaths.createDirs config.Storage
             let secrets = Secrets.create config.SecretKeyBase
             let clock =
-                match KitClock.fromEnv () with
+                match clockFromEnv () with
                 | Ok clock -> clock
                 | Error message -> failwith message
 
-            let logger = loggers.CreateLogger "campfire"
             let jobs = Jobs(JobLimits.QueueCapacity, loggers.CreateLogger "campfire.jobs")
             let richText = AppRichText(secrets, clock, loggers.CreateLogger "campfire.rich_text")
             let time = Campfire.Db.Ef.ClockTimeProvider clock
@@ -148,7 +159,7 @@ module Boot =
             let deps: Deps = { DbFactory = dbFactory; Gate = gate; Env = efEnv; Secrets = secrets; Clock = clock }
             let cable = Registry.server deps cableConfig (loggers.CreateLogger "campfire.cable")
 
-            let kitConfig = { KitConfig.Production config.DisableSsl with ErrorPages = errorPages () }
+            let edge = Web.EdgeConfig.production config.DisableSsl (errorPages ())
 
             let fragmentCache = FragmentCache(int (min config.FragmentCacheBytes (int64 Int32.MaxValue)))
             // config/initializers/web_push.rb: off without a valid VAPID key pair.
@@ -160,14 +171,13 @@ module Boot =
             IntegrationJobs.registerJobs registry
             let runner = JobRunner.start jobs cable app registry config.JobConcurrency
 
-            let kit = Kit(kitConfig, secrets, clock, app, logger)
             return
                 { App = app
-                  Pipeline = pipeline app kit
+                  Pipeline = pipeline app edge
                   ConfigureServices =
                     fun services ->
                         Campfire.Db.Ef.Data.addServices services dbFactory gate time
-                        Web.Services.add kit app services
+                        Web.Services.add edge app services
                   Jobs = runner }
         }
 

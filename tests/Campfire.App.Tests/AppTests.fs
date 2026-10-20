@@ -23,7 +23,6 @@ open Campfire.App.Presenters
 open Campfire.App.Tests.Support
 open Campfire.Assets
 open Campfire.Db
-open Campfire.Kit
 open Campfire.Storage
 open Campfire.Tests
 
@@ -101,14 +100,14 @@ let ``static responses send the embedded bytes without copying them`` () =
             let expected = [ for (name, value) in served.Headers -> name.ToLowerInvariant(), value ]
             Assert.True((headers = expected), case)
             match response.Body with
-            | Body.Bytes body ->
+            | Campfire.App.Web.OutgoingBody.InMemory body ->
                 Assert.True(body.Span.SequenceEqual served.Body.Span, case)
                 // Sent from the embedded bytes themselves: the same memory, not a copy.
                 // (Several ranges, and a 416's message, are assembled into a body of their own.)
                 let multipart = served.Status = 206 && (range |> Option.exists (fun r -> r.Contains ','))
                 let borrowed = served.Status = 200 || (served.Status = 206 && not multipart)
                 if not body.IsEmpty && borrowed then Assert.True(body.Span.Overlaps served.Body.Span, $"{case}: sent from the embedded bytes")
-            | Body.Empty -> Assert.True(served.Body.IsEmpty, case)
+            | Campfire.App.Web.OutgoingBody.NoBody -> Assert.True(served.Body.IsEmpty, case)
             | other -> failwith $"{case}: a static response has a buffer body, got {other}"
 
 /// Times `staticResponse` for an identity GET of a small public file, the first stylesheet, the largest
@@ -148,48 +147,57 @@ let ``unknown and unported routes`` () =
 
 [<Fact>]
 let ``database errors answer as active record rescues them`` () =
-    Assert.Equal(404, Error.status (AppErrors.dbError (RecordNotFound "Room")))
-    Assert.Equal(500, Error.status (AppErrors.dbError (DbError.other "disk full")))
+    Assert.Equal(404, Campfire.App.Web.Errors.status (AppErrors.dbError (RecordNotFound "Room")))
+    Assert.Equal(500, Campfire.App.Web.Errors.status (AppErrors.dbError (DbError.other "disk full")))
 
     let errors = Errors.empty |> Errors.add "endpoint" "must use HTTPS"
     let invalid = AppErrors.dbError (RecordInvalid errors)
-    Assert.Equal(422, Error.status invalid)
-    Assert.Equal("422 Unprocessable Entity: Validation failed: Endpoint must use HTTPS", Error.display invalid)
+    Assert.Equal(422, Campfire.App.Web.Errors.status invalid)
+    Assert.Equal("422 Unprocessable Entity: Validation failed: Endpoint must use HTTPS", Campfire.App.Web.Errors.display invalid)
 
 /// An action behind `ApplicationController`'s chain that answers with `Current.user`.
-let private whoami (c: Ctx) : Task<Result<Response, Error>> =
-    act {
-        do! Concerns.beforeActions c Before.Default
-        let name = Concerns.currentUser c |> Option.map (fun user -> user.Name) |> Option.defaultValue ""
-        return c.Html name
-    }
+let private whoami: Campfire.App.Web.Action =
+    fun http ->
+        task {
+            match! Campfire.App.Web.Before.chain Campfire.App.Web.Before.Default http with
+            | Result.Error e -> return Result.Error e
+            | Ok() ->
+                let name = Campfire.App.Web.Current.user http |> Option.map (fun user -> user.Name) |> Option.defaultValue ""
+                return Ok(Campfire.App.Web.Pages.renderText http 200 Campfire.App.Web.Pages.HtmlUtf8 name)
+        }
 
-let private platformReply (c: Ctx) : Task<Result<Response, Error>> =
-    act {
-        let kept = (c.Current<ApplicationPlatform>()).IsSome
-        let view = ApplicationPlatform.toView (Concerns.platform c)
-        let flag = if kept then "true" else "false"
-        let text = $"{flag} \"{view.Browser}\" \"{view.OperatingSystem}\""
-        return c.Html text
-    }
+let private platformText (http: Microsoft.AspNetCore.Http.HttpContext) : Microsoft.AspNetCore.Http.HttpContext -> System.Threading.Tasks.Task =
+    let kept = (Campfire.App.Web.Current.get http).Platform.IsSome
+    let view = ApplicationPlatform.toView (Campfire.App.Web.Pages.platform http)
+    let flag = if kept then "true" else "false"
+    let text = $"{flag} \"{view.Browser}\" \"{view.OperatingSystem}\""
+    Campfire.App.Web.Pages.renderText http 200 Campfire.App.Web.Pages.HtmlUtf8 text
+
+let private platformWithoutTheChain: Campfire.App.Web.Action = fun http -> System.Threading.Tasks.Task.FromResult(Ok(platformText http))
 
 /// An action behind the chain that answers with whether `allow_browser` kept a platform, and the browser and
 /// operating system the layout sees.
-let private platformAction (c: Ctx) : Task<Result<Response, Error>> =
-    act {
-        do! Concerns.beforeActions c (Before.allowUnauthenticatedAccess Before.Default)
-        return! platformReply c
-    }
+let private platformAction: Campfire.App.Web.Action =
+    fun http ->
+        task {
+            match! Campfire.App.Web.Before.chain (Campfire.App.Web.Before.allowUnauthenticatedAccess Campfire.App.Web.Before.Default) http with
+            | Result.Error e -> return Result.Error e
+            | Ok() -> return Ok(platformText http)
+        }
 
-let private kitFor (app: AppState) : Kit = Kit(KitConfig.Production true, app.Secrets, app.Clock, app)
+let private edgeFor () : Campfire.App.Web.EdgeConfig = Campfire.App.Web.EdgeConfig.production true (Boot.errorPages ())
 
-let private whoamiPipeline (app: AppState) : Microsoft.AspNetCore.Builder.IApplicationBuilder -> unit =
-    let kit = kitFor app
-    let app = Adapter.app kit [ Adapter.route kit "/whoami" [ "GET", whoami; "POST", whoami ] ]
-    fun builder ->
-        // The sign-in redirect remembers the URL in the session (unit 2.5).
-        Microsoft.AspNetCore.Builder.SessionMiddlewareExtensions.UseSession builder |> ignore
-        app builder
+/// The app's own pipeline (`Services.pipeline`) over these test routes.
+let private routedPipeline (routes: (string * Campfire.App.Web.Action) list) : Microsoft.AspNetCore.Builder.IApplicationBuilder -> unit =
+    let edge = edgeFor ()
+    let dispatch: Campfire.App.Web.Action =
+        fun http ->
+            match routes |> List.tryFind (fun (path, _) -> path = string http.Request.Path.Value) with
+            | Some(_, action) -> action http
+            | None -> System.Threading.Tasks.Task.FromResult(Result.Error Campfire.App.Web.NotFound)
+    fun builder -> Campfire.App.Web.Services.pipeline edge (Func<Microsoft.AspNetCore.Http.HttpContext, Microsoft.AspNetCore.Http.RequestDelegate, System.Threading.Tasks.Task>(fun http next -> next.Invoke http)) (fun _ -> System.Threading.Tasks.Task.CompletedTask) dispatch builder
+
+let private whoamiPipeline = routedPipeline [ "/whoami", whoami ]
 
 [<Fact>]
 let ``a rails issued session cookie authenticates`` () =
@@ -197,7 +205,7 @@ let ``a rails issued session cookie authenticates`` () =
         use! test = bootSeeded "default"
         let sessions, _, forged = sessionVectors ()
         let session = sessions[0]
-        use! host = startPipelineWith test.Booted.ConfigureServices (whoamiPipeline test.App)
+        use! host = startPipelineWith test.Booted.ConfigureServices whoamiPipeline
 
         let! signedIn = host.Send(getWithCookie "/whoami" session.CookieHeader)
         Assert.Equal(200, signedIn.Status)
@@ -231,7 +239,7 @@ let ``the application chain blocks banned ips forgeries and old browsers`` () =
         use! test = bootSeeded "default"
         let sessions, _, _ = sessionVectors ()
         let cookie = sessions[0].CookieHeader
-        use! host = startPipelineWith test.Booted.ConfigureServices (whoamiPipeline test.App)
+        use! host = startPipelineWith test.Booted.ConfigureServices whoamiPipeline
         let post (name: string) (value: string) = (request "POST" "/whoami").With("cookie", cookie).With(name, value)
 
         // `ips.banned` in the seed's labels.
@@ -262,14 +270,10 @@ let ``the application chain blocks banned ips forgeries and old browsers`` () =
 let ``allow browser keeps the platform it parsed for the layout`` () =
     task {
         use! test = bootSeeded "default"
-        let kit = kitFor test.App
         use! host =
-            startPipelineWith test.Booted.ConfigureServices (
-                Adapter.app
-                    kit
-                    [ Adapter.route kit "/platform" [ "GET", platformAction ]
-                      Adapter.route kit "/platform/without_the_chain" [ "GET", platformReply ] ]
-            )
+            startPipelineWith
+                test.Booted.ConfigureServices
+                (routedPipeline [ "/platform", platformAction; "/platform/without_the_chain", platformWithoutTheChain ])
 
         let chrome = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"
         // Without a User-Agent to check, the layout parses the gem's default, "Mozilla/4.0 (compatible)".
@@ -434,7 +438,7 @@ let ``writes proceed while a variant is transformed`` () =
 
         released.Set()
         match! processing with
-        | Error e -> failwith (Error.display e)
+        | Error e -> failwith (Campfire.App.Web.Errors.display e)
         | Ok image ->
             Assert.True(File.Exists(Storage.pathFor app.Storage image))
             let recorded = readEf app (fun db -> Storage.existingVariant db blob variation)
@@ -540,7 +544,7 @@ let ``concurrent message posts all complete`` () =
                            WHERE u.name = {name} AND r.type = 'Rooms::Open' ORDER BY r.id LIMIT 1"""
                     )
                     |> Seq.head)
-        let roomId = (match roomId with Ok id -> id | Error e -> failwith (Error.display e))
+        let roomId = (match roomId with Ok id -> id | Error e -> failwith (Campfire.App.Web.Errors.display e))
 
         let! page = test.Send(getWithCookie $"/rooms/{roomId}" session.CookieHeader)
         Assert.Equal(200, page.Status)
@@ -695,6 +699,6 @@ let ``a request resolves the scoped CampfireDb and the TimeProvider from its Req
         let! reply = host.Send(get "/")
         Assert.Equal(200, reply.Status)
         let! users = test.App.ReadEf(fun db -> System.Linq.Queryable.Count(db.Users))
-        Assert.Equal($"{(match users with Ok n -> n | Error e -> failwith (Error.display e))} True True ClockTimeProvider", reply.Text)
+        Assert.Equal($"{(match users with Ok n -> n | Error e -> failwith (Campfire.App.Web.Errors.display e))} True True ClockTimeProvider", reply.Text)
         Assert.NotNull test.App.DbFactory
     }

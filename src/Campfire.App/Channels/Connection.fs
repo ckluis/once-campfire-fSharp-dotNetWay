@@ -9,7 +9,6 @@ open System.Threading.Tasks
 open Microsoft.Extensions.Logging
 open Campfire.Cable
 open Campfire.Db
-open Campfire.Kit
 open Campfire.RailsCompat
 open Campfire.RailsCompat.Clock
 
@@ -21,7 +20,17 @@ type SessionAuthenticator(factory: Microsoft.EntityFrameworkCore.IDbContextFacto
                   match value with
                   | null -> ()
                   | value -> value ]
-        CookieJar.FromHeaders(headers, secrets, clock).Signed "session_token"
+        // The cookie header's first `session_token`, percent-decoded as the framework's request cookies are.
+        let raw =
+            Microsoft.Net.Http.Headers.CookieHeaderValue.ParseList(ResizeArray<string>(headers))
+            |> Seq.tryFind (fun cookie -> cookie.Name.Equals("session_token", System.StringComparison.Ordinal))
+            |> Option.map (fun cookie -> System.Uri.UnescapeDataString((cookie.Value.Value |> nonNull).Replace('+', ' ')))
+        match raw with
+        | None -> null
+        | Some raw ->
+            match Cookies.verifySigned secrets "session_token" raw (clock.Now()) with
+            | Some value -> value
+            | None -> null
 
     member this.Connect(request: ConnectRequest) : Task<CableUser option> =
         task {

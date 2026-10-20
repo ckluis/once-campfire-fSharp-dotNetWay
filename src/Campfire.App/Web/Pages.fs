@@ -1,9 +1,9 @@
 // plans/design-kit-auth.md section 4, unit 2.9 (Web/Pages.fs): pages and bodies on `HttpContext`.
 //
-// What `Presenters/ViewContext.fs` and `Presenters/Page.fs` do with a `Ctx`, for a Web action: the layout's data from
+// The layout's data from
 // `Current` and the database, the `ViewContext` of this request (flash, URLs, referer), and the handlers that write a
-// rendered page: the application layout, or turbo-rails' frame layout for a Turbo-Frame request. A page is written by the
-// kit's writer (`Adapter.write`), so a page of cached fragments still goes out in parts, already compressed.
+// rendered page: the application layout, or turbo-rails' frame layout for a Turbo-Frame request. A page of cached fragments goes out in
+// parts, already compressed.
 namespace Campfire.App.Web
 
 open System
@@ -11,6 +11,7 @@ open System.Text
 open System.Threading.Tasks
 open Falco
 open Microsoft.AspNetCore.Http
+open Microsoft.AspNetCore.ResponseCompression
 open Microsoft.Extensions.DependencyInjection
 open Campfire.App
 open Campfire.App.Presenters
@@ -138,50 +139,111 @@ module Pages =
 
     // --- writing -------------------------------------------------------------------------------------
 
-    /// `request.should_apply_vary_header?`: the format came from the `Accept` header, not a format parameter.
-    let private needsVary (http: HttpContext) : bool =
-        let headers = http.Request.Headers
-        let header (name: string) : string | null =
-            match headers[name] with
-            | values when values.Count = 0 -> null
-            | values -> values.ToString()
-        let input: Campfire.Kit.Format.NegotiationInput =
-            { FormatParam = Params.value http "format"
-              Accept = header "Accept"
-              ContentType = header "Content-Type"
-              Path = http.Request.Path.Value |> nonNull
-              Xhr = String.Equals(header "X-Requested-With", "xmlhttprequest", StringComparison.OrdinalIgnoreCase) }
-        Campfire.Kit.Format.shouldApplyVaryHeader input
+    [<Literal>]
+    let HtmlUtf8 = "text/html; charset=utf-8"
 
-    /// The handler that writes a kit response with the kit's writer.
-    let write (response: Campfire.Kit.Response) : HttpHandler =
+    [<Literal>]
+    let JsonUtf8 = "application/json; charset=utf-8"
+
+    [<Literal>]
+    let TurboStreamUtf8 = "text/vnd.turbo-stream.html; charset=utf-8"
+
+    /// What a rendered response carries as its body: one buffer, or a page of cached fragments in parts.
+    type PageBody =
+        | Bytes of ReadOnlyMemory<byte>
+        | Parts of IPageParts
+
+    /// The compressed form of a page of cached fragments, kept by the page's identity (its ETag digest, which covers every byte)
+    /// and the encoding. A room page is ~400 KB of HTML that repeats from one request to the next, so compressing it afresh
+    /// (and copying it through the compression middleware's stream) was the unit 2.8 shortfall against the 5x floor; the
+    /// bytes themselves are the framework's provider's (`IResponseCompressionProvider`, gzip or Brotli at their fastest).
+    module private PageCompression =
+        let private gate = obj ()
+
+        let private kept =
+            Generations<string, byte[]>(16 * 1024 * 1024, (fun key bytes -> key.Length + bytes.Length + CacheCosts.EntryOverhead))
+
+        /// The encoding and bytes of `parts` for a request that takes compression, or nothing.
+        let compressed (http: HttpContext) (parts: IPageParts) : struct (string * byte[]) voption =
+            match http.RequestServices.GetService<IResponseCompressionProvider>() with
+            | null -> ValueNone
+            | provider ->
+                if provider.CheckRequestAcceptsCompression http && provider.ShouldCompressResponse http then
+                    match provider.GetCompressionProvider http with
+                    | null -> ValueNone
+                    | encoder ->
+                        let key = String.Concat(encoder.EncodingName, ":", parts.Etag())
+                        match lock gate (fun () -> kept.Get(key, id)) with
+                        | ValueSome bytes -> ValueSome(struct (encoder.EncodingName, bytes))
+                        | ValueNone ->
+                            let plain = System.Buffers.ArrayBufferWriter<byte>(parts.BodyLength)
+                            parts.WritePlain plain
+                            use output = new System.IO.MemoryStream()
+                            (use stream = encoder.CreateStream output
+                             stream.Write plain.WrittenSpan)
+                            let bytes = output.ToArray()
+                            lock gate (fun () -> kept.Insert(key, bytes))
+                            ValueSome(struct (encoder.EncodingName, bytes))
+                else
+                    ValueNone
+
+    /// Writes a rendered response: the status and headers, the length the host will send (known for a buffer and for parts),
+    /// and the body, which a HEAD request drops (`Rack::Head`) while keeping its `Content-Length`. Compression is the
+    /// framework's (`UseResponseCompression`); a page in parts has its compressed form kept and written already encoded.
+    let private send (status: int) (contentType: string) (headers: (string * string) list) (body: PageBody) : HttpHandler =
         fun http ->
-            let kit = http.RequestServices.GetRequiredService<Campfire.Kit.Kit>()
-            Campfire.Kit.Adapter.write kit http response (HttpMethods.IsHead http.Request.Method)
+            task {
+                let response = http.Response
+                response.StatusCode <- status
+                response.Headers.ContentType <- contentType
+                for (name, value) in headers do
+                    response.Headers.Append(name, value)
+                response.ContentLength <- Nullable(int64 (match body with Bytes bytes -> bytes.Length | Parts parts -> parts.BodyLength))
+                try
+                    if not (HttpMethods.IsHead http.Request.Method) then
+                        let compressed =
+                            match body with
+                            | Parts parts -> PageCompression.compressed http parts
+                            | Bytes _ -> ValueNone
+                        match compressed, body with
+                        | ValueSome(struct (encoding, bytes)), _ ->
+                            // Already encoded, so the compression middleware leaves it (and its `Vary`) alone.
+                            response.Headers.ContentEncoding <- encoding
+                            response.Headers.Append("Vary", "Accept-Encoding")
+                            response.ContentLength <- Nullable(int64 bytes.Length)
+                            do! response.Body.WriteAsync bytes
+                        | ValueNone, Bytes bytes -> do! response.Body.WriteAsync bytes
+                        | ValueNone, Parts parts ->
+                            parts.WritePlain response.BodyWriter
+                            let! _ = response.BodyWriter.FlushAsync().AsTask()
+                            ()
+                with
+                // The client went away; the host has nothing more to say about it.
+                | :? OperationCanceledException
+                | :? System.IO.IOException -> ()
+            }
+            :> Task
 
-    let private withVary (http: HttpContext) (response: Campfire.Kit.Response) : Campfire.Kit.Response =
-        if needsVary http then response.Header(Campfire.Kit.Hdr.Vary, "Accept") else response
+    /// The `Vary: Accept` pair of a response whose format came from the `Accept` header.
+    let private varyHeaders (http: HttpContext) : (string * string) list =
+        if Formats.shouldApplyVary http then [ "Vary", "Accept" ] else []
 
     /// A body with an explicit content type (`render json:`, `render html:`, a manifest), as the handler that writes it.
     let renderAs (http: HttpContext) (status: int) (contentType: string) (body: ReadOnlyMemory<byte>) : HttpHandler =
-        let response = Campfire.Kit.Response(status).ContentType contentType
-        response.Body <- Campfire.Kit.Body.Bytes body
-        write (withVary http response)
+        send status contentType (varyHeaders http) (Bytes body)
 
     let renderText (http: HttpContext) (status: int) (contentType: string) (body: string) : HttpHandler =
         renderAs http status contentType (ReadOnlyMemory<byte>(Encoding.UTF8.GetBytes body))
 
     /// A Turbo Stream response (`render turbo_stream:` / `index.turbo_stream.erb`).
-    let turboStream (http: HttpContext) (body: ReadOnlyMemory<byte>) : HttpHandler =
-        renderAs http 200 Campfire.Kit.Response.TurboStreamUtf8 body
+    let turboStream (http: HttpContext) (body: ReadOnlyMemory<byte>) : HttpHandler = renderAs http 200 TurboStreamUtf8 body
 
     /// `render html:`
-    let html (http: HttpContext) (body: string) : HttpHandler =
-        renderText http 200 Campfire.Kit.Response.HtmlUtf8 body
+    let html (http: HttpContext) (body: string) : HttpHandler = renderText http 200 HtmlUtf8 body
 
     /// `render json:`
     let json (http: HttpContext) (status: int) (value: Campfire.RailsCompat.Value) : HttpHandler =
-        renderAs http status Campfire.Kit.Response.JsonUtf8 (ReadOnlyMemory<byte>(Encoding.UTF8.GetBytes(Campfire.RailsCompat.Json.generate value)))
+        renderAs http status JsonUtf8 (ReadOnlyMemory<byte>(Encoding.UTF8.GetBytes(Campfire.RailsCompat.Json.generate value)))
 
     /// `set_paginated_headers` (after_action), for JSON requests: `X-Total-Count`, and a `Link` to the next page unless this is the last.
     let applyPageHeaders (http: HttpContext) (page: Pagination.Page) : unit =
@@ -197,27 +259,23 @@ module Pages =
 
     /// A recorded page (its text and the cached fragments it holds) as a response in the HTML format, spliced into parts
     /// when it holds fragments big enough for a part.
-    let private recordedAs (http: HttpContext) (status: int) (contentType: string) (page: RecordedPage) : Campfire.Kit.Response =
-        let response = Campfire.Kit.Response(status).ContentType contentType
-        if page.Fragments.Length = 0 then
-            response.Body <- Campfire.Kit.Body.Bytes(ReadOnlyMemory<byte> page.Text)
-        else
-            match FragmentGlue.splice page with
-            | Ok parts -> response.Body <- Campfire.Kit.Body.Parts parts
-            | Result.Error whole -> response.Body <- Campfire.Kit.Body.Bytes whole
-        withVary http response
-
-    let private recorded (http: HttpContext) (status: int) (page: RecordedPage) : Campfire.Kit.Response =
-        recordedAs http status $"{Campfire.Kit.Format.Html.String}; charset=utf-8" page
+    let private recordedAs (http: HttpContext) (status: int) (contentType: string) (extraHeaders: (string * string) list) (page: RecordedPage) : HttpHandler =
+        let body =
+            if page.Fragments.Length = 0 then
+                Bytes(ReadOnlyMemory<byte> page.Text)
+            else
+                match FragmentGlue.splice page with
+                | Ok parts -> Parts(parts :> IPageParts)
+                | Result.Error whole -> Bytes whole
+        send status contentType (varyHeaders http @ extraHeaders) body
 
     /// A page rendered in the application layout: plus the `Link` preload header `stylesheet_link_tag` adds.
     let private page (http: HttpContext) (status: int) (html: RecordedPage) : HttpHandler =
         let links = (ViewContextBuilder.stylesheetTags ()).PreloadLinks
-        let response = recorded http status html
-        write (response.Header("link", Assets.appendPreloadLinks "" links))
+        recordedAs http status HtmlUtf8 [ "link", Assets.appendPreloadLinks "" links ] html
 
     /// A page rendered in turbo-rails' frame layout (no stylesheets, so no `Link` header).
-    let private frame (http: HttpContext) (status: int) (html: RecordedPage) : HttpHandler = write (recorded http status html)
+    let private frame (http: HttpContext) (status: int) (html: RecordedPage) : HttpHandler = recordedAs http status HtmlUtf8 [] html
 
     /// Renders a page in the application layout without the implicit render's template lookup: an explicit
     /// `render template:` answers HTML whatever the request's format.
@@ -289,7 +347,7 @@ module Pages =
             load http
             |> Result.map (fun layout ->
                 let html = render layout http body
-                write (recordedAs http status (Formats.mimeType template + "; charset=utf-8") html))
+                recordedAs http status (Formats.mimeType template + "; charset=utf-8") [] html)
 
     // --- AllowBrowser ---------------------------------------------------------------------------------
 

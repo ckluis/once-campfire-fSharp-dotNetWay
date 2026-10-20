@@ -10,7 +10,6 @@ open Campfire.App
 open Campfire.App.Channels
 open Campfire.Assets
 open Campfire.Db
-open Campfire.Kit
 open Campfire.Views
 
 module Page =

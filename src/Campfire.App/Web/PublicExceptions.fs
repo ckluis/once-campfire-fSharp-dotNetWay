@@ -3,7 +3,7 @@
 // Rails renders a public page only for an exception (`head :forbidden` stays empty): `public/<status>.html` as it is, or for
 // another format `{ status:, error: }` as that format's body. The renderer writes straight to the response, with the
 // default headers Rails' middleware adds (and no `Cache-Control`: `Rack::ETag` digests only 200s), and the log line `ShowExceptions` writes. Statuses and messages
-// are `Campfire.Kit.Error`'s while the kit's `Ctx` lives (unit 2.13).
+// are `Errors.status` and `Errors.display`.
 namespace Campfire.App.Web
 
 open System
@@ -15,6 +15,7 @@ open Microsoft.AspNetCore.Http
 open Microsoft.Extensions.DependencyInjection
 open Microsoft.Extensions.Logging
 open Microsoft.Net.Http.Headers
+open Campfire.App
 
 module PublicExceptions =
     /// `Rack::Utils::HTTP_STATUS_CODES`.
@@ -54,17 +55,16 @@ module PublicExceptions =
         | other ->
             fun http ->
                 task {
-                    let kit = http.RequestServices.GetRequiredService<Campfire.Kit.Kit>()
-                    let kitError = Errors.toKit other
-                    let status = Campfire.Kit.Error.status kitError
-                    let logger = kit.Logger
+                    let edge = http.RequestServices.GetRequiredService<EdgeConfig>()
+                    let status = Errors.status other
+                    let logger = (http.RequestServices.GetRequiredService<AppState>()).Loggers.CreateLogger "campfire"
                     let level = if status >= 500 then LogLevel.Error else LogLevel.Information
                     if logger.IsEnabled level then
                         let path = http.Request.Path.ToString()
                         if status >= 500 then
-                            logger.LogError("request failed error={Error} path=\"{Path}\"", Campfire.Kit.Error.display kitError, path)
+                            logger.LogError("request failed error={Error} path=\"{Path}\"", Errors.display other, path)
                         else
-                            logger.LogInformation("request rejected error={Error} path=\"{Path}\"", Campfire.Kit.Error.display kitError, path)
+                            logger.LogInformation("request rejected error={Error} path=\"{Path}\"", Errors.display other, path)
                     // `request.formats.first`, `*/*` included (only `formats` failing falls back to HTML).
                     let format = match Formats.requested http with Ok(first :: _) -> Some first | _ -> None
                     let contentType = match format with Some f -> Formats.mimeType f | None -> "text/html"
@@ -77,7 +77,7 @@ module PublicExceptions =
                             | ValueSome text -> ReadOnlyMemory<byte>(Encoding.UTF8.GetBytes text)
                             | ValueNone ->
                                 // PublicExceptions answers X-Cascade: pass; ShowExceptions turns that into an empty page.
-                                match kit.ErrorPages.Get status with
+                                match edge.ErrorPages.Get status with
                                 | ValueSome html -> html
                                 | ValueNone -> ReadOnlyMemory<byte>.Empty
                     do! Respond.commit http
@@ -85,7 +85,7 @@ module PublicExceptions =
                     response.StatusCode <- status
                     response.Headers.ContentType <- $"{contentType}; charset=UTF-8"
                     response.Headers.ContentLength <- Nullable(int64 body.Length)
-                    for (name, value) in kit.Config.DefaultHeaders do
+                    for (name, value) in edge.DefaultHeaders do
                         if not (response.Headers.ContainsKey name) then response.Headers.Append(name, value)
                     // A page rendered by a middleware outside the controller carries none of the controller's headers.
                     response.Headers.Remove "x-version" |> ignore
@@ -107,6 +107,4 @@ module PublicExceptions =
                     | :? BadHttpRequestException as e -> Status e.StatusCode
                     | :? System.IO.InvalidDataException -> Status 400
                     | e -> Internal e
-            let kit = http.RequestServices.GetRequiredService<Campfire.Kit.Kit>()
-            Campfire.Kit.Adapter.abandonBody kit http
             respond error http)

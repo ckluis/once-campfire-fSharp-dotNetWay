@@ -517,7 +517,7 @@ let ``speaks h2c only when enabled`` () =
 [<Fact>]
 let ``logs each request as thruster does`` () =
     task {
-        let logs = LoggingTests.CapturingLogger()
+        let logs = CapturingLogger()
         let factory =
             { new Microsoft.Extensions.Logging.ILoggerFactory with
                 member _.CreateLogger(_: string) = logs :> Microsoft.Extensions.Logging.ILogger
@@ -552,7 +552,7 @@ let ``writes each request as one line of bytes when given a line sink`` () =
         let lines = RequestLines(output, TimeSpan.FromMilliseconds 5.0)
         let renders = Counter()
         // The logger's level still decides whether requests are logged; its own sink gets nothing when there are lines.
-        let logs = LoggingTests.CapturingLogger()
+        let logs = CapturingLogger()
         let factory =
             { new Microsoft.Extensions.Logging.ILoggerFactory with
                 member _.CreateLogger(_: string) = logs :> Microsoft.Extensions.Logging.ILogger

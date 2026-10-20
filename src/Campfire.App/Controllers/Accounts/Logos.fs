@@ -8,7 +8,6 @@ open System
 open System.Threading.Tasks
 open FsToolkit.ErrorHandling
 open Campfire.Views
-open Campfire.Kit
 open Campfire.App
 open Campfire.App.Presenters
 open Campfire.Db
@@ -52,7 +51,6 @@ module Logos =
                         | Some account ->
                             let size = if small then 192L else 512L
                             AttachmentWrites.processedVariant app (Record.account account.Id) "logo" (Variation.resizeToLimit size size (Some "png"))
-                            |> Task.map (Result.mapError Legacy)
                         | None -> Task.FromResult(Ok None)
                     match variant with
                     | Some variant ->

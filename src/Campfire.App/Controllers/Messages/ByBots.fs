@@ -98,7 +98,7 @@ module ByBots =
             let baseUrl = Respond.urlFor http ""
             let! (body: string) =
                 Data.present http (fun presenter -> MessagesJson.byBotsShow (presenter.MessageJson(message, baseUrl)))
-            return Pages.renderText http 200 Campfire.Kit.Response.JsonUtf8 body
+            return Pages.renderText http 200 Pages.JsonUtf8 body
         }
 
     let index: Web.Action =
@@ -114,7 +114,7 @@ module ByBots =
                     Data.present http (fun presenter ->
                         let jsons = messages |> List.map (fun m -> presenter.MessageJson(m, baseUrl))
                         MessagesJson.byBotsIndex jsons)
-                return Pages.renderText http 200 Campfire.Kit.Response.JsonUtf8 body
+                return Pages.renderText http 200 Pages.JsonUtf8 body
             }
 
     let create: Web.Action =

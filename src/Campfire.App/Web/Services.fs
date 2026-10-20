@@ -1,6 +1,6 @@
 // plans/design-kit-auth.md section 3 (Web/Services.fs): what Phase 2 registers, and the pipeline.
 //
-// Unit 2.1 is the seam: the services later units use are resolvable from a request (the kit and the app state, the
+// Unit 2.1 is the seam: the services later units use are resolvable from a request (the edge settings and the app state, the
 // authentication schemes, ASP.NET Core session, the framework's CSRF protection), and nothing runs them yet, so a
 // request behaves as before. Units 2.2-2.8 add the cookie scheme, the bot-key scheme, `UseSession`, the forwarded
 // headers, compression and the rest.
@@ -20,7 +20,6 @@ open Microsoft.AspNetCore.ResponseCompression
 open Microsoft.Extensions.Options
 open Microsoft.Extensions.DependencyInjection
 open Campfire.App
-open Campfire.Kit
 open Campfire.RailsCompat
 
 /// K11: `UseResponseCompression`, replacing `Rack::Deflater`.
@@ -41,7 +40,7 @@ module Compression =
         options.Providers.Add<GzipCompressionProvider>()
 
     /// The framework's provider, except that a response whose length the app already said is under `MinimumLength` is
-    /// left alone (every response the legacy writer and `Respond` send carries its `Content-Length`).
+    /// left alone (every response `Pages` and `Respond` send carries its `Content-Length`).
     type SkipSmall(inner: IResponseCompressionProvider) =
         interface IResponseCompressionProvider with
             member _.GetCompressionProvider http = inner.GetCompressionProvider http
@@ -65,10 +64,10 @@ module Services =
     let rawPath (http: HttpContext) : string = Respond.rawPath http
 
     /// Registers the app's services on the host (`Front.serveWithLines`'s `configureServices`, and the tests' hosts).
-    let add (kit: Kit) (app: AppState) (services: IServiceCollection) : unit =
+    let add (edge: EdgeConfig) (app: AppState) (services: IServiceCollection) : unit =
         AppContext.SetSwitch(SuppressAutoDefaultScheme, true)
-        services.AddSingleton<Kit>(kit) |> ignore
-        services.AddSingleton<Secrets>(kit.Secrets) |> ignore
+        services.AddSingleton<EdgeConfig>(edge) |> ignore
+        services.AddSingleton<Secrets>(app.Secrets) |> ignore
         services.AddSingleton<AppState>(app) |> ignore
         // K6: session state lives in server memory, so its keys are ephemeral too.
         services.AddDataProtection().UseEphemeralDataProtectionProvider() |> ignore
@@ -88,9 +87,9 @@ module Services =
         |> ignore
         // K10: `X-Forwarded-For/-Proto/-Host` from Rails' `TRUSTED_PROXIES` only; form limits for `_method`'s reader.
         services.Configure<Microsoft.AspNetCore.Builder.ForwardedHeadersOptions>(fun options ->
-            Adapter.configureForwardedHeaders kit.Config.Proxy options)
+            Edge.configureForwardedHeaders edge options)
         |> ignore
-        services.Configure<FormOptions>(Adapter.configureForms) |> ignore
+        services.Configure<FormOptions>(Edge.configureForms) |> ignore
         // K11: gzip and Brotli at their fastest, what Rails compresses plus Turbo's streams; a body already smaller than
         // `Compression.MinimumLength` is not worth the CPU.
         services.AddResponseCompression(Compression.configure) |> ignore
@@ -139,19 +138,19 @@ module Services =
             }
             :> System.Threading.Tasks.Task)
 
-    /// The app's branch of the host: the kit's pre-routing middleware, public files, `/cable`, then the route table
+    /// The app's branch of the host: the pre-routing middleware (`Edge`), public files, `/cable`, then the route table
     /// (`dispatch`) as Falco's not-found handler, so ASP.NET Core's own routing never rewrites a path.
-    let pipeline (kit: Kit) (publicFiles: Func<HttpContext, RequestDelegate, System.Threading.Tasks.Task>) (cable: HttpHandler) (dispatch: Campfire.App.Web.Action) (builder: IApplicationBuilder) : unit =
+    let pipeline (edge: EdgeConfig) (publicFiles: Func<HttpContext, RequestDelegate, System.Threading.Tasks.Task>) (cable: HttpHandler) (dispatch: Campfire.App.Web.Action) (builder: IApplicationBuilder) : unit =
         builder.UseExceptionHandler(ExceptionHandlerOptions(ExceptionHandler = PublicExceptions.exceptionHandler)) |> ignore
         builder.UseForwardedHeaders() |> ignore
-        builder.Use(Adapter.assumeSsl kit) |> ignore
-        builder.Use(Adapter.defaultHeaders kit) |> ignore
+        builder.Use(Edge.assumeSsl edge) |> ignore
+        builder.Use(Edge.defaultHeaders edge) |> ignore
         // K11: public files are served precompressed (`.br`/`.gz` beside them), so only what the app renders pays for it.
         builder.Use(publicFiles) |> ignore
         builder.UseResponseCompression() |> ignore
-        builder.Use(Adapter.bodyLimit kit) |> ignore
+        builder.Use(Edge.bodyLimit) |> ignore
         builder.Use(keepRawBody) |> ignore
-        Adapter.useMethodOverride kit builder
+        Edge.useMethodOverride builder
         builder.UseCookiePolicy() |> ignore
         builder.UseSession() |> ignore
         builder.UseRouting() |> ignore

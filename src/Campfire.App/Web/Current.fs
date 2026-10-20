@@ -1,6 +1,6 @@
 // plans/design-kit-auth.md section 3 (Web/Current.fs): Rails' `Current`, one per request, in `HttpContext.Features`.
 //
-// `AuthenticatedBy` is the one `Current.fs` (App) already defines, so the legacy and the Web concerns share it.
+// `AuthenticatedBy` is the one `Current.fs` (App) already defines.
 namespace Campfire.App.Web
 
 open Microsoft.AspNetCore.Http
@@ -14,7 +14,7 @@ type Current() =
     member val AuthenticatedBy = Anonymous with get, set
     member val Platform: ApplicationPlatform option = None with get, set
     /// A database failure while the cookie scheme looked the session up (the scheme can only reject; `Authentication.restore` reports it).
-    member val LookupError: Campfire.Kit.Error option = None with get, set
+    member val LookupError: Error option = None with get, set
 
 module Current =
     /// This request's `Current`, made on first use.

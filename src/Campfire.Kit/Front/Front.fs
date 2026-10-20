@@ -44,6 +44,27 @@ type internal NoLifetime() =
         member _.StopAsync(_: Threading.CancellationToken) = Task.CompletedTask
 
 module Front =
+    /// hyper's default `max_buf_size` (8192 + 4096 * 100): the most bytes of request line and headers the
+    /// Rust port reads before it answers 431.
+    let private maxRequestHead = 417_792
+    /// hyper's `MAX_URI_LEN` (414 past it), plus room for the method and ` HTTP/1.1`, since Kestrel limits
+    /// the whole request line where hyper limits the target alone.
+    let private maxRequestLine = 65_534 + "OPTIONS ".Length + " HTTP/1.1".Length
+
+    /// Settings Campfire's Kestrel needs, whatever else the host configures: no `Server` header,
+    /// the app's own body limits (413) instead of Kestrel's 30 MB, and header values written as UTF-8
+    /// the way Puma wrote them.
+    let configureKestrel (options: KestrelServerOptions) : unit =
+        options.AddServerHeader <- false
+        options.Limits.MaxRequestBodySize <- Nullable()
+        // Kestrel's 32 KB of headers and 8 KB request line refuse requests Puma (112 KB of headers, 12 KB
+        // of URI) and hyper (a 417,792-byte read buffer) serve: a browser with many cookies on a shared
+        // domain would be locked out of every page. The ceiling is hyper's, the larger of the two
+        // (`MaxRequestBufferSize` stays at its 1 MB, above both).
+        options.Limits.MaxRequestHeadersTotalSize <- maxRequestHead
+        options.Limits.MaxRequestLineSize <- maxRequestLine
+        options.ResponseHeaderEncodingSelector <- (fun _ -> System.Text.Encoding.UTF8)
+
     /// How long connections get to finish after shutdown (Thruster's `Stop`).
     let StopGrace = TimeSpan.FromSeconds 5.0
 
@@ -91,7 +112,7 @@ module Front =
             builder.Services.AddSingleton<IHostLifetime, NoLifetime>() |> ignore
             configureServices builder.Services
             builder.WebHost.ConfigureKestrel(fun (options: KestrelServerOptions) ->
-                Adapter.configureKestrel options
+                configureKestrel options
                 FrontConn.configureLimits options timeouts
                 if upstream then
                     options.Listen(config.TargetBind, config.TargetPort, fun listen -> listen.Protocols <- HttpProtocols.Http1)
