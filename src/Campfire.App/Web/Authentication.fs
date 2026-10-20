@@ -234,7 +234,9 @@ module Authentication =
             match destroyed with
             | Result.Error error -> return Result.Error(dbFailure error)
             | Ok() ->
-                do! keepingHeaders http (fun () -> http.SignOutAsync Schemes.Session)
+                // Rails' `cookies.delete(:session_token)` (`max-age=0`, no `httponly`), which the framework's
+                // `SignOutAsync` does not write; the principal is not cached past this request.
+                http.Response.Headers.Append("Set-Cookie", Campfire.Kit.CookieJar.deleteCookieHeader Schemes.SessionCookie Campfire.Kit.DeleteOptions.Default)
                 match current.User with
                 | Some user ->
                     match! Campfire.Db.Ef.Writes.run app.Gate app.Env db (fun tx -> User.resetRemoteConnections tx user) with

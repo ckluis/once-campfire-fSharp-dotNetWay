@@ -201,6 +201,9 @@ let ``A6 sign out removes the row and the cookie and leaves the user's other ses
         let deleted = out.SetCookies |> List.find (fun c -> c.StartsWith "session_token=")
         Assert.StartsWith("session_token=;", deleted)
         Assert.Contains("1970", deleted)
+        // Rails' `cookies.delete`: `max-age=0`, no `httponly` (the replay compares these attributes).
+        Assert.Contains("max-age=0", deleted.ToLowerInvariant())
+        Assert.DoesNotContain("httponly", deleted.ToLowerInvariant())
         Assert.Equal(1L, sessionCount test DAVID)
         let! after = b.Get "/account/edit"
         Assert.Equal(302, after.Status)
