@@ -82,6 +82,12 @@ specific to this port are listed below, each citing the reference file it depart
     Rust refused it. Pages carry no tokens, so open tabs keep working across a switch; after a switch back to Rails a tab
     this port rendered needs a reload. Bot-key requests skip the check, as in Rails. Reference:
     `ActionController::RequestForgeryProtection` (the `:header_only` strategy). Tested by `CsrfTests` (C1-C12).
+  - The flash and `return_to_after_authenticating` live in ASP.NET Core's session (server memory, cookie `_campfire_flash`),
+    not in Rails' encrypted `_campfire_session`, which is neither read nor written (it stays in the browser untouched, so a
+    switch back to Rails keeps it). A restart, or a switch either way in the middle of a redirect, loses a pending notice
+    or return-to URL (sign-in then lands on the root). A request with no session cookie never loads the session. `last_room`
+    is written through `Response.Cookies` (attribute order differs from Rails', class A). Reference:
+    `config/initializers/session_store.rb`. Tested by `FlashTests` (F1-F8).
   - `VAPID_SUBJECT` without a `TLS_DOMAIN` defaults to this project's URL (`https://github.com/ckluis/once-campfire-fsharp`);
     Rust's names its own. Tested by `ConfigTests` ("vapid subject defaults to the tls domain").
   - A response header whose first line is empty reaches the wire as a line of its own (the first line of a
