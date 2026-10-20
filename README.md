@@ -82,6 +82,8 @@ specific to this port are listed below, each citing the reference file it depart
     Rust refused it. Pages carry no tokens, so open tabs keep working across a switch; after a switch back to Rails a tab
     this port rendered needs a reload. Bot-key requests skip the check, as in Rails. Reference:
     `ActionController::RequestForgeryProtection` (the `:header_only` strategy). Tested by `CsrfTests` (C1-C12).
+  - The mention list (`autocompletable/users`) reads a `filter` or `query` that is a hash or array as an empty string (Rails would
+    search for the hash's `to_s`, which matches nothing either way). Reference: `app/controllers/autocompletable/users_controller.rb`.
   - The flash and `return_to_after_authenticating` live in ASP.NET Core's session (server memory, cookie `_campfire_flash`),
     not in Rails' encrypted `_campfire_session`, which is neither read nor written (it stays in the browser untouched, so a
     switch back to Rails keeps it). A restart, or a switch either way in the middle of a redirect, loses a pending notice

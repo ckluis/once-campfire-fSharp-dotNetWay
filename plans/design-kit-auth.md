@@ -86,6 +86,19 @@ makes its path absolute: `Results.File` reads a relative one under the web root,
 (the replay found the 500). A JSON `null` is read as a missing key (README, class B). Deleted as unused: `Concerns.passwordDigest`,
 `authenticateBy`, `startNewSessionFor`, `terminateCurrentSession`, `postAuthenticatingUrl`, `ensureCanAdminister`, and `Accounts.paramToS`/`stringAttribute`.
 
+Unit 2.11 (Controllers C): autocompletable, the QR code, unfurl links, searches and the Active Storage endpoints are Web actions (15 route
+rows). `Controllers/ActiveStorage.fs` holds the controllers (`ActiveStorageControllers`); `ActiveStorage.fs` keeps the media work and the
+purge job. `require_active_storage_authentication` is `Authentication.session` (the cookie scheme's `AuthenticateAsync`, the session found and
+not resumed: no `last_active_at` write) or a before-action `head 401`, as the design says. The blob endpoints keep their own CSRF check
+(`ActiveStorage::BaseController` is not `ApplicationController`), and the two proxy controllers are marked `Native.useLiveResponse`: they
+include `ActiveStorage::Streaming` (`ActionController::Live`), so Rails answers them without `default_headers`; the legacy rows gave them
+the defaults (a difference from Rails that no gate saw). The proxied file still goes out as a kit response through `Pages.write`, because
+the framework's file result refuses a header value with a line break and `?disposition=` is copied into `Content-Disposition` (the writer puts
+it on the wire as Puma does). Three smaller pieces: `Data.present` (the presenter on the request's context and host), `Params.nestedText`
+and `Params.hashJson` (a JSON number as text, a hash member as a `Value`: direct uploads' `byte_size` and `metadata`), and a 400 in
+`Params.load` for a query whose percent-escapes are not UTF-8 (`ActionDispatch::Request::Utils.check_param_encoding`; the framework's parser
+would pass U+FFFD and every Web action would answer 200: the old kit refused it, and `AppTests` caught the loss).
+
 ## 2. Spikes (scratch project, 2026-10-13, .NET SDK 10.0.401, Falco 5.2.0, the repo's `Campfire.RailsCompat`)
 
 `/private/tmp/claude-501/-Users-clank-Desktop-projects/fea4ed62-8823-4b82-bed5-fc54b6214d57/scratchpad/authspike/` (`Program.fs`,

@@ -1310,3 +1310,33 @@ Code in `d0fae99` (the controllers and the Web pieces) and `47aac9a` (what the r
 - **For later units:** 2.11 moves autocompletable (the only `ApplyHeaders` and `Layout.load` caller left besides `Page`), QR code, unfurl links, searches and the Active Storage endpoints; `Page.framedPage` and
   `Layout` can then go with the rooms/messages move in 2.12. `Native.useLiveResponse` is how a Live controller (Active Storage streaming in 2.11) is marked.
 
+
+### Phase 2, unit 2.11: Controllers C (2026-10-20)
+
+Code in `af92395` (the controllers and the Web pieces) and `14c1a93` (the Live proxies), then the docs and evidence commit. Evidence in `bench/results/dotnetway-p2-11/` (`verify.log`, `pixel.log`, `replay.log`,
+`bench/`, `control/`; image `campfire-dotnetway:app` built from `af92395`, so the pixel, replay and bench runs predate `14c1a93`, which changes only the headers of the two proxy routes).
+- **Built:** autocompletable users, the QR code, unfurl links, searches (`index`, `create`, `clear`) and the Active Storage controllers (blob and representation redirect and proxy, disk `show` and `update`, direct
+  uploads) are Web actions: 15 route rows off `Legacy.wrap`'s sibling `make`. `Controllers/ActiveStorage.fs` is the new `ActiveStorageControllers`; `ActiveStorage.fs` keeps the media work, `partsBody`/`partsLen` and the purge.
+  `require_active_storage_authentication` is `Authentication.session` (found, not resumed: test K5 checks `sessions` is not written) or a before-action `head 401`; the blob endpoints keep their CSRF check, the disk `PUT` has none (`skip_forgery_protection`).
+  New pieces: `Data.present`, `Params.nestedText` (a JSON number as text) and `Params.hashJson` (a hash member as a `Value`), and a 400 in `Params.load` for a query whose percent-escapes are not UTF-8 (Rails'
+  `check_param_encoding`; the first `bin/verify` run found the loss: `AppTests` "proxied blobs write odd dispositions" expects 400 for `?disposition=%FF` and got 200, since the framework's parser passes U+FFFD).
+- **Found and fixed on the way:** a first version sent the proxied file with `Results.File`, which refuses a `Content-Disposition` with a line break (`?disposition=x%0Ay` was a 500); the proxied file goes through the kit response writer
+  again, as before. Set-blob's bad signature and the missing session are before-action `head`s (`text/html`, no format from the `.jpg` of the path): a `Respond.head` there answered `image/jpeg`. The two proxy controllers include
+  `ActiveStorage::Streaming` (`ActionController::Live`); Rails answers them without `default_headers` (verified in the reference gem), which the legacy rows never did, so they are marked `Native.useLiveResponse` now.
+- **Tests:** K1-K6 in `tests/Campfire.App.Tests/Web/ControllersCTests.fs` (mention list: sign-in redirect, HTML and JSON, `X-Total-Count`, blank/unknown/structured `room_id`, 406; QR code: cache headers, bad base64 500, too much 422;
+  searches: record/show/clear, hash `q` 500, missing `q` 500; unfurl: missing/blank/hash `url`, cross-site 422; Active Storage writes: 401, cross-site 422, bad/missing/huge `byte_size` 422/400/413, `sessions` untouched; a direct upload
+  with a JSON number and a metadata hash, the PUT's 401/422/422/204, redirect, disk file and range, proxy whole/304/single range/multipart ranges/416/forged id/attachment, default headers on the redirect and none on the proxy).
+  The C13 `Origin: null` case Opus note 7 asked for was already in `CsrfTests`. A5's wall clock is untouched.
+- **Gates:** `CAMPFIRE_REQUIRE_SEED=1 bin/verify` (Release, warnaserror): 0 warnings, 1,088 tests, 1,082 passed, 0 failed, 6 skipped (the same 6); H1 green. `bin/pixel-parity --fast --only
+  'search/**,interactions/composer/attachment*,interactions/lightbox'`: default 18/18, custom_styles 2/2 equal on screenshots, aria and loose DOM (crowd, first_run, restricted have no such states), PASSED in 98 s.
+  `controllers_a/replay.py`: default 152 matched, 3 differed by design, 0 differed; crowd 15/0/0; first_run 11/0/0 (it covers none of this unit's rows but the avatar and logo files, and the new query check). `bin/cookie-roundtrip`
+  not rerun: the unit touches no cookie. `bin/clean-docker` and `bin/clean-parity` run.
+- **Speed (`bench/quick`, 3 reps, host 1.07-1.08):** room page 5,231/s c=16 (21.9x Rails), 1,545 c=1 (14.4x); messages page 4,947 (13.0x), 1,426 c=1 (6.54x); sidebar 5,358 (8.95x), 1,528 c=1 (**5.33x**); search 4,757 (11.7x), 1,351 c=1
+  (7.01x; it is this unit's native action); post a message 1,734 c=16 (**5.25x**), 875 c=1 (**5.24x**). Every workload over the 5x floor, all 2xx, 0 errors, rows written equal answers. Against 2.10 everything is 3-5% lower, post and
+  sidebar included, though their rows are still legacy: the same-day control (the port's image, 1 rep: sidebar 36,010 and 7,192, post c=1 2,802) ran at 95-97% of its stored medians (2.10's control ran at 94.5-99.2%), so the host is
+  slower today and the ratios are not worse by code. Thinnest: post c=1 (4.8% headroom raw; about 8% adjusted by the control), post c=16 (5.0%), sidebar c=1 (6.6%). 2.12 moves those rows to Web actions and has to find the headroom.
+- **KLOC:** `bin/kloc` 39,158 by upstream's rules, **39,377 corrected (39.4 KLOC)**, from 39,077 / 39,296 (+0.08): `Controllers/ActiveStorage.fs` and the Params/Data pieces against the shrunk controllers.
+  The `Ctx`-based `Layout`, `Page`, `Concerns` stay for the rooms and messages rows until 2.12; 2.13 deletes what is left.
+- **Differences recorded (README, class B):** the mention list reads a hash or array `filter`/`query` as an empty string.
+- **For later units:** `Data.present` replaces `MessagesController.present` for 2.12's rows (the messages controllers still call the `Ctx` one). `Page.framedPage` and `Layout.load` have no caller left but the rooms and messages
+  rows. `Native.useLiveResponse` is done for Active Storage; the `Ctx.UseLiveResponse` it replaces goes in 2.13.
