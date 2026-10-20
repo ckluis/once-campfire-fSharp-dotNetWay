@@ -101,17 +101,17 @@ module Writes =
     /// Enter the gate; `BEGIN IMMEDIATE`; body; `SaveChanges`; `COMMIT`. An exception (or `DbException`) in the body or the commit
     /// rolls back and drops the queue. Then the queue in order: events to `Env.Sink`, hooks with an after-commit `Tx` (each
     /// statement its own autocommit; a hook that tracks entities calls `SaveChanges`); a failing hook is logged, the rest run,
-    /// and the first failure is returned. The tracker is cleared and the gate left either way.
+    /// and the write still returns `Ok` (the data committed). The tracker is cleared and the gate left either way.
     let run (gate: WriteGate) (env: Env) (db: CampfireDb) (body: Tx -> 'T) : Task<Result<'T, DbError>> =
         task {
             do! gate.Enter()
+            WriteGate.SetHeld true
             try
                 let tx = Tx(db, env, true)
                 match attempt db tx body with
                 | Error error -> return Error error
                 | Ok value ->
                     let after = Tx(db, env, false)
-                    let mutable firstFailure: exn | null = null
                     for item in tx.TakeQueue() do
                         match item with
                         | Choice2Of2 event -> env.Sink.Emit event
@@ -120,15 +120,10 @@ module Writes =
                                 hook after
                             with e ->
                                 eprintfn "ERROR campfire_db: after_commit hook failed: %s" e.Message
-                                if isNull firstFailure then firstFailure <- e
-                    match firstFailure with
-                    | null -> return Ok value
-                    | failure ->
-                        return
-                            match toDbError failure with
-                            | ValueSome error -> Error error
-                            | ValueNone -> Error(Other failure)
+                    // The data committed: a failed hook was logged and does not make the write a failure.
+                    return Ok value
             finally
+                WriteGate.SetHeld false
                 db.ChangeTracker.Clear()
                 gate.Exit()
         }

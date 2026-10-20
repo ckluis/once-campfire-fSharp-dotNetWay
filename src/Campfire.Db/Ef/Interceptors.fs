@@ -9,6 +9,7 @@ open System.Threading.Tasks
 open Microsoft.Data.Sqlite
 open Microsoft.EntityFrameworkCore
 open Microsoft.EntityFrameworkCore.Diagnostics
+open Campfire.Db
 
 /// Rails' connection settings (`SQLite3Adapter#configure_connection`), once per physical connection: EF opens and closes a
 /// connection per query and Microsoft.Data.Sqlite pools the physical ones, so each handle is remembered (E10).
@@ -115,4 +116,58 @@ type RailsParameterGuard() =
 
     override _.ScalarExecutingAsync(command, _, result, _) =
         RailsParameterGuard.Check command
+        ValueTask<InterceptionResult<obj>>(result)
+
+/// The single writer, checked at run time: a statement that writes (INSERT, UPDATE, DELETE, REPLACE, CREATE, DROP, ALTER, or a CTE
+/// leading to one) is refused unless the flow holds the write gate (`Writes.run`) or is inside `WriteGate.Exempt` (boot's
+/// `Schema.prepare`). Reads and pragmas pass. Free on the write path (a flag), one prefix test per read.
+type SingleWriterGuard() =
+    inherit DbCommandInterceptor()
+
+    static let writeWords = [| "INSERT"; "UPDATE"; "DELETE"; "REPLACE"; "CREATE"; "DROP"; "ALTER"; "VACUUM"; "REINDEX" |]
+
+    static let startsWith (text: string) (start: int) (word: string) =
+        String.Compare(text, start, word, 0, word.Length, StringComparison.OrdinalIgnoreCase) = 0
+
+    static let isWrite (text: string) : bool =
+        let mutable i = 0
+        while i < text.Length && Char.IsWhiteSpace text[i] do
+            i <- i + 1
+        if i >= text.Length then false
+        else
+            match text[i] with
+            | 's' | 'S' | 'p' | 'P' -> false // SELECT, PRAGMA
+            | _ ->
+                if startsWith text i "WITH" then
+                    // A CTE may lead to a write: look for the keyword anywhere in it.
+                    writeWords |> Array.exists (fun w -> text.Contains(w, StringComparison.OrdinalIgnoreCase))
+                else
+                    writeWords |> Array.exists (startsWith text i)
+
+    static member Check(command: DbCommand) : unit =
+        if not WriteGate.MayWrite && isWrite command.CommandText then
+            invalidOp $"a write statement outside the write gate (Writes.run): {command.CommandText}"
+
+    override _.ReaderExecuting(command, _, result) =
+        SingleWriterGuard.Check command
+        result
+
+    override _.ReaderExecutingAsync(command, _, result, _) =
+        SingleWriterGuard.Check command
+        ValueTask<InterceptionResult<DbDataReader>>(result)
+
+    override _.NonQueryExecuting(command, _, result) =
+        SingleWriterGuard.Check command
+        result
+
+    override _.NonQueryExecutingAsync(command, _, result, _) =
+        SingleWriterGuard.Check command
+        ValueTask<InterceptionResult<int>>(result)
+
+    override _.ScalarExecuting(command, _, result) =
+        SingleWriterGuard.Check command
+        result
+
+    override _.ScalarExecutingAsync(command, _, result, _) =
+        SingleWriterGuard.Check command
         ValueTask<InterceptionResult<obj>>(result)

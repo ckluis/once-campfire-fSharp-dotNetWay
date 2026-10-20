@@ -161,7 +161,7 @@ let ``W3 a DbException is an Error, and a unique index violation maps to isRecor
 // W4 -------------------------------------------------------------------------------------------------------------------
 
 [<Fact>]
-let ``W4 a failing hook is logged, the later hooks run and the first error is returned`` () =
+let ``W4 a failing hook is logged, the later hooks run and the write is still Ok (the data committed)`` () =
     task {
         use rig = new Rig()
         use db = rig.Context()
@@ -173,9 +173,7 @@ let ``W4 a failing hook is logged, the later hooks run and the first error is re
                 tx.AfterCommit(fun _ -> say "second")
                 tx.AfterCommit(fun _ -> failwith "third")
                 tx.EmitAfterCommit(PurgeBlob 9L))
-        match result with
-        | Error(Other e) -> Assert.Equal("first", e.Message)
-        | other -> failwithf "%A" other
+        unwrap result
         Assert.Equal<string list>([ "second"; "event PurgeBlob 9L" ] |> List.sort, rig.Log |> List.ofSeq |> List.sort)
         // The write itself committed, and the gate is free.
         Assert.Equal(1, rig.Count())
@@ -240,4 +238,49 @@ let ``W6 16 concurrent Writes.run posts all commit, never two bodies at once, no
         Assert.Empty errors
         Assert.False overlapped.Value
         Assert.Equal(64, rig.Count())
+    }
+
+// W8 -------------------------------------------------------------------------------------------------------------------
+
+/// The guard's refusal, whether EF raised it bare or wrapped in a `DbUpdateException` (`SaveChanges`).
+let private refused (f: unit -> unit) : unit =
+    let e = Assert.ThrowsAny<exn>(f)
+    let inner = match e with :? DbUpdateException as u -> nonNull u.InnerException | other -> other
+    Assert.IsType<InvalidOperationException>(inner) |> ignore
+    Assert.Contains("outside the write gate", inner.Message)
+
+let private exempted (f: unit -> unit) : unit =
+    use _boot = WriteGate.Exempt()
+    f ()
+
+[<Fact>]
+let ``W8 a write statement outside the gate is refused; reads, Writes.run, its hooks and Exempt pass`` () =
+    task {
+        use rig = new Rig()
+        use db = rig.Context()
+        let insert (c: CampfireDb) (n: int64) =
+            c.Database.ExecuteSql($"INSERT INTO action_text_rich_texts (name, record_type, record_id, created_at, updated_at) VALUES ('body', 'T', {n}, '2020-01-01 00:00:00', '2020-01-01 00:00:00')") |> ignore
+        // A stray write fails, whichever route it takes, and nothing is written.
+        refused (fun () -> insert db 1L)
+        refused (fun () -> Data.insert db (rig.Row 2L) |> ignore)
+        refused (fun () -> db.RichTexts.Where(fun r -> r.RecordId = 1L).ExecuteDelete() |> ignore)
+        // (A refused SaveChanges leaves its entity tracked; drop it, or the next write would save it.)
+        db.ChangeTracker.Clear()
+        Assert.Equal(0, rig.Count())
+        // Reads and pragmas are not writes.
+        Assert.Equal(0, db.RichTexts.Count())
+        db.Database.ExecuteSql($"PRAGMA wal_checkpoint(PASSIVE)") |> ignore
+        // The boot exemption: allowed inside, refused again after it.
+        exempted (fun () -> insert db 3L)
+        refused (fun () -> insert db 4L)
+        // Writes.run: the body and an after-commit hook (its own autocommit) may write; the flag ends with the run.
+        let! result =
+            Writes.run rig.Gate rig.Env db (fun tx ->
+                insert tx.Db 5L
+                tx.AfterCommit(fun after -> insert after.Db 6L))
+        unwrap result
+        Assert.Equal(3, rig.Count())
+        Assert.False WriteGate.MayWrite
+        refused (fun () -> insert db 7L)
+        Assert.Equal(3, rig.Count())
     }

@@ -19,6 +19,8 @@ type private Probe = { Wanted: int64 }
 let private counting (dir: TempDir) : CampfireDb * (unit -> int) =
     let path = dir.File "linq.sqlite3"
     Schema.prepareFile path "production" TimeProvider.System |> ignore
+    // Test setup writes straight through the context, outside any Writes.run: exempt this test's flow (never disposed; it ends with the test).
+    WriteGate.Exempt() |> ignore
     let compilations = ref 0
     let options =
         Data.options path TimeProvider.System (fun b ->

@@ -33,6 +33,8 @@ let private freshDatabase (dir: TempDir) (name: string) : string =
     path
 
 let private contextOver (path: string) (time: TimeProvider) : CampfireDb =
+    // Test setup writes straight through the context, outside any Writes.run: exempt this test's flow (never disposed; it ends with the test).
+    WriteGate.Exempt() |> ignore
     (Data.factory (Data.options path time ignore)).CreateDbContext()
 
 let private withSeedCopy (name: string) (f: string -> TempDir -> unit) : unit =

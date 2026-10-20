@@ -42,6 +42,8 @@ CREATE UNIQUE INDEX index_active_storage_variant_records_uniqueness ON active_st
         inherit CampfireDb(options)
 
         static member Open() : TestDb =
+            // Test setup writes straight through the context, outside any Writes.run: exempt this test's flow (never disposed).
+            Campfire.Db.WriteGate.Exempt() |> ignore
             let dir = TempDir.Create()
             let path = Path.Combine(dir.Path, "test.sqlite3")
             do

@@ -101,6 +101,7 @@ let private loadSchema (db: Ef.CampfireDb) (environment: string) (time: TimeProv
 /// migrations is an error (boot the Rails image once to migrate it). Then adds `additions`. Never `EnsureCreated` or `Migrate`:
 /// Rails owns the schema. Not a write of the app's: it runs at boot, before anything else holds the file.
 let prepare (db: Ef.CampfireDb) (environment: string) (time: TimeProvider) : Prepared =
+    use _boot = WriteGate.Exempt()
     let prepared =
         if tableExists db "schema_migrations" then
             match pendingMigrations db with
