@@ -1,0 +1,30 @@
+candidate: reference :4111 vs candidate :4112 (seed default, clock frozen at 2026-03-02T16:00:00Z)
+26 cells (18 on shared servers, 8 on fresh servers in 3 slots) × 2 targets, 4 workers
+[1/26] auth/sign_in @ chromium-desktop-light fail
+[2/26] auth/sign_in @ chromium-phone-light fail
+[3/26] auth/sign_in/error @ chromium-phone-light fail
+[4/26] auth/sign_in/banned_ip @ chromium-desktop-light fail
+[5/26] auth/sign_in/banned_ip @ chromium-phone-light fail
+[6/26] auth/join @ chromium-desktop-light fail
+[7/26] auth/sign_in/error @ chromium-desktop-light fail
+[8/26] auth/join @ chromium-phone-light fail
+[9/26] auth/join/invalid_code @ chromium-desktop-light fail
+[10/26] auth/sign_in/rate_limited @ chromium-phone-light fail
+[11/26] auth/join/invalid_code @ chromium-phone-light fail
+[12/26] auth/join/completed @ chromium-desktop-light fail
+[13/26] auth/join/existing_email @ chromium-desktop-light fail
+[14/26] auth/transfer/valid @ chromium-desktop-light fail
+[15/26] auth/join/completed @ chromium-phone-light fail
+[16/26] auth/sign_in/rate_limited @ chromium-desktop-light error: not ready after 30000ms at http://localhost:3999/session/new: network: 5 in flight; settling [GET http://localhost:3999/assets/composer-e490638a.css, GET http://localhost:3999/assets/embeds-c20d0a3a.css, GET http://localhost:3999/assets/filters-8a4d63ed.css, GET http://localhost:3999/assets/flash-a561c1e5.css, GET http://localhost:3999/assets/inputs-9e58a07c.css]
+[17/26] auth/transfer/expired @ chromium-desktop-light fail
+[18/26] auth/transfer/valid @ chromium-phone-light fail
+[19/26] auth/transfer/expired @ chromium-phone-light fail
+[20/26] auth/join/existing_email @ chromium-phone-light fail
+[21/26] auth/signed_out_redirect @ chromium-desktop-light fail
+[22/26] auth/signed_out_redirect @ chromium-phone-light fail
+[23/26] auth/incompatible_browser @ chromium-desktop-light fail
+[24/26] auth/incompatible_browser @ chromium-phone-light fail
+[25/26] auth/incompatible_browser/apple_messages @ chromium-desktop-light fail
+[26/26] auth/incompatible_browser/apple_messages @ chromium-phone-light fail
+26 cells: 0 pass (0 flaky), 25 fail, 0 allowed, 1 error in 118.9s
+report: /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/parity/out/p410gate-auth/default/report.html

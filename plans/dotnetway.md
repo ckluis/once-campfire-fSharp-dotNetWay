@@ -2184,3 +2184,76 @@ Built on `dotnetway` from `d8575fc`, one commit (`beba312`) plus this entry.
 - **Next:** 4.10 Layouts (layout first, then collapse the page modules; the checkpoint notes: `Trusted.ofAssetTags` as one string, a Turbo-Frame request renders only head and content,
   custom styles only through `Trusted.ofAccountStyles` with the hostile-CSS test, `--fast` on every state, the five-workload bench).
 
+
+### Phase 4, unit 4.10: layouts
+
+Built on `dotnetway` from `77838a9`, two code commits (`87157d4` the layouts, `7fadcde` one template the gate found) plus this entry. Done in one pass: the layout and the
+collapse of the page modules are both in, because the page modules already returned `ViewPage` (`rendered`) after 4.4-4.9, so the "collapse" was the deletion of what stood
+behind it, not a rewrite.
+
+- **Layouts** (`Templates/Layouts/Application.fs`, `_Lightbox.fs`, `TurboRails/Frame.fs`, `Layouts.fs`): `Layouts.application ctx regions` is the application layout (`HtmlOutput.ofDocument`, so
+  `<!DOCTYPE html>`), `Layouts.frame regions` turbo-rails' frame layout (`ofNode`, no doctype, **only `Head` and `Content`**: nothing else is built or rendered for a Turbo-Frame request,
+  where `Legacy.inLayout` rendered every region and dropped three), `Layouts.page ctx framed viewPage` picks one; `Layouts.ViewPage.content nodes fragments` is a content-only template.
+  The head's tags are Falco nodes; the stylesheet and import map tags are one `Html.Trusted` each (`ViewContext.StylesheetTags`/`ImportmapTags` are `Html.Trusted` now, made once per
+  process by `ViewContextBuilder.stylesheetTrusted`/`importmapTrusted`, the only file the lint allows `Trusted.ofAssetTags` in), so a page writes two strings, not 30 link nodes (S4).
+  New in `Markup.Application`: `pageTitleTag`, `currentUserMetaTags`, `scriptAwareActionCableMetaTag`, `customStylesTag`, `bodyClasses`.
+- **Deleted:** `Core/Legacy.fs` (`inLayout`, `write`, `node`: the seam had no writer template left on either side, so it goes now rather than in 4.11) and `Trusted.ofLegacy`,
+  `Templates/Layouts/ApplicationWrapper.fs`, the writer's `Layouts.Application`/`Layouts.frame`, `RenderSize`, the writer's layout helpers in `Helpers/Application.fs`
+  (`pageTitleTag`, `currentUserMetaTags`, `scriptAwareActionCableMetaTag`, `customStylesTag`, `writeBodyClasses`, `bodyClasses`), `Pages.framedPage`/`content`/
+  `contentInApplicationLayout`. `Pages`: `page` (lookup, frame choice), `pageInAnyFormat` (no lookup), `pageInApplicationLayout` and `applicationPageInAnyFormat`
+  (`MessagesController`'s own layout, and the incompatible-browser filter there), `bare`. The six controllers that placed a content-only template through the writer now return
+  `Layouts.ViewPage.content`.
+- **Custom styles:** only `Trusted.ofAccountStyles`, called only in `Markup/Application.fs`. **Known difference (new, for the README in 4.11):** it writes a `</style` (any case) as `<\/style`.
+  Rails writes the account's CSS `html_safe`, so a `</style>` typed into the custom styles ends the element and the rest is markup; CSS has no use for the sequence and the account's
+  own pages are the only place it would show, but the 4.10 checkpoint asks that hostile CSS lands inside the element, so it does. U+E000 stays a CSS escape (`\E000 `, 4.1).
+- **Whitespace** (pixel-parity's and the oracle's loose layers found each; the browser did not): a space at both edges of each region the ERB puts on a line of its own (nav, content,
+  footer, sidebar, and the head's end, the frame body's both edges), because the oracle's cases put text there; three spaces in the lightbox (between the image, the form and the two
+  links and the button), the last found by `sessions_transfer`, whose open form makes the parser drop the lightbox's own form; the editor `template` of the mention prompt item has a space on
+  each side of the mention (`autocompletable/users/_prompt_item`, a 4.5 template: the live DOM after a mention is inserted lacked the trailing one, found by
+  `interactions/mention_autocomplete/inserted`, which no unit since 4.5 had run).
+- **Tests:** `LayoutsTests.fs` (5): O3 (the frame layout holds exactly `Head` and `Content` as a DOM, no doctype, no nav/footer/aside/dialog; the application layout starts `<!DOCTYPE html>`
+  and holds every region, the lightbox and the logo), fragments stay fragments and are checked in both layouts, the asset tags are written as given in order, **hostile custom styles**
+  (`</style><script>alert(1)</script><STYLE>`, `<`, U+E000 and a forged `<` U+E000 `0>` slot: one `style` element holds all of it, no script, no throw), and a flash is text in the live region.
+  `HelpersTests` body classes, `HtmlOutputTests` O4 (both layouts), `HtmlTests` re-pointed; the oracle runner (`Operations.fs`, `Pages.fs`, `Inputs.fs`) answers the layout ops through the Falco
+  layouts (`layouts/application_wrapper` as regions of trusted parts; `recorded/page` as fragments in a page, offsets no longer compared: they were the writer's). Deleted tests: the
+  writer's pooled-buffer and `RenderSize` tests, the frame-layout writer test, the wrapper test. Every page golden (`golden/a`, `golden/b`) and all 1,106 oracle cases are loose-equal in full,
+  head included.
+- **Gates run:** `lint-markup` self-test ok (27 planted files), lint clean (227 files; the `ofAssetTags` allowlist is now `Presenters/ViewContext.fs`, `ofLegacy` is gone);
+  `CAMPFIRE_REQUIRE_SEED=1 bin/verify` on `7fadcde`: **994 total, 988 passed, 6 skipped (the same environmental 6), 0 failed**, H1 green (`verify.log`).
+  **Lean `--fast` pixel gate on every state** (`pixel-driver.sh`: the 25 slices of the Phase 3 gate, all seeds per slice, `realtime/**` one state at a time, Chromium, light, no breakpoint
+  sweep): **401 cells, every one equal on screenshots, aria and loose DOM** (default 361, crowd 12, custom_styles 16, first_run 8, restricted 4). The first run, on the image of `87157d4`,
+  had one slice red: `interactions` 77/79 loose (`interactions/mention_autocomplete/inserted`, both viewports, one missing `" "`); fixed in `7fadcde`, the image rebuilt, and `interactions`
+  re-run on it, 79/79 on all three layers, `autocompletable` (fragment states, 0 cells) again. The other 23 slices ran on the image of `87157d4`; `7fadcde` changes one template that only the
+  mention prompt reaches. The full lean matrix (all engines, dark, breakpoints) is the Phase 4 gate's, not this unit's. `bin/clean-parity` after each slice, `bin/clean-docker` after the builds;
+  20-24 GB free throughout.
+- **Speed (`bench/quick`, 3 reps each, new image `7fadcde` against a same-session control, the 4.9 code `beba312` as `campfire-dotnetway:p410ctl`, interleaved new/ctl/ctl/new/new/ctl; host probe
+  1.04-1.08 before and after, 0/10 windows above 1.10 in every rep of both, load 1.15-1.46 before):**
+
+| workload | c | new req/s | control req/s | x Rails (new) | x Rails (control) | CPU us/req new -> control |
+|---|---:|---:|---:|---:|---:|---|
+| room page | 16 | 7,354 | 7,808 | 30.7x | 32.6x | 440.8 -> 429.2 |
+| room page | 1 | 2,515 | 2,506 | 23.5x | 23.4x | 493.5 -> 495.9 |
+| messages page | 16 | 7,331 | 7,534 | 19.3x | 19.8x | 455.3 -> 450.6 |
+| messages page | 1 | 2,308 | 2,318 | 10.6x | 10.6x | 529.9 -> 527.4 |
+| sidebar | 16 | 7,599 | 7,999 | 12.7x | 13.4x | 429.4 -> 423.0 |
+| sidebar | 1 | 2,447 | 2,445 | 8.54x | 8.53x | 503.1 -> 503.3 |
+| search | 16 | 6,993 | 7,207 | 17.1x | 17.7x | 482.6 -> 474.2 |
+| search | 1 | 2,204 | 2,205 | 11.4x | 11.4x | 548.8 -> 546.4 |
+| post a message | 16 | 2,041 | 2,060 | 6.18x | 6.24x | 1,458.5 -> 1,455.6 |
+| post a message | 1 | 1,145 | 1,160 | 6.86x | 6.95x | 1,637.5 -> 1,634.2 |
+
+  **No cell under 5x** (thinnest: post c=16 6.18x, post c=1 6.86x, sidebar c=1 8.54x), all 2xx with 0 connection errors in 30 runs. The c=1 cells are within -1.3% to +0.1% of the control; the c=16
+  cells are 1% to 6% lower (room page -5.8%, sidebar -5.0%, search -3.0%, messages -2.7%, post -0.9%) at +0.7% to +2.7% CPU per request: the new layout is built and rendered as
+  nodes on every page (about 15 us of nodes and attributes, S4's 16.8 us less the link nodes), where the writer's was literal text, and a Turbo-Frame request now renders less. At c=16 the
+  control's own reps spread 3-4% (room page 7,507-7,843), so the c=16 differences are about as large as the noise; the CPU column, which is steadier, says +1% to +3%. Nothing needed fixing against the
+  floor. `bench/quick`'s "decoded bytes equal Rust's" check prints FAIL for the room page (376,570), messages page (345,884), sidebar (29,710) and search (136,633) on purpose and exits 1; 4.11 replaces it.
+- **Differences recorded:** one new class-A/B item for the README in 4.11: custom CSS with a `</style` is written `<\/style` (above). Class A as before: attribute and text escaping of non-ASCII is Falco's
+  (`&#233;`), the layout has no indentation, and the frame layout's `Content-Length` changes with it.
+- **KLOC:** `bin/kloc` 34,317 by upstream's rules, **34,536 corrected (34.5 KLOC)**, from 34,665 (-129): `Campfire.Views` 6,032 corrected from 6,131 (-99: the writer's layout and lightbox as literal
+  tables, `Legacy.fs`, `RenderSize`, the writer's layout helpers, against the Falco layout), App 11,710 from 11,740 (-30: `Pages.fs`' three writer entry points). The rest of the drop is 4.11's
+  (the writer, `Out.fs`, `Tag.fs`, `Filters.fs` and the writer halves of the `Helpers/`); the design's 3.40 KLOC for the view layer is judged there.
+- Evidence: `bench/results/dotnetway-4-10/` (`verify.log`, `build.sh`, `build.log`, `pixel-driver.sh`, `pixels/` (a log and `report.json` per slice, `interactions-rerun/`), `bench.sh`, `quick/`
+  (`compare-new.txt`, `compare-ctl.txt`, `bench-*.log`, one JSON per rep)).
+- **Next:** 4.11 Delete (`Core/Out.fs`, `Helpers/Tag.fs`, `Filters.fs`, the writer halves, `bin/views-differential` and the tools, `OutTests`/`TagTests`/`FormsTests`, AGENTS.md's view rules and README
+  "Known differences" including the `</style` item; replace `bench/quick`'s decoded-bytes check with a stored size per route; `bin/views-differential bench` goes with the tool; KLOC against the design's
+  3.40; the `Phase 5` note: whatever replaces the sanitizer keeps escaping `<` in attribute values or keeps the U+E000 rewrite in `ofSanitized`).
