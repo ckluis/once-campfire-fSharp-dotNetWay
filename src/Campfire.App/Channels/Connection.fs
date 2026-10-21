@@ -6,6 +6,7 @@
 namespace Campfire.App.Channels
 
 open System.Threading.Tasks
+open Microsoft.AspNetCore.Http
 open Microsoft.Extensions.Logging
 open Campfire.Cable
 open Campfire.Db
@@ -14,9 +15,9 @@ open Campfire.RailsCompat.Clock
 
 type SessionAuthenticator(factory: Microsoft.EntityFrameworkCore.IDbContextFactory<Campfire.Db.Ef.CampfireDb>, secrets: Secrets, clock: SharedClock, logger: ILogger) =
     /// `cookies.signed[:session_token]`.
-    member private _.SessionToken(request: ConnectRequest) : string | null =
+    member private _.SessionToken(request: HttpContext) : string | null =
         let headers =
-            [ for value in request.Headers["Cookie"] do
+            [ for value in request.Request.Headers["Cookie"] do
                   match value with
                   | null -> ()
                   | value -> value ]
@@ -32,7 +33,7 @@ type SessionAuthenticator(factory: Microsoft.EntityFrameworkCore.IDbContextFacto
             | Some value -> value
             | None -> null
 
-    member this.Connect(request: ConnectRequest) : Task<CableUser option> =
+    member this.Connect(request: HttpContext) : Task<CableUser option> =
         task {
             match this.SessionToken request with
             | null -> return None

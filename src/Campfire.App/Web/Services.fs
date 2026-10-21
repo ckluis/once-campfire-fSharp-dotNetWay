@@ -153,6 +153,7 @@ module Services =
         Edge.useMethodOverride builder
         builder.UseCookiePolicy() |> ignore
         builder.UseSession() |> ignore
+        builder.UseWebSockets() |> ignore
         builder.UseRouting() |> ignore
-        builder.UseFalco [ any Campfire.Cable.Protocol.DefaultMountPath cable ] |> ignore
+        builder.UseFalco [ any Campfire.Cable.Endpoint.MountPath cable ] |> ignore
         builder.UseFalcoNotFound(Campfire.App.Web.Action.run dispatch) |> ignore

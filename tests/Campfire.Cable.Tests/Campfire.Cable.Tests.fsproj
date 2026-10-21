@@ -11,14 +11,11 @@
     <Compile Include="ChannelTests.fs" />
     <Compile Include="FramesTests.fs" />
     <Compile Include="StreamsTests.fs" />
-    <Compile Include="PubsubTests.fs" />
-    <Compile Include="SocketTests.fs" />
-    <Compile Include="ServerTests.fs" />
     <Compile Include="TurboTests.fs" />
     <Compile Include="ProtocolTests.fs" />
+    <Compile Include="TransportTests.fs" />
     <Compile Include="JsonFramesTests.fs" />
     <Compile Include="GoldenTests.fs" />
-    <Compile Include="FanOutTests.fs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="../../src/Campfire.Cable/Campfire.Cable.fsproj" />

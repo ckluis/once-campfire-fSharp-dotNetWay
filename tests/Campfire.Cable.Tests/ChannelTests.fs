@@ -26,10 +26,10 @@ type private Lines() =
 
 let private lines (log: Lines) : string list = lock log.Items (fun () -> List.ofSeq log.Items)
 
-let private withChannel (registered: Lines -> ServerBuilder<User> -> ServerBuilder<User>) (body: Server<User> -> Client -> Lines -> Task) : Task =
+let private withChannel (registered: Lines -> ServerBuilder<User> -> ServerBuilder<User>) (body: CableServer<User> -> Client -> Lines -> Task) : Task =
     task {
         let log = Lines()
-        let server = Server.builder testConfig cookieAuth identify |> registered log |> ServerBuilder.withLogger log |> ServerBuilder.build
+        let server = Server.builder (testOptions ()) cookieAuth identify |> registered log |> ServerBuilder.withLogger log |> ServerBuilder.build
         let! app, address = host server
         try
             let authority = (Uri address).Authority
@@ -41,7 +41,6 @@ let private withChannel (registered: Lines -> ServerBuilder<User> -> ServerBuild
                 Assert.Equal("""{"type":"welcome"}""", welcome)
                 do! (body server client log).WaitAsync(TimeSpan.FromSeconds 20.0)
         finally
-            (server :> IDisposable).Dispose()
             app.DisposeAsync().AsTask().Wait()
     }
 
@@ -87,9 +86,9 @@ let ``C2 Services is the server's provider and Broadcaster is the server`` () =
     let provider = ServiceCollection().AddSingleton<string>("marker").BuildServiceProvider()
     let outcome = TaskCompletionSource<bool * bool>()
     task {
-        let mutable theServer: Server<User> option = None
+        let mutable theServer: CableServer<User> option = None
         let build =
-            Server.builder testConfig cookieAuth identify
+            Server.builder (testOptions ()) cookieAuth identify
             |> ServerBuilder.withServices provider
             |> ServerBuilder.channel "SeenChannel" (fun () ->
                 { Channel.empty with
@@ -112,7 +111,6 @@ let ``C2 Services is the server's provider and Broadcaster is the server`` () =
                 Assert.True services
                 Assert.True broadcaster
         finally
-            (build :> IDisposable).Dispose()
             app.DisposeAsync().AsTask().Wait()
     }
 

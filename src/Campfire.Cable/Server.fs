@@ -1,186 +1,92 @@
-// Port of rust/crates/cable/src/server.rs
-//
-// `ActionCable::Server::Base`: configuration, the channel registry, broadcasting, the heartbeat,
-// remote disconnects. The `/cable` endpoint is `Endpoint.call`, which needs the connection (the Rust
-// `Server::call` sits in the same file as both).
+// Phase 3 (plans/design-cable.md section 3): `ActionCable::Server::Base` on the WebSocket middleware: the channel registry,
+// broadcasting, the heartbeat, remote disconnects and restarts, and the origin check.
 namespace Campfire.Cable
 
 open System
-open System.Collections.Generic
-open System.Threading
 open System.Threading.Tasks
 open Microsoft.AspNetCore.Http
 open Microsoft.Extensions.DependencyInjection
 open Microsoft.Extensions.Logging
 open Microsoft.Extensions.Logging.Abstractions
-open Campfire.RailsCompat
-open Campfire.Cable.Socket
 
-/// One connection's standing with the server-wide timers: what it has been told of the heartbeat
-/// and of restarts, and how to wake it.
+/// One per app, with the connection authenticator (`connect`), what names a connection for remote disconnects
+/// (`identified_by`) and the channel classes.
 [<Sealed>]
-type internal Beacon(wake: Wake, beat: int64, restarts: int64) =
-    member _.Wake = wake
-    member val BeatSeen = beat with get, set
-    member val RestartSeen = restarts with get, set
-
-module internal ServerNames =
-    /// `ActionCable::Connection::InternalChannel#internal_channel`.
-    let internalChannel (connectionIdentifier: string) : string = "action_cable/" + connectionIdentifier
-
-    let unixNow () : int64 = DateTimeOffset.UtcNow.ToUnixTimeSeconds()
-
-/// `ActionCable::Server::Base`. One per app, with the connection authenticator (`connect`), what
-/// names a connection for remote disconnects (`identified_by`) and the channel classes.
-[<Sealed>]
-type Server<'U>
+type CableServer<'U>
     internal
     (
-        config: Config,
-        authenticate: ConnectRequest -> Task<'U option>,
-        identify: 'U -> string,
+        options: CableOptions,
         channels: ChannelRegistry<'U>,
+        authenticate: HttpContext -> Task<'U option>,
+        identify: 'U -> string,
         services: IServiceProvider,
+        time: TimeProvider,
         logger: ILogger
     ) =
-    let hub = Hub(config.StreamCapacity)
-    let stop = new CancellationTokenSource()
-    let beacons = List<Beacon>()
-    let mutable heartbeatStarted = 0
-    let mutable heartbeat = Frame.OfString(Protocol.ping (ServerNames.unixNow ()))
-    let mutable beat = 0L
-    let mutable restarts = 0L
+    let core = ServerCore<'U>(options, channels, authenticate, identify, services, logger)
 
-    /// The server-wide heartbeat timer's loop, so every connection pings in step.
-    let heartbeatLoop () : Task =
-        task {
-            use timer = new PeriodicTimer(TimeSpan.FromSeconds(float Protocol.BeatInterval))
-            try
-                let mutable running = true
-                while running do
-                    let! ticked = timer.WaitForNextTickAsync stop.Token
-                    if not ticked then
-                        running <- false
-                    else
-                        // One frame per beat, shared by every connection.
-                        Volatile.Write(&heartbeat, Frame.OfString(Protocol.ping (ServerNames.unixNow ())))
-                        Interlocked.Increment(&beat) |> ignore
-                        lock beacons (fun () ->
-                            for beacon in beacons do
-                                beacon.Wake.Set())
-            with :? OperationCanceledException ->
-                ()
-        }
-
-    member _.Config: Config = config
-    member _.Hub: Hub = hub
+    member _.Options: CableOptions = options
+    member _.Time: TimeProvider = time
     member _.Logger: ILogger = logger
 
-    /// The root provider channels resolve services from (`Subscription.Services`) until 3.5 scopes each command.
-    member _.Services: IServiceProvider = services
-
-    member internal _.Authenticate(request: ConnectRequest) : Task<'U option> = authenticate request
-    member internal _.Identify(user: 'U) : string = identify user
-
-    /// The channel a client's `channel` names, with its class name (see `ChannelRegistry.resolve`).
-    member internal _.Channel(requested: string) : struct (string * (unit -> Channel<'U>)) voption = ChannelRegistry.resolve channels requested
+    member internal _.Core: ServerCore<'U> = core
 
     /// `ActionCable.server.broadcast(broadcasting, message)`; the payload is already encoded.
-    member this.Broadcast(broadcasting: string, payload: Payload) : int =
-        if logger.IsEnabled LogLevel.Debug then logger.LogDebug("[ActionCable] Broadcasting {Broadcasting}", broadcasting)
-        hub.Broadcast(broadcasting, ReadOnlySpan(Payload.toBytes payload))
+    member _.Broadcast(broadcasting: string, payload: Payload) : int = core.Broadcast(broadcasting, payload)
 
     /// `SomeChannel.broadcast_to(broadcastables, message)`.
     member this.BroadcastTo(className: string, broadcastables: string list, payload: Payload) : int =
-        this.Broadcast(Naming.broadcastingFor className broadcastables, payload)
+        core.Broadcast(Naming.broadcastingFor className broadcastables, payload)
 
-    /// `ActionCable.server.remote_connections.where(current_user: user).disconnect(reconnect:)`:
-    /// every connection with this identifier, on any socket, is sent
-    /// `{"type":"disconnect","reason":"remote","reconnect":...}` and closed.
-    member this.Disconnect(connectionIdentifier: string, reconnect: bool) : int =
-        hub.Broadcast(
-            ServerNames.internalChannel connectionIdentifier,
-            "{\"type\":\"disconnect\",\"reconnect\":" + (if reconnect then "true" else "false") + "}"
-        )
-
-    /// Broadcastings that currently have subscribers (including connections' internal channels).
-    member _.StreamCount: int = hub.StreamCount
+    /// `ActionCable.server.remote_connections.where(current_user: user).disconnect(reconnect:)` (C11): every connection
+    /// under this identifier, on any socket, is sent `{"type":"disconnect","reason":"remote","reconnect":...}` and closed.
+    member _.Disconnect(connectionIdentifier: string, reconnect: bool) : int =
+        let connections = core.Connections.ByIdentifier connectionIdentifier
+        for connection in connections do
+            connection.Close(Some Remote, reconnect)
+        connections.Length
 
     /// `ActionCable.server.restart`: closes every connection with `server_restart`.
     member _.Restart() : unit =
-        Interlocked.Increment(&restarts) |> ignore
-        lock beacons (fun () ->
-            for beacon in beacons do
-                beacon.Wake.Set())
+        for connection in core.Connections.All do
+            connection.Close(Some ServerRestart, true)
 
-    /// Starts the heartbeat timer on the first request, like Rails' `setup_heartbeat_timer`.
-    member this.StartHeartbeat() : unit =
-        if Interlocked.CompareExchange(&heartbeatStarted, 1, 0) = 0 then
-            Volatile.Write(&heartbeat, Frame.OfString(Protocol.ping (ServerNames.unixNow ())))
-            Task.Run(fun () -> heartbeatLoop ()) |> ignore
+    /// One ping per beat, built once from the app's clock and shared by every open connection (C8).
+    member _.Beat() : unit =
+        let frame = Frames.ping (time.GetUtcNow().ToUnixTimeSeconds())
+        for connection in core.Connections.All do
+            connection.TryWrite frame |> ignore
 
-    member internal _.HeartbeatFrame: Frame = Volatile.Read(&heartbeat)
-    member internal _.Beat: int64 = Volatile.Read(&beat)
-    member internal _.Restarts: int64 = Volatile.Read(&restarts)
+    member _.ConnectionCount: int = core.Connections.Count
 
-    member internal this.Register(wake: Wake) : Beacon =
-        let beacon = Beacon(wake, this.Beat, this.Restarts)
-        lock beacons (fun () -> beacons.Add beacon)
-        beacon
+    /// Broadcastings that currently have subscribers.
+    member _.StreamCount: int = core.Streams.Count
 
-    member internal _.Unregister(beacon: Beacon) : unit = lock beacons (fun () -> beacons.Remove beacon |> ignore)
-
-    /// `ActionCable::Server::Base#allow_request_origin?`
-    member internal _.AllowRequestOrigin(headers: IHeaderDictionary) : bool =
-        if config.DisableRequestForgeryProtection then
+    /// `ActionCable::Server::Base#allow_request_origin?` (C5): the origin is the request's scheme and host as the pipeline
+    /// left them (after the forwarded headers and `assume_ssl`).
+    member internal _.AllowRequestOrigin(ctx: HttpContext) : bool =
+        if options.DisableRequestForgeryProtection then
             true
         else
-            let first (name: string) : string | null =
-                let values = headers[name]
-                if values.Count = 0 then null else values[0]
-            let origin = first "Origin"
-            let host =
-                match first "Host" with
-                | null -> ""
-                | host -> host
-            let proto = if config.AssumeSsl || Server<'U>.SslRequest headers then "https" else "http"
-            let sameOrigin =
-                match origin with
-                | null -> false
-                | origin -> origin = proto + "://" + host
-            if config.AllowSameOriginAsHost && sameOrigin then
+            let origin = ctx.Request.Headers.Origin.ToString()
+            if origin <> "" && (origin = ctx.Request.Scheme + "://" + ctx.Request.Host.Value || Array.contains origin options.AllowedRequestOrigins) then
                 true
             else
-                match origin with
-                | origin when not (isNull origin) && List.contains origin config.AllowedRequestOrigins -> true
-                | _ ->
-                    logger.LogError("Request origin not allowed {Origin}", origin)
-                    false
+                logger.LogError("Request origin not allowed {Origin}", origin)
+                false
 
-    /// `Rack::Request#ssl?` for a request that didn't arrive over TLS itself.
-    static member private SslRequest(headers: IHeaderDictionary) : bool =
-        let first (name: string) : string | null =
-            let values = headers[name]
-            if values.Count = 0 then null
-            else
-                match values[0] with
-                | null -> null
-                | value -> value.Split(',').[0].Trim().ToLowerInvariant()
-        let is (name: string) (expected: string) = String.Equals(first name, expected, StringComparison.Ordinal)
-        is "X-Forwarded-Ssl" "on" || is "X-Forwarded-Scheme" "https" || is "X-Forwarded-Proto" "https"
+    member internal _.Authenticate(ctx: HttpContext) : Task<'U option> = authenticate ctx
 
     interface ICableBroadcaster with
-        member this.Broadcast(broadcasting, payload) = this.Broadcast(broadcasting, payload)
-
-    interface IDisposable with
-        member _.Dispose() = stop.Cancel()
+        member _.Broadcast(broadcasting, payload) = core.Broadcast(broadcasting, payload)
 
 type ServerBuilder<'U> =
-    { Config: Config
-      Authenticate: ConnectRequest -> Task<'U option>
+    { Options: CableOptions
+      Authenticate: HttpContext -> Task<'U option>
       Identify: 'U -> string
       Channels: Map<string, unit -> Channel<'U>>
       Services: IServiceProvider
+      Time: TimeProvider
       Logger: ILogger }
 
 module ServerBuilder =
@@ -195,24 +101,27 @@ module ServerBuilder =
 
     let withLogger (logger: ILogger) (builder: ServerBuilder<'U>) : ServerBuilder<'U> = { builder with Logger = logger }
 
-    let build (builder: ServerBuilder<'U>) : Server<'U> =
+    /// The clock the heartbeat's `ping` frames and timer use.
+    let withTime (time: TimeProvider) (builder: ServerBuilder<'U>) : ServerBuilder<'U> = { builder with Time = time }
+
+    let build (builder: ServerBuilder<'U>) : CableServer<'U> =
         let channels = ChannelRegistry.create [ for KeyValue(name, factory) in builder.Channels -> name, factory ]
-        new Server<'U>(builder.Config, builder.Authenticate, builder.Identify, channels, builder.Services, builder.Logger)
+        let server = CableServer<'U>(builder.Options, channels, builder.Authenticate, builder.Identify, builder.Services, builder.Time, builder.Logger)
+        server.Core.Broadcaster <- server
+        server
 
 module Server =
     let private emptyServices: IServiceProvider = ServiceCollection().BuildServiceProvider()
 
-    /// `ApplicationCable::Connection#connect` resolves the request to the connection's identity, or
+    /// `ApplicationCable::Connection#connect` resolves the upgrade request to the connection's identity, or
     /// None for `reject_unauthorized_connection`. `identify` is `identified_by`: the connection
     /// identifier used for remote disconnects (for `identified_by :current_user`, the user's GID param,
     /// `Naming.gidParam`).
-    let builder (config: Config) (authenticate: ConnectRequest -> Task<'U option>) (identify: 'U -> string) : ServerBuilder<'U> =
-        { Config = config
+    let builder (options: CableOptions) (authenticate: HttpContext -> Task<'U option>) (identify: 'U -> string) : ServerBuilder<'U> =
+        { Options = options
           Authenticate = authenticate
           Identify = identify
           Channels = Map.empty
           Services = emptyServices
+          Time = TimeProvider.System
           Logger = NullLogger.Instance }
-
-    /// `ActionCable::Connection::InternalChannel#internal_channel`.
-    let internalChannel (connectionIdentifier: string) : string = ServerNames.internalChannel connectionIdentifier

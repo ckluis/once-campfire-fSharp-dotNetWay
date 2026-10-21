@@ -99,7 +99,7 @@ module Boot =
     /// The HTTP pipeline: public files, then `/cable`, then the Rails route table. The framework's response compression
     /// (K11) is behind the public files, which are served precompressed.
     let pipeline (app: AppState) (edge: Web.EdgeConfig) (builder: IApplicationBuilder) : unit =
-        Web.Services.pipeline edge publicFiles (fun http -> Campfire.Cable.Endpoint.call app.Cable http) RouteTable.dispatch builder
+        Web.Services.pipeline edge publicFiles (fun http -> Campfire.Cable.Endpoint.handle app.Cable http) RouteTable.dispatch builder
 
     // --- Boot ----------------------------------------------------------------------------------------------
 
@@ -148,7 +148,8 @@ module Boot =
             let storage =
                 Storage.create (DiskService.create config.Storage.Files "local") (RailsCompat.appVerifier secrets "ActiveStorage")
 
-            let cableConfig = { Campfire.Cable.Config.defaults with AssumeSsl = not config.DisableSsl }
+            // `assume_ssl` is the edge middleware's: the origin check sees the request's scheme.
+            let cableOptions = Campfire.Cable.CableOptions()
             let efEnv: Campfire.Db.Ef.Env =
                 { Time = time
                   Sink = jobs
@@ -162,7 +163,7 @@ module Boot =
             | Error error -> failwith (DbError.display error)
 
             let deps: Deps = { DbFactory = dbFactory; Gate = gate; Env = efEnv; Secrets = secrets; Clock = clock }
-            let cable = Registry.server deps cableConfig (loggers.CreateLogger "campfire.cable")
+            let cable = Registry.server deps cableOptions (loggers.CreateLogger "campfire.cable")
 
             let edge = Web.EdgeConfig.production config.DisableSsl (errorPages ())
 
@@ -183,6 +184,7 @@ module Boot =
                     fun services ->
                         Campfire.Db.Ef.Data.addServices services dbFactory gate time
                         Web.Services.add edge app services
+                        CableServices.add services app.Cable
                   Jobs = runner }
         }
 

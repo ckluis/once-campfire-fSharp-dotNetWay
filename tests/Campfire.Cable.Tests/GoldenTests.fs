@@ -123,7 +123,7 @@ type private Target =
       Origin: string
       Cookie: string
       /// Present on the replay; the reference is disconnected by signing out over HTTP.
-      Server: Server<GoldenUser> option }
+      Server: CableServer<GoldenUser> option }
 
 and private GoldenUser = { Id: uint64; Name: string; RoomIds: uint64 list }
 
@@ -296,7 +296,7 @@ let private roomGidParam (id: string) : string =
 
 type private Hosted =
     { App: Microsoft.AspNetCore.Builder.WebApplication
-      Hosted: Server<GoldenUser> }
+      Hosted: CableServer<GoldenUser> }
 
 let private startCampfireLikeServer (tokens: Map<string, string>) : Task<Target * Hosted> =
     task {
@@ -311,9 +311,9 @@ let private startCampfireLikeServer (tokens: Map<string, string>) : Task<Target 
                 match name.IndexOf ':' with
                 | -1 -> false
                 | i -> name.Substring(i + 1) = "messages")
-        let authenticate (request: ConnectRequest) =
+        let authenticate (ctx: Microsoft.AspNetCore.Http.HttpContext) =
             Task.FromResult(
-                if request.Headers["Cookie"].ToString() = cookie then
+                if ctx.Request.Headers["Cookie"].ToString() = cookie then
                     Some
                         { Id = uint64 tokens["USER_ID"]
                           Name = tokens["USER_NAME"]
@@ -322,7 +322,7 @@ let private startCampfireLikeServer (tokens: Map<string, string>) : Task<Target 
                     None
             )
         let server =
-            Server.builder testConfig authenticate (fun user -> $"gid://campfire/User/{user.Id}")
+            Server.builder (testOptions ()) authenticate (fun user -> $"gid://campfire/User/{user.Id}")
             |> ServerBuilder.channel "ApplicationCable::Channel" (fun () -> Channel.empty)
             |> ServerBuilder.channel "HeartbeatChannel" (fun () -> Channel.empty)
             |> ServerBuilder.channel "RoomChannel" roomChannel
@@ -363,7 +363,6 @@ let ``replays reference frames`` () =
             Assert.Equal(countFrames golden.Sessions, countFrames sessions)
             Assert.Equal(25, countFrames golden.Sessions)
         finally
-            (handle.Hosted :> IDisposable).Dispose()
             handle.App.DisposeAsync().AsTask().Wait()
     }
 

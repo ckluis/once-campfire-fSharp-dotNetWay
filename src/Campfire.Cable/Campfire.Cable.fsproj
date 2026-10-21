@@ -1,17 +1,14 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
-    <Compile Include="Protocol.fs" />
     <Compile Include="Options.fs" />
     <Compile Include="Frames.fs" />
     <Compile Include="Naming.fs" />
-    <Compile Include="Socket.fs" />
-    <Compile Include="Pubsub.fs" />
-    <Compile Include="Config.fs" />
     <Compile Include="Channel.fs" />
     <Compile Include="Streams.fs" />
-    <Compile Include="Server.fs" />
     <Compile Include="Connection.fs" />
+    <Compile Include="Server.fs" />
     <Compile Include="Endpoint.fs" />
+    <Compile Include="Heartbeat.fs" />
     <Compile Include="Turbo.fs" />
   </ItemGroup>
   <ItemGroup>
@@ -23,5 +20,6 @@
   </ItemGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="Campfire.Cable.Tests" />
+    <InternalsVisibleTo Include="Campfire.App.Tests" />
   </ItemGroup>
 </Project>

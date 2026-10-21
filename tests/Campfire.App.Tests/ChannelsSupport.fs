@@ -360,7 +360,6 @@ type TestApp
         member _.DisposeAsync() =
             ValueTask(
                 task {
-                    (server :> IDisposable).Dispose()
                     try
                         do! host.StopAsync((new CancellationTokenSource(TimeSpan.FromSeconds 2.0)).Token)
                     with _ ->
@@ -380,8 +379,10 @@ let serveCable (server: Cable) : Task<WebApplication * string> =
         let builder = WebApplication.CreateSlimBuilder()
         builder.WebHost.UseUrls "http://127.0.0.1:0" |> ignore
         builder.Logging.ClearProviders() |> ignore
+        Campfire.App.Channels.CableServices.add builder.Services server
         let app = builder.Build()
-        Endpoint.map Protocol.DefaultMountPath server app
+        app.UseWebSockets() |> ignore
+        app.Map(Endpoint.MountPath, Microsoft.AspNetCore.Http.RequestDelegate(fun ctx -> Endpoint.handle server ctx)) |> ignore
         do! app.StartAsync()
         let address = (nonNull (app.Services.GetRequiredService<Microsoft.AspNetCore.Hosting.Server.IServer>().Features.Get<IServerAddressesFeature>())).Addresses |> Seq.head
         return app, (Uri address).Authority
@@ -406,7 +407,7 @@ let start () : Task<TestApp> =
               BcryptCost = 4 }
         Testing.loadFixtures gate efEnv factory
         let deps: Deps = { DbFactory = factory; Gate = gate; Env = efEnv; Secrets = secrets; Clock = clock }
-        let server = Registry.server deps { Campfire.Cable.Config.defaults with AssumeSsl = false } NullLogger.Instance
+        let server = Registry.server deps (Campfire.Cable.CableOptions()) NullLogger.Instance
         sink.Server <- server
 
         let! app, authority = serveCable server

@@ -2,14 +2,13 @@
 //
 // A tiny app on top of the cable server, and a raw WebSocket client for driving it. The client is
 // written here rather than taken from `System.Net.WebSockets` so that tests can send what a browser
-// wouldn't (invalid UTF-8, an unmasked frame) and see the extension, the close frames and the 404s
-// exactly as the server sent them.
+// wouldn't (invalid UTF-8, an unmasked frame), see the close frames and the 404s exactly as the server
+// sent them, and stop reading (a slow consumer).
 module Campfire.Cable.Tests.Support
 
 open System
 open System.Collections.Generic
 open System.IO
-open System.IO.Compression
 open System.Net
 open System.Net.Sockets
 open System.Security.Cryptography
@@ -18,6 +17,7 @@ open System.Threading
 open System.Threading.Tasks
 open Microsoft.AspNetCore.Builder
 open Microsoft.AspNetCore.Hosting
+open Microsoft.AspNetCore.Http
 open Microsoft.AspNetCore.Hosting.Server
 open Microsoft.AspNetCore.Hosting.Server.Features
 open Microsoft.Extensions.DependencyInjection
@@ -30,8 +30,8 @@ type User = { Id: uint64; RoomIds: uint64 list }
 let identify (user: User) : string = $"user-{user.Id}"
 
 /// `Cookie: session_token=<user id>`; users 1 and 2 exist, and both are members of room 1 only.
-let cookieAuth (request: ConnectRequest) : Task<User option> =
-    let cookie = request.Headers["Cookie"].ToString()
+let cookieAuth (ctx: HttpContext) : Task<User option> =
+    let cookie = ctx.Request.Headers["Cookie"].ToString()
     let user =
         if cookie.StartsWith("session_token=", StringComparison.Ordinal) then
             match UInt64.TryParse(cookie.Substring 14) with
@@ -92,39 +92,37 @@ let testVerifier (signed: string) : string option =
     else
         None
 
-let testConfig: Config = { Config.defaults with AssumeSsl = false }
+/// Plain options: the origin check compares with `http://host` unless the host assumes SSL.
+let testOptions () : CableOptions = CableOptions(CloseTimeout = TimeSpan.FromSeconds 1.0)
 
-/// A self-signed certificate for 127.0.0.1, for the tests that serve TLS.
-let selfSigned () : System.Security.Cryptography.X509Certificates.X509Certificate2 =
-    use key = System.Security.Cryptography.ECDsa.Create(System.Security.Cryptography.ECCurve.NamedCurves.nistP256)
-    let request =
-        System.Security.Cryptography.X509Certificates.CertificateRequest("CN=127.0.0.1", key, HashAlgorithmName.SHA256)
-    let certificate = request.CreateSelfSigned(DateTimeOffset.UtcNow.AddDays -1.0, DateTimeOffset.UtcNow.AddDays 1.0)
-    // Kestrel wants a certificate with a private key it can use on every platform.
-    System.Security.Cryptography.X509Certificates.X509CertificateLoader.LoadPkcs12(certificate.Export(System.Security.Cryptography.X509Certificates.X509ContentType.Pfx), null)
-
-/// Kestrel on a loopback port, with `server` mounted at /cable (over TLS when `tls`).
-let hostOn (server: Server<'U>) (tls: bool) : Task<WebApplication * string> =
+/// Kestrel on a loopback port with the WebSocket middleware, `server` mounted at /cable, and the heartbeat and shutdown
+/// hosted services. `assumeSsl` makes every request look like HTTPS, as the app's edge middleware does.
+let hostWith (server: CableServer<'U>) (assumeSsl: bool) : Task<WebApplication * string> =
     task {
         let builder = WebApplication.CreateSlimBuilder()
         builder.Logging.ClearProviders() |> ignore
-        if tls then
-            builder.WebHost.ConfigureKestrel(fun options ->
-                options.Listen(System.Net.IPAddress.Loopback, 0, fun listen -> listen.UseHttps(selfSigned ()) |> ignore))
-            |> ignore
-        else
-            builder.WebHost.UseUrls "http://127.0.0.1:0" |> ignore
+        builder.WebHost.UseUrls "http://127.0.0.1:0" |> ignore
+        builder.Services.AddHostedService<CableHeartbeat<'U>>(fun _ -> new CableHeartbeat<'U>(server)) |> ignore
+        builder.Services.AddHostedService<CableShutdown<'U>>(fun provider ->
+            CableShutdown<'U>(server, provider.GetRequiredService<Microsoft.Extensions.Hosting.IHostApplicationLifetime>()))
+        |> ignore
         let app = builder.Build()
-        Endpoint.map Protocol.DefaultMountPath server app
+        if assumeSsl then
+            app.Use(fun (ctx: HttpContext) (next: Func<Task>) ->
+                ctx.Request.Scheme <- "https"
+                next.Invoke())
+            |> ignore
+        app.UseWebSockets() |> ignore
+        app.Map(Endpoint.MountPath, RequestDelegate(fun ctx -> Endpoint.handle server ctx)) |> ignore
         do! app.StartAsync()
         let address = (nonNull (app.Services.GetRequiredService<Microsoft.AspNetCore.Hosting.Server.IServer>().Features.Get<IServerAddressesFeature>())).Addresses |> Seq.head
         return app, address
     }
 
-let host (server: Server<'U>) : Task<WebApplication * string> = hostOn server false
+let host (server: CableServer<'U>) : Task<WebApplication * string> = hostWith server false
 
 type TestServer =
-    { Server: Server<User>
+    { Server: CableServer<User>
       Host: WebApplication
       /// host:port
       Authority: string
@@ -136,16 +134,23 @@ type TestServer =
     interface IAsyncDisposable with
         member this.DisposeAsync() =
             task {
-                (this.Server :> IDisposable).Dispose()
+                do! this.Host.StopAsync()
+                // Nothing is left behind by the test: every connection and stream is gone (acceptance of unit 3.4).
+                let mutable waited = 0
+                while (this.Server.ConnectionCount > 0 || this.Server.StreamCount > 0) && waited < 100 do
+                    do! Task.Delay 50
+                    waited <- waited + 1
+                let connections, streams = this.Server.ConnectionCount, this.Server.StreamCount
                 do! this.Host.DisposeAsync()
+                if connections <> 0 || streams <> 0 then failwith $"left behind: {connections} connections, {streams} streams"
             }
             |> ValueTask
 
-let start (config: Config) : Task<TestServer> =
+let startWith (options: CableOptions) (assumeSsl: bool) : Task<TestServer> =
     task {
         let log = Log()
         let server =
-            Server.builder config cookieAuth identify
+            Server.builder options cookieAuth identify
             |> ServerBuilder.channel "RoomChannel" (roomChannel log)
             |> ServerBuilder.channel "HeartbeatChannel" (fun () -> Channel.empty)
             |> ServerBuilder.channel Turbo.StreamsChannelName (fun () ->
@@ -156,10 +161,12 @@ let start (config: Config) : Task<TestServer> =
                     | i -> name.Substring(i + 1) = "messages")
                 |> Turbo.StreamsChannel.channel)
             |> ServerBuilder.build
-        let! app, address = host server
+        let! app, address = hostWith server assumeSsl
         let authority = (Uri address).Authority
         return { Server = server; Host = app; Authority = authority; Origin = $"http://{authority}"; Log = log }
     }
+
+let start (options: CableOptions) : Task<TestServer> = startWith options false
 
 let identifier (value: Value) : string = Json.generate value
 
@@ -220,25 +227,7 @@ let readHttp (stream: Stream) : Task<Http> =
         return { Status = status; Headers = headers; Body = Encoding.UTF8.GetString body }
     }
 
-let private tail = [| 0uy; 0uy; 0xffuy; 0xffuy |]
-
-/// A deflate stream as `permessage-deflate` sends it: sync-flushed, without the trailing 4 bytes.
-let deflateMessage (text: byte[]) : byte[] =
-    use output = new MemoryStream()
-    use z = new DeflateStream(output, CompressionLevel.Optimal, true)
-    z.Write(text, 0, text.Length)
-    z.Flush()
-    let bytes = output.ToArray()
-    if bytes.Length >= 4 && bytes[bytes.Length - 4 ..] = tail then bytes[.. bytes.Length - 5] else bytes
-
-let inflateMessage (data: byte[]) : byte[] =
-    use input = new MemoryStream(Array.append data tail)
-    use z = new DeflateStream(input, CompressionMode.Decompress)
-    use output = new MemoryStream()
-    z.CopyTo output
-    output.ToArray()
-
-/// A client frame, masked. `payload` is what goes on the wire (already compressed when `rsv1`).
+/// A client frame, masked.
 let clientFrame (opcode: byte) (fin: bool) (rsv1: bool) (payload: byte[]) : byte[] =
     let mask = [| 0x12uy; 0x34uy; 0x56uy; 0x78uy |]
     use frame = new MemoryStream()
@@ -262,7 +251,6 @@ type Client(tcp: TcpClient, stream: Stream, protocol: string option, extensions:
     let mutable closed = false
     let mutable pendingRaw: Task<Got> = Unchecked.defaultof<_>
     let mutable pendingNext: Task<Got> = Unchecked.defaultof<_>
-    let deflate = extensions.IsSome
 
     member _.Protocol = protocol
     member _.Extensions = extensions
@@ -314,9 +302,7 @@ type Client(tcp: TcpClient, stream: Stream, protocol: string option, extensions:
         }
 
     member this.SendText(text: string) : Task =
-        let payload = Encoding.UTF8.GetBytes text
-        if deflate then this.SendBytes(clientFrame 0x1uy true true (deflateMessage payload))
-        else this.SendBytes(clientFrame 0x1uy true false payload)
+        this.SendBytes(clientFrame 0x1uy true false (Encoding.UTF8.GetBytes text))
 
     member this.Send(command: Value) : Task = this.SendText(Json.generate command)
 
@@ -339,7 +325,7 @@ type Client(tcp: TcpClient, stream: Stream, protocol: string option, extensions:
                     let mutable result = ValueNone
                     while result.IsNone do
                         do! readExact stream head 2
-                        let fin, rsv1, opcode = head[0] &&& 0x80uy <> 0uy, head[0] &&& 0x40uy <> 0uy, head[0] &&& 0x0fuy
+                        let fin, opcode = head[0] &&& 0x80uy <> 0uy, head[0] &&& 0x0fuy
                         if head[1] &&& 0x80uy <> 0uy then failwith "server frames are unmasked"
                         let! length =
                             task {
@@ -357,7 +343,6 @@ type Client(tcp: TcpClient, stream: Stream, protocol: string option, extensions:
                         ignore fin
                         match opcode with
                         | 0x1uy ->
-                            let payload = if rsv1 then inflateMessage payload else payload
                             result <- ValueSome(Said(Encoding.UTF8.GetString payload))
                         | 0x8uy ->
                             closed <- true

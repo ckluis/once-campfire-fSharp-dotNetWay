@@ -1,7 +1,7 @@
 // Port of `server` and `register` in rust/crates/campfire/src/channels.rs
 //
-// The cable server with `ApplicationCable::Connection` and every channel registered. Mount it with
-// `Endpoint.call` at `/cable`.
+// The cable server with `ApplicationCable::Connection` and every channel registered. Mounted by
+// `CableServices.map`.
 module Campfire.App.Channels.Registry
 
 open Microsoft.Extensions.Logging
@@ -25,10 +25,11 @@ let register (builder: ServerBuilder<CableUser>) (access: RoomChannel.Access) (s
     |> ServerBuilder.channel StreamsChannelName (fun () -> StreamsChannel.channel stock)
 
 /// The cable server with `ApplicationCable::Connection` and every channel registered.
-let server (deps: Deps) (config: Config) (logger: ILogger) : Cable =
+let server (deps: Deps) (options: CableOptions) (logger: ILogger) : Cable =
     let authenticator = SessionAuthenticator(deps.DbFactory, deps.Secrets, deps.Clock, logger)
     let streams = StreamsChannel.create deps.Secrets
-    Server.builder config authenticator.Connect Gid.connectionIdentifier
+    Server.builder options authenticator.Connect Gid.connectionIdentifier
     |> fun builder -> register builder { Factory = deps.DbFactory; Gate = deps.Gate; Env = deps.Env } streams
     |> ServerBuilder.withLogger logger
+    |> ServerBuilder.withTime (Campfire.Db.Ef.ClockTimeProvider deps.Clock)
     |> ServerBuilder.build

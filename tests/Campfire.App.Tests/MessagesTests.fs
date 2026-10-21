@@ -116,8 +116,17 @@ let ``a text message is answered and broadcast as it was stored`` () =
         use! test = bootSeeded "default"
         let! room = readEf test (fun db -> Room.find db ALL_TALK)
         let streamables = [ Campfire.RailsCompat.GlobalId.toParam (Campfire.App.Channels.Gid.roomGid room); "messages" ]
-        let wake = Campfire.Cable.Wake()
-        use subscriber = test.App.Cable.Hub.Subscribe(Campfire.Cable.Naming.streamNameFrom streamables, null, wake)
+        let frames = ResizeArray<ReadOnlyMemory<byte>>()
+        let outbound =
+            { new Campfire.Cable.IOutbound with
+                member _.TryWrite frame =
+                    lock frames (fun () -> frames.Add frame)
+                    true
+                member _.Close(_, _) = () }
+        test.App.Cable.Core.Streams.Add(
+            Campfire.Cable.Naming.streamNameFrom streamables,
+            { Outbound = outbound; Identifier = "stream"; IdentifierJson = Campfire.Cable.Frames.identifierJson "stream" }
+        )
 
         let david = david test
         let! reply =
@@ -126,10 +135,11 @@ let ``a text message is answered and broadcast as it was stored`` () =
                     .Form(formBody [ "message[body]", "<p>Straight from the <em>writer</em></p>"; "message[client_message_id]", "as-stored" ])
             )
         Assert.True((reply.Status = 200), reply.Text)
-        let mutable frame = Unchecked.defaultof<Campfire.Cable.Socket.Frame>
-        Assert.Equal(Campfire.Cable.RecvStatus.Got, subscriber.TryRecv(&frame))
-        // The broadcast's payload is the `<turbo-stream>` tag as a JSON string.
-        let broadcast = JsonSerializer.Deserialize<string>(frame.Text) |> nonNull
+        Assert.Equal(1, frames.Count)
+        // The broadcast's payload is the `<turbo-stream>` tag as a JSON string, inside the subscription's frame.
+        let broadcast =
+            use document = JsonDocument.Parse(frames[0])
+            document.RootElement.GetProperty("message").GetString() |> nonNull
 
         let! stored = lastMessage test ALL_TALK
         Assert.Equal(("as-stored", DAVID), (stored.ClientMessageId, stored.CreatorId))

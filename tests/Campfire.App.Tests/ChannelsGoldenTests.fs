@@ -196,7 +196,7 @@ let private startOurs (recording: Recording) (dir: string) : Task<WriteGate * Ca
               BcryptCost = 4 }
         let deps: Deps = { DbFactory = factory; Gate = gate; Env = efEnv; Secrets = secrets; Clock = clock }
         // The reference runs with DISABLE_SSL, so without assume_ssl.
-        let server = Registry.server deps { Campfire.Cable.Config.defaults with AssumeSsl = false } NullLogger.Instance
+        let server = Registry.server deps (Campfire.Cable.CableOptions()) NullLogger.Instance
         sink.Server <- server
         let! host, authority = serveCable server
         return gate, server, Broadcasts server, host, authority, (factory, efEnv)
@@ -228,7 +228,7 @@ let ``replays reference frames`` () =
         use golden = JsonDocument.Parse(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "testdata", "channels_golden.json")))
         let recording = parseRecording golden
         let dir = Directory.CreateTempSubdirectory("campfire-channels-golden").FullName
-        let! gate, server, broadcasts, host, authority, (factory, efEnv) = startOurs recording dir
+        let! gate, _, broadcasts, host, authority, (factory, efEnv) = startOurs recording dir
         let url = Uri $"ws://{authority}/cable"
         let origin = $"http://{authority}"
         let sockets = SortedDictionary<string, Client>(StringComparer.Ordinal)
@@ -305,7 +305,6 @@ let ``replays reference frames`` () =
         finally
             for client in sockets.Values do
                 (client :> IDisposable).Dispose()
-            (server :> IDisposable).Dispose()
             host.StopAsync((new Threading.CancellationTokenSource(TimeSpan.FromSeconds 2.0)).Token).Wait()
             Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools()
             try

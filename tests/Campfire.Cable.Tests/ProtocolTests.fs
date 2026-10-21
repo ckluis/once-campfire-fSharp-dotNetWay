@@ -31,14 +31,16 @@ let private reject (identifier: string) : string =
 let private message (identifier: string) (message: string) : string =
     $"""{{"identifier":{Json.generate (str identifier)},"message":{message}}}"""
 
-let private withServer (config: Config) (body: TestServer -> Task) : Task =
+let private withServerAs (assumeSsl: bool) (options: CableOptions) (body: TestServer -> Task) : Task =
     task {
-        let! app = start config
+        let! app = startWith options assumeSsl
         try
             do! (body app).WaitAsync(TimeSpan.FromSeconds 30.0)
         finally
             (app :> IAsyncDisposable).DisposeAsync().AsTask().Wait()
     }
+
+let private withServer (options: CableOptions) (body: TestServer -> Task) : Task = withServerAs false options body
 
 let private eq (expected: 'a) (actual: 'a) = Assert.Equal<'a>(expected, actual)
 
@@ -59,7 +61,7 @@ let private logOf (app: TestServer) : string list = lock app.Log (fun () -> List
 
 [<Fact>]
 let ``non-websocket requests get Rails 404`` () =
-    withServer testConfig (fun app ->
+    withServer (testOptions ()) (fun app ->
         task {
             let! response = httpGet app.Authority []
             eq 404 response.Status
@@ -69,7 +71,7 @@ let ``non-websocket requests get Rails 404`` () =
 
 [<Fact>]
 let ``cross-origin upgrades get Rails 404`` () =
-    withServer testConfig (fun app ->
+    withServer (testOptions ()) (fun app ->
         task {
             let! result = Client.Open(app.Authority, [ "Origin", "http://evil.example"; "Cookie", "session_token=1" ])
             match result with
@@ -79,7 +81,7 @@ let ``cross-origin upgrades get Rails 404`` () =
 
 [<Fact>]
 let ``same-origin under assume_ssl means https`` () =
-    withServer Config.defaults (fun app ->
+    withServerAs true (testOptions ()) (fun app ->
         task {
             let! result = Client.Open(app.Authority, [ "Origin", app.Origin ])
             Assert.True((match result with Choice2Of2 _ -> true | _ -> false), "http:// origin must be refused when SSL is assumed")
@@ -90,7 +92,7 @@ let ``same-origin under assume_ssl means https`` () =
 
 [<Fact>]
 let ``negotiates the actioncable subprotocol and welcomes`` () =
-    withServer testConfig (fun app ->
+    withServer (testOptions ()) (fun app ->
         task {
             let! client = connect app 1UL
             eq (Some "actioncable-v1-json") client.Protocol
@@ -99,7 +101,7 @@ let ``negotiates the actioncable subprotocol and welcomes`` () =
 
 [<Fact>]
 let ``unauthorized connections are told not to reconnect and closed`` () =
-    withServer testConfig (fun app ->
+    withServer (testOptions ()) (fun app ->
         task {
             let! client = connectWith app None app.Origin
             do! expectText """{"type":"disconnect","reason":"unauthorized","reconnect":false}""" client
@@ -108,7 +110,7 @@ let ``unauthorized connections are told not to reconnect and closed`` () =
 
 [<Fact>]
 let ``subscribe confirms and duplicates are ignored`` () =
-    withServer testConfig (fun app ->
+    withServer (testOptions ()) (fun app ->
         task {
             let! client = connect app 1UL
             do! expectText Welcome client
@@ -130,7 +132,7 @@ let ``subscribe confirms and duplicates are ignored`` () =
 
 [<Fact>]
 let ``rejection runs unsubscribed and can be retried`` () =
-    withServer testConfig (fun app ->
+    withServer (testOptions ()) (fun app ->
         task {
             let! client = connect app 1UL
             let! _ = client.NextText()
@@ -147,7 +149,7 @@ let ``rejection runs unsubscribed and can be retried`` () =
 
 [<Fact>]
 let ``unknown channels and malformed commands get no reply`` () =
-    withServer testConfig (fun app ->
+    withServer (testOptions ()) (fun app ->
         task {
             let! client = connect app 1UL
             let! _ = client.NextText()
@@ -168,7 +170,7 @@ let ``unknown channels and malformed commands get no reply`` () =
 
 [<Fact>]
 let ``leading colons resolve like safe_constantize`` () =
-    withServer testConfig (fun app ->
+    withServer (testOptions ()) (fun app ->
         task {
             let! client = connect app 1UL
             let! _ = client.NextText()
@@ -180,7 +182,7 @@ let ``leading colons resolve like safe_constantize`` () =
 /// A channel's broadcastings are named after its class, not after how the client spelled it.
 [<Fact>]
 let ``leading colons stream and broadcast under the class name`` () =
-    withServer testConfig (fun app ->
+    withServer (testOptions ()) (fun app ->
         task {
             let! prefixed = connect app 1UL
             let! plain = connect app 1UL
@@ -205,7 +207,7 @@ let ``leading colons stream and broadcast under the class name`` () =
 
 [<Fact>]
 let ``broadcasts reach subscribers as JSON`` () =
-    withServer testConfig (fun app ->
+    withServer (testOptions ()) (fun app ->
         task {
             let! client = connect app 1UL
             let! _ = client.NextText()
@@ -223,7 +225,7 @@ let ``broadcasts reach subscribers as JSON`` () =
 
 [<Fact>]
 let ``perform dispatches actions and defaults to receive`` () =
-    withServer testConfig (fun app ->
+    withServer (testOptions ()) (fun app ->
         task {
             let! client = connect app 1UL
             let! other = connect app 2UL
@@ -252,7 +254,7 @@ let ``perform dispatches actions and defaults to receive`` () =
 
 [<Fact>]
 let ``unsubscribe stops delivery silently`` () =
-    withServer testConfig (fun app ->
+    withServer (testOptions ()) (fun app ->
         task {
             let! client = connect app 1UL
             let! _ = client.NextText()
@@ -264,12 +266,12 @@ let ``unsubscribe stops delivery silently`` () =
             do! client.AssertSilent()
             app.Server.Broadcast("room:room-1", Payload.ofValue (obj ())) |> ignore
             do! client.AssertSilent()
-            eq 1 app.Server.StreamCount // only the internal channel remains
+            eq 0 app.Server.StreamCount
         })
 
 [<Fact>]
 let ``remote disconnect closes every connection for the identifier`` () =
-    withServer testConfig (fun app ->
+    withServer (testOptions ()) (fun app ->
         task {
             let! first = connect app 1UL
             let! second = connect app 1UL
@@ -301,7 +303,7 @@ let ``remote disconnect closes every connection for the identifier`` () =
 
 [<Fact>]
 let ``restart closes with server_restart`` () =
-    withServer testConfig (fun app ->
+    withServer (testOptions ()) (fun app ->
         task {
             let! client = connect app 1UL
             let! _ = client.NextText()
@@ -310,8 +312,10 @@ let ``restart closes with server_restart`` () =
         })
 
 [<Fact>]
-let ``lagging subscribers are disconnected with reconnect`` () =
-    withServer { testConfig with StreamCapacity = 1; MaxWriteBatch = 1 } (fun app ->
+let ``a subscriber that cannot keep up is cut, not waited for`` () =
+    let options = testOptions ()
+    options.QueueCapacity <- 2
+    withServer options (fun app ->
         task {
             let! client = connect app 1UL
             let! _ = client.NextText()
@@ -319,23 +323,30 @@ let ``lagging subscribers are disconnected with reconnect`` () =
             do! client.Subscribe room
             let! _ = client.NextText()
 
+            // The broadcaster never waits: it writes faster than the socket drains, the queue fills and the connection is aborted.
+            let started = Stopwatch.StartNew()
             for i in 0..9999 do
                 app.Server.Broadcast("room:room-1", Payload.ofValue i) |> ignore
+            Assert.True(started.Elapsed < TimeSpan.FromSeconds 5.0, $"{started.Elapsed}")
             let delivered = Collections.Generic.List<string>()
             let mutable reading = true
             while reading do
-                let! frame = client.NextText()
-                if frame.Contains "\"type\":\"disconnect\"" then
-                    eq """{"type":"disconnect","reason":null,"reconnect":true}""" frame
-                    reading <- false
-                else
-                    delivered.Add frame
+                match! client.Next() with
+                | Said frame -> delivered.Add frame
+                | _ -> reading <- false
             Assert.True(delivered.Count < 10000)
+            let mutable waited = 0
+            while (app.Server.ConnectionCount > 0 || app.Server.StreamCount > 0) && waited < 100 do
+                do! Task.Delay 50
+                waited <- waited + 1
+            eq 0 app.Server.ConnectionCount
+            eq 0 app.Server.StreamCount
+            eq "unsubscribed rejected=false" (List.last (logOf app))
         })
 
 [<Fact>]
 let ``pings every three seconds with a unix timestamp`` () =
-    withServer testConfig (fun app ->
+    withServer (testOptions ()) (fun app ->
         task {
             let! client = connect app 1UL
             do! expectText Welcome client
@@ -359,7 +370,7 @@ let ``pings every three seconds with a unix timestamp`` () =
 
 [<Fact>]
 let ``turbo streams channel verifies and guards stream names`` () =
-    withServer testConfig (fun app ->
+    withServer (testOptions ()) (fun app ->
         task {
             let! client = connect app 1UL
             let! _ = client.NextText()
@@ -399,8 +410,23 @@ let ``turbo streams channel verifies and guards stream names`` () =
         })
 
 [<Fact>]
+let ``P3 welcome is the first frame, then one ping per beat`` () =
+    let options = testOptions ()
+    options.BeatInterval <- TimeSpan.FromMilliseconds 50.0
+    withServer options (fun app ->
+        task {
+            let! client = connect app 1UL
+            let! first = client.NextIncludingPings()
+            eq (Said Welcome) first
+            for _ in 1..3 do
+                match! client.NextIncludingPings() with
+                | Said ping when ping.StartsWith("{\"type\":\"ping\",\"message\":", StringComparison.Ordinal) -> ()
+                | other -> failwith $"expected a ping, got {other}"
+        })
+
+[<Fact>]
 let ``a client close is answered with its code`` () =
-    withServer testConfig (fun app ->
+    withServer (testOptions ()) (fun app ->
         task {
             let! client = connect app 1UL
             do! expectText Welcome client
@@ -411,7 +437,7 @@ let ``a client close is answered with its code`` () =
 /// websocket-driver's code for the failure, not a blanket 1002.
 [<Fact>]
 let ``a protocol error closes with its code`` () =
-    withServer testConfig (fun app ->
+    withServer (testOptions ()) (fun app ->
         task {
             let! client = connect app 1UL
             do! expectText Welcome client
@@ -421,7 +447,7 @@ let ``a protocol error closes with its code`` () =
 
 [<Fact>]
 let ``a connection holds a bounded number of subscriptions`` () =
-    withServer testConfig (fun app ->
+    withServer (testOptions ()) (fun app ->
         task {
             let! client = connect app 1UL
             do! expectText Welcome client
@@ -438,47 +464,9 @@ let ``a connection holds a bounded number of subscriptions`` () =
             do! other.AssertSilent()
         })
 
-// Not in the Rust tests.
-
-/// A client that offers permessage-deflate gets compressed frames, which decode to the same messages.
-[<Fact>]
-let ``a broadcast is compressed once for every client that negotiated compression`` () =
-    withServer testConfig (fun app ->
-        task {
-            let offer =
-                [ "Origin", app.Origin
-                  "Cookie", "session_token=1"
-                  "Sec-WebSocket-Protocol", "actioncable-v1-json"
-                  "Sec-WebSocket-Extensions", "permessage-deflate; client_max_window_bits" ]
-            let open' () =
-                task {
-                    match! Client.Open(app.Authority, offer) with
-                    | Choice1Of2 client -> return client
-                    | Choice2Of2 response -> return failwith $"{response.Status}"
-                }
-            let! a = open' ()
-            let! b = open' ()
-            eq (Some "permessage-deflate; server_no_context_takeover; client_no_context_takeover") a.Extensions
-            let! plain = connect app 1UL
-            let room = room 1
-            for client in [ a; b; plain ] do
-                let! _ = client.NextText()
-                do! client.Subscribe room
-                let! _ = client.NextText()
-                ()
-            let big = String.replicate 300 "<div>message</div>"
-            app.Server.BroadcastTo("RoomChannel", [ "room-1" ], Payload.ofString big) |> ignore
-            let expected = message room (Text.Encoding.UTF8.GetString(Payload.toBytes (Payload.ofString big)))
-            for client in [ a; b; plain ] do
-                do! expectText expected client
-            // What a compressed client sends (a command, compressed) is read too.
-            do! a.Perform(room, object' [ "action", str "echo"; "text", str "hi" ])
-            do! expectText (message room """{"action":"echo","text":"hi"}""") a
-        })
-
 [<Fact>]
 let ``a client's ping is answered with a pong`` () =
-    withServer testConfig (fun app ->
+    withServer (testOptions ()) (fun app ->
         task {
             let! client = connect app 1UL
             do! expectText Welcome client
@@ -494,14 +482,14 @@ let ``a client's ping is answered with a pong`` () =
 
 [<Fact>]
 let ``a stream that stops after the connection closes is released from the hub`` () =
-    withServer testConfig (fun app ->
+    withServer (testOptions ()) (fun app ->
         task {
             let! client = connect app 1UL
             let! _ = client.NextText()
             let room = room 1
             do! client.Subscribe room
             let! _ = client.NextText()
-            eq 2 app.Server.StreamCount
+            eq 1 app.Server.StreamCount
             (client :> IDisposable).Dispose()
             let mutable waited = 0
             while app.Server.StreamCount > 0 && waited < 100 do
@@ -526,7 +514,7 @@ let ``origins: the allowed list, the forwarded protocol and disabling the check`
                     return false
             }
         do!
-            withServer { testConfig with AllowedRequestOrigins = [ "http://other.example" ] } (fun app ->
+            withServer (CableOptions(AllowedRequestOrigins = [| "http://other.example" |])) (fun app ->
                 task {
                     let! listed = attempt app [ "Origin", "http://other.example" ]
                     let! unlisted = attempt app [ "Origin", "http://evil.example" ]
@@ -536,21 +524,17 @@ let ``origins: the allowed list, the forwarded protocol and disabling the check`
                     Assert.False missing
                 })
         do!
-            withServer testConfig (fun app ->
+            withServer (testOptions ()) (fun app ->
                 task {
-                    // The same origin, https, is the page's when a proxy says the request was https.
+                    // The origin is the request's scheme and host: https needs a request that is https.
                     let httpsOrigin = "Origin", app.Origin.Replace("http://", "https://")
                     let! plain = attempt app [ httpsOrigin ]
-                    let! forwarded = attempt app [ httpsOrigin; "X-Forwarded-Proto", "https" ]
-                    let! forwardedSsl = attempt app [ httpsOrigin; "X-Forwarded-Ssl", "on" ]
                     let! sameOrigin = attempt app [ "Origin", app.Origin ]
                     Assert.False plain
-                    Assert.True forwarded
-                    Assert.True forwardedSsl
                     Assert.True sameOrigin
                 })
         do!
-            withServer { testConfig with DisableRequestForgeryProtection = true } (fun app ->
+            withServer (CableOptions(DisableRequestForgeryProtection = true)) (fun app ->
                 task {
                     let! anywhere = attempt app [ "Origin", "http://evil.example" ]
                     let! none = attempt app []
@@ -564,10 +548,10 @@ let ``a connection's request is what the authenticator sees`` () =
     task {
         // What the request says is read while it is open: Kestrel resets its headers when it ends.
         let seen = Collections.Concurrent.ConcurrentQueue<string * string * string>()
-        let authenticate (request: ConnectRequest) =
-            seen.Enqueue((request.Uri, request.Headers["X-Custom"].ToString(), request.Headers["Cookie"].ToString()))
+        let authenticate (ctx: Microsoft.AspNetCore.Http.HttpContext) =
+            seen.Enqueue((ctx.Request.Path.Value |> nonNull, ctx.Request.Headers["X-Custom"].ToString(), ctx.Request.Headers["Cookie"].ToString()))
             Task.FromResult(Some "someone")
-        let server = Server.builder testConfig authenticate id |> ServerBuilder.build
+        let server = Server.builder (testOptions ()) authenticate id |> ServerBuilder.build
         let! app, address = host server
         try
             let authority = (Uri address).Authority
@@ -588,43 +572,6 @@ let ``a connection's request is what the authenticator sees`` () =
             eq "yes" custom
             eq "a=1" cookie
         finally
-            (server :> IDisposable).Dispose()
-            app.DisposeAsync().AsTask().Wait()
-    }
-
-/// The front server terminates TLS in the same Kestrel, so frames have to go through what the upgrade
-/// returns, not around it.
-[<Fact>]
-let ``cable over TLS`` () =
-    task {
-        let log = Log()
-        let server =
-            Server.builder testConfig cookieAuth identify
-            |> ServerBuilder.channel "RoomChannel" (roomChannel log)
-            |> ServerBuilder.build
-        let! app, address = hostOn server true
-        try
-            Assert.StartsWith("https://", address)
-            let authority = (Uri address).Authority
-            let headers =
-                [ "Origin", $"https://{authority}"
-                  "Cookie", "session_token=1"
-                  "Sec-WebSocket-Protocol", "actioncable-v1-json"
-                  "X-Forwarded-Proto", "https"
-                  "Sec-WebSocket-Extensions", "permessage-deflate; client_max_window_bits" ]
-            match! Client.Open(authority, headers, true) with
-            | Choice2Of2 response -> failwith $"{response.Status}"
-            | Choice1Of2 client ->
-                use _ = client
-                do! expectText Welcome client
-                let room = room 1
-                do! client.Subscribe room
-                do! expectText (confirm room) client
-                let big = String.replicate 300 "<div>message</div>"
-                eq 1 (server.BroadcastTo("RoomChannel", [ "room-1" ], Payload.ofString big))
-                do! expectText (message room (Text.Encoding.UTF8.GetString(Payload.toBytes (Payload.ofString big)))) client
-        finally
-            (server :> IDisposable).Dispose()
             app.DisposeAsync().AsTask().Wait()
     }
 
@@ -636,7 +583,7 @@ let ``turbo streams channel verifies names signed with the app's secret`` () =
         let signed = Campfire.RailsCompat.Turbo.signedStreamName secrets [ "Z2lk"; "messages" ]
         let rooms = Campfire.RailsCompat.Turbo.signedStreamName secrets [ "rooms" ]
         let server =
-            Server.builder testConfig cookieAuth identify
+            Server.builder (testOptions ()) cookieAuth identify
             |> ServerBuilder.channel Campfire.Cable.Turbo.StreamsChannelName (fun () ->
                 Campfire.Cable.Turbo.StreamsChannel.create secrets
                 |> Campfire.Cable.Turbo.StreamsChannel.guardedBy (fun name -> name.EndsWith ":messages")
@@ -664,7 +611,6 @@ let ``turbo streams channel verifies names signed with the app's secret`` () =
                 let tag = Campfire.Cable.Turbo.actionTag Campfire.Cable.Turbo.Update (Campfire.Cable.Turbo.Target "list") (Some "<b>1</b>") []
                 do! expectText (message (turbo rooms) (Text.Encoding.UTF8.GetString(Payload.toBytes (Payload.ofString tag)))) client
         finally
-            (server :> IDisposable).Dispose()
             app.DisposeAsync().AsTask().Wait()
     }
 
@@ -672,13 +618,13 @@ let ``turbo streams channel verifies names signed with the app's secret`` () =
 /// allows (1 MiB) must not hold a thread for long. Json.parse once looked up each key by scanning.
 [<Fact>]
 let ``a message of many keys is read in linear time`` () =
-    withServer testConfig (fun app ->
+    withServer (testOptions ()) (fun app ->
         task {
             let! client = connect app 1UL
             do! expectText Welcome client
             let keys (count: int) = String.Join(",", [ for n in 0 .. count - 1 -> $"\"k{n}\":{n}" ])
             let big = $"{{\"command\":\"subscribe\",\"identifier\":{Json.generate (str (room 1))},{keys 60_000}}}"
-            Assert.InRange(big.Length, 600_000, Socket.MaxMessage)
+            Assert.InRange(big.Length, 600_000, 1048576)
             let started = Stopwatch.GetTimestamp()
             do! client.SendText big
             do! expectText (confirm (room 1)) client
@@ -686,7 +632,7 @@ let ``a message of many keys is read in linear time`` () =
             let data = "{" + keys 40_000 + ",\"action\":\"start\"}"
             let perform =
                 Json.generate (object' [ "command", str "message"; "identifier", str (room 1); "data", str data ])
-            Assert.InRange(perform.Length, 400_000, Socket.MaxMessage)
+            Assert.InRange(perform.Length, 400_000, 1048576)
             do! client.SendText perform
             do! expectText (message (room 1) """{"action":"start","user":{"id":1}}""") client
             do! client.Subscribe heartbeatId
@@ -700,7 +646,7 @@ let ``a message of many keys is read in linear time`` () =
 /// the host turns it off).
 [<Fact>]
 let ``the 101 answers as websocket-driver does, plus the host's Date`` () =
-    withServer testConfig (fun app ->
+    withServer (testOptions ()) (fun app ->
         task {
             use tcp = new Net.Sockets.TcpClient()
             do! tcp.ConnectAsync(Net.IPAddress.Loopback, int (app.Authority.Substring(app.Authority.LastIndexOf ':' + 1)))

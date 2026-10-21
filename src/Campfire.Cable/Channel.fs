@@ -6,15 +6,18 @@ namespace Campfire.Cable
 open System
 open System.Collections.Frozen
 open System.Collections.Generic
-open System.Text
 open System.Text.Json
 open System.Threading.Tasks
-open Campfire.Cable.Socket
 
 /// What a channel (and a Turbo helper) broadcasts through: `ActionCable.server.broadcast(broadcasting, message)`.
 /// Returns how many subscribers it reached.
 type ICableBroadcaster =
     abstract Broadcast: broadcasting: string * payload: Payload -> int
+
+/// One stream change a callback asked for, applied by the connection once the callback's own frames are queued (C13).
+type internal StreamOp =
+    | Start of broadcasting: string
+    | Stop of broadcasting: string
 
 /// The per-subscription state a channel works with: params, the connection's identity, streams,
 /// rejection and transmissions.
@@ -23,43 +26,28 @@ type Subscription<'U>
     internal
     (
         broadcaster: ICableBroadcaster,
-        hub: Hub,
         services: IServiceProvider,
         className: string,
         identifier: string,
-        encodedIdentifier: string,
-        currentUser: 'U,
-        wake: Wake
+        identifierJson: byte[],
+        parameters: JsonElement,
+        currentUser: 'U
     ) =
-    let streams = List<Subscriber>()
-    /// Streams started by the last callback, for the connection to start reading once that
-    /// callback's own frames (transmissions, the confirmation) are queued ahead of them.
-    let started = List<Subscriber>()
-    let transmissions = List<string>()
-    let mutable parameters = Unchecked.defaultof<JsonElement>
-    let mutable parsed = false
+    let streams = List<string>()
+    /// Stream changes made by the last callback; the connection applies them after the callback's transmissions
+    /// and the confirmation are queued, so a broadcast on a new stream never precedes the confirmation.
+    let ops = List<StreamOp>()
+    let transmissions = List<ReadOnlyMemory<byte>>()
     let mutable rejected = false
     let mutable unsubscribed = false
 
     /// The raw identifier string the client subscribed with.
     member _.Identifier: string = identifier
 
-    /// The decoded identifier object, including `channel`. Parsed when asked for (subscriptions live as
-    /// long as their sockets, and are many) and detached from the parser's buffer.
-    member _.Params: JsonElement =
-        if not parsed then
-            parameters <-
-                try
-                    use document = JsonDocument.Parse identifier
-                    document.RootElement.Clone()
-                with :? JsonException ->
-                    use document = JsonDocument.Parse "{}"
-                    document.RootElement.Clone()
-            parsed <- true
-        parameters
+    /// The decoded identifier object, including `channel`.
+    member _.Params: JsonElement = parameters
 
-    member this.Param(key: string) : JsonElement voption =
-        let parameters = this.Params
+    member _.Param(key: string) : JsonElement voption =
         if parameters.ValueKind <> JsonValueKind.Object then
             ValueNone
         else
@@ -84,29 +72,22 @@ type Subscription<'U>
     member this.BroadcastTo(broadcastables: string list, payload: Payload) : unit =
         broadcaster.Broadcast(this.BroadcastingFor broadcastables, payload) |> ignore
 
+    /// Recorded here and registered after the confirmation (C13). A stream named twice is delivered twice, as in Rails.
     member _.StreamFrom(broadcasting: string) : unit =
         if not unsubscribed then
-            // The hub wraps each broadcast for this identifier once, for every subscriber sharing it.
-            let subscriber = hub.Subscribe(broadcasting, encodedIdentifier, wake)
-            started.Add subscriber
-            streams.Add subscriber
+            streams.Add broadcasting
+            ops.Add(Start broadcasting)
 
     member this.StreamFor(broadcastables: string list) : unit = this.StreamFrom(this.BroadcastingFor broadcastables)
 
     member _.StopStreamFrom(broadcasting: string) : unit =
-        let mutable i = 0
-        while i < streams.Count do
-            if streams[i].Broadcasting = broadcasting then
-                (streams[i] :> IDisposable).Dispose()
-                streams.RemoveAt i
-            else
-                i <- i + 1
+        while streams.Remove broadcasting do
+            ops.Add(Stop broadcasting)
 
     member _.StopAllStreams() : unit =
-        for stream in streams do
-            (stream :> IDisposable).Dispose()
+        for broadcasting in streams do
+            ops.Add(Stop broadcasting)
         streams.Clear()
-        started.Clear()
 
     /// `stream_or_reject_for`.
     member this.StreamOrRejectFor(broadcastables: string list option) : unit =
@@ -114,36 +95,32 @@ type Subscription<'U>
         | Some broadcastables -> this.StreamFor broadcastables
         | None -> this.Reject()
 
-    member _.Streams: string list = [ for stream in streams -> stream.Broadcasting ]
+    member _.Streams: string list = List.ofSeq streams
 
     member _.Reject() : unit = rejected <- true
 
     /// `subscription_rejected?`
     member _.Rejected: bool = rejected
 
-    /// Sends `{"identifier":...,"message":...}` to this subscriber only (not in the design's API; the old transport's tests use it).
-    member _.Transmit(payload: Payload) : unit =
-        transmissions.Add(Protocol.message encodedIdentifier (Encoding.UTF8.GetString(Payload.toBytes payload)))
+    /// Sends `{"identifier":...,"message":...}` to this subscriber only (not in the design's API; the Cable test channels use it).
+    member _.Transmit(payload: Payload) : unit = transmissions.Add(Frames.message identifierJson payload)
 
     member internal _.Unsubscribed
         with get () = unsubscribed
         and set value = unsubscribed <- value
 
     member internal _.ClassName: string = className
+    member internal _.IdentifierJson: byte[] = identifierJson
 
     /// Moves the frames the last callback transmitted onto `target`.
-    member internal _.DrainTransmissions(target: List<Frame>) : unit =
-        for text in transmissions do
-            target.Add(Frame.OfString text)
+    member internal _.DrainTransmissions(target: List<ReadOnlyMemory<byte>>) : unit =
+        target.AddRange transmissions
         transmissions.Clear()
 
-    /// Moves the streams the last callback started onto `target`.
-    member internal _.DrainStarted(target: List<Subscriber>) : unit =
-        target.AddRange started
-        started.Clear()
-
-    interface IDisposable with
-        member this.Dispose() = this.StopAllStreams()
+    /// Moves the stream changes the last callback made onto `target`.
+    member internal _.DrainOps(target: List<StreamOp>) : unit =
+        target.AddRange ops
+        ops.Clear()
 
 /// A channel class. The server builds a fresh instance per subscription from the factory registered
 /// under the Ruby class name (see `ServerBuilder.channel`); what state it keeps is in the closures.

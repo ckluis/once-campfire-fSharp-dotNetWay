@@ -18,6 +18,7 @@ open System.Threading.Tasks
 open Microsoft.AspNetCore.Builder
 open Microsoft.AspNetCore.Hosting
 open Microsoft.AspNetCore.Http
+open Microsoft.Extensions.DependencyInjection
 open Microsoft.Extensions.Logging
 open Campfire.Cable
 
@@ -33,9 +34,9 @@ let html (seq: int) (bytes: int) : string =
 [<EntryPoint>]
 let main argv =
     let port = int argv[0]
-    let config = { Config.defaults with DisableRequestForgeryProtection = true }
+    let options = CableOptions(DisableRequestForgeryProtection = true)
     let server =
-        Server.builder config (fun _ -> Task.FromResult(Some "bench")) id
+        Server.builder options (fun _ -> Task.FromResult(Some "bench")) id
         |> ServerBuilder.channel "BenchChannel" (fun () ->
             { Channel.empty with
                 Subscribed =
@@ -48,8 +49,10 @@ let main argv =
     builder.WebHost.ConfigureKestrel(fun options -> options.Listen(IPAddress.Loopback, port)) |> ignore
     if Environment.GetEnvironmentVariable "CABLE_INLINE" = "1" then
         builder.WebHost.UseSockets(fun sockets -> sockets.UnsafePreferInlineScheduling <- true) |> ignore
+    builder.Services.AddHostedService<CableHeartbeat<string>>(fun _ -> new CableHeartbeat<string>(server)) |> ignore
     let app = builder.Build()
-    Endpoint.map Protocol.DefaultMountPath server app
+    app.UseWebSockets() |> ignore
+    app.Map(Endpoint.MountPath, RequestDelegate(fun ctx -> Endpoint.handle server ctx)) |> ignore
     app.MapPost(
         "/broadcast",
         RequestDelegate(fun ctx ->

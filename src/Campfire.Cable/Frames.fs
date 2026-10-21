@@ -1,6 +1,5 @@
 // Phase 3 (plans/design-cable.md C14): Action Cable frames as UTF-8 bytes, written with System.Text.Json.
 //
-// `DisconnectReason` is still defined in Protocol.fs (the old transport); 3.4 deletes that file and moves the type here.
 namespace Campfire.Cable
 
 open System
@@ -8,6 +7,13 @@ open System.Buffers
 open System.Globalization
 open System.Text.Encodings.Web
 open System.Text.Json
+
+/// `ActionCable::INTERNAL[:disconnect_reasons]`.
+type DisconnectReason =
+    | Unauthorized
+    | InvalidRequest
+    | ServerRestart
+    | Remote
 
 module CableJson =
     /// Relaxed escaping: `<`, `>`, `&` and `"`-free text are written raw; both decode to what Rails sends (S6).
@@ -31,7 +37,7 @@ module Payload =
     let ofString (value: string) : Payload =
         { Json = JsonSerializer.SerializeToUtf8Bytes(value, CableJson.Options) }
 
-    /// The encoded bytes (tests, and the old transport until 3.4).
+    /// The encoded bytes (tests).
     let toBytes (payload: Payload) : byte[] = payload.Json
 
 module Frames =

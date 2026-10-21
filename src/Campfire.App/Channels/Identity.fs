@@ -19,7 +19,7 @@ open Campfire.RailsCompat.Clock
 type CableUser = { Id: int64; Name: string }
 
 /// The cable server, identified by `current_user`.
-type Cable = Server<CableUser>
+type Cable = CableServer<CableUser>
 
 /// What the cable server needs from the app.
 type Deps =

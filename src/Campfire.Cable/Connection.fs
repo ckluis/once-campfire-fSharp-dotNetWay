@@ -1,260 +1,334 @@
-// Port of rust/crates/cable/src/connection.rs
+// Phase 3 (plans/design-cable.md C1, C6, C7, C12, C13, C17): one WebSocket connection on ASP.NET Core's WebSocket
+// middleware. `ActionCable::Connection::Base` and `Connection::Subscriptions` as the port had them, with the
+// transport's work (handshake, framing, masking, control frames) left to the framework.
 //
-// `ActionCable::Connection::Base` and `Connection::Subscriptions`: one task per socket.
-//
-// Commands are handled one at a time in arrival order. The connection reads its streams straight from
-// the hub's per-broadcasting rings, so there's no per-connection queue: a client that stops reading
-// falls behind by the ring's capacity, which closes the connection with `reconnect: true`. Frames that
-// are ready together go out in one socket write.
-//
-// Where the Rust connection selects over its sockets and streams, this one awaits a single `Wake` that
-// the reader, every stream it reads, the heartbeat and a restart all set, and then looks at each in
-// turn. The socket's read half lives in a task of its own that hands incoming messages over in order,
-// so it's only polled when the socket is readable, not every time a delivery wakes the connection.
-module internal Campfire.Cable.Connection
+// Every send of a connection goes through its writer loop, which drains one bounded queue into `WebSocket.SendAsync`
+// (one Action Cable frame per message): welcome, confirmations, broadcasts, pings, disconnects and the close frame.
+// Broadcasters only ever `TryWrite`; a full queue is a slow consumer and aborts the connection (C7). Commands run in
+// arrival order, one at a time, on the read loop.
+namespace Campfire.Cable
 
 open System
+open System.Buffers
 open System.Collections.Generic
-open System.IO
-open System.Text.Json
+open System.Net.WebSockets
 open System.Text
+open System.Text.Json
 open System.Threading
 open System.Threading.Tasks
+open Microsoft.AspNetCore.Http
 open Microsoft.Extensions.Logging
-open Campfire.RailsCompat
-open Campfire.Cable.Socket
 
-type private Entry<'U> = { Channel: Channel<'U>; Sub: Subscription<'U> }
+/// What a connection needs of its server: the registries, the channels, the settings.
+[<Sealed>]
+type internal ServerCore<'U>
+    (
+        options: CableOptions,
+        channels: ChannelRegistry<'U>,
+        authenticate: HttpContext -> Task<'U option>,
+        identify: 'U -> string,
+        services: IServiceProvider,
+        logger: ILogger
+    ) =
+    let streams = StreamRegistry()
 
-/// Why the socket is going away, once we've decided to close it.
-type private Closing =
-    { Reason: DisconnectReason option
-      Reconnect: Value }
+    member _.Options: CableOptions = options
+    member _.Channels: ChannelRegistry<'U> = channels
+    member _.Services: IServiceProvider = services
+    member _.Logger: ILogger = logger
+    member _.Streams: StreamRegistry = streams
+    /// What a `Subscription` hands its channel: the server that owns this core (set by `ServerBuilder.build`).
+    member val Broadcaster: ICableBroadcaster = Unchecked.defaultof<ICableBroadcaster> with get, set
+    member val Connections = ConnectionIndex()
+    member _.Authenticate(ctx: HttpContext) : Task<'U option> = authenticate ctx
+    member _.Identify(user: 'U) : string = identify user
 
-/// A stream fell behind (`reason: nil`, as `Connection::Base#close` without one).
-let private lagged = { Reason = None; Reconnect = Value.Bool true }
+    /// `ActionCable.server.broadcast(broadcasting, message)`; the payload is already encoded.
+    member _.Broadcast(broadcasting: string, payload: Payload) : int =
+        if logger.IsEnabled LogLevel.Debug then logger.LogDebug("[ActionCable] Broadcasting {Broadcasting}", broadcasting)
+        streams.Broadcast(broadcasting, payload)
 
-/// The most subscriptions one connection may hold, and the longest identifier it may subscribe with.
-[<Literal>]
-let private MaxSubscriptions = 64
+    interface ICableBroadcaster with
+        member this.Broadcast(broadcasting, payload) = this.Broadcast(broadcasting, payload)
 
-[<Literal>]
-let private MaxIdentifierBytes = 4096
-
-/// Incoming messages buffered between the reader task and the connection. A client that sends
-/// commands faster than they're handled is held back by TCP once this fills.
-[<Literal>]
-let private IncomingCapacity = 16
-
-type private Received = Result<Incoming, ReadError>
-
-let private tryRead (reader: Channels.ChannelReader<'T>) : 'T voption =
-    let mutable item = Unchecked.defaultof<'T>
-    if reader.TryRead(&item) then ValueSome item else ValueNone
-
-/// Runs `callback`, treating an exception as the `Error` Rust's `ChannelError` is.
-let private safely (callback: unit -> Task<'T>) : Task<Result<'T, string>> =
-    task {
+module private Parse =
+    /// The JSON text as a document, or None when it is not JSON.
+    let document (bytes: ReadOnlyMemory<byte>) : JsonDocument option =
         try
-            let! value = callback ()
-            return Ok value
-        with e ->
-            return Error e.Message
-    }
+            Some(JsonDocument.Parse bytes)
+        with :? JsonException ->
+            None
 
-/// A task that completes without a result, for `safely`.
-let private unitTask (callback: unit -> Task) : unit -> Task<unit> =
-    fun () ->
+    let text (element: JsonElement) (name: string) : string voption =
+        match element.TryGetProperty name with
+        | true, value when value.ValueKind = JsonValueKind.String ->
+            match value.GetString() with
+            | null -> ValueNone
+            | text -> ValueSome text
+        | _ -> ValueNone
+
+type private Entry<'U> =
+    { Channel: Channel<'U>
+      Sub: Subscription<'U>
+      Subscriber: StreamSubscriber
+      /// How many times each broadcasting is registered (a stream started twice is delivered twice).
+      Registered: Dictionary<string, int> }
+
+/// Runs `callback`, treating an exception as Rails' rescued error: `Error message`.
+module private Safely =
+    let run (callback: unit -> Task<'T>) : Task<Result<'T, string>> =
         task {
-            do! callback ()
+            try
+                let! value = callback ()
+                return Ok value
+            with e ->
+                return Error e.Message
         }
 
-/// A decoded command: a JSON object's entries, in order.
-type private Params = (string * Value) list
-
-/// Whether `work` completed without an I/O failure: a failed socket write ends the connection.
-let private attempt (work: Task) : Task<bool> =
-    task {
-        try
-            do! work
-            return true
-        with _ ->
-            return false
-    }
-
-type private Drained =
-    | Drained = 0
-    /// The batch is full; more may be waiting.
-    | Full = 1
-    | Lagged = 2
-
-/// Reads the ready frames of every stream onto `pending`, up to `limit` of them in all.
-let private drain (readers: List<Subscriber>) (pending: List<Frame>) (limit: int) : Drained =
-    let mutable outcome = Drained.Drained
-    let mutable i = 0
-    while outcome = Drained.Drained && i < readers.Count do
-        let reader = readers[i]
-        if reader.Stopped then
-            readers.RemoveAt i
-        else
-            let mutable reading = true
-            while reading do
-                let mutable frame = Unchecked.defaultof<Frame>
-                match reader.TryRecv(&frame) with
-                | RecvStatus.Got ->
-                    pending.Add frame
-                    if pending.Count >= limit then
-                        outcome <- Drained.Full
-                        reading <- false
-                | RecvStatus.Lagged ->
-                    outcome <- Drained.Lagged
-                    reading <- false
-                | _ -> reading <- false
-            i <- i + 1
-    outcome
-
-/// `InternalChannel#process_internal_message`.
-let private processInternalMessage (frame: Frame) : Closing voption =
-    match Json.parse frame.Bytes with
-    | Some(Value.Object _ as message) when message.TryGet "type" = Some(Value.String "disconnect") ->
-        ValueSome
-            { Reason = Some Remote
-              Reconnect = defaultArg (message.TryGet "reconnect") (Value.Bool true) }
-    | _ -> ValueNone
-
-/// Reads the internal channel's ready messages, up to the first that disconnects this connection.
-let private drainInternal (internal': Subscriber) : Closing voption =
-    let mutable closing = ValueNone
-    let mutable frame = Unchecked.defaultof<Frame>
-    let mutable reading = true
-    while reading do
-        match internal'.TryRecv(&frame) with
-        | RecvStatus.Got ->
-            match processInternalMessage frame with
-            | ValueSome remote ->
-                closing <- ValueSome remote
-                reading <- false
-            | ValueNone -> ()
-        | _ -> reading <- false
-    closing
-
-/// A JSON text that is an object, or null. The caller disposes it.
-let private parseObject (text: string) : JsonDocument | null =
-    try
-        let document = JsonDocument.Parse text
-        if document.RootElement.ValueKind = JsonValueKind.Object then
-            document
-        else
-            document.Dispose()
-            null
-    with :? JsonException ->
-        null
-
-let private tryGet (key: string) (data: Params) : Value option = data |> List.tryFind (fun (k, _) -> k = key) |> Option.map snd
+    let runUnit (callback: unit -> Task) : Task<Result<unit, string>> =
+        run (fun () ->
+            task {
+                do! callback ()
+            })
 
 [<Sealed>]
-type private Connection<'U>(server: Server<'U>, user: 'U, wake: Wake) =
-    let logger = server.Logger
+type internal CableConnection<'U>(ws: WebSocket, ctx: HttpContext, user: 'U voption, core: ServerCore<'U>) =
+    let options = core.Options
+    let logger = core.Logger
+    let queue =
+        Channels.Channel.CreateBounded<ReadOnlyMemory<byte>>(
+            Channels.BoundedChannelOptions(options.QueueCapacity, FullMode = Channels.BoundedChannelFullMode.Wait, SingleReader = true, SingleWriter = false)
+        )
     /// Keyed by the raw identifier string, in subscription order (a Ruby hash).
-    let subscriptions = List<Entry<'U>>()
+    let entries = List<Entry<'U>>()
+    let transmissions = List<ReadOnlyMemory<byte>>()
+    let ops = List<StreamOp>()
+    /// Frames a broadcast delivered while a command runs: they follow the command's own frames, as a broadcast
+    /// reaches a Rails connection after the command that caused it (pub/sub is asynchronous there).
+    let held = List<ReadOnlyMemory<byte>>()
+    let mutable inCommand = 0
+    let mutable closing = 0
+    let mutable aborted = 0
+    let mutable closeStatus = WebSocketCloseStatus.NormalClosure
+    let mutable identifier: string | null = null
 
-    let position (identifier: string) : int =
-        subscriptions.FindIndex(fun entry -> entry.Sub.Identifier = identifier)
+    member private _.Position(requested: string) : int =
+        entries.FindIndex(fun entry -> String.Equals(entry.Sub.Identifier, requested))
 
-    let find (data: Params) : int =
-        match tryGet "identifier" data with
-        | Some(Value.String identifier) -> position identifier
-        | _ -> -1
+    /// Cuts the connection: no further frame is sent, the socket is torn down, and the read loop ends.
+    member private _.Abort() : unit =
+        if Interlocked.Exchange(&aborted, 1) = 0 then
+            queue.Writer.TryComplete() |> ignore
+            ctx.Abort()
 
-    /// Frames waiting for the next socket write.
-    member val Pending = List<Frame>()
+    /// The queue itself: full is a slow consumer (abort), closed is a connection going away on its own.
+    member private this.Offer(frame: ReadOnlyMemory<byte>) : bool =
+        if queue.Writer.TryWrite frame then true
+        else
+            if Volatile.Read(&closing) = 0 then this.Abort()
+            false
 
-    /// Streams the last command's callbacks started, to read from once its frames are queued.
-    member val Started = List<Subscriber>()
+    /// The connection's own frames go straight to the queue, ahead of what a command held back.
+    member private this.Enqueue(frame: ReadOnlyMemory<byte>) : unit =
+        if Volatile.Read(&aborted) = 0 then this.Offer frame |> ignore
+
+    /// Runs a command with broadcasts held back until its own frames are queued.
+    member private this.InCommand(work: unit -> Task) : Task =
+        task {
+            Volatile.Write(&inCommand, 1)
+            try
+                do! work ()
+            finally
+                lock held (fun () ->
+                    Volatile.Write(&inCommand, 0)
+                    for frame in held do
+                        this.Offer frame |> ignore
+                    held.Clear())
+        }
+
+    /// Close after what is queued: the status goes out with the close frame.
+    member private _.BeginClose(status: WebSocketCloseStatus) : unit =
+        if Interlocked.Exchange(&closing, 1) = 0 then
+            closeStatus <- status
+            queue.Writer.TryComplete() |> ignore
+
+    interface IOutbound with
+        member this.TryWrite(frame: ReadOnlyMemory<byte>) : bool =
+            if Volatile.Read(&aborted) <> 0 then false
+            elif Volatile.Read(&inCommand) = 0 then this.Offer frame
+            else
+                lock held (fun () ->
+                    if inCommand = 0 then this.Offer frame
+                    elif held.Count < options.QueueCapacity then
+                        held.Add frame
+                        true
+                    else
+                        this.Abort()
+                        false)
+
+        member this.Close(reason: DisconnectReason option, reconnect: bool) : unit =
+            if Interlocked.Exchange(&closing, 1) = 0 then
+                closeStatus <- WebSocketCloseStatus.NormalClosure
+                if queue.Writer.TryWrite(Frames.disconnect reason reconnect) then queue.Writer.TryComplete() |> ignore
+                else this.Abort()
+
+    /// Drains the queue into the socket, one frame per message; then sends the close frame. A send that takes longer
+    /// than `SendTimeout` is cancelled, which aborts the socket (S4b).
+    member private this.WriteLoop() : Task =
+        task {
+            use sending = new CancellationTokenSource()
+            try
+                let reader = queue.Reader
+                let mutable more = true
+                while more do
+                    let! available = reader.WaitToReadAsync()
+                    if not available then
+                        more <- false
+                    else
+                        let mutable frame = ReadOnlyMemory<byte>.Empty
+                        while reader.TryRead(&frame) do
+                            sending.CancelAfter options.SendTimeout
+                            do! ws.SendAsync(frame, WebSocketMessageType.Text, true, sending.Token)
+                            if not (sending.TryReset()) then raise (OperationCanceledException())
+                if Volatile.Read(&aborted) = 0 && (ws.State = WebSocketState.Open || ws.State = WebSocketState.CloseReceived) then
+                    sending.CancelAfter options.SendTimeout
+                    do! ws.CloseOutputAsync(closeStatus, "", sending.Token)
+            with e ->
+                if Volatile.Read(&aborted) = 0 && Volatile.Read(&closing) = 0 then logger.LogDebug(e, "Cable writer ended")
+                this.Abort()
+        }
+
+    member private this.Flush() : unit =
+        for frame in transmissions do
+            this.Enqueue frame
+        transmissions.Clear()
+
+    /// Starts and stops the streams the last callback asked for, once its own frames are queued (C13).
+    member private _.ApplyOps(entry: Entry<'U>) : unit =
+        for op in ops do
+            match op with
+            | Start broadcasting ->
+                entry.Registered[broadcasting] <- (match entry.Registered.TryGetValue broadcasting with
+                                                   | true, n -> n + 1
+                                                   | _ -> 1)
+                core.Streams.Add(broadcasting, entry.Subscriber)
+            | Stop broadcasting ->
+                match entry.Registered.TryGetValue broadcasting with
+                | true, n ->
+                    if n = 1 then entry.Registered.Remove broadcasting |> ignore else entry.Registered[broadcasting] <- n - 1
+                    core.Streams.Remove(broadcasting, entry.Subscriber)
+                | _ -> ()
+        ops.Clear()
+
+    member private this.Collect(entry: Entry<'U>) : unit =
+        entry.Sub.DrainTransmissions transmissions
+        entry.Sub.DrainOps ops
 
     /// `Subscriptions#remove_subscription` -> `Channel::Base#unsubscribe_from_channel`.
     member private this.RemoveSubscription(index: int) : Task =
         task {
-            let entry = subscriptions[index]
-            subscriptions.RemoveAt index
+            let entry = entries[index]
+            entries.RemoveAt index
             entry.Sub.Unsubscribed <- true
-            match! safely (unitTask (fun () -> entry.Channel.Unsubscribed entry.Sub)) with
+            match! Safely.runUnit (fun () -> entry.Channel.Unsubscribed entry.Sub) with
             | Error error -> logger.LogError("Could not execute command: {Error}", error)
             | Ok() -> ()
             entry.Sub.StopAllStreams()
-            entry.Sub.DrainTransmissions this.Pending
-            entry.Sub.DrainStarted this.Started
+            this.Collect entry
+            this.Flush()
+            this.ApplyOps entry
         }
 
-    /// `Channel::Base#subscribe_to_channel`.
-    member private this.SubscribeToChannel(identifier: string) : Task =
+    /// `Channel::Base#subscribe_to_channel`: the callback's transmissions, then the confirmation, then the streams.
+    member private this.SubscribeToChannel(entry: Entry<'U>) : Task =
         task {
-            let index = position identifier
-            let entry = subscriptions[index]
-            let! result = safely (unitTask (fun () -> entry.Channel.Subscribed entry.Sub))
-            entry.Sub.DrainTransmissions this.Pending
-            entry.Sub.DrainStarted this.Started
+            let! result = Safely.runUnit (fun () -> entry.Channel.Subscribed entry.Sub)
+            this.Collect entry
+            this.Flush()
             match result with
-            | Error error -> logger.LogError("Could not execute command {Identifier}: {Error}", identifier, error)
+            | Error error ->
+                logger.LogError("Could not execute command {Identifier}: {Error}", entry.Sub.Identifier, error)
+                this.ApplyOps entry
             | Ok() ->
                 if entry.Sub.Rejected then
-                    do! this.RemoveSubscription index
-                    this.Pending.Add(Frame.OfString(Protocol.rejection identifier))
+                    let index = this.Position entry.Sub.Identifier
+                    if index >= 0 then do! this.RemoveSubscription index
+                    this.Enqueue(Frames.rejection entry.Sub.IdentifierJson)
                 else
-                    this.Pending.Add(Frame.OfString(Protocol.confirmation identifier))
+                    this.Enqueue(Frames.confirmation entry.Sub.IdentifierJson)
+                    this.ApplyOps entry
         }
 
     /// `Subscriptions#add`. A repeated identifier (byte for byte) is ignored without a reply.
-    member private this.Add(data: Params) : Task =
+    member private this.Add(command: JsonElement) : Task =
         task {
-            match tryGet "identifier" data with
-            | Some(Value.String identifier) ->
-                match Json.parse (Encoding.UTF8.GetBytes identifier) with
-                | Some(Value.Object parameters) ->
-                    if position identifier < 0 then
+            match Parse.text command "identifier" with
+            | ValueNone -> logger.LogError "Could not execute command: missing identifier"
+            | ValueSome identifier ->
+                let parameters =
+                    match Parse.document (ReadOnlyMemory(Encoding.UTF8.GetBytes identifier)) with
+                    | Some document ->
+                        use document = document
+                        if document.RootElement.ValueKind = JsonValueKind.Object then ValueSome(document.RootElement.Clone()) else ValueNone
+                    | None -> ValueNone
+                match parameters with
+                | ValueNone -> logger.LogError("Could not execute command: invalid identifier {Identifier}", identifier)
+                | ValueSome parameters ->
+                    if this.Position identifier < 0 then
                         // Bounds on what one socket can make the server hold (Rails has none). A page
                         // subscribes to six channels with identifiers of a few hundred bytes.
-                        if subscriptions.Count >= MaxSubscriptions || Encoding.UTF8.GetByteCount identifier > MaxIdentifierBytes then
-                            logger.LogError("Could not execute command: subscription limit reached ({Subscriptions})", subscriptions.Count)
+                        if entries.Count >= options.MaxSubscriptions || Encoding.UTF8.GetByteCount identifier > options.MaxIdentifierBytes then
+                            logger.LogError("Could not execute command: subscription limit reached ({Subscriptions})", entries.Count)
                         else
-                            let requested =
-                                match tryGet "channel" parameters with
-                                | Some(Value.String channel) -> channel
-                                | _ -> ""
-                            match server.Channel requested with
+                            let requested = defaultArg (Parse.text parameters "channel" |> ValueOption.toOption) ""
+                            match ChannelRegistry.resolve core.Channels requested with
                             | ValueNone -> logger.LogError("Subscription class not found {Channel}", requested)
                             | ValueSome(struct (className, factory)) ->
-                                let channel = factory ()
+                                let json = Frames.identifierJson identifier
                                 let sub =
-                                    new Subscription<'U>(server, server.Hub, server.Services, className, identifier, Json.encode (Value.String identifier), user, wake)
-                                subscriptions.Add { Channel = channel; Sub = sub }
-                                do! this.SubscribeToChannel identifier
-                | _ -> logger.LogError("Could not execute command: invalid identifier {Identifier}", identifier)
-            | _ -> logger.LogError "Could not execute command: missing identifier"
+                                    Subscription<'U>(core.Broadcaster, core.Services, className, identifier, json, parameters, user.Value)
+                                let entry =
+                                    { Channel = factory ()
+                                      Sub = sub
+                                      Subscriber = { Outbound = this; Identifier = identifier; IdentifierJson = json }
+                                      Registered = Dictionary<string, int>(StringComparer.Ordinal) }
+                                entries.Add entry
+                                do! this.SubscribeToChannel entry
         }
 
     /// `Subscriptions#remove`: no reply either way.
-    member private this.Remove(data: Params) : Task =
+    member private this.Remove(command: JsonElement) : Task =
         task {
-            match find data with
-            | -1 -> logger.LogError "Unable to find subscription with identifier"
-            | index -> do! this.RemoveSubscription index
+            match Parse.text command "identifier" with
+            | ValueSome identifier when this.Position identifier >= 0 -> do! this.RemoveSubscription(this.Position identifier)
+            | _ -> logger.LogError "Unable to find subscription with identifier"
         }
 
     /// `Subscriptions#perform_action` -> `Channel::Base#perform_action`.
-    member private this.PerformAction(data: Params) : Task =
+    member private this.PerformAction(command: JsonElement) : Task =
         task {
-            match find data with
-            | -1 -> logger.LogError "Unable to find subscription with identifier"
-            | index ->
+            let index =
+                match Parse.text command "identifier" with
+                | ValueSome identifier -> this.Position identifier
+                | ValueNone -> -1
+            if index < 0 then
+                logger.LogError "Unable to find subscription with identifier"
+            else
                 // The data is itself JSON in a string; it is parsed for this call only.
-                use document =
-                    match tryGet "data" data with
-                    | Some(Value.String text) -> parseObject text
-                    | _ -> null
-                match document with
-                | null -> logger.LogError "Could not execute command: invalid data"
-                | document ->
+                let data =
+                    match Parse.text command "data" with
+                    | ValueSome text ->
+                        match Parse.document (ReadOnlyMemory(Encoding.UTF8.GetBytes text)) with
+                        | Some document when document.RootElement.ValueKind = JsonValueKind.Object -> Some document
+                        | Some document ->
+                            document.Dispose()
+                            None
+                        | None -> None
+                    | ValueNone -> None
+                match data with
+                | None -> logger.LogError "Could not execute command: invalid data"
+                | Some document ->
+                    use document = document
                     let payload = document.RootElement
                     let action =
                         match payload.TryGetProperty "action" with
@@ -269,10 +343,11 @@ type private Connection<'U>(server: Server<'U>, user: 'U, wake: Wake) =
                     match action with
                     | None -> logger.LogError "Could not execute command: invalid action"
                     | Some action ->
-                        let entry = subscriptions[index]
-                        let! result = safely (fun () -> entry.Channel.Perform action payload entry.Sub)
-                        entry.Sub.DrainTransmissions this.Pending
-                        entry.Sub.DrainStarted this.Started
+                        let entry = entries[index]
+                        let! result = Safely.run (fun () -> entry.Channel.Perform action payload entry.Sub)
+                        this.Collect entry
+                        this.Flush()
+                        this.ApplyOps entry
                         match result with
                         | Ok true -> ()
                         | Ok false -> logger.LogError("Unable to process {Action}", action)
@@ -281,214 +356,114 @@ type private Connection<'U>(server: Server<'U>, user: 'U, wake: Wake) =
 
     /// `Subscriptions#execute_command`. Anything malformed raises in Rails, which is logged and
     /// otherwise ignored; the connection stays open.
-    member this.Dispatch(text: string) : Task =
+    member private this.Dispatch(bytes: ReadOnlyMemory<byte>) : Task =
         task {
-            match Json.parse (Encoding.UTF8.GetBytes text) with
-            | Some(Value.Object data) ->
-                match tryGet "command" data with
-                | Some(Value.String "subscribe") -> do! this.Add data
-                | Some(Value.String "unsubscribe") -> do! this.Remove data
-                | Some(Value.String "message") -> do! this.PerformAction data
-                | _ -> logger.LogError("Received unrecognized command {Message}", text)
-            | _ -> logger.LogError("Could not execute command {Message}", text)
+            match Parse.document bytes with
+            | Some document ->
+                use document = document
+                let root = document.RootElement
+                if root.ValueKind <> JsonValueKind.Object then
+                    logger.LogError("Could not execute command {Message}", Encoding.UTF8.GetString bytes.Span)
+                else
+                    match Parse.text root "command" with
+                    | ValueSome "subscribe" -> do! this.InCommand(fun () -> this.Add root)
+                    | ValueSome "unsubscribe" -> do! this.InCommand(fun () -> this.Remove root)
+                    | ValueSome "message" -> do! this.InCommand(fun () -> this.PerformAction root)
+                    | _ -> logger.LogError("Received unrecognized command {Message}", Encoding.UTF8.GetString bytes.Span)
+            | None -> logger.LogError("Could not execute command {Message}", Encoding.UTF8.GetString bytes.Span)
         }
 
-    /// `Connection::Base#handle_close`: unsubscribe everything.
-    member this.HandleClose() : Task =
+    /// Reads messages until the socket closes or fails. An idle connection holds no receive buffer: each message is
+    /// announced by a zero-byte read (C17).
+    member private this.ReadLoop() : Task =
         task {
-            while subscriptions.Count > 0 do
-                do! this.RemoveSubscription 0
-        }
-
-/// Reads the socket until it closes or errors, handing each message, and then the error, to the
-/// connection. It stops after a close frame, as the connection does.
-let private readLoop (reader: Reader) (sender: Channels.ChannelWriter<Received>) (wake: Wake) (ct: CancellationToken) : Task =
-    task {
-        try
-            let mutable reading = true
-            while reading do
-                let! message = reader.Next ct
-                let last =
-                    match message with
-                    | Ok(Close _)
-                    | Error _ -> true
-                    | _ -> false
-                do! sender.WriteAsync(message, ct)
-                wake.Set()
-                if last then reading <- false
-        with _ ->
-            ()
-        sender.TryComplete() |> ignore
-        wake.Set()
-    }
-
-/// Sends a normal close (1000, no reason, as `ClientSocket#close` defaults) and waits briefly for the
-/// client to finish the handshake.
-let private closeSocket (sink: Writer) (incoming: Channels.ChannelReader<Received>) (timeout: TimeSpan) : Task =
-    task {
-        let! sent = attempt (sink.Close 1000us)
-        if sent then
-            use limit = new CancellationTokenSource(timeout)
+            let ct = ctx.RequestAborted
             try
-                let mutable waiting = true
-                while waiting do
-                    let! available = incoming.WaitToReadAsync limit.Token
-                    if not available then
-                        waiting <- false
-                    else
-                        let mutable item = tryRead incoming
-                        while waiting && item.IsSome do
-                            match item.Value with
-                            | Ok(Close _)
-                            | Error _ -> waiting <- false
-                            | _ -> item <- tryRead incoming
-            with :? OperationCanceledException ->
-                ()
-    }
-
-/// `Connection::Base#respond_to_invalid_request` for an unauthorized connection: tell the client not
-/// to reconnect, and close.
-let private rejectUnauthorized (server: Server<'U>) (sink: Writer) (incoming: Channels.ChannelReader<Received>) : Task =
-    task {
-        server.Logger.LogError "An unauthorized connection attempt was rejected"
-        let frame = Frame.OfString(Protocol.disconnect (Some Unauthorized) (Value.Bool false))
-        let! _ = attempt ((sink.Send [| frame |]).AsTask())
-        do! closeSocket sink incoming server.Config.CloseTimeout
-    }
-
-/// Runs one WebSocket connection on the upgraded `stream` until it ends. `abort` cuts the underlying
-/// connection (a write that times out calls it).
-let run (server: Server<'U>) (stream: Stream) (deflate: bool) (request: ConnectRequest) (abort: unit -> unit) : Task =
-    task {
-        let config = server.Config
-        let logger = server.Logger
-        use stop = new CancellationTokenSource()
-        let wake = Wake()
-        let channel = Channels.Channel.CreateBounded<Received>(Channels.BoundedChannelOptions(IncomingCapacity, SingleReader = true, SingleWriter = true))
-        let incoming = channel.Reader
-        let sink = Writer(stream, deflate, WriteTimeout, abort)
-        let readerTask = readLoop (Reader(stream, deflate)) channel.Writer wake stop.Token
-
-        // handle_open: connect, subscribe to the internal channel, welcome, then process whatever
-        // arrived meanwhile (the socket buffers it for us, like MessageBuffer).
-        let! authenticated = server.Authenticate request
-        let! admitted =
-            task {
-                match authenticated with
-                | None -> return ValueNone
-                | Some user ->
-                    // The internal channel carries raw payloads; every subscription stream carries frames.
-                    let identifier = server.Identify user
-                    if identifier = "" then
-                        return ValueSome(struct (user, ValueNone))
-                    else
-                        let internal' = server.Hub.Subscribe(ServerNames.internalChannel identifier, null, wake)
-                        // A ban or sign-out that disconnected this user between the check above and that
-                        // subscription went unheard, so check again now that it would be heard (Rails has
-                        // this gap).
-                        match! server.Authenticate request with
-                        | None ->
-                            (internal' :> IDisposable).Dispose()
-                            return ValueNone
-                        | Some _ -> return ValueSome(struct (user, ValueSome internal'))
-            }
-
-        match admitted with
-        | ValueNone ->
-            do! rejectUnauthorized server sink incoming
-            stop.Cancel()
-            do! readerTask
-        | ValueSome(struct (user, internal')) ->
-            let connection = Connection<'U>(server, user, wake)
-            let pending = connection.Pending
-            let readers = List<Subscriber>()
-            let beacon = server.Register wake
-            let mutable closing: Closing voption = ValueNone
-            try
-                try
-                    let mutable running = true
-                    try
-                        do! sink.Send [| Frame.OfString(Protocol.welcome ()) |]
-                    with _ ->
+                let mutable running = true
+                while running do
+                    let! announced = ws.ReceiveAsync(Memory<byte>.Empty, ct)
+                    if announced.MessageType = WebSocketMessageType.Close then
+                        this.BeginClose(if ws.CloseStatus.HasValue then ws.CloseStatus.Value else WebSocketCloseStatus.Empty)
                         running <- false
-                    while running do
-                        let! _ = wake.WaitAsync()
-
-                        // One command, or why the socket stopped; the rest wait for another turn.
-                        match tryRead incoming with
-                        | ValueSome message ->
-                            wake.Set()
-                            match message with
-                            | Ok(Text text) -> do! connection.Dispatch text
-                            | Ok Binary -> logger.LogError "Couldn't handle non-string message: Array"
-                            | Ok(Ping payload) ->
-                                let! ponged = attempt (sink.Pong payload)
-                                if not ponged then running <- false
-                            | Ok Pong -> ()
-                            // Complete the closing handshake (RFC 6455 section 5.5.1) before letting the socket go.
-                            | Ok(Close code) ->
-                                let! _ = attempt (sink.CloseReply code)
+                    else
+                        let mutable buffer = ArrayPool<byte>.Shared.Rent 4096
+                        try
+                            let mutable total = 0
+                            let mutable complete = false
+                            let mutable tooBig = false
+                            while not complete && not tooBig do
+                                if total = buffer.Length then
+                                    let bigger = ArrayPool<byte>.Shared.Rent(min (buffer.Length * 2) (options.MaxMessageBytes + 1))
+                                    Buffer.BlockCopy(buffer, 0, bigger, 0, total)
+                                    ArrayPool<byte>.Shared.Return buffer
+                                    buffer <- bigger
+                                let! part = ws.ReceiveAsync(Memory<byte>(buffer, total, buffer.Length - total), ct)
+                                total <- total + part.Count
+                                complete <- part.EndOfMessage
+                                if total > options.MaxMessageBytes then tooBig <- true
+                            if tooBig then
+                                logger.LogError("Could not execute command: message too big")
+                                this.BeginClose WebSocketCloseStatus.MessageTooBig
                                 running <- false
-                            | Error(ProtocolViolation code) ->
-                                let! _ = attempt (sink.Close code)
-                                running <- false
-                            | Error(Io _) -> running <- false
-                        | ValueNone -> if incoming.Completion.IsCompleted then running <- false
+                            elif announced.MessageType = WebSocketMessageType.Text then
+                                do! this.Dispatch(ReadOnlyMemory(buffer, 0, total))
+                            else
+                                logger.LogError "Couldn't handle non-string message: Array"
+                        finally
+                            ArrayPool<byte>.Shared.Return buffer
+            with e ->
+                // A cut connection, a protocol error the framework answered with its own close, or a cancelled read.
+                if Volatile.Read(&aborted) = 0 && Volatile.Read(&closing) = 0 && not (e :? OperationCanceledException) then
+                    logger.LogDebug(e, "Cable read ended")
+        }
 
-                        if running && closing.IsNone then
-                            // Whatever is ready goes out in the same write.
-                            match drain readers pending config.MaxWriteBatch with
-                            | Drained.Lagged -> closing <- ValueSome lagged
-                            | Drained.Full -> wake.Set()
-                            | _ -> ()
-
-                            // The internal channel carries raw payloads.
-                            match internal' with
-                            | ValueSome internal' ->
-                                match drainInternal internal' with
-                                | ValueSome remote -> closing <- ValueSome remote
-                                | ValueNone -> ()
-                            | ValueNone -> ()
-
-                            // One ping per beat, shared by every connection.
-                            if beacon.BeatSeen <> server.Beat then
-                                beacon.BeatSeen <- server.Beat
-                                pending.Add server.HeartbeatFrame
-                            if beacon.RestartSeen <> server.Restarts then
-                                beacon.RestartSeen <- server.Restarts
-                                closing <- ValueSome { Reason = Some ServerRestart; Reconnect = Value.Bool true }
-
-                        if running then
-                            // The streams a command started are read from now that its own frames are queued
-                            // ahead of them.
-                            if connection.Started.Count > 0 then
-                                readers.AddRange connection.Started
-                                connection.Started.Clear()
-                                wake.Set()
-                            if pending.Count > 0 then
-                                try
-                                    do! sink.Send pending
-                                with _ ->
-                                    running <- false
-                                pending.Clear()
-                            if running && closing.IsSome then
-                                let { Reason = reason; Reconnect = reconnect } = closing.Value
-                                closing <- ValueNone
-                                let! _ = attempt ((sink.Send [| Frame.OfString(Protocol.disconnect reason reconnect) |]).AsTask())
-                                do! closeSocket sink incoming config.CloseTimeout
-                                running <- false
-                finally
-                    server.Unregister beacon
+    /// Welcome, register, then read commands until the socket closes; then unsubscribe everything and leave the registries.
+    member this.RunAsync() : Task =
+        task {
+            let writer = this.WriteLoop()
+            try
+                match user with
+                | ValueNone ->
+                    // `Connection::Base#respond_to_invalid_request` for an unauthorized connection.
+                    logger.LogError "An unauthorized connection attempt was rejected"
+                    (this :> IOutbound).Close(Some Unauthorized, false)
+                | ValueSome current ->
+                    this.Enqueue Frames.welcome
+                    identifier <- core.Identify current
+                    core.Connections.Add(this, identifier |> nonNull)
+                    // A ban or sign-out that disconnected this user between the first lookup and the registration
+                    // would go unheard, so look again now that a remote disconnect would be heard (Rails has this gap).
+                    match! core.Authenticate ctx with
+                    | Some _ -> ()
+                    | None ->
+                        logger.LogError "An unauthorized connection attempt was rejected"
+                        (this :> IOutbound).Close(Some Unauthorized, false)
+                let reading = this.ReadLoop()
+                // Once the writer has sent the close frame, the client gets `CloseTimeout` to answer it.
+                let! first = Task.WhenAny(reading, writer)
+                if not (obj.ReferenceEquals(first, reading)) then
+                    try
+                        do! reading.WaitAsync options.CloseTimeout
+                    with :? TimeoutException ->
+                        ctx.Abort()
+                do! reading
             with e ->
                 logger.LogError(e, "Cable connection failed")
-            stop.Cancel()
-            do! readerTask
-            do! connection.HandleClose()
-            for reader in readers do
-                (reader :> IDisposable).Dispose()
-            for started in connection.Started do
-                (started :> IDisposable).Dispose()
-            match internal' with
-            | ValueSome internal' -> (internal' :> IDisposable).Dispose()
-            | ValueNone -> ()
-    }
+            // `Connection::Base#handle_close`: unsubscribe everything, each in turn.
+            if not (isNull identifier) then core.Connections.Remove(this, identifier |> nonNull)
+            try
+                do!
+                    this.InCommand(fun () ->
+                        task {
+                            while entries.Count > 0 do
+                                do! this.RemoveSubscription 0
+                        })
+            with e ->
+                logger.LogError(e, "Cable unsubscribe failed")
+            queue.Writer.TryComplete() |> ignore
+            try
+                do! writer.WaitAsync options.CloseTimeout
+            with :? TimeoutException ->
+                this.Abort()
+                do! writer
+        }
