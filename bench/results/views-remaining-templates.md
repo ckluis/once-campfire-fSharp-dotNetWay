@@ -1,3 +1,5 @@
+> **Superseded (unit 4.11).** These numbers measure the UTF-8 writer templates, which Phase 4 replaced with Falco.Markup; `bin/views-differential` and its `bench` mode are deleted. Kept as history; the current numbers are in `bench/results/dotnetway-4-*` and the Phase log of `plans/dotnetway.md`.
+
 # The remaining templates against the Rust views crate
 
 Unit 4.3 (accounts, bots, custom styles, sessions, join, first run, users, profile, push subscriptions, PWA). Measured as

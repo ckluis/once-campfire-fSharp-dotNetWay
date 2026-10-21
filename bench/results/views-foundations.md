@@ -1,3 +1,5 @@
+> **Superseded (unit 4.11).** These numbers measure the UTF-8 writer templates, which Phase 4 replaced with Falco.Markup; `bin/views-differential` and its `bench` mode are deleted. Kept as history; the current numbers are in `bench/results/dotnetway-4-*` and the Phase log of `plans/dotnetway.md`.
+
 # Campfire.Views's foundations against the Rust views crate
 
 Unit 4.1 (views foundations). `bin/views-differential bench` renders the differential's cases with the Rust

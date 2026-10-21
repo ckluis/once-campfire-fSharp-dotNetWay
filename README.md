@@ -280,22 +280,29 @@ specific to this port are listed below, each citing the reference file it depart
     host's own (Kestrel, the middleware, a `ManagedWebSocket`) and 2.6 KB Cable's; the Rust port's resident set is about 9 KB per client
     (`bench/results/cable-fanout-dotnetway.md`, `MemoryTests` L7).
 
-- **Views** (`Campfire.Views`; `rust/crates/views` is the port it follows). None of these changes a byte of
-  output, which `bin/views-differential` compares with the Rust crate's on thousands of cases:
+- **Views** (`Campfire.Views`; `rust/crates/views` is the port it follows, and its answers are the frozen oracle the tests replay). The templates are
+  Falco.Markup, serialized by the library, so the HTML is the same page as Rails' to the loose DOM (the pixel harness's own rule) and not the same
+  bytes. One class A entry covers all of it:
+  - **Class A (markup bytes):** attribute values and text are encoded by `Core/Html.fs` (every non-ASCII character as a numeric reference, `&#233;`;
+    `'` as `&#39;`), there is no indentation or inter-tag whitespace the ERB does not render, empty attributes are written as the ERB writes them
+    and the layout is built from nodes. A page is therefore a few percent shorter than Rails' (the room page 376,570 bytes against Rust's 416,122), a
+    Turbo-Frame response's `Content-Length` changes with it, and the account's custom CSS is the one place the text itself differs: a `</style` (any
+    case) in it is written `<\/style`, so a hostile stylesheet cannot close the element (Rails writes it raw). `bench/lib/expected-sizes.json` stores the
+    size of each probed page.
   - The view fragment cache is the framework's HybridCache over a size-limited memory cache (32 MiB by default, `CAMPFIRE_FRAGMENT_CACHE_MB`),
     not Rails' Redis store: entries are evicted by `MemoryCache` compaction rather than `MemoryStore`'s prune to three quarters, they
     expire after seven days, and a key is Rails' `cache_key_with_version` with the partial and variant but no template digest (the
     cache doesn't outlive the process). Fragments are fetched up front and awaited, never inside a template. JSON (the bot API) is
     not cached. Tested by `FragmentsTests` (F1, F2) and the message tests (F3).
   - `capitalize`, `User#initials`' word boundary and the case of a name's first letters use tables generated from
-    Rust's standard library (`bin/views-differential --unicode`), not .NET's own casing, which leaves out special
+    Rust's standard library (`Helpers/UnicodeTables.fs`), not .NET's own casing, which leaves out special
     casing (`ß` is `SS`), the Turkish dotless i and characters Unicode added since. Rust's `capitalize` is what
     the references' `String#capitalize` is closest to; a name whose first letter has special casing prints as Rust
-    prints it. Tested by `HelpersTests` ("capitalizes like rust") and the differential's every-code-point cases.
+    prints it. Tested by `HelpersTests` ("capitalizes like rust").
   - `String#downcase` of a user's name (the room forms' `data-value`) is Rust's `str::to_lowercase`, final-sigma rule included
     (`ΑΣ` is `ας`, `ΑΣΑ` is `ασα`), from `Case_Ignorable` and `Cased` ranges generated from Rust's standard library with the
     other Unicode tables. .NET's `ToLowerInvariant` writes `σ` for every sigma and leaves out special casing. Tested by
-    `HelpersTests` ("to_lowercase ...") and the differential's sigma cases and every code point.
+    `HelpersTests` ("to_lowercase ...").
   - Timestamps in cache keys and `to_fs(:epoch)` are `DateTimeOffset`s, which hold 100 ns where jiff holds 1 ns.
     A key shows microseconds, so no key differs; a record dated before 1970 or outside the years 1 to 9999 is not
     representable (no record is).
