@@ -12,6 +12,26 @@ module UrlHelper = Campfire.Views.Helpers.Url
 module ApplicationHelper = Campfire.Views.Helpers.Application
 
 module Rooms =
+    /// `link_to_room(room, **attributes) { content }`: `before` are the caller's attributes ahead of its first `data-*`, `data` its
+    /// `data-*` ones and `after` the rest; Rails' defaults (the caller overrides none) go ahead of `data`, then `href`.
+    let linkToRoom
+        (roomId: int64)
+        (before: XmlAttribute list)
+        (data: (string * string) list)
+        (after: XmlAttribute list)
+        (content: XmlNode list)
+        : XmlNode =
+        Elem.a
+            (before
+             @ [ Attr.create "data-rooms-list-target" "room"
+                 Html.attrInt "data-room-id" roomId
+                 Attr.create "data-badge-dot-target" "unread"
+                 Attr.create "data-sorted-list-target" "item" ]
+             @ [ for name, value in data -> Html.attr name value ]
+             @ after
+             @ [ Html.attr "href" (Routes.room roomId) ])
+            content
+
     /// `button_to_delete_room(room)`: a trash icon and the room's name, with no whitespace between.
     let buttonToDeleteRoom (ctx: ViewContext) (roomId: int64) (displayName: string) : XmlNode =
         Forms.buttonTo

@@ -127,7 +127,7 @@ module RoomsController =
             let sidebarRoom = presenter.SidebarRoom room
             let account = Account.first db
             let html =
-                Page.renderDetachedAt app account baseUrl (fun _ -> Render.text (fun w -> SharedPartial.render w sidebarRoom))
+                Page.renderDetachedAt app account baseUrl (fun _ -> (HtmlOutput.ofNode (SharedPartial.render sidebarRoom) []).ToString())
             { Rendered.empty with SharedRoom = Some html })
 
     /// `rooms/show` with `find_messages`: the page around `params[:message_id]`, else the last page.

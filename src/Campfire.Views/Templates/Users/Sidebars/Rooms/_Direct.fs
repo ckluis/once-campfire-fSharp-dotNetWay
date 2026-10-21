@@ -1,57 +1,39 @@
 // Port of rust/crates/views/templates/users/sidebars/rooms/_direct.html (reference/app/views/users/sidebars/rooms/_direct.html.erb)
 /// `users/sidebars/rooms/_direct.html.erb` on its own (broadcast when a direct room appears). The reference wraps it in
-/// `cache membership do` and assigns `members` on lines Erubi drops, leaving the blank line and indentation below; the
-/// cached rendering is `UsersCached.fetch`.
+/// `cache membership do`; the cached rendering is `UsersCached.fetch`.
 module Campfire.Views.Templates.Users.Sidebars.Rooms._Direct
 
+open Falco.Markup
 open Campfire.Views
-open Campfire.Views.Helpers
+open Campfire.Views.Markup
 open Campfire.Views.Users
 
-let private t0 = Utf8.lit "\n  "
-let private t1 = Utf8.lit "\n"
-let private t2 = Utf8.lit "      <div class=\"avatar__group\">\n"
-let private t3 = Utf8.lit "          <span class=\"avatar\">\n            "
-let private t4 = Utf8.lit "\n          </span>\n"
-let private t5 = Utf8.lit "      </div>\n"
-let private t6 = Utf8.lit "      <span class=\"avatar\">\n        "
-let private t7 = Utf8.lit "\n      </span>\n"
-let private t8 = Utf8.lit "\n    <span class=\"direct__author flex align-center gap max-width min-width border-radius txt-small\">\n      <span class=\"txt-nowrap overflow-ellipsis\">\n        <span class=\"for-screen-reader\">Ping with</span>\n"
-let private t9 = Utf8.lit "          "
-let private t10 = Utf8.lit "\n"
-let private t11 = Utf8.lit "          "
-let private t12 = Utf8.lit "\n"
-let private t13 = Utf8.lit "      </span>\n    </span>\n"
-
-let render (w: Out) (ctx: ViewContext) (membership: SidebarDirect) : unit =
-    w.Lit t0
-    Filters.linkToRoom
-        w
+let render (ctx: ViewContext) (membership: SidebarDirect) : XmlNode =
+    let many = membership.Members.Length > 1
+    let avatars =
+        if many then
+            [ Elem.div
+                  [ Attr.class' "avatar__group" ]
+                  [ for index, member' in List.indexed (List.truncate 4 membership.Members) do
+                        if index > 0 then Html.sp
+                        Elem.span
+                            [ Attr.class' "avatar" ]
+                            [ Assets.imageSized ctx member'.AvatarPath 20 [ Attr.create "aria-hidden" "true" ] ] ] ]
+        else
+            [ Elem.span
+                  [ Attr.class' "avatar" ]
+                  [ Assets.imageSized ctx (List.head membership.Members).AvatarPath 48 [ Attr.create "aria-hidden" "true" ] ]
+              Html.sp ]
+    let label = if many then membership.MemberInitials else (List.head membership.Members).FirstName
+    Markup.Rooms.linkToRoom
         membership.RoomId
-        (Tag.attrs()
-            .Class(membership.ClassNames)
-            .Id(Turbo.domIdValue "rooms_direct" membership.RoomId (Some "list"))
-            .Data("sorted_list_number", membership.UpdatedAtEpoch))
-        (fun w ->
-            w.Lit t1
-            if membership.Members.Length > 1 then
-                w.Lit t2
-                for member' in List.truncate 4 membership.Members do
-                    w.Lit t3
-                    Assets.imageTag w ctx member'.AvatarPath (Tag.attrs().Size(20).AriaHidden())
-                    w.Lit t4
-                w.Lit t5
-            else
-                w.Lit t6
-                Assets.imageTag w ctx (List.head membership.Members).AvatarPath (Tag.attrs().Size(48).AriaHidden())
-                w.Lit t7
-            w.Lit t8
-            if membership.Members.Length > 1 then
-                w.Lit t9
-                w.Text membership.MemberInitials
-                w.Lit t10
-            else
-                w.Lit t11
-                w.Text (List.head membership.Members).FirstName
-                w.Lit t12
-            w.Lit t13)
+        [ Html.attr "class" membership.ClassNames
+          Html.attr "id" (Campfire.Views.Helpers.Turbo.domId "rooms_direct" membership.RoomId (Some "list")) ]
+        [ "data-sorted-list-number", membership.UpdatedAtEpoch ]
+        []
+        (avatars
+         @ [ Elem.span
+                 [ Attr.class' "direct__author flex align-center gap max-width min-width border-radius txt-small" ]
+                 [ Elem.span
+                       [ Attr.class' "txt-nowrap overflow-ellipsis" ]
+                       [ Markup.Application.screenReader "Ping with"; Html.sp; Html.text label ] ] ])

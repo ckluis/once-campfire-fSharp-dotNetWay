@@ -186,17 +186,13 @@ let private run (op: string) (args: JsonElement) (ctx: ViewContext) : Answer =
     | "searches/index" ->
         let index = searchesIndexView ctx (get args "index")
         let index = { index with Messages = items ctx args (arr (get (get args "index") "messages")) }
-        pageAnswer
-            args
-            (fun w -> Templates.Searches.Index.render w ctx index)
-            Templates.Searches.Index.head
-            (fun w -> Templates.Searches.Index.content w ctx index)
+        viewPageAnswer args ctx (Templates.Searches.Index.rendered ctx index)
     | "autocompletable/users/index" ->
         let users = arr (get args "users") |> List.map mentionUser
-        fragmentAnswer (fun w -> Templates.Autocompletable.Users.Index.render w ctx users)
+        nodeAnswer (fun () -> HtmlOutput.ofNodes (Templates.Autocompletable.Users.Index.render ctx users) [])
     | "autocompletable/users/_prompt_item" ->
         let user = mentionUser (get args "user")
-        fragmentAnswer (fun w -> Templates.Autocompletable.Users._PromptItem.render w ctx user)
+        nodeAnswer (fun () -> HtmlOutput.ofNode (Templates.Autocompletable.Users._PromptItem.render ctx user) [])
     | "users/sidebars/show" ->
         let mixedDirect = str (get args "mode") = "mixed"
         let cache = if mixedDirect then freshHybrid () else Unchecked.defaultof<_>
@@ -211,7 +207,7 @@ let private run (op: string) (args: JsonElement) (ctx: ViewContext) : Answer =
                     if mixedDirect && n % 2 = 1 then
                         { Html = await (UsersCached.directRoom cache ctx membership) }
                     else
-                        { Html = Render.fragment (fun w -> Templates.Users.Sidebars.Rooms._Direct.render w ctx membership) })
+                        { Html = HtmlOutput.toFragment (HtmlOutput.ofNode (Templates.Users.Sidebars.Rooms._Direct.render ctx membership) []) })
               DirectPlaceholderUsers = arr (get args "placeholders") |> List.map userSummary
               OtherMemberships =
                 arr (get args "shared")
@@ -221,11 +217,7 @@ let private run (op: string) (args: JsonElement) (ctx: ViewContext) : Answer =
                       Name = str (get r "name")
                       Unread = bool (get r "unread") })
               CanCreateRooms = bool (get args "can_create_rooms") }
-        pageAnswer
-            args
-            (fun w -> Templates.Users.Sidebars.Show.render w ctx sidebar)
-            Templates.Users.Sidebars.Show.head
-            (fun w -> Templates.Users.Sidebars.Show.content w ctx sidebar)
+        viewPageAnswer args ctx (Templates.Users.Sidebars.Show.rendered ctx sidebar)
     | _ -> failwith $"unknown pages op {op}"
 
 let tryRun (op: string) (args: JsonElement) (ctx: JsonElement) (shared: JsonElement) : Answer option =

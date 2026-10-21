@@ -16,8 +16,6 @@ open Campfire.App.Web
 module Sidebars =
     module ShowPage = Campfire.Views.Templates.Users.Sidebars.Show
 
-    let private showSize = RenderSize()
-
     let show: Web.Action =
         fun http ->
             taskResult {
@@ -47,12 +45,5 @@ module Sidebars =
                       OtherMemberships = sidebar.OtherMemberships
                       // `Current.user.administrator? || !Current.account.settings.restrict_room_creation_to_administrators?`
                       CanCreateRooms = User.isAdministrator user || not restricted }
-                return!
-                    Pages.framedPage
-                        http
-                        200
-                        showSize
-                        (fun w ctx -> ShowPage.render w ctx data)
-                        ShowPage.head
-                        (fun w ctx -> ShowPage.content w ctx data)
+                return! Pages.viewPage http 200 (fun ctx -> ShowPage.rendered ctx data)
             }

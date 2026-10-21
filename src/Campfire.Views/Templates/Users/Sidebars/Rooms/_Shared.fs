@@ -2,23 +2,15 @@
 /// `users/sidebars/rooms/_shared.html.erb` on its own (broadcast, and rendered by the rooms controllers).
 module Campfire.Views.Templates.Users.Sidebars.Rooms._Shared
 
+open Falco.Markup
 open Campfire.Views
-open Campfire.Views.Helpers
+open Campfire.Views.Markup
 open Campfire.Views.Users
 
-let private t0 = Utf8.lit "\n  <span class=\"overflow-ellipsis\">"
-let private t1 = Utf8.lit "</span>\n"
-
-let render (w: Out) (room: SidebarRoom) : unit =
-    Filters.linkToRoom
-        w
+let render (room: SidebarRoom) : XmlNode =
+    Markup.Rooms.linkToRoom
         room.Id
-        (Tag.attrs()
-            .Id(Turbo.domIdValue room.ParamKey room.Id (Some "list"))
-            .Data("sorted_list_name", room.Name)
-            .Style("--column-gap: 0.5em")
-            .Class(room.ClassNames))
-        (fun w ->
-            w.Lit t0
-            w.Text room.Name
-            w.Lit t1)
+        [ Html.attr "id" (Campfire.Views.Helpers.Turbo.domId room.ParamKey room.Id (Some "list")) ]
+        [ "data-sorted-list-name", room.Name ]
+        [ Attr.create "style" "--column-gap: 0.5em"; Html.attr "class" room.ClassNames ]
+        [ Elem.span [ Attr.class' "overflow-ellipsis" ] [ Html.text room.Name ] ]

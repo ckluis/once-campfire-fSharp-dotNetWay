@@ -264,10 +264,10 @@ let run (case: JsonElement) (shared: JsonElement) : Answer =
         let user: MentionUser =
             { User = userSummary (get args "user")
               AttachableSgid = str (get args "attachable_sgid") }
-        rendered (fun w -> Templates.Users._Mention.render w (ctxOf ()) user)
-    | "users/autocompletables/_template" -> rendered (fun w -> Templates.Users.Autocompletables._Template.render w (ctxOf ()))
+        text ((HtmlOutput.ofNode (Templates.Users._Mention.render (ctxOf ()) user) []).ToString())
+    | "users/autocompletables/_template" -> text ((HtmlOutput.ofNode (Templates.Users.Autocompletables._Template.render (ctxOf ())) []).ToString())
     | "users/sidebars/rooms/_direct" ->
-        rendered (fun w -> Templates.Users.Sidebars.Rooms._Direct.render w (ctxOf ()) (sidebarDirect (get args "membership")))
+        text ((HtmlOutput.ofNode (Templates.Users.Sidebars.Rooms._Direct.render (ctxOf ()) (sidebarDirect (get args "membership"))) []).ToString())
     | "users/sidebars/rooms/_shared" ->
         let room = get args "room"
         let room: SidebarRoom =
@@ -275,9 +275,9 @@ let run (case: JsonElement) (shared: JsonElement) : Answer =
               ParamKey = str (get room "param_key")
               Name = str (get room "name")
               Unread = bool (get room "unread") }
-        rendered (fun w -> Templates.Users.Sidebars.Rooms._Shared.render w room)
+        text ((HtmlOutput.ofNode (Templates.Users.Sidebars.Rooms._Shared.render room) []).ToString())
     | "users/sidebars/rooms/_direct_placeholder" ->
-        rendered (fun w -> Templates.Users.Sidebars.Rooms._DirectPlaceholder.render w (ctxOf ()) (userSummary (get args "user")))
+        text ((HtmlOutput.ofNode (Templates.Users.Sidebars.Rooms._DirectPlaceholder.render (ctxOf ()) (userSummary (get args "user"))) []).ToString())
     | "users/direct_room" ->
         let ctx = ctxOf ()
         let first, second = sidebarDirect (get args "membership"), sidebarDirect (get args "second")

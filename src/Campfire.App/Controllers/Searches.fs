@@ -17,8 +17,6 @@ open Campfire.App.Web
 module SearchesController =
     module IndexPage = Campfire.Views.Templates.Searches.Index
 
-    let private indexSize = RenderSize()
-
     /// `params[:q]`; anything but a string makes `gsub` raise.
     let private queryParam (http: Microsoft.AspNetCore.Http.HttpContext) : Result<string option, Error> =
         match Params.lookup http "q" with
@@ -72,14 +70,7 @@ module SearchesController =
                       Messages = messages
                       RecentSearches = recentSearches
                       ReturnToRoomId = returnToRoomId }
-                return!
-                    Pages.framedPage
-                        http
-                        200
-                        indexSize
-                        (fun w ctx -> IndexPage.render w ctx index)
-                        IndexPage.head
-                        (fun w ctx -> IndexPage.content w ctx index)
+                return! Pages.viewPage http 200 (fun ctx -> IndexPage.rendered ctx index)
             }
 
     let create: Web.Action =

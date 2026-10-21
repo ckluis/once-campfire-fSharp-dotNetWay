@@ -59,10 +59,10 @@ let ``pwa partials`` () =
 [<Fact>]
 let ``users partials`` () =
     let name = "autocompletables_template"
-    assertParity name "html" (Render.text (fun w -> Templates.Users.Autocompletables._Template.render w (context name Request.none)))
+    assertParity name "html" ((HtmlOutput.ofNode (Templates.Users.Autocompletables._Template.render (context name Request.none)) []).ToString())
 
     let name = "mention"
-    assertParity name "html" (Render.text (fun w -> Templates.Users._Mention.render w (context name Request.none) (mentionUser name "JZ")))
+    assertParity name "html" ((HtmlOutput.ofNode (Templates.Users._Mention.render (context name Request.none) (mentionUser name "JZ")) []).ToString())
 
     let name = "ban_button_banned"
     let ctx = context name { Request.none with Partial = true }
@@ -75,7 +75,7 @@ let ``users partials`` () =
               ParamKey = nonNull (room.GetProperty("param_key").GetString())
               Name = roomName
               Unread = unread }
-        assertParity name "html" (Render.text (fun w -> Templates.Users.Sidebars.Rooms._Shared.render w view))
+        assertParity name "html" ((HtmlOutput.ofNode (Templates.Users.Sidebars.Rooms._Shared.render view) []).ToString())
 
     let name = "user_json"
     let jz = user name "JZ"
@@ -163,7 +163,7 @@ let private sidebar (name: string) : Users.SidebarShow =
                     Members = strings (d.GetProperty "member_names") |> List.map (named name)
                     MembershipId = roomId
                     MembershipUpdatedAt = Campfire.RailsCompat.Timestamps.unixEpoch }
-              ({ Html = Render.fragment (fun w -> Templates.Users.Sidebars.Rooms._Direct.render w (context name Request.none) direct) }: Users.SidebarDirectItem) ]
+              ({ Html = HtmlOutput.toFragment (HtmlOutput.ofNode (Templates.Users.Sidebars.Rooms._Direct.render (context name Request.none) direct) []) }: Users.SidebarDirectItem) ]
       DirectPlaceholderUsers = strings (sidebar.GetProperty "placeholders") |> List.map (named name)
       OtherMemberships =
         [ for r in sidebar.GetProperty("shared").EnumerateArray() ->
@@ -178,13 +178,11 @@ let ``users sidebars show`` () =
     for name in [ "sidebar_david"; "sidebar_kevin" ] do
         let ctx = context name Request.none
         let page = sidebar name
-        assertParity name "html" (Render.text (fun w -> Templates.Users.Sidebars.Show.render w ctx page))
+        assertParity name "html" ((Legacy.inLayout ctx false (Templates.Users.Sidebars.Show.rendered ctx page)).ToString())
     let name = "sidebar_frame"
     let ctx = context name Request.none
     let page = sidebar name
-    let framed =
-        Layouts.frame (RenderSize()) Templates.Users.Sidebars.Show.head (fun w -> Templates.Users.Sidebars.Show.content w ctx page)
-    assertParity name "html" (framed.ToString())
+    assertParity name "html" ((Legacy.inLayout ctx true (Templates.Users.Sidebars.Show.rendered ctx page)).ToString())
 
 [<Fact>]
 let ``autocompletable users`` () =
@@ -192,7 +190,7 @@ let ``autocompletable users`` () =
     let ctx = context name Request.none
     let users =
         [ for n in (data name).GetProperty("autocompletable").EnumerateArray() -> mentionUserOf name (nonNull (n.GetString())) ]
-    assertParity name "html" (Render.text (fun w -> Templates.Autocompletable.Users.Index.render w ctx users))
+    assertParity name "html" ((HtmlOutput.ofNodes (Templates.Autocompletable.Users.Index.render ctx users) []).ToString())
 
     let name = "autocompletable_users_json"
     let users =

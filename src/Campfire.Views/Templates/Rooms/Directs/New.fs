@@ -47,7 +47,7 @@ let rendered (ctx: ViewContext) : Campfire.Views.Layouts.ViewPage =
                                             Attr.create "required" "" ]
                                           []
                                       Html.sp
-                                      Legacy.node (fun w -> Templates.Users.Autocompletables._Template.render w ctx)
+                                      Templates.Users.Autocompletables._Template.render ctx
                                       Html.sp
                                       Elem.input
                                           [ Attr.create "autocomplete" "off"

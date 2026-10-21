@@ -3,9 +3,17 @@
 namespace Campfire.Views.Markup
 
 open Falco.Markup
+open Campfire.Routes
 open Campfire.Views
 
 module Users =
+    /// `avatar_tag(user, **options)`: a link to the user around their avatar; the options go to the image, after `aria-hidden`.
+    let avatarTag (ctx: ViewContext) (user: Campfire.Views.Helpers.UsersHelper.AvatarUser) (options: XmlAttribute list) : XmlNode =
+        Links.linkTo
+            (Routes.user user.Id)
+            [ Html.attr "title" user.Title; Attr.class' "btn avatar"; Attr.create "data-turbo-frame" "_top" ]
+            [ Assets.imageSized ctx user.AvatarPath 48 (Attr.create "aria-hidden" "true" :: options) ]
+
     /// `account_logo_tag(style:)`. A nil style leaves a trailing space in the class.
     let accountLogoTag (ctx: ViewContext) (style: string option) : XmlNode =
         Elem.figure
@@ -34,8 +42,8 @@ module Users =
               Attr.create "placeholder" "Filter…"
               Attr.create "data-action" "input->filter#filter" ]
 
-    /// `sidebar_turbo_frame_tag(src:)` with nothing in it.
-    let sidebarFrame (src: string option) : XmlNode =
+    /// `sidebar_turbo_frame_tag(src:) { content }`.
+    let sidebarFrameWith (src: string option) (content: XmlNode list) : XmlNode =
         Turbo.frameTag
             "user_sidebar"
             src
@@ -46,4 +54,7 @@ module Users =
               Attr.create
                   "data-action"
                   "presence:present@window->rooms-list#read read-rooms:read->rooms-list#read turbo:frame-load->rooms-list#loaded refresh-room:visible@window->turbo-frame#reload" ]
-            []
+            content
+
+    /// `sidebar_turbo_frame_tag(src:)` with nothing in it.
+    let sidebarFrame (src: string option) : XmlNode = sidebarFrameWith src []

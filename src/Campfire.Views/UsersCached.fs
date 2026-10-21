@@ -22,7 +22,7 @@ let fetch
     Fragments.fetch
         cache
         (Fragments.key "users/sidebars/rooms/_direct" "memberships" membershipId updatedAt None)
-        (fun _ -> ValueTask<CachedFragment>(Render.fragment (fun w -> _Direct.render w ctx (view ()))))
+        (fun _ -> ValueTask<CachedFragment>(HtmlOutput.toFragment (HtmlOutput.ofNode (_Direct.render ctx (view ())) [])))
 
 /// `direct_room(ctx, membership)`.
 let directRoom (cache: HybridCache) (ctx: ViewContext) (membership: SidebarDirect) : ValueTask<CachedFragment> =

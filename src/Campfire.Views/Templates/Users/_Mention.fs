@@ -4,20 +4,12 @@
 /// split the paragraph when parsing.
 module Campfire.Views.Templates.Users._Mention
 
+open Falco.Markup
 open Campfire.Views
-open Campfire.Views.Helpers
+open Campfire.Views.Markup
 open Campfire.Views.Users
 
-let private t0 = Utf8.lit "<span class=\"mention\" sgid=\""
-let private t1 = Utf8.lit "\">"
-let private t2 = Utf8.lit " "
-let private t3 = Utf8.lit "</span>\n"
-
-let render (w: Out) (ctx: ViewContext) (user: MentionUser) : unit =
-    w.Lit t0
-    w.Text user.AttachableSgid
-    w.Lit t1
-    UsersHelper.avatarTag w ctx user.User.Avatar (Tag.attrs())
-    w.Lit t2
-    w.Text user.User.Name
-    w.Lit t3
+let render (ctx: ViewContext) (user: MentionUser) : XmlNode =
+    Elem.span
+        [ Attr.class' "mention"; Html.attr "sgid" user.AttachableSgid ]
+        [ Markup.Users.avatarTag ctx user.User.Avatar []; Html.sp; Html.text user.User.Name ]
