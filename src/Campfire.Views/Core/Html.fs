@@ -15,12 +15,23 @@ module Html =
     type Trusted = private Trusted of string
 
     module Trusted =
-        /// Rich text the sanitizer produced (allowlisted: Presenters/Presenter.fs, `MessageContent.Text`).
-        let ofSanitized (html: string) : Trusted = Trusted html
+        /// U+E000 is the slot marker's second character (`Html.fragment`). Text and attribute values reach the page through
+        /// `WebUtility.HtmlEncode`, which escapes the `<` before it, but trusted HTML is written as it is: a `<` U+E000 digits `>`
+        /// inside it would read as a slot, and `HtmlOutput` raises on a slot it was not given (every page holding it a 500). The
+        /// makers that take text a user wrote write the character another way, with the same meaning in their context.
+        let private withoutMarker (replacement: string) (text: string) : string =
+            if text.Contains '\uE000' then text.Replace("\uE000", replacement) else text
+
+        /// Rich text the sanitizer produced (allowlisted: Presenters/Presenter.fs, `MessageContent.Text`). U+E000 becomes its
+        /// character reference: the sanitizer keeps no `script` or `style`, so it is in text or an attribute value, where the
+        /// reference parses to the same character.
+        let ofSanitized (html: string) : Trusted = Trusted(withoutMarker "&#57344;" html)
         /// The import map and stylesheet tags `Campfire.Assets` builds from digests (allowlisted: where the ViewContext is built).
         let ofAssetTags (html: string) : Trusted = Trusted html
         /// The account's custom CSS, which Rails writes `html_safe` (allowlisted: Markup/Application.fs).
-        let ofAccountStyles (css: string) : Trusted = Trusted css
+        /// U+E000 becomes a CSS escape (`\E000 `, the same character in an identifier or a string): the styles are a `style`
+        /// element's raw text, where a character reference would not be decoded.
+        let ofAccountStyles (css: string) : Trusted = Trusted(withoutMarker "\\E000 " css)
         /// What a writer template rendered (the migration seam, `Legacy.node`; deleted with it in unit 4.11).
         let internal ofLegacy (html: string) : Trusted = Trusted html
         let value (Trusted html) : string = html

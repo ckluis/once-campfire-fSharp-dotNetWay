@@ -13,10 +13,14 @@ Rules (a token scan: comments are dropped, strings are single tokens):
                     (v |> Attr.title) and no partial application
   text-literal      Text.<member> other than enc and empty takes a plain string literal (Text.rawf is refused; so are the Text.strong-style
                     shortcuts, which wrap raw)
-  node-ctor         no TextNode, KeyValueAttr or NonValueAttr built directly
+  node-ctor         no TextNode, KeyValueAttr, NonValueAttr, ParentNode or SelfClosingNode built directly (the last two take a raw tag)
   elem-tag          Elem.create takes a literal tag; Elem.createSelfClosing only an HTML void element name; Elem.create never a void one
   trusted-maker     the Trusted makers only in their allowlisted files (TRUSTED below)
   hybridcache       GetOrCreateAsync / SetAsync / RemoveAsync only in Core/Fragments.fs
+  falco-dsl         none of Falco.Markup.Html, the auto-opened `_a [ _href_ v ] [ _text v ]` spelling (raw attribute values and text
+                    with no `Attr.`/`Text.` for the rules above to see), nor Falco.Markup.Templates (html5 writes its lang raw)
+  falco-alias       Falco's Attr, Text, Elem, Html, Templates and Svg modules are not opened nor abbreviated (`open Falco.Markup.Attr`
+                    then `create "href" v`, or `module T = Text` then `T.raw v`, would hide the qualified name the rules read)
 """
 import os, re, sys
 
@@ -41,6 +45,9 @@ TRUSTED = {
     "ofLegacy": {"src/Campfire.Views/Core/Legacy.fs"},  # the migration seam (V12), deleted in unit 4.11
 }
 HYBRID = {"GetOrCreateAsync", "SetAsync", "RemoveAsync"}
+# Falco.Markup.Html (AutoOpen in 1.4.0): `_text`, `_textf`, the `_strong'` text shortcuts and every `_href_` attribute write raw.
+FALCO_DSL = re.compile(r"_text(f|Enc)?|_[a-z][A-Za-z0-9]*'|_[a-z][A-Za-z0-9]*_")
+FALCO_MODULES = {"Attr", "Text", "Elem", "Html", "Templates", "Svg", "XmlAttribute", "XmlNode"}
 HYBRID_FILES = {"src/Campfire.Views/Core/Fragments.fs"}
 
 STR, ID, OP = "str", "id", "op"
@@ -160,7 +167,14 @@ def lint_source(rel, src):
                     if member == "createSelfClosing" and name not in VOID:
                         found.append((line, "elem-tag", f"Elem.createSelfClosing \"{name}\": not an HTML void element (a self-closed custom element swallows its siblings)"))
         last_seg = segs[-1]
-        if last_seg in ("TextNode", "KeyValueAttr", "NonValueAttr"):
+        prev = at(i - 1)
+        if FALCO_DSL.fullmatch(segs[0]) or (segs[0] == "Html" and len(segs) > 1 and FALCO_DSL.fullmatch(segs[1])) or any(a == "Templates" and b in ("html5", "svg") for a, b in zip(segs, segs[1:])):
+            found.append((line, "falco-dsl", f"{text}: Falco.Markup's Html/Templates spelling writes raw (use Elem, Attr literals and Html.attr/text)"))
+        opened = prev[0] == ID and (prev[1] == "open" or (prev[1] == "type" and at(i - 2)[1] == "open"))
+        abbreviated = prev[0] == OP and prev[1] == "=" and at(i - 3)[1] == "module"
+        if (opened or abbreviated) and (segs[0] in ("Falco", "Markup") or len(segs) == 1) and (segs[-1] in FALCO_MODULES or (opened and prev[1] == "type" and segs[0] == "Falco")):
+            found.append((line, "falco-alias", f"{'open' if opened else 'module abbreviation of'} {text}: Falco's modules stay qualified (Attr.x, Text.x, Elem.x) for the lint"))
+        if last_seg in ("TextNode", "KeyValueAttr", "NonValueAttr", "ParentNode", "SelfClosingNode"):
             found.append((line, "node-ctor", f"{last_seg} built directly (use Html.text, Html.attr)"))
         if last_seg in TRUSTED and rel not in TRUSTED[last_seg]:
             found.append((line, "trusted-maker", f"{last_seg} outside its allowlisted file(s): {', '.join(sorted(TRUSTED[last_seg]))}"))

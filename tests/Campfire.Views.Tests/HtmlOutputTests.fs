@@ -50,6 +50,24 @@ let ``O4 U+E000 and a typed slot in text or an attribute value leave the part co
     Assert.Equal("a1>b", trusted.ToString())
 
 [<Fact>]
+let ``O4 a typed slot inside trusted rich text or account styles is not read as a slot`` () =
+    // Trusted HTML is written raw, so `<` U+E000 digits `>` in it would be a slot the page was not given (a 500 for every page
+    // holding it). The rich-text and custom-styles makers write the character another way (checkpoint after 4.6).
+    let one = fragment "<b>one</b>"
+    let typed = "<\uE000" + string one.Id + ">"
+    let sanitized = Html.Trusted.ofSanitized ("<p title=\"" + typed + "\">" + typed + "</p>")
+    let styles = Html.Trusted.ofAccountStyles (".a::after { content: \"" + typed + "\" }")
+    for trusted in [ sanitized; styles ] do
+        let output = page [ one ] [ Html.trusted trusted; Html.fragment one ]
+        Assert.Equal(2, output.Parts.Length)
+        Assert.Same(one, output.Fragments[0])
+        Assert.DoesNotContain("\uE000", output.ToString())
+    Assert.Equal("<p title=\"<&#57344;" + string one.Id + ">\"><&#57344;" + string one.Id + "></p>", Html.Trusted.value sanitized)
+    Assert.Equal(".a::after { content: \"<\\E000 " + string one.Id + ">\" }", Html.Trusted.value styles)
+    // Without U+E000 the makers return their input as it is.
+    Assert.Equal("<p>x</p>", Html.Trusted.value (Html.Trusted.ofSanitized "<p>x</p>"))
+
+[<Fact>]
 let ``O4 a fragment placed and not passed, passed and not placed, or placed twice throws`` () =
     let one = fragment "<b>one</b>"
     let two = fragment "<i>two</i>"
