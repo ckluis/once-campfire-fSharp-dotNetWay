@@ -96,7 +96,7 @@ module PublicExceptions =
 
     /// `UseExceptionHandler`'s handler (K13): what escaped the pipeline, rendered like any action's failure. A request the
     /// host refused (`BadHttpRequestException`: 413 for a body over the limit, 408, 400) keeps its status; a form the
-    /// framework could not read is a 400; anything else is Rails' 500 with `public/500.html`.
+    /// framework could not read or finish is a 400; anything else is Rails' 500 with `public/500.html`.
     let exceptionHandler: RequestDelegate =
         RequestDelegate(fun http ->
             let error =
@@ -106,5 +106,8 @@ module PublicExceptions =
                     match feature.Error with
                     | :? BadHttpRequestException as e -> Status e.StatusCode
                     | :? System.IO.InvalidDataException -> Status 400
+                    // The method override reads every form POST before routing; a body it could not finish (a multipart body
+                    // cut short) is Rack's `EmptyContentError`, a 400, not a 500.
+                    | :? System.IO.IOException when http.Request.HasFormContentType && not http.RequestAborted.IsCancellationRequested -> Status 400
                     | e -> Internal e
             respond error http)

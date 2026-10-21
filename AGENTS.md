@@ -139,7 +139,7 @@ Project references follow the crate graph. Don't add an edge Rust doesn't have.
   about 20 seconds; ACME is tested against a stub CA in the tests, and against a real Pebble CA when `PEBBLE_MINICA`
   names its `pebble.minica.pem` (the recipe is at the top of `FrontAcmeIntegrationTests.fs`; in colima, give Pebble
   `--add-host campfire.test:192.168.5.2`, the VM's name for the Mac, and `docker cp` the root into `target/`).
-  `bench/front/run` measures the front server against Rust's; run it after changing `Front/` or `Splice.fs`.
+  `bench/front/run` measures the front server against Rust's; run it after changing `Front/` or `Web/PageParts.fs`.
   The TLS session-resumption test needs Linux (Kestrel issues no session tickets through macOS's TLS stack, so it skips
   there) and `openssl`; `bin/linux-tests Kit` runs `Campfire.Kit.Tests` in `Dockerfile.toolchain` inside colima.
 - Phase 7 measuring (all inside colima, `SERVER_CPUS=0-3 LOADGEN_CPUS=4-7`): `bench/quick` is the before/after runner, **F# only by default**
@@ -172,10 +172,10 @@ Project references follow the crate graph. Don't add an edge Rust doesn't have.
   up` then serves a seed (`curl /up`, `POST /session` with `david@37signals.com` / `secret123456`).
   `bin/linux-tests App` runs `Campfire.App.Tests` on Linux in the toolchain image (the transparent-huge-pages test skips on
   macOS); it builds a private copy of the sources there.
-- `Campfire.App`'s controllers take `Ctx` and are listed in `Controllers.fs` (module `RouteTable`, the 177 rows of
-  `config/routes.rb`): every row is routed to its controller now; a controller added later goes in as
-  `Controllers/<Name>.fs` before `Controllers.fs`, and a row of a controller not yet written answers 501 through
-  `unported "controller#action"`. The tests boot the whole app over a copy of a parity seed (`Support.bootSeeded`).
+- `Campfire.App`'s controllers are Web actions (`HttpContext -> Task<Result<HttpHandler, Error>>`, `Web/Action.fs`, built with
+  `taskResult` and starting with `Before.chain`) and are listed in `Controllers.fs` (module `RouteTable`, the rows of
+  `config/routes.rb`): every row is routed to its controller; a controller added later goes in as `Controllers/<Name>.fs`
+  before `Controllers.fs`. The tests boot the whole app over a copy of a parity seed (`Support.bootSeeded`).
 - `reference-tools/campfire/controllers_a/replay.py` runs the session, account and user controllers against the reference and
   the candidate image, both on a seed with the clock frozen (inside colima, `PARITY_NET_DIR=/tmp/parity-net`):
   `parity/bin/reference up --seed default --port 4311 --time 2026-03-02T16:00:00Z --freeze`, `parity/bin/candidate up --seed

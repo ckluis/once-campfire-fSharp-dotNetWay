@@ -81,7 +81,7 @@ specific to this port are listed below, each citing the reference file it depart
     host for a browser without Fetch Metadata. A write with neither header (not a browser) passes, over HTTPS too, where
     Rust refused it. Pages carry no tokens, so open tabs keep working across a switch; after a switch back to Rails a tab
     this port rendered needs a reload. Bot-key requests skip the check, as in Rails. Reference:
-    `ActionController::RequestForgeryProtection` (the `:header_only` strategy). Tested by `CsrfTests` (C1-C12).
+    `ActionController::RequestForgeryProtection` (the `:header_only` strategy). Tested by `CsrfTests` (C1-C13).
   - The mention list (`autocompletable/users`) reads a `filter` or `query` that is a hash or array as an empty string (Rails would
     search for the hash's `to_s`, which matches nothing either way). Reference: `app/controllers/autocompletable/users_controller.rb`.
   - A bot API request (`/rooms/:room_id/:bot_key/messages...`) keeps the bytes of its body for `raw_request_body` before the method
@@ -101,18 +101,20 @@ specific to this port are listed below, each citing the reference file it depart
     read at all: `Forwarded`, `X-Forwarded-Ssl`, `X-Forwarded-Scheme`, and `Client-Ip` (so there is no
     `IpSpoofAttackError`, a 500 in Rails). `assume_ssl` (unless `DISABLE_SSL`) is a one-line middleware that makes every
     request `https`. Reference: `ActionDispatch::RemoteIp`, `ActionDispatch::AssumeSSL`. Tested by `RequestsTests`
-    (R1, R2) and `HttpTests` ("remote ip from peer and proxies").
+    (R1, R2).
   - The method override is `UseHttpMethodOverride` on the form field `_method` only: `X-HTTP-Method-Override` is not read,
     a POST without a content type is not a form, and a `_method` that is not an HTTP verb makes the request that verb (a
     404 here, Rails and Rust leave it a POST). The method is upper-cased after it (`_method=delete` is the `DELETE` row).
-    Reference: `Rack::MethodOverride`. Tested by `RequestsTests` (R3) and `HttpTests` ("method override from form param
-    and header").
+    Reference: `Rack::MethodOverride`. Tested by `RequestsTests` (R3, R3b).
   - Params are the framework's readers (route values, `Request.Form`, the query string, a JSON body), in Rails' order
     (path over body over query, the last repeated key wins). A form is read once, by the framework: a stray `%` in a form is
     taken literally where Rack answers 400, the form's raw bytes are not kept, uploads are the framework's `IFormFile`s copied
     to a temp file, and pairs that interleave other keys are grouped by name (`a[][b]`, `a[][c]` in an unusual order build
     other array elements). Not reproduced: Rack's type-conflict errors (`a=1&a[]=2`) and its nesting depth limit.
-    Reference: `ActionDispatch::ParamBuilder`, `Rack::QueryParser`. Tested by `ParamsTests` (P1-P4) and `HttpTests`.
+    Reference: `ActionDispatch::ParamBuilder`, `Rack::QueryParser`. Tested by `ParamsTests` (P1-P4).
+  - A malformed multipart body is judged by the framework's form reader, not Rack's: one cut short before its closing
+    boundary, or sent without a boundary, is an empty 400 as in Rails (Rails has no `public/400.html`); other shapes Rack
+    refuses may be read, or refused with another status. Reference: `Rack::Multipart::Parser`. Tested by `RequestsTests` (R9).
   - Format negotiation parses the `Accept` header with the framework and keeps Rails' rules around it (`params[:format]`,
     browser-like lists ignored, path extension, `text/*` expansion, Turbo's type first). A `q` Ruby's `to_f` reads and the
     framework does not (`q=abc`, `q=1e17`) leaves the item at 1.0, and `text/xml` is not folded into `application/xml`.

@@ -97,7 +97,11 @@ module Params =
                     else
                         return Ok()
             with
+            // The host refused the body (413 over the cap, 408): its status. A body the form reader could not finish (a
+            // multipart body cut short) is Rack's `EmptyContentError`, a 400.
+            | :? BadHttpRequestException as e -> return Result.Error(Status e.StatusCode)
             | :? InvalidDataException as e -> return Result.Error(BadRequest e.Message)
+            | :? IOException as e when not http.RequestAborted.IsCancellationRequested -> return Result.Error(BadRequest e.Message)
         }
 
     /// The JSON body's root, parsed once; `Error` when it is not JSON.
@@ -142,8 +146,10 @@ module Params =
         if http.Request.HasFormContentType then
             try
                 http.Request.Form
-            with :? InvalidDataException ->
-                FormCollection(null) :> IFormCollection
+            with
+            // Unreadable (already refused, or read by the error page after it failed): no form, so the error renders.
+            | :? InvalidDataException
+            | :? IOException -> FormCollection(null) :> IFormCollection
         else
             FormCollection(null) :> IFormCollection
 

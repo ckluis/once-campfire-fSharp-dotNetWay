@@ -358,3 +358,25 @@ let ``R8 kestrel's request line rules differ from puma's and hyper's in three re
         let! old = statusLineOf test.Port "GET /session/new HTTP/1.0\r\nHost: chat.example.com\r\n\r\n"
         Assert.Equal("HTTP/1.1 200 OK", old)
     }
+
+[<Fact>]
+let ``R9 a multipart body cut short is an empty 400, not a 500`` () =
+    task {
+        use! test = bootSeeded "default"
+        let truncated = "--XX\r\nContent-Disposition: form-data; name=\"message[body]\"\r\n\r\nhi"B
+        let cut (meth: string) (target: string) =
+            { (request meth target)
+                  .With("content-type", "multipart/form-data; boundary=XX")
+                  .With("sec-fetch-site", "same-origin")
+                  .With("accept", "text/html") with
+                Body = Some truncated }
+        // A POST: the method override reads the form before routing; Rack answers its `EmptyContentError` with a 400, and
+        // Rails has no `public/400.html`, so the page is empty.
+        let! post = (david test).Send(cut "POST" $"/rooms/{ALL_TALK}/messages")
+        Assert.True((post.Status = 400), $"{post.Status} {post.Text}")
+        Assert.Empty(post.Body)
+        // A PATCH is read by `Params.load` before the action.
+        let! patch = (david test).Send(cut "PATCH" "/account")
+        Assert.True((patch.Status = 400), $"{patch.Status} {patch.Text}")
+        Assert.Empty(patch.Body)
+    }
