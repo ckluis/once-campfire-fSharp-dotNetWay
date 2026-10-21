@@ -7,21 +7,15 @@ open Campfire.Views
 open Campfire.Views.Templates.Rooms
 open Campfire.Views.Rooms
 
-
-
-/// `@page_title`.
-let pageTitle (form: OpenFormView) : string option = Some("Edit settings for " + form.Room.DisplayName)
-
-/// `content_for :head` (empty).
-let head: Out -> unit = Layouts._Edit.head
-
-/// The page itself.
-let content (w: Out) (ctx: ViewContext) (form: OpenFormView) : unit =
+/// The page: `@page_title`, the nav, and the form in the edit layout.
+let rendered (ctx: ViewContext) (form: OpenFormView) : Campfire.Views.Layouts.ViewPage =
     let roomId = defaultArg form.Room.Id 0L
-    Layouts._Edit.content w ctx form.CanAdminister roomId form.Room.DisplayName (fun w ->
-        _Form.render w ctx form (Routes.editRoomsClosed roomId))
-
-let render (w: Out) (ctx: ViewContext) (form: OpenFormView) : unit =
-    let roomId = defaultArg form.Room.Id 0L
-    Layouts._Edit.render w ctx (pageTitle form) form.CanAdminister roomId form.Room.DisplayName (fun w ->
-        _Form.render w ctx form (Routes.editRoomsClosed roomId))
+    { Regions =
+        Layouts._Edit.regions
+            ctx
+            (Some("Edit settings for " + form.Room.DisplayName))
+            form.CanAdminister
+            roomId
+            form.Room.DisplayName
+            (_Form.render ctx form (Routes.editRoomsClosed roomId))
+      Fragments = [] }

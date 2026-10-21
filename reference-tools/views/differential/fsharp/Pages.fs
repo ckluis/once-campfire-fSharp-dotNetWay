@@ -56,6 +56,15 @@ let pageAnswer (args: JsonElement) (render: Out -> unit) (head: Out -> unit) (co
     if not frame && recorded.ToString() <> plain then failwith "a recorded page is not the plain render"
     recordedAnswer recorded
 
+/// A Falco page: its regions in the writer's layouts (`Legacy.inLayout`, until unit 4.10), cold and then warm, the same bytes, and
+/// in the Turbo-Frame layout when `frame` is set. The page's text is the answer (the writer's fragment offsets are not Falco's).
+let private viewPageAnswer (args: JsonElement) (ctx: ViewContext) (page: Layouts.ViewPage) : Answer =
+    let frame = bool (get args "frame")
+    let cold = (Legacy.inLayout ctx frame page).ToString()
+    let warm = (Legacy.inLayout ctx frame page).ToString()
+    if cold <> warm then failwith "a warm render is not the cold one"
+    text warm
+
 /// A template that is not a page: rendered cold and then warm.
 let fragmentAnswer (render: Out -> unit) : Answer =
     let cold = Render.text render
@@ -140,68 +149,40 @@ let private run (op: string) (args: JsonElement) (ctx: ViewContext) : Answer =
     | "rooms/show" ->
         let show = showView ctx (get args "show")
         let show = { show with Messages = items ctx args (arr (get (get args "show") "messages")) }
-        pageAnswer
-            args
-            (fun w -> Templates.Rooms.ShowPage.render w ctx show)
-            (fun w -> Templates.Rooms.ShowPage.head w show)
-            (fun w -> Templates.Rooms.ShowPage.content w ctx show)
+        viewPageAnswer args ctx (Templates.Rooms.ShowPage.rendered ctx show)
     | "rooms/involvements/show" ->
         let involvement = involvementView (get args "involvement")
-        fragmentAnswer (fun w -> Templates.Rooms.Involvements.Show.render w ctx involvement)
+        nodeAnswer (fun () -> HtmlOutput.ofNode (Templates.Rooms.Involvements.Show.render ctx involvement) [])
     | "rooms/refreshes/show" ->
         let refresh = refreshView ctx (get args "refresh")
         let refresh =
             { refresh with
                 NewMessages = items ctx args (arr (get (get args "refresh") "new_messages"))
                 UpdatedMessages = items ctx args (arr (get (get args "refresh") "updated_messages")) }
-        recordedFragmentAnswer (fun w -> Templates.Rooms.Refreshes.ShowTurboStream.render w refresh)
+        nodeAnswer (fun () -> Templates.Rooms.Refreshes.ShowTurboStream.output refresh)
     | "rooms/opens/new" ->
         let form = openFormView (get args "form")
-        pageAnswer
-            args
-            (fun w -> Templates.Rooms.Opens.New.render w ctx form)
-            Templates.Rooms.Opens.New.head
-            (fun w -> Templates.Rooms.Opens.New.content w ctx form)
+        viewPageAnswer args ctx (Templates.Rooms.Opens.New.rendered ctx form)
     | "rooms/opens/edit" ->
         let form = openFormView (get args "form")
-        pageAnswer
-            args
-            (fun w -> Templates.Rooms.Opens.Edit.render w ctx form)
-            Templates.Rooms.Opens.Edit.head
-            (fun w -> Templates.Rooms.Opens.Edit.content w ctx form)
+        viewPageAnswer args ctx (Templates.Rooms.Opens.Edit.rendered ctx form)
     | "rooms/closeds/new" ->
         let form = closedFormView (get args "form")
-        pageAnswer
-            args
-            (fun w -> Templates.Rooms.Closeds.New.render w ctx form)
-            Templates.Rooms.Closeds.New.head
-            (fun w -> Templates.Rooms.Closeds.New.content w ctx form)
+        viewPageAnswer args ctx (Templates.Rooms.Closeds.New.rendered ctx form)
     | "rooms/closeds/edit" ->
         let form = closedFormView (get args "form")
-        pageAnswer
-            args
-            (fun w -> Templates.Rooms.Closeds.Edit.render w ctx form)
-            Templates.Rooms.Closeds.Edit.head
-            (fun w -> Templates.Rooms.Closeds.Edit.content w ctx form)
+        viewPageAnswer args ctx (Templates.Rooms.Closeds.Edit.rendered ctx form)
     | "rooms/directs/new" ->
-        pageAnswer
-            args
-            (fun w -> Templates.Rooms.Directs.New.render w ctx)
-            Templates.Rooms.Directs.New.head
-            (fun w -> Templates.Rooms.Directs.New.content w ctx)
+        viewPageAnswer args ctx (Templates.Rooms.Directs.New.rendered ctx)
     | "rooms/directs/edit" ->
         let edit = directEditView (get args "edit")
-        pageAnswer
-            args
-            (fun w -> Templates.Rooms.Directs.Edit.render w ctx edit)
-            Templates.Rooms.Directs.Edit.head
-            (fun w -> Templates.Rooms.Directs.Edit.content w ctx edit)
+        viewPageAnswer args ctx (Templates.Rooms.Directs.Edit.rendered ctx edit)
     | "rooms/layouts/_form" ->
         let room = formRoom (get args "room")
         let kind = roomKind (get args "kind")
-        let content = str (get args "content")
-        fragmentAnswer (fun w ->
-            Templates.Rooms.Layouts._Form.render w ctx room (bool (get args "can_administer")) kind (fun w -> w.Raw content))
+        let content = Markup.Html.trusted (Markup.Html.Trusted.ofSanitized (str (get args "content")))
+        nodeAnswer (fun () ->
+            HtmlOutput.ofNode (Templates.Rooms.Layouts._Form.render ctx room (bool (get args "can_administer")) kind [ content ]) [])
     | "searches/index" ->
         let index = searchesIndexView ctx (get args "index")
         let index = { index with Messages = items ctx args (arr (get (get args "index") "messages")) }

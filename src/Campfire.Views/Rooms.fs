@@ -114,23 +114,3 @@ type DirectEditView =
       DisplayName: string
       /// `@room.users.many? ? @room.users.without(Current.user) : @room.users`.
       Users: UserView list }
-
-let private trashIcon = Utf8.lit "<img aria-hidden=\"true\" src=\""
-let private trashIconEnd = Utf8.lit "\" width=\"20\" height=\"20\" /><span class=\"overflow-ellipsis\">"
-let private trashEnd = Utf8.lit "</span>"
-
-/// `button_to_delete_room(room)`.
-let buttonToDeleteRoom (w: Out) (ctx: ViewContext) (roomId: int64) (displayName: string) : unit =
-    let url = ctx.Url(Routes.room roomId)
-    let options =
-        Tag.attrs()
-            .Method("delete")
-            .Class("btn btn--negative max-width")
-            .Aria("label", $"Delete {displayName}")
-            .Data("turbo_confirm", "Are you sure you want to delete this room and all messages in it? This can’t be undone.")
-    Forms.buttonToBlock w url options (fun w ->
-        w.Lit trashIcon
-        w.Text(ctx.Asset "trash.svg")
-        w.Lit trashIconEnd
-        w.Text displayName
-        w.Lit trashEnd)

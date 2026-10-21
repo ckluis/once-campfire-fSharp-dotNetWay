@@ -18,8 +18,6 @@ module Opens =
     module NewPage = Campfire.Views.Templates.Rooms.Opens.New
     module EditPage = Campfire.Views.Templates.Rooms.Opens.Edit
 
-    let private newSize = RenderSize()
-    let private editSize = RenderSize()
 
     /// `DEFAULT_ROOM_NAME`
     [<Literal>]
@@ -50,13 +48,7 @@ module Opens =
                       CanAdminister = true
                       Users = users }
                 return!
-                    Pages.framedPage
-                        http
-                        200
-                        newSize
-                        (fun w ctx -> NewPage.render w ctx form)
-                        NewPage.head
-                        (fun w ctx -> NewPage.content w ctx form)
+                    Pages.viewPage http 200 (fun ctx -> NewPage.rendered ctx form)
             }
 
     let create: Web.Action =
@@ -88,13 +80,7 @@ module Opens =
                       CanAdminister = User.canAdminister user (Some room.CreatorId) false
                       Users = users }
                 return!
-                    Pages.framedPage
-                        http
-                        200
-                        editSize
-                        (fun w ctx -> EditPage.render w ctx form)
-                        EditPage.head
-                        (fun w ctx -> EditPage.content w ctx form)
+                    Pages.viewPage http 200 (fun ctx -> EditPage.rendered ctx form)
             }
 
     let update: Web.Action =

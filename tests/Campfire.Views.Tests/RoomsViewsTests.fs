@@ -8,36 +8,28 @@ open Campfire.Views.Templates
 open Campfire.Views.Differential.Inputs
 open Campfire.Views.Tests.GoldenB
 
+/// A Falco page in the writer's application layout (`Legacy.inLayout`, until unit 4.10), as text.
+let private page (g: Golden) (viewPage: Layouts.ViewPage) : string = (Legacy.inLayout g.Context false viewPage).ToString()
+
 let private show (name: string) =
     let g = golden name
     let show = showView g.Context g.Input
-    g.AssertDom(Render.text (fun w -> Rooms.ShowPage.render w g.Context show))
+    g.AssertDom(page g (Rooms.ShowPage.rendered g.Context show))
 
-/// A room page as it's served, recorded, is what a plain render gives, and each of its messages is a fragment the kit
-/// gets as it is: rendered into the fragment cache first, then read from it.
+/// A room page as it's served keeps every message as a fragment the kit gets as it is, in the application layout and in the
+/// Turbo-Frame layout.
 [<Fact>]
-let ``show recorded keeps every message as a fragment`` () =
+let ``show keeps every message as a fragment`` () =
     let g = golden "rooms_show_member"
     let show = showView g.Context g.Input
     Assert.NotEmpty show.Messages
-    let size = RenderSize()
-    for round in [ "cold"; "warm" ] do
-        let ctx = g.Context
-        let page (w: Out) = Rooms.ShowPage.render w ctx show
-        let head (w: Out) = Rooms.ShowPage.head w show
-        let content (w: Out) = Rooms.ShowPage.content w ctx show
-        let recorded = size.Render page
-        let plain = Render.text page
-        Assert.Equal(plain, recorded.ToString())
-        Assert.Equal(show.Messages.Length, recorded.Fragments.Length)
-
-        let framed = Layouts.frame (RenderSize()) head content
-        let plainFrame =
-            Render.text (fun w ->
-                Layouts.TurboRails.Frame.render w (fun w -> w.Raw(Render.text head)) (fun w -> w.Raw(Render.text content)))
-        Assert.Equal(plainFrame, framed.ToString())
-        Assert.Equal(show.Messages.Length, framed.Fragments.Length)
-        ignore round
+    let viewPage = Rooms.ShowPage.rendered g.Context show
+    for frame in [ false; true ] do
+        let output = Legacy.inLayout g.Context frame viewPage
+        Assert.Equal(show.Messages.Length, output.Fragments.Length)
+        for message, fragment in Seq.zip show.Messages output.Fragments do
+            Assert.Same(message.Html, fragment)
+        Assert.Equal(frame, output.ToString().StartsWith "<html>")
 
 [<Fact>]
 let ``show closed room`` () = show "rooms_show_closed"
@@ -58,48 +50,48 @@ let ``show room around message`` () = show "rooms_show_at_message"
 let ``new open room`` () =
     let g = golden "rooms_opens_new"
     let form = openFormView g.Input
-    g.AssertDom(Render.text (fun w -> Rooms.Opens.New.render w g.Context form))
+    g.AssertDom(page g (Rooms.Opens.New.rendered g.Context form))
 
 [<Fact>]
 let ``edit open room`` () =
     for name in [ "rooms_opens_edit"; "rooms_opens_edit_member" ] do
         let g = golden name
         let form = openFormView g.Input
-        g.AssertDom(Render.text (fun w -> Rooms.Opens.Edit.render w g.Context form))
+        g.AssertDom(page g (Rooms.Opens.Edit.rendered g.Context form))
 
 [<Fact>]
 let ``new closed room`` () =
     let g = golden "rooms_closeds_new"
     let form = closedFormView g.Input
-    g.AssertDom(Render.text (fun w -> Rooms.Closeds.New.render w g.Context form))
+    g.AssertDom(page g (Rooms.Closeds.New.rendered g.Context form))
 
 [<Fact>]
 let ``edit closed room`` () =
     for name in [ "rooms_closeds_edit"; "rooms_closeds_edit_member" ] do
         let g = golden name
         let form = closedFormView g.Input
-        g.AssertDom(Render.text (fun w -> Rooms.Closeds.Edit.render w g.Context form))
+        g.AssertDom(page g (Rooms.Closeds.Edit.rendered g.Context form))
 
 [<Fact>]
 let ``new direct room`` () =
     let g = golden "rooms_directs_new"
-    g.AssertDom(Render.text (fun w -> Rooms.Directs.New.render w g.Context))
+    g.AssertDom(page g (Rooms.Directs.New.rendered g.Context))
 
 [<Fact>]
 let ``edit direct room`` () =
     let g = golden "rooms_directs_edit"
     let edit = directEditView g.Input
-    g.AssertDom(Render.text (fun w -> Rooms.Directs.Edit.render w g.Context edit))
+    g.AssertDom(page g (Rooms.Directs.Edit.rendered g.Context edit))
 
 [<Fact>]
 let ``involvement`` () =
     for name in [ "rooms_involvements_show"; "rooms_involvements_show_direct" ] do
         let g = golden name
         let involvement = involvementView g.Input
-        g.AssertContent(Render.text (fun w -> Rooms.Involvements.Show.render w g.Context involvement))
+        g.AssertContent((HtmlOutput.ofNode (Rooms.Involvements.Show.render g.Context involvement) []).ToString())
 
 [<Fact>]
 let ``refresh stream`` () =
     let g = golden "rooms_refreshes_show"
     let refresh = refreshView g.Context g.Input
-    g.AssertDom(Render.text (fun w -> Rooms.Refreshes.ShowTurboStream.render w refresh))
+    g.AssertDom((Rooms.Refreshes.ShowTurboStream.output refresh).ToString())

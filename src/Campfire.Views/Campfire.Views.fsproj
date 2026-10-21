@@ -25,6 +25,10 @@
     <Compile Include="MessagesSupport.fs" />
     <Compile Include="Messages.fs" />
     <Compile Include="Markup/Messages.fs" />
+    <Compile Include="Markup/Turbo.fs" />
+    <Compile Include="Markup/Application.fs" />
+    <Compile Include="Markup/Users.fs" />
+    <Compile Include="Markup/Rooms.fs" />
     <Compile Include="MessagesJson.fs" />
     <Compile Include="Users.fs" />
     <Compile Include="Accounts.fs" />

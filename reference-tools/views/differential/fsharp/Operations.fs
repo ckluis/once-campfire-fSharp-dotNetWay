@@ -301,6 +301,6 @@ let run (case: JsonElement) (shared: JsonElement) : Answer =
     | "rooms/room_display_name" ->
         text (Rooms.roomDisplayName (opt (get args "name")) (bool (get args "direct")) (strings (get args "others")) (opt (get args "for_user")))
     | "rooms/button_to_delete_room" ->
-        rendered (fun w -> Rooms.buttonToDeleteRoom w (ctxOf ()) (int64Of (get args "room_id")) (str (get args "display_name")))
+        text ((HtmlOutput.ofNode (Markup.Rooms.buttonToDeleteRoom (ctxOf ()) (int64Of (get args "room_id")) (str (get args "display_name"))) []).ToString())
     | "rooms/mention_prompt_src" -> text (Rooms.mentionPromptSrc (int64Of (get args "room_id")))
     | other -> failwith $"unknown op {other}"

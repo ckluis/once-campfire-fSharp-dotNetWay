@@ -41,7 +41,6 @@ module RoomsController =
     module ShowPage = Campfire.Views.Templates.Rooms.ShowPage
     module SharedPartial = Campfire.Views.Templates.Users.Sidebars.Rooms._Shared
 
-    let private showSize = RenderSize()
 
     // --- Shared before-actions ---------------------------------------------------------------------
 
@@ -160,13 +159,7 @@ module RoomsController =
                                MessagesStreamName = Campfire.RailsCompat.Turbo.signedStreamName app.Secrets [ roomGid; "messages" ] }: Campfire.Views.Rooms.ShowView)
                     })
             return!
-                Pages.framedPage
-                    http
-                    200
-                    showSize
-                    (fun w ctx -> ShowPage.render w ctx show)
-                    (fun w -> ShowPage.head w show)
-                    (fun w ctx -> ShowPage.content w ctx show)
+                Pages.viewPage http 200 (fun ctx -> ShowPage.rendered ctx show)
         }
 
     let destroyRoom (http: HttpContext) (room: Room) : Threading.Tasks.Task<Result<Falco.HttpHandler, Error>> =

@@ -18,7 +18,6 @@ open Campfire.App.Web
 module Refreshes =
     module ShowPage = Campfire.Views.Templates.Rooms.Refreshes.ShowTurboStream
 
-    let private showSize = RenderSize()
 
     let private minMicrosecond = (DateTime.MinValue.Ticks - DateTime.UnixEpoch.Ticks) / 10L
     let private maxMicrosecond = (DateTime.MaxValue.Ticks - DateTime.UnixEpoch.Ticks) / 10L
@@ -69,5 +68,5 @@ module Refreshes =
                                    UpdatedMessages = updatedItems }: RefreshView)
                         })
                 return!
-                    Pages.bare http 200 Format.TurboStream (fun _ -> showSize.Render(fun w -> ShowPage.render w refresh))
+                    Pages.bare http 200 Format.TurboStream (fun _ -> ShowPage.output refresh)
             }

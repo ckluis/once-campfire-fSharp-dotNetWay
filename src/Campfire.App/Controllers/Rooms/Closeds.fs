@@ -18,8 +18,6 @@ module Closeds =
     module NewPage = Campfire.Views.Templates.Rooms.Closeds.New
     module EditPage = Campfire.Views.Templates.Rooms.Closeds.Edit
 
-    let private newSize = RenderSize()
-    let private editSize = RenderSize()
 
     let show: Web.Action =
         fun http ->
@@ -45,13 +43,7 @@ module Closeds =
                       SelectedUsers = []
                       UnselectedUsers = users }
                 return!
-                    Pages.framedPage
-                        http
-                        200
-                        newSize
-                        (fun w ctx -> NewPage.render w ctx form)
-                        NewPage.head
-                        (fun w ctx -> NewPage.content w ctx form)
+                    Pages.viewPage http 200 (fun ctx -> NewPage.rendered ctx form)
             }
 
     /// `broadcast_create_room` / `broadcast_update_room`: the shared-room partial, rendered once, to
@@ -110,13 +102,7 @@ module Closeds =
                       SelectedUsers = selected
                       UnselectedUsers = unselected }
                 return!
-                    Pages.framedPage
-                        http
-                        200
-                        editSize
-                        (fun w ctx -> EditPage.render w ctx form)
-                        EditPage.head
-                        (fun w ctx -> EditPage.content w ctx form)
+                    Pages.viewPage http 200 (fun ctx -> EditPage.rendered ctx form)
             }
 
     let update: Web.Action =

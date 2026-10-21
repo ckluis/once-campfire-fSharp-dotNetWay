@@ -51,7 +51,8 @@ let ``show renders the room and remembers it`` () =
         Assert.Equal(Some "text/html; charset=utf-8", reply.ContentType)
         let html = reply.Text
         Assert.Contains("<title>All Talk</title>", html)
-        Assert.Contains("""<meta name="current-room-id" content="486777696">""", html)
+        // Falco writes void elements ` />` (class A, plans/design-views.md section 8).
+        Assert.Contains("""<meta name="current-room-id" content="486777696" />""", html)
         Assert.Equal(40, count html replyMarker)
         Assert.True(reply.SetCookies |> List.exists (fun c -> c.StartsWith $"last_room={ALL_TALK}"))
         Assert.Equal(Some "parity", reply.Header "x-version")

@@ -7,17 +7,7 @@ open Campfire.Views
 open Campfire.Views.Templates.Rooms
 open Campfire.Views.Rooms
 
-
-
-/// `@page_title`.
-let pageTitle: string option = Some "New chat room"
-
-/// `content_for :head` (empty).
-let head: Out -> unit = Layouts._New.head
-
-/// The page itself.
-let content (w: Out) (ctx: ViewContext) (form: ClosedFormView) : unit =
-    Layouts._New.content w (fun w -> _Form.render w ctx form (Routes.newRoomsOpen ()))
-
-let render (w: Out) (ctx: ViewContext) (form: ClosedFormView) : unit =
-    Layouts._New.render w ctx pageTitle (fun w -> _Form.render w ctx form (Routes.newRoomsOpen ()))
+/// The page: `@page_title`, the nav, and the form in the new-room layout.
+let rendered (ctx: ViewContext) (form: ClosedFormView) : Campfire.Views.Layouts.ViewPage =
+    { Regions = Layouts._New.regions ctx (Some "New chat room") (_Form.render ctx form (Routes.newRoomsOpen ()))
+      Fragments = [] }

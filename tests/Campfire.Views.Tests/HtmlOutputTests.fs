@@ -99,12 +99,13 @@ let ``P2 a warm room page of forty fragments is rendered and written in under 30
     let g = golden "rooms_show_closed"
     let ctx = g.Context
     let show = showView ctx g.Input
-    let show = { show with Messages = [ for _ in 1..4 -> show.Messages ] |> List.concat |> List.truncate 40 }
+    // A fragment is placed once per page: forty distinct ones, as forty messages are.
+    let messages = [ for i in 0..39 -> let m = show.Messages[i % show.Messages.Length] in { m with Html = CachedFragment(m.Html.Bytes) } ]
+    let show = { show with Messages = messages }
     Assert.Equal(40, show.Messages.Length)
-    let size = RenderSize()
     let writer = ArrayBufferWriter<byte>(2 * 1024 * 1024)
     let once () =
-        let output = size.Render(fun w -> Rooms.ShowPage.render w ctx show)
+        let output = Legacy.inLayout ctx false (Rooms.ShowPage.rendered ctx show)
         output.Digest() |> ignore
         writer.ResetWrittenCount()
         output.WriteTo writer

@@ -309,6 +309,11 @@ module Pages =
         : Result<HttpHandler, Error> =
         pageOrFrame http status (fun ctx -> size.Render(fun w -> render w ctx)) (fun ctx -> Layouts.frame size head (fun w -> content w ctx))
 
+    /// A Falco page (`Layouts.ViewPage`) in the application layout, or for a Turbo-Frame request its `head` and `content` in
+    /// turbo-rails' frame layout; the layouts are the writer's until unit 4.10 (`Legacy.inLayout`).
+    let viewPage (http: HttpContext) (status: int) (render: ViewContext -> Layouts.ViewPage) : Result<HttpHandler, Error> =
+        pageOrFrame http status (fun ctx -> Legacy.inLayout ctx false (render ctx)) (fun ctx -> Legacy.inLayout ctx true (render ctx))
+
     /// A content-only template: Rails wraps it in the application layout, or in turbo-rails' `layouts/turbo_rails/frame` when the
     /// request carries a `Turbo-Frame` header.
     let content (http: HttpContext) (status: int) (render: Out -> ViewContext -> unit) : Result<HttpHandler, Error> =

@@ -2,38 +2,58 @@
 /// `rooms/opens/_form.html.erb`: the access list of an open room, in the shared room form.
 module Campfire.Views.Templates.Rooms.Opens._Form
 
+open Falco.Markup
 open Campfire.Views
 open Campfire.Views.Templates.Rooms
-open Campfire.Views.Helpers
+open Campfire.Views.Markup
 open Campfire.Views.Messages
 open Campfire.Views.Rooms
 
-let private t0 = Utf8.lit "\n    <li class=\"flex align-center gap margin-none\">\n      <figure class=\"avatar flex-item-no-shrink\" style=\"--avatar-border-radius: 0; --avatar-size: 4ch;\">\n        <img aria-hidden=\"true\" class=\"colorize--black\" style=\"background-color: transparent\" src=\""
-let private t1 = Utf8.lit "\" />\n        <span class=\"for-screen-reader\">Everyone</span>\n      </figure>\n\n      <div class=\"min-width\">\n        <div class=\"overflow-ellipsis fill-shade\"><strong>Everyone</strong></div>\n      </div>\n\n      <hr class=\"separator\" aria-hidden=\"true\">"
-let private t2 = Utf8.lit "\n        <a class=\"btn--faux flex-inline\" tabindex=\"-1\" data-turbo-action=\"replace\" href=\""
-let private t3 = Utf8.lit "\">\n          <label for=\"room_type\" class=\"switch\">\n            <input type=\"checkbox\" id=\"room_type\" class=\"switch__input\" checked=\"checked\">\n            <span class=\"switch__btn round\"></span>\n            <span class=\"for-screen-reader\">Give only some access to this room</span>\n          </label>\n</a>"
-let private t4 = Utf8.lit "\n    </li>\n\n    <hr class=\"separator full-width\" style=\"--border-style: solid\">"
-let private t5 = Utf8.lit "\n    "
-let private t6 = Utf8.lit "\n\n    <div data-filter-target=\"list\" contents>"
-let private t7 = Utf8.lit "\n      "
-let private t8 = Utf8.lit "\n    </div>\n"
+let private everyone (ctx: ViewContext) (canAdminister: bool) (typeChangePath: string) : XmlNode =
+    Elem.li
+        [ Attr.class' "flex align-center gap margin-none" ]
+        [ Elem.figure
+              [ Attr.class' "avatar flex-item-no-shrink"; Attr.create "style" "--avatar-border-radius: 0; --avatar-size: 4ch;" ]
+              [ Elem.img
+                    [ Attr.create "aria-hidden" "true"
+                      Attr.class' "colorize--black"
+                      Attr.create "style" "background-color: transparent"
+                      Html.attr "src" (ctx.Asset "everyone.svg") ]
+                Html.sp
+                Elem.span [ Attr.class' "for-screen-reader" ] [ Text.raw "Everyone" ] ]
+          Elem.div
+              [ Attr.class' "min-width" ]
+              [ Elem.div [ Attr.class' "overflow-ellipsis fill-shade" ] [ Elem.strong [] [ Text.raw "Everyone" ] ] ]
+          Elem.hr [ Attr.class' "separator"; Attr.create "aria-hidden" "true" ]
+          if canAdminister then
+              Elem.a
+                  [ Attr.class' "btn--faux flex-inline"
+                    Attr.create "tabindex" "-1"
+                    Attr.create "data-turbo-action" "replace"
+                    Html.attr "href" typeChangePath ]
+                  [ Elem.label
+                        [ Attr.create "for" "room_type"; Attr.class' "switch" ]
+                        [ Elem.input
+                              [ Attr.create "type" "checkbox"
+                                Attr.create "id" "room_type"
+                                Attr.class' "switch__input"
+                                Attr.create "checked" "checked" ]
+                          Html.sp
+                          Elem.span [ Attr.class' "switch__btn round" ] []
+                          Html.sp
+                          Elem.span [ Attr.class' "for-screen-reader" ] [ Text.raw "Give only some access to this room" ] ] ] ]
 
-let render (w: Out) (ctx: ViewContext) (form: OpenFormView) (typeChangePath: string) : unit =
-    Layouts._Form.render w ctx form.Room form.CanAdminister Open (fun w ->
-        UsersHelper.userFilterMenuTag w (fun w ->
-            w.Lit t0
-            w.Text(ctx.Asset "everyone.svg")
-            w.Lit t1
-            if form.CanAdminister then
-                w.Lit t2
-                w.Text typeChangePath
-                w.Lit t3
-            w.Lit t4
-            if form.Users.Length > 20 then
-                w.Lit t5
-                UsersHelper.userFilterSearchTag w
-            w.Lit t6
-            for user in form.Users do
-                w.Lit t7
-                _User.render w ctx user form.CanAdminister
-            w.Lit t8))
+let render (ctx: ViewContext) (form: OpenFormView) (typeChangePath: string) : XmlNode =
+    Layouts._Form.render
+        ctx
+        form.Room
+        form.CanAdminister
+        Open
+        [ Markup.Users.userFilterMenu
+              [ everyone ctx form.CanAdminister typeChangePath
+                Elem.hr [ Attr.class' "separator full-width"; Attr.create "style" "--border-style: solid" ]
+                if form.Users.Length > 20 then
+                    Markup.Users.userFilterSearch
+                Elem.div
+                    [ Attr.create "data-filter-target" "list"; Attr.create "contents" "" ]
+                    [ for user in form.Users -> _User.render ctx user form.CanAdminister ] ] ]

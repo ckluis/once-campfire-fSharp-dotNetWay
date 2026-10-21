@@ -2,62 +2,47 @@
 /// `rooms/directs/edit.html.erb`: a Ping's members, and the button that deletes it.
 module Campfire.Views.Templates.Rooms.Directs.Edit
 
+open Falco.Markup
 open Campfire.Routes
 open Campfire.Views
-open Campfire.Views.Helpers
+open Campfire.Views.Markup
 open Campfire.Views.Rooms
 
-let private t0 = Utf8.lit "\n  <div class=\"flex-item-justify-start\">\n    "
-let private t1 = Utf8.lit "\n  </div>"
-let private t2 = Utf8.lit "\n<div class=\"panel txt-align-center\">\n  <section class=\"directs--edit margin-block-end\">"
-let private t3 = Utf8.lit "\n      <div class=\"member flex flex-column gap fill-shade pad border-radius\">\n        <figure class=\"avatar center\" style=\"--avatar-border-radius: 10ch; --avatar-size: 10ch;\" >\n          <a title=\""
-let private t4 = Utf8.lit "\" class=\"btn avatar\" data-turbo-frame=\"_top\" href=\""
-let private t5 = Utf8.lit "\"><img aria-hidden=\"true\" loading=\"lazy\" src=\""
-let private t6 = Utf8.lit "\" width=\"48\" height=\"48\" /></a>\n        </figure>\n\n        <strong>"
-let private t7 = Utf8.lit "</strong>\n      </div>"
-let private t8 = Utf8.lit "\n  </section>\n\n  <form class=\"button_to\" method=\"post\" action=\""
-let private t9 = Utf8.lit "\"><input type=\"hidden\" name=\"_method\" value=\"delete\" /><button class=\"btn btn--negative center\" aria-label=\"Delete Ping\" data-turbo-confirm=\"Are you sure you want to delete this ping and all messages in it? This can’t be undone.\" type=\"submit\">\n    <img aria-hidden=\"true\" src=\""
-let private t10 = Utf8.lit "\" />\n    Ping\n</button></form></div>"
+let private member' (user: Campfire.Views.Messages.UserView) : XmlNode =
+    Elem.div
+        [ Attr.class' "member flex flex-column gap fill-shade pad border-radius" ]
+        [ Elem.figure
+              [ Attr.class' "avatar center"; Attr.create "style" "--avatar-border-radius: 10ch; --avatar-size: 10ch;" ]
+              [ Elem.a
+                    [ Html.attr "title" user.Title
+                      Attr.class' "btn avatar"
+                      Attr.create "data-turbo-frame" "_top"
+                      Html.attr "href" user.Path ]
+                    [ Elem.img
+                          [ Attr.create "aria-hidden" "true"
+                            Attr.create "loading" "lazy"
+                            Html.attr "src" user.AvatarUrl
+                            Attr.create "width" "48"
+                            Attr.create "height" "48" ] ] ]
+          Elem.strong [] [ Html.text user.Name ] ]
 
-/// `@page_title`.
-let pageTitle (edit: DirectEditView) : string option = Some("Edit settings for " + edit.DisplayName)
-
-/// `content_for :head` (empty).
-let head: Out -> unit = ignore
-
-/// `content_for :nav`.
-let nav (w: Out) (ctx: ViewContext) : unit =
-    w.Lit t0
-    Application.linkBackToLastRoomVisited w ctx
-    w.Lit t1
-
-/// The page itself.
-let content (w: Out) (ctx: ViewContext) (edit: DirectEditView) : unit =
-    w.Lit t2
-    for user in edit.Users do
-        w.Lit t3
-        w.Text user.Title
-        w.Lit t4
-        w.Text user.Path
-        w.Lit t5
-        w.Text user.AvatarUrl
-        w.Lit t6
-        w.Text user.Name
-        w.Lit t7
-    w.Lit t8
-    w.Text(ctx.Url(Routes.roomsDirect edit.RoomId))
-    w.Lit t9
-    w.Text(ctx.Asset "trash.svg")
-    w.Lit t10
-
-let render (w: Out) (ctx: ViewContext) (edit: DirectEditView) : unit =
-    Campfire.Views.Templates.Layouts.Application.render
-        w
-        ctx
-        (pageTitle edit)
-        None
-        head
-        (fun w -> nav w ctx)
-        (fun w -> content w ctx edit)
-        ignore
-        ignore
+/// The page: `@page_title`, the way back, and the members with the delete button.
+let rendered (ctx: ViewContext) (edit: DirectEditView) : Campfire.Views.Layouts.ViewPage =
+    let content =
+        Elem.div
+            [ Attr.class' "panel txt-align-center" ]
+            [ Elem.section [ Attr.class' "directs--edit margin-block-end" ] [ for user in edit.Users -> member' user ]
+              Forms.buttonTo
+                  (ctx.Url(Routes.roomsDirect edit.RoomId))
+                  "delete"
+                  [ Attr.class' "btn btn--negative center"
+                    Attr.create "aria-label" "Delete Ping"
+                    Attr.create "data-turbo-confirm" "Are you sure you want to delete this ping and all messages in it? This can’t be undone." ]
+                  [ Elem.img [ Attr.create "aria-hidden" "true"; Html.attr "src" (ctx.Asset "trash.svg") ]
+                    Html.sp
+                    Text.raw "Ping" ] ]
+    { Regions =
+        { Campfire.Views.Layouts.Regions.content [ content ] with
+            Title = Some("Edit settings for " + edit.DisplayName)
+            Nav = [ Elem.div [ Attr.class' "flex-item-justify-start" ] [ Application.linkBackToLastRoomVisited ctx ] ] }
+      Fragments = [] }

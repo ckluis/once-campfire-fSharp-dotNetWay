@@ -2,40 +2,31 @@
 /// `rooms/show/_nav.html.erb` (`content_for :nav`): the room's name, its settings link and the notifications bell.
 module Campfire.Views.Templates.Rooms.Show._Nav
 
+open Falco.Markup
 open Campfire.Views
+open Campfire.Views.Markup
 open Campfire.Views.Templates.Rooms
-open Campfire.Views.Helpers
 open Campfire.Views.Rooms
 
-let private t0 = Utf8.lit "\n  "
-let private t1 = Utf8.lit "\n\n  <span class=\"btn btn--reversed btn--faux room--current\">\n    <h1 class=\"room__contents txt-medium overflow-ellipsis\">"
-let private t2 = Utf8.lit "\n        <span class=\"for-screen-reader\">Ping with</span>"
-let private t3 = Utf8.lit "\n\n      "
-let private t4 = Utf8.lit "\n    </h1>\n</span>\n\n  <a class=\"btn\" style=\"view-transition-name: edit-room-"
-let private t5 = Utf8.lit "\" data-room-id=\""
-let private t6 = Utf8.lit "\" href=\""
-let private t7 = Utf8.lit "\">\n    <img aria-hidden=\"true\" src=\""
-let private t8 = Utf8.lit "\" width=\"20\" height=\"20\" />\n    <span class=\"for-screen-reader\">Settings for this "
-let private t9 = Utf8.lit "</span>\n</a>\n\n  "
-
-let render (w: Out) (ctx: ViewContext) (room: RoomView) : unit =
-    if ctx.Account.HasLogo then
-        w.Lit t0
-        UsersHelper.accountLogoTag w ctx None
-    w.Lit t1
-    if room.IsDirect then
-        w.Lit t2
-    w.Lit t3
-    w.Text room.DisplayName
-    w.Lit t4
-    w.Int room.Id
-    w.Lit t5
-    w.Int room.Id
-    w.Lit t6
-    w.Text room.EditPath
-    w.Lit t7
-    w.Text(ctx.Asset "menu-dots-horizontal.svg")
-    w.Lit t8
-    w.Text room.Noun
-    w.Lit t9
-    Involvements._Bell.render w ctx room
+let render (ctx: ViewContext) (room: RoomView) : XmlNode list =
+    [ if ctx.Account.HasLogo then
+          Markup.Users.accountLogoTag ctx None
+      Elem.span
+          [ Attr.class' "btn btn--reversed btn--faux room--current" ]
+          [ Elem.h1
+                [ Attr.class' "room__contents txt-medium overflow-ellipsis" ]
+                [ if room.IsDirect then
+                      Elem.span [ Attr.class' "for-screen-reader" ] [ Text.raw "Ping with" ]
+                      Html.sp
+                  Html.text room.DisplayName ] ]
+      Html.sp
+      Links.linkTo
+          room.EditPath
+          [ Attr.class' "btn"
+            Html.attr "style" ("view-transition-name: edit-room-" + string room.Id)
+            Html.attrInt "data-room-id" room.Id ]
+          [ Assets.imageSized ctx "menu-dots-horizontal.svg" 20 [ Attr.create "aria-hidden" "true" ]
+            Html.sp
+            Elem.span [ Attr.class' "for-screen-reader" ] [ Html.text ("Settings for this " + room.Noun) ] ]
+      Html.sp
+      Involvements._Bell.render ctx room ]

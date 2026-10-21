@@ -20,8 +20,6 @@ module Directs =
     module NewPage = Campfire.Views.Templates.Rooms.Directs.New
     module EditPage = Campfire.Views.Templates.Rooms.Directs.Edit
 
-    let private newSize = RenderSize()
-    let private editSize = RenderSize()
 
     /// `show`: the room page, which checks membership. Rails inherits RoomsController#show without
     /// setting `@room`, so `remember_last_room_visited` raises (a 500).
@@ -38,7 +36,7 @@ module Directs =
         fun http ->
             taskResult {
                 do! Before.chain Before.Default http
-                return! Pages.framedPage http 200 newSize (fun w ctx -> NewPage.render w ctx) NewPage.head (fun w ctx -> NewPage.content w ctx)
+                return! Pages.viewPage http 200 NewPage.rendered
             }
 
     /// `broadcast_create_room`: `users/sidebars/rooms/_direct` for each membership, to its user.
@@ -94,13 +92,7 @@ module Directs =
                            DisplayName = presenter.RoomDisplayName(room, Some current)
                            Users = users |> List.map (PresenterSupport.userView app.Secrets) }: DirectEditView))
                 return!
-                    Pages.framedPage
-                        http
-                        200
-                        editSize
-                        (fun w ctx -> EditPage.render w ctx edit)
-                        EditPage.head
-                        (fun w ctx -> EditPage.content w ctx edit)
+                    Pages.viewPage http 200 (fun ctx -> EditPage.rendered ctx edit)
             }
 
     let destroy: Web.Action =
