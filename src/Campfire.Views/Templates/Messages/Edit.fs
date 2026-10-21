@@ -55,7 +55,9 @@ let private editor (ctx: ViewContext) (edit: EditView) : XmlNode =
                             Html.attr "input" ("message_body_trix_input_message_" + message.ClientMessageId)
                             Attr.create "name" "message[body]"
                             Html.attr "value" edit.EditableBodyHtml ]
-                          [ Elem.create
+                          [ // The editor's script puts its toolbar before this space, so it renders between the toolbar and the prompt.
+                            Html.sp
+                            Elem.create
                                 "lexxy-prompt"
                                 [ Attr.create "trigger" "@"
                                   Attr.create "name" "mention"
