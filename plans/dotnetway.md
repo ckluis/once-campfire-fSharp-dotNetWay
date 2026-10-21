@@ -2136,3 +2136,51 @@ D1-D9, with the cheap checks re-run. Evidence in `bench/results/dotnetway-p3-ver
   lines of new `Markup/` helpers), App 11,766 from 11,802 (-36). The drop is larger here than in 4.4-4.7 because these templates carry no writer fragments to keep.
 - Evidence: `bench/results/dotnetway-4-8/` (`verify.log`, `build.log`, `pixel-accounts.log`, `pixel-extra.log`).
 - **Next:** 4.9 Sessions, first run, PWA, welcome (`sessions/new`, `transfers/show`, `incompatible_browser`, `first_runs/show`, `pwa/*`, `welcome/show`).
+
+### Phase 4, unit 4.9: sessions, first run, PWA, welcome
+
+Built on `dotnetway` from `d8575fc`, one commit (`beba312`) plus this entry.
+
+- **Templates:** `sessions/new`, `sessions/transfers/show`, `sessions/incompatible_browser`, `first_runs/show`, `welcome/show` and `pwa/_install_instructions`, `_browser_settings`,
+  `_system_settings` are Falco.Markup functions; the five pages return `ViewPage` through `Pages.viewPage` (four `RenderSize` fields and four `framedPage` calls gone from the
+  controllers; `Pages.incompatibleBrowser` loses its own size and uses the new `Pages.viewPageInAnyFormat`); the writer's layout stays until 4.10. `pwa/manifest.json` is
+  `Manifest.render : byte[]` on `Utf8JsonWriter` (indented, `UnsafeRelaxedJsonEscaping`, the port's key order: the controller writes the bytes, `Render.plain` is gone from it);
+  `service_worker.js` stays a string constant (its bytes now by `Encoding.UTF8`). The profile page and the room bell place the PWA partials as nodes (their `Legacy.node` calls are gone).
+- **`Html.unclosed`** (`Core/Html.fs`, the lint's one exempt file): the transfer page is a block-less `form_with`, and the reference's DOM has the layout's footer inside the open form. A closed
+  Falco form puts the footer beside it, which the loose layer reports, so the helper renders the node and drops its end tag (it refuses anything that is not that element).
+- **Whitespace and glyph slips the oracle and goldens caught** (all fixed, none by the browser): the empty `<em aria-label="the Apple menu">` of the macOS steps holds U+F8FF (the Apple
+  logo) in the ERB, so without it the loose DOM lacks an empty text node (3 places); a space between `strong` and `span` in each browser of the incompatible-browser list (a flex column, but
+  two inline siblings for the loose rule).
+- **Helpers:** none new in `Markup/` (the sign-in and first-run forms use `Forms.emailField`/`passwordField`/`textField`/`fileField` with an empty object name for the model-less sign-in
+  form, `Translations.translationButton`, `Users.accountLogoTag`, `Application.screenReader`, `Users.sidebarFrame`).
+- **Security:** every attribute from data goes through `Html.attr`; no `Text.raw` takes a non-literal (the lint is clean over 229 files). URLs from data in attributes, for the gate's XSS review:
+  the sign-in form's `action` (`ctx.Url` of a route), the first-run form's `action` (a route), the transfer form's `action` (the request's own path, `Respond.rawPath`, encoded by `Html.attr`),
+  the sign-in email as an input's `value` (user-supplied, an input's value, not a link), the help contact's `mailto:` (owner data, 4.8), the account logo `src` (a route), and `Html.text
+  ctx.Url "/"` in the browser-settings steps (text, not an attribute). No user-supplied URL becomes a link.
+- **Tests:** `ParityATests` (pwa partials x30 cases (3 partials x 10 user agents), welcome, layout wrapper, flash, sessions x4 + 2 + 1, first run, manifest), the oracle runner (`Rest.fs`, `Operations.fs`, `Pages.nodeBytesAnswer`)
+  re-pointed; the `sessions_*`, `first_run`, `incompatible_browser*`, `install_instructions_*`, `browser_settings_*`, `system_settings_*`, `welcome` goldens and every `sessions/`, `first_runs/`,
+  `pwa/` and `welcome/` oracle case (hostile text included) are loose-equal; the manifest is JSON-equal (golden and the 13 oracle cases: `Facts.jsonEqual`, key order included; `pwa/manifest`
+  left the oracle's exact-text list). New `SessionsViewsTests.fs` (8 tests): the sign-in email as attribute data (and the `shake` class), the transfer form left open with its action encoded and
+  the footer inside it, `unclosed`'s refusal, the welcome name as text, the incompatible-browser title per platform, the first-run form (multipart, `user[...]` names), the PWA partials per
+  platform (empty on iOS Safari/Chrome and for Chrome's install steps; a browser name with markup is text), and the manifest's key order and escaping.
+- **Gates run:** lint self-test ok, lint clean; `CAMPFIRE_REQUIRE_SEED=1 bin/verify`: **994 total, 988 passed, 6 skipped (the same environmental 6), 0 failed**, H1 green.
+  Image rebuilt from `beba312`: `bin/pixel-parity --fast --only "auth/**,welcome/**,pwa/**,errors/**,interactions/translation_menu"`: default 66/66, custom_styles 2/2, first_run 8/8
+  (crowd and restricted 0 cells), screenshots, aria and loose DOM all equal (270 s). Beyond the row, because the partials reach them: `interactions/notifications_help`, `users/**`,
+  `rooms/show/original_with_invitation*`, default 34/34 equal (96 s). `bin/clean-parity` after each, `bin/clean-docker` after the build; 21-24 GB free throughout.
+- **Speed (`bench/quick --reps 2 --routes room_show`, `bench/results/dotnetway-4-9`):** this unit's one hot-path touch is the room page's bell (`rooms/involvements/_Bell` in the nav), whose
+  three PWA partials were writer text through `Legacy.node` and are Falco nodes now. Micro-measured (3 UAs): 7.4 us (iOS Safari), 14.8 us (Chrome Mac), 21.1 us (Safari Mac) and 22-31 KB per
+  room page, against 494 us of CPU per request at c=1. Measured on the new image (host probe 1.05-1.07 before and after each run, 0/4 windows above 1.10, load 0.4-2.4 before): room page c=16
+  7,507 req/s (436 us/req) = **31.4x Rails**, c=1 2,523 req/s (494 us/req) = **23.6x**, against 33.8x/25.1x at the Phase 3 gate. **No same-session control**: the difference (-7%, -6%) is
+  the sum of units 4.4 to 4.9 (no unit since the Phase 3 gate measured the room page), of which this unit's bell is an estimated 3-4% by the micro-measure, not separable by a
+  control inside run-to-run noise. Both cells are far above the 5x floor; the thin cells (post, sidebar) are untouched by this unit (no template of theirs changed). The bell's three
+  partials depend only on the platform and the base URL, so a per-platform fragment would remove the 7-21 us if the room page ever needs it; not done, the floor does not ask for it.
+  `bench/quick`'s "decoded bytes equal Rust's" check prints FAIL for the room page (376,810 against 416,122) on purpose and exits 1; 4.11 replaces it with a stored size per route.
+- **Differences recorded:** none new for the README. Class A as before: the manifest's indentation and its escapes (JSON-equal to Rails'; the values are JSON strings, not ERB-escaped,
+  as before this unit); an `<em>` Apple glyph and the PWA steps are loose-equal, not byte-equal.
+- **KLOC:** `bin/kloc` 34,446 by upstream's rules, **34,665 corrected (34.7 KLOC)**, from 34,571 (+94): `Campfire.Views` 6,131 corrected from 6,011 (+120), App 11,740 from 11,766 (-26). These
+  templates grew: the writer's templates were a few `Utf8.lit` strings and a call per hole (the PWA partials were 300 lines of literals), the Falco ones spell out every element. The KLOC drop
+  is 4.11's (the writer, `Out.fs`, `Tag.fs` and the `Helpers/` halves go there); the design's 3.40 KLOC target is judged then.
+- Evidence: `bench/results/dotnetway-4-9/` (`verify.log`, `build.log`, `pixel-unit.log`, `pixel-extra.log`, `bench-room.log`, `vs-stored.md`, `report.md`).
+- **Next:** 4.10 Layouts (layout first, then collapse the page modules; the checkpoint notes: `Trusted.ofAssetTags` as one string, a Turbo-Frame request renders only head and content,
+  custom styles only through `Trusted.ofAccountStyles` with the hostile-CSS test, `--fast` on every state, the five-workload bench).
+

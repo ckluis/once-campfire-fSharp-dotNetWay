@@ -223,6 +223,13 @@ Project references follow the crate graph. Don't add an edge Rust doesn't have.
   the ERB leaves before its child: the loose DOM of the live page shows it. The loose DOM also drops a space at an element's edge with no sibling before it, which renders after a CSS `::before` (the `.message__room` arrow of a search result): only `bin/pixel-parity` sees it, so run the search slice after touching a partial. The oracle compares the fragments' offsets in a page's text, not their lengths
   (a Falco fragment is shorter than the writer's: class A). `tests/Campfire.Views.Tests/oracle.jsonl` is the frozen sample of Rust's answers (hostile text included): don't rerun
   `bin/views-differential golden` unless you are adding an operation.
+- **Unit 4.9 notes** (sessions, first run, PWA, welcome): every page of the row is `rendered ctx ... : Layouts.ViewPage` sent by `Pages.viewPage`; `AllowBrowser`'s page by
+  `Pages.viewPageInAnyFormat` (no template lookup). The `pwa/` partials return nodes (`_BrowserSettings` and `_InstallInstructions` a `XmlNode list`, empty on the platforms the ERB
+  skips; `_SystemSettings` one node), spliced with `@` where a page places them (the bell, the profile). The "Apple menu" `em` holds U+F8FF, as the ERB does: the loose DOM sees an
+  empty text node without it. A block-less `form_with` (`sessions/transfers/show`) is `Html.unclosed "form" node`: it renders the node with Falco and drops the end tag, so the layout's
+  footer is the form's descendant as in Rails' DOM (a closed form puts it beside the form and the loose layer differs). `pwa/manifest.json` is `Manifest.render ... : byte[]` on
+  `Utf8JsonWriter` (indented, relaxed escaping, the port's key order); the oracle and the golden compare it as JSON (`Facts.jsonEqual`), the service worker stays text. A flex container's
+  children still get `Html.sp` between two inline siblings (`strong` and `span` in the incompatible-browser list).
 - Commit each logical unit on the current branch with a message saying what and why. Don't push.
 - Toolchain: .NET SDK 11.0.100-rc.2.26504.105 (net11.0; 10.0.401 stays beside it) in `~/.dotnet` (`export PATH="$HOME/.dotnet:$PATH"`).
 - Docker runs in colima. Run `parity/`, `bench/` and `reference-tools/` scripts inside the VM,
