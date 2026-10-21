@@ -38,3 +38,18 @@ Reading it:
   `SendTimeout` (1 s in the test) after it began. In neither does a broadcaster wait.
 
 The raw lines are in `bench/results/dotnetway-3-6/` (`cable-run.log`, `cable-ctl.log`, `cable-run2.log`, `l7.txt`).
+
+## Phase 3 gate (2026-10-21, HEAD `c2742ad`, hybrid reads in)
+
+`bench/cable/run fsharp --reps 2 --plain`, same method, after `bin/verify` and the pixel slices had finished (host load average 2.4 at the start;
+`bench/results/dotnetway-p3/cable-run.log`). Both reps ran to the end and printed their rows; the script's exit status was 1 (the cleanup `wait` on the
+killed server), not a failure of a rep.
+
+| run | latency p50 (ms) | single (us/delivery) | burst (us/delivery) | rss per client, rep 1 (kB) |
+|---|---|---|---|---|
+| stored F#, plain (`cable-fanout.md`) | 12.6, 13.7 | 47.8, 41.3 | 1.75, 1.60 | 30.3 |
+| 3.6 run 2 (quiet, load 3.0) | 15.6, 17.2 | 45.7, 43.2 | 0.95, 0.75 | 33.4 |
+| Phase 3 gate | 17.0, 17.0 | 59.5, 53.3 | 1.60, 1.85 (user 1.15, 1.40; system 0.45, 0.45) | 44.0 |
+
+Equal to the stored row and to 3.6's loaded run (burst 1.55-1.85); slower than 3.6's quiet run (0.75-0.95), which was the best case of that session. The hybrid
+reads touch no Cable path, so the difference is the host (the resident set and the lone-broadcast cost moved with load in 3.6 too). No regression claimed or found.

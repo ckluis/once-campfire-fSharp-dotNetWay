@@ -1588,3 +1588,39 @@ Adversarial review of `0243446..7bcaef4` (H.0-H.2, 3.1-3.4) against `plans/desig
 - **KLOC:** `bin/kloc` 34,618 upstream rules, **34,837 corrected (34.8 KLOC)** (3.5: 34,822). `Campfire.Cable` 1,051 lines (3.5: 1,036; the design projected 0.70).
 - **Phase 3 state:** units 3.1-3.6 are built. Left for the phase gates (design section 4): `realtime/*` all 13 states on every engine of the lean matrix, one state per run; `bench/quick` post a message and room page against a same-day control; `bin/kloc`. Open questions: the two test packages above, and the 16 KB.
 - Evidence: `bench/results/dotnetway-3-6/` (`build.sh`, `build.log`, `pixel-*.log`, `cable-run.log`, `cable-ctl.log`, `cable-run2.log`, `l7.txt`). `bin/clean-docker` and `bin/clean-parity` run; 30 GB free.
+
+### Phase 3: gate (2026-10-21) - DONE, no blocker
+
+Evidence: `bench/results/dotnetway-p3/` (slim: logs, `report.json` per pixel slice, bench JSON). Everything ran on an image built fresh from `c2742ad` (label `org.opencontainers.image.revision` checked equal to HEAD; clean tree). No code changed in this unit.
+- **`CAMPFIRE_REQUIRE_SEED=1 bin/verify`** (Release, warnings as errors): 994 total, 988 passed, 6 skipped (the same environmental 6), 0 failed; H1 green; the golden frames compare decoded (G1-G3, Cable golden replay 26 exchanges / 25 frames) green (`verify.log`).
+- **Lean pixel gate** (`pixel-driver.sh`: slices with `--only`, all seeds per slice, the 13 `realtime/**` states one at a time, each on every engine of the lean matrix, so the smoke states on Chromium, Firefox and WebKit, desktop and phone, light and dark; 25 slices, every one rc 0 / PASSED): every one of the 940 cells equal on all three layers.
+
+| seed | screenshots | aria | loose DOM |
+|---|---:|---:|---:|
+| default | 860/860 | 860/860 | 860/860 |
+| crowd | 24/24 | 24/24 | 24/24 |
+| custom_styles | 32/32 | 32/32 | 32/32 |
+| first_run | 16/16 | 16/16 | 16/16 |
+| restricted | 8/8 | 8/8 | 8/8 |
+
+  One cell (`auth/sign_in/rate_limited`) was captured again by the harness's pixel-flake retry and matched. The `realtime/**` states are in the totals above (slices `rt-*`): message_sent, attachment_sent, message_edited, message_deleted, boosted, boost_removed, typing/one, typing/many, unread_in_sidebar, new_room_in_sidebar, removed_from_room, room_deleted_then_send, presence_read, all PASSED.
+- **`bin/cookie-roundtrip`** 20/20 both ways (the session lookup is Dapper now). **`bin/db-differential`** rc 0 (fixtures and scenario, schemas agree, Rails boots on the database we wrote, rollback ok).
+- **Cable** (`bench/cable/run fsharp --reps 2 --plain`, load 2.4): burst 1.60 and 1.85 us/delivery (stored F# 1.6-1.75; 3.6: 0.75-1.85), lone broadcast 59.5 and 53.3 us (stored 41-48; 3.6: 43-55), latency p50 17.0 ms, resident set 44.0 kB/client (3.6 loaded run 44.3). Equal to the stored row within host noise; recorded beside it in `bench/results/cable-fanout-dotnetway.md`. The script exited 1 after printing both reps (cleanup `wait` on the killed server), no rep failed.
+- **Speed** (`bench/quick`, 5 workloads, c=1 and c=16, 3 reps, interleaved new/ctl/ctl/new/new/ctl via `bench.sh`; control = the Phase 2 verifier `0243446` rebuilt as `campfire-dotnetway:p2ctl`, label checked, then removed; host probe ratio 1.036-1.088 (new) and 1.040-1.077 (ctl) on 36 probes each, load average 1.5-2.8 at each rep boundary, 0 non-2xx and 0 connection errors in 30 runs per side, decoded bytes equal Rust's, post rows equal answers). The control reproduces Phase 2's own figures (room page c=16 5,565 against 5,498; post 1,880 against 1,885), so the host is as then.
+
+| workload | c | Phase 2 control req/s | HEAD req/s | gain | x Rails (HEAD) | x Rails (control) | CPU us/req (HEAD) |
+|---|---|---:|---:|---:|---:|---:|---:|
+| room page | 16 | 5,565 | 8,082 | 1.45 | 33.77 | 23.26 | 405 |
+| room page | 1 | 1,703 | 2,690 | 1.58 | 25.12 | 15.90 | 469 |
+| messages page | 16 | 5,189 | 7,526 | 1.45 | 19.77 | 13.63 | 441 |
+| messages page | 1 | 1,527 | 2,361 | 1.55 | 10.84 | 7.01 | 519 |
+| sidebar | 16 | 5,623 | 7,634 | 1.36 | 12.75 | 9.39 | 441 |
+| sidebar | 1 | 1,620 | 2,289 | 1.41 | 7.99 | 5.65 | 537 |
+| search | 16 | 5,098 | 7,545 | 1.48 | 18.50 | 12.50 | 455 |
+| search | 1 | 1,498 | 2,315 | 1.55 | 12.01 | 7.77 | 528 |
+| post a message | 16 | 1,880 | 2,046 | 1.09 | 6.20 | 5.70 | 1,476 |
+| post a message | 1 | 950 | 1,116 | 1.17 | 6.69 | 5.69 | 1,643 |
+
+  All ten cells are over the 5x floor; no workload is a blocker, so no speed fix was made. Thinnest: sidebar c=1 7.99x, post c=16 6.20x, post c=1 6.69x. The gain against Phase 2 is the hybrid reads (H.1, H.2) and is the same size as H.2 measured (+36-58% on the pages, +9-17% on post); Phase 3's Cable work added no visible cost to the request path (HEAD equals H.2's figures within 1-3%: room page c=16 8,082 against 8,305, post c=16 2,046 against 2,053). Some c=16 page cells have a low first rep (ranges in `quick/compare-new.txt`, e.g. room page 5,607-8,332: JIT warm-up settling on the first rep of a part); medians are reported.
+- **KLOC:** `bin/kloc` 34,618 by upstream's rules, **34,837 corrected (34.8 KLOC)**, from 35.4 at the hybrid reads and 35.3 at the Phase 2 close (-0.5 for Phase 3; the plan projected 30.8). `Campfire.Cable` 1,051 (design projected 0.70), App 12,270, Kit 2,838.
+- **Differences recorded:** none new. The 16 KB per-connection bound of L7 (16.2 KB measured, 13.6 KB of it Kestrel's) and the two test packages (`FakeTimeProvider`, `FakeLogger`) from 3.6 remain open questions for Chris. `bin/clean-docker` and `bin/clean-parity` run; the control image and its scratch worktree are removed; 30 GB free.
