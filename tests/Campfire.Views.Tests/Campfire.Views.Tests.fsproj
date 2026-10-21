@@ -17,6 +17,7 @@
     <Compile Include="HtmlTests.fs" />
     <Compile Include="OutTests.fs" />
     <Compile Include="HtmlOutputTests.fs" />
+    <Compile Include="LayoutsTests.fs" />
     <Compile Include="TagTests.fs" />
     <Compile Include="FormsTests.fs" />
     <Compile Include="HelpersTests.fs" />

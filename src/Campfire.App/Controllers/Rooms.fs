@@ -159,7 +159,7 @@ module RoomsController =
                                MessagesStreamName = Campfire.RailsCompat.Turbo.signedStreamName app.Secrets [ roomGid; "messages" ] }: Campfire.Views.Rooms.ShowView)
                     })
             return!
-                Pages.viewPage http 200 (fun ctx -> ShowPage.rendered ctx show)
+                Pages.page http 200 (fun ctx -> ShowPage.rendered ctx show)
         }
 
     let destroyRoom (http: HttpContext) (room: Room) : Threading.Tasks.Task<Result<Falco.HttpHandler, Error>> =

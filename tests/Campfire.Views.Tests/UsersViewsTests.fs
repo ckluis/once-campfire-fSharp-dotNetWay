@@ -31,7 +31,7 @@ let ``T1 the profile bio survives a newline, a closing textarea and an entity`` 
     let name = "profile_chrome_mac"
     let ctx = context name Request.none
     let page = Templates.Users.Profiles.Show.rendered ctx (profile (Some hostile))
-    let html = (Legacy.inLayout ctx false page).ToString()
+    let html = (Layouts.page ctx false page).ToString()
     let document = HtmlParser().ParseDocument html
     let area =
         match document.QuerySelector "textarea#user_bio" with
@@ -47,7 +47,7 @@ let ``T1 the profile bio survives a newline, a closing textarea and an entity`` 
 let ``the profile forms name their fields and encode the user's name`` () =
     let name = "profile_chrome_mac"
     let ctx = context name Request.none
-    let html = (Legacy.inLayout ctx false (Templates.Users.Profiles.Show.rendered ctx (profile None))).ToString()
+    let html = (Layouts.page ctx false (Templates.Users.Profiles.Show.rendered ctx (profile None))).ToString()
     let document = HtmlParser().ParseDocument html
     let files = document.QuerySelectorAll "input[type=file]"
     Assert.Equal(2, files.Length)

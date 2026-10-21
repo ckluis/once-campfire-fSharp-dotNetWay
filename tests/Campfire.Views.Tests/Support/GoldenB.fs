@@ -17,6 +17,7 @@ open AngleSharp.Dom
 open AngleSharp.Html.Parser
 open Campfire.Tests
 open Campfire.Views
+open Campfire.Views.Markup
 open Campfire.Views.Differential.Inputs
 
 let private goldenDir = Repo.path "rust/crates/views/tests/golden/b"
@@ -162,8 +163,8 @@ type Golden with
           VapidPublicKey = None
           AssetPath = assetPath
           // Marks where the layout ends and the page's head block starts (see `headBlock`).
-          ImportmapTags = "<script type=\"module\">import \"application\"</script>"
-          StylesheetTags = ""
+          ImportmapTags = Html.Trusted.ofAssetTags "<script type=\"module\">import \"application\"</script>"
+          StylesheetTags = Html.Trusted.ofAssetTags ""
           CustomStyles = None
           CableUrl = "/cable"
           BaseUrl = defaultArg g.BaseUrl (str (get context "base_url"))

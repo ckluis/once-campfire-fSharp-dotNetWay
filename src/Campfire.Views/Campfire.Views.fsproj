@@ -39,10 +39,8 @@
     <Compile Include="Sessions.fs" />
     <Compile Include="Templates/Layouts/_Lightbox.fs" />
     <Compile Include="Templates/Layouts/Application.fs" />
-    <Compile Include="Templates/Layouts/ApplicationWrapper.fs" />
     <Compile Include="Templates/Layouts/TurboRails/Frame.fs" />
     <Compile Include="Layouts.fs" />
-    <Compile Include="Core/Legacy.fs" />
     <Compile Include="Templates/Accounts/_HelpContact.fs" />
     <Compile Include="Templates/Accounts/_Invite.fs" />
     <Compile Include="Templates/Pwa/_InstallInstructions.fs" />

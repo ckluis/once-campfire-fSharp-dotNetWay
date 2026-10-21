@@ -48,7 +48,7 @@ module Opens =
                       CanAdminister = true
                       Users = users }
                 return!
-                    Pages.viewPage http 200 (fun ctx -> NewPage.rendered ctx form)
+                    Pages.page http 200 (fun ctx -> NewPage.rendered ctx form)
             }
 
     let create: Web.Action =
@@ -80,7 +80,7 @@ module Opens =
                       CanAdminister = User.canAdminister user (Some room.CreatorId) false
                       Users = users }
                 return!
-                    Pages.viewPage http 200 (fun ctx -> EditPage.rendered ctx form)
+                    Pages.page http 200 (fun ctx -> EditPage.rendered ctx form)
             }
 
     let update: Web.Action =

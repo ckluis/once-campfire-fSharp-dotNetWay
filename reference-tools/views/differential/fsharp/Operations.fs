@@ -103,11 +103,11 @@ let private helper (name: string) (args: JsonElement) (ctx: JsonElement) (shared
             | other -> failwith $"button kind {other}")
     | "application" ->
         match str (get args "name") with
-        | "page_title_tag" -> rendered (fun w -> Application.pageTitleTag w (opt (get args "page_title")))
-        | "current_user_meta_tags" -> rendered (fun w -> Application.currentUserMetaTags w (view ()))
-        | "script_aware_action_cable_meta_tag" -> rendered (fun w -> Application.scriptAwareActionCableMetaTag w (view ()))
-        | "custom_styles_tag" -> rendered (fun w -> Application.customStylesTag w (view ()))
-        | "body_classes" -> text (Application.bodyClasses (view ()) (opt (get args "body_class")))
+        | "page_title_tag" -> text ((HtmlOutput.ofNode (Markup.Application.pageTitleTag (opt (get args "page_title"))) []).ToString())
+        | "current_user_meta_tags" -> text ((HtmlOutput.ofNodes (Markup.Application.currentUserMetaTags (view ())) []).ToString())
+        | "script_aware_action_cable_meta_tag" -> text ((HtmlOutput.ofNode (Markup.Application.scriptAwareActionCableMetaTag (view ())) []).ToString())
+        | "custom_styles_tag" -> text ((HtmlOutput.ofNodes (Markup.Application.customStylesTag (view ())) []).ToString())
+        | "body_classes" -> text (Markup.Application.bodyClasses (view ()) (opt (get args "body_class")))
         | "link_back" -> rendered (fun w -> Application.linkBack w (view ()))
         | "link_back_to" -> rendered (fun w -> Application.linkBackTo w (view ()) (str (get args "destination")))
         | "link_back_to_last_room_visited" -> rendered (fun w -> Application.linkBackToLastRoomVisited w (view ()))
@@ -216,44 +216,42 @@ let run (case: JsonElement) (shared: JsonElement) : Answer =
     | None ->
     match op with
     | "layouts/application_wrapper" ->
-        let part key = SafeBytes.Raw(str (get args key))
-        rendered (fun w ->
-            Templates.Layouts.ApplicationWrapper.render
-                w
-                (ctxOf ())
-                (opt (get args "page_title"))
-                (opt (get args "body_class"))
-                (part "head")
-                (part "nav")
-                (part "content")
-                (part "footer")
-                (part "sidebar"))
-    | "layouts/_lightbox" -> rendered (fun w -> Templates.Layouts._Lightbox.render w (ctxOf ()))
+        // The layout around parts that are HTML already (what `content_for` gave the ERB): each part is a trusted node.
+        let part key = [ Falco.Markup.Text.raw (str (get args key)) ]
+        let regions: Layouts.Regions =
+            { Title = opt (get args "page_title")
+              BodyClass = opt (get args "body_class")
+              Head = part "head"
+              Nav = part "nav"
+              Content = part "content"
+              Footer = part "footer"
+              Sidebar = part "sidebar" }
+        text ((HtmlOutput.ofDocument (Layouts.application (ctxOf ()) regions) []).ToString())
+    | "layouts/_lightbox" -> text ((HtmlOutput.ofNode (Templates.Layouts._Lightbox.render (ctxOf ())) []).ToString())
     | "layouts/turbo_rails/frame" ->
-        let page = HtmlOutput.text (str (get args "content"))
-        rendered (fun w -> Templates.Layouts.TurboRails.Frame.render w (fun w -> w.Raw(str (get args "head"))) (fun w -> w.Page page))
+        let regions =
+            { Layouts.Regions.content [ Falco.Markup.Text.raw (str (get args "content")) ] with
+                Head = [ Falco.Markup.Text.raw (str (get args "head")) ] }
+        text ((HtmlOutput.ofNode (Layouts.frame regions) []).ToString())
     | "recorded/page" ->
+        // A list of cached fragments in a page, framed or not: the fragments stay fragments, and the text is the answer.
         let items = arr (get args "sizes") |> List.mapi (fun n size -> fragmentOf n (intOf size))
         let unhanded = (fragmentOf 99 (intOf (get args "unhanded"))).ToString()
-        let list (w: Out) =
-            w.Lit(Utf8.lit "<ul>")
-            for item in items do
-                w.Lit(Utf8.lit "\n  ")
-                w.Fragment item
-            w.Lit(Utf8.lit "\n</ul>")
-            w.Raw unhanded
-        let page = Render.page 0 list
+        let list =
+            [ yield Falco.Markup.Text.raw "<ul>"
+              for item in items do
+                  yield Falco.Markup.Text.raw "\n  "
+                  yield Markup.Html.fragment item
+              yield Falco.Markup.Text.raw "\n</ul>"
+              yield Falco.Markup.Text.raw unhanded ]
         let page =
             if bool (get args "frame") then
-                Render.page 0 (fun w -> Templates.Layouts.TurboRails.Frame.render w ignore (fun w -> w.Page page))
+                Layouts.page (ctxOf ()) true (Layouts.ViewPage.content list items)
             else
-                page
-        let plain = Encoding.UTF8.GetString(Render.plain list)
+                HtmlOutput.ofNodes list items
         let whole = page.ToString()
-        if not (bool (get args "frame")) && whole <> plain then failwith "a recorded page is not the plain render"
-        { Out = whole
-          Text = Some(recordedText page)
-          Fragments = Some(recordedOffsets page) }
+        if page.Fragments.Length <> items.Length then failwith "a page lost fragments"
+        text whole
     | "accounts/_help_contact" ->
         text ((HtmlOutput.ofNodes (Templates.Accounts._HelpContact.render (ctxOf ()) (helpContact (get args "help_contact"))) []).ToString())
     | "accounts/_invite" -> text ((HtmlOutput.ofNode (Templates.Accounts._Invite.render (ctxOf ()) (str (get args "join_code"))) []).ToString())

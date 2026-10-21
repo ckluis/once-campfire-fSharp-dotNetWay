@@ -1,4 +1,4 @@
-// Core/Html.fs (the encoding module of the Falco.Markup views) and Core/Legacy.fs (the migration seam), against Falco.Markup 1.4.0's
+// Core/Html.fs (the encoding module of the Falco.Markup views), against Falco.Markup 1.4.0's
 // own renderer. Falco writes attribute values raw; these tests are what the lint (bin/lint-markup) relies on being true of Html.attr.
 module Campfire.Views.Tests.HtmlTests
 
@@ -30,11 +30,3 @@ let ``integers, spaces and newlines`` () =
 let ``trusted text is written as it is`` () =
     Assert.Equal("<div><b>x</b></div>", renderNode (Elem.div [] [ Html.trusted (Html.Trusted.ofSanitized "<b>x</b>") ]))
     Assert.Equal("<style>a{}</style>", renderNode (Elem.style [] [ Html.trusted (Html.Trusted.ofAccountStyles "a{}") ]))
-
-[<Fact>]
-let ``a writer partial placed in a falco template`` () =
-    let partial (w: Out) =
-        w.Lit(Utf8.lit "<i>")
-        w.Text "a < b"
-        w.Lit(Utf8.lit "</i>")
-    Assert.Equal("<div><i>a &lt; b</i></div>", renderNode (Elem.div [] [ Legacy.node partial ]))

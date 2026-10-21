@@ -33,7 +33,7 @@ module Sessions =
             do! Formats.respondTo http [ Format.Html ] |> Result.map ignore
             let emailAddress = match Params.value http "email_address" with null -> None | email -> Some email
             let! helpContact = Data.read http (fun db -> Accounts.helpContact db)
-            return! Pages.viewPage http status (fun ctx -> New.rendered ctx emailAddress helpContact)
+            return! Pages.page http status (fun ctx -> New.rendered ctx emailAddress helpContact)
         }
 
     /// `flash.now[:alert] = "Too many requests or unauthorized."; render :new, status:`

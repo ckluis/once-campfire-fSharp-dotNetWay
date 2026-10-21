@@ -25,7 +25,7 @@ module CustomStyles =
                 do! Formats.respondTo http [ Format.Html ] |> Result.map ignore
                 let customStyles = Option.ofObj account.CustomStyles
                 return!
-                    Pages.viewPage http 200 (fun ctx -> EditPage.rendered ctx customStyles)
+                    Pages.page http 200 (fun ctx -> EditPage.rendered ctx customStyles)
             }
 
     /// `@account.update!(params.require(:account).permit(:custom_styles))`

@@ -93,35 +93,15 @@ let ``welcome show`` () =
     // The first page to use the layout: its parity covers the layout and the lightbox.
     let name = "welcome"
     let ctx = context name Request.none
-    let html = (Legacy.inLayout ctx false (Templates.Welcome.Show.rendered ctx ctx.CurrentUser.Value.Name)).ToString()
+    let html = (Layouts.page ctx false (Templates.Welcome.Show.rendered ctx ctx.CurrentUser.Value.Name)).ToString()
     assertParity name "html" html
-
-[<Fact>]
-let ``application layout wrapper matches extended pages`` () =
-    // A page rendered through the wrapper with its parts equals the page calling the layout directly.
-    let name = "welcome"
-    let ctx = context name Request.none
-    let page = Templates.Welcome.Show.rendered ctx ctx.CurrentUser.Value.Name
-    let direct = (Legacy.inLayout ctx false page).ToString()
-    let region (nodes: Falco.Markup.XmlNode list) = Render.html (fun w -> Legacy.write w (HtmlOutput.ofNodes nodes []))
-    let wrapped =
-        Render.text (fun w ->
-            Layouts.Application.render
-                w
-                ctx
-                { Layouts.Application.create (region page.Regions.Content) with
-                    PageTitle = page.Regions.Title
-                    BodyClass = page.Regions.BodyClass
-                    Sidebar = region page.Regions.Sidebar })
-    Assert.Equal(direct, wrapped)
-    assertParity name "html" wrapped
 
 [<Fact>]
 let ``a flash notice and a flash alert render in the layout`` () =
     let name = "welcome"
     let welcome (request: Request) =
         let ctx = context name request
-        (Legacy.inLayout ctx false (Templates.Welcome.Show.rendered ctx "X")).ToString()
+        (Layouts.page ctx false (Templates.Welcome.Show.rendered ctx "X")).ToString()
     let notice = welcome { Request.none with FlashNotice = Some "Saved <ok>" }
     Assert.Contains("<span class=\"for-screen-reader\" role=\"alert\" aria-atomic=\"true\">Saved &lt;ok&gt;</span>", notice)
     Assert.DoesNotContain("--flash-background", notice)
@@ -164,11 +144,11 @@ let ``users sidebars show`` () =
     for name in [ "sidebar_david"; "sidebar_kevin" ] do
         let ctx = context name Request.none
         let page = sidebar name
-        assertParity name "html" ((Legacy.inLayout ctx false (Templates.Users.Sidebars.Show.rendered ctx page)).ToString())
+        assertParity name "html" ((Layouts.page ctx false (Templates.Users.Sidebars.Show.rendered ctx page)).ToString())
     let name = "sidebar_frame"
     let ctx = context name Request.none
     let page = sidebar name
-    assertParity name "html" ((Legacy.inLayout ctx true (Templates.Users.Sidebars.Show.rendered ctx page)).ToString())
+    assertParity name "html" ((Layouts.page ctx true (Templates.Users.Sidebars.Show.rendered ctx page)).ToString())
 
 [<Fact>]
 let ``autocompletable users`` () =
@@ -195,20 +175,20 @@ let ``sessions new`` () =
           "sessions_new_rejected", Some "david@37signals.com", Some "Too many requests or unauthorized."
           "sessions_new_with_logo", None, None ] do
         let ctx = context name { Request.none with FlashAlert = alert }
-        assertParity name "html" ((Legacy.inLayout ctx false (Templates.Sessions.New.rendered ctx email (helpContact name))).ToString())
+        assertParity name "html" ((Layouts.page ctx false (Templates.Sessions.New.rendered ctx email (helpContact name))).ToString())
 
 [<Fact>]
 let ``sessions incompatible browser`` () =
     for name in [ "incompatible_browser"; "incompatible_browser_apple_messages" ] do
         let ctx = context name Request.none
-        assertParity name "html" ((Legacy.inLayout ctx false (Templates.Sessions.IncompatibleBrowser.rendered ctx)).ToString())
+        assertParity name "html" ((Layouts.page ctx false (Templates.Sessions.IncompatibleBrowser.rendered ctx)).ToString())
 
 [<Fact>]
 let ``sessions transfer`` () =
     let name = "sessions_transfer"
     let ctx = context name Request.none
     let action = text ((case name).GetProperty "path")
-    assertParity name "html" ((Legacy.inLayout ctx false (Templates.Sessions.Transfers.Show.rendered action)).ToString())
+    assertParity name "html" ((Layouts.page ctx false (Templates.Sessions.Transfers.Show.rendered action)).ToString())
 
 [<Fact>]
 let ``accounts edit`` () =
@@ -233,7 +213,7 @@ let ``accounts edit`` () =
               Administrators = administrators
               Members = members
               NextPage = if name = "account_edit_paginated" then Some "2" else None }
-        assertParity name "html" ((Legacy.inLayout ctx false (Templates.Accounts.Edit.rendered ctx edit)).ToString())
+        assertParity name "html" ((Layouts.page ctx false (Templates.Accounts.Edit.rendered ctx edit)).ToString())
 
 /// `bot.rooms.without_directs.ordered` for each active bot of case `name`.
 let private bots (name: string) : Accounts.Bot list =
@@ -255,11 +235,11 @@ let ``accounts bots`` () =
     let name = "bots_index"
     let ctx = context name Request.none
     let list = bots name
-    assertParity name "html" ((Legacy.inLayout ctx false (Templates.Accounts.Bots.Index.rendered ctx list)).ToString())
+    assertParity name "html" ((Layouts.page ctx false (Templates.Accounts.Bots.Index.rendered ctx list)).ToString())
 
     let name = "bots_new"
     let ctx = context name Request.none
-    assertParity name "html" ((Legacy.inLayout ctx false (Templates.Accounts.Bots.New.rendered ctx Accounts.BotForm.empty)).ToString())
+    assertParity name "html" ((Layouts.page ctx false (Templates.Accounts.Bots.New.rendered ctx Accounts.BotForm.empty)).ToString())
 
     for (name, withAvatar) in [ "bots_edit", false; "bots_edit_with_avatar", true ] do
         let ctx = context name Request.none
@@ -269,27 +249,27 @@ let ``accounts bots`` () =
               WebhookUrl = Inputs.opt (bender.GetProperty "webhook_url")
               AvatarAttachmentUrl = if withAvatar then Inputs.opt ((case name).GetProperty "avatar_url") else None }
         let botId = bender.GetProperty("id").GetInt64()
-        assertParity name "html" ((Legacy.inLayout ctx false (Templates.Accounts.Bots.Edit.rendered ctx botId form)).ToString())
+        assertParity name "html" ((Layouts.page ctx false (Templates.Accounts.Bots.Edit.rendered ctx botId form)).ToString())
 
 [<Fact>]
 let ``accounts custom styles`` () =
     for name in [ "custom_styles_edit"; "custom_styles_layout" ] do
         let ctx = context name Request.none
         let styles = Inputs.opt (accountFact name "custom_styles")
-        assertParity name "html" ((Legacy.inLayout ctx false (Templates.Accounts.CustomStyles.Edit.rendered ctx styles)).ToString())
+        assertParity name "html" ((Layouts.page ctx false (Templates.Accounts.CustomStyles.Edit.rendered ctx styles)).ToString())
 
 [<Fact>]
 let ``first runs show`` () =
     let name = "first_run"
     let ctx = context name Request.none
-    assertParity name "html" ((Legacy.inLayout ctx false (Templates.FirstRuns.Show.rendered ctx)).ToString())
+    assertParity name "html" ((Layouts.page ctx false (Templates.FirstRuns.Show.rendered ctx)).ToString())
 
 [<Fact>]
 let ``users new`` () =
     let name = "users_new"
     let ctx = context name Request.none
     let joinCode = text (accountFact name "join_code")
-    assertParity name "html" ((Legacy.inLayout ctx false (Templates.Users.New.rendered ctx joinCode (helpContact name))).ToString())
+    assertParity name "html" ((Layouts.page ctx false (Templates.Users.New.rendered ctx joinCode (helpContact name))).ToString())
 
 [<Fact>]
 let ``users show`` () =
@@ -302,7 +282,7 @@ let ``users show`` () =
           "users_show_banned", "Spam Ham" ] do
         let ctx = context name Request.none
         let transferId = text ((user name shown).GetProperty "transfer_id")
-        assertParity name "html" ((Legacy.inLayout ctx false (Templates.Users.Show.rendered ctx (named name shown) transferId)).ToString())
+        assertParity name "html" ((Layouts.page ctx false (Templates.Users.Show.rendered ctx (named name shown) transferId)).ToString())
 
 let private profileMemberships (list: JsonElement) : Users.ProfileMembership list =
     [ for m in list.EnumerateArray() ->
@@ -326,7 +306,7 @@ let ``users profiles show`` () =
               TransferId = text (me.GetProperty "transfer_id")
               SharedMemberships = profileMemberships ((data name).GetProperty("profile").GetProperty "shared")
               DirectMemberships = profileMemberships ((data name).GetProperty("profile").GetProperty "direct") }
-        assertParity name "html" ((Legacy.inLayout ctx false (Templates.Users.Profiles.Show.rendered ctx profile)).ToString())
+        assertParity name "html" ((Layouts.page ctx false (Templates.Users.Profiles.Show.rendered ctx profile)).ToString())
 
 [<Fact>]
 let ``users push subscriptions`` () =
@@ -339,7 +319,7 @@ let ``users push subscriptions`` () =
                 Browser = text (ps.GetProperty "browser")
                 Version = text (ps.GetProperty "version")
                 Platform = text (ps.GetProperty "platform") } ]
-    assertParity name "html" ((Legacy.inLayout ctx false (Templates.Users.PushSubscriptions.Index.rendered ctx subscriptions)).ToString())
+    assertParity name "html" ((Layouts.page ctx false (Templates.Users.PushSubscriptions.Index.rendered ctx subscriptions)).ToString())
 
 [<Fact>]
 let ``users avatars show`` () =

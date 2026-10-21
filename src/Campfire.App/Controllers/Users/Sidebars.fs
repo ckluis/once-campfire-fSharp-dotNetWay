@@ -45,5 +45,5 @@ module Sidebars =
                       OtherMemberships = sidebar.OtherMemberships
                       // `Current.user.administrator? || !Current.account.settings.restrict_room_creation_to_administrators?`
                       CanCreateRooms = User.isAdministrator user || not restricted }
-                return! Pages.viewPage http 200 (fun ctx -> ShowPage.rendered ctx data)
+                return! Pages.page http 200 (fun ctx -> ShowPage.rendered ctx data)
             }

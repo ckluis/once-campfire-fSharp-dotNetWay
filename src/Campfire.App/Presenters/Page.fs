@@ -16,7 +16,6 @@ module Page =
     /// `renderDetached` during a request: URLs get the request's host through `default_url_options`
     /// (`SetCurrentRequest`), see `Web.Pages.rendererBaseUrl`.
     let renderDetachedAt (app: AppState) (account: Account option) (baseUrl: string) (render: ViewContext -> 'T) : 'T =
-        let stylesheets = ViewContextBuilder.stylesheetTags ()
         let ctx: ViewContext =
             { CurrentUser = None
               Account = ViewContextBuilder.accountSummary account false
@@ -25,8 +24,8 @@ module Page =
               Platform = Platform.none
               VapidPublicKey = app.VapidPublicKey
               AssetPath = Assets.assetPath
-              ImportmapTags = Assets.javascriptImportmapTags ()
-              StylesheetTags = stylesheets.Html
+              ImportmapTags = ViewContextBuilder.importmapTrusted ()
+              StylesheetTags = ViewContextBuilder.stylesheetTrusted ()
               CustomStyles = None
               CableUrl = "/cable"
               BaseUrl = baseUrl

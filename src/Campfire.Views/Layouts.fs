@@ -1,11 +1,9 @@
-// Port of rust/crates/views/src/layouts.rs
-/// Views for `reference/app/views/layouts`.
+/// Layouts for `reference/app/views/layouts` and turbo-rails' frame layout, on Falco.Markup (plans/design-views.md V8).
 ///
-/// A page template (a module under `Templates/`) calls `Templates.Layouts.Application.render` with
-/// what the ERB sets as `@page_title` and `@body_class` (askama's `layouts::Page` trait: here they are
-/// arguments) and the regions it fills (`content_for`'s `head`, `nav`, `footer`, `sidebar`, and the
-/// page itself as `content`). A page module exposes its `head` and `content` blocks as functions of
-/// the writer, which `frame` takes (with the page's `RenderSize`) for Turbo-Frame requests.
+/// A page module (a module under `Templates/`) returns a `ViewPage`: what the ERB sets as `@page_title` and `@body_class`, the
+/// regions it fills (`content_for`'s `head`, `nav`, `footer`, `sidebar`, and the page itself as `content`) and the cached
+/// fragments its nodes place. `Layouts.page` puts it in the application layout, or in turbo-rails' frame layout (its head and
+/// content only) for a Turbo-Frame request.
 module Campfire.Views.Layouts
 
 open Falco.Markup
@@ -38,44 +36,23 @@ type ViewPage =
     { Regions: Regions
       Fragments: CachedFragment list }
 
-/// The application layout around page parts rendered elsewhere. Each part is what the ERB's
-/// `content_for` / `yield` would have produced.
-type Application =
-    { /// `@page_title`.
-      PageTitle: string option
-      /// `@body_class`.
-      BodyClass: string option
-      Head: SafeBytes
-      Nav: SafeBytes
-      Content: SafeBytes
-      Footer: SafeBytes
-      Sidebar: SafeBytes }
+module ViewPage =
+    /// A content-only template and the fragments it places.
+    let content (nodes: XmlNode list) (fragments: CachedFragment seq) : ViewPage =
+        { Regions = Regions.content nodes
+          Fragments = List.ofSeq fragments }
 
-module Application =
-    /// Just a page body, with no title, body class or `content_for` regions.
-    let create (content: SafeBytes) : Application =
-        { PageTitle = None
-          BodyClass = None
-          Head = SafeBytes.Empty
-          Nav = SafeBytes.Empty
-          Content = content
-          Footer = SafeBytes.Empty
-          Sidebar = SafeBytes.Empty }
+/// The application layout around a page's regions, as a document (render it with `HtmlOutput.ofDocument`).
+let application (ctx: ViewContext) (regions: Regions) : XmlNode =
+    Application.render ctx regions.Title regions.BodyClass regions.Head regions.Nav regions.Content regions.Footer regions.Sidebar
 
-    /// `layouts::Application`'s render.
-    let render (w: Out) (ctx: ViewContext) (page: Application) : unit =
-        ApplicationWrapper.render w ctx page.PageTitle page.BodyClass page.Head page.Nav page.Content page.Footer page.Sidebar
+/// turbo-rails' frame layout around a page's `head` and `content` (render it with `HtmlOutput.ofNode`: it has no doctype).
+let frame (regions: Regions) : XmlNode = TurboRails.Frame.render regions.Head regions.Content
 
-/// What the Turbo-Frame layout's own text comes to, over the head and content it frames.
-[<Literal>]
-let private FrameLayoutSizeHint = 512
-
-/// Renders a page's `head` and `content` blocks in the Turbo-Frame layout, recorded (the content's
-/// cached fragments too): `frame size (Page.head model) (Page.content model)`. `size` is the page's
-/// own `RenderSize` (what Rust's `C::SIZE_HINT` is for `recorded::render(&content, ..)`): the content
-/// renders into a buffer sized from the last render of that page, not from 4 KB doubled until it fits.
-let frame (size: RenderSize) (head: Out -> unit) (content: Out -> unit) : HtmlOutput =
-    let content = size.Render content
-    let head = Render.html head
-    Render.page (content.TextLength + head.Length + FrameLayoutSizeHint) (fun w ->
-        TurboRails.Frame.render w (fun w -> w.Raw head) (fun w -> w.Page content))
+/// A page in the application layout, or for a Turbo-Frame request (`framed`) in turbo-rails' frame layout, written in parts:
+/// its fragments stay what the cache holds.
+let page (ctx: ViewContext) (framed: bool) (page: ViewPage) : HtmlOutput =
+    if framed then
+        HtmlOutput.ofNode (frame page.Regions) page.Fragments
+    else
+        HtmlOutput.ofDocument (application ctx page.Regions) page.Fragments

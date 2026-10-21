@@ -22,6 +22,8 @@ module Html =
         let private withoutMarker (replacement: string) (text: string) : string =
             if text.Contains '\uE000' then text.Replace("\uE000", replacement) else text
 
+        let private StyleEnd = System.Text.RegularExpressions.Regex("</style", System.Text.RegularExpressions.RegexOptions.IgnoreCase ||| System.Text.RegularExpressions.RegexOptions.CultureInvariant)
+
         /// Rich text the sanitizer produced (allowlisted: Presenters/Presenter.fs, `MessageContent.Text`). U+E000 becomes its
         /// character reference: the sanitizer keeps no `script` or `style`, so it is in text or an attribute value, where the
         /// reference parses to the same character.
@@ -30,10 +32,11 @@ module Html =
         let ofAssetTags (html: string) : Trusted = Trusted html
         /// The account's custom CSS, which Rails writes `html_safe` (allowlisted: Markup/Application.fs).
         /// U+E000 becomes a CSS escape (`\E000 `, the same character in an identifier or a string): the styles are a `style`
-        /// element's raw text, where a character reference would not be decoded.
-        let ofAccountStyles (css: string) : Trusted = Trusted(withoutMarker "\\E000 " css)
-        /// What a writer template rendered (the migration seam, `Legacy.node`; deleted with it in unit 4.11).
-        let internal ofLegacy (html: string) : Trusted = Trusted html
+        /// element's raw text, where a character reference would not be decoded. A `</style` becomes `<\/style`: raw text ends at
+        /// the first one, so the rest of the CSS would be markup (Rails writes it as typed; a known difference, and CSS has no use for it).
+        let ofAccountStyles (css: string) : Trusted =
+            let css = withoutMarker "\\E000 " css
+            Trusted(if css.Contains("</", System.StringComparison.Ordinal) then StyleEnd.Replace(css, "<\\/style") else css)
         let value (Trusted html) : string = html
 
     /// An attribute whose value is data: encoded with the encoder `Text.enc` uses, so the project has one escaping rule.

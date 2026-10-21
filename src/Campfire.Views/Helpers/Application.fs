@@ -11,55 +11,6 @@ open Campfire.Views
 open Campfire.Views.Helpers.Tag
 open Campfire.Views.Helpers.Links
 
-/// `page_title_tag`: `@page_title || "Campfire"`.
-let pageTitleTag (w: Out) (pageTitle: string option) : unit =
-    contentTagText w "title" (attrs ()) (defaultArg pageTitle "Campfire")
-
-/// `current_user_meta_tags`.
-let currentUserMetaTags (w: Out) (ctx: ViewContext) : unit =
-    match ctx.CurrentUser with
-    | Some user ->
-        legacyTag w "meta" (attrs().Name("current-user-id").Attr("content", user.Id))
-        legacyTag w "meta" (attrs().Name("current-user-name").Attr("content", user.Name))
-    | None -> ()
-
-/// `script_aware_action_cable_meta_tag`.
-let scriptAwareActionCableMetaTag (w: Out) (ctx: ViewContext) : unit =
-    builderTag w "meta" (attrs().Name("action-cable-url").Attr("content", ctx.CableUrl))
-
-/// `custom_styles_tag`: the account's CSS, unescaped.
-let customStylesTag (w: Out) (ctx: ViewContext) : unit =
-    match ctx.CustomStyles with
-    | Some styles -> contentTag w "style" (attrs().Data("turbo_track", "reload")) styles
-    | None -> ()
-
-let private adminClass = Utf8.lit "admin"
-let private accountLogoClass = Utf8.lit "account-has-logo"
-
-/// `body_classes`: `[ @body_class, admin_body_class, account_logo_body_class ].compact.join(" ")`.
-/// Written escaped, straight into the buffer, as the template's `{{ }}` would.
-let writeBodyClasses (w: Out) (ctx: ViewContext) (bodyClass: string option) : unit =
-    let mutable any = false
-    match bodyClass with
-    | Some bodyClass ->
-        w.Text bodyClass
-        any <- true
-    | None -> ()
-    if ctx.CanAdminister then
-        if any then w.Byte(byte ' ')
-        w.Lit adminClass
-        any <- true
-    if ctx.Account.HasLogo then
-        if any then w.Byte(byte ' ')
-        w.Lit accountLogoClass
-
-/// `body_classes` as the helper returns it, a string the template escapes (tests and tools; the layout
-/// writes it with `writeBodyClasses`).
-let bodyClasses (ctx: ViewContext) (bodyClass: string option) : string =
-    let admin = if ctx.CanAdminister then Some "admin" else None
-    let logo = if ctx.Account.HasLogo then Some "account-has-logo" else None
-    String.Join(" ", [ bodyClass; admin; logo ] |> List.choose id)
-
 /// `link_back_to(destination)`.
 let linkBackTo (w: Out) (ctx: ViewContext) (destination: string) : unit =
     linkTo w destination (attrs().Class("btn")) (fun w ->

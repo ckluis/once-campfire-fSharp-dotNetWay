@@ -42,26 +42,12 @@ let private recordedAnswer (page: HtmlOutput) : Answer =
       Text = Some(recordedText page)
       Fragments = Some(recordedOffsets page) }
 
-/// A page: rendered cold, then warm (the same bytes), plain and recorded (the same bytes), and in the Turbo-Frame
-/// layout when `frame` is set.
-let pageAnswer (args: JsonElement) (render: Out -> unit) (head: Out -> unit) (content: Out -> unit) : Answer =
-    let frame = bool (get args "frame")
-    let once () =
-        let plain = Render.text render
-        let recorded = if frame then Layouts.frame (RenderSize()) head content else Render.page 0 render
-        plain, recorded
-    let coldPlain, cold = once ()
-    let plain, recorded = once ()
-    if cold.ToString() <> recorded.ToString() || coldPlain <> plain then failwith "a warm render is not the cold one"
-    if not frame && recorded.ToString() <> plain then failwith "a recorded page is not the plain render"
-    recordedAnswer recorded
-
-/// A Falco page: its regions in the writer's layouts (`Legacy.inLayout`, until unit 4.10), cold and then warm, the same bytes, and
+/// A Falco page: its regions in the layout (`Layouts.page`), cold and then warm, the same bytes, and
 /// in the Turbo-Frame layout when `frame` is set. The page's text is the answer (the writer's fragment offsets are not Falco's).
 let viewPageAnswer (args: JsonElement) (ctx: ViewContext) (page: Layouts.ViewPage) : Answer =
     let frame = bool (get args "frame")
-    let cold = (Legacy.inLayout ctx frame page).ToString()
-    let warm = (Legacy.inLayout ctx frame page).ToString()
+    let cold = (Layouts.page ctx frame page).ToString()
+    let warm = (Layouts.page ctx frame page).ToString()
     if cold <> warm then failwith "a warm render is not the cold one"
     text warm
 

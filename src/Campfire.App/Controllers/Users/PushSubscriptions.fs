@@ -88,7 +88,7 @@ module PushSubscriptions =
                 let! subscriptions = Data.read http (fun db -> PushSubscription.forUser db user.Id)
                 let pushSubscriptions = subscriptions |> List.map Accounts.pushSubscription
                 return!
-                    Pages.viewPage http 200 (fun ctx -> IndexPage.rendered ctx pushSubscriptions)
+                    Pages.page http 200 (fun ctx -> IndexPage.rendered ctx pushSubscriptions)
             }
 
     let create: Web.Action =

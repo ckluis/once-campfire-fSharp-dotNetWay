@@ -330,7 +330,7 @@ module MessagesController =
     let private renderRoomNotFound (http: HttpContext) : Result<Falco.HttpHandler, Error> =
         result {
             do! Formats.respondTo http [ Web.Format.Html ] |> Result.map ignore
-            return! Pages.contentInApplicationLayout http 200 (fun w _ -> Legacy.write w (HtmlOutput.ofNode RoomNotFoundPage.render []))
+            return! Pages.pageInApplicationLayout http 200 (fun _ -> Layouts.ViewPage.content [ RoomNotFoundPage.render ] [])
         }
 
     // --- Actions -----------------------------------------------------------------------------------
@@ -408,7 +408,7 @@ module MessagesController =
                     let! html = presenter.MessageFragment message
                     return html
                 })
-                return! Pages.contentInApplicationLayout http 200 (fun w _ -> Legacy.write w (ShowPage.output html))
+                return! Pages.pageInApplicationLayout http 200 (fun _ -> Layouts.ViewPage.content [ ShowPage.render html ] [ html ])
             }
 
     let edit: Web.Action =
@@ -424,7 +424,7 @@ module MessagesController =
                         let editableBodyHtml = presenter.EditableBody message
                         ({ EditableBodyHtml = editableBodyHtml
                            Message = presenter.Message message }: Campfire.Views.Messages.EditView))
-                return! Pages.contentInApplicationLayout http 200 (fun w ctx -> Legacy.write w (HtmlOutput.ofNode (EditPage.render ctx edit) []))
+                return! Pages.pageInApplicationLayout http 200 (fun ctx -> Layouts.ViewPage.content [ EditPage.render ctx edit ] [])
             }
 
     let update: Web.Action =

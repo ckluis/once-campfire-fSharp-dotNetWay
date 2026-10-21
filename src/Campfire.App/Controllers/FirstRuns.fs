@@ -34,7 +34,7 @@ module FirstRuns =
                 do! Before.chain (Before.allowUnauthenticatedAccess Before.Default) http
                 do! preventRepeats http
                 do! Formats.respondTo http [ Format.Html ] |> Result.map ignore
-                return! Pages.viewPage http 200 ShowPage.rendered
+                return! Pages.page http 200 ShowPage.rendered
             }
 
     let create: Web.Action =

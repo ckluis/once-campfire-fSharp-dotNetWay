@@ -1,6 +1,6 @@
 // Port of rust/crates/views/templates/rooms/show.html (reference/app/views/rooms/show.html.erb)
 /// `rooms/show.html.erb`, with `MessagesHelper#message_area_tag` and `#messages_tag`: the room page. A page module returns its
-/// regions (`Layouts.Regions`) and the fragments it places; the layout is the writer's until unit 4.10 (`Legacy.inLayout`).
+/// regions (`Layouts.Regions`) and the fragments it places.
 ///
 /// The module is `ShowPage`, not `Show`: `rooms/show/` holds the partials (`Templates/Rooms/Show/_Nav.fs`...), and a
 /// module and a namespace of one name can't both be in an assembly.

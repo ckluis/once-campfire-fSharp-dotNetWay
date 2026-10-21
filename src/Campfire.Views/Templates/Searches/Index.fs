@@ -1,6 +1,6 @@
 // Port of rust/crates/views/templates/searches/index.html (reference/app/views/searches/index.html.erb)
 /// `searches/index.html.erb`, with `SearchesHelper#search_results_tag`: the search page. A page module returns its regions and the
-/// fragments it places; the layout is the writer's until unit 4.10 (`Legacy.inLayout`).
+/// fragments it places.
 module Campfire.Views.Templates.Searches.Index
 
 open Falco.Markup

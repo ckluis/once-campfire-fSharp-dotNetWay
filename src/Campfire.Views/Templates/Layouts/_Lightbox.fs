@@ -1,19 +1,38 @@
-// Port of rust/crates/views/templates/layouts/_lightbox.html (reference/app/views/layouts/_lightbox.html.erb)
+// reference/app/views/layouts/_lightbox.html.erb on Falco.Markup (plans/design-views.md unit 4.10)
 module Campfire.Views.Templates.Layouts._Lightbox
 
+open Falco.Markup
 open Campfire.Views
-open Campfire.Views.Helpers
+open Campfire.Views.Markup
 
-let private t0 = Utf8.lit "<dialog class=\"lightbox\" aria-label=\"Image Viewer (Press escape to close)\" data-lightbox-target=\"dialog\" data-action=\"close->lightbox#reset\">\n  <img src=\"\" class=\"lightbox__image\" data-lightbox-target=\"zoomedImage\" />\n\n  <form method=\"dialog\" class=\"lightbox__btn\">\n    <button class=\"btn\">\n      "
-let private t1 = Utf8.lit "\n      <span class=\"for-screen-reader\">Close image viewer</span>\n    </button>\n  </form>\n\n  <a href=\"\" class=\"lightbox__btn--download btn hide-in-ios-pwa\" data-lightbox-target=\"download\">\n    "
-let private t2 = Utf8.lit "\n    <span class=\"for-screen-reader\">Download file</span>\n  </a>\n\n  <button class=\"lightbox__btn--share btn\"\n      data-controller=\"web-share\"\n      data-action=\"web-share#share\"\n      data-web-share-files-value=\"\"\n      data-lightbox-target=\"share\">\n    "
-let private t3 = Utf8.lit "\n    <span class=\"for-screen-reader\">Share file</span>\n  </button>\n</dialog>\n"
+let private screenReader (text: string) : XmlNode = Elem.span [ Attr.class' "for-screen-reader" ] [ Html.text text ]
 
-let render (w: Out) (ctx: ViewContext) : unit =
-    w.Lit t0
-    Assets.imageTag w ctx "remove.svg" (Tag.attrs().AriaHidden())
-    w.Lit t1
-    Assets.imageTag w ctx "download.svg" (Tag.attrs().AriaHidden())
-    w.Lit t2
-    Assets.imageTag w ctx "share.svg" (Tag.attrs().AriaHidden())
-    w.Lit t3
+/// The dialog `lightbox#open` shows; its images are the icons of three buttons.
+let render (ctx: ViewContext) : XmlNode =
+    let icon (source: string) : XmlNode = Assets.image ctx source [ Attr.create "aria-hidden" "true" ]
+    Elem.dialog
+        [ Attr.class' "lightbox"
+          Attr.create "aria-label" "Image Viewer (Press escape to close)"
+          Attr.create "data-lightbox-target" "dialog"
+          Attr.create "data-action" "close->lightbox#reset" ]
+        [ Elem.img [ Attr.create "src" ""; Attr.class' "lightbox__image"; Attr.create "data-lightbox-target" "zoomedImage" ]
+          // The ERB's line breaks stay as spaces: on a page that leaves a form open (`Html.unclosed`) the parser drops this
+          // form, and its button sits beside the image and the links.
+          Html.sp
+          Elem.form
+              [ Attr.create "method" "dialog"; Attr.class' "lightbox__btn" ]
+              [ Elem.button [ Attr.class' "btn" ] [ icon "remove.svg"; Html.sp; screenReader "Close image viewer" ] ]
+          Html.sp
+          Elem.a
+              [ Attr.create "href" ""
+                Attr.class' "lightbox__btn--download btn hide-in-ios-pwa"
+                Attr.create "data-lightbox-target" "download" ]
+              [ icon "download.svg"; Html.sp; screenReader "Download file" ]
+          Html.sp
+          Elem.button
+              [ Attr.class' "lightbox__btn--share btn"
+                Attr.create "data-controller" "web-share"
+                Attr.create "data-action" "web-share#share"
+                Attr.create "data-web-share-files-value" ""
+                Attr.create "data-lightbox-target" "share" ]
+              [ icon "share.svg"; Html.sp; screenReader "Share file" ] ]

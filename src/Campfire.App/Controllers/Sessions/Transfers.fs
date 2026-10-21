@@ -22,7 +22,7 @@ module SessionTransfers =
                 do! Formats.respondTo http [ Format.Html ] |> Result.map ignore
                 // `url_for({})`: this request's own path.
                 let action = Respond.rawPath http
-                return! Pages.viewPage http 200 (fun _ -> TransferPage.rendered action)
+                return! Pages.page http 200 (fun _ -> TransferPage.rendered action)
             }
 
     let update: Web.Action =

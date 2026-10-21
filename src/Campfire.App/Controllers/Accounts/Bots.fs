@@ -51,7 +51,7 @@ module Bots =
                 let! users = Data.read http User.activeBotsOrdered
                 let! bots = Data.read http (fun db -> users |> List.map (Accounts.bot db secrets))
                 return!
-                    Pages.viewPage http 200 (fun ctx -> IndexPage.rendered ctx bots)
+                    Pages.page http 200 (fun ctx -> IndexPage.rendered ctx bots)
             }
 
     let ``new``: Web.Action =
@@ -61,7 +61,7 @@ module Bots =
                 do! Formats.respondTo http [ Format.Html ] |> Result.map ignore
                 let bot = Campfire.Views.Accounts.BotForm.empty
                 return!
-                    Pages.viewPage http 200 (fun ctx -> NewPage.rendered ctx bot)
+                    Pages.page http 200 (fun ctx -> NewPage.rendered ctx bot)
             }
 
     /// `User.create_bot! bot_params`
@@ -99,7 +99,7 @@ module Bots =
                 let! webhookUrl = Data.read http (fun db -> User.webhookUrl db bot)
                 let! form = Data.read http (fun db -> Accounts.botForm db storage baseUrl bot webhookUrl)
                 return!
-                    Pages.viewPage http 200 (fun ctx -> EditPage.rendered ctx botId form)
+                    Pages.page http 200 (fun ctx -> EditPage.rendered ctx botId form)
             }
 
     /// `@bot.update_bot! bot_params`: the webhook first, then the bot, in one transaction.

@@ -49,8 +49,8 @@ let ``body classes join the page the admin and the logo`` () =
           Platform = Platform.none
           VapidPublicKey = None
           AssetPath = id
-          ImportmapTags = ""
-          StylesheetTags = ""
+          ImportmapTags = Markup.Html.Trusted.ofAssetTags ""
+          StylesheetTags = Markup.Html.Trusted.ofAssetTags ""
           CustomStyles = None
           CableUrl = "/cable"
           BaseUrl = "http://x"
@@ -58,17 +58,19 @@ let ``body classes join the page the admin and the logo`` () =
           Referrer = None
           LastRoomVisitedId = None
           AppVersion = "0" }
-    Assert.Equal("sidebar admin account-has-logo", Application.bodyClasses (ctx true true) (Some "sidebar"))
-    Assert.Equal("admin", Application.bodyClasses (ctx true false) None)
-    Assert.Equal("", Application.bodyClasses (ctx false false) None)
+    let bodyClasses = Markup.Application.bodyClasses
+    Assert.Equal("sidebar admin account-has-logo", bodyClasses (ctx true true) (Some "sidebar"))
+    Assert.Equal("admin", bodyClasses (ctx true false) None)
+    Assert.Equal("", bodyClasses (ctx false false) None)
     // `compact` drops only nil.
-    Assert.Equal(" admin", Application.bodyClasses (ctx true false) (Some ""))
-    // The layout writes it escaped straight into the buffer: what `{{ body_classes }}` prints.
+    Assert.Equal(" admin", bodyClasses (ctx true false) (Some ""))
+    // The layout writes it escaped, as `<%= body_classes %>` prints it.
     for admin in [ true; false ] do
         for logo in [ true; false ] do
             for bodyClass in [ None; Some ""; Some "sidebar"; Some "a&\"b<'c'>" ] do
-                let expected = Campfire.Ruby.Erb.htmlEscape (Application.bodyClasses (ctx admin logo) bodyClass)
-                Assert.Equal(expected, Render.text (fun w -> Application.writeBodyClasses w (ctx admin logo) bodyClass))
+                let expected = Campfire.Ruby.Erb.htmlEscape (bodyClasses (ctx admin logo) bodyClass)
+                let node = Falco.Markup.Elem.i [ Markup.Html.attr "class" (bodyClasses (ctx admin logo) bodyClass) ] []
+                Assert.Equal("<i class=\"" + expected + "\"></i>", (HtmlOutput.ofNode node []).ToString())
 
 // helpers/users.rs
 

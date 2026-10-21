@@ -34,7 +34,7 @@ module Profiles =
                       SharedMemberships = sharedMemberships
                       DirectMemberships = directMemberships }
                 return!
-                    Pages.viewPage http 200 (fun ctx -> ShowPage.rendered ctx profile)
+                    Pages.page http 200 (fun ctx -> ShowPage.rendered ctx profile)
             }
 
     /// `@user.update user_params`, then `redirect_to user_profile_url, notice: update_notice`.

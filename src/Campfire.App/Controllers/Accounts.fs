@@ -50,7 +50,7 @@ module AccountsController =
                       Members = members
                       NextPage = if page.IsLast then None else Some(string page.NextParam) }
                 return!
-                    Pages.viewPage http 200 (fun ctx -> EditPage.rendered ctx edit)
+                    Pages.page http 200 (fun ctx -> EditPage.rendered ctx edit)
             }
 
     /// `@account.update!(params.require(:account).permit(:name, :logo, settings: {}))`

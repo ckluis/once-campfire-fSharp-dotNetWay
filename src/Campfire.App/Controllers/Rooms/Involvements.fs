@@ -43,7 +43,7 @@ module Involvements =
                     { RoomId = room.Id
                       Kind = PresenterSupport.roomKind room.Type
                       Involvement = (if membership.Involvement.HasValue then Involvement.name membership.Involvement.Value else "") }
-                return! Pages.content http 200 (fun w ctx -> Legacy.write w (HtmlOutput.ofNode (ShowPage.render ctx involvement) []))
+                return! Pages.page http 200 (fun ctx -> Layouts.ViewPage.content [ ShowPage.render ctx involvement ] [])
             }
 
     let update: Web.Action =

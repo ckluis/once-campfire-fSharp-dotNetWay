@@ -91,7 +91,7 @@ let ``O4 the digest differs when one byte of one part or one fragment differs`` 
     Assert.NotEqual<byte[]>(digest, shifted.Digest())
 
 [<Fact>]
-let ``O4 Legacy.inLayout keeps the fragments of a Falco page in the writer's layouts`` () =
+let ``O4 Layouts.page keeps the fragments of a Falco page in both layouts`` () =
     let g = golden "rooms_show_member"
     let one = CachedFragment(String('m', 2000))
     let regions: Layouts.Regions =
@@ -100,15 +100,16 @@ let ``O4 Legacy.inLayout keeps the fragments of a Falco page in the writer's lay
             Head = [ Elem.meta [ Attr.name "x"; Attr.content "y" ] ] }
     let viewPage: Layouts.ViewPage = { Regions = regions; Fragments = [ one ] }
     for frame in [ false; true ] do
-        let output = Legacy.inLayout g.Context frame viewPage
+        let output = Layouts.page g.Context frame viewPage
         Assert.Equal(1, output.Fragments.Length)
         Assert.Same(one, output.Fragments[0])
         let text = output.ToString()
         Assert.Contains("<div>" + String('m', 2000) + "</div>", text)
         Assert.Contains("<meta name=\"x\" content=\"y\" />", text)
         Assert.Equal(frame, text.StartsWith "<html>")
+        Assert.Equal(not frame, text.StartsWith "<!DOCTYPE html>")
     Assert.Throws<InvalidOperationException>(fun () ->
-        Legacy.inLayout g.Context false { viewPage with Fragments = [ one; CachedFragment "x" ] } |> ignore)
+        Layouts.page g.Context false { viewPage with Fragments = [ one; CachedFragment "x" ] } |> ignore)
     |> ignore
 
 /// P2: the warm room page of 40 fragments, rendered and written in process, allocates under 300 KB (one string per page would be 1.6 MB).
@@ -123,7 +124,7 @@ let ``P2 a warm room page of forty fragments is rendered and written in under 30
     Assert.Equal(40, show.Messages.Length)
     let writer = ArrayBufferWriter<byte>(2 * 1024 * 1024)
     let once () =
-        let output = Legacy.inLayout ctx false (Rooms.ShowPage.rendered ctx show)
+        let output = Layouts.page ctx false (Rooms.ShowPage.rendered ctx show)
         output.Digest() |> ignore
         writer.ResetWrittenCount()
         output.WriteTo writer

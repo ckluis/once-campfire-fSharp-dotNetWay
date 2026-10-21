@@ -50,7 +50,7 @@ module UsersController =
                 let! helpContact = Data.read http (fun db -> Accounts.helpContact db)
                 let joinCode = account.JoinCode
                 return!
-                    Pages.viewPage http 200 (fun ctx -> NewPage.rendered ctx joinCode helpContact)
+                    Pages.page http 200 (fun ctx -> NewPage.rendered ctx joinCode helpContact)
             }
 
     let create: Web.Action =
@@ -107,5 +107,5 @@ module UsersController =
                 let transferId = Accounts.transferId secrets user.Id (Data.now http)
                 let user = Common.userSummary secrets user
                 return!
-                    Pages.viewPage http 200 (fun ctx -> ShowPage.rendered ctx user transferId)
+                    Pages.page http 200 (fun ctx -> ShowPage.rendered ctx user transferId)
             }

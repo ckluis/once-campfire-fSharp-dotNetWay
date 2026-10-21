@@ -1,6 +1,8 @@
 // Port of rust/crates/views/src/lib.rs
 namespace Campfire.Views
 
+open Campfire.Views.Markup
+
 /// `Current.user`'s facts the layout and helpers read.
 type CurrentUser =
     { Id: int64
@@ -67,9 +69,9 @@ type ViewContext =
       /// Resolves a logical asset path ("campfire-icon.png") to its digested URL.
       AssetPath: string -> string
       /// The `<script type="importmap">` + modulepreload tags (`javascript_importmap_tags`).
-      ImportmapTags: string
+      ImportmapTags: Html.Trusted
       /// `<link rel="stylesheet">` tags for `stylesheet_link_tag :all, "data-turbo-track": "reload"`.
-      StylesheetTags: string
+      StylesheetTags: Html.Trusted
       /// The account's custom CSS, if any (`custom_styles_tag`).
       CustomStyles: string option
       /// `script_aware_action_cable_meta_tag` content: script_name + "/cable".

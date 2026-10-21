@@ -255,27 +255,3 @@ module Render =
 
     /// What a template writes, as text (tests and tools; requests never need a string).
     let inline text ([<InlineIfLambda>] template: Out -> unit) : string = Encoding.UTF8.GetString(plain template)
-
-/// Page renders into a buffer sized from the last render at the same call site (each page module
-/// keeps one, `let private size = RenderSize()`; Rust's `render_sized!` makes one per call site).
-/// A pooled writer grows by doubling, so a room page's buffer would be copied several times.
-/// Only the page's text goes into the buffer: its cached fragments are recorded instead.
-[<Sealed>]
-type RenderSize() =
-    /// The most a render reserves up front. Only the last render's length is kept, so one huge page
-    /// sizes just the next render; this cap bounds even that one.
-    [<Literal>]
-    static let MaxReserve = 1 <<< 20
-
-    let mutable last = 0
-
-    /// The last length plus an eighth, so a page a little longer than the last still fits.
-    member _.Capacity(sizeHint: int) : int = max (min (last + last / 8) MaxReserve) sizeHint
-
-    /// `template` rendered and recorded, into a buffer sized from the last render here.
-    member this.Render(template: Out -> unit) : HtmlOutput =
-        let page = Render.page (this.Capacity 0) template
-        last <- page.TextLength
-        page
-
-    static member Max = MaxReserve

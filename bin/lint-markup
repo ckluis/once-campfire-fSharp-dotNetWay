@@ -40,9 +40,8 @@ VOID = set("area base br col embed hr img input link meta param source track wbr
 # maker -> files (relative to the repo root) that may call it
 TRUSTED = {
     "ofSanitized": {"src/Campfire.App/Presenters/Presenter.fs"},
-    "ofAssetTags": {"src/Campfire.App/Presenters/Page.fs", "src/Campfire.App/Web/Pages.fs"},
+    "ofAssetTags": {"src/Campfire.App/Presenters/ViewContext.fs"},
     "ofAccountStyles": {"src/Campfire.Views/Markup/Application.fs"},
-    "ofLegacy": {"src/Campfire.Views/Core/Legacy.fs"},  # the migration seam (V12), deleted in unit 4.11
 }
 HYBRID = {"GetOrCreateAsync", "SetAsync", "RemoveAsync"}
 # Falco.Markup.Html (AutoOpen in 1.4.0): `_text`, `_textf`, the `_strong'` text shortcuts and every `_href_` attribute write raw.

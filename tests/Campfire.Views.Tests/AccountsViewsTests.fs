@@ -23,7 +23,7 @@ let private parse (html: string) = HtmlParser().ParseDocument html
 let ``T1 the custom styles textarea survives a newline, a closing textarea and an entity`` () =
     let name = "custom_styles_edit"
     let ctx = context name Request.none
-    let html = (Legacy.inLayout ctx false (Templates.Accounts.CustomStyles.Edit.rendered ctx (Some hostile))).ToString()
+    let html = (Layouts.page ctx false (Templates.Accounts.CustomStyles.Edit.rendered ctx (Some hostile))).ToString()
     let area =
         match (parse html).QuerySelector "textarea#account_custom_styles" with
         | :? AngleSharp.Html.Dom.IHtmlTextAreaElement as t -> t
@@ -31,7 +31,7 @@ let ``T1 the custom styles textarea survives a newline, a closing textarea and a
     Assert.Equal(hostile, area.Value.Replace("\r\n", "\n"))
     Assert.Equal("account[custom_styles]", area.GetAttribute "name")
     // The empty value is the Rails one: no text at all.
-    let empty = (Legacy.inLayout ctx false (Templates.Accounts.CustomStyles.Edit.rendered ctx None)).ToString()
+    let empty = (Layouts.page ctx false (Templates.Accounts.CustomStyles.Edit.rendered ctx None)).ToString()
     Assert.Equal("", (nonNull ((parse empty).QuerySelector "textarea#account_custom_styles")).TextContent.TrimStart('\n'))
 
 let private hostileName = "Bo<b>\"t\" & 'x'"
@@ -43,7 +43,7 @@ let ``the bot form encodes the name and webhook as data`` () =
     let ctx = context name Request.none
     let form: Accounts.BotForm =
         { Name = Some hostileName; WebhookUrl = Some "https://x.test/?a=1&b=\"2\""; AvatarAttachmentUrl = None }
-    let html = (Legacy.inLayout ctx false (Templates.Accounts.Bots.Edit.rendered ctx 7L form)).ToString()
+    let html = (Layouts.page ctx false (Templates.Accounts.Bots.Edit.rendered ctx 7L form)).ToString()
     let document = parse html
     Assert.Equal(hostileName, (nonNull (document.QuerySelector "input#user_name")).GetAttribute "value")
     Assert.Equal("https://x.test/?a=1&b=\"2\"", (nonNull (document.QuerySelector "input#user_webhook_url")).GetAttribute "value")

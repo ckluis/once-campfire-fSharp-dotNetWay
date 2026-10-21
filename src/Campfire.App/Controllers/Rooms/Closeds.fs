@@ -43,7 +43,7 @@ module Closeds =
                       SelectedUsers = []
                       UnselectedUsers = users }
                 return!
-                    Pages.viewPage http 200 (fun ctx -> NewPage.rendered ctx form)
+                    Pages.page http 200 (fun ctx -> NewPage.rendered ctx form)
             }
 
     /// `broadcast_create_room` / `broadcast_update_room`: the shared-room partial, rendered once, to
@@ -102,7 +102,7 @@ module Closeds =
                       SelectedUsers = selected
                       UnselectedUsers = unselected }
                 return!
-                    Pages.viewPage http 200 (fun ctx -> EditPage.rendered ctx form)
+                    Pages.page http 200 (fun ctx -> EditPage.rendered ctx form)
             }
 
     let update: Web.Action =

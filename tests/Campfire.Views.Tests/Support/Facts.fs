@@ -9,6 +9,7 @@ open System.IO
 open System.Text.Json
 open Campfire.Tests
 open Campfire.Views
+open Campfire.Views.Markup
 open Campfire.Views.Differential.Inputs
 
 let goldenDir = Repo.path "rust/crates/views/tests/golden/a"
@@ -90,8 +91,8 @@ let context (name: string) (request: Request) : ViewContext =
       Platform = platform (nonNull (case.GetProperty("ua").GetString()))
       VapidPublicKey = str (facts.GetProperty "vapid_public_key")
       AssetPath = assetPath
-      ImportmapTags = nonNull (facts.GetProperty("importmap_tags").GetString())
-      StylesheetTags = nonNull (facts.GetProperty("stylesheet_tags").GetString())
+      ImportmapTags = Html.Trusted.ofAssetTags (nonNull (facts.GetProperty("importmap_tags").GetString()))
+      StylesheetTags = Html.Trusted.ofAssetTags (nonNull (facts.GetProperty("stylesheet_tags").GetString()))
       CustomStyles = str (get account "custom_styles")
       CableUrl = "/cable"
       BaseUrl = baseUrl

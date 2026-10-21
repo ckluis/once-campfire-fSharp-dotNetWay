@@ -26,7 +26,7 @@ let private helpContact (name: string) : Accounts.HelpContact option =
 let ``the sign in email is attribute data`` () =
     let name = "sessions_new_email"
     let ctx = context name Request.none
-    let html = (Legacy.inLayout ctx false (Templates.Sessions.New.rendered ctx (Some hostile) (helpContact name))).ToString()
+    let html = (Layouts.page ctx false (Templates.Sessions.New.rendered ctx (Some hostile) (helpContact name))).ToString()
     let document = parse html
     Assert.Equal(hostile, (nonNull (document.QuerySelector "input#email_address")).GetAttribute "value")
     Assert.Equal("email_address", (nonNull (document.QuerySelector "input#email_address")).GetAttribute "name")
@@ -35,7 +35,7 @@ let ``the sign in email is attribute data`` () =
     // The `shake` class is the flash alert's.
     Assert.Equal("panel", (nonNull (document.QuerySelector "section > div")).ClassName)
     let rejected = context "sessions_new_rejected" { Request.none with FlashAlert = Some "No" }
-    let shaken = (Legacy.inLayout rejected false (Templates.Sessions.New.rendered rejected None (helpContact name))).ToString()
+    let shaken = (Layouts.page rejected false (Templates.Sessions.New.rendered rejected None (helpContact name))).ToString()
     Assert.Equal("panel shake", (nonNull ((parse shaken).QuerySelector "section > div")).ClassName)
 
 /// The transfer form is the block-less `form_with`: its start tag and hidden field, no `</form>`, and the action as data.
@@ -52,7 +52,7 @@ let ``the transfer form is left open and encodes its action`` () =
     Assert.Equal("put", (nonNull (form.QuerySelector "input[name=_method]")).GetAttribute "value")
     // In the layout the footer is the form's descendant, as in the reference's DOM (the loose DOM compares it).
     let ctx = context "sessions_transfer" Request.none
-    let document = parse ((Legacy.inLayout ctx false page).ToString())
+    let document = parse ((Layouts.page ctx false page).ToString())
     Assert.NotNull(document.QuerySelector "main > form > footer")
 
 [<Fact>]
@@ -66,7 +66,7 @@ let ``unclosed refuses what is not the element it was told`` () =
 let ``the welcome page encodes the user's name`` () =
     let name = "welcome"
     let ctx = context name Request.none
-    let html = (Legacy.inLayout ctx false (Templates.Welcome.Show.rendered ctx "<img src=x onerror=alert(1)>")).ToString()
+    let html = (Layouts.page ctx false (Templates.Welcome.Show.rendered ctx "<img src=x onerror=alert(1)>")).ToString()
     let document = parse html
     Assert.Equal("<img src=x onerror=alert(1)>", (nonNull (document.QuerySelector "#message-area .for-screen-reader")).TextContent)
     Assert.Null(document.QuerySelector "#message-area img[onerror]")
@@ -79,14 +79,14 @@ let ``the incompatible browser page is titled for the platform`` () =
         let ctx = context name Request.none
         let page = Templates.Sessions.IncompatibleBrowser.rendered ctx
         Assert.Equal(Some title, page.Regions.Title)
-        let document = parse ((Legacy.inLayout ctx false page).ToString())
+        let document = parse ((Layouts.page ctx false page).ToString())
         Assert.Equal(4, document.QuerySelectorAll(".browser-list .browser").Length)
 
 /// The first run form posts a file with the multipart encoding and names its fields after the user.
 [<Fact>]
 let ``the first run form is multipart and model scoped`` () =
     let ctx = context "first_run" Request.none
-    let html = (Legacy.inLayout ctx false (Templates.FirstRuns.Show.rendered ctx)).ToString()
+    let html = (Layouts.page ctx false (Templates.FirstRuns.Show.rendered ctx)).ToString()
     let document = parse html
     let form = nonNull (document.QuerySelector "form.center.max-width")
     Assert.Equal("multipart/form-data", form.GetAttribute "enctype")

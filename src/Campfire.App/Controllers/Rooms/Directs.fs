@@ -36,7 +36,7 @@ module Directs =
         fun http ->
             taskResult {
                 do! Before.chain Before.Default http
-                return! Pages.viewPage http 200 NewPage.rendered
+                return! Pages.page http 200 NewPage.rendered
             }
 
     /// `broadcast_create_room`: `users/sidebars/rooms/_direct` for each membership, to its user.
@@ -92,7 +92,7 @@ module Directs =
                            DisplayName = presenter.RoomDisplayName(room, Some current)
                            Users = users |> List.map (PresenterSupport.userView app.Secrets) }: DirectEditView))
                 return!
-                    Pages.viewPage http 200 (fun ctx -> EditPage.rendered ctx edit)
+                    Pages.page http 200 (fun ctx -> EditPage.rendered ctx edit)
             }
 
     let destroy: Web.Action =

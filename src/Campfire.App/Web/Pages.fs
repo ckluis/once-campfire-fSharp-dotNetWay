@@ -117,7 +117,6 @@ module Pages =
     /// the layout's `flash[:notice]` / `flash[:alert]` read it.
     let render (layout: Presenters.Layout) (http: HttpContext) (render: ViewContext -> 'T) : 'T =
         let flash = Respond.flash http
-        let stylesheets = ViewContextBuilder.stylesheetTags ()
         let referer = http.Request.Headers.Referer
         let ctx: ViewContext =
             { CurrentUser = layout.CurrentUser
@@ -127,8 +126,8 @@ module Pages =
               Platform = layout.Platform
               VapidPublicKey = layout.VapidPublicKey
               AssetPath = Assets.assetPath
-              ImportmapTags = Assets.javascriptImportmapTags ()
-              StylesheetTags = stylesheets.Html
+              ImportmapTags = ViewContextBuilder.importmapTrusted ()
+              StylesheetTags = ViewContextBuilder.stylesheetTrusted ()
               CustomStyles = layout.CustomStyles
               CableUrl = "/cable"
               BaseUrl = Respond.urlFor http ""
@@ -260,87 +259,45 @@ module Pages =
         send status contentType (varyHeaders http @ extraHeaders) (Output page)
 
     /// A page rendered in the application layout: plus the `Link` preload header `stylesheet_link_tag` adds.
-    let private page (http: HttpContext) (status: int) (html: HtmlOutput) : HttpHandler =
+    let private sendPage (http: HttpContext) (status: int) (html: HtmlOutput) : HttpHandler =
         let links = (ViewContextBuilder.stylesheetTags ()).PreloadLinks
         output http status HtmlUtf8 [ "link", Assets.appendPreloadLinks "" links ] html
 
     /// A page rendered in turbo-rails' frame layout (no stylesheets, so no `Link` header).
-    let private frame (http: HttpContext) (status: int) (html: HtmlOutput) : HttpHandler = output http status HtmlUtf8 [] html
-
-    /// Renders a page in the application layout without the implicit render's template lookup: an explicit
-    /// `render template:` answers HTML whatever the request's format.
-    let pageInAnyFormat (http: HttpContext) (status: int) (full: ViewContext -> HtmlOutput) : Result<HttpHandler, Error> =
-        load http |> Result.map (fun layout -> page http status (render layout http full))
-
-    /// A page, or for a Turbo-Frame request its `head` and `content` in turbo-rails' frame layout
-    /// (`layout -> { "turbo_rails/frame" if turbo_frame_request? }`), without the template lookup.
-    let pageOrFrameInAnyFormat
-        (http: HttpContext)
-        (status: int)
-        (full: ViewContext -> HtmlOutput)
-        (frameLayout: ViewContext -> HtmlOutput)
-        : Result<HttpHandler, Error> =
-        load http
-        |> Result.map (fun layout ->
-            if Formats.isTurboFrame http then
-                frame http status (render layout http frameLayout)
-            else
-                page http status (render layout http full))
+    let private sendFrame (http: HttpContext) (status: int) (html: HtmlOutput) : HttpHandler = output http status HtmlUtf8 [] html
 
     /// The implicit render's template lookup (`default_render`): an action whose only template is `<action>.html.erb` can't
     /// answer a request that doesn't accept HTML, which is `ActionController::UnknownFormat` (406).
     let findTemplate (http: HttpContext) (template: Format) : Result<unit, Error> = Formats.respondTo http [ template ] |> Result.map ignore
 
-    /// `pageOrFrameInAnyFormat` after the implicit render's template lookup.
-    let pageOrFrame (http: HttpContext) (status: int) (full: ViewContext -> HtmlOutput) (frameLayout: ViewContext -> HtmlOutput) =
-        match findTemplate http Format.Html with
-        | Result.Error e -> Result.Error e
-        | Ok() -> pageOrFrameInAnyFormat http status full frameLayout
+    /// A page in the application layout whatever the request (a controller that declares its own `layout`, `MessagesController`),
+    /// without the implicit render's template lookup: an explicit `render template:` answers HTML whatever the request's format.
+    let applicationPageInAnyFormat (http: HttpContext) (status: int) (view: ViewContext -> Layouts.ViewPage) : Result<HttpHandler, Error> =
+        load http |> Result.map (fun layout -> sendPage http status (render layout http (fun ctx -> Layouts.page ctx false (view ctx))))
 
-    /// A template that extends `layouts/application` itself (`blocks = ["head", "content"]`): the full page, or for a
-    /// Turbo-Frame request its `head` and `content` in turbo-rails' frame layout. `size` is the page's own `RenderSize`.
-    let framedPage
-        (http: HttpContext)
-        (status: int)
-        (size: RenderSize)
-        (render: Out -> ViewContext -> unit)
-        (head: Out -> unit)
-        (content: Out -> ViewContext -> unit)
-        : Result<HttpHandler, Error> =
-        pageOrFrame http status (fun ctx -> size.Render(fun w -> render w ctx)) (fun ctx -> Layouts.frame size head (fun w -> content w ctx))
+    /// A page, or for a Turbo-Frame request its `head` and `content` in turbo-rails' frame layout
+    /// (`layout -> { "turbo_rails/frame" if turbo_frame_request? }`), without the template lookup.
+    let pageInAnyFormat (http: HttpContext) (status: int) (view: ViewContext -> Layouts.ViewPage) : Result<HttpHandler, Error> =
+        load http
+        |> Result.map (fun layout ->
+            if Formats.isTurboFrame http then
+                sendFrame http status (render layout http (fun ctx -> Layouts.page ctx true (view ctx)))
+            else
+                sendPage http status (render layout http (fun ctx -> Layouts.page ctx false (view ctx))))
 
     /// A Falco page (`Layouts.ViewPage`) in the application layout, or for a Turbo-Frame request its `head` and `content` in
-    /// turbo-rails' frame layout; the layouts are the writer's until unit 4.10 (`Legacy.inLayout`).
-    let viewPage (http: HttpContext) (status: int) (render: ViewContext -> Layouts.ViewPage) : Result<HttpHandler, Error> =
-        pageOrFrame http status (fun ctx -> Legacy.inLayout ctx false (render ctx)) (fun ctx -> Legacy.inLayout ctx true (render ctx))
-
-    /// `viewPage` without the implicit render's template lookup (`render template:` answers HTML whatever the request's format).
-    let viewPageInAnyFormat (http: HttpContext) (status: int) (render: ViewContext -> Layouts.ViewPage) : Result<HttpHandler, Error> =
-        pageOrFrameInAnyFormat
-            http
-            status
-            (fun ctx -> Legacy.inLayout ctx false (render ctx))
-            (fun ctx -> Legacy.inLayout ctx true (render ctx))
-
-    /// A content-only template: Rails wraps it in the application layout, or in turbo-rails' `layouts/turbo_rails/frame` when the
-    /// request carries a `Turbo-Frame` header.
-    let content (http: HttpContext) (status: int) (render: Out -> ViewContext -> unit) : Result<HttpHandler, Error> =
-        pageOrFrame
-            http
-            status
-            (fun ctx -> Render.page 0 (fun w -> Layouts.Application.render w ctx (Layouts.Application.create (Render.html (fun w -> render w ctx)))))
-            (fun ctx -> Render.page 0 (fun w -> Templates.Layouts.TurboRails.Frame.render w (fun _ -> ()) (fun w -> render w ctx)))
-
-    /// A content-only template in the application layout even for Turbo-Frame requests: a controller that declares its own
-    /// `layout` (`MessagesController`) replaces turbo-rails' frame layout choice.
-    let contentInApplicationLayout (http: HttpContext) (status: int) (render: Out -> ViewContext -> unit) : Result<HttpHandler, Error> =
+    /// turbo-rails' frame layout, after the implicit render's template lookup.
+    let page (http: HttpContext) (status: int) (view: ViewContext -> Layouts.ViewPage) : Result<HttpHandler, Error> =
         match findTemplate http Format.Html with
         | Result.Error e -> Result.Error e
-        | Ok() ->
-            pageInAnyFormat
-                http
-                status
-                (fun ctx -> Render.page 0 (fun w -> Layouts.Application.render w ctx (Layouts.Application.create (Render.html (fun w -> render w ctx)))))
+        | Ok() -> pageInAnyFormat http status view
+
+    /// A Falco page in the application layout even for Turbo-Frame requests: a controller that declares its own `layout`
+    /// (`MessagesController`) replaces turbo-rails' frame layout choice.
+    let pageInApplicationLayout (http: HttpContext) (status: int) (view: ViewContext -> Layouts.ViewPage) : Result<HttpHandler, Error> =
+        match findTemplate http Format.Html with
+        | Result.Error e -> Result.Error e
+        | Ok() -> applicationPageInAnyFormat http status view
 
     /// A template rendered with `layout false` (or a turbo stream), no layout, labelled with the template's format.
     let bare (http: HttpContext) (status: int) (template: Format) (body: ViewContext -> HtmlOutput) : Result<HttpHandler, Error> =
@@ -361,6 +318,6 @@ module Pages =
         let endpoint = endpoint http
         let ownLayout = endpoint.StartsWith("messages#", StringComparison.Ordinal) || endpoint.StartsWith("messages/by_bots#", StringComparison.Ordinal)
         if ownLayout then
-            pageInAnyFormat http 200 (fun ctx -> Legacy.inLayout ctx false (IncompatibleBrowser.rendered ctx))
+            applicationPageInAnyFormat http 200 IncompatibleBrowser.rendered
         else
-            viewPageInAnyFormat http 200 IncompatibleBrowser.rendered
+            pageInAnyFormat http 200 IncompatibleBrowser.rendered

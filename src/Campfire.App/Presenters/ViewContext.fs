@@ -36,6 +36,16 @@ module ViewContextBuilder =
 
     let stylesheetTags () : Campfire.Assets.Tags.StylesheetTags = tags.Value
 
+    // Both are built from digests at build time (`Campfire.Assets`), so each is one `Trusted` string made once per process.
+    let private stylesheetHtml = lazy (Campfire.Views.Markup.Html.Trusted.ofAssetTags tags.Value.Html)
+    let private importmapHtml = lazy (Campfire.Views.Markup.Html.Trusted.ofAssetTags (Assets.javascriptImportmapTags ()))
+
+    /// `stylesheet_link_tag :all`'s tags, as the layout writes them.
+    let stylesheetTrusted () : Campfire.Views.Markup.Html.Trusted = stylesheetHtml.Value
+
+    /// `javascript_importmap_tags`, as the layout writes them.
+    let importmapTrusted () : Campfire.Views.Markup.Html.Trusted = importmapHtml.Value
+
     /// `Current.user` as the layout's meta tags and helpers see it.
     let currentUser (secrets: Campfire.RailsCompat.Secrets) (user: User) : Campfire.Views.CurrentUser =
         { Id = user.Id

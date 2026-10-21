@@ -27,5 +27,5 @@ module Welcome =
                     | None -> return! Result.Error(Internal(exn "no last room"))
                 else
                     do! Formats.respondTo http [ Format.Html ] |> Result.map ignore
-                    return! Pages.viewPage http 200 (fun ctx -> Show.rendered ctx user.Name)
+                    return! Pages.page http 200 (fun ctx -> Show.rendered ctx user.Name)
             }

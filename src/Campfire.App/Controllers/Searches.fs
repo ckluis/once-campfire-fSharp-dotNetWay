@@ -70,7 +70,7 @@ module SearchesController =
                       Messages = messages
                       RecentSearches = recentSearches
                       ReturnToRoomId = returnToRoomId }
-                return! Pages.viewPage http 200 (fun ctx -> IndexPage.rendered ctx index)
+                return! Pages.page http 200 (fun ctx -> IndexPage.rendered ctx index)
             }
 
     let create: Web.Action =

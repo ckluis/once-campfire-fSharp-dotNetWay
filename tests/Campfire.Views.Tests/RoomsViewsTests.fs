@@ -8,8 +8,8 @@ open Campfire.Views.Templates
 open Campfire.Views.Differential.Inputs
 open Campfire.Views.Tests.GoldenB
 
-/// A Falco page in the writer's application layout (`Legacy.inLayout`, until unit 4.10), as text.
-let private page (g: Golden) (viewPage: Layouts.ViewPage) : string = (Legacy.inLayout g.Context false viewPage).ToString()
+/// A Falco page in the writer's application layout (`Layouts.page`, until unit 4.10), as text.
+let private page (g: Golden) (viewPage: Layouts.ViewPage) : string = (Layouts.page g.Context false viewPage).ToString()
 
 let private show (name: string) =
     let g = golden name
@@ -25,7 +25,7 @@ let ``show keeps every message as a fragment`` () =
     Assert.NotEmpty show.Messages
     let viewPage = Rooms.ShowPage.rendered g.Context show
     for frame in [ false; true ] do
-        let output = Legacy.inLayout g.Context frame viewPage
+        let output = Layouts.page g.Context frame viewPage
         Assert.Equal(show.Messages.Length, output.Fragments.Length)
         for message, fragment in Seq.zip show.Messages output.Fragments do
             Assert.Same(message.Html, fragment)
