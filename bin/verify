@@ -40,6 +40,10 @@ if awk '/^[[:space:]]*let (private |mutable )*[a-z][A-Za-z]*Sql[[:space:]]*=/ { 
      END { exit bad ? 0 : 1 }' src/Campfire.Db/Ef/FastReads.fs; then
   echo "verify: a ...Sql value in src/Campfire.Db/Ef/FastReads.fs that is not one plain string literal" >&2; exit 1
 fi
+# The Falco.Markup views (plans/design-views.md V3): Falco writes attribute values and Text.raw unescaped, so the lint requires every
+# non-literal to go through Core/Html.fs. The self-test proves it bites (a planted file per rule must be caught, the clean file passes).
+bin/lint-markup --self-test
+bin/lint-markup
 dotnet build CampfireFs.slnx -c Release -warnaserror -v quiet -nologo
 if [ $# -eq 0 ]; then
   dotnet test --solution CampfireFs.slnx -c Release --no-build

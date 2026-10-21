@@ -1,0 +1,245 @@
+#!/usr/bin/env python3
+"""Markup lint (plans/design-views.md V3): Falco.Markup 1.4.0 writes attribute values and Text.raw raw, so every value that is not a
+literal must go through the project's encoding module (src/Campfire.Views/Core/Html.fs: Html.attr, Html.text, Html.trusted).
+
+  bin/lint-markup               lint src/Campfire.Views and src/Campfire.App (everything but Core/Html.fs); exit 1 on a finding
+  bin/lint-markup --self-test   lint tests/lint-markup/planted/*.fs (each must give exactly one finding of its named rule) and
+                                tests/lint-markup/clean.fs (must give none); exit 1 otherwise
+  bin/lint-markup FILE...       lint those files
+
+Rules (a token scan: comments are dropped, strings are single tokens):
+  attr-literal      Attr.<member> takes a plain string literal, not followed by + or ^ (an expression), except Falco's 52 zero-argument
+                    values (Attr.methodPost, Attr.disabled, ...) and Attr.merge; Attr.create takes two literals; no pipe-in
+                    (v |> Attr.title) and no partial application
+  text-literal      Text.<member> other than enc and empty takes a plain string literal (Text.rawf is refused; so are the Text.strong-style
+                    shortcuts, which wrap raw)
+  node-ctor         no TextNode, KeyValueAttr or NonValueAttr built directly
+  elem-tag          Elem.create takes a literal tag; Elem.createSelfClosing only an HTML void element name; Elem.create never a void one
+  trusted-maker     the Trusted makers only in their allowlisted files (TRUSTED below)
+  hybridcache       GetOrCreateAsync / SetAsync / RemoveAsync only in Core/Fragments.fs
+"""
+import os, re, sys
+
+ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
+SCAN = ["src/Campfire.Views", "src/Campfire.App"]
+EXEMPT = {"src/Campfire.Views/Core/Html.fs"}
+
+# Falco.Markup 1.4.0: the Attr properties of type XmlAttribute (reflection over the package's dll): no argument, no value to encode.
+ATTR_VALUES = set("""async autofocus autoplay checked' controls default' defer disabled formnovalidate hidden ismap loop multiple muted
+novalidate readonly required reversed selected enctypeForm enctypeMultipart methodPost methodGet methodDialog targetSelf targetBlank
+targetParent targetTop targetUnfencedTop typeButton typeCheckbox typeColor typeDate typeDatetimeLocal typeEmail typeFile typeHidden
+typeImage typeMonth typeNumber typePassword typeRadio typeRange typeReset typeSearch typeSubmit typeTel typeText typeTime typeUrl
+typeWeek valueEmpty merge""".split())
+TEXT_MEMBERS = set("""raw rawf comment h1 h2 h3 h4 h5 h6 p dd dt abbr b bdi bdo cite code data dfn em i kbd mark q rp rt ruby s samp small
+span strong sub sup time u var""".split())
+VOID = set("area base br col embed hr img input link meta param source track wbr".split())
+# maker -> files (relative to the repo root) that may call it
+TRUSTED = {
+    "ofSanitized": {"src/Campfire.App/Presenters/Presenter.fs"},
+    "ofAssetTags": {"src/Campfire.App/Presenters/Page.fs", "src/Campfire.App/Web/Pages.fs"},
+    "ofAccountStyles": {"src/Campfire.Views/Markup/Application.fs"},
+    "ofLegacy": {"src/Campfire.Views/Core/Legacy.fs"},  # the migration seam (V12), deleted in unit 4.11
+}
+HYBRID = {"GetOrCreateAsync", "SetAsync", "RemoveAsync"}
+HYBRID_FILES = {"src/Campfire.Views/Core/Fragments.fs"}
+
+STR, ID, OP = "str", "id", "op"
+
+
+def tokens(src):
+    """(kind, text, line) for strings (kind STR, text = the raw source, prefix included), identifier paths and operators."""
+    out, i, n, line = [], 0, len(src), 1
+    while i < n:
+        c = src[i]
+        if c == "\n":
+            line += 1; i += 1; continue
+        if c in " \t\r":
+            i += 1; continue
+        if src.startswith("//", i):
+            while i < n and src[i] != "\n": i += 1
+            continue
+        if src.startswith("(*", i) and not src.startswith("(*)", i):
+            depth, i = 1, i + 2
+            while i < n and depth:
+                if src.startswith("(*", i): depth += 1; i += 2
+                elif src.startswith("*)", i): depth -= 1; i += 2
+                else:
+                    if src[i] == "\n": line += 1
+                    i += 1
+            continue
+        m = re.compile(r'(\$@|@\$|\$|@)?("""|")').match(src, i)
+        if m and (m.group(1) is not None or c == '"'):
+            prefix, quote = m.group(1) or "", m.group(2)
+            j, start, l0 = m.end(), i, line
+            verbatim = "@" in prefix
+            while j < n:
+                if quote == '"""':
+                    if src.startswith('"""', j): j += 3; break
+                elif src[j] == "\\" and not verbatim: j += 2; continue
+                elif src[j] == '"':
+                    if verbatim and src.startswith('""', j): j += 2; continue
+                    j += 1; break
+                if src[j] == "\n": line += 1
+                j += 1
+            out.append((STR, src[start:j], l0)); i = j; continue
+        m = re.compile(r"'(\\.|\\u[0-9A-Fa-f]{4}|[^\\'])'").match(src, i)
+        if m:
+            out.append((STR, "'c'", line)); i = m.end(); continue
+        m = re.compile(r"[A-Za-z_][A-Za-z0-9_']*(?:\.[A-Za-z_][A-Za-z0-9_']*)*").match(src, i)
+        if m:
+            out.append((ID, m.group(0), line)); i = m.end(); continue
+        m = re.compile(r"\d[\w.]*").match(src, i)
+        if m:
+            out.append((ID, m.group(0), line)); i = m.end(); continue
+        m = re.compile(r"\|>|<\||>>|<<|\|\|>|[-+*/%^&|<>=!?:.,;@~$#\\]+|.").match(src, i)
+        out.append((OP, m.group(0), line)); i = m.end()
+    return out
+
+
+def plain(tok):
+    """A plain string literal: no interpolation."""
+    return tok[0] == STR and not tok[1].startswith(("$", "@$")) and tok[1] != "'c'"
+
+
+def literal(tok):
+    return plain(tok)
+
+
+def text_of(tok):
+    t = tok[1]
+    for p in ('"""', '"'):
+        if t.lstrip("@").startswith(p):
+            body = t.lstrip("@")[len(p):-len(p)]
+            return body
+    return t
+
+
+def lint_source(rel, src):
+    """Findings [(line, rule, message)] of one file; rel is its path relative to the repo root (the allowlists compare it)."""
+    toks = tokens(src)
+    found = []
+    n = len(toks)
+
+    def at(i):
+        return toks[i] if 0 <= i < n else (OP, "", 0)
+
+    def expr_continues(i):
+        """The token after a literal argument continues it as an expression (so the argument is not a bare literal)."""
+        t = at(i)
+        return t[0] == OP and re.fullmatch(r"[+^]+|\.|\.\.|\|>|<\|", t[1]) is not None
+
+    for i, (kind, text, line) in enumerate(toks):
+        if kind != ID:
+            continue
+        segs = text.split(".")
+        for k in range(len(segs) - 1):
+            head, member = segs[k], segs[k + 1]
+            last = k + 1 == len(segs) - 1  # the member ends the path: the application's arguments follow
+            prev = at(i - 1)
+            piped = prev[0] == OP and prev[1] in ("|>", "||>", "<|")
+            if head == "Attr" and member and member[0].islower() and member not in ATTR_VALUES:
+                args = i + 1
+                if member == "create":
+                    ok = last and literal(at(args)) and literal(at(args + 1)) and not expr_continues(args + 2)
+                else:
+                    ok = last and literal(at(args)) and not expr_continues(args + 1)
+                if not ok or piped:
+                    found.append((line, "attr-literal", f"Attr.{member}: the value must be a plain string literal (use Html.attr for data)"))
+            elif head == "Text" and member in TEXT_MEMBERS:
+                ok = last and member != "rawf" and literal(at(i + 1)) and not expr_continues(i + 2) and not piped
+                if not ok:
+                    found.append((line, "text-literal", f"Text.{member}: only a plain string literal (use Html.text, Html.trusted for data)"))
+            elif head == "Elem" and member in ("create", "createSelfClosing") and last:
+                tag = at(i + 1)
+                if not literal(tag):
+                    found.append((line, "elem-tag", f"Elem.{member}: the tag must be a string literal"))
+                else:
+                    name = text_of(tag).lower()
+                    if member == "create" and name in VOID:
+                        found.append((line, "elem-tag", f"Elem.create \"{name}\": a void element (use Elem.{name} or Elem.createSelfClosing)"))
+                    if member == "createSelfClosing" and name not in VOID:
+                        found.append((line, "elem-tag", f"Elem.createSelfClosing \"{name}\": not an HTML void element (a self-closed custom element swallows its siblings)"))
+        last_seg = segs[-1]
+        if last_seg in ("TextNode", "KeyValueAttr", "NonValueAttr"):
+            found.append((line, "node-ctor", f"{last_seg} built directly (use Html.text, Html.attr)"))
+        if last_seg in TRUSTED and rel not in TRUSTED[last_seg]:
+            found.append((line, "trusted-maker", f"{last_seg} outside its allowlisted file(s): {', '.join(sorted(TRUSTED[last_seg]))}"))
+        if last_seg in HYBRID and len(segs) > 1 and rel not in HYBRID_FILES:
+            found.append((line, "hybridcache", f"{last_seg} outside Core/Fragments.fs (call Fragments.fetch / Fragments.compressedPage)"))
+    return found
+
+
+def files_under(dirs):
+    for d in dirs:
+        for dp, dn, fn in os.walk(os.path.join(ROOT, d)):
+            dn[:] = [x for x in dn if x not in ("obj", "bin")]
+            for f in sorted(fn):
+                if f.endswith(".fs"):
+                    yield os.path.relpath(os.path.join(dp, f), ROOT)
+
+
+def lint_files(rels, as_rel=None):
+    total = 0
+    for rel in rels:
+        if rel in EXEMPT:
+            continue
+        with open(os.path.join(ROOT, rel), encoding="utf-8") as f:
+            src = f.read()
+        for line, rule, msg in lint_source(as_rel or rel, src):
+            print(f"{rel}:{line}: [{rule}] {msg}", file=sys.stderr)
+            total += 1
+    return total
+
+
+def self_test():
+    """Each planted file names the rule it plants in its first line (`// plant: <rule>`); it must give exactly one finding."""
+    base = os.path.join(ROOT, "tests/lint-markup")
+    bad = 0
+    planted = sorted(os.listdir(os.path.join(base, "planted")))
+    for name in planted:
+        if not name.endswith(".fs"):
+            continue
+        with open(os.path.join(base, "planted", name), encoding="utf-8") as f:
+            src = f.read()
+        want = re.match(r"// plant: ([a-z-]+)", src)
+        # a planted file lints as if it were an ordinary file of src/Campfire.Views/Templates
+        got = lint_source("src/Campfire.Views/Templates/Planted.fs", src)
+        rules = [r for _, r, _ in got]
+        if not want or rules != [want.group(1)]:
+            print(f"self-test: planted/{name}: wanted exactly one [{want.group(1) if want else '?'}], got {rules or 'none'}", file=sys.stderr)
+            bad += 1
+    with open(os.path.join(base, "clean.fs"), encoding="utf-8") as f:
+        got = lint_source("src/Campfire.Views/Templates/Clean.fs", f.read())
+    for line, rule, msg in got:
+        print(f"self-test: clean.fs:{line}: [{rule}] {msg}", file=sys.stderr)
+        bad += 1
+    # An allowlisted file may use its own maker, and only that one.
+    ok_src = "let a = Html.Trusted.ofSanitized body\n"
+    if lint_source("src/Campfire.App/Presenters/Presenter.fs", ok_src):
+        print("self-test: ofSanitized in Presenter.fs must pass", file=sys.stderr); bad += 1
+    if [r for _, r, _ in lint_source("src/Campfire.App/Presenters/Presenter.fs", "let a = Html.Trusted.ofAccountStyles css\n")] != ["trusted-maker"]:
+        print("self-test: ofAccountStyles in Presenter.fs must be caught", file=sys.stderr); bad += 1
+    if lint_source("src/Campfire.Views/Core/Fragments.fs", "let a = cache.GetOrCreateAsync(key, f)\n"):
+        print("self-test: GetOrCreateAsync in Fragments.fs must pass", file=sys.stderr); bad += 1
+    count = sum(1 for n in planted if n.endswith(".fs"))
+    if bad:
+        print(f"lint-markup self-test: FAILED ({bad})", file=sys.stderr)
+        return 1
+    print(f"lint-markup self-test: ok ({count} planted files each caught once, the clean file passes)")
+    return 0
+
+
+def main(argv):
+    if argv[1:] == ["--self-test"]:
+        return self_test()
+    rels = argv[1:] or list(files_under(SCAN))
+    total = lint_files(rels)
+    if total:
+        print(f"lint-markup: {total} finding(s)", file=sys.stderr)
+        return 1
+    print(f"lint-markup: {len(rels)} files clean")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv))
