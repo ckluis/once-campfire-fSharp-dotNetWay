@@ -74,8 +74,8 @@ let ``a writer is returned when the template throws`` () =
 
 [<Fact>]
 let ``fragments of a kilobyte or more are recorded and shorter ones are copied`` () =
-    let big = Fragment(String('b', 1024))
-    let small = Fragment(String('s', 1023))
+    let big = CachedFragment(String('b', 1024))
+    let small = CachedFragment(String('s', 1023))
     let page =
         Render.page 0 (fun w ->
             w.Raw "<ul>"
@@ -83,29 +83,28 @@ let ``fragments of a kilobyte or more are recorded and shorter ones are copied``
             w.Raw "|"
             w.Fragment small
             w.Raw "</ul>")
-    Assert.Equal("<ul>|" + String('s', 1023) + "</ul>", Encoding.UTF8.GetString page.Text)
+    Assert.Equal<string[]>([| "<ul>"; "|" + String('s', 1023) + "</ul>" |], page.Parts |> Array.map Encoding.UTF8.GetString)
     Assert.Equal(1, page.Fragments.Length)
-    let struct (offset, fragment) = page.Fragments[0]
-    Assert.Equal(4, offset)
-    Assert.Same(big, fragment)
+    Assert.Same(big, page.Fragments[0])
     Assert.Equal("<ul>" + String('b', 1024) + "|" + String('s', 1023) + "</ul>", page.ToString())
+    Assert.Equal(page.Length, page.ToArray().Length)
 
 [<Fact>]
 let ``outside a page nothing is recorded`` () =
-    let big = Fragment(String('b', 5000))
+    let big = CachedFragment(String('b', 5000))
     Assert.Equal(String('b', 5000), Render.text (fun w -> w.Fragment big))
     Assert.Equal(String('b', 5000), (Render.page 0 (fun w -> w.Fragment big)).ToString())
+    Assert.Empty (Render.page 0 (fun w -> w.Raw "no fragments")).Fragments
 
 [<Fact>]
 let ``a page written into another keeps its fragments`` () =
-    let big = Fragment(String('b', 2000))
+    let big = CachedFragment(String('b', 2000))
     let inner = Render.page 0 (fun w -> w.Raw "<a>"; w.Fragment big; w.Raw "</a>")
     let outer = Render.page 0 (fun w -> w.Raw "<frame>"; w.Page inner; w.Raw "</frame>")
     Assert.Equal("<frame><a>" + String('b', 2000) + "</a></frame>", outer.ToString())
     Assert.Equal(1, outer.Fragments.Length)
-    let struct (offset, fragment) = outer.Fragments[0]
-    Assert.Equal("<frame><a>".Length, offset)
-    Assert.Same(big, fragment)
+    Assert.Same(big, outer.Fragments[0])
+    Assert.Equal("<frame><a>", Encoding.UTF8.GetString outer.Parts[0])
 
 [<Fact>]
 let ``escaping a lone surrogate writes the replacement character`` () =
@@ -131,3 +130,37 @@ let ``a page renders into a pooled buffer and allocates little more than itself`
     // The exact-size copy of the page is the one big allocation; the rest is the helpers' attribute
     // lists and a few small strings.
     Assert.True(perRender < int64 length + 12000L, $"{perRender} bytes allocated for a {length} byte page")
+
+// sized.rs (still the writer's; `RenderSize` goes with it in unit 4.10)
+
+[<Fact>]
+let ``RenderSize reserves the last length with headroom up to a cap`` () =
+    let size = RenderSize()
+    let page (length: int) (w: Out) = w.Raw($"<p>{String('x', length)}</p>")
+    size.Render(page 8000) |> ignore
+    Assert.Equal(8007 + 8007 / 8, size.Capacity 0)
+    // A shorter page sizes the next render: one long page doesn't stay reserved.
+    size.Render(page 7000) |> ignore
+    Assert.Equal(7007 + 7007 / 8, size.Capacity 0)
+    size.Render(page (2 * RenderSize.Max)) |> ignore
+    Assert.Equal(RenderSize.Max, size.Capacity 0)
+    // The size hint is a floor.
+    Assert.Equal(5000, RenderSize().Capacity 5000)
+
+// layouts.rs: `frame`
+
+[<Fact>]
+let ``the turbo frame layout around a page keeps the pages fragments`` () =
+    let items = [ CachedFragment(String('a', 1500)); CachedFragment "<li>small</li>"; CachedFragment(String('b', 1500)) ]
+    let list (w: Out) =
+        w.Raw "<ul>"
+        for item in items do
+            w.Raw "\n  "
+            w.Fragment item
+        w.Raw "\n</ul>"
+    let head (w: Out) = w.Raw "<title>t</title>"
+    let framed = Layouts.frame (RenderSize()) head list
+    let plain = Render.text (fun w -> Templates.Layouts.TurboRails.Frame.render w head list)
+    Assert.Equal(plain, framed.ToString())
+    Assert.Equal(2, framed.Fragments.Length)
+    Assert.StartsWith("<html>\n  <head>\n    <title>t</title>\n  </head>\n  <body>\n    <ul>", framed.ToString())

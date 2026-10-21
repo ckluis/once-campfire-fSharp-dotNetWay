@@ -45,12 +45,12 @@ module Page =
 /// The broadcast partials, rendered up front by the controller (which has the view models) and handed
 /// to `Broadcasts`.
 type Rendered =
-    { Message: Campfire.Views.Fragment option
+    { Message: Campfire.Views.CachedFragment option
       MessagePresentation: string option
-      Boost: Campfire.Views.Fragment option
+      Boost: Campfire.Views.CachedFragment option
       SharedRoom: string option
       /// `users/sidebars/rooms/_direct`, per membership id.
-      DirectRooms: (int64 * Campfire.Views.Fragment) list }
+      DirectRooms: (int64 * Campfire.Views.CachedFragment) list }
 
 module Rendered =
     let empty: Rendered =

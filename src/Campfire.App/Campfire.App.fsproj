@@ -31,8 +31,6 @@
     <Compile Include="Web/Errors.fs" />
     <Compile Include="AppState.fs" />
     <Compile Include="Current.fs" />
-    <Compile Include="Web/PageParts.fs" />
-    <Compile Include="FragmentGlue.fs" />
     <Compile Include="Presenters/Common.fs" />
     <Compile Include="Presenters/RichText.fs" />
     <Compile Include="Presenters/Attachments.fs" />

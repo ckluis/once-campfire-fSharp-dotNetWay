@@ -15,7 +15,7 @@ open Campfire.Views.Differential.Inputs
 open Campfire.Views.Differential.Answer
 
 /// A recorded page's fragment: `<li id="n">xxxx</li>`.
-let private fragmentOf (n: int) (size: int) : Fragment = Fragment($"<li id=\"{n}\">{String('x', size)}</li>")
+let private fragmentOf (n: int) (size: int) : CachedFragment = CachedFragment($"<li id=\"{n}\">{String('x', size)}</li>")
 
 let private strings (list: JsonElement) : string list = arr list |> List.map str
 
@@ -210,12 +210,12 @@ let private cacheOp (name: string) (args: JsonElement) : Answer =
                 let fragment =
                     cache.Fetch(key, fun () ->
                         rendered <- true
-                        Fragment(String('x', size)))
+                        CachedFragment(String('x', size)))
                 lines.Add $"fetch {key} rendered={flag rendered} len={fragment.Length} bytes={cache.Bytes} count={cache.Count}"
             | _ ->
-                let found = (cache.TryGet<Fragment> key).IsSome
+                let found = (cache.TryGet<CachedFragment> key).IsSome
                 lines.Add $"get {key} found={flag found} bytes={cache.Bytes} count={cache.Count}"
-        let held = keys |> Seq.filter (fun key -> (cache.TryGet<Fragment> key).IsSome) |> Seq.map (fun key -> $"\"{key}\"")
+        let held = keys |> Seq.filter (fun key -> (cache.TryGet<CachedFragment> key).IsSome) |> Seq.map (fun key -> $"\"{key}\"")
         let heldList = String.Join(", ", held)
         lines.Add $"held [{heldList}] bytes={cache.Bytes}"
         text (String.Join("\n", lines))
@@ -267,7 +267,7 @@ let run (case: JsonElement) (shared: JsonElement) : Answer =
                 (part "sidebar"))
     | "layouts/_lightbox" -> rendered (fun w -> Templates.Layouts._Lightbox.render w (ctxOf ()))
     | "layouts/turbo_rails/frame" ->
-        let page = RecordedPage(Encoding.UTF8.GetBytes(str (get args "content")))
+        let page = HtmlOutput.text (str (get args "content"))
         rendered (fun w -> Templates.Layouts.TurboRails.Frame.render w (fun w -> w.Raw(str (get args "head"))) (fun w -> w.Page page))
     | "recorded/page" ->
         let items = arr (get args "sizes") |> List.mapi (fun n size -> fragmentOf n (intOf size))
@@ -289,8 +289,8 @@ let run (case: JsonElement) (shared: JsonElement) : Answer =
         let whole = page.ToString()
         if not (bool (get args "frame")) && whole <> plain then failwith "a recorded page is not the plain render"
         { Out = whole
-          Text = Some(Encoding.UTF8.GetString page.Text)
-          Fragments = Some [ for struct (offset, fragment) in page.Fragments -> offset, fragment.Length ] }
+          Text = Some(recordedText page)
+          Fragments = Some(recordedOffsets page) }
     | "accounts/_help_contact" ->
         rendered (fun w -> Templates.Accounts._HelpContact.render w (ctxOf ()) (helpContact (get args "help_contact")))
     | "accounts/_invite" -> rendered (fun w -> Templates.Accounts._Invite.render w (ctxOf ()) (str (get args "join_code")))

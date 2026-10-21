@@ -6,7 +6,7 @@ open Campfire.Views.Messages
 open Campfire.Views.Templates.Messages.Boosts
 
 /// `boost(ctx, boost)`.
-let boost (ctx: ViewContext) (boost: BoostView) : Fragment =
+let boost (ctx: ViewContext) (boost: BoostView) : CachedFragment =
     FragmentCache.fetch (fun key -> boostFragmentKey key boost.Id boost.UpdatedAt) (fun w -> _Boost.render w ctx boost)
 
 /// `cached_boost(ctx, boost)`: `boost` where a template renders the partial. Not handed over to a recorded page, as in Rust.

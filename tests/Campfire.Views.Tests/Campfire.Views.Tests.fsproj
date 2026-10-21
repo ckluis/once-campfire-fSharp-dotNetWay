@@ -16,11 +16,11 @@
     <Compile Include="LooseDomTests.fs" />
     <Compile Include="HtmlTests.fs" />
     <Compile Include="OutTests.fs" />
+    <Compile Include="HtmlOutputTests.fs" />
     <Compile Include="TagTests.fs" />
     <Compile Include="FormsTests.fs" />
     <Compile Include="HelpersTests.fs" />
     <Compile Include="FragmentCacheTests.fs" />
-    <Compile Include="RecordedTests.fs" />
     <Compile Include="MessagesTests.fs" />
     <Compile Include="UsersTests.fs" />
     <Compile Include="ParityATests.fs" />

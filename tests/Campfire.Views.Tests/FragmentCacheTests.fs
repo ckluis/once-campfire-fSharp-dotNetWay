@@ -1,6 +1,4 @@
-// Ports of the #[cfg(test)] module in rust/crates/views/src/fragment_cache.rs, and the Phase 4
-// requirement of the plan: the cache's budget counts what each fragment keeps alive for the kit (its
-// compressed pieces and its SHA), not only its own bytes.
+// Ports of the #[cfg(test)] module in rust/crates/views/src/fragment_cache.rs.
 module Campfire.Views.Tests.FragmentCacheTests
 
 open System
@@ -15,7 +13,7 @@ open Campfire.Views
 let private big = 1 <<< 20
 let private overhead = FragmentCacheLimits.PerEntryOverhead
 
-let private fragment (size: int) (c: char) : Fragment = Fragment(String(c, size))
+let private fragment (size: int) (c: char) : CachedFragment = CachedFragment(String(c, size))
 
 /// What a one-letter key holding `payload` bytes costs.
 let private entry (payload: int) : int = 1 + payload + overhead
@@ -74,9 +72,9 @@ let ``keys match their formatted versions byte for byte`` () =
 [<Fact>]
 let ``the first rendering is reused`` () =
     let cache = FragmentCache big
-    Assert.Equal("first", (cache.Fetch("a", fun () -> Fragment "first")).ToString())
-    Assert.Equal("first", (cache.Fetch("a", fun () -> Fragment "second")).ToString())
-    Assert.Equal("other", (cache.Fetch("b", fun () -> Fragment "other")).ToString())
+    Assert.Equal("first", (cache.Fetch("a", fun () -> CachedFragment "first")).ToString())
+    Assert.Equal("first", (cache.Fetch("a", fun () -> CachedFragment "second")).ToString())
+    Assert.Equal("other", (cache.Fetch("b", fun () -> CachedFragment "other")).ToString())
 
 [<Fact>]
 let ``entries count their key payload and overhead`` () =
@@ -100,7 +98,7 @@ let ``the byte limit is enforced`` () =
     Assert.True(cache.Count < 20)
     Assert.True(cache.Bytes > max / 2, "pruning stops at three quarters, not empty")
     for hot in 0..2 do
-        Assert.True((cache.TryGet<Fragment>(string hot)).IsSome, $"entry {hot} is used every sixth write")
+        Assert.True((cache.TryGet<CachedFragment>(string hot)).IsSome, $"entry {hot} is used every sixth write")
     Assert.True cache.Consistent
 
 [<Fact>]
@@ -114,10 +112,10 @@ let ``going over prunes to three quarters least recently used first`` () =
     cache.Fetch("e", fun () -> fragment 100 'x') |> ignore
     Assert.Equal(3, cache.Count)
     Assert.True(cache.Bytes <= 3 * entry 100)
-    Assert.True((cache.TryGet<Fragment> "b").IsNone, "b was least recently used")
-    Assert.True((cache.TryGet<Fragment> "c").IsNone, "c went next")
+    Assert.True((cache.TryGet<CachedFragment> "b").IsNone, "b was least recently used")
+    Assert.True((cache.TryGet<CachedFragment> "c").IsNone, "c went next")
     for key in [ "a"; "d"; "e" ] do
-        Assert.True((cache.TryGet<Fragment> key).IsSome, $"{key} survives (a was used after d)")
+        Assert.True((cache.TryGet<CachedFragment> key).IsSome, $"{key} survives (a was used after d)")
 
 [<Fact>]
 let ``stored fragments hold no spare capacity`` () =
@@ -144,11 +142,11 @@ let ``a value larger than a quarter of the store doesnt evict the rest`` () =
     for key in [ "a"; "b"; "c" ] do
         cache.Fetch(key, fun () -> fragment 100 'x') |> ignore
     let bigText = String('y', 3 * entry 100)
-    Assert.Equal(bigText, (cache.Fetch("big", fun () -> Fragment bigText)).ToString())
+    Assert.Equal(bigText, (cache.Fetch("big", fun () -> CachedFragment bigText)).ToString())
     Assert.Equal(3, cache.Count)
-    Assert.True((cache.TryGet<Fragment> "big").IsNone)
+    Assert.True((cache.TryGet<CachedFragment> "big").IsNone)
     for key in [ "a"; "b"; "c" ] do
-        Assert.True((cache.TryGet<Fragment> key).IsSome, $"{key} is still stored")
+        Assert.True((cache.TryGet<CachedFragment> key).IsSome, $"{key} is still stored")
     Assert.Equal(3 * entry 100, cache.Bytes)
 
 [<Fact>]
@@ -171,10 +169,10 @@ let ``racing renders all return the first stored fragment`` () =
     let cache = FragmentCache big
     use barrier = new Barrier 8
     let results =
-        Task.WhenAll [| for t in 0..7 -> Task.Run(fun () -> cache.Fetch("k", fun () -> barrier.SignalAndWait(); Fragment(string t))) |]
+        Task.WhenAll [| for t in 0..7 -> Task.Run(fun () -> cache.Fetch("k", fun () -> barrier.SignalAndWait(); CachedFragment(string t))) |]
         |> fun task -> task.Result
     Assert.All(results, fun value -> Assert.Same(results[0], value))
-    Assert.Same(results[0], (cache.TryGet<Fragment> "k").Value)
+    Assert.Same(results[0], (cache.TryGet<CachedFragment> "k").Value)
     Assert.Equal(1, cache.Count)
 
 [<Fact>]
@@ -196,8 +194,8 @@ let ``nested fragments use the same store`` () =
                 w.Raw "]"))
     Assert.Equal("[x]", outer.ToString())
     Assert.Equal(2, cache.Count)
-    Assert.Equal("[x]", (cache.TryGet<Fragment> "outer").Value.ToString())
-    Assert.Equal("x", (cache.TryGet<Fragment> "inner").Value.ToString())
+    Assert.Equal("[x]", (cache.TryGet<CachedFragment> "outer").Value.ToString())
+    Assert.Equal("x", (cache.TryGet<CachedFragment> "inner").Value.ToString())
     Assert.Null(FragmentCache.current ())
     Assert.Equal("uncached", (FragmentCache.fetch (named "outer") (fun w -> w.Raw "uncached")).ToString())
 
@@ -236,73 +234,28 @@ let ``the store follows a request across its awaits`` () =
     Assert.True seen
     Assert.Null(FragmentCache.current ())
 
-// The plan's Phase 4 requirement. Rust holds a fragment's SHA-256 and compressed pieces in a bounded
-// map of the kit's, and its test `fragments_a_page_keeps_showing_stay_while_the_rest_age_out` holds the
-// total at or under the budget while 300 other fragments churn. Here the kit's SHA and pieces hang off
-// the fragment (`Fragment.Attach`), so the cache's budget must count them.
-
-/// What the kit attaches to a fragment a page splices: a SHA-256 and a piece for each predecessor the
-/// fragment has been seen with (at most four), about as big as the fragment compressed.
-type private Pieces(fragmentBytes: int) =
-    let mutable pieces = 0
-    member _.AddPiece() = if pieces < 4 then pieces <- pieces + 1
-    interface IFragmentAttachment with
-        member _.HeldBytes = 32 + pieces * (fragmentBytes / 4 + 64)
-
-/// A page's fragments spliced once more after a different neighbour: each gains a piece.
-let private splice (fragments: Fragment list) =
-    for fragment in fragments do
-        match fragment.Attach(Pieces fragment.Length) with
-        | :? Pieces as pieces -> pieces.AddPiece()
-        | _ -> failwith "the test attaches nothing else"
-
+// Rust's `fragments_a_page_keeps_showing_stay_while_the_rest_age_out`: the total stays at or under the budget while 300 other
+// fragments churn, and the ones a page keeps showing stay. (Rust also counts the kit's SHA and pieces in that budget; here a
+// fragment's SHA is made with it and the compressed pages are HybridCache's, so a fragment costs its bytes.)
 [<Fact>]
-let ``fragments a page keeps showing stay while the rest age out, pieces and SHA included`` () =
+let ``fragments a page keeps showing stay while the rest age out`` () =
     let size = 2000
     // Room for a few dozen fragments.
     let budget = 64 * 1024
     let cache = FragmentCache budget
     let keys = [ for i in 900..902 -> $"page/{i}" ]
     let page = keys |> List.map (fun key -> cache.Fetch(key, fun () -> fragment size 'p'))
-    splice page
     let others = [ for n in 1000..1299 -> $"other/{n}" ]
     for (n, key) in List.indexed others do
         cache.Fetch(key, fun () -> fragment size 'o') |> ignore
         if n % 10 = 0 then
-            // The page, shown again: its fragments are used, and the kit splices them after another neighbour.
+            // The page, shown again: its fragments are used.
             for (key, original) in List.zip keys page do
                 Assert.Same(original, cache.Fetch(key, fun () -> failwith $"{key} was dropped"))
-            splice page
         Assert.True(cache.Bytes <= budget, $"{cache.Bytes} bytes held, over the budget of {budget}")
-        // What is really held, pieces and SHAs as they have grown since the entries were last used, is
-        // within the budget but for what one splice of the page adds.
-        let growth = page.Length * (size / 4 + 64)
-        Assert.True(cache.ActualBytes <= budget + growth, $"{cache.ActualBytes} bytes really held")
     for (key, original) in List.zip keys page do
-        match cache.TryGet<Fragment> key with
+        match cache.TryGet<CachedFragment> key with
         | ValueSome now -> Assert.Same(original, now)
         | ValueNone -> failwith $"{key} is shown on every page and stays"
-    Assert.True((cache.TryGet<Fragment> others[0]).IsNone, "one not seen again ages out")
+    Assert.True((cache.TryGet<CachedFragment> others[0]).IsNone, "one not seen again ages out")
     Assert.True cache.Consistent
-    // The pieces and SHAs are counted: the page's fragments cost more than their bytes.
-    let pagesCost = page |> List.sumBy (fun fragment -> fragment.HeldBytes)
-    Assert.True(pagesCost > page.Length * size, $"{pagesCost} bytes held by the page's fragments, expected pieces and SHAs among them")
-    Assert.True(cache.Bytes >= pagesCost, "and the cache counts what they hold")
-
-[<Fact>]
-let ``a fragments pieces are counted when it is next used, and go with it`` () =
-    let cache = FragmentCache(20 * entry 1000)
-    let first = cache.Fetch("a", fun () -> fragment 1000 'x')
-    Assert.Equal(entry 1000, cache.Bytes)
-    splice [ first ]
-    Assert.Equal(entry 1000, cache.Bytes)
-    // Used again, the entry costs what the fragment now holds.
-    let again = cache.Fetch("a", fun () -> failwith "stored")
-    Assert.Same(first, again)
-    Assert.Equal(entry first.HeldBytes, cache.Bytes)
-    Assert.True(first.HeldBytes > 1000)
-    // Churn pushes it out, pieces and all.
-    for i in 0..99 do
-        cache.Fetch($"k{i}", fun () -> fragment 1000 'y') |> ignore
-    Assert.True((cache.TryGet<Fragment> "a").IsNone)
-    Assert.True(cache.Consistent)

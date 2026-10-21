@@ -34,7 +34,7 @@ module AccountUsers =
                     Pages.render layout http (fun ctx ->
                         Render.page 0 (fun w -> Campfire.Views.Templates.Accounts.Users.IndexTurboStream.render w ctx users nextPage))
                 Pages.applyPageHeaders http page
-                return Pages.turboStream http (ReadOnlyMemory<byte> html.Text)
+                return Pages.renderOutput http 200 Pages.TurboStreamUtf8 html
             }
 
     /// `User.active.find(params[:user_id] || params[:id])`

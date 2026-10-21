@@ -6,6 +6,7 @@ namespace Campfire.Views.Markup
 open System.Globalization
 open System.Net
 open Falco.Markup
+open Campfire.Views
 
 module Html =
     /// HTML that is already safe to write as it is. The constructor is private; the makers below are the only ways in, and the
@@ -36,6 +37,11 @@ module Html =
     let int (value: int64) : XmlNode = Text.raw (value.ToString(CultureInfo.InvariantCulture))
 
     let trusted (html: Trusted) : XmlNode = Text.raw (Trusted.value html)
+
+    /// A cached fragment's slot: `HtmlOutput` finds it by `Id` after Falco has rendered the page (V6). Both text encoders escape `<`,
+    /// so no text or attribute value can hold a `<` followed by U+E000.
+    let fragment (fragment: CachedFragment) : XmlNode =
+        Text.raw ("<\uE000" + fragment.Id.ToString(CultureInfo.InvariantCulture) + ">")
 
     /// The space the loose DOM rule keeps between inline-level siblings (V4).
     let sp: XmlNode = Text.raw " "

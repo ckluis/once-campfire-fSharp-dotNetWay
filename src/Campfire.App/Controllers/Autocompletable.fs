@@ -61,5 +61,5 @@ module AutocompletableUsers =
                     let html =
                         Pages.render layout http (fun ctx ->
                             Render.page 0 (fun w -> Campfire.Views.Templates.Autocompletable.Users.Index.render w ctx users))
-                    return Pages.renderAs http 200 "text/html; charset=utf-8" (System.ReadOnlyMemory<byte> html.Text)
+                    return Pages.renderOutput http 200 "text/html; charset=utf-8" html
             }

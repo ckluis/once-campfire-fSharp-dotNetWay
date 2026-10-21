@@ -2,9 +2,10 @@
   <ItemGroup>
     <Compile Include="Core/Fragment.fs" />
     <Compile Include="Core/Html.fs" />
+    <Compile Include="Core/HtmlOutput.fs" />
+    <Compile Include="Core/Fragments.fs" />
     <Compile Include="Core/Out.fs" />
     <Compile Include="Core/ViewContext.fs" />
-    <Compile Include="Core/Legacy.fs" />
     <Compile Include="Core/FragmentCache.fs" />
     <Compile Include="Helpers/Tag.fs" />
     <Compile Include="Helpers/Url.fs" />
@@ -34,6 +35,7 @@
     <Compile Include="Templates/Layouts/ApplicationWrapper.fs" />
     <Compile Include="Templates/Layouts/TurboRails/Frame.fs" />
     <Compile Include="Layouts.fs" />
+    <Compile Include="Core/Legacy.fs" />
     <Compile Include="Templates/Accounts/_HelpContact.fs" />
     <Compile Include="Templates/Accounts/_Invite.fs" />
     <Compile Include="Templates/Pwa/_InstallInstructions.fs" />
@@ -116,6 +118,7 @@
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Falco.Markup" />
+    <PackageReference Include="Microsoft.Extensions.Caching.Hybrid" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="../Campfire.Routes/Campfire.Routes.fsproj" />

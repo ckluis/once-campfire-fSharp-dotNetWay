@@ -3,7 +3,7 @@
 // The layout's data from
 // `Current` and the database, the `ViewContext` of this request (flash, URLs, referer), and the handlers that write a
 // rendered page: the application layout, or turbo-rails' frame layout for a Turbo-Frame request. A page of cached fragments goes out in
-// parts, already compressed.
+// parts (HtmlOutput), already compressed and kept.
 namespace Campfire.App.Web
 
 open System
@@ -11,6 +11,7 @@ open System.Text
 open System.Threading.Tasks
 open Falco
 open Microsoft.AspNetCore.Http
+open Microsoft.Extensions.Caching.Hybrid
 open Microsoft.AspNetCore.ResponseCompression
 open Microsoft.Extensions.DependencyInjection
 open Campfire.App
@@ -148,48 +149,36 @@ module Pages =
     [<Literal>]
     let TurboStreamUtf8 = "text/vnd.turbo-stream.html; charset=utf-8"
 
-    /// What a rendered response carries as its body: one buffer, or a page of cached fragments in parts.
+    /// What a rendered response carries as its body: one buffer, or a page in parts (text parts with cached fragments between).
     type PageBody =
         | Bytes of ReadOnlyMemory<byte>
-        | Parts of IPageParts
+        | Output of HtmlOutput
 
-    /// The compressed form of a page of cached fragments, kept by the page's identity (its ETag digest, which covers every byte)
-    /// and the encoding. A room page is ~400 KB of HTML that repeats from one request to the next, so compressing it afresh
-    /// (and copying it through the compression middleware's stream) was the unit 2.8 shortfall against the 5x floor; the
-    /// bytes themselves are the framework's provider's (`IResponseCompressionProvider`, gzip or Brotli at their fastest).
-    module private PageCompression =
-        let private gate = obj ()
+    /// The encoder for a request that takes compression, or nothing: the framework's provider (gzip or Brotli at their fastest).
+    let private encoderFor (http: HttpContext) : ICompressionProvider voption =
+        match http.RequestServices.GetService<IResponseCompressionProvider>() with
+        | null -> ValueNone
+        | provider ->
+            if provider.CheckRequestAcceptsCompression http && provider.ShouldCompressResponse http then
+                match provider.GetCompressionProvider http with
+                | null -> ValueNone
+                | encoder -> ValueSome encoder
+            else
+                ValueNone
 
-        let private kept =
-            Generations<string, byte[]>(16 * 1024 * 1024, (fun key bytes -> key.Length + bytes.Length + CacheCosts.EntryOverhead))
-
-        /// The encoding and bytes of `parts` for a request that takes compression, or nothing.
-        let compressed (http: HttpContext) (parts: IPageParts) : struct (string * byte[]) voption =
-            match http.RequestServices.GetService<IResponseCompressionProvider>() with
-            | null -> ValueNone
-            | provider ->
-                if provider.CheckRequestAcceptsCompression http && provider.ShouldCompressResponse http then
-                    match provider.GetCompressionProvider http with
-                    | null -> ValueNone
-                    | encoder ->
-                        let key = String.Concat(encoder.EncodingName, ":", parts.Etag())
-                        match lock gate (fun () -> kept.Get(key, id)) with
-                        | ValueSome bytes -> ValueSome(struct (encoder.EncodingName, bytes))
-                        | ValueNone ->
-                            let plain = System.Buffers.ArrayBufferWriter<byte>(parts.BodyLength)
-                            parts.WritePlain plain
-                            use output = new System.IO.MemoryStream()
-                            (use stream = encoder.CreateStream output
-                             stream.Write plain.WrittenSpan)
-                            let bytes = output.ToArray()
-                            lock gate (fun () -> kept.Insert(key, bytes))
-                            ValueSome(struct (encoder.EncodingName, bytes))
-                else
-                    ValueNone
+    /// `page` compressed with `encoder`.
+    let private compress (encoder: ICompressionProvider) (page: HtmlOutput) : byte[] =
+        let plain = System.Buffers.ArrayBufferWriter<byte>(page.Length)
+        page.WriteTo plain
+        use output = new System.IO.MemoryStream()
+        (use stream = encoder.CreateStream output
+         stream.Write plain.WrittenSpan)
+        output.ToArray()
 
     /// Writes a rendered response: the status and headers, the length the host will send (known for a buffer and for parts),
     /// and the body, which a HEAD request drops (`Rack::Head`) while keeping its `Content-Length`. Compression is the
-    /// framework's (`UseResponseCompression`); a page in parts has its compressed form kept and written already encoded.
+    /// framework's (`UseResponseCompression`); a page with cached fragments has its compressed form kept (V7, by the SHA-256
+    /// of its parts and fragments) and written already encoded.
     let private send (status: int) (contentType: string) (headers: (string * string) list) (body: PageBody) : HttpHandler =
         fun http ->
             task {
@@ -198,26 +187,27 @@ module Pages =
                 response.Headers.ContentType <- contentType
                 for (name, value) in headers do
                     response.Headers.Append(name, value)
-                response.ContentLength <- Nullable(int64 (match body with Bytes bytes -> bytes.Length | Parts parts -> parts.BodyLength))
+                response.ContentLength <- Nullable(int64 (match body with Bytes bytes -> bytes.Length | Output page -> page.Length))
                 if Edge.headFromPost http then response.ContentLength <- Nullable()
                 try
                     if not (HttpMethods.IsHead http.Request.Method) then
-                        let compressed =
-                            match body with
-                            | Parts parts -> PageCompression.compressed http parts
-                            | Bytes _ -> ValueNone
-                        match compressed, body with
-                        | ValueSome(struct (encoding, bytes)), _ ->
-                            // Already encoded, so the compression middleware leaves it (and its `Vary`) alone.
-                            response.Headers.ContentEncoding <- encoding
-                            response.Headers.Append("Vary", "Accept-Encoding")
-                            response.ContentLength <- Nullable(int64 bytes.Length)
-                            do! response.Body.WriteAsync bytes
-                        | ValueNone, Bytes bytes -> do! response.Body.WriteAsync bytes
-                        | ValueNone, Parts parts ->
-                            parts.WritePlain response.BodyWriter
-                            let! _ = response.BodyWriter.FlushAsync().AsTask()
-                            ()
+                        match body with
+                        | Bytes bytes -> do! response.Body.WriteAsync bytes
+                        | Output page ->
+                            let encoder = if page.Fragments.Length = 0 then ValueNone else encoderFor http
+                            match encoder with
+                            | ValueSome encoder ->
+                                let cache = http.RequestServices.GetRequiredService<HybridCache>()
+                                let! kept = Fragments.compressedPage cache encoder.EncodingName page (compress encoder)
+                                // Already encoded, so the compression middleware leaves it (and its `Vary`) alone.
+                                response.Headers.ContentEncoding <- kept.Encoding
+                                response.Headers.Append("Vary", "Accept-Encoding")
+                                response.ContentLength <- Nullable(int64 kept.Bytes.Length)
+                                do! response.Body.WriteAsync kept.Bytes
+                            | ValueNone ->
+                                page.WriteTo response.BodyWriter
+                                let! _ = response.BodyWriter.FlushAsync().AsTask()
+                                ()
                 with
                 // The client went away; the host has nothing more to say about it.
                 | :? OperationCanceledException
@@ -232,6 +222,10 @@ module Pages =
     /// A body with an explicit content type (`render json:`, `render html:`, a manifest), as the handler that writes it.
     let renderAs (http: HttpContext) (status: int) (contentType: string) (body: ReadOnlyMemory<byte>) : HttpHandler =
         send status contentType (varyHeaders http) (Bytes body)
+
+    /// A rendered page with an explicit content type (a partial, a turbo stream), as the handler that writes it.
+    let renderOutput (http: HttpContext) (status: int) (contentType: string) (page: HtmlOutput) : HttpHandler =
+        send status contentType (varyHeaders http) (Output page)
 
     let renderText (http: HttpContext) (status: int) (contentType: string) (body: string) : HttpHandler =
         renderAs http status contentType (ReadOnlyMemory<byte>(Encoding.UTF8.GetBytes body))
@@ -258,29 +252,21 @@ module Pages =
                 let url = Pagination.Url.withPage (requestUrl http) (string page.NextParam)
                 http.Response.Headers["link"] <- $"<{url}>; rel=\"next\""
 
-    /// A recorded page (its text and the cached fragments it holds) as a response in the HTML format, spliced into parts
-    /// when it holds fragments big enough for a part.
-    let private recordedAs (http: HttpContext) (status: int) (contentType: string) (extraHeaders: (string * string) list) (page: RecordedPage) : HttpHandler =
-        let body =
-            if page.Fragments.Length = 0 then
-                Bytes(ReadOnlyMemory<byte> page.Text)
-            else
-                match FragmentGlue.splice page with
-                | Ok parts -> Parts(parts :> IPageParts)
-                | Result.Error whole -> Bytes whole
-        send status contentType (varyHeaders http @ extraHeaders) body
+    /// A rendered page (its text parts and the cached fragments between them) as a response.
+    let private output (http: HttpContext) (status: int) (contentType: string) (extraHeaders: (string * string) list) (page: HtmlOutput) : HttpHandler =
+        send status contentType (varyHeaders http @ extraHeaders) (Output page)
 
     /// A page rendered in the application layout: plus the `Link` preload header `stylesheet_link_tag` adds.
-    let private page (http: HttpContext) (status: int) (html: RecordedPage) : HttpHandler =
+    let private page (http: HttpContext) (status: int) (html: HtmlOutput) : HttpHandler =
         let links = (ViewContextBuilder.stylesheetTags ()).PreloadLinks
-        recordedAs http status HtmlUtf8 [ "link", Assets.appendPreloadLinks "" links ] html
+        output http status HtmlUtf8 [ "link", Assets.appendPreloadLinks "" links ] html
 
     /// A page rendered in turbo-rails' frame layout (no stylesheets, so no `Link` header).
-    let private frame (http: HttpContext) (status: int) (html: RecordedPage) : HttpHandler = recordedAs http status HtmlUtf8 [] html
+    let private frame (http: HttpContext) (status: int) (html: HtmlOutput) : HttpHandler = output http status HtmlUtf8 [] html
 
     /// Renders a page in the application layout without the implicit render's template lookup: an explicit
     /// `render template:` answers HTML whatever the request's format.
-    let pageInAnyFormat (http: HttpContext) (status: int) (full: ViewContext -> RecordedPage) : Result<HttpHandler, Error> =
+    let pageInAnyFormat (http: HttpContext) (status: int) (full: ViewContext -> HtmlOutput) : Result<HttpHandler, Error> =
         load http |> Result.map (fun layout -> page http status (render layout http full))
 
     /// A page, or for a Turbo-Frame request its `head` and `content` in turbo-rails' frame layout
@@ -288,8 +274,8 @@ module Pages =
     let pageOrFrameInAnyFormat
         (http: HttpContext)
         (status: int)
-        (full: ViewContext -> RecordedPage)
-        (frameLayout: ViewContext -> RecordedPage)
+        (full: ViewContext -> HtmlOutput)
+        (frameLayout: ViewContext -> HtmlOutput)
         : Result<HttpHandler, Error> =
         load http
         |> Result.map (fun layout ->
@@ -303,7 +289,7 @@ module Pages =
     let findTemplate (http: HttpContext) (template: Format) : Result<unit, Error> = Formats.respondTo http [ template ] |> Result.map ignore
 
     /// `pageOrFrameInAnyFormat` after the implicit render's template lookup.
-    let pageOrFrame (http: HttpContext) (status: int) (full: ViewContext -> RecordedPage) (frameLayout: ViewContext -> RecordedPage) =
+    let pageOrFrame (http: HttpContext) (status: int) (full: ViewContext -> HtmlOutput) (frameLayout: ViewContext -> HtmlOutput) =
         match findTemplate http Format.Html with
         | Result.Error e -> Result.Error e
         | Ok() -> pageOrFrameInAnyFormat http status full frameLayout
@@ -341,14 +327,14 @@ module Pages =
                 (fun ctx -> Render.page 0 (fun w -> Layouts.Application.render w ctx (Layouts.Application.create (Render.html (fun w -> render w ctx)))))
 
     /// A template rendered with `layout false` (or a turbo stream), no layout, labelled with the template's format.
-    let bare (http: HttpContext) (status: int) (template: Format) (body: ViewContext -> RecordedPage) : Result<HttpHandler, Error> =
+    let bare (http: HttpContext) (status: int) (template: Format) (body: ViewContext -> HtmlOutput) : Result<HttpHandler, Error> =
         match findTemplate http template with
         | Result.Error e -> Result.Error e
         | Ok() ->
             load http
             |> Result.map (fun layout ->
                 let html = render layout http body
-                recordedAs http status (Formats.mimeType template + "; charset=utf-8") [] html)
+                output http status (Formats.mimeType template + "; charset=utf-8") [] html)
 
     // --- AllowBrowser ---------------------------------------------------------------------------------
 

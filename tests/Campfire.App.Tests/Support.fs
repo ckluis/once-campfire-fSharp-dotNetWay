@@ -128,7 +128,7 @@ let private parseReply (bytes: byte[]) : Reply =
 
 /// A Kestrel server on a free loopback port running a pipeline.
 /// Counts what goes through a response's `BodyWriter`: each `Advance` that commits bytes is one write the
-/// handler made. A page recorded as parts is written part by part (`PageParts.WritePlain`), so the count
+/// handler made. A page in parts is written part by part (`HtmlOutput.WriteTo`), so the count
 /// stands in for the Rust `Reply::frames` (the data frames of a hyper body), which a raw HTTP/1.1 client
 /// over a socket can't see.
 type BodyWrites() =
@@ -387,18 +387,20 @@ let configFor (root: string) (extra: (string * string) list) : AppConfig =
     | Ok config -> config
     | Error message -> failwith message
 
-let private startWith clock dbOptions (config: AppConfig) (dir: string) : Task<Test> =
+let private startWithServices clock dbOptions (more: IServiceCollection -> unit) (config: AppConfig) (dir: string) : Task<Test> =
     task {
         let logs = new CapturingLoggers()
         let! booted = Boot.bootWithClock clock dbOptions config logs
-        let! host = startPipelineWith booted.ConfigureServices booted.Pipeline
+        let! host = startPipelineWith (fun services -> booted.ConfigureServices services; more services) booted.Pipeline
         return new Test(booted, dir, host, logs)
     }
+
+let private startWith clock dbOptions (config: AppConfig) (dir: string) : Task<Test> = startWithServices clock dbOptions ignore config dir
 
 let private start (config: AppConfig) (dir: string) : Task<Test> = startWith None ignore config dir
 
 /// An app booted over a private copy of seed `name`, with `dbOptions` applied to the EF context options (tests: `LogTo`).
-let bootSeededClocked (clock: Campfire.RailsCompat.Clock.SharedClock option) dbOptions (extra: (string * string) list) (name: string) : Task<Test> =
+let bootSeededServices (clock: Campfire.RailsCompat.Clock.SharedClock option) dbOptions (more: IServiceCollection -> unit) (extra: (string * string) list) (name: string) : Task<Test> =
     task {
         match Repo.seed name with
         | None ->
@@ -412,11 +414,14 @@ let bootSeededClocked (clock: Campfire.RailsCompat.Clock.SharedClock option) dbO
                 if File.Exists from then File.Copy(from, Path.Combine(dir, "db", file))
             let storage = Path.Combine(seed, "storage")
             if Directory.Exists storage then copyDir storage (Path.Combine(dir, "files"))
-            let! test = startWith clock dbOptions (configFor dir extra) dir
+            let! test = startWithServices clock dbOptions more (configFor dir extra) dir
             let labels = Path.Combine(seed, "labels.json")
             if File.Exists labels then test.Labels <- Some((JsonDocument.Parse(File.ReadAllText labels)).RootElement.Clone())
             return test
     }
+
+let bootSeededClocked (clock: Campfire.RailsCompat.Clock.SharedClock option) dbOptions (extra: (string * string) list) (name: string) : Task<Test> =
+    bootSeededServices clock dbOptions ignore extra name
 
 let bootSeededConfigured dbOptions (extra: (string * string) list) (name: string) : Task<Test> =
     bootSeededClocked None dbOptions extra name

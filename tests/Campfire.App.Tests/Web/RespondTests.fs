@@ -240,8 +240,8 @@ let ``X4 HTML and turbo-stream responses are gzipped or Brotli'd once, with Vary
         Assert.Equal(Some "gzip", gzipped.Header "content-encoding")
         Assert.Equal([ "gzip" ], gzipped.HeaderValues "content-encoding")
         Assert.True((String.Join(", ", gzipped.HeaderValues "vary")).Contains "Accept-Encoding", $"{gzipped.Headers}")
-        // A room page is a page of cached fragments: its compressed form is kept by the page's identity, so the second
-        // request is the same bytes, and a change of the page is another page.
+        // A room page is a page of cached fragments (an `HtmlOutput`): its compressed form is kept in HybridCache by the SHA-256 of
+        // its parts and fragments, so the second request is the same bytes, and a change of the page is another page (P1).
         let! again = page (Some "gzip")
         Assert.Equal<byte[]>(gzipped.Body, again.Body)
         Assert.Equal(Some(string gzipped.Body.Length), gzipped.Header "content-length")
@@ -257,6 +257,7 @@ let ``X4 HTML and turbo-stream responses are gzipped or Brotli'd once, with Vary
         // A client that takes both gets one of them, once; `identity` alone is no compression.
         let! both = page (Some "gzip, br")
         Assert.Equal(1, both.HeaderValues("content-encoding").Length)
+        Assert.Equal<byte[]>(plain.Body, (match both.Header "content-encoding" with Some "br" -> unbrotli both.Body | _ -> gunzip both.Body))
         let! identity = page (Some "identity")
         Assert.Equal(None, identity.Header "content-encoding")
 

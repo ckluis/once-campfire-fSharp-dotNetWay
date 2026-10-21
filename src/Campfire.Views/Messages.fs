@@ -151,7 +151,7 @@ type MessageView =
 /// text, attachment, avatar or boosts); `cachedMessageFragment` lets the presenter look first
 /// and build a `MessageView` only on a miss.
 type MessageItem =
-    | Cached of clientMessageId: string * roomId: int64 * html: Fragment
+    | Cached of clientMessageId: string * roomId: int64 * html: CachedFragment
     | View of MessageView
 
     /// `dom_id(message)` / `dom_id(message, prefix)`.
@@ -211,5 +211,5 @@ let boostFragmentKey (key: KeyBuf) (id: int64) (updatedAt: Timestamp) : unit =
 
 /// `messages/_message`'s fragment for this message version, if the current store holds it. The
 /// key needs only the message's id and `updated_at`.
-let cachedMessageFragment (id: int64) (updatedAt: Timestamp) : Fragment =
+let cachedMessageFragment (id: int64) (updatedAt: Timestamp) : CachedFragment =
     FragmentCache.read (fun key -> messageFragmentKey key id updatedAt)

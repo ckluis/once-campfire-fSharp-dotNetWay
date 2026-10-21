@@ -18,12 +18,9 @@
 // request (`FragmentCache.scoped`) and for renders outside one (`FragmentCache.withCache`). Without a
 // current store, fragments render uncached (`perform_caching = false`).
 //
-// A fragment's payload is what it keeps alive: its bytes and whatever the page-splicing layer has
-// attached to it (the kit's SHA-256 and compressed pieces, `Fragment.HeldBytes`). Rust bounds those
-// in a map of the kit's; here they hang off the `Fragment`, so this cache bounds them, by counting
-// them in the entry's size each time the entry is used and dropping the whole `Fragment` (and with
-// it the attachment) when the entry goes. (Phase 4's requirement: the budget counts the pieces and
-// the SHA, and `fragments a page keeps showing stay while the rest age out` holds the total.)
+// A fragment's payload is its bytes (its SHA-256 and the object are what `PerEntryOverhead` stands for); it is fixed when the
+// fragment is made, so an entry's size never changes after it is written. (This store goes in unit 4.3 of the views phase,
+// for HybridCache.)
 //
 // Keys follow `ActionView::Helpers::CacheHelper#fragment_name_with_digest`:
 // `views/<template>:<digest>/<record cache_key_with_version>[/<extra>]`, where the digest covers
@@ -176,8 +173,8 @@ type FragmentCache(maxBytes: int) =
     let used (entry: Entry) =
         touch entry
         match entry.Value with
-        | :? Fragment as fragment ->
-            let size = entry.KeyBytes + fragment.HeldBytes + FragmentCacheLimits.PerEntryOverhead
+        | :? CachedFragment as fragment ->
+            let size = entry.KeyBytes + fragment.Length + FragmentCacheLimits.PerEntryOverhead
             if size <> entry.Size then
                 bytes <- bytes + (size - entry.Size)
                 entry.Size <- size
@@ -223,8 +220,8 @@ type FragmentCache(maxBytes: int) =
     member this.TryGet<'T when 'T: not struct>(key: string) : 'T voption = this.TryGet<'T>(key.AsSpan())
 
     /// The fragment `key` holds, or null.
-    member this.GetFragment(key: ReadOnlySpan<char>) : Fragment =
-        match this.TryGet<Fragment> key with
+    member this.GetFragment(key: ReadOnlySpan<char>) : CachedFragment =
+        match this.TryGet<CachedFragment> key with
         | ValueSome fragment -> fragment
         | ValueNone -> null
 
@@ -261,11 +258,11 @@ type FragmentCache(maxBytes: int) =
     member this.Write<'T when 'T: not struct>(key: string, value: 'T, payloadBytes: int) : 'T = this.Write<'T>(key.AsSpan(), value, payloadBytes)
 
     /// `Rails.cache.fetch(key) { render }` for a rendered fragment, shared with the store.
-    member this.Fetch(key: string, render: unit -> Fragment) : Fragment =
-        match this.TryGet<Fragment> key with
+    member this.Fetch(key: string, render: unit -> CachedFragment) : CachedFragment =
+        match this.TryGet<CachedFragment> key with
         | ValueNone ->
             let fragment = render ()
-            this.Write(key, fragment, fragment.HeldBytes)
+            this.Write(key, fragment, fragment.Length)
         | ValueSome fragment -> fragment
 
     /// `Rails.cache.fetch(key) { value }` for any other value (Jbuilder caches the hash it built, not
@@ -310,7 +307,7 @@ type FragmentCache(maxBytes: int) =
                 sum <-
                     sum
                     + (match entry.Value with
-                       | :? Fragment as fragment -> entry.KeyBytes + fragment.HeldBytes + FragmentCacheLimits.PerEntryOverhead
+                       | :? CachedFragment as fragment -> entry.KeyBytes + fragment.Length + FragmentCacheLimits.PerEntryOverhead
                        | _ -> entry.Size)
                 at <- entry.Newer
             sum)
@@ -355,17 +352,17 @@ module FragmentCache =
             currentStore.Value <- previous
 
     /// A fragment rendered into a writer of its own, as exact bytes.
-    let inline renderFragment ([<InlineIfLambda>] render: Out -> unit) : Fragment =
+    let inline renderFragment ([<InlineIfLambda>] render: Out -> unit) : CachedFragment =
         let out = Out.Rent 1024
         try
             render out
-            Fragment(out.ToArray())
+            CachedFragment(out.ToArray())
         finally
             Out.Return out
 
     /// `cache key do render end` against the current store (uncached without one), for the key
     /// `key` writes.
-    let inline fetch ([<InlineIfLambda>] key: KeyBuf -> unit) ([<InlineIfLambda>] render: Out -> unit) : Fragment =
+    let inline fetch ([<InlineIfLambda>] key: KeyBuf -> unit) ([<InlineIfLambda>] render: Out -> unit) : CachedFragment =
         match current () with
         | null -> renderFragment render
         | cache ->
@@ -375,7 +372,7 @@ module FragmentCache =
                 match cache.GetFragment buffer.Span with
                 | null ->
                     let fragment = renderFragment render
-                    cache.Write(buffer.Span, fragment, fragment.HeldBytes)
+                    cache.Write(buffer.Span, fragment, fragment.Length)
                 | fragment -> fragment
             finally
                 KeyBuf.Return buffer
@@ -383,7 +380,7 @@ module FragmentCache =
     /// The fragment the key `key` writes holds in the current store, if any, shared rather than
     /// copied. For callers that gather a fragment's inputs only on a miss, as `cache key do ... end`
     /// evaluates its block only then.
-    let inline read ([<InlineIfLambda>] key: KeyBuf -> unit) : Fragment =
+    let inline read ([<InlineIfLambda>] key: KeyBuf -> unit) : CachedFragment =
         match current () with
         | null -> null
         | cache ->

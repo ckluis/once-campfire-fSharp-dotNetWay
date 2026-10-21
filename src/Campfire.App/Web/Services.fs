@@ -115,6 +115,8 @@ module Services =
             Compression.SkipSmall(ResponseCompressionProvider(sp, sp.GetRequiredService<IOptions<ResponseCompressionOptions>>()))
             :> IResponseCompressionProvider)
         |> ignore
+        // V5, V7: the kept compressed pages (and from unit 4.3 the fragments), in HybridCache over a size-limited memory cache.
+        Campfire.Views.Fragments.add services app.Config.FragmentCacheBytes
         // K15: ten sign-in attempts per client IP in three minutes.
         services.AddSingleton<System.Threading.RateLimiting.PartitionedRateLimiter<string>>(fun _ -> LoginThrottle.create ()) |> ignore
         addAuthentication services

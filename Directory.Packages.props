@@ -5,6 +5,8 @@
     <PackageVersion Include="Falco" Version="5.2.0" />
     <!-- The view layer (plans/design-views.md V1): pinned to the version Falco 5.2.0 depends on. It writes attribute values raw: see Core/Html.fs and bin/lint-markup. -->
     <PackageVersion Include="Falco.Markup" Version="1.4.0" />
+    <!-- The fragment cache and the kept compressed pages (plans/design-views.md V5, V7): local memory only, no L2. -->
+    <PackageVersion Include="Microsoft.Extensions.Caching.Hybrid" Version="10.11.0" />
     <!-- The tests read pages as the browser does (tests/Shared/LooseDom.fs). -->
     <PackageVersion Include="AngleSharp" Version="1.8.3" />
     <!-- taskResult { } for the Web/ actions (plans/design-kit-auth.md K8). -->

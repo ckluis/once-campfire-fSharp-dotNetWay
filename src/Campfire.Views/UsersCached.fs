@@ -7,7 +7,7 @@ open Campfire.Views.Users
 open Campfire.Views.Templates.Users.Sidebars.Rooms
 
 /// `direct_room(ctx, membership)`.
-let directRoom (ctx: ViewContext) (membership: SidebarDirect) : Fragment =
+let directRoom (ctx: ViewContext) (membership: SidebarDirect) : CachedFragment =
     FragmentCache.fetch
         (fun key -> directRoomFragmentKey key membership.MembershipId membership.MembershipUpdatedAt)
         (fun w -> _Direct.render w ctx membership)

@@ -8,8 +8,35 @@
 /// the writer, which `frame` takes (with the page's `RenderSize`) for Turbo-Frame requests.
 module Campfire.Views.Layouts
 
+open Falco.Markup
 open Campfire.Views
 open Campfire.Views.Templates.Layouts
+
+/// What `content_for` and `yield` give the layout (plans/design-views.md V8): a Falco page module returns its regions as nodes.
+type Regions =
+    { Title: string option
+      BodyClass: string option
+      Head: XmlNode list
+      Nav: XmlNode list
+      Content: XmlNode list
+      Footer: XmlNode list
+      Sidebar: XmlNode list }
+
+module Regions =
+    /// A content-only template.
+    let content (nodes: XmlNode list) : Regions =
+        { Title = None
+          BodyClass = None
+          Head = []
+          Nav = []
+          Content = nodes
+          Footer = []
+          Sidebar = [] }
+
+/// A Falco page: its regions, and the cached fragments its nodes place with `Html.fragment`.
+type ViewPage =
+    { Regions: Regions
+      Fragments: CachedFragment list }
 
 /// The application layout around page parts rendered elsewhere. Each part is what the ERB's
 /// `content_for` / `yield` would have produced.
@@ -47,8 +74,8 @@ let private FrameLayoutSizeHint = 512
 /// cached fragments too): `frame size (Page.head model) (Page.content model)`. `size` is the page's
 /// own `RenderSize` (what Rust's `C::SIZE_HINT` is for `recorded::render(&content, ..)`): the content
 /// renders into a buffer sized from the last render of that page, not from 4 KB doubled until it fits.
-let frame (size: RenderSize) (head: Out -> unit) (content: Out -> unit) : RecordedPage =
+let frame (size: RenderSize) (head: Out -> unit) (content: Out -> unit) : HtmlOutput =
     let content = size.Render content
     let head = Render.html head
-    Render.page (content.Text.Length + head.Length + FrameLayoutSizeHint) (fun w ->
+    Render.page (content.TextLength + head.Length + FrameLayoutSizeHint) (fun w ->
         TurboRails.Frame.render w (fun w -> w.Raw head) (fun w -> w.Page content))

@@ -343,7 +343,7 @@ let ``a room page has the same etag cold and warm`` () =
     }
 
 /// A page of messages goes out in parts that are never joined: as they are to a client without
-/// gzip, gzipped once and kept by the page's identity, and as just its length for HEAD. It's the same page with
+/// gzip, gzipped once and kept by the SHA-256 of its parts and fragments (`Fragments.compressedPage`), and as just its length for HEAD. It's the same page with
 /// the same ETag (where it has one, K14) every way (a room page, its Turbo-Frame version, and a page of older messages).
 [<Fact>]
 let ``pages of messages go out in parts`` () =

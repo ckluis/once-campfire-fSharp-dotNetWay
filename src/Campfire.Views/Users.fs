@@ -136,7 +136,7 @@ type SidebarDirect =
 /// the cache already holds this membership version (`cache membership` wraps the whole partial,
 /// so Rails evaluates none of it then), else the view to render it from.
 type SidebarDirectItem =
-    | Cached of Fragment
+    | Cached of CachedFragment
     | View of SidebarDirect
 
 /// A shared room in the sidebar (`users/sidebars/rooms/_shared`).
@@ -171,5 +171,5 @@ let directRoomFragmentKey (key: KeyBuf) (membershipId: int64) (updatedAt: Timest
 
 /// The `users/sidebars/rooms/_direct` fragment for this membership version, if the current store
 /// holds it.
-let cachedDirectRoomFragment (membershipId: int64) (updatedAt: Timestamp) : Fragment =
+let cachedDirectRoomFragment (membershipId: int64) (updatedAt: Timestamp) : CachedFragment =
     FragmentCache.read (fun key -> directRoomFragmentKey key membershipId updatedAt)

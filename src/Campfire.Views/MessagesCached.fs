@@ -7,7 +7,7 @@ open Campfire.Views.Messages
 open Campfire.Views.Templates.Messages
 
 /// `message(ctx, message)`.
-let message (ctx: ViewContext) (message: MessageView) : Fragment =
+let message (ctx: ViewContext) (message: MessageView) : CachedFragment =
     FragmentCache.fetch (fun key -> messageFragmentKey key message.Id message.UpdatedAt) (fun w -> _Message.render w ctx message)
 
 /// `cached_message(ctx, message)`: `message` where a template renders the partial. Copied into the page, not recorded.

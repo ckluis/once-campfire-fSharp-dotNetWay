@@ -25,12 +25,12 @@
 // - Every value goes through `Text` (escaped, the default of `{{ }}`) unless the Rust says `safe`/
 //   `h::raw` or the value is a helper's output, which writes itself. A value that is already
 //   html_safe and needs to travel (a layout's `head`/`nav` parts, a fragment) is a `SafeBytes` or a
-//   `Fragment`, never a string, so it can't be escaped twice or left unescaped by mistake.
+//   `CachedFragment`, never a string, so it can't be escaped twice or left unescaped by mistake.
 // - A block (`{% filter link_to(..) %}...{% endfilter %}`, `content_for`) is a function of the
 //   writer, `fun w -> ...`; helpers that take one are `inline`, so there is no closure.
 // - Cached fragments (`cache record do`) are rendered by `FragmentCache` into their own writer and
 //   written with `w.Fragment`; a page rendering with `Render.page` records them instead of copying
-//   them (see `RecordedPage`).
+//   them: the result is an `HtmlOutput`, the text in parts with the fragments between.
 // - Nothing allocates a string for markup: no `sprintf`, `String.Format`, `+` on markup or
 //   `StringBuilder`. View-model strings are read as they are and escaped as they are written.
 namespace Campfire.Views
@@ -67,54 +67,13 @@ type SafeBytes(bytes: byte[]) =
     member _.IsEmpty: bool = bytes.Length = 0
     override _.ToString() = Encoding.UTF8.GetString bytes
 
-/// A rendered page: its text, and each cached fragment with its byte offset in the text, in order.
-/// A room page is mostly its ~40 message fragments (~400 KB); copying them into one buffer only for
-/// the kit to find them again (for its gzip and ETag, which reuse what it knows about each
-/// fragment) costs more than the rest of assembling the page. So a template hands a fragment to
-/// `Out.Fragment`, and a page rendered with `Render.page` notes the fragment at its offset in the
-/// text instead of copying it. Anything else, including a fragment under `MinRecorded` bytes, is
-/// copied in as text, so the page is always the bytes a plain render gives.
-[<Sealed; AllowNullLiteral>]
-type RecordedPage(text: byte[], fragments: struct (int * Fragment)[]) =
-    /// A page rendered without recording.
-    new(text: byte[]) = RecordedPage(text, Array.empty)
-
-    /// The text, without its fragments.
-    member _.Text: byte[] = text
-
-    member _.Fragments: struct (int * Fragment)[] = fragments
-
-    /// The page's length: its text and its fragments.
-    member _.Length: int =
-        let mutable length = text.Length
-        for struct (_, fragment) in fragments do
-            length <- length + fragment.Length
-        length
-
-    /// The whole page in one array.
-    member this.ToArray() : byte[] =
-        let all = GC.AllocateUninitializedArray<byte> this.Length
-        let mutable at = 0
-        let mutable position = 0
-        for struct (offset, fragment) in fragments do
-            Buffer.BlockCopy(text, position, all, at, offset - position)
-            at <- at + (offset - position)
-            position <- offset
-            Buffer.BlockCopy(fragment.Bytes, 0, all, at, fragment.Length)
-            at <- at + fragment.Length
-        Buffer.BlockCopy(text, position, all, at, text.Length - position)
-        all
-
-    override this.ToString() = Encoding.UTF8.GetString(this.ToArray())
-
 /// The writer a template renders into: a pooled UTF-8 buffer. `Out.Rent` takes one (a thread's
 /// spare, so a request's renders reuse the same object) and `Out.Return` gives it back along with
 /// its array; `Render` does both.
 [<Sealed>]
 type Out private (capacity: int) =
-    /// Shorter writes are copied without being noted as a fragment: the kit keeps fragments under
-    /// 1 KB in the text around them anyway (`Campfire.Kit` splice), and noting every short one would
-    /// cost more than copying it.
+    /// Shorter writes are copied without being noted as a fragment: a short one is not worth a part of its own, and
+    /// noting every one would cost more than copying it.
     [<Literal>]
     static let MinRecorded = 1024
 
@@ -123,7 +82,7 @@ type Out private (capacity: int) =
 
     let mutable buffer: byte[] = ArrayPool<byte>.Shared.Rent(max capacity 4096)
     let mutable length = 0
-    let mutable fragments: List<struct (int * Fragment)> | null = null
+    let mutable fragments: List<struct (int * CachedFragment)> | null = null
 
     static member Rent(capacity: int) : Out =
         match Out.spare with
@@ -151,7 +110,7 @@ type Out private (capacity: int) =
         fragments <- null
 
     /// Records fragments handed to `Fragment` from now on (`Render.page` starts it).
-    member _.StartRecording() = fragments <- List<struct (int * Fragment)>()
+    member _.StartRecording() = fragments <- List<struct (int * CachedFragment)>()
 
     member _.Length: int = length
     member _.WrittenSpan: ReadOnlySpan<byte> = ReadOnlySpan<byte>(buffer, 0, length)
@@ -215,7 +174,7 @@ type Out private (capacity: int) =
 
     /// A cached fragment, as is: noted at its offset while the page records and the fragment is
     /// big enough to be worth a part of its own, copied otherwise.
-    member this.Fragment(fragment: Fragment) : unit =
+    member this.Fragment(fragment: CachedFragment) : unit =
         match fragments with
         | null -> this.Lit fragment.Bytes
         | recorded when fragment.Length >= MinRecorded -> recorded.Add(struct (length, fragment))
@@ -223,13 +182,10 @@ type Out private (capacity: int) =
 
     /// A page written into another one (turbo-rails' frame layout around a page's content): its
     /// text, and its fragments handed over again, so they stay fragments.
-    member this.Page(page: RecordedPage) : unit =
-        let mutable position = 0
-        for struct (offset, fragment) in page.Fragments do
-            this.Lit(ReadOnlySpan<byte>(page.Text, position, offset - position))
-            this.Fragment fragment
-            position <- offset
-        this.Lit(ReadOnlySpan<byte>(page.Text, position, page.Text.Length - position))
+    member this.Page(page: HtmlOutput) : unit =
+        for i in 0 .. page.Parts.Length - 1 do
+            this.Lit page.Parts[i]
+            if i < page.Fragments.Length then this.Fragment page.Fragments[i]
 
     /// Another writer's bytes (a block that had to render first, as a form's fields do).
     member this.Append(other: Out) : unit = this.Lit other.WrittenSpan
@@ -240,13 +196,21 @@ type Out private (capacity: int) =
         Buffer.BlockCopy(buffer, 0, all, 0, length)
         all
 
-    /// The recorded page: exactly the text written, and the fragments noted.
-    member _.ToRecordedPage() : RecordedPage =
-        let noted =
-            match fragments with
-            | null -> Array.empty
-            | recorded -> recorded.ToArray()
-        RecordedPage(Array.sub buffer 0 length, noted)
+    /// The page: the text written, cut at the offsets where fragments were noted, and those fragments.
+    member _.ToOutput() : HtmlOutput =
+        match fragments with
+        | null -> HtmlOutput([| Array.sub buffer 0 length |], Array.empty)
+        | recorded ->
+            let parts = Array.zeroCreate<byte[]> (recorded.Count + 1)
+            let found = Array.zeroCreate<CachedFragment> recorded.Count
+            let mutable position = 0
+            for i in 0 .. recorded.Count - 1 do
+                let struct (offset, fragment) = recorded[i]
+                parts[i] <- Array.sub buffer position (offset - position)
+                found[i] <- fragment
+                position <- offset
+            parts[recorded.Count] <- Array.sub buffer position (length - position)
+            HtmlOutput(parts, found)
 
     override _.ToString() = Encoding.UTF8.GetString(buffer, 0, length)
 
@@ -265,12 +229,12 @@ type Out private (capacity: int) =
 module Render =
     /// A page, recording its fragments (`recorded::render`), into a writer with room for `capacity`
     /// bytes of text.
-    let inline page (capacity: int) ([<InlineIfLambda>] template: Out -> unit) : RecordedPage =
+    let inline page (capacity: int) ([<InlineIfLambda>] template: Out -> unit) : HtmlOutput =
         let out = Out.Rent capacity
         try
             out.StartRecording()
             template out
-            out.ToRecordedPage()
+            out.ToOutput()
         finally
             Out.Return out
 
@@ -306,9 +270,9 @@ type RenderSize() =
     member _.Capacity(sizeHint: int) : int = max (min (last + last / 8) MaxReserve) sizeHint
 
     /// `template` rendered and recorded, into a buffer sized from the last render here.
-    member this.Render(template: Out -> unit) : RecordedPage =
+    member this.Render(template: Out -> unit) : HtmlOutput =
         let page = Render.page (this.Capacity 0) template
-        last <- page.Text.Length
+        last <- page.TextLength
         page
 
     static member Max = MaxReserve

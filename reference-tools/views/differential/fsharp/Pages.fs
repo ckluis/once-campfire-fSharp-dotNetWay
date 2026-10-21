@@ -34,10 +34,10 @@ let private mixed (ctx: ViewContext) (items: Messages.MessageItem list) (args: J
                 MessageItem.Cached(view.ClientMessageId, view.RoomId, MessagesCached.message ctx view)
             | other -> other)
 
-let private recordedAnswer (page: RecordedPage) : Answer =
+let private recordedAnswer (page: HtmlOutput) : Answer =
     { Out = page.ToString()
-      Text = Some(Encoding.UTF8.GetString page.Text)
-      Fragments = Some [ for struct (offset, fragment) in page.Fragments -> offset, fragment.Length ] }
+      Text = Some(recordedText page)
+      Fragments = Some(recordedOffsets page) }
 
 /// A page: rendered cold, then warm (the same bytes), plain and recorded (the same bytes), and in the Turbo-Frame
 /// layout when `frame` is set.
