@@ -50,6 +50,7 @@
     <Compile Include="BroadcastsTests.fs" />
     <Compile Include="RevocationTests.fs" />
     <Compile Include="ChannelsGoldenTests.fs" />
+    <Compile Include="CableHostTests.fs" />
     <Compile Include="HotPathTests.fs" />
     <Compile Include="FastReadsTests.fs" />
   </ItemGroup>

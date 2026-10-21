@@ -226,9 +226,8 @@ module Boot =
                 task {
                     do! Server.shutdownSignal ()
                     logger.LogInformation "shutting down"
-                    // Close every WebSocket (`server_restart`, so clients reconnect) or they'd hold the
-                    // graceful shutdown open.
-                    app.Cable.Restart()
+                    // The cable's hosted `CableShutdown` closes every WebSocket (`server_restart`) on `ApplicationStopping`, which
+                    // Front's `host.StopAsync` raises first (test P12 runs it against the app's own host).
                     stopping.TrySetResult() |> ignore
                 }
             // The request log goes to stdout as batched bytes (the `thruster` lines the console logger would write), not through `ILogger`.
