@@ -18,4 +18,5 @@ let render (ctx: ViewContext) (user: MentionUser) : XmlNode =
                     [ Markup.Users.avatarTag ctx user.User.Avatar []
                       Html.sp
                       Elem.span [ Attr.class' "autocompletable__name" ] [ Html.text user.User.Name ] ] ]
-          Elem.template [ Attr.create "type" "editor" ] [ Campfire.Views.Templates.Users._Mention.render ctx user ] ]
+          // The editor takes the template's content as it is, so the ERB's line breaks around the mention are spaces in the attachment.
+          Elem.template [ Attr.create "type" "editor" ] [ Html.sp; Campfire.Views.Templates.Users._Mention.render ctx user; Html.sp ] ]
