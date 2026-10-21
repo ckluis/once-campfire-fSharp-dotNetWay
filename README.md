@@ -282,15 +282,11 @@ specific to this port are listed below, each citing the reference file it depart
 
 - **Views** (`Campfire.Views`; `rust/crates/views` is the port it follows). None of these changes a byte of
   output, which `bin/views-differential` compares with the Rust crate's on thousands of cases:
-  - The view fragment cache counts what the page-splicing layer keeps for each fragment (its SHA-256; the compressed
-    pieces went in unit 2.8) in the fragment's entry, and drops them with it. Rust keeps them in a bounded map in the kit, keyed by
-    the address of the fragment's `Arc`, which a .NET object can't be found by (and `Campfire.Views` may not
-    reference `Campfire.Kit`). A fragment's entry therefore costs its bytes plus its pieces' as of the last time it
-    was used, and a page's fragments that keep being shown stay while the rest age out. Tested by
-    `FragmentCacheTests` ("fragments a page keeps showing stay while the rest age out, pieces and SHA included").
-  - A template digest in a fragment's key is a hash of the names of the template modules it renders, not of their
-    source text (`ActionView::Digestor`, `include_str!` in Rust): the templates are compiled in and the cache doesn't
-    outlive the process, so the digest only has to be stable within it.
+  - The view fragment cache is the framework's HybridCache over a size-limited memory cache (32 MiB by default, `CAMPFIRE_FRAGMENT_CACHE_MB`),
+    not Rails' Redis store: entries are evicted by `MemoryCache` compaction rather than `MemoryStore`'s prune to three quarters, they
+    expire after seven days, and a key is Rails' `cache_key_with_version` with the partial and variant but no template digest (the
+    cache doesn't outlive the process). Fragments are fetched up front and awaited, never inside a template. JSON (the bot API) is
+    not cached. Tested by `FragmentsTests` (F1, F2) and the message tests (F3).
   - `capitalize`, `User#initials`' word boundary and the case of a name's first letters use tables generated from
     Rust's standard library (`bin/views-differential --unicode`), not .NET's own casing, which leaves out special
     casing (`ß` is `SS`), the Turkish dotless i and characters Unicode added since. Rust's `capitalize` is what

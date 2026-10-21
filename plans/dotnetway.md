@@ -1807,3 +1807,78 @@ D1-D9, with the cheap checks re-run. Evidence in `bench/results/dotnetway-p3-ver
   `FragmentGlue.fs` 21 out; `HtmlOutput`, `Fragments` and the bigger `Legacy` in, about 180). `Campfire.Views` 6,017 corrected, App 11,854.
 - Evidence: `bench/results/dotnetway-4-2/` (`new/`, `ctl/`, `new2/`, `ctl2/`, `bench.sh`, `bench-sidebar.sh`, `pixel.sh`, `network.sh`, logs,
   `loads.txt`, `loads2.txt`). `bin/clean-docker` and `bin/clean-parity` run; the control image removed; 28 GB free.
+
+### Phase 4, unit 4.3: Fragments on HybridCache (2026-10-21)
+
+- **What is in** (`a2fa00e`): `Core/Fragments.fs` has the keys (`Fragments.key`: Rails' `cache_key_with_version` with the partial and variant, no
+  template digest: `views/messages/_message/messages/<id>-<usec>/presentation-v3`, `views/messages/boosts/_boost/boosts/...`,
+  `views/users/sidebars/rooms/_direct/memberships/...`; `cacheVersion`, `cacheKeyWithVersion`, built in a per-thread scratch buffer, one string
+  per key) and `Fragments.fetch` over HybridCache (the 7-day options and the 32 MiB `SizeLimit` of 4.2). `MessagesCached`, `BoostsCached` and
+  `UsersCached` are async fetchers (`ValueTask`): `MessagesCached.fetch cache ctx id updatedAt view` builds the `MessageView` **inside the
+  factory**, so a hit loads nothing (as Rails' `cache` block), and the factory awaits the message's boosts first; `BoostsCached.boosts`,
+  `UsersCached.directRooms` and `MessagesCached.messages`/`item` are the list forms. `MessageItem` is `{ ClientMessageId; RoomId; Html }` and
+  `SidebarDirectItem` is `{ Html }` (no `View` case); the templates take fragments as arguments (`_Message.render ... boosts`, `_Boosts`,
+  `Boosts.Index`, `Show.render w fragment`), so no template reaches the cache and the lint's rule (no cache call outside `Fragments.fs`) holds.
+  The App awaits up front: `Presenter.Messages`/`MessageItem`/`MessageFragment`, `Accounts.sidebar` (takes the cache and a context),
+  `Data.readAsync`/`presentAsync` over the new `Reads.runAsync` (the same `DbError` boundary; the request's context is used one step at a time, so
+  fetches are in order, never `WhenAll`), the room page, refreshes, messages index/create/show, searches, the sidebar, direct-room and boost
+  broadcasts, and the webhook-reply broadcast in `IntegrationJobs`. `AppState.Fragments` is the one HybridCache: built in `Boot` (jobs and
+  broadcasts render with no host) and registered as the host's `HybridCache`, so the kept compressed pages and the fragments share one 32 MiB
+  budget. The fragments render with `Page.fragmentContext` (no request, no `Current.user`; the only field a fragment reads is the asset path).
+- **Deleted:** `Core/FragmentCache.fs` (the byte-bounded store, `KeyBuf`, the template digests, `scoped`/`withCache`), `AppState.FragmentCache`
+  and every `scoped`/`withCache` call (`Controllers.fs`, `Data.fs`, `Page.fs` and eight controllers), the three Jbuilder caches in `Presenter.fs`
+  (`jbuilderKey`, `cachedUserJson`, `tryFetchValue` calls) and `MessagesJson`'s cache sizes, `FragmentCacheTests` (261 lines), and the 32
+  `fragment_cache/keys|script` cases of `oracle.jsonl` (they compared the deleted store's keys and eviction with Rust's; `parity/bin/loose-golden`
+  re-run for the new line numbers of the 30 loose answers). The differential's runner (`reference-tools/views/differential/fsharp`) now builds
+  fragments through the fetchers (a fresh cache per operation that checks reuse, `mode: mixed` fetches every second message through it) and the
+  test project references `Microsoft.AspNetCore.App` for the DI container. Its `Program.fs` (the bench mode of `bin/views-differential`) was
+  already stale since 4.2 (`RecordedPage`) and is left; `bin/views-differential bench` does not build.
+- **Tests:** F1 (`FragmentsTests`: a hit is the same instance; 64 concurrent misses render once; 401 fragments of 9.4 KB into a 2,000,000-byte
+  limit keep the estimated size at or under it and fewer than all; the default entry options are 7 days for both expirations and local-only), F2
+  (the keys match the framework's formatting byte for byte over 15 edge timestamps and 11 ids; Rails' key vectors; a message's key changes with its
+  `updated_at`; a changed boost gets a new fragment and, touching its message, the message does too, while the other boost is the same instance;
+  the message fragment holds its boosts'), F3 (`MessagesTests` "F3 a text message is answered and broadcast as it was stored": the stream the
+  broadcast wrote and the response equal, the page finds the same fragment with a factory that fails if run, no `campfire.test` host in it).
+  `PresentersTests`' Jbuilder key test is gone with the cache; the Views tests that used `FragmentCache.withCache` render fragments directly.
+- **Gates run:** `CAMPFIRE_REQUIRE_SEED=1 bin/verify` on the final tree (Release, warnings as errors): lint self-test ok, lint clean (221 files),
+  **978 total, 972 passed, 6 skipped (the same environmental 6), 0 failed**; H1 (zero query compilations in steady state) green, P2 unchanged.
+  Network layer on the image built from `a2fa00e` (`network.log`): the room page 416,116 bytes and the messages page 383,844 (4.2: 416,116 and
+  383,844), `Content-Encoding` once for gzip (37,392 and 25,383), br (21,802 and 11,226) and `gzip, br` (br), none for identity, every body
+  decodes to the plain length, the second request the same size. `bin/pixel-parity --fast`: `rooms/**,messages/**,search/**,interactions/sidebar*`:
+  default 146/146, crowd 8/8, custom_styles 6/6, first_run 0/0, restricted 2/2 screenshots, aria and loose DOM equal (508 s);
+  `realtime/message_sent`, `realtime/boosted`, `realtime/message_edited`, one at a time, 2/2 each (35-37 s). `bin/clean-parity` between runs,
+  `bin/clean-docker` after the builds.
+- **Speed (`bench/quick`, 3 reps, interleaved new/ctl/ctl/new/new/ctl via `bench.sh`; control = `campfire-dotnetway:u43ctl` built from the base
+  `6f69c4b` (the head of 4.2) from its tracked files by `build-ctl.sh`, labels checked, image removed after; host probe ratio 1.033-1.089 over
+  all runs, Mac load average 2.2-3.9 from other sessions at each rep boundary (`loads.txt`), 0 non-2xx and 0 connection errors in 30 runs per
+  side, decoded bytes equal Rust's, post rows equal answers):**
+
+| workload | c | control req/s | new req/s | x Rails (new) | x Rails (control) | CPU us/req ctl -> new |
+|---|---:|---:|---:|---:|---:|---|
+| room page | 16 | 8,044 | 7,960 | 33.26 | 33.62 | 412 -> 416 |
+| room page | 1 | 2,650 | 2,638 | 24.63 | 24.75 | 475 -> 475 |
+| messages page | 16 | 7,422 | 7,437 | 19.54 | 19.50 | 448 -> 448 |
+| messages page | 1 | 2,362 | 2,355 | 10.81 | 10.84 | 519 -> 521 |
+| sidebar | 16 | 7,601 | 7,727 | 12.91 | 12.70 | 445 -> 437 |
+| sidebar | 1 | 2,298 | 2,311 | 8.06 | 8.02 | 534 -> 533 |
+| search | 16 | 6,955 | 7,321 | 17.95 | 17.05 | 496 -> 466 |
+| search | 1 | 2,220 | 2,231 | 11.58 | 11.52 | 545 -> 544 |
+| post a message | 16 | 1,974 | 2,063 | 6.25 | 5.98 | 1,547 -> 1,449 |
+| post a message | 1 | 1,095 | 1,156 | 6.92 | 6.56 | 1,693 -> 1,633 |
+
+  No cell is under 5x (thinnest: post c=16 6.25x, post c=1 6.92x, sidebar c=1 8.06x). Every cell is within -1.0% to +5.6% of the control's
+  throughput and within +0.9% to -6.3% of its CPU per request (the room and messages pages and both sidebar cells move by under 2%), so the
+  fetchers cost nothing measurable: a hit is the key's one string, a closure and a completed `ValueTask`. Search c=16 and both post cells are
+  a few percent faster, which is the range of this session's noise rather than a claim (the control's own post c=16 is 5.98x here against
+  6.21x in 4.2's session: the stored-Rails ratio carries about 5% between sessions); what the removed Jbuilder caches saved is on the bot API,
+  which no workload measures.
+- **Not done as asked, and why:** nothing deferred. The six `--fast` slices were run on the image of the final code (`a2fa00e`; the commit after
+  it changes only AGENTS.md, README and this log).
+- **Differences recorded:** none for the README beyond its rewritten fragment-cache bullet (the cache is HybridCache's: `MemoryCache` compaction
+  eviction, seven-day expiry, no template digest in a key, JSON not cached; the design lists this as internal). Bytes of every page are the writer's,
+  as before.
+- **KLOC:** `bin/kloc` 34,232 by upstream's rules, **34,451 corrected (34.5 KLOC)**, from 34,647 (-196): `Campfire.Views` 5,769 corrected from 6,017
+  (`FragmentCache.fs` 485 lines out, the fetchers and `Fragments` keys and fetch in), App 11,888 from 11,854 (the async plumbing and `Reads.runAsync`
+  against the cache scoping out), Db +38.
+- Evidence: `bench/results/dotnetway-4-3/` (`new/`, `ctl/`, `bench.sh`, `build.sh`, `build-ctl.sh`, `pixel.sh`, `network.sh`, logs, `loads.txt`,
+  `verify.log`). 27 GB free after `bin/clean-docker`.
