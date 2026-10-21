@@ -9,10 +9,26 @@ open Campfire.App.Tests.Support
 open Campfire.Db
 open Campfire.Db.Ef
 
+/// The default seed has no membership with a `connected_at` (and four with an `unread_at`): the Dapper rows' nullable `connected_at`
+/// would never be compared against a value. `Membership.present` connects a few before each comparison.
+let private connectSome (test: Test) =
+    task {
+        use db = test.App.DbFactory.CreateDbContext()
+        let! result =
+            Writes.run test.App.Gate test.App.Env db (fun tx ->
+                for m in tx.Db.Memberships.OrderBy(fun m -> m.Id).Take(6).ToList() do
+                    Membership.present tx m)
+        match result with
+        | Ok() -> ()
+        | Error e -> failwith (DbError.display e)
+        Assert.True((db.Memberships.ToList() |> Seq.filter (fun m -> m.ConnectedAt.HasValue) |> Seq.length) >= 6)
+    }
+
 [<Fact>]
 let ``dapper reads return the same records as EF for every row of the default seed`` () =
     task {
         use! test = bootSeeded "default"
+        do! connectSome test
         use db = test.App.DbFactory.CreateDbContext()
         let users = db.Users.ToList()
         let rooms = db.Rooms.ToList()
@@ -89,6 +105,7 @@ let ``a dapper read inside a write sees the write's own rows`` () =
 let ``dapper sidebar and search reads equal EF's answers`` () =
     task {
         use! test = bootSeeded "default"
+        do! connectSome test
         use db = test.App.DbFactory.CreateDbContext()
         let users = db.Users.ToList()
         let rooms = db.Rooms.ToList()

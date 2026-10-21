@@ -93,12 +93,14 @@ let ``P1 the subprotocol is the first of the client's list that Action Cable spe
             Assert.Equal("""{"type":"welcome"}""", welcome)
         })
 
-[<Fact>]
-let ``P8 a subscribe transmits, then confirms, then the stream's broadcasts arrive in order with no gap`` () =
+/// P8's body: a channel transmits in `subscribed` while another thread broadcasts numbered messages on the stream it starts.
+/// The broadcaster runs until the client has read the confirmation and 200 more frames (a fixed count can finish before the
+/// subscribe is processed on a fast host, which left `seen` empty and the read blocked).
+let private orderRun (options: CableOptions) (logger: Microsoft.Extensions.Logging.ILogger) : Task =
     task {
-        let total = 1000
         let server =
-            Server.builder (testOptions ()) cookieAuth identify
+            Server.builder options cookieAuth identify
+            |> ServerBuilder.withLogger logger
             |> ServerBuilder.channel "OrderedChannel" (fun () ->
                 { Channel.empty with
                     Subscribed =
@@ -117,40 +119,59 @@ let ``P8 a subscribe transmits, then confirms, then the stream's broadcasts arri
             do! ws.ConnectAsync(Uri $"ws://{authority}/cable", CancellationToken.None)
             let! welcome = text ws
             Assert.Equal("""{"type":"welcome"}""", welcome)
-            // Another thread broadcasts numbered messages throughout the subscribe.
             let identifier = Json.generate (Value.Object [ "channel", Value.String "OrderedChannel" ])
-            let stop = ref false
+            let stop = ref 0
             let broadcaster =
                 Task.Run(fun () ->
                     let mutable n = 0
-                    while n < total do
+                    while Volatile.Read(&stop.contents) = 0 do
                         server.Broadcast("ordered", Payload.ofValue n) |> ignore
                         n <- n + 1
-                        if n % 50 = 0 then Thread.Sleep 1)
-            do! Task.Delay 5
-            do! send ws (Json.generate (Value.Object [ "command", Value.String "subscribe"; "identifier", Value.String identifier ]))
+                        if n % 10 = 0 then Thread.Sleep 1)
+            try
+                do! Task.Delay 5
+                do! send ws (Json.generate (Value.Object [ "command", Value.String "subscribe"; "identifier", Value.String identifier ]))
+                let frames = List<string>()
+                let mutable confirmed = false
+                while not confirmed do
+                    let! frame = text ws
+                    if frame.Contains "confirm_subscription" then confirmed <- true else frames.Add frame
+                // Before the confirmation: only the transmission (and, under a fast heartbeat, pings).
+                let transmitted = frames |> Seq.filter (fun f -> not (f.Contains "\"type\":\"ping\"")) |> List.ofSeq
+                Assert.Equal(1, transmitted.Length)
+                Assert.Contains("\"message\":\"transmitted\"", transmitted[0])
+                // After the confirmation: increasing numbers, no gaps from the first seen.
+                let seen = List<int>()
+                while seen.Count < 200 do
+                    let! frame = text ws
+                    if not (frame.Contains "\"type\":\"ping\"") then
+                        use document = Text.Json.JsonDocument.Parse frame
+                        seen.Add(document.RootElement.GetProperty("message").GetInt32())
+                for i in 1 .. seen.Count - 1 do
+                    Assert.Equal(seen[i - 1] + 1, seen[i])
+            finally
+                Volatile.Write(&stop.contents, 1)
             do! broadcaster
-            ignore stop
-            let frames = List<string>()
-            let mutable confirmed = false
-            while not confirmed do
-                let! frame = text ws
-                if frame.Contains "confirm_subscription" then confirmed <- true else frames.Add frame
-            Assert.Equal(1, frames.Count)
-            Assert.Contains("\"message\":\"transmitted\"", frames[0])
-            // After the confirmation: increasing numbers, no gaps from the first seen to the last broadcast.
-            let seen = List<int>()
-            use limit = new CancellationTokenSource(seconds 5.0)
-            while (seen.Count = 0 || seen[seen.Count - 1] < total - 1) && not limit.IsCancellationRequested do
-                let! frame = text ws
-                use document = Text.Json.JsonDocument.Parse frame
-                seen.Add(document.RootElement.GetProperty("message").GetInt32())
-            Assert.NotEmpty seen
-            for i in 1 .. seen.Count - 1 do
-                Assert.Equal(seen[i - 1] + 1, seen[i])
         finally
             host'.StopAsync().Wait()
             host'.DisposeAsync().AsTask().Wait()
+    }
+
+[<Fact>]
+let ``P8 a subscribe transmits, then confirms, then the stream's broadcasts arrive in order with no gap`` () =
+    orderRun (testOptions ()) (RecordingLogger Microsoft.Extensions.Logging.LogLevel.Information) |> fun t -> t.WaitAsync(seconds 30.0)
+
+/// Risk 3: two sends at once on one `ManagedWebSocket` (`There is already one outstanding 'SendAsync' call`) because a ping, close or
+/// reject bypassed the writer. Pings every 10 ms land on a connection that is subscribing while 10,000 broadcasts a second arrive.
+[<Fact>]
+let ``P8 with a 10 ms heartbeat logs no outstanding SendAsync error`` () =
+    task {
+        let logger = RecordingLogger Microsoft.Extensions.Logging.LogLevel.Debug
+        let options = testOptions ()
+        options.BeatInterval <- TimeSpan.FromMilliseconds 10.0
+        do! (orderRun options logger).WaitAsync(seconds 30.0)
+        Assert.Empty(logger.Containing "outstanding")
+        Assert.Empty(logger.Entries |> List.filter (fun e -> e.Level >= Microsoft.Extensions.Logging.LogLevel.Error))
     }
 
 [<Fact>]

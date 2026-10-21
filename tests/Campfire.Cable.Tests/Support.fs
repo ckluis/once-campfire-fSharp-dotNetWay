@@ -43,6 +43,31 @@ let cookieAuth (ctx: HttpContext) : Task<User option> =
 
 type Log = List<string>
 
+/// One line of a `RecordingLogger`.
+type LogEntry = { Level: LogLevel; Text: string; Error: exn | null }
+
+/// An `ILogger` that keeps what it is given, for tests that assert on what the server logged (or did not). Records `minLevel` and up.
+type RecordingLogger(minLevel: LogLevel) =
+    let entries = List<LogEntry>()
+    member _.Entries: LogEntry list = lock entries (fun () -> List.ofSeq entries)
+    /// Every entry whose text, or whose exception's message, contains `fragment`.
+    member this.Containing(fragment: string) : LogEntry list =
+        this.Entries
+        |> List.filter (fun e ->
+            e.Text.Contains(fragment, StringComparison.Ordinal)
+            || (match e.Error with
+                | null -> false
+                | error -> error.ToString().Contains(fragment, StringComparison.Ordinal)))
+
+    interface ILogger with
+        member _.BeginScope<'S when 'S: not null>(_state: 'S) : IDisposable | null = null
+        member _.IsEnabled(level: LogLevel) = level >= minLevel
+
+        member _.Log<'S>(level: LogLevel, _eventId: EventId, state: 'S, error: exn | null, formatter: Func<'S, exn | null, string>) =
+            if level >= minLevel then
+                let text = formatter.Invoke(state, error)
+                lock entries (fun () -> entries.Add { Level = level; Text = text; Error = error })
+
 let private uintParam (value: System.Text.Json.JsonElement voption) : uint64 option =
     match value with
     | ValueSome v when v.ValueKind = System.Text.Json.JsonValueKind.Number ->
@@ -126,7 +151,9 @@ type TestServer =
       /// host:port
       Authority: string
       Origin: string
-      Log: Log }
+      Log: Log
+      /// What the server logged (Information and up).
+      Logger: RecordingLogger }
 
     member this.Url = $"ws://{this.Authority}/cable"
 
@@ -148,8 +175,10 @@ type TestServer =
 let startWith (options: CableOptions) (assumeSsl: bool) : Task<TestServer> =
     task {
         let log = Log()
+        let logger = RecordingLogger LogLevel.Information
         let server =
             Server.builder options cookieAuth identify
+            |> ServerBuilder.withLogger logger
             |> ServerBuilder.channel "RoomChannel" (roomChannel log)
             |> ServerBuilder.channel "HeartbeatChannel" (fun () -> Channel.empty)
             |> ServerBuilder.channel Turbo.StreamsChannelName (fun () ->
@@ -162,7 +191,7 @@ let startWith (options: CableOptions) (assumeSsl: bool) : Task<TestServer> =
             |> ServerBuilder.build
         let! app, address = hostWith server assumeSsl
         let authority = (Uri address).Authority
-        return { Server = server; Host = app; Authority = authority; Origin = $"http://{authority}"; Log = log }
+        return { Server = server; Host = app; Authority = authority; Origin = $"http://{authority}"; Log = log; Logger = logger }
     }
 
 let start (options: CableOptions) : Task<TestServer> = startWith options false
@@ -260,11 +289,17 @@ type Client(tcp: TcpClient, stream: Stream, protocol: string option, extensions:
 
     /// Connects, over TLS when `tls` (trusting whatever certificate the server has), and upgrades.
     static member Open(authority: string, headers: (string * string) list, tls: bool) : Task<Choice<Client, Http>> =
+        Client.Open(authority, headers, tls, 0)
+
+    /// As above, with the socket's receive buffer fixed at `receiveBuffer` bytes (0 = the system's, which grows by autotuning).
+    /// A client that never reads is only slow once the kernel stops absorbing for it, and an autotuned buffer can take megabytes.
+    static member Open(authority: string, headers: (string * string) list, tls: bool, receiveBuffer: int) : Task<Choice<Client, Http>> =
         task {
             let host, port =
                 let i = authority.LastIndexOf ':'
                 authority.Substring(0, i), int (authority.Substring(i + 1))
             let tcp = new TcpClient()
+            if receiveBuffer > 0 then tcp.ReceiveBufferSize <- receiveBuffer
             do! tcp.ConnectAsync(host, port)
             tcp.NoDelay <- true
             let! stream =
@@ -439,6 +474,19 @@ let connectWith (server: TestServer) (userId: uint64 option) (origin: string) : 
     }
 
 let connect (server: TestServer) (userId: uint64) : Task<Client> = connectWith server (Some userId) server.Origin
+
+/// A client that will not read (L1, L2): its receive buffer is small and fixed, so the kernel's absorption of what the server
+/// writes is bounded and the test does not depend on how far macOS autotunes loopback buffers.
+let connectNonReading (server: TestServer) (userId: uint64) : Task<Client> =
+    task {
+        let headers =
+            [ "Origin", server.Origin
+              "Sec-WebSocket-Protocol", "actioncable-v1-json, actioncable-unsupported"
+              "Cookie", $"session_token={userId}" ]
+        match! Client.Open(server.Authority, headers, false, 4096) with
+        | Choice1Of2 client -> return client
+        | Choice2Of2 response -> return failwith $"upgrade refused: {response.Status}"
+    }
 
 /// A plain GET to `/cable`, for what a non-WebSocket request is answered with.
 let httpGet (authority: string) (headers: (string * string) list) : Task<Http> =

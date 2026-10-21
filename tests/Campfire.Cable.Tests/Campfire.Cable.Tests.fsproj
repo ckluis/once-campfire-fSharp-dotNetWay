@@ -14,6 +14,8 @@
     <Compile Include="TurboTests.fs" />
     <Compile Include="ProtocolTests.fs" />
     <Compile Include="TransportTests.fs" />
+    <Compile Include="LimitTests.fs" />
+    <Compile Include="MemoryTests.fs" />
     <Compile Include="JsonFramesTests.fs" />
     <Compile Include="GoldenTests.fs" />
   </ItemGroup>

@@ -137,11 +137,15 @@ type internal CableConnection<'U>(ws: WebSocket, ctx: HttpContext, user: 'U vopt
             with :? ObjectDisposedException ->
                 ()
 
-    /// The queue itself: full is a slow consumer (abort), closed is a connection going away on its own.
+    /// A refused write: full is a slow consumer (abort), closed is a connection going away on its own. Never called while
+    /// `held` is locked: `Abort` runs `ctx.Abort`, whose continuations may run inline and come back into this connection.
+    member private this.Refused() : unit =
+        if Volatile.Read(&closing) = 0 then this.Abort()
+
     member private this.Offer(frame: ReadOnlyMemory<byte>) : bool =
         if queue.Writer.TryWrite frame then true
         else
-            if Volatile.Read(&closing) = 0 then this.Abort()
+            this.Refused()
             false
 
     /// The connection's own frames go straight to the queue, ahead of what a command held back.
@@ -157,11 +161,16 @@ type internal CableConnection<'U>(ws: WebSocket, ctx: HttpContext, user: 'U vopt
             finally
                 // The flag drops only after the held frames are queued: a broadcaster that sees it down (outside the lock)
                 // must not overtake a frame of the same stream still being flushed.
-                lock held (fun () ->
-                    for frame in held do
-                        this.Offer frame |> ignore
-                    held.Clear()
-                    Volatile.Write(&inCommand, 0))
+                let refused =
+                    lock held (fun () ->
+                        let mutable refused = false
+                        for frame in held do
+                            if not (queue.Writer.TryWrite frame) then refused <- true
+                        held.Clear()
+                        Volatile.Write(&inCommand, 0)
+                        refused)
+                // Abort only after leaving the lock.
+                if refused then this.Refused()
         }
 
     /// Runs one command (or one `unsubscribed` on close) in a DI scope of its own: the connection outlives any sensible
@@ -189,14 +198,25 @@ type internal CableConnection<'U>(ws: WebSocket, ctx: HttpContext, user: 'U vopt
             if Volatile.Read(&aborted) <> 0 then false
             elif Volatile.Read(&inCommand) = 0 then this.Offer frame
             else
-                lock held (fun () ->
-                    if inCommand = 0 then this.Offer frame
-                    elif held.Count < options.QueueCapacity then
-                        held.Add frame
-                        true
-                    else
-                        this.Abort()
-                        false)
+                // 0: written or held; 1: the queue refused it; 2: the held backlog is over capacity. Either refusal aborts
+                // after the lock is released (see `Refused`).
+                let outcome =
+                    lock held (fun () ->
+                        if inCommand = 0 then
+                            if queue.Writer.TryWrite frame then 0 else 1
+                        elif held.Count < options.QueueCapacity then
+                            held.Add frame
+                            0
+                        else
+                            2)
+                match outcome with
+                | 0 -> true
+                | 1 ->
+                    this.Refused()
+                    false
+                | _ ->
+                    this.Abort()
+                    false
 
         member this.Close(reason: DisconnectReason option, reconnect: bool) : unit =
             if Interlocked.Exchange(&closing, 1) = 0 then

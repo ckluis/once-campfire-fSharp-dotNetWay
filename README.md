@@ -248,11 +248,41 @@ specific to this port are listed below, each citing the reference file it depart
     to its `Content-Length`. A real HEAD keeps the length of the body it did not send (`Rack::Head`). Tested by
     `RequestsTests` (R3b).
 
-- **Cable** (`Campfire.Cable`; `rust/crates/cable` is the port it follows, Action Cable 8.1 on Puma, with
-  websocket-driver, is the reference): the `101 Switching Protocols` is written by Kestrel, so `Connection` is
-  `Upgrade` (as websocket-driver writes it; Rust writes `upgrade`), and it carries `Date` and, unless the
-  host turns it off, `Server`, which neither websocket-driver nor Rust sends. Tested by `ProtocolTests` ("the
-  101 answers as websocket-driver does, plus the host's Date").
+- **Cable** (`Campfire.Cable`; `rust/crates/cable` is the port it follows, Action Cable 8.1 on Puma, with websocket-driver, is the
+  reference). The transport is ASP.NET Core's WebSocket middleware (`app.UseWebSockets()`), so the handshake, framing, masking,
+  control frames and close codes are the framework's. Tested by `ProtocolTests`, `TransportTests`, `LimitTests` and `MemoryTests`.
+  - **No WebSocket compression, as Rails.** A client's `permessage-deflate` offer gets no `Sec-WebSocket-Extensions`
+    (`DangerousEnableCompression = false`), which removes the Rust port's compression entry. The framework deflates per socket and per
+    send, and the Rust saving (one deflate per broadcast shared by every subscriber) is not available to it.
+  - **Slow clients are cut, not buffered.** Rails buffers without limit. A client whose outbound queue is 256 frames behind, or whose
+    socket has taken nothing for a send of 30 seconds (`SendTimeout`), is disconnected with a TCP abort and no `disconnect` frame (one
+    could only queue behind the backlog); its Action Cable client reconnects and resubscribes. `unsubscribed` runs for each of its
+    subscriptions. Tested by `LimitTests` (L1, L2).
+  - **Limits, as in Rust (Rails has none):** 64 subscriptions and 4 KiB identifiers per connection (beyond them the command is logged
+    and ignored), messages of at most 1 MiB (larger closes with 1009, also when sent in fragments), a binary message is logged and
+    ignored, invalid UTF-8 in a text message closes with 1007. Tested by `ProtocolTests` (L3, L5, L6) and `LimitTests` (L4, L5).
+  - **A broadcast reaches a stream after the confirmation, not before.** A subscription's streams are registered once its
+    `confirm_subscription` is queued, so a broadcast made between the callback and that registration is not delivered to it; the
+    confirmation, any transmission the callback made, and then the stream's broadcasts are in that order on the socket
+    (`TransportTests` P8). Rails registers with its pub/sub adapter first and confirms when the adapter acknowledges.
+  - **Origin check:** `Origin` is compared with the request's scheme and host as ASP.NET Core sees them after the trusted-proxy
+    forwarded headers and `assume_ssl` (`allow_request_origin?`); behind a proxy that rewrites `Host` and sends `X-Forwarded-Host` from
+    a trusted range, the forwarded host is the one compared (Rails compares the raw `Host`).
+  - **Authentication is the page cookie scheme** (`AuthenticateAsync` on the `Session` scheme): the same ticket and lookup as every
+    page, no `sessions` write and no cookie on the upgrade. The connection looks its session up once more after it is registered
+    (a ban or sign-out between the first lookup and the registration would otherwise go unheard; Rails has that gap), in a scope of
+    its own. A remote disconnect is sent after the commit that caused it, not inside the transaction as Rails' `deactivate` and
+    `ban` do (as in Rust).
+  - **Byte level:** JSON inside frames writes `<`, `>` and `&` as themselves where Rails escapes them (`\u003c`; the frames
+    decode equal and the golden comparison is on decoded frames); payloads written from anonymous records keep their keys in
+    alphabetical order, which is Rails' order for every payload Campfire sends today. The `101 Switching Protocols` is written by
+    Kestrel, so `Connection` is `Upgrade` (as websocket-driver writes it; Rust writes `upgrade`) and it carries `Date` and, unless
+    the host turns it off, `Server`, which neither websocket-driver nor Rust sends (`ProtocolTests`, "the 101 answers as
+    websocket-driver does, plus the host's Date"). The heartbeat (`ping` every 3 seconds) starts at boot, not with the first connection. WebSockets over HTTP/2 are
+    the framework's once TLS and HTTP/2 are served (Phase 7).
+  - **Memory:** an idle connection holds about 16 KB of managed memory on the server side on the development Mac, 13.6 KB of it the
+    host's own (Kestrel, the middleware, a `ManagedWebSocket`) and 2.6 KB Cable's; the Rust port's resident set is about 9 KB per client
+    (`bench/results/cable-fanout-dotnetway.md`, `MemoryTests` L7).
 
 - **Views** (`Campfire.Views`; `rust/crates/views` is the port it follows). None of these changes a byte of
   output, which `bin/views-differential` compares with the Rust crate's on thousands of cases:

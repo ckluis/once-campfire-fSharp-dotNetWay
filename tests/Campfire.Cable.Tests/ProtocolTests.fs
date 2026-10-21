@@ -312,7 +312,7 @@ let ``restart closes with server_restart`` () =
         })
 
 [<Fact>]
-let ``a subscriber that cannot keep up is cut, not waited for`` () =
+let ``L1 (capacity 2) a subscriber that cannot keep up is cut, not waited for`` () =
     let options = testOptions ()
     options.QueueCapacity <- 2
     withServer options (fun app ->
@@ -436,7 +436,7 @@ let ``a client close is answered with its code`` () =
 
 /// websocket-driver's code for the failure, not a blanket 1002.
 [<Fact>]
-let ``a protocol error closes with its code`` () =
+let ``L5 an invalid UTF-8 text message closes 1007, websocket-driver's code and not a blanket 1002`` () =
     withServer (testOptions ()) (fun app ->
         task {
             let! client = connect app 1UL
@@ -446,7 +446,7 @@ let ``a protocol error closes with its code`` () =
         })
 
 [<Fact>]
-let ``a connection holds a bounded number of subscriptions`` () =
+let ``L3 a connection holds a bounded number of subscriptions and identifiers of bounded size`` () =
     withServer (testOptions ()) (fun app ->
         task {
             let! client = connect app 1UL
@@ -465,7 +465,7 @@ let ``a connection holds a bounded number of subscriptions`` () =
         })
 
 [<Fact>]
-let ``a client's ping is answered with a pong`` () =
+let ``L6 a client's ping is answered with a pong`` () =
     withServer (testOptions ()) (fun app ->
         task {
             let! client = connect app 1UL
