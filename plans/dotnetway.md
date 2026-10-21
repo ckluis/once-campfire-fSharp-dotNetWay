@@ -167,6 +167,10 @@ to "same DOM after sanitizing, and nothing Loofah strips survives". Security rev
 
 ### 2.3 Views: `Campfire.Views` -> Falco.Markup
 
+**Phase 4's design note, `plans/design-views.md` (2026-10-21), wins where it and this section disagree** (a small page-in-parts
+type stays for the 5x floor, attributes use `Text.enc`'s encoder, the Jbuilder caches go, the differential's last answers are
+frozen as test data).
+
 **Replaces it:** `Falco.Markup` 1.4.0 (FalcoFramework, stable, netstandard2.0; last release 2025-09-10; Falco 5.2.0 already
 depends on it). Each template becomes a function returning `XmlNode`, rendered with `renderHtml`/`renderNode`. Deleted:
 `Core/Out.fs` (the UTF-8 writer), the recorded-page machinery, `Tag.fs`'s attribute builder, most of `Helpers/Forms.fs`,
