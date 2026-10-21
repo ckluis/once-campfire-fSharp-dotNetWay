@@ -2030,3 +2030,36 @@ D1-D9, with the cheap checks re-run. Evidence in `bench/results/dotnetway-p3-ver
   fields, three page calls shorter). The 10 templates were literal tables and are Falco nodes plus 37 lines of new `Markup/` helpers; as in 4.4 and 4.5 the shrink comes in 4.11.
 - Evidence: `bench/results/dotnetway-4-6/` (`new/`, `ctl/`, `bench.sh`, `build-ctl.sh`, `pixel.sh`, `first-run/`, pixel and bench logs, `loads.txt`, `verify.log`). 23 GB free after `bin/clean-docker`.
 - **Next:** the Opus checkpoint after this unit (design-views.md section 4): review of 4.1-4.6, then 4.7 Users.
+
+### Phase 4, checkpoint after 4.6: Opus review (2026-10-21) - GO for 4.7, with notes
+
+- **Reviewed** against `plans/design-views.md` and D1-D9: the diff `b632a7c..36ac7e2` (19 commits), the lint and its planted files, `Html`, `HtmlOutput`
+  and the slot rule, `Fragments` (keys, the 7-day options, `SizeLimit`, `DisableDistributedCache`, immutability, only `Fragments.fs` calling
+  HybridCache), `Legacy`, the moved sidebar/search/mention templates against their ERB, the evidence directories of 4.2-4.6 (pixel logs, the bench
+  `vs-stored.md` and controls, `verify.log`), and the unit entries above. The gates each unit claims are in its evidence directory with the counts it
+  reports. No template fetches a fragment (`renderNode`/`renderHtml` are called only in `HtmlOutput.fs` and `Legacy.fs`; no `.Result` in Views). Every
+  bench cell of 4.2-4.6 is over 5x against a same-session control; the thinnest are post c=16 6.10x (4.5) and sidebar c=1 8.28x (4.6).
+- **Fixed (`3195579`):** (1) **three lint bypasses**, each confirmed by rendering in `dotnet fsi`: Falco.Markup 1.4.0's `Falco.Markup.Html` module is
+  `AutoOpen`, so `_a [ _href_ v ] [ _text v ]` wrote a raw attribute and raw text with no `Attr.`/`Text.` for the rules to see; `open Falco.Markup.Attr`
+  then `create "href" v`, and `module T = Falco.Markup.Text` then `T.raw v`, hid the qualified name (Falco's modules are not `RequireQualifiedAccess`);
+  `ParentNode`/`SelfClosingNode` take a raw tag. New rules `falco-dsl` (the `_x`, `_x_`, `_x'` spellings, `Templates.html5`/`svg`) and `falco-alias`
+  (opening or abbreviating Falco's `Attr`, `Text`, `Elem`, `Html`, `Templates`, `Svg`), the two cases added to `node-ctor`; 9 planted files (27 now),
+  the clean file opens `Falco.Markup`, `System.Text` and the project's `Templates` namespace. No source file used any of them (228 files clean).
+  (2) **The slot marker inside trusted HTML:** a `<` U+E000 digits `>` in `Html.trusted` text is read as a slot, and `HtmlOutput` raises on a slot it was
+  not given, so every page holding it would answer 500. Rich text is safe today only because the sanitizer's serializer escapes `<` in attribute values
+  (`sanitizeWithEscapedAttributeBrackets`); the account's custom CSS (raw in a `style` element, admin-written) meets the split when the layout moves in
+  4.10 and would have taken down every page including the custom-styles form. `Trusted.ofSanitized` now writes U+E000 as `&#57344;` and
+  `ofAccountStyles` as the CSS escape `\E000 ` (the same character in their contexts); new O4 test.
+- **Gates run:** `CAMPFIRE_REQUIRE_SEED=1 bin/verify` on `36ac7e2` (before the fixes): lint self-test ok (18), lint clean (228), 979 total, 973 passed,
+  6 skipped, 0 failed; on `3195579`: lint self-test ok (27), lint clean (228), **980 total, 974 passed, 6 skipped (the same environmental 6), 0 failed**,
+  H1 green. Image rebuilt from `3195579` (revision label checked), `bin/pixel-parity --fast --only 'rooms/show/**,search/**,interactions/sidebar**'`:
+  default 54/54, custom_styles 6/6 (crowd, first_run, restricted 0 cells) screenshots, aria and loose DOM equal (236 s); `realtime/message_sent` alone
+  2/2 on all three layers (35 s). `bin/clean-parity` after each, `bin/clean-docker` after the build; 25 GB free. No bench: the fix is a scan for one
+  character in two makers (rich text renders once per message version; the styles are not on the request path until 4.10).
+- **Notes for 4.7-4.11:** see the checkpoint's return (also below in short). 4.10 is the unit most likely to exceed 90 minutes (the layout, the page-module
+  collapse, `--fast` on every state, the five-workload bench): split it as the design's risk 14 says (layout first, the collapse second). Write the
+  asset tags as one `Trusted.ofAssetTags` string (S4: rebuilding 30 stylesheet links as nodes costs 16.8 us per page). `Legacy.inLayout` renders and
+  splits the nav, footer and sidebar regions for a Turbo-Frame request and then drops them; `Layouts.page` should render only the head and content for a
+  frame. The KLOC drop is all in 4.11 (templates grew 613 -> 641, 656 -> 738 lines): record the result against the design's 3.40 honestly.
+- **KLOC:** `bin/kloc` 34,449 by upstream's rules, **34,668 corrected (34.7 KLOC)** (+2: `Html.fs`).
+- Evidence: `bench/results/dotnetway-4-6/checkpoint/` (`build.sh`, `pixel.sh`, logs, `STATUS-*`).

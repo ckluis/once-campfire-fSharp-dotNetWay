@@ -206,7 +206,7 @@ Project references follow the crate graph. Don't add an edge Rust doesn't have.
   fsharp]` signs in on Rails, hands the storage to our image and back, and checks the cookie signs David in and a post is stored each way.
 - **Phase 4 view tools** (plans/design-views.md): `bin/lint-markup` (run by `bin/verify`, with `--self-test` over `tests/lint-markup/planted/`)
   requires every non-literal attribute value or `Text.raw` in `Campfire.Views`/`Campfire.App` to go through `Core/Html.fs`
-  (`Html.attr`, `Html.text`, `Html.trusted`; Falco.Markup 1.4.0 writes them raw). `tests/Shared/LooseDom.fs` is the harness's loose DOM in F#
+  (`Html.attr`, `Html.text`, `Html.trusted`; Falco.Markup 1.4.0 writes them raw). Keep Falco's modules qualified (`Attr.x`, `Text.x`, `Elem.x`: no `open Falco.Markup.Attr`, no `module T = Text`) and never use Falco's auto-opened `_a [ _href_ v ] [ _text v ]` spelling; the lint refuses both. `tests/Shared/LooseDom.fs` is the harness's loose DOM in F#
   (AngleSharp), pinned to `loose.ts` by `tests/Campfire.Views.Tests/loose/` (`parity/bin/loose-golden` rewrites it); the view tests compare
   through it. `Core/HtmlOutput.fs` is a rendered page in parts (UTF-8 text parts with a `CachedFragment` between each two; `Html.fragment` is the slot a
   Falco template places one with); `Pages.send` writes it and keeps its compressed form in HybridCache by the SHA-256 of its parts
