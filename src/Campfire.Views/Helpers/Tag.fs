@@ -60,7 +60,7 @@ type AttrValue =
 
 /// `Value`'s conversions from the types templates pass.
 module AttrValue =
-    let ofHtml (html: Html) : AttrValue = Safe(html.ToString())
+    let ofHtml (html: SafeBytes) : AttrValue = Safe(html.ToString())
 
 /// `"data-" + key.dasherize` and `"aria-" + key.dasherize`, made once per distinct key: the keys are
 /// the literals of templates, so the tables stay as small as the templates are and no request makes
@@ -129,7 +129,7 @@ type Attrs(capacity: int) =
     member this.Attr(name: string, value: bool) : Attrs = this.Attr(name, Bool value)
     member this.Attr(name: string, value: int) : Attrs = this.Attr(name, Int(int64 value))
     member this.Attr(name: string, value: int64) : Attrs = this.Attr(name, Int value)
-    member this.Attr(name: string, value: Html) : Attrs = this.Attr(name, AttrValue.ofHtml value)
+    member this.Attr(name: string, value: SafeBytes) : Attrs = this.Attr(name, AttrValue.ofHtml value)
 
     /// Sets `name` only when `value` is `Some`, like passing a possibly-nil option.
     member this.AttrOpt(name: string, value: string option) : Attrs =

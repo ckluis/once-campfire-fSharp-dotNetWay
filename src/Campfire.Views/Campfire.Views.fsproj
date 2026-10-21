@@ -1,8 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
     <Compile Include="Core/Fragment.fs" />
+    <Compile Include="Core/Html.fs" />
     <Compile Include="Core/Out.fs" />
     <Compile Include="Core/ViewContext.fs" />
+    <Compile Include="Core/Legacy.fs" />
     <Compile Include="Core/FragmentCache.fs" />
     <Compile Include="Helpers/Tag.fs" />
     <Compile Include="Helpers/Url.fs" />
@@ -111,6 +113,9 @@
     <Compile Include="Templates/Users/Avatars/Show.fs" />
     <Compile Include="Templates/Pwa/Manifest.fs" />
     <Compile Include="Templates/Pwa/ServiceWorker.fs" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Falco.Markup" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="../Campfire.Routes/Campfire.Routes.fsproj" />

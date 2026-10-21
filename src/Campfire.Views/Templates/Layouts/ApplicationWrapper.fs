@@ -12,11 +12,11 @@ let render
     (ctx: ViewContext)
     (pageTitle: string option)
     (bodyClass: string option)
-    (head: Html)
-    (nav: Html)
-    (content: Html)
-    (footer: Html)
-    (sidebar: Html)
+    (head: SafeBytes)
+    (nav: SafeBytes)
+    (content: SafeBytes)
+    (footer: SafeBytes)
+    (sidebar: SafeBytes)
     : unit =
     Application.render
         w

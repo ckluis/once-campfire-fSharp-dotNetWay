@@ -24,7 +24,7 @@
 //   askama template has it, whitespace included (`{%-`/`-%}` trim it, as askama does).
 // - Every value goes through `Text` (escaped, the default of `{{ }}`) unless the Rust says `safe`/
 //   `h::raw` or the value is a helper's output, which writes itself. A value that is already
-//   html_safe and needs to travel (a layout's `head`/`nav` parts, a fragment) is an `Html` or a
+//   html_safe and needs to travel (a layout's `head`/`nav` parts, a fragment) is a `SafeBytes` or a
 //   `Fragment`, never a string, so it can't be escaped twice or left unescaped by mistake.
 // - A block (`{% filter link_to(..) %}...{% endfilter %}`, `content_for`) is a function of the
 //   writer, `fun w -> ...`; helpers that take one are `inline`, so there is no closure.
@@ -50,17 +50,17 @@ module Utf8 =
 /// what a helper that returns markup hands back to a template and a layout takes for its `head`,
 /// `nav` and `content` parts. Askama's `Safe<String>`.
 [<Sealed; AllowNullLiteral>]
-type Html(bytes: byte[]) =
-    static let empty = Html(Array.empty)
+type SafeBytes(bytes: byte[]) =
+    static let empty = SafeBytes(Array.empty)
 
     /// `h::empty()`.
-    static member Empty: Html = empty
+    static member Empty: SafeBytes = empty
 
     /// `raw` / `String#html_safe`: `html` as it is.
-    static member Raw(html: string) : Html = Html(Encoding.UTF8.GetBytes html)
+    static member Raw(html: string) : SafeBytes = SafeBytes(Encoding.UTF8.GetBytes html)
 
     /// `h(text)` as an html_safe value.
-    static member Text(text: string) : Html = Html(Encoding.UTF8.GetBytes(Erb.htmlEscape text))
+    static member Text(text: string) : SafeBytes = SafeBytes(Encoding.UTF8.GetBytes(Erb.htmlEscape text))
 
     member _.Bytes: byte[] = bytes
     member _.Length: int = bytes.Length
@@ -196,7 +196,7 @@ type Out private (capacity: int) =
         Encoding.UTF8.GetBytes(html, Span<byte>(buffer, length, count)) |> ignore
         length <- length + count
 
-    member this.Raw(html: Html) : unit = this.Lit html.Bytes
+    member this.Raw(html: SafeBytes) : unit = this.Lit html.Bytes
 
     /// `{{ value }}`: ERB-escaped (`& < > " '`). `nil` is the empty string, as `nil.to_s` is.
     member this.Text(text: string | null) : unit =
@@ -284,7 +284,7 @@ module Render =
             Out.Return out
 
     /// What a template writes, as an html_safe value.
-    let inline html ([<InlineIfLambda>] template: Out -> unit) : Html = Html(plain template)
+    let inline html ([<InlineIfLambda>] template: Out -> unit) : SafeBytes = SafeBytes(plain template)
 
     /// What a template writes, as text (tests and tools; requests never need a string).
     let inline text ([<InlineIfLambda>] template: Out -> unit) : string = Encoding.UTF8.GetString(plain template)

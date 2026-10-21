@@ -3,6 +3,10 @@
   <ItemGroup>
     <PackageVersion Include="FSharp.Core" Version="10.1.401" />
     <PackageVersion Include="Falco" Version="5.2.0" />
+    <!-- The view layer (plans/design-views.md V1): pinned to the version Falco 5.2.0 depends on. It writes attribute values raw: see Core/Html.fs and bin/lint-markup. -->
+    <PackageVersion Include="Falco.Markup" Version="1.4.0" />
+    <!-- The tests read pages as the browser does (tests/Shared/LooseDom.fs). -->
+    <PackageVersion Include="AngleSharp" Version="1.8.3" />
     <!-- taskResult { } for the Web/ actions (plans/design-kit-auth.md K8). -->
     <PackageVersion Include="FsToolkit.ErrorHandling" Version="5.2.0" />
     <PackageVersion Include="Microsoft.Data.Sqlite" Version="10.0.13" />

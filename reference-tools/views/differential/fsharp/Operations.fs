@@ -253,7 +253,7 @@ let run (case: JsonElement) (shared: JsonElement) : Answer =
     | None ->
     match op with
     | "layouts/application_wrapper" ->
-        let part key = Html.Raw(str (get args key))
+        let part key = SafeBytes.Raw(str (get args key))
         rendered (fun w ->
             Templates.Layouts.ApplicationWrapper.render
                 w

@@ -18,22 +18,22 @@ type Application =
       PageTitle: string option
       /// `@body_class`.
       BodyClass: string option
-      Head: Html
-      Nav: Html
-      Content: Html
-      Footer: Html
-      Sidebar: Html }
+      Head: SafeBytes
+      Nav: SafeBytes
+      Content: SafeBytes
+      Footer: SafeBytes
+      Sidebar: SafeBytes }
 
 module Application =
     /// Just a page body, with no title, body class or `content_for` regions.
-    let create (content: Html) : Application =
+    let create (content: SafeBytes) : Application =
         { PageTitle = None
           BodyClass = None
-          Head = Html.Empty
-          Nav = Html.Empty
+          Head = SafeBytes.Empty
+          Nav = SafeBytes.Empty
           Content = content
-          Footer = Html.Empty
-          Sidebar = Html.Empty }
+          Footer = SafeBytes.Empty
+          Sidebar = SafeBytes.Empty }
 
     /// `layouts::Application`'s render.
     let render (w: Out) (ctx: ViewContext) (page: Application) : unit =
