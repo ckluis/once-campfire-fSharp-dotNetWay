@@ -1533,3 +1533,35 @@ Opus verifier, on `cfb08ec` plus this entry's fix (`6f95368`). Checked against c
 - **Speed (`bench/quick`, 3 reps, alternating order, same-session control = the 3.3 image `a17753e`, host probe ratio 1.02-1.06 on all six runs, load 0-1.5 at each start but 3-4 on the Mac between runs from other sessions; `bench/results/dotnetway-3-4/comparison.md`):** every cell within -2.4% to +1.2% of the control (post c=1 1,142 -> 1,115 req/s at the same CPU, 1,625 -> 1,621 us/req; post c=16 2,060 -> 2,050), nothing outside run-to-run noise; against stored Rails: room 34.8x/25.5x, messages 20.1x/11.0x, sidebar 12.9x/8.0x, search 18.5x/12.0x, post 6.21x/6.68x (c=16/c=1), all over the 5x floor (thinnest: post c=16 6.21x, sidebar c=1 8.04x). The first attempt at this bench was discarded and rerun because a build I started on the Mac during rep 1 cut room page c=1 to 2,107 req/s; no further work ran on the Mac during the rerun. Cable fan-out (`bench/cable/run`) is unit 3.6.
 - **KLOC:** `bin/kloc` 34,464 upstream rules, **34,683 corrected (34.7 KLOC)**, from 35.4. `Campfire.Cable` 956 lines (from 1,673; the design projected 0.70 KLOC: `Connection.fs` is 0.45, with the held-broadcast rule, the dispatch logging and the pooled read loop), App `Channels/` +17 (`CableServices.fs`).
 - Evidence: `bench/results/dotnetway-3-4/` (`new/`, `ctl/`, logs, `bench.sh`, `realtime.sh`, `comparison.md`, `pixel-*.log`). `bin/clean-docker` and `bin/clean-parity` run, control image removed, 30 GB free.
+
+### Phase 3, checkpoint after 3.4: Opus review (2026-10-21) - GO for 3.5, with notes
+
+Adversarial review of `0243446..7bcaef4` (H.0-H.2, 3.1-3.4) against `plans/design-cable.md`, the hybrid-reads decision and D1-D9. Evidence in
+`bench/results/dotnetway-3-4-ck/`.
+- **Re-run here:** `CAMPFIRE_REQUIRE_SEED=1 bin/verify` before any change: 976 total, 970 passed, 6 skipped, 0 failed (the 3.4 numbers). After the
+  fixes: 979 total, 973 passed, 6 skipped, 0 failed, 0 warnings (H1 included; Cable golden replay 26 exchanges / 25 frames). `bin/pixel-parity --fast
+  --seeds default --only "realtime/<state>"`, one state per run, on the image built from `48cc061` (revision label checked): `message_sent`,
+  `typing/one`, `presence_read`, `removed_from_room` each 2/2 screenshots, aria and loose equal. The units' own evidence (3.4's `pixel-*.log`, H.2's
+  `comparison.md`) matches their entries. No bench: the fixes are off the request path (the connection's flush, cleanup and read loop).
+- **Checked and holding:** protocol frames (welcome, ping with the app clock's seconds, confirm/reject, message, disconnect reasons, close 1000 `""`)
+  all go through the one writer loop, so there is never a second outstanding `SendAsync`; the 256-frame bounded queue is only `TryWrite`n, a full
+  queue aborts, a stalled send is cancelled after `SendTimeout`; streams register after the confirmation; the origin check and the 404 page; the
+  subprotocol pick; golden frames compared decoded (`JsonFrames.canonical`, order-sensitive). Hybrid reads: every statement is a constant with
+  `@` parameters (the JSON id list is built from `int64`s), the only-in-FastReads guard fires on a probe file, reads inside a write take
+  `CurrentTransaction` (tested), the equivalence test covers every row of the default seed for the by-id reads and the sidebar/search reads.
+- **Fixed (`48cc061`):** (1) `InCommand` dropped its flag before flushing the held broadcasts, so a broadcaster that read it down could put a later
+  frame of a stream ahead of an earlier held one; the flag now drops after the flush, inside the lock. (2) A `TryWrite`/`Close` from a registry
+  snapshot taken before a connection left could, after the request ended, count as a slow consumer and call `Abort` on a finished `HttpContext`
+  (an `ObjectDisposedException` thrown into the broadcasting request or the heartbeat); cleanup now marks the connection closing before completing
+  its queue, and `Abort` tolerates a disposed context. (3) Commands sent after the server began closing ran their callbacks (Rails' 
+  `dispatch_websocket_message` checks `websocket.alive?`); they are logged and ignored, which also stops an unauthorized connection from reaching
+  `user.Value`. (4) An empty text message ends at its zero-byte announcement; the loop read on and took the next frame (a close) as its body, so the
+  close was answered 1000 instead of the client's code; a close between fragments is now echoed as well. (5) A throwing `Beat` is logged instead of
+  faulting `CableHeartbeat` (a faulted `BackgroundService` stops the host). Tests: (3) and (4) fail on the old `Connection.fs` (2 vs 1 subscribed;
+  `NormalClosure` vs `EndpointUnavailable`) and pass now; the design's risk-4 test (a ping under the frozen harness clock, carrying the frozen
+  seconds, within 4 s) is added to `CableHostTests`.
+- **KLOC:** `bin/kloc` 34,517 by upstream's rules, **34,736 corrected (34.7 KLOC)**.
+- **Notes for 3.5 and 3.6** (also in the checkpoint's StructuredOutput): see the orchestrator's notes; in short, C10's re-check must not be a second
+  `AuthenticateAsync`, scopes per command and per close, new upgrades after `ApplicationStopping` are not closed by `Restart`, L2/L4/L5/L7 and the
+  risk-3 test are still owed, P8 can starve on a fast host, `connected_at` non-null is not in the equivalence test's seed.
+- `bin/clean-docker` after the build and `bin/clean-parity` after each state; 31 GB free.
