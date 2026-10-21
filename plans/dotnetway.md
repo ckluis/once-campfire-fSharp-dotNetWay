@@ -1467,3 +1467,30 @@ Opus verifier, on `cfb08ec` plus this entry's fix (`6f95368`). Checked against c
 - **Lines added:** `src/` +109 / -8 (FastReads.fs 101, call sites ~8), tests +64, bin/verify +6.
 - **KLOC:** `bin/kloc` 35,146 by upstream's rules, **35,365 corrected (35.4 KLOC)**, from 35.3.
 - **Differences recorded:** none. Evidence: `bench/results/dotnetway-hybrid-1/` (`new/`, `ctl/`, logs, `bench.sh`, `cookie-roundtrip.log`, `pixel.log`). `bin/clean-docker` and `bin/clean-parity` run, control image and scratch worktree removed, disk 29 GB free.
+
+### Unit H.2: Hybrid reads, the rest of the hot read sets
+
+- **Built:** `FastReads.fs` (now about 240 lines, still the only Dapper caller) gained `roomById`, `originalRoom`, `membershipByRoomAndUser`, `messageById`, `lastPage`, `pageBefore`, `attachedBlob` (the logo; `Blob.attached` calls it), then, after the in-process measurement below, `visibleMembershipRoomRows` (the sidebar statement), `roomsOfType`, `memberUserIdsOfRoomsOfType`, `activeUsersExcluding`, `searchesOrdered` and `searchReachable`. The model call sites (`Room.findById`/`original`/`forUserOfType`/`userIdsOfDirectRoomsOf`, `Membership.findByRoomAndUser`/`visibleWithOrderedRoom`, `Message.findById`/`lastPage`/`pageBefore`/`searchReachable`, `User.activeExcluding`, `Search.orderedForUser`) call it directly. `Membership`'s involvement goes through a private row record like RoomType. Still no runtime switch, parameters only, the single-writer guard untouched.
+- **Guards:** `FastReadsTests` grew: every room, the original room, every (room, user) membership, every message, `lastPage` and `pageBefore` of every message of every room, every attachment's blob, plus a second test that keeps the EF statement each sidebar/search read replaced as the oracle (every user's sidebar rows, rooms of each type, direct-room member ids, active-users-excluding over several id sets and limits, searches, reachable FTS results over four queries). `bin/verify`'s Dapper guard now also catches `.Query<`.
+- **Difference found, no behavior change:** `userIdsOfDirectRoomsOf` was an unordered `SELECT *`; the Dapper version selects one column and orders by membership id, so the order differs from EF's planner order (Rails' is unspecified too). Its one caller builds a set, so the test compares sorted.
+- **Sidebar and search measured in process first** (`bench/results/dotnetway-hybrid-2/measure-d-sidebar-search-in-process.txt`, code kept as `FastReadsMeasure.fs.txt`; 10,000 pages per cell, 6 rounds alternating order, default seed, load 3.9-5.1): the full read set of the page, with the shared lookups already Dapper in both arms. sidebar: EF 172 us/page (170-173) vs Dapper 143 us (143-144), 1.21x, 166 KB vs 95 KB per page; search: EF 182 us (181-182) vs Dapper 101 us (101-102), 1.8x, 166 KB vs 67 KB. Search is clearly faster; sidebar is 30 us over its four reads, consistent across rounds. Both were moved (the end-to-end bench below shows the sidebar gaining as much as the others).
+- **Speed (`bench/quick`, 5 workloads, c=1 and c=16, 3 reps, interleaved new/ctl/ctl/new/new/ctl via `bench/results/dotnetway-hybrid-2/bench.sh`; control = H.1 head code fc1c10e, retagged as `campfire-dotnetway:h2ctl`; hybrid image labeled with HEAD 580b1e8; host probe ratio 1.039-1.073 on 12 probes, load 1.3-1.9 before each run, 0 non-2xx, 0 connection errors in 30 runs per side, decoded bytes equal Rust's on every probed route, post rows equal the 2xx answers):**
+
+| workload | c | control req/s | hybrid-2 req/s | gain | CPU us/req ctl -> new | x Rails (new) |
+|---|---|---:|---:|---:|---|---:|
+| room page | 16 | 5,823 | 8,305 | +42.6% | 589 -> 396 | 34.71 |
+| room page | 1 | 1,819 | 2,770 | +52.3% | 647 -> 457 | 25.87 |
+| messages page | 16 | 5,305 | 7,657 | +44.3% | 651 -> 436 | 20.12 |
+| messages page | 1 | 1,592 | 2,402 | +50.9% | 725 -> 512 | 11.03 |
+| sidebar | 16 | 5,824 | 7,793 | +33.8% | 592 -> 433 | 13.02 |
+| sidebar | 1 | 1,706 | 2,337 | +37.0% | 686 -> 528 | 8.15 |
+| search | 16 | 5,224 | 7,580 | +45.1% | 673 -> 451 | 18.58 |
+| search | 1 | 1,556 | 2,341 | +50.4% | 739 -> 521 | 12.15 |
+| post a message | 16 | 1,907 | 2,053 | +7.7% | 1,609 -> 1,448 | 6.22 |
+| post a message | 1 | 974 | 1,142 | +17.2% | 1,799 -> 1,621 | 6.84 |
+
+  Every cell is over the floor (thinnest: sidebar c=1 8.15x, post 6.22x/6.84x). The gain is far larger than H.1's 1-7% and than the in-process figures predict (about 30-80 us of a 590-740 us request, yet CPU per request dropped 160-220 us). The control reproduces H.1's own numbers (room page c=1 1,819 vs 1,814 then), so the host is not what moved. I did not isolate why; my hypothesis is that a request with no EF query at all skips fixed per-request EF work (query pipeline entry, change-tracker/state setup on the leased context) that H.1's remaining EF statements still paid, so the last EF read of a page costs far more than its statement time. Recorded, not proven; the post path (still has EF writes) gains +8-17%, which fits.
+- **Gates:** `CAMPFIRE_REQUIRE_SEED=1 bin/verify` Release, warnings as errors: 974 total, 968 passed, 6 skipped, 0 failed (H1, H2, H3 included). `bin/pixel-parity --fast --only 'rooms/**,messages/**,search/**,users/sidebar*'`: default 146/146, crowd 8/8, custom_styles 6/6, restricted 2/2, first_run 0/0 (no matching states), pixel, aria and loose DOM equal in every layer (`bench/results/dotnetway-hybrid-2/pixel.log`). `bin/db-differential` rc 0 (`bench/results/dotnetway-hybrid-2/db-differential.log`).
+- **KLOC:** `bin/kloc` 35,189 by upstream's rules, **35,408 corrected (35.4 KLOC)**, unchanged at one decimal from H.1 (35.4): the Dapper reads replace roughly the same number of lines of LINQ and `FromSql`.
+- **Differences recorded:** none against Rails (the order note above is internal).
+- Evidence: `bench/results/dotnetway-hybrid-2/` (`new/`, `ctl/`, logs, `bench.sh`, `comparison.md`, `pixel.log`). `bin/clean-docker` and `bin/clean-parity` run; control image removed.

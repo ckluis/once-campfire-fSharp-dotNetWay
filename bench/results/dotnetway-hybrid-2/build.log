@@ -1,0 +1,522 @@
+candidate: building campfire-dotnetway:app from Dockerfile
+#0 building with "default" instance using docker driver
+
+#1 [internal] load build definition from Dockerfile
+#1 transferring dockerfile: 13.25kB done
+#1 DONE 0.0s
+
+#2 resolve image config for docker-image://docker.io/docker/dockerfile:1
+#2 DONE 0.4s
+
+#3 docker-image://docker.io/docker/dockerfile:1@sha256:4edf897a3ffa55b89f906fc8cc78afdb3f1834cc9c7083565e611a8a7d5fe99e
+#3 resolve docker.io/docker/dockerfile:1@sha256:4edf897a3ffa55b89f906fc8cc78afdb3f1834cc9c7083565e611a8a7d5fe99e done
+#3 CACHED
+
+#4 [internal] load metadata for docker.io/library/buildpack-deps:trixie
+#4 ...
+
+#5 [internal] load metadata for docker.io/library/debian:trixie-slim
+#5 DONE 0.3s
+
+#4 [internal] load metadata for docker.io/library/buildpack-deps:trixie
+#4 DONE 0.3s
+
+#6 [internal] load .dockerignore
+#6 transferring context: 579B done
+#6 DONE 0.0s
+
+#7 [internal] preparing inline document
+#7 DONE 0.0s
+
+#8 [internal] preparing inline document
+#8 DONE 0.0s
+
+#9 [stage-6  1/12] FROM docker.io/library/debian:trixie-slim@sha256:62bd423aeee912639ca8ee681c2b762cb3e25137e0a92b20be455898a9f034ad
+#9 resolve docker.io/library/debian:trixie-slim@sha256:62bd423aeee912639ca8ee681c2b762cb3e25137e0a92b20be455898a9f034ad done
+#9 DONE 0.0s
+
+#10 [media-base 1/3] FROM docker.io/library/buildpack-deps:trixie@sha256:ffbfa3ee92287a5fa41c03118bfe9a75c095838bccbe1173322854b8f2387116
+#10 resolve docker.io/library/buildpack-deps:trixie@sha256:ffbfa3ee92287a5fa41c03118bfe9a75c095838bccbe1173322854b8f2387116 done
+#10 DONE 0.0s
+
+#11 [media 3/3] COPY --from=ffmpeg /opt/ffmpeg/bin/ffmpeg /opt/ffmpeg/bin/ffprobe /usr/local/bin/
+#11 CACHED
+
+#12 [media-base 3/3] WORKDIR /usr/src
+#12 CACHED
+
+#13 [ffmpeg 1/1] RUN apt-get source -qq ffmpeg=7:7.1.5-0+deb13u1 &&     upstream=7.1.5-0+deb13u1 && upstream=${upstream%-*} && revision=0+deb13u1 &&     echo "9ed2ed34cbe7f056eeebbe9045c5e2d15e41b5b053fe7c8ba6979a0b6fb081ce  ffmpeg_7.1.5-0+deb13u1.dsc" | sha256sum -c - &&     cd ffmpeg-${upstream} &&     ./configure --prefix=/opt/ffmpeg --extra-version="${revision}" --toolchain=hardened       --enable-shared --disable-static --disable-doc --disable-ffplay --disable-avdevice       --disable-autodetect --disable-network --disable-hwaccels --disable-devices       --enable-libdav1d --enable-zlib --enable-bzlib --enable-lzma       --disable-encoders --enable-encoder=mjpeg       --disable-muxers --enable-muxer=image2       --disable-protocols --enable-protocol=file,pipe       --disable-filters       --enable-filter=buffer,buffersink,abuffer,abuffersink,format,aformat,null,anull,scale,aresample       --enable-filter=select,loop,trim,transpose,hflip,vflip,rotate,crop &&     make -j"$(nproc)" &&     make install &&     strip --strip-unneeded /opt/ffmpeg/lib/*.so.* /opt/ffmpeg/bin/*
+#13 CACHED
+
+#14 [vips 1/1] RUN apt-get source -qq vips=8.16.1-1+deb13u1 &&     echo "60205e00d061b9d8072938e04899f2ca2fdac0513068e561d33f7c87fae1ae2e  vips_8.16.1-1+deb13u1.dsc" | sha256sum -c - &&     cd vips-8.16.1 &&     eval "$(DEB_BUILD_MAINT_OPTIONS=hardening=+all dpkg-buildflags --export=sh)" &&     meson setup build --buildtype=plain --wrap-mode=nodownload --prefix=/opt/vips --libdir=lib       --auto-features=disabled -Dmodules=disabled -Dintrospection=disabled -Dcplusplus=false       -Ddeprecated=false -Dexamples=false       -Djpeg=enabled -Dspng=enabled -Dpng=enabled -Dwebp=enabled -Dtiff=enabled -Dheif=enabled       -Dexif=enabled -Dlcms=enabled -Dcgif=enabled -Dimagequant=enabled -Dhighway=enabled       -Dzlib=enabled &&     meson install -C build --strip
+#14 CACHED
+
+#15 [stage-6  2/12] RUN apt-get update -qq &&     apt-get install --no-install-recommends -y       ca-certificates libstdc++6 zlib1g libglib2.0-0t64 libexpat1 libjpeg62-turbo libspng0 libpng16-16t64       libwebp7 libwebpmux3 libwebpdemux2 libtiff6 libheif1 libheif-plugin-libde265       libheif-plugin-dav1d libexif12 liblcms2-2 libcgif0 libimagequant0 libhwy1t64 libdav1d7 &&     rm -rf /var/lib/apt/lists /var/cache/apt/archives
+#15 CACHED
+
+#16 [stage-6  3/12] COPY --from=media / /
+#16 CACHED
+
+#17 [media 2/3] COPY --from=ffmpeg /opt/ffmpeg/lib/libavcodec.so.61 /opt/ffmpeg/lib/libavfilter.so.10      /opt/ffmpeg/lib/libavformat.so.61 /opt/ffmpeg/lib/libavutil.so.59      /opt/ffmpeg/lib/libswresample.so.5 /opt/ffmpeg/lib/libswscale.so.8 /usr/local/lib/
+#17 CACHED
+
+#18 [media 1/3] COPY --from=vips /opt/vips/lib/libvips.so.42 /usr/local/lib/
+#18 CACHED
+
+#19 [media-base 2/3] RUN sed -i 's/^Types: deb$/Types: deb deb-src/' /etc/apt/sources.list.d/debian.sources &&     apt-get update -qq &&     apt-get install --no-install-recommends -y       dpkg-dev meson ninja-build nasm       libglib2.0-dev libexpat1-dev zlib1g-dev libjpeg62-turbo-dev libspng-dev libpng-dev       libwebp-dev libtiff-dev libheif-dev libexif-dev liblcms2-dev libcgif-dev libimagequant-dev       libhwy-dev libdav1d-dev libbz2-dev liblzma-dev
+#19 CACHED
+
+#20 [stage-6  4/12] RUN ldconfig
+#20 CACHED
+
+#21 [internal] load build context
+#21 transferring context: 205.11kB 0.1s done
+#21 DONE 0.1s
+
+#10 [media-base 1/3] FROM docker.io/library/buildpack-deps:trixie@sha256:ffbfa3ee92287a5fa41c03118bfe9a75c095838bccbe1173322854b8f2387116
+#10 DONE 0.0s
+
+#22 [stage-6  5/12] RUN groupadd --system --gid 1000 rails &&     useradd rails --uid 1000 --gid 1000 --create-home --shell /bin/bash
+#22 DONE 0.2s
+
+#23 [stage-6  6/12] WORKDIR /rails
+#23 DONE 0.0s
+
+#7 [internal] preparing inline document
+#7 CACHED
+
+#8 [internal] preparing inline document
+#8 CACHED
+
+#19 [media-base 2/3] RUN sed -i 's/^Types: deb$/Types: deb deb-src/' /etc/apt/sources.list.d/debian.sources &&     apt-get update -qq &&     apt-get install --no-install-recommends -y       dpkg-dev meson ninja-build nasm       libglib2.0-dev libexpat1-dev zlib1g-dev libjpeg62-turbo-dev libspng-dev libpng-dev       libwebp-dev libtiff-dev libheif-dev libexif-dev liblcms2-dev libcgif-dev libimagequant-dev       libhwy-dev libdav1d-dev libbz2-dev liblzma-dev
+#19 3.204 Reading package lists...
+#19 3.468 Building dependency tree...
+#19 3.530 Reading state information...
+#19 3.621 dpkg-dev is already the newest version (1.22.22).
+#19 3.621 libglib2.0-dev is already the newest version (2.84.4-3~deb13u5).
+#19 3.621 zlib1g-dev is already the newest version (1:1.3.dfsg+really1.3.1-1+b1).
+#19 3.621 libjpeg62-turbo-dev is already the newest version (1:2.1.5-4).
+#19 3.621 libjpeg62-turbo-dev set to manually installed.
+#19 3.621 libpng-dev is already the newest version (1.6.48-1+deb13u6).
+#19 3.621 libwebp-dev is already the newest version (1.5.0-0.1).
+#19 3.621 libtiff-dev is already the newest version (4.7.0-3+deb13u3).
+#19 3.621 libtiff-dev set to manually installed.
+#19 3.621 libexif-dev is already the newest version (0.6.25-1+deb13u1).
+#19 3.621 libexif-dev set to manually installed.
+#19 3.621 liblcms2-dev is already the newest version (2.16-2+deb13u2).
+#19 3.621 liblcms2-dev set to manually installed.
+#19 3.621 libdav1d-dev is already the newest version (1.5.1-1).
+#19 3.621 libdav1d-dev set to manually installed.
+#19 3.621 libbz2-dev is already the newest version (1.0.8-6).
+#19 3.621 The following additional packages will be installed:
+#19 3.621   libcgif0 libexpat1 libhwy1t64 libimagequant0 liblzma5 libspng0
+#19 3.621   python3-autocommand python3-inflect python3-jaraco.context
+#19 3.621   python3-jaraco.functools python3-jaraco.text python3-more-itertools
+#19 3.621   python3-pkg-resources python3-setuptools python3-typeguard
+#19 3.621   python3-typing-extensions python3-zipp xz-utils
+#19 3.621 Suggested packages:
+#19 3.621   python-setuptools-doc
+#19 3.621 Recommended packages:
+#19 3.621   libspng-doc
+#19 3.713 The following NEW packages will be installed:
+#19 3.713   libcgif-dev libcgif0 libheif-dev libhwy-dev libhwy1t64 libimagequant-dev
+#19 3.713   libimagequant0 libspng-dev libspng0 meson nasm ninja-build
+#19 3.713   python3-autocommand python3-inflect python3-jaraco.context
+#19 3.713   python3-jaraco.functools python3-jaraco.text python3-more-itertools
+#19 3.713   python3-pkg-resources python3-setuptools python3-typeguard
+#19 3.713   python3-typing-extensions python3-zipp
+#19 3.713 The following packages will be upgraded:
+#19 3.714   libexpat1 libexpat1-dev liblzma-dev liblzma5 xz-utils
+#19 3.801 5 upgraded, 23 newly installed, 0 to remove and 10 not upgraded.
+#19 3.801 Need to get 5103 kB of archives.
+#19 3.801 After this operation, 23.1 MB of additional disk space will be used.
+#19 3.801 Get:1 http://deb.debian.org/debian-security trixie-security/main arm64 libexpat1-dev arm64 2.9.0-1~deb13u1 [171 kB]
+#19 3.860 Get:2 http://deb.debian.org/debian-security trixie-security/main arm64 libexpat1 arm64 2.9.0-1~deb13u1 [114 kB]
+#19 3.870 Get:3 http://deb.debian.org/debian-security trixie-security/main arm64 liblzma-dev arm64 5.8.1-1+deb13u2 [345 kB]
+#19 3.905 Get:4 http://deb.debian.org/debian-security trixie-security/main arm64 liblzma5 arm64 5.8.1-1+deb13u2 [303 kB]
+#19 3.927 Get:5 http://deb.debian.org/debian-security trixie-security/main arm64 xz-utils arm64 5.8.1-1+deb13u2 [658 kB]
+#19 3.984 Get:6 http://deb.debian.org/debian trixie/main arm64 libcgif0 arm64 0.5.0-1 [10.1 kB]
+#19 3.985 Get:7 http://deb.debian.org/debian trixie/main arm64 libcgif-dev arm64 0.5.0-1 [6104 B]
+#19 3.985 Get:8 http://deb.debian.org/debian-security trixie-security/main arm64 libheif-dev arm64 1.23.4-1~deb13u1 [77.9 kB]
+#19 3.986 Get:9 http://deb.debian.org/debian trixie/main arm64 libhwy1t64 arm64 1.2.0-2+b2 [499 kB]
+#19 4.033 Get:10 http://deb.debian.org/debian trixie/main arm64 libhwy-dev arm64 1.2.0-2+b2 [399 kB]
+#19 4.040 Get:11 http://deb.debian.org/debian trixie/main arm64 libimagequant0 arm64 2.18.0-1+b2 [34.6 kB]
+#19 4.050 Get:12 http://deb.debian.org/debian trixie/main arm64 libimagequant-dev arm64 2.18.0-1+b2 [36.8 kB]
+#19 4.054 Get:13 http://deb.debian.org/debian trixie/main arm64 libspng0 arm64 0.7.4-2 [30.4 kB]
+#19 4.055 Get:14 http://deb.debian.org/debian trixie/main arm64 libspng-dev arm64 0.7.4-2 [6960 B]
+#19 4.059 Get:15 http://deb.debian.org/debian trixie/main arm64 ninja-build arm64 1.12.1-1+b1 [130 kB]
+#19 4.068 Get:16 http://deb.debian.org/debian trixie/main arm64 python3-autocommand all 2.2.2-3 [13.6 kB]
+#19 4.071 Get:17 http://deb.debian.org/debian trixie/main arm64 python3-more-itertools all 10.7.0-1 [67.4 kB]
+#19 4.075 Get:18 http://deb.debian.org/debian trixie/main arm64 python3-typing-extensions all 4.13.2-1 [90.5 kB]
+#19 4.082 Get:19 http://deb.debian.org/debian trixie/main arm64 python3-typeguard all 4.4.2-1 [37.3 kB]
+#19 4.087 Get:20 http://deb.debian.org/debian trixie/main arm64 python3-inflect all 7.3.1-2 [32.4 kB]
+#19 4.087 Get:21 http://deb.debian.org/debian trixie/main arm64 python3-jaraco.context all 6.0.1-1+deb13u1 [8492 B]
+#19 4.088 Get:22 http://deb.debian.org/debian trixie/main arm64 python3-jaraco.functools all 4.1.0-1 [12.0 kB]
+#19 4.088 Get:23 http://deb.debian.org/debian trixie/main arm64 python3-pkg-resources all 78.1.1-0.1 [224 kB]
+#19 4.107 Get:24 http://deb.debian.org/debian trixie/main arm64 python3-jaraco.text all 4.0.0-1 [11.4 kB]
+#19 4.107 Get:25 http://deb.debian.org/debian trixie/main arm64 python3-zipp all 3.21.0-1 [10.6 kB]
+#19 4.107 Get:26 http://deb.debian.org/debian trixie/main arm64 python3-setuptools all 78.1.1-0.1 [738 kB]
+#19 4.151 Get:27 http://deb.debian.org/debian trixie/main arm64 meson all 1.7.0-1 [639 kB]
+#19 4.198 Get:28 http://deb.debian.org/debian trixie/main arm64 nasm arm64 2.16.03-1 [396 kB]
+#19 4.358 debconf: unable to initialize frontend: Dialog
+#19 4.358 debconf: (TERM is not set, so the dialog frontend is not usable.)
+#19 4.358 debconf: falling back to frontend: Readline
+#19 4.360 debconf: unable to initialize frontend: Readline
+#19 4.360 debconf: (This frontend requires a controlling tty.)
+#19 4.360 debconf: falling back to frontend: Teletype
+#19 4.361 debconf: unable to initialize frontend: Teletype
+#19 4.361 debconf: (This frontend requires a controlling tty.)
+#19 4.361 debconf: falling back to frontend: Noninteractive
+#19 4.616 Fetched 5103 kB in 1s (9974 kB/s)
+#19 4.628 (Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 26155 files and directories currently installed.)
+#19 4.667 Preparing to unpack .../libexpat1-dev_2.9.0-1~deb13u1_arm64.deb ...
+#19 4.669 Unpacking libexpat1-dev:arm64 (2.9.0-1~deb13u1) over (2.8.3-1~deb13u1) ...
+#19 4.708 Preparing to unpack .../libexpat1_2.9.0-1~deb13u1_arm64.deb ...
+#19 4.712 Unpacking libexpat1:arm64 (2.9.0-1~deb13u1) over (2.8.3-1~deb13u1) ...
+#19 4.726 Preparing to unpack .../liblzma-dev_5.8.1-1+deb13u2_arm64.deb ...
+#19 4.728 Unpacking liblzma-dev:arm64 (5.8.1-1+deb13u2) over (5.8.1-1+deb13u1) ...
+#19 4.759 Preparing to unpack .../liblzma5_5.8.1-1+deb13u2_arm64.deb ...
+#19 4.761 Unpacking liblzma5:arm64 (5.8.1-1+deb13u2) over (5.8.1-1+deb13u1) ...
+#19 4.782 Setting up liblzma5:arm64 (5.8.1-1+deb13u2) ...
+#19 4.792 (Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 26155 files and directories currently installed.)
+#19 4.799 Preparing to unpack .../00-xz-utils_5.8.1-1+deb13u2_arm64.deb ...
+#19 4.802 Unpacking xz-utils (5.8.1-1+deb13u2) over (5.8.1-1+deb13u1) ...
+#19 4.892 Selecting previously unselected package libcgif0:arm64.
+#19 4.893 Preparing to unpack .../01-libcgif0_0.5.0-1_arm64.deb ...
+#19 4.894 Unpacking libcgif0:arm64 (0.5.0-1) ...
+#19 4.903 Selecting previously unselected package libcgif-dev:arm64.
+#19 4.904 Preparing to unpack .../02-libcgif-dev_0.5.0-1_arm64.deb ...
+#19 4.905 Unpacking libcgif-dev:arm64 (0.5.0-1) ...
+#19 4.912 Selecting previously unselected package libheif-dev:arm64.
+#19 4.913 Preparing to unpack .../03-libheif-dev_1.23.4-1~deb13u1_arm64.deb ...
+#19 4.913 Unpacking libheif-dev:arm64 (1.23.4-1~deb13u1) ...
+#19 4.926 Selecting previously unselected package libhwy1t64:arm64.
+#19 4.927 Preparing to unpack .../04-libhwy1t64_1.2.0-2+b2_arm64.deb ...
+#19 4.927 Unpacking libhwy1t64:arm64 (1.2.0-2+b2) ...
+#19 4.959 Selecting previously unselected package libhwy-dev:arm64.
+#19 4.960 Preparing to unpack .../05-libhwy-dev_1.2.0-2+b2_arm64.deb ...
+#19 4.961 Unpacking libhwy-dev:arm64 (1.2.0-2+b2) ...
+#19 4.988 Selecting previously unselected package libimagequant0:arm64.
+#19 4.988 Preparing to unpack .../06-libimagequant0_2.18.0-1+b2_arm64.deb ...
+#19 4.989 Unpacking libimagequant0:arm64 (2.18.0-1+b2) ...
+#19 4.997 Selecting previously unselected package libimagequant-dev:arm64.
+#19 4.998 Preparing to unpack .../07-libimagequant-dev_2.18.0-1+b2_arm64.deb ...
+#19 4.999 Unpacking libimagequant-dev:arm64 (2.18.0-1+b2) ...
+#19 5.008 Selecting previously unselected package libspng0:arm64.
+#19 5.009 Preparing to unpack .../08-libspng0_0.7.4-2_arm64.deb ...
+#19 5.010 Unpacking libspng0:arm64 (0.7.4-2) ...
+#19 5.017 Selecting previously unselected package libspng-dev:arm64.
+#19 5.018 Preparing to unpack .../09-libspng-dev_0.7.4-2_arm64.deb ...
+#19 5.019 Unpacking libspng-dev:arm64 (0.7.4-2) ...
+#19 5.025 Selecting previously unselected package ninja-build.
+#19 5.026 Preparing to unpack .../10-ninja-build_1.12.1-1+b1_arm64.deb ...
+#19 5.027 Unpacking ninja-build (1.12.1-1+b1) ...
+#19 5.041 Selecting previously unselected package python3-autocommand.
+#19 5.042 Preparing to unpack .../11-python3-autocommand_2.2.2-3_all.deb ...
+#19 5.043 Unpacking python3-autocommand (2.2.2-3) ...
+#19 5.051 Selecting previously unselected package python3-more-itertools.
+#19 5.052 Preparing to unpack .../12-python3-more-itertools_10.7.0-1_all.deb ...
+#19 5.052 Unpacking python3-more-itertools (10.7.0-1) ...
+#19 5.062 Selecting previously unselected package python3-typing-extensions.
+#19 5.063 Preparing to unpack .../13-python3-typing-extensions_4.13.2-1_all.deb ...
+#19 5.064 Unpacking python3-typing-extensions (4.13.2-1) ...
+#19 5.074 Selecting previously unselected package python3-typeguard.
+#19 5.075 Preparing to unpack .../14-python3-typeguard_4.4.2-1_all.deb ...
+#19 5.076 Unpacking python3-typeguard (4.4.2-1) ...
+#19 5.085 Selecting previously unselected package python3-inflect.
+#19 5.086 Preparing to unpack .../15-python3-inflect_7.3.1-2_all.deb ...
+#19 5.086 Unpacking python3-inflect (7.3.1-2) ...
+#19 5.095 Selecting previously unselected package python3-jaraco.context.
+#19 5.096 Preparing to unpack .../16-python3-jaraco.context_6.0.1-1+deb13u1_all.deb ...
+#19 5.097 Unpacking python3-jaraco.context (6.0.1-1+deb13u1) ...
+#19 5.105 Selecting previously unselected package python3-jaraco.functools.
+#19 5.106 Preparing to unpack .../17-python3-jaraco.functools_4.1.0-1_all.deb ...
+#19 5.107 Unpacking python3-jaraco.functools (4.1.0-1) ...
+#19 5.115 Selecting previously unselected package python3-pkg-resources.
+#19 5.116 Preparing to unpack .../18-python3-pkg-resources_78.1.1-0.1_all.deb ...
+#19 5.117 Unpacking python3-pkg-resources (78.1.1-0.1) ...
+#19 5.131 Selecting previously unselected package python3-jaraco.text.
+#19 5.132 Preparing to unpack .../19-python3-jaraco.text_4.0.0-1_all.deb ...
+#19 5.132 Unpacking python3-jaraco.text (4.0.0-1) ...
+#19 5.140 Selecting previously unselected package python3-zipp.
+#19 5.141 Preparing to unpack .../20-python3-zipp_3.21.0-1_all.deb ...
+#19 5.142 Unpacking python3-zipp (3.21.0-1) ...
+#19 5.150 Selecting previously unselected package python3-setuptools.
+#19 5.151 Preparing to unpack .../21-python3-setuptools_78.1.1-0.1_all.deb ...
+#19 5.152 Unpacking python3-setuptools (78.1.1-0.1) ...
+#19 5.192 Selecting previously unselected package meson.
+#19 5.193 Preparing to unpack .../22-meson_1.7.0-1_all.deb ...
+#19 5.194 Unpacking meson (1.7.0-1) ...
+#19 5.228 Selecting previously unselected package nasm.
+#19 5.229 Preparing to unpack .../23-nasm_2.16.03-1_arm64.deb ...
+#19 5.230 Unpacking nasm (2.16.03-1) ...
+#19 5.260 Setting up libhwy1t64:arm64 (1.2.0-2+b2) ...
+#19 5.262 Setting up libexpat1:arm64 (2.9.0-1~deb13u1) ...
+#19 5.264 Setting up python3-more-itertools (10.7.0-1) ...
+#19 5.337 Setting up libcgif0:arm64 (0.5.0-1) ...
+#19 5.339 Setting up python3-jaraco.functools (4.1.0-1) ...
+#19 5.375 Setting up python3-jaraco.context (6.0.1-1+deb13u1) ...
+#19 5.411 Setting up libheif-dev:arm64 (1.23.4-1~deb13u1) ...
+#19 5.413 Setting up python3-zipp (3.21.0-1) ...
+#19 5.450 Setting up python3-autocommand (2.2.2-3) ...
+#19 5.486 Setting up ninja-build (1.12.1-1+b1) ...
+#19 5.488 Setting up libcgif-dev:arm64 (0.5.0-1) ...
+#19 5.490 Setting up libexpat1-dev:arm64 (2.9.0-1~deb13u1) ...
+#19 5.492 Setting up xz-utils (5.8.1-1+deb13u2) ...
+#19 5.499 Setting up libimagequant0:arm64 (2.18.0-1+b2) ...
+#19 5.501 Setting up python3-typing-extensions (4.13.2-1) ...
+#19 5.548 Setting up nasm (2.16.03-1) ...
+#19 5.550 Setting up liblzma-dev:arm64 (5.8.1-1+deb13u2) ...
+#19 5.552 Setting up libhwy-dev:arm64 (1.2.0-2+b2) ...
+#19 5.554 Setting up libspng0:arm64 (0.7.4-2) ...
+#19 5.556 Setting up libspng-dev:arm64 (0.7.4-2) ...
+#19 5.558 Setting up libimagequant-dev:arm64 (2.18.0-1+b2) ...
+#19 5.560 Setting up python3-typeguard (4.4.2-1) ...
+#19 5.605 Setting up python3-inflect (7.3.1-2) ...
+#19 5.650 Setting up python3-jaraco.text (4.0.0-1) ...
+#19 5.688 Setting up python3-pkg-resources (78.1.1-0.1) ...
+#19 5.760 Setting up python3-setuptools (78.1.1-0.1) ...
+#19 6.017 Setting up meson (1.7.0-1) ...
+#19 6.334 Processing triggers for libc-bin (2.41-12+deb13u4) ...
+#19 DONE 6.5s
+
+#12 [media-base 3/3] WORKDIR /usr/src
+#12 DONE 0.0s
+
+#24 [dotnet 1/1] RUN curl -fsSL https://dot.net/v1/dotnet-install.sh -o /tmp/dotnet-install.sh &&     bash /tmp/dotnet-install.sh --version 11.0.100-rc.2.26504.105 --install-dir /opt/dotnet &&     rm /tmp/dotnet-install.sh
+#24 1.641 dotnet-install: Attempting to download using primary link https://builds.dotnet.microsoft.com/dotnet/Sdk/11.0.100-rc.2.26504.105/dotnet-sdk-11.0.100-rc.2.26504.105-linux-arm64.tar.gz
+#24 25.49 dotnet-install: Remote file https://builds.dotnet.microsoft.com/dotnet/Sdk/11.0.100-rc.2.26504.105/dotnet-sdk-11.0.100-rc.2.26504.105-linux-arm64.tar.gz size is 203032573 bytes.
+#24 25.49 dotnet-install: Extracting archive from https://builds.dotnet.microsoft.com/dotnet/Sdk/11.0.100-rc.2.26504.105/dotnet-sdk-11.0.100-rc.2.26504.105-linux-arm64.tar.gz
+#24 28.35 dotnet-install: Downloaded file size is 203032573 bytes.
+#24 28.35 dotnet-install: The remote and local file sizes are equal.
+#24 28.53 dotnet-install: Installed version is 11.0.100-rc.2.26504.105
+#24 28.53 dotnet-install: Adding to current process PATH: `/opt/dotnet`. Note: This change will be visible only when sourcing script.
+#24 28.53 dotnet-install: Note that the script does not resolve dependencies during installation.
+#24 28.53 dotnet-install: To check the list of dependencies, go to https://learn.microsoft.com/dotnet/core/install, select your operating system and check the "Dependencies" section.
+#24 28.53 dotnet-install: Installation finished successfully.
+#24 DONE 29.5s
+
+#25 [build 1/6] COPY --from=dotnet /opt/dotnet /opt/dotnet
+#25 DONE 0.8s
+
+#26 [build 2/6] WORKDIR /src
+#26 DONE 0.0s
+
+#27 [build 3/6] COPY global.json Directory.Build.props Directory.Packages.props ./
+#27 DONE 0.0s
+
+#28 [build 4/6] COPY src src
+#28 DONE 0.1s
+
+#29 [build 5/6] COPY reference reference
+#29 DONE 0.1s
+
+#30 [build 6/6] RUN --mount=type=cache,id=campfire-fsharp-nuget,target=/root/.nuget/packages     case "arm64" in       amd64) rid=linux-x64 ;;       arm64) rid=linux-arm64 ;;       *) echo "unsupported architecture: arm64" >&2; exit 1 ;;     esac &&     dotnet build src/Campfire.Assets.Build/Campfire.Assets.Build.fsproj -c Release &&     dotnet publish src/Campfire.App/Campfire.App.fsproj -c Release -r "$rid" --self-contained true       -p:PublishReadyToRun=true -p:DebugType=None -p:DebugSymbols=false -o /out/campfire
+#30 0.452   Determining projects to restore...
+#30 0.881   Restored /src/src/Campfire.Assets.Build/Campfire.Assets.Build.fsproj (in 279 ms).
+#30 0.881   Restored /src/src/Campfire.Ruby/Campfire.Ruby.fsproj (in 279 ms).
+#30 0.881 /opt/dotnet/sdk/11.0.100-rc.2.26504.105/Sdks/Microsoft.NET.Sdk/targets/Microsoft.NET.RuntimeIdentifierInference.targets(385,5): message NETSDK1057: You are using a preview version of .NET. See: https://aka.ms/dotnet-support-policy [/src/src/Campfire.Assets.Build/Campfire.Assets.Build.fsproj]
+#30 1.682   Campfire.Ruby -> /src/src/Campfire.Ruby/bin/Release/net11.0/Campfire.Ruby.dll
+#30 2.441   Campfire.Assets.Build -> /src/src/Campfire.Assets.Build/bin/Release/net11.0/Campfire.Assets.Build.dll
+#30 2.443 
+#30 2.443 Build succeeded.
+#30 2.443     0 Warning(s)
+#30 2.443     0 Error(s)
+#30 2.443 
+#30 2.443 Time Elapsed 00:00:02.14
+#30 2.615   Determining projects to restore...
+#30 3.143   Restored /src/src/Campfire.Assets.Build/Campfire.Assets.Build.fsproj (in 36 ms).
+#30 3.143   Restored /src/src/Campfire.Assets/Campfire.Assets.fsproj (in 36 ms).
+#30 3.143   Restored /src/src/Campfire.Kit/Campfire.Kit.fsproj (in 28 ms).
+#30 3.143   Restored /src/src/Campfire.Views/Campfire.Views.fsproj (in 36 ms).
+#30 3.143   Restored /src/src/Campfire.Ruby/Campfire.Ruby.fsproj (in 3 ms).
+#30 3.174   Restored /src/src/Campfire.RichText/Campfire.RichText.fsproj (in 37 ms).
+#30 3.174   Restored /src/src/Campfire.Routes/Campfire.Routes.fsproj (in 12 ms).
+#30 3.174   Restored /src/src/Campfire.RailsCompat/Campfire.RailsCompat.fsproj (in 11 ms).
+#30 3.174   Restored /src/src/Campfire.Cable/Campfire.Cable.fsproj (in 14 ms).
+#30 3.174   Restored /src/src/Campfire.Db/Campfire.Db.fsproj (in 64 ms).
+#30 3.174   Restored /src/src/Campfire.Storage/Campfire.Storage.fsproj (in 64 ms).
+#30 3.174   Restored /src/src/Campfire.App/Campfire.App.fsproj (in 64 ms).
+#30 3.253 /opt/dotnet/sdk/11.0.100-rc.2.26504.105/Sdks/Microsoft.NET.Sdk/targets/Microsoft.NET.RuntimeIdentifierInference.targets(385,5): message NETSDK1057: You are using a preview version of .NET. See: https://aka.ms/dotnet-support-policy [/src/src/Campfire.App/Campfire.App.fsproj]
+#30 3.420 /opt/dotnet/sdk/11.0.100-rc.2.26504.105/Sdks/Microsoft.NET.Sdk/targets/Microsoft.NET.RuntimeIdentifierInference.targets(385,5): message NETSDK1057: You are using a preview version of .NET. See: https://aka.ms/dotnet-support-policy [/src/src/Campfire.Cable/Campfire.Cable.fsproj]
+#30 3.420 /opt/dotnet/sdk/11.0.100-rc.2.26504.105/Sdks/Microsoft.NET.Sdk/targets/Microsoft.NET.RuntimeIdentifierInference.targets(385,5): message NETSDK1057: You are using a preview version of .NET. See: https://aka.ms/dotnet-support-policy [/src/src/Campfire.Routes/Campfire.Routes.fsproj]
+#30 3.420 /opt/dotnet/sdk/11.0.100-rc.2.26504.105/Sdks/Microsoft.NET.Sdk/targets/Microsoft.NET.RuntimeIdentifierInference.targets(385,5): message NETSDK1057: You are using a preview version of .NET. See: https://aka.ms/dotnet-support-policy [/src/src/Campfire.RichText/Campfire.RichText.fsproj]
+#30 3.420 /opt/dotnet/sdk/11.0.100-rc.2.26504.105/Sdks/Microsoft.NET.Sdk/targets/Microsoft.NET.RuntimeIdentifierInference.targets(385,5): message NETSDK1057: You are using a preview version of .NET. See: https://aka.ms/dotnet-support-policy [/src/src/Campfire.Kit/Campfire.Kit.fsproj]
+#30 3.420 /opt/dotnet/sdk/11.0.100-rc.2.26504.105/Sdks/Microsoft.NET.Sdk/targets/Microsoft.NET.RuntimeIdentifierInference.targets(385,5): message NETSDK1057: You are using a preview version of .NET. See: https://aka.ms/dotnet-support-policy [/src/src/Campfire.Ruby/Campfire.Ruby.fsproj]
+#30 3.420 /opt/dotnet/sdk/11.0.100-rc.2.26504.105/Sdks/Microsoft.NET.Sdk/targets/Microsoft.NET.RuntimeIdentifierInference.targets(385,5): message NETSDK1057: You are using a preview version of .NET. See: https://aka.ms/dotnet-support-policy [/src/src/Campfire.Db/Campfire.Db.fsproj]
+#30 3.420 /opt/dotnet/sdk/11.0.100-rc.2.26504.105/Sdks/Microsoft.NET.Sdk/targets/Microsoft.NET.RuntimeIdentifierInference.targets(385,5): message NETSDK1057: You are using a preview version of .NET. See: https://aka.ms/dotnet-support-policy [/src/src/Campfire.RailsCompat/Campfire.RailsCompat.fsproj]
+#30 3.533   Campfire.Ruby -> /src/src/Campfire.Ruby/bin/Release/net11.0/Campfire.Ruby.dll
+#30 5.533   Campfire.Routes -> /src/src/Campfire.Routes/bin/Release/net11.0/Campfire.Routes.dll
+#30 5.853   Campfire.Assets.Build -> /src/src/Campfire.Assets.Build/bin/Release/net11.0/linux-arm64/Campfire.Assets.Build.dll
+#30 5.973   Campfire.Assets.Build: 315 assets, 321 servable files, 16311933 bytes
+#30 6.215   Campfire.RailsCompat -> /src/src/Campfire.RailsCompat/bin/Release/net11.0/Campfire.RailsCompat.dll
+#30 7.898   Campfire.Assets -> /src/src/Campfire.Assets/bin/Release/net11.0/Campfire.Assets.dll
+#30 9.214   Campfire.Kit -> /src/src/Campfire.Kit/bin/Release/net11.0/Campfire.Kit.dll
+#30 9.895   Campfire.Cable -> /src/src/Campfire.Cable/bin/Release/net11.0/Campfire.Cable.dll
+#30 10.49   Campfire.Views -> /src/src/Campfire.Views/bin/Release/net11.0/Campfire.Views.dll
+#30 10.93   Campfire.Db -> /src/src/Campfire.Db/bin/Release/net11.0/Campfire.Db.dll
+#30 11.85   Campfire.RichText -> /src/src/Campfire.RichText/bin/Release/net11.0/Campfire.RichText.dll
+#30 12.61   Campfire.Storage -> /src/src/Campfire.Storage/bin/Release/net11.0/Campfire.Storage.dll
+#30 18.29   Campfire.App -> /src/src/Campfire.App/bin/Release/net11.0/linux-arm64/campfire.dll
+#30 24.44   Campfire.App -> /out/campfire/
+#30 DONE 24.6s
+
+#31 [stage-6  7/12] COPY --from=build /out/campfire /opt/campfire
+#31 DONE 0.2s
+
+#32 [stage-6  8/12] RUN ln -s /opt/campfire/campfire /usr/local/bin/campfire
+#32 DONE 0.1s
+
+#33 [stage-6  9/12] COPY --chmod=755 <<EOF /rails/bin/boot
+#33 DONE 0.0s
+
+#34 [stage-6 10/12] RUN mkdir -p /rails/storage/db /rails/storage/files /rails/storage/backups &&     chown -R 1000:1000 /rails
+#34 DONE 0.1s
+
+#35 [stage-6 11/12] COPY --chmod=755 <<EOF /hooks/pre-backup
+#35 DONE 0.0s
+
+#36 [stage-6 12/12] COPY --chmod=755 reference/hooks/post-restore /hooks/post-restore
+#36 DONE 0.0s
+
+#37 exporting to image
+#37 exporting layers
+#37 exporting layers 2.9s done
+#37 exporting manifest sha256:21e3f56860676c8b77c22416497c6832a1e8287b2b6dffb85fd592fcac06e282 done
+#37 exporting config sha256:fa44a57c8b06ed13e96ab90f17e63e2a709d9a3ffcb4275680e731cfe2588fc8 done
+#37 exporting attestation manifest sha256:57c72e0c84078daf59155c1b34f631d7794b43bf8fd46ae95aed75d363657a0c done
+#37 exporting manifest list sha256:3314959ca964bad2b362cf6462c3ec48bd3fdcadd48f9dd8a0ff447e56fc1089 done
+#37 naming to docker.io/library/campfire-dotnetway:app done
+#37 unpacking to docker.io/library/campfire-dotnetway:app
+#37 unpacking to docker.io/library/campfire-dotnetway:app 0.5s done
+#37 DONE 3.4s
+candidate: building campfire-candidate-dotnetway from parity/docker/candidate/Dockerfile
+#0 building with "default" instance using docker driver
+
+#1 [internal] load build definition from Dockerfile
+#1 transferring dockerfile: 2.35kB done
+#1 DONE 0.0s
+
+#2 resolve image config for docker-image://docker.io/docker/dockerfile:1
+#2 DONE 0.2s
+
+#3 docker-image://docker.io/docker/dockerfile:1@sha256:4edf897a3ffa55b89f906fc8cc78afdb3f1834cc9c7083565e611a8a7d5fe99e
+#3 resolve docker.io/docker/dockerfile:1@sha256:4edf897a3ffa55b89f906fc8cc78afdb3f1834cc9c7083565e611a8a7d5fe99e done
+#3 CACHED
+
+#4 [internal] load metadata for docker.io/library/campfire-dotnetway:app
+#4 ...
+
+#5 [internal] load metadata for docker.io/library/debian:trixie-slim
+#5 DONE 0.2s
+
+#4 [internal] load metadata for docker.io/library/campfire-dotnetway:app
+#4 DONE 0.4s
+
+#6 [internal] load .dockerignore
+#6 transferring context: 2B done
+#6 DONE 0.0s
+
+#7 [internal] load build context
+#7 DONE 0.0s
+
+#8 [faketime 1/3] FROM docker.io/library/debian:trixie-slim@sha256:62bd423aeee912639ca8ee681c2b762cb3e25137e0a92b20be455898a9f034ad
+#8 resolve docker.io/library/debian:trixie-slim@sha256:62bd423aeee912639ca8ee681c2b762cb3e25137e0a92b20be455898a9f034ad done
+#8 DONE 0.0s
+
+#9 [stage-1 1/5] FROM docker.io/library/campfire-dotnetway:app@sha256:3314959ca964bad2b362cf6462c3ec48bd3fdcadd48f9dd8a0ff447e56fc1089
+#9 resolve docker.io/library/campfire-dotnetway:app@sha256:3314959ca964bad2b362cf6462c3ec48bd3fdcadd48f9dd8a0ff447e56fc1089
+#9 resolve docker.io/library/campfire-dotnetway:app@sha256:3314959ca964bad2b362cf6462c3ec48bd3fdcadd48f9dd8a0ff447e56fc1089 done
+#9 DONE 0.0s
+
+#10 [faketime 2/3] RUN apt-get update -qq && apt-get install --no-install-recommends -y build-essential ca-certificates curl
+#10 CACHED
+
+#11 [faketime 3/3] RUN curl -fsSL -o /tmp/libfaketime.tar.gz https://github.com/wolfcw/libfaketime/archive/refs/tags/v0.9.10.tar.gz &&     echo "729ad33b9c750a50d9c68e97b90499680a74afd1568d859c574c0fe56fe7947f  /tmp/libfaketime.tar.gz" | sha256sum -c - &&     tar xzf /tmp/libfaketime.tar.gz -C /tmp &&     sed -i 's/-Werror //' /tmp/libfaketime-0.9.10/src/Makefile &&     make -C /tmp/libfaketime-0.9.10/src FAKETIME_COMPILE_CFLAGS="-UFAKE_PTHREAD" libfaketime.so.1 &&     install -D -m 644 /tmp/libfaketime-0.9.10/src/libfaketime.so.1 /usr/local/lib/faketime/libfaketime.so.1
+#11 CACHED
+
+#7 [internal] load build context
+#7 transferring context: 32B done
+#7 DONE 0.0s
+
+#12 [stage-1 2/5] RUN apt-get update -qq &&     apt-get install --no-install-recommends -y sqlite3 procps &&     rm -rf /var/lib/apt/lists /var/cache/apt/archives
+#12 1.997 Reading package lists...
+#12 2.238 Building dependency tree...
+#12 2.299 Reading state information...
+#12 2.388 The following additional packages will be installed:
+#12 2.388   libncursesw6 libproc2-0 libreadline8t64 readline-common
+#12 2.389 Suggested packages:
+#12 2.389   readline-doc sqlite3-doc
+#12 2.389 Recommended packages:
+#12 2.389   libgpm2 psmisc linux-sysctl-defaults
+#12 2.418 The following NEW packages will be installed:
+#12 2.418   libncursesw6 libproc2-0 libreadline8t64 procps readline-common sqlite3
+#12 2.464 0 upgraded, 6 newly installed, 0 to remove and 0 not upgraded.
+#12 2.464 Need to get 1660 kB of archives.
+#12 2.464 After this operation, 5178 kB of additional disk space will be used.
+#12 2.464 Get:1 http://deb.debian.org/debian trixie/main arm64 libncursesw6 arm64 6.5+20250216-2 [124 kB]
+#12 2.516 Get:2 http://deb.debian.org/debian trixie/main arm64 libproc2-0 arm64 2:4.0.4-9 [62.8 kB]
+#12 2.545 Get:3 http://deb.debian.org/debian trixie/main arm64 procps arm64 2:4.0.4-9 [871 kB]
+#12 2.659 Get:4 http://deb.debian.org/debian trixie/main arm64 readline-common all 8.2-6 [69.4 kB]
+#12 2.664 Get:5 http://deb.debian.org/debian trixie/main arm64 libreadline8t64 arm64 8.2-6 [159 kB]
+#12 2.709 Get:6 http://deb.debian.org/debian trixie/main arm64 sqlite3 arm64 3.46.1-7+deb13u2 [373 kB]
+#12 2.852 debconf: unable to initialize frontend: Dialog
+#12 2.852 debconf: (TERM is not set, so the dialog frontend is not usable.)
+#12 2.852 debconf: falling back to frontend: Readline
+#12 2.852 debconf: unable to initialize frontend: Readline
+#12 2.852 debconf: (Can't locate Term/ReadLine.pm in @INC (you may need to install the Term::ReadLine module) (@INC entries checked: /etc/perl /usr/local/lib/aarch64-linux-gnu/perl/5.40.1 /usr/local/share/perl/5.40.1 /usr/lib/aarch64-linux-gnu/perl5/5.40 /usr/share/perl5 /usr/lib/aarch64-linux-gnu/perl-base /usr/lib/aarch64-linux-gnu/perl/5.40 /usr/share/perl/5.40 /usr/local/lib/site_perl) at /usr/share/perl5/Debconf/FrontEnd/Readline.pm line 8, <STDIN> line 6.)
+#12 2.852 debconf: falling back to frontend: Teletype
+#12 2.854 debconf: unable to initialize frontend: Teletype
+#12 2.854 debconf: (This frontend requires a controlling tty.)
+#12 2.854 debconf: falling back to frontend: Noninteractive
+#12 3.099 Fetched 1660 kB in 0s (4901 kB/s)
+#12 3.109 Selecting previously unselected package libncursesw6:arm64.
+#12 3.109 (Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 5733 files and directories currently installed.)
+#12 3.130 Preparing to unpack .../0-libncursesw6_6.5+20250216-2_arm64.deb ...
+#12 3.131 Unpacking libncursesw6:arm64 (6.5+20250216-2) ...
+#12 3.146 Selecting previously unselected package libproc2-0:arm64.
+#12 3.146 Preparing to unpack .../1-libproc2-0_2%3a4.0.4-9_arm64.deb ...
+#12 3.147 Unpacking libproc2-0:arm64 (2:4.0.4-9) ...
+#12 3.158 Selecting previously unselected package procps.
+#12 3.158 Preparing to unpack .../2-procps_2%3a4.0.4-9_arm64.deb ...
+#12 3.161 Unpacking procps (2:4.0.4-9) ...
+#12 3.203 Selecting previously unselected package readline-common.
+#12 3.204 Preparing to unpack .../3-readline-common_8.2-6_all.deb ...
+#12 3.205 Unpacking readline-common (8.2-6) ...
+#12 3.216 Selecting previously unselected package libreadline8t64:arm64.
+#12 3.217 Preparing to unpack .../4-libreadline8t64_8.2-6_arm64.deb ...
+#12 3.219 Adding 'diversion of /lib/aarch64-linux-gnu/libhistory.so.8 to /lib/aarch64-linux-gnu/libhistory.so.8.usr-is-merged by libreadline8t64'
+#12 3.222 Adding 'diversion of /lib/aarch64-linux-gnu/libhistory.so.8.2 to /lib/aarch64-linux-gnu/libhistory.so.8.2.usr-is-merged by libreadline8t64'
+#12 3.223 Adding 'diversion of /lib/aarch64-linux-gnu/libreadline.so.8 to /lib/aarch64-linux-gnu/libreadline.so.8.usr-is-merged by libreadline8t64'
+#12 3.225 Adding 'diversion of /lib/aarch64-linux-gnu/libreadline.so.8.2 to /lib/aarch64-linux-gnu/libreadline.so.8.2.usr-is-merged by libreadline8t64'
+#12 3.225 Unpacking libreadline8t64:arm64 (8.2-6) ...
+#12 3.237 Selecting previously unselected package sqlite3.
+#12 3.238 Preparing to unpack .../5-sqlite3_3.46.1-7+deb13u2_arm64.deb ...
+#12 3.238 Unpacking sqlite3 (3.46.1-7+deb13u2) ...
+#12 3.253 Setting up libproc2-0:arm64 (2:4.0.4-9) ...
+#12 3.255 Setting up libncursesw6:arm64 (6.5+20250216-2) ...
+#12 3.257 Setting up procps (2:4.0.4-9) ...
+#12 3.266 Setting up readline-common (8.2-6) ...
+#12 3.269 Setting up libreadline8t64:arm64 (8.2-6) ...
+#12 3.271 Setting up sqlite3 (3.46.1-7+deb13u2) ...
+#12 3.273 Processing triggers for libc-bin (2.41-12+deb13u4) ...
+#12 DONE 3.3s
+
+#13 [stage-1 3/5] COPY --from=faketime /usr/local/lib/faketime/libfaketime.so.1 /usr/local/lib/faketime/libfaketime.so.1
+#13 DONE 0.0s
+
+#14 [stage-1 4/5] COPY --chmod=755 entrypoint /usr/local/bin/parity-entrypoint
+#14 DONE 0.0s
+
+#15 [stage-1 5/5] RUN chmod -R a+rwX /rails/storage
+#15 DONE 0.1s
+
+#16 exporting to image
+#16 exporting layers 0.1s done
+#16 exporting manifest sha256:e272a679cf149c60a85e5510a114e99adedcfee0a50d98623403552a34922ebe done
+#16 exporting config sha256:fe1d57f1453d0cb7701a6b6aed868d26c00c49b9590b0f7894a5e66278b1cd87 done
+#16 exporting attestation manifest sha256:e9524d4b8d4aa5360de5cfc4f09d28550da0faa08f2b5fa5fe7b78a9284d1759 done
+#16 exporting manifest list sha256:ea279b875a74f765abaf1ffb9ae5ef80fce95c1f0405ce334b939e8ea45f6b5e done
+#16 naming to docker.io/library/campfire-candidate-dotnetway:latest done
+#16 unpacking to docker.io/library/campfire-candidate-dotnetway:latest 0.0s done
+#16 DONE 0.1s

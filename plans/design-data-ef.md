@@ -1,5 +1,16 @@
 # Design note: the Data layer on EF Core (Phase 1)
 
+> **Revision, 2026-10 (Units H.1 and H.2): hybrid reads.** The hot per-request reads are Dapper, in `src/Campfire.Db/Ef/FastReads.fs`
+> (the only module that calls Dapper; `bin/verify` guards it and the no-built-SQL rule). Read there: session, user, account, room (by
+> id, original, via membership), membership, message (by id, last page, page before), the account logo blob, the sidebar's four
+> reads, recent searches and the reachable-messages FTS search. Everything below about LINQ-first, `EF.Parameter` and `FromSql` still
+> holds for writes, cold queries and anything not listed. The model, the schema, the interceptors (pragmas run because reads open the
+> context's own connection through EF), `Writes.run` and the single-writer gate are unchanged; reads inside a write pass
+> `CurrentTransaction`. Rules a new Dapper read follows: explicit column lists, parameters only, string-backed enums (RoomType,
+> Involvement) through a private row record, snake-case and DateTime handlers set once at boot, an equivalence test against EF's
+> answer over the default seed (`FastReadsTests.fs`), and `FastReads.logTo` keeps H2's command log complete. Measurements:
+> `bench/results/dotnetway-hybrid-1` and `-2`; the Phase log has the numbers.
+
 Status: design, 2026-10-13, before Phase 1 builds. Author: the Opus designer (plan section 5). Binding for the Phase 1 builders
 together with `plans/dotnetway.md` sections 3-5 and D1-D9 (`/Users/clank/Desktop/projects/campfire-fsharp-thedotnetway-plan.md`).
 Where this note and plan section 2.1 disagree, this note wins: it is later and rests on the spikes in section 2, on Chris's

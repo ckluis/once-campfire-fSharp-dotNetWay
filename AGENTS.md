@@ -89,6 +89,13 @@ Project references follow the crate graph. Don't add an edge Rust doesn't have.
   through intermediate strings, a DOM or a markup library.
 - No reflection-based serialization on request paths; use `Utf8JsonWriter` or source-generated
   `System.Text.Json`.
+- **Hybrid reads: the per-request READ paths are Dapper** (`src/Campfire.Db/Ef/FastReads.fs`, the only file that calls Dapper; `bin/verify`
+  greps for it). That covers the session, user, account, room (by id, original, through the membership join), membership, message
+  (by id, last page, page before), the account logo blob, the sidebar's four reads, the recent searches and the reachable-messages
+  search. A new hot read goes there too: explicit column list (a column left out of a SELECT silently defaults), parameters only,
+  string-backed enums through a private row record, an equivalence test against EF in `FastReadsTests.fs`. EF Core keeps every write,
+  every cold query, the model, the schema and the interceptors. Reads open the context's own connection through EF and pass
+  `CurrentTransaction` inside writes. Cold or rare reads stay EF.
 - Queries are EF LINQ with `EF.Parameter` around every captured value (plans/design-data-ef.md, the LINQ-first revision);
   `FromSql`/`ExecuteSql` only where LINQ can't say it or a workload fell under the floor, each recorded in the Phase log. Nothing
   compiles in steady state (hot-path test H1 counts compilations). Reads run on pooled contexts; every write goes through
