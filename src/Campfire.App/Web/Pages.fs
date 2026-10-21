@@ -193,6 +193,9 @@ module Pages =
                     if not (HttpMethods.IsHead http.Request.Method) then
                         match body with
                         | Bytes bytes -> do! response.Body.WriteAsync bytes
+                        // A page with no fragment is one buffer: written whole through the body stream, as every body of one piece is
+                        // (`BodyWriter` over the compression middleware's stream copies it once more).
+                        | Output page when page.Fragments.Length = 0 && page.Parts.Length = 1 -> do! response.Body.WriteAsync page.Parts[0]
                         | Output page ->
                             let encoder = if page.Fragments.Length = 0 then ValueNone else encoderFor http
                             match encoder with
