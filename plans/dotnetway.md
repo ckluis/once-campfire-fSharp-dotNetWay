@@ -1624,3 +1624,52 @@ Evidence: `bench/results/dotnetway-p3/` (slim: logs, `report.json` per pixel sli
   All ten cells are over the 5x floor; no workload is a blocker, so no speed fix was made. Thinnest: sidebar c=1 7.99x, post c=16 6.20x, post c=1 6.69x. The gain against Phase 2 is the hybrid reads (H.1, H.2) and is the same size as H.2 measured (+36-58% on the pages, +9-17% on post); Phase 3's Cable work added no visible cost to the request path (HEAD equals H.2's figures within 1-3%: room page c=16 8,082 against 8,305, post c=16 2,046 against 2,053). Some c=16 page cells have a low first rep (ranges in `quick/compare-new.txt`, e.g. room page 5,607-8,332: JIT warm-up settling on the first rep of a part); medians are reported.
 - **KLOC:** `bin/kloc` 34,618 by upstream's rules, **34,837 corrected (34.8 KLOC)**, from 35.4 at the hybrid reads and 35.3 at the Phase 2 close (-0.5 for Phase 3; the plan projected 30.8). `Campfire.Cable` 1,051 (design projected 0.70), App 12,270, Kit 2,838.
 - **Differences recorded:** none new. The 16 KB per-connection bound of L7 (16.2 KB measured, 13.6 KB of it Kestrel's) and the two test packages (`FakeTimeProvider`, `FakeLogger`) from 3.6 remain open questions for Chris. `bin/clean-docker` and `bin/clean-parity` run; the control image and its scratch worktree are removed; 30 GB free.
+
+### Phase 3: independent verification (2026-10-21) - PHASE 3 DONE; Phase 4 GO
+
+Adversarial review of `0243446..e9ad93e` (H.0-H.2, 3.1-3.6, the gate) against `plans/design-cable.md`, the hybrid-reads decision and
+D1-D9, with the cheap checks re-run. Evidence in `bench/results/dotnetway-p3-verify/`. Fixes in `9a947b2`.
+- **Checked and holding:** the old transport is gone (no `Socket.fs`, `Pubsub.fs`, `Protocol.fs`, `Config.fs`, `JsonText.fs`, framing,
+  masking, ring or deflate in `src/`; the Cable project is ten files on `Microsoft.AspNetCore.App`). Every frame goes through the one
+  writer loop; welcome, ping (app clock seconds), confirm/reject, message and disconnect bytes match the recorded Rails frames decoded.
+  `/cable` is any-method, 404 "Page not found" for a non-upgrade or a refused origin, before authentication. Authentication is
+  `AuthenticateAsync Schemes.Session` with the page scheme's `SessionCookie.lookup`; the re-check reads the first ticket's token in a
+  fresh scope; unauthorized and re-check failures close before the read loop starts, and commands after a close are ignored.
+  Revocation: membership destroy and sign-out emit `DisconnectUser(reconnect: true)` after commit, ban and deactivate `false`, through
+  `Publish` (refused inside `Writes.run`). Channels: `RoomChannel`, Presence and Typing go through `current_user.rooms.find_by`
+  (`FastReads.roomForUser`), `RoomMessagesChannel` derives the room from the verified stream name and checks membership, and
+  `Turbo::StreamsChannel` turns `:messages` names away (17 rejection assertions in the App tests). Slow consumers: 256-frame queue,
+  `TryWrite` only, aborts outside the `held` lock, 30-s send timeout, 1 MiB message limit (L1-L7). Hybrid reads: 17 Dapper calls, all
+  in `FastReads.fs`, every SQL a constant with `@` parameters (the id list is JSON built from `int64`s); the equivalence tests compare
+  F# records (structural equality over every field) for every row of the default seed, with connected memberships; reads inside a write
+  take `CurrentTransaction` (tested). Typing's `BroadcastTo` reaches the server unguarded by `Publish`, but runs in no write.
+- **Fixed (`9a947b2`):** (1) **C13 window.** `SubscribeToChannel` queued `confirm_subscription` and only then registered the streams, so
+  a client that had read its confirmation could miss a broadcast made in the microseconds between (3.6 had to make L1/L2 broadcast until
+  reached, and the README recorded it as a difference). The streams now register first; the command already holds every broadcast until
+  its own frames are queued, so the order on the socket is unchanged (transmissions, confirmation, the stream) and nothing is lost after
+  the confirmation, which is Rails' guarantee (it confirms once the adapter acknowledges). L1/L2 broadcast once and assert the count; a
+  new stress test (C13, 300 subscribe-confirm-broadcast rounds) asserts the confirmed client is reached every time. It is not
+  deterministic: it passed 5 runs against the old order (the window is microseconds). README entry removed; design C13 amended.
+  (2) **Cross-site WebSocket hijacking on the real pipeline:** `CableAuthTests` now opens upgrades carrying David's valid cookie from
+  another host, another port, another scheme, `null` and no Origin, on the app's default `CableOptions`: each gets 404 and no socket,
+  then the same cookie from the app's origin is welcome. With the origin check forced open the test fails (sabotage run). (3) **SQL
+  guard:** `bin/verify` now requires every Dapper call in `FastReads.fs` to take a named `...Sql` value and every `...Sql` value to be one
+  plain literal (no `$`, no `+`); four sabotaged copies (`+` inside, a public value with a prefix, an inline literal at the call, an
+  interpolated value) were each caught, and the old grep caught none of the first three. (4) A stale comment in `Streams.fs`.
+- **Re-run here:** `CAMPFIRE_REQUIRE_SEED=1 bin/verify`: 996 total, 990 passed, 6 skipped (the same environmental 6), 0 failed, 0 warnings
+  (the gate's 994 plus the two new tests; H1 green; golden replay 26 exchanges / 25 frames). Cable tests alone 80 total, 79 passed, 1
+  skipped. On the image built from `9a947b2` (revision label checked equal), `bin/pixel-parity --fast --seeds default --only
+  "realtime/<state>"`, one state per run: `message_sent` 35 s, `typing/one` 34 s, `presence_read` 34 s, `removed_from_room` 76 s,
+  `room_deleted_then_send` 39 s, `unread_in_sidebar` 39 s, `new_room_in_sidebar` 38 s, each 2/2 screenshots, aria and loose DOM equal.
+  `bench/cable/run fsharp --reps 2 --plain` (load 3.6): burst 1.55 and 2.00 us/delivery, lone broadcast 54.0 and 48.7 us, p50 15.9 and
+  16.3 ms, 44.3 kB/client, equal to the gate (row in `bench/results/cable-fanout-dotnetway.md`). No `bench/quick`: nothing on the HTTP
+  request path changed; the gate's table (all ten cells over 5x Rails, thinnest sidebar c=1 7.99x, post c=16 6.20x, post c=1 6.69x;
+  +36-58% on the pages and +9-17% on post against the Phase 2 control, from the hybrid reads) was checked against `quick/compare-*.txt`.
+- **KLOC:** `bin/kloc` 34,618 by upstream's rules, **34,837 corrected (34.8 KLOC)**, unchanged (the fix moves a line and adds comments).
+  Phase 3 took the corrected count from 35.4 to 34.8; the plan projected 30.8 and `Campfire.Cable` is 1,051 against the design's 0.70 KLOC.
+- **Still open for Chris (not blocking):** the L7 bound (16.2 KB per idle connection measured, 13.6 KB of it Kestrel's, against the
+  design's under 16 KB); whether to add `FakeTimeProvider`/`FakeLogger`. Known, not fixed: the `PresenterAccountsTests` 302 flake of 3.4
+  (did not recur) and the raw test client's read limit that restarts on every ping.
+- **Phase 4 (Views on Falco.Markup): GO.** Every Phase 3 gate holds, no workload is near the floor (post c=16 6.20x is the thinnest
+  cell, and Phase 4 is where the string-render cost lands, so the bench against a same-session control in each Phase 4 unit matters).
+- `bin/clean-docker` after the build and `bin/clean-parity` after each state; 31 GB free.

@@ -53,3 +53,15 @@ killed server), not a failure of a rep.
 
 Equal to the stored row and to 3.6's loaded run (burst 1.55-1.85); slower than 3.6's quiet run (0.75-0.95), which was the best case of that session. The hybrid
 reads touch no Cable path, so the difference is the host (the resident set and the lone-broadcast cost moved with load in 3.6 too). No regression claimed or found.
+
+### Phase 3 verification (2026-10-21, `9a947b2`: streams register before the confirmation)
+
+`bench/cable/run fsharp --reps 2 --plain` after the realtime slices (load average 3.6 at the start, 2.7 at the end;
+`bench/results/dotnetway-p3-verify/cable-run.log`; exit status 1 from the cleanup `wait` again, both reps printed).
+
+| run | latency p50 (ms) | single (us/delivery) | burst (us/delivery) | rss per client, rep 1 (kB) |
+|---|---|---|---|---|
+| Phase 3 gate | 17.0, 17.0 | 59.5, 53.3 | 1.60, 1.85 | 44.0 |
+| Phase 3 verification | 15.9, 16.3 | 54.0, 48.7 | 1.55, 2.00 (user 1.10, 1.40; system 0.45, 0.60) | 44.3 |
+
+Equal to the gate within noise; the change is on the subscribe path (the order of two steps), not the fan-out path.
