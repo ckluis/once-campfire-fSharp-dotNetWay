@@ -75,13 +75,3 @@ let ``a room knows its dom id and where it is edited`` () =
     Assert.Equal("/rooms/directs/3/edit", room.EditPath)
     Assert.Equal("Ping", room.Noun)
 
-// messages.rs: the keys of the fragments a message and a boost live under
-
-[<Fact>]
-let ``message fragments are keyed by version`` () =
-    let at = time "2024-06-01T12:00:00.000123Z"
-    let buffer = KeyBuf.Of ""
-    Messages.messageFragmentKey buffer 7L at
-    let key = buffer.ToString()
-    Assert.StartsWith("views/messages/_message:", key)
-    Assert.EndsWith("/messages/7-20240601120000000123/presentation-v3", key)

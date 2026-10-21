@@ -259,13 +259,47 @@ let roomView (v: JsonElement) : Rooms.RoomView =
       Name = opt (get v "name")
       DisplayName = str (get v "display_name") }
 
-let messageItem (v: JsonElement) : MessageItem = MessageItem.View(messageView v)
+/// A message's fragment as the fetchers make it, rendered here without a cache (the cache has its own tests): its boosts
+/// first, then the partial.
+let renderedBoosts (ctx: ViewContext) (view: MessageView) : CachedFragment[] =
+    view.Boosts
+    |> List.map (fun boost -> Render.fragment (fun w -> Templates.Messages.Boosts._Boost.render w ctx boost))
+    |> Array.ofList
 
-let showView (v: JsonElement) : Rooms.ShowView =
+let renderedMessage (ctx: ViewContext) (view: MessageView) : CachedFragment =
+    let boosts = renderedBoosts ctx view
+    Render.fragment (fun w -> Templates.Messages._Message.render w ctx view boosts)
+
+let itemOf (view: MessageView) (html: CachedFragment) : MessageItem =
+    { ClientMessageId = view.ClientMessageId
+      RoomId = view.RoomId
+      Html = html }
+
+let messageItem (ctx: ViewContext) (v: JsonElement) : MessageItem =
+    let view = messageView v
+    itemOf view (renderedMessage ctx view)
+
+/// A fresh fragment cache as the app builds it (HybridCache over a size-limited memory cache), for the operations that check what
+/// it reuses: one per operation, as a case never sees another's fragments.
+let freshHybrid () : Microsoft.Extensions.Caching.Hybrid.HybridCache =
+    let services: Microsoft.Extensions.DependencyInjection.IServiceCollection = Microsoft.Extensions.DependencyInjection.ServiceCollection()
+    Fragments.add services (int64 Fragments.DefaultMaxBytes)
+    Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<Microsoft.Extensions.Caching.Hybrid.HybridCache>(
+        Microsoft.Extensions.DependencyInjection.ServiceCollectionContainerBuilderExtensions.BuildServiceProvider services
+    )
+
+/// A fetch awaited, for the synchronous runner.
+let await (value: System.Threading.Tasks.ValueTask<'T>) : 'T = value.AsTask().GetAwaiter().GetResult()
+
+/// The item of a message fetched through the cache.
+let cachedItem (cache: Microsoft.Extensions.Caching.Hybrid.HybridCache) (ctx: ViewContext) (view: MessageView) : MessageItem =
+    await (MessagesCached.item cache ctx view)
+
+let showView (ctx: ViewContext) (v: JsonElement) : Rooms.ShowView =
     { Room = roomView (get v "room")
       UpdatedAt = timestamp (get v "updated_at")
       User = userView (get v "user")
-      Messages = arr (get v "messages") |> List.map messageItem
+      Messages = arr (get v "messages") |> List.map (messageItem ctx)
       Invitation = bool (get v "invitation")
       JoinCode = str (get v "join_code")
       MessagesStreamName = str (get v "messages_stream_name") }
@@ -275,11 +309,11 @@ let involvementView (v: JsonElement) : Rooms.InvolvementView =
       Kind = roomKind (get v "kind")
       Involvement = str (get v "involvement") }
 
-let refreshView (v: JsonElement) : Rooms.RefreshView =
+let refreshView (ctx: ViewContext) (v: JsonElement) : Rooms.RefreshView =
     { RoomId = int64Of (get v "room_id")
       RoomKind = roomKind (get v "room_kind")
-      NewMessages = arr (get v "new_messages") |> List.map messageItem
-      UpdatedMessages = arr (get v "updated_messages") |> List.map messageItem }
+      NewMessages = arr (get v "new_messages") |> List.map (messageItem ctx)
+      UpdatedMessages = arr (get v "updated_messages") |> List.map (messageItem ctx) }
 
 let formRoom (v: JsonElement) : Rooms.FormRoom =
     { Id =
@@ -309,10 +343,10 @@ let editView (v: JsonElement) : EditView =
     { Message = messageView (get v "message")
       EditableBodyHtml = str (get v "editable_body_html") }
 
-let searchesIndexView (v: JsonElement) : Searches.IndexView =
+let searchesIndexView (ctx: ViewContext) (v: JsonElement) : Searches.IndexView =
     { Query = opt (get v "query")
       Q = opt (get v "q")
-      Messages = arr (get v "messages") |> List.map messageItem
+      Messages = arr (get v "messages") |> List.map (messageItem ctx)
       RecentSearches = arr (get v "recent_searches") |> List.map str
       ReturnToRoomId = int64Of (get v "return_to_room_id") }
 

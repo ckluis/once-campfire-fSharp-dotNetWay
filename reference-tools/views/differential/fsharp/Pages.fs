@@ -22,17 +22,12 @@ let private known =
           "rooms/layouts/_form"; "searches/index"; "autocompletable/users/index"; "autocompletable/users/_prompt_item"
           "users/sidebars/show" ]
 
-/// `mode`: "mixed" renders every second message into the cache first and gives the template the cached fragment.
-let private mixed (ctx: ViewContext) (items: Messages.MessageItem list) (args: JsonElement) : MessageItem list =
-    if str (get args "mode") <> "mixed" then
-        items
-    else
-        items
-        |> List.mapi (fun n item ->
-            match item with
-            | MessageItem.View view when n % 2 = 1 ->
-                MessageItem.Cached(view.ClientMessageId, view.RoomId, MessagesCached.message ctx view)
-            | other -> other)
+/// `mode`: "mixed" fetches every second message through the cache (a hit gives the one instance); the others are rendered
+/// here. The pages must come out the same either way.
+let private items (ctx: ViewContext) (args: JsonElement) (values: JsonElement list) : MessageItem list =
+    let mixed = str (get args "mode") = "mixed"
+    let cache = if mixed then freshHybrid () else Unchecked.defaultof<_>
+    values |> List.mapi (fun n v -> if mixed && n % 2 = 1 then cachedItem cache ctx (messageView v) else messageItem ctx v)
 
 let private recordedAnswer (page: HtmlOutput) : Answer =
     { Out = page.ToString()
@@ -72,15 +67,17 @@ let private run (op: string) (args: JsonElement) (ctx: ViewContext) : Answer =
     match op with
     | "messages/_message" ->
         let message = message ()
-        fragmentAnswer (fun w -> Templates.Messages._Message.render w ctx message)
+        let boosts = renderedBoosts ctx message
+        fragmentAnswer (fun w -> Templates.Messages._Message.render w ctx message boosts)
     | "messages/message_cached" ->
         let first, second = messageView (get args "message"), messageView (get args "second")
-        let a = MessagesCached.message ctx first
-        let b = MessagesCached.message ctx second
+        let cache = freshHybrid ()
+        let a = await (MessagesCached.message cache ctx first)
+        let b = await (MessagesCached.message cache ctx second)
         if not (obj.ReferenceEquals(a, b)) then failwith "the second render did not reuse the cached fragment"
-        let c = Render.text (fun w -> MessagesCached.cachedMessage w ctx second)
-        let d = Render.text (fun w -> MessagesCached.cachedMessageItem w ctx (MessageItem.View second))
-        if c <> d then failwith "cached_message and cached_message_item differ"
+        let c = Render.text (fun w -> Templates.Messages.Show.render w b)
+        let d = Render.text (fun w -> w.Fragment (itemOf second b).Html)
+        if c <> d then failwith "the copied fragment and the placed one differ"
         { Out = a.ToString(); Text = Some c; Fragments = None }
     | "messages/_actions" ->
         let message = message ()
@@ -93,48 +90,47 @@ let private run (op: string) (args: JsonElement) (ctx: ViewContext) : Answer =
         let user = userView (get args "user")
         fragmentAnswer (fun w -> Templates.Messages._Template.render w ctx user)
     | "messages/index" ->
-        let messages = arr (get args "messages") |> List.map messageItem |> fun items -> mixed ctx items args
-        recordedFragmentAnswer (fun w -> Templates.Messages.Index.render w ctx messages)
+        let messages = items ctx args (arr (get args "messages"))
+        recordedFragmentAnswer (fun w -> Templates.Messages.Index.render w messages)
     | "messages/show" ->
-        let message = message ()
-        fragmentAnswer (fun w -> Templates.Messages.Show.render w ctx message)
+        let fragment = renderedMessage ctx (message ())
+        fragmentAnswer (fun w -> Templates.Messages.Show.render w fragment)
     | "messages/edit" ->
         let edit = editView (get args "edit")
         fragmentAnswer (fun w -> Templates.Messages.Edit.render w ctx edit)
     | "messages/create_turbo_stream" ->
         let message = message ()
         let kind = roomKind (get args "room_kind")
-        let item =
-            if bool (get args "fragment") then
-                MessageItem.Cached(message.ClientMessageId, message.RoomId, MessagesCached.message ctx message)
-            else
-                MessageItem.View message
-        fragmentAnswer (fun w -> Templates.Messages.CreateTurboStream.render w ctx item kind)
+        let item = if bool (get args "fragment") then cachedItem (freshHybrid ()) ctx message else itemOf message (renderedMessage ctx message)
+        fragmentAnswer (fun w -> Templates.Messages.CreateTurboStream.render w item kind)
     | "messages/destroy_turbo_stream" ->
         let message = message ()
         fragmentAnswer (fun w -> Templates.Messages.DestroyTurboStream.render w message)
     | "messages/room_not_found" -> fragmentAnswer Templates.Messages.RoomNotFound.render
     | "messages/boosts/_boost" ->
         let boost = boostView (get args "boost")
-        let first = BoostsCached.boost ctx boost
-        let second = BoostsCached.boost ctx boost
+        let cache = freshHybrid ()
+        let first = await (BoostsCached.boost cache ctx boost)
+        let second = await (BoostsCached.boost cache ctx boost)
         if not (obj.ReferenceEquals(first, second)) then failwith "the second render did not reuse the cached fragment"
         let partial = Render.text (fun w -> Templates.Messages.Boosts._Boost.render w ctx boost)
         if partial <> first.ToString() then failwith "the cached boost is not the partial"
-        { Out = partial; Text = Some(Render.text (fun w -> BoostsCached.cachedBoost w ctx boost)); Fragments = None }
+        { Out = partial; Text = Some(Render.text (fun w -> w.Lit first.Bytes)); Fragments = None }
     | "messages/boosts/_boosts" ->
         let message = message ()
-        fragmentAnswer (fun w -> Templates.Messages.Boosts._Boosts.render w ctx message)
+        let boosts = renderedBoosts ctx message
+        fragmentAnswer (fun w -> Templates.Messages.Boosts._Boosts.render w ctx message boosts)
     | "messages/boosts/index" ->
         let message = message ()
-        fragmentAnswer (fun w -> Templates.Messages.Boosts.Index.render w ctx message)
+        let boosts = renderedBoosts ctx message
+        fragmentAnswer (fun w -> Templates.Messages.Boosts.Index.render w ctx message boosts)
     | "messages/boosts/new" ->
         let message = message ()
         let user = userView (get args "user")
         fragmentAnswer (fun w -> Templates.Messages.Boosts.New.render w ctx message user)
     | "rooms/show" ->
-        let show = showView (get args "show")
-        let show = { show with Messages = mixed ctx show.Messages args }
+        let show = showView ctx (get args "show")
+        let show = { show with Messages = items ctx args (arr (get (get args "show") "messages")) }
         pageAnswer
             args
             (fun w -> Templates.Rooms.ShowPage.render w ctx show)
@@ -144,12 +140,12 @@ let private run (op: string) (args: JsonElement) (ctx: ViewContext) : Answer =
         let involvement = involvementView (get args "involvement")
         fragmentAnswer (fun w -> Templates.Rooms.Involvements.Show.render w ctx involvement)
     | "rooms/refreshes/show" ->
-        let refresh = refreshView (get args "refresh")
+        let refresh = refreshView ctx (get args "refresh")
         let refresh =
             { refresh with
-                NewMessages = mixed ctx refresh.NewMessages args
-                UpdatedMessages = mixed ctx refresh.UpdatedMessages args }
-        recordedFragmentAnswer (fun w -> Templates.Rooms.Refreshes.ShowTurboStream.render w ctx refresh)
+                NewMessages = items ctx args (arr (get (get args "refresh") "new_messages"))
+                UpdatedMessages = items ctx args (arr (get (get args "refresh") "updated_messages")) }
+        recordedFragmentAnswer (fun w -> Templates.Rooms.Refreshes.ShowTurboStream.render w refresh)
     | "rooms/opens/new" ->
         let form = openFormView (get args "form")
         pageAnswer
@@ -198,8 +194,8 @@ let private run (op: string) (args: JsonElement) (ctx: ViewContext) : Answer =
         fragmentAnswer (fun w ->
             Templates.Rooms.Layouts._Form.render w ctx room (bool (get args "can_administer")) kind (fun w -> w.Raw content))
     | "searches/index" ->
-        let index = searchesIndexView (get args "index")
-        let index = { index with Messages = mixed ctx index.Messages args }
+        let index = searchesIndexView ctx (get args "index")
+        let index = { index with Messages = items ctx args (arr (get (get args "index") "messages")) }
         pageAnswer
             args
             (fun w -> Templates.Searches.Index.render w ctx index)
@@ -213,6 +209,7 @@ let private run (op: string) (args: JsonElement) (ctx: ViewContext) : Answer =
         fragmentAnswer (fun w -> Templates.Autocompletable.Users._PromptItem.render w ctx user)
     | "users/sidebars/show" ->
         let mixedDirect = str (get args "mode") = "mixed"
+        let cache = if mixedDirect then freshHybrid () else Unchecked.defaultof<_>
         let sidebar: SidebarShow =
             { CurrentUser = userSummary (get args "current_user")
               RoomsStream = str (get args "rooms_stream")
@@ -222,9 +219,9 @@ let private run (op: string) (args: JsonElement) (ctx: ViewContext) : Answer =
                 |> List.mapi (fun n v ->
                     let membership = sidebarDirect v
                     if mixedDirect && n % 2 = 1 then
-                        SidebarDirectItem.Cached(UsersCached.directRoom ctx membership)
+                        { Html = await (UsersCached.directRoom cache ctx membership) }
                     else
-                        SidebarDirectItem.View membership)
+                        { Html = Render.fragment (fun w -> Templates.Users.Sidebars.Rooms._Direct.render w ctx membership) })
               DirectPlaceholderUsers = arr (get args "placeholders") |> List.map userSummary
               OtherMemberships =
                 arr (get args "shared")
@@ -243,8 +240,6 @@ let private run (op: string) (args: JsonElement) (ctx: ViewContext) : Answer =
 
 let tryRun (op: string) (args: JsonElement) (ctx: JsonElement) (shared: JsonElement) : Answer option =
     if known.Contains op then
-        let view = viewContext ctx shared
-        let cache = FragmentCache FragmentCacheLimits.DefaultMaxBytes
-        Some(FragmentCache.withCache cache (fun () -> run op args view))
+        Some(run op args (viewContext ctx shared))
     else
         None

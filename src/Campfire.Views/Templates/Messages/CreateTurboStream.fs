@@ -11,9 +11,9 @@ let private t0 = Utf8.lit "<turbo-stream action=\"append\" target=\""
 let private t1 = Utf8.lit "\"><template>"
 let private t2 = Utf8.lit "</template></turbo-stream>"
 
-let render (w: Out) (ctx: ViewContext) (message: MessageItem) (roomKind: RoomKind) : unit =
+let render (w: Out) (message: MessageItem) (roomKind: RoomKind) : unit =
     w.Lit t0
     writeRoomDomId w messagesPrefix roomKind message.RoomId
     w.Lit t1
-    MessagesCached.cachedMessageItem w ctx message
+    w.Fragment message.Html
     w.Lit t2

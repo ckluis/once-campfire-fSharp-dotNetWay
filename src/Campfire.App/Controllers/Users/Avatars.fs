@@ -104,7 +104,7 @@ module Avatars =
 
                 let freshness =
                     { Freshness.Default with
-                        Etag = FragmentCache.cacheKeyWithVersion "users" user.Id (DateTimeOffset(user.UpdatedAt))
+                        Etag = Fragments.cacheKeyWithVersion "users" user.Id (DateTimeOffset(user.UpdatedAt))
                         Template = if templateFound http then TemplateDigest else null }
                 match Respond.freshWhen http freshness with
                 | ValueSome notModified -> return notModified

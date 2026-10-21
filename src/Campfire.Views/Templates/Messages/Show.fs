@@ -7,4 +7,5 @@ open Campfire.Views.Messages
 
 
 
-let render (w: Out) (ctx: ViewContext) (message: MessageView) : unit = MessagesCached.cachedMessage w ctx message
+/// `message` is the fetched `messages/_message` fragment; it is copied into the page, not recorded.
+let render (w: Out) (message: CachedFragment) : unit = w.Lit message.Bytes

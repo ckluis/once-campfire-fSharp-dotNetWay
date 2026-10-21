@@ -101,7 +101,7 @@ module RouteTable =
         Regex(regex.ToString(), RegexOptions.CultureInvariant ||| RegexOptions.Compiled), names.ToArray()
 
     /// A row whose action is a Web action (`HttpContext -> Task<Result<HttpHandler, Error>>`): the matched endpoint is left for
-    /// the layout choice, the fragment cache is scoped as for any action, and what it answers gets the default headers.
+    /// the layout choice, what it answers gets the default headers.
     let private makeNative (verb: string) (pattern: string) (endpoint: string) (action: Web.Action) : Route =
         let regex, names = compile pattern
         { Verb = verb
@@ -111,8 +111,7 @@ module RouteTable =
           Action =
             Web.Native.wrap (fun http ->
                 http.Items[Web.Pages.EndpointKey] <- endpoint
-                let app = http.RequestServices.GetRequiredService<AppState>()
-                Campfire.Views.FragmentCache.scoped app.FragmentCache (fun () -> action http))
+                action http)
           Regex = regex
           Names = names }
 

@@ -12,6 +12,9 @@
     <Compile Include="Program.fs" />
   </ItemGroup>
   <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+  <ItemGroup>
     <ProjectReference Include="../../../../src/Campfire.Views/Campfire.Views.fsproj" />
     <ProjectReference Include="../../../../src/Campfire.Routes/Campfire.Routes.fsproj" />
     <ProjectReference Include="../../../../src/Campfire.RailsCompat/Campfire.RailsCompat.fsproj" />

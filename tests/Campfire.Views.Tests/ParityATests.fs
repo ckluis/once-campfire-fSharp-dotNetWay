@@ -156,13 +156,14 @@ let private sidebar (name: string) : Users.SidebarShow =
       DirectMemberships =
         [ for d in sidebar.GetProperty("direct").EnumerateArray() ->
               let roomId = d.GetProperty("room_id").GetInt64()
-              Users.SidebarDirectItem.View
+              let direct: Users.SidebarDirect =
                   { RoomId = roomId
                     Unread = d.GetProperty("unread").GetBoolean()
                     UpdatedAtEpoch = text (d.GetProperty "updated_at_epoch")
                     Members = strings (d.GetProperty "member_names") |> List.map (named name)
                     MembershipId = roomId
-                    MembershipUpdatedAt = Campfire.RailsCompat.Timestamps.unixEpoch } ]
+                    MembershipUpdatedAt = Campfire.RailsCompat.Timestamps.unixEpoch }
+              ({ Html = Render.fragment (fun w -> Templates.Users.Sidebars.Rooms._Direct.render w (context name Request.none) direct) }: Users.SidebarDirectItem) ]
       DirectPlaceholderUsers = strings (sidebar.GetProperty "placeholders") |> List.map (named name)
       OtherMemberships =
         [ for r in sidebar.GetProperty("shared").EnumerateArray() ->

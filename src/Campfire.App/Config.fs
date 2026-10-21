@@ -25,7 +25,7 @@
 // - `CAMPFIRE_FRAGMENT_CACHE_MB`: the fragment store's limit in megabytes (default 32). The
 //   reference caches fragments in Redis (`redis_cache_store`) with no `maxmemory`; this store is
 //   in the process, so it's bounded like Rails' `MemoryStore` (default `size` 32 MB), evicting the
-//   least recently used fragments. See `Campfire.Views.FragmentCache`.
+//   least recently used fragments. See `Campfire.Views.Fragments`.
 // - `CAMPFIRE_FROZEN_TIME` (`Boot`): pins the clock, for parity runs.
 // - `CAMPFIRE_LOG`: a `Microsoft.Extensions.Logging` level (`debug`, `info`, ...) that replaces the
 //   one `RAILS_LOG_LEVEL` gives (Rust's `CAMPFIRE_LOG` is a tracing filter; see Program.fs).
@@ -156,7 +156,7 @@ module AppConfig =
                   Backups = defaultArg (present "CAMPFIRE_BACKUPS_PATH") defaults.Backups }
             match
                 number "JOB_CONCURRENCY" 2L,
-                number "CAMPFIRE_FRAGMENT_CACHE_MB" (int64 (FragmentCacheLimits.DefaultMaxBytes >>> 20))
+                number "CAMPFIRE_FRAGMENT_CACHE_MB" (int64 (Fragments.DefaultMaxBytes >>> 20))
             with
             | Error e, _
             | _, Error e -> Error e

@@ -9,6 +9,7 @@ namespace Campfire.App.Presenters
 open System
 open System.Collections.Generic
 open System.Text.RegularExpressions
+open System.Threading.Tasks
 open Campfire.App
 open Campfire.Db
 open Campfire.RailsCompat
@@ -56,38 +57,12 @@ module PresenterSupport =
           Title = User.title user
           AvatarUrl = Common.avatarPath secrets user }
 
-    /// The digest in Jbuilder's `json.cache!` keys: the templates are fixed while the process runs.
-    let jbuilderDigest: string =
-        FragmentCache.digest [| "users/_user.json"; "messages/_message.json"; "messages/boosts/_boost.json" |]
-
-    /// Jbuilder's `json.cache!` key: `jbuilder/views/<template>:<digest>/<record key>`. The JSON carries
-    /// absolute URLs built from the request's `base_url`, which comes from its Host header, so the key does
-    /// too: Rails' key doesn't, and one request with a forged Host fed its URLs to every bot.
-    /// `record` is the table, id and `updated_at` of its `cache_key_with_version`.
-    let jbuilderKey (key: KeyBuf) (template: string) (table: string) (id: int64) (updatedAt: DateTimeOffset) (baseUrl: string) : unit =
-        key.Append "jbuilder/views/"
-        key.Append template
-        key.Append ':'
-        key.Append jbuilderDigest
-        key.Append '/'
-        FragmentCache.pushCacheKeyWithVersion key table id updatedAt
-        key.Append '/'
-        key.Append baseUrl
-
     /// `users/_user.json.jbuilder`.
     let userJson (secrets: Secrets) (baseUrl: string) (user: User) : UserJson =
         { Id = user.Id
           Name = user.Name
           Role = Role.name user.Role
           AvatarUrl = baseUrl + Common.avatarPath secrets user }
-
-    /// `users/_user.json.jbuilder` (`json.cache! user`).
-    let cachedUserJson (secrets: Secrets) (baseUrl: string) (user: User) : UserJson =
-        let key (key: KeyBuf) =
-            jbuilderKey key "users/_user" "users" user.Id (DateTimeOffset(user.UpdatedAt)) baseUrl
-        match FragmentCache.tryFetchValue key userCacheSize (fun () -> (Ok(userJson secrets baseUrl user): Result<UserJson, unit>)) with
-        | Ok value -> value
-        | Error() -> failwith "unreachable"
 
     /// `attachment.metadata[:width]`: an Integer for images, a Float for videos.
     let dimension (blob: Campfire.Storage.Blob) (name: string) : MessagesSupport.RubyNumber option =
@@ -157,16 +132,31 @@ type Presenter(db: Ef.CampfireDb, app: AppState, requestHost: string option) =
 
     member _.PlainTextBody(message: Message) : string = Message.plainTextBody db richText message
 
-    /// `render @messages`: each message's cached fragment when the current store has its version
-    /// (`cache [ message, "presentation-v3" ]` wraps the whole partial, so Rails evaluates none of
-    /// it on a hit), else its view.
-    member this.Messages(messages: Message list) : MessageItem list = messages |> List.map this.MessageItem
+    /// `render @messages`: each message's fragment, fetched up front (`cache [ message, "presentation-v3" ]` wraps the whole
+    /// partial, so Rails evaluates none of it on a hit: the view is built on a miss only). One after the other, since the
+    /// context is used by a miss.
+    member this.Messages(messages: Message list) : Task<MessageItem list> =
+        task {
+            let items = ResizeArray<MessageItem>()
+            for message in messages do
+                let! item = this.MessageItem message
+                items.Add item
+            return List.ofSeq items
+        }
 
     /// `render message`, as `Messages` does it.
-    member this.MessageItem(message: Message) : MessageItem =
-        match cachedMessageFragment message.Id (DateTimeOffset(message.UpdatedAt)) with
-        | null -> MessageItem.View(this.Message message)
-        | html -> MessageItem.Cached(message.ClientMessageId, message.RoomId, html)
+    member this.MessageItem(message: Message) : Task<MessageItem> =
+        task {
+            let! html = this.MessageFragment message
+            return
+                { ClientMessageId = message.ClientMessageId
+                  RoomId = message.RoomId
+                  Html = html }
+        }
+
+    /// The `messages/_message` fragment of this message version.
+    member this.MessageFragment(message: Message) : ValueTask<CachedFragment> =
+        MessagesCached.fetch app.Fragments (Page.fragmentContext app) message.Id (DateTimeOffset message.UpdatedAt) (fun () -> this.Message message)
 
     /// A message as `messages/_message` shows it.
     member this.Message(message: Message) : MessageView =
@@ -301,37 +291,23 @@ type Presenter(db: Ef.CampfireDb, app: AppState, requestHost: string option) =
         | Ok value -> defaultArg value ""
         | Error error -> Err.fail (DbError.other $"editable_body raised: {error.Message}")
 
-    /// `messages/_message.json.jbuilder` (`json.cache! message`).
+    /// `messages/_message.json.jbuilder`: rendered each time (the bot API is no workload, and a Jbuilder cache is keyed by version).
     member this.MessageJson(message: Message, baseUrl: string) : MessageJson =
-        let key (key: KeyBuf) =
-            jbuilderKey key "messages/_message" "messages" message.Id (DateTimeOffset(message.UpdatedAt)) baseUrl
-        match FragmentCache.tryFetchValue key messageCacheSize (fun () -> (Ok(this.RenderMessageJson(message, baseUrl)): Result<MessageJson, unit>)) with
-        | Ok value -> value
-        | Error() -> failwith "unreachable"
-
-    member private this.RenderMessageJson(message: Message, baseUrl: string) : MessageJson =
         { Id = message.Id
           CreatedAt = MessagesSupport.jsonTime (DateTimeOffset(message.CreatedAt))
           Body =
             { PlainText = this.PlainTextBody message
               Html = this.BodyHtml message }
-          Creator = cachedUserJson secrets baseUrl (this.User message.CreatorId)
+          Creator = userJson secrets baseUrl (this.User message.CreatorId)
           Room = { Id = message.RoomId }
           Url = baseUrl + Routes.roomMessage message.RoomId message.Id }
 
-    /// `messages/boosts/_boost.json.jbuilder` (`json.cache! boost`).
+    /// `messages/boosts/_boost.json.jbuilder`.
     member this.BoostJson(boost: Boost, message: Message, baseUrl: string) : BoostJson =
-        let key (key: KeyBuf) =
-            jbuilderKey key "messages/boosts/_boost" "boosts" boost.Id (DateTimeOffset(boost.UpdatedAt)) baseUrl
-        match FragmentCache.tryFetchValue key boostCacheSize (fun () -> (Ok(this.RenderBoostJson(boost, message, baseUrl)): Result<BoostJson, unit>)) with
-        | Ok value -> value
-        | Error() -> failwith "unreachable"
-
-    member private this.RenderBoostJson(boost: Boost, message: Message, baseUrl: string) : BoostJson =
         { Id = boost.Id
           Content = boost.Content
           CreatedAt = MessagesSupport.jsonTime (DateTimeOffset(boost.CreatedAt))
-          Booster = cachedUserJson secrets baseUrl (this.User boost.BoosterId)
+          Booster = userJson secrets baseUrl (this.User boost.BoosterId)
           Message =
             { Id = boost.MessageId
               Url = baseUrl + Routes.roomMessage message.RoomId message.Id } }

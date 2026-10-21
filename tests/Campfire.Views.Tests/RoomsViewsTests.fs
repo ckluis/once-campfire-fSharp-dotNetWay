@@ -10,7 +10,7 @@ open Campfire.Views.Tests.GoldenB
 
 let private show (name: string) =
     let g = golden name
-    let show = showView g.Input
+    let show = showView g.Context g.Input
     g.AssertDom(Render.text (fun w -> Rooms.ShowPage.render w g.Context show))
 
 /// A room page as it's served, recorded, is what a plain render gives, and each of its messages is a fragment the kit
@@ -18,28 +18,26 @@ let private show (name: string) =
 [<Fact>]
 let ``show recorded keeps every message as a fragment`` () =
     let g = golden "rooms_show_member"
-    let show = showView g.Input
+    let show = showView g.Context g.Input
     Assert.NotEmpty show.Messages
-    let cache = FragmentCache FragmentCacheLimits.DefaultMaxBytes
     let size = RenderSize()
     for round in [ "cold"; "warm" ] do
         let ctx = g.Context
-        FragmentCache.withCache cache (fun () ->
-            let page (w: Out) = Rooms.ShowPage.render w ctx show
-            let head (w: Out) = Rooms.ShowPage.head w show
-            let content (w: Out) = Rooms.ShowPage.content w ctx show
-            let recorded = size.Render page
-            let plain = Render.text page
-            Assert.Equal(plain, recorded.ToString())
-            Assert.Equal(show.Messages.Length, recorded.Fragments.Length)
+        let page (w: Out) = Rooms.ShowPage.render w ctx show
+        let head (w: Out) = Rooms.ShowPage.head w show
+        let content (w: Out) = Rooms.ShowPage.content w ctx show
+        let recorded = size.Render page
+        let plain = Render.text page
+        Assert.Equal(plain, recorded.ToString())
+        Assert.Equal(show.Messages.Length, recorded.Fragments.Length)
 
-            let framed = Layouts.frame (RenderSize()) head content
-            let plainFrame =
-                Render.text (fun w ->
-                    Layouts.TurboRails.Frame.render w (fun w -> w.Raw(Render.text head)) (fun w -> w.Raw(Render.text content)))
-            Assert.Equal(plainFrame, framed.ToString())
-            Assert.Equal(show.Messages.Length, framed.Fragments.Length)
-            ignore round)
+        let framed = Layouts.frame (RenderSize()) head content
+        let plainFrame =
+            Render.text (fun w ->
+                Layouts.TurboRails.Frame.render w (fun w -> w.Raw(Render.text head)) (fun w -> w.Raw(Render.text content)))
+        Assert.Equal(plainFrame, framed.ToString())
+        Assert.Equal(show.Messages.Length, framed.Fragments.Length)
+        ignore round
 
 [<Fact>]
 let ``show closed room`` () = show "rooms_show_closed"
@@ -103,5 +101,5 @@ let ``involvement`` () =
 [<Fact>]
 let ``refresh stream`` () =
     let g = golden "rooms_refreshes_show"
-    let refresh = refreshView g.Input
-    g.AssertDom(Render.text (fun w -> Rooms.Refreshes.ShowTurboStream.render w g.Context refresh))
+    let refresh = refreshView g.Context g.Input
+    g.AssertDom(Render.text (fun w -> Rooms.Refreshes.ShowTurboStream.render w refresh))

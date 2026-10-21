@@ -10,11 +10,11 @@ open Campfire.Views.Tests.GoldenB
 [<Fact>]
 let ``index with results`` () =
     let g = golden "searches_index"
-    let index = searchesIndexView g.Input
+    let index = searchesIndexView g.Context g.Input
     g.AssertDom(Render.text (fun w -> Templates.Searches.Index.render w g.Context index))
 
 [<Fact>]
 let ``index without query`` () =
     let g = golden "searches_index_empty"
-    let index = searchesIndexView g.Input
+    let index = searchesIndexView g.Context g.Input
     g.AssertDom(Render.text (fun w -> Templates.Searches.Index.render w g.Context index))

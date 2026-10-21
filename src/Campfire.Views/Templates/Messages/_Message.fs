@@ -1,6 +1,6 @@
 // Port of rust/crates/views/templates/messages/_message.html (reference/app/views/messages/_message.html.erb)
 /// `messages/_message.html.erb`, with `MessagesHelper#message_tag`: one message, or `_unrenderable` in its place when its
-/// content raised. Its body is `cache [ message, "presentation-v3" ]` (`MessagesCached.message`).
+/// content raised. Its body is `cache [ message, "presentation-v3" ]` (`MessagesCached.fetch`).
 module Campfire.Views.Templates.Messages._Message
 
 open Campfire.Views
@@ -34,7 +34,8 @@ let private t21 = Utf8.lit "\n          </div>\n          "
 let private t22 = Utf8.lit "\n          "
 let private t23 = Utf8.lit "\n        </div>\n      </div>\n    </turbo-frame>\n</div>"
 
-let render (w: Out) (ctx: ViewContext) (message: MessageView) : unit =
+/// `boosts` are the message's boosts' fragments, fetched up front (`BoostsCached.boosts`).
+let render (w: Out) (ctx: ViewContext) (message: MessageView) (boosts: CachedFragment[]) : unit =
     if message.IsUnrenderable then
         w.Lit t0
         _Unrenderable.render w
@@ -83,5 +84,5 @@ let render (w: Out) (ctx: ViewContext) (message: MessageView) : unit =
         w.Lit t21
         _Presentation.render w ctx message
         w.Lit t22
-        Boosts._Boosts.render w ctx message
+        Boosts._Boosts.render w ctx message boosts
         w.Lit t23

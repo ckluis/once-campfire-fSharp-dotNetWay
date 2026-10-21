@@ -164,11 +164,16 @@ module Boot =
 
             let edge = Web.EdgeConfig.production config.DisableSsl (errorPages ())
 
-            let fragmentCache = FragmentCache(int (min config.FragmentCacheBytes (int64 Int32.MaxValue)))
+            // The fragment cache is built here, before the host, because jobs and broadcasts render outside a request; the host
+            // registers this instance as its `HybridCache` (`Web.Services.add`).
+            let fragments =
+                let services = ServiceCollection()
+                Campfire.Views.Fragments.add services config.FragmentCacheBytes
+                services.BuildServiceProvider().GetRequiredService<Microsoft.Extensions.Caching.Hybrid.HybridCache>()
             // config/initializers/web_push.rb: off without a valid VAPID key pair.
             let webPush = IntegrationJobs.webPushPool config dbFactory gate efEnv (loggers.CreateLogger "campfire.web_push")
             let app =
-                AppState(config, secrets, clock, gate, dbFactory, efEnv, storage, cableHandle, jobs, webPush, fragmentCache, loggers)
+                AppState(config, secrets, clock, gate, dbFactory, efEnv, storage, cableHandle, jobs, webPush, fragments, loggers)
 
             let registry = CoreJobs.withCoreJobs ()
             IntegrationJobs.registerJobs registry

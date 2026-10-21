@@ -204,8 +204,6 @@ let private run (op: string) (args: JsonElement) (ctx: ViewContext) : Answer =
 
 let tryRun (op: string) (args: JsonElement) (ctx: JsonElement) (shared: JsonElement) : Answer option =
     if known.Contains op then
-        let view = viewContext ctx shared
-        let cache = FragmentCache FragmentCacheLimits.DefaultMaxBytes
-        Some(FragmentCache.withCache cache (fun () -> run op args view))
+        Some(run op args (viewContext ctx shared))
     else
         None

@@ -139,3 +139,25 @@ module Reads =
             match Writes.toDbError e with
             | ValueSome error -> Error error
             | ValueNone -> reraise ()
+
+    /// `run` for a read that awaits (a page's fragments are fetched while the context is in use): the same boundary, the context
+    /// used one step at a time.
+    let runAsync (db: CampfireDb) (f: CampfireDb -> Task<'T>) : Task<Result<'T, DbError>> =
+        task {
+            let! outcome =
+                task {
+                    try
+                        let! value = f db
+                        return Choice1Of2 value
+                    with e ->
+                        return Choice2Of2 e
+                }
+            match outcome with
+            | Choice1Of2 value -> return Ok value
+            | Choice2Of2 e ->
+                match Writes.toDbError e with
+                | ValueSome error -> return Error error
+                | ValueNone ->
+                    System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(e).Throw()
+                    return failwith "unreachable"
+        }

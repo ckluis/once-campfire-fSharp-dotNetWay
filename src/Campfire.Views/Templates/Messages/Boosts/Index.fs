@@ -7,4 +7,5 @@ open Campfire.Views.Messages
 
 
 
-let render (w: Out) (ctx: ViewContext) (message: MessageView) : unit = _Boosts.render w ctx message
+let render (w: Out) (ctx: ViewContext) (message: MessageView) (boosts: CachedFragment[]) : unit =
+    _Boosts.render w ctx message boosts

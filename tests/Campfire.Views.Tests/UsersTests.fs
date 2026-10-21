@@ -56,10 +56,3 @@ let ``a shared room in the sidebar is unread or not`` () =
     Assert.EndsWith("unread", (room true).ClassNames)
     Assert.Equal("align-center gap room btn txt-nowrap", (room false).ClassNames)
 
-[<Fact>]
-let ``direct room fragments live under the memberships key`` () =
-    let key = KeyBuf.Of ""
-    directRoomFragmentKey key 5L (Timestamps.unixEpoch)
-    Assert.StartsWith("views/users/sidebars/rooms/_direct:", key.ToString())
-    Assert.EndsWith("/memberships/5-19700101000000000000", key.ToString())
-    Assert.Null(FragmentCache.read (fun key -> directRoomFragmentKey key 5L Timestamps.unixEpoch))

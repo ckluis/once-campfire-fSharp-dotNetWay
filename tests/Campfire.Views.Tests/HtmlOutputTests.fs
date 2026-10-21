@@ -98,19 +98,17 @@ let ``O4 Legacy.inLayout keeps the fragments of a Falco page in the writer's lay
 let ``P2 a warm room page of forty fragments is rendered and written in under 300 KB`` () =
     let g = golden "rooms_show_closed"
     let ctx = g.Context
-    let show = showView g.Input
+    let show = showView ctx g.Input
     let show = { show with Messages = [ for _ in 1..4 -> show.Messages ] |> List.concat |> List.truncate 40 }
     Assert.Equal(40, show.Messages.Length)
-    let cache = FragmentCache FragmentCacheLimits.DefaultMaxBytes
     let size = RenderSize()
     let writer = ArrayBufferWriter<byte>(2 * 1024 * 1024)
     let once () =
-        FragmentCache.withCache cache (fun () ->
-            let output = size.Render(fun w -> Rooms.ShowPage.render w ctx show)
-            output.Digest() |> ignore
-            writer.ResetWrittenCount()
-            output.WriteTo writer
-            output)
+        let output = size.Render(fun w -> Rooms.ShowPage.render w ctx show)
+        output.Digest() |> ignore
+        writer.ResetWrittenCount()
+        output.WriteTo writer
+        output
     let warm = once ()
     for _ in 1..50 do
         once () |> ignore

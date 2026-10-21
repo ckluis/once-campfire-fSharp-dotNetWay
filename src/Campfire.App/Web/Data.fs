@@ -59,11 +59,21 @@ module Data =
                     return Result.Error(Internal e)
         }
 
+    /// `read` for a read that awaits (a page's fragments are fetched up front while the request's context is in use).
+    let readAsync (http: HttpContext) (f: Campfire.Db.Ef.CampfireDb -> Task<'T>) : Task<Result<'T, Error>> =
+        task {
+            let! result = Campfire.Db.Ef.Reads.runAsync (db http) f
+            return result |> Result.mapError webError
+        }
+
     /// Runs `f` with a presenter on the request's context and host (`MessagesController#present`).
     let present (http: HttpContext) (f: Campfire.App.Presenters.Presenter -> 'T) : Result<'T, Error> =
         let app = app http
         let requestHost = Some http.Request.Host.Host
-        read http (fun db ->
-            let presenter = Campfire.App.Presenters.Presenter(db, app, requestHost)
-            // The Jbuilder partials (`json.cache!`) read the fragment cache on this thread.
-            Campfire.Views.FragmentCache.withCache app.FragmentCache (fun () -> f presenter))
+        read http (fun db -> f (Campfire.App.Presenters.Presenter(db, app, requestHost)))
+
+    /// `present` for what awaits the fragment cache (`Presenter.Messages`, `Presenter.MessageItem`).
+    let presentAsync (http: HttpContext) (f: Campfire.App.Presenters.Presenter -> Task<'T>) : Task<Result<'T, Error>> =
+        let app = app http
+        let requestHost = Some http.Request.Host.Host
+        readAsync http (fun db -> f (Campfire.App.Presenters.Presenter(db, app, requestHost)))

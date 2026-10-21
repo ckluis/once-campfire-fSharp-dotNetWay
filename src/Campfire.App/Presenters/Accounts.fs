@@ -12,6 +12,7 @@ namespace Campfire.App.Presenters
 open System
 open System.Linq
 open System.Text
+open System.Threading.Tasks
 open Microsoft.EntityFrameworkCore
 open Campfire.App
 open Campfire.Db
@@ -130,8 +131,16 @@ module Accounts =
         User.activeExcluding db (excluded.ToArray()) limit
         |> List.map (Common.userSummary secrets)
 
-    /// Users::SidebarsController#show.
-    let sidebar (db: Campfire.Db.Ef.CampfireDb) (secrets: Secrets) (user: User) : Sidebar =
+    /// Users::SidebarsController#show. The direct rooms' fragments are fetched here, up front (`cache membership` wraps the whole
+    /// partial, so on a hit Rails loads none of its members): one after the other, since a miss uses `db`.
+    let sidebar
+        (db: Campfire.Db.Ef.CampfireDb)
+        (secrets: Secrets)
+        (cache: Microsoft.Extensions.Caching.Hybrid.HybridCache)
+        (ctx: ViewContext)
+        (user: User)
+        : Task<Sidebar> =
+      task {
         let allMemberships = Membership.visibleWithOrderedRoom db user.Id
 
         // `select { direct }.sort_by { |m| m.room.updated_at }.reverse`
@@ -141,13 +150,12 @@ module Accounts =
             |> List.sortBy (fun (_, room) -> room.UpdatedAt)
             |> List.rev
 
-        let directMemberships =
-            direct
-            |> List.map (fun (membership, room) ->
-                // `cache membership` wraps the whole partial: on a hit Rails loads none of its members.
-                match Users.cachedDirectRoomFragment membership.Id (DateTimeOffset(membership.UpdatedAt)) with
-                | null -> View(sidebarDirect db secrets membership room)
-                | html -> Cached html)
+        let directMemberships = ResizeArray<SidebarDirectItem>()
+        for membership, room in direct do
+            let! html =
+                UsersCached.fetch cache ctx membership.Id (DateTimeOffset(membership.UpdatedAt)) (fun () ->
+                    sidebarDirect db secrets membership room)
+            directMemberships.Add { Html = html }
         let otherMemberships =
             allMemberships
             |> List.filter (fun (membership, _) -> not (direct |> List.exists (fun (d, _) -> d.Id = membership.Id)))
@@ -156,9 +164,11 @@ module Accounts =
                   ParamKey = roomParamKey room.Type
                   Name = defaultArg (Option.ofObj room.Name) ""
                   Unread = Membership.unread membership })
-        { DirectMemberships = directMemberships
-          OtherMemberships = otherMemberships
-          DirectPlaceholderUsers = directPlaceholderUsers db secrets user }
+        return
+            { DirectMemberships = List.ofSeq directMemberships
+              OtherMemberships = otherMemberships
+              DirectPlaceholderUsers = directPlaceholderUsers db secrets user }
+      }
 
     // --- Account ---------------------------------------------------------------------------------------
 

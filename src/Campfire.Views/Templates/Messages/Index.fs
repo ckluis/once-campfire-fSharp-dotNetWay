@@ -7,7 +7,7 @@ open Campfire.Views.Messages
 
 let private t0 = Utf8.lit "\n"
 
-let render (w: Out) (ctx: ViewContext) (messages: MessageItem list) : unit =
+let render (w: Out) (messages: MessageItem list) : unit =
     for message in messages do
         w.Lit t0
-        MessagesCached.cachedMessageItem w ctx message
+        w.Fragment message.Html

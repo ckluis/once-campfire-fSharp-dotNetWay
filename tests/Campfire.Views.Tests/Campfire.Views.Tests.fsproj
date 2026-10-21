@@ -20,7 +20,7 @@
     <Compile Include="TagTests.fs" />
     <Compile Include="FormsTests.fs" />
     <Compile Include="HelpersTests.fs" />
-    <Compile Include="FragmentCacheTests.fs" />
+    <Compile Include="FragmentsTests.fs" />
     <Compile Include="MessagesTests.fs" />
     <Compile Include="UsersTests.fs" />
     <Compile Include="ParityATests.fs" />
@@ -28,6 +28,9 @@
     <Compile Include="RoomsViewsTests.fs" />
     <Compile Include="SearchesViewsTests.fs" />
     <Compile Include="DifferentialTests.fs" />
+  </ItemGroup>
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="../../src/Campfire.Views/Campfire.Views.fsproj" />

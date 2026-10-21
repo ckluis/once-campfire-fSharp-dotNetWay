@@ -27,6 +27,13 @@ module IntegrationJobs =
         use context = app.DbFactory.CreateDbContext()
         Ef.Reads.run context f
 
+    /// `readEf` for a read that awaits (a message's fragment is fetched while the context is in use).
+    let private readEfAsync (app: AppState) (f: Ef.CampfireDb -> Task<'T>) : Task<Result<'T, DbError>> =
+        task {
+            use context = app.DbFactory.CreateDbContext()
+            return! Ef.Reads.runAsync context f
+        }
+
     /// `Writes.run` on a context leased for the write, the failure left as a `DbError`.
     let private writeEf (app: AppState) (f: Ef.Tx -> 'T) : Task<Result<'T, DbError>> =
         task {
@@ -130,14 +137,14 @@ module IntegrationJobs =
     /// `message.broadcast_create`, rendered without a request (`ApplicationController.renderer`).
     let private broadcastCreate (app: AppState) (room: Room) (message: Message) : Task<Result<unit, string>> =
         task {
-            let result =
-                readEf app (fun db ->
-                    let presenter = Presenter(db, app, None)
-                    let view = presenter.Message message
-                    let account = Account.first db
-                    let html = Page.renderDetached app account (fun ctx -> MessagesCached.message ctx view)
-                    let partials = { Rendered.empty with Message = Some html }
-                    app.Broadcasts.MessageCreate(db, room, message, Rendered.partials partials))
+            let! result =
+                readEfAsync app (fun db ->
+                    task {
+                        let presenter = Presenter(db, app, None)
+                        let! html = presenter.MessageFragment message
+                        let partials = { Rendered.empty with Message = Some html }
+                        app.Broadcasts.MessageCreate(db, room, message, Rendered.partials partials)
+                    })
             return result |> Result.mapError failure
         }
 

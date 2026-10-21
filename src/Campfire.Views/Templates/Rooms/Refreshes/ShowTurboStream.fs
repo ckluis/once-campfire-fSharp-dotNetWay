@@ -20,13 +20,13 @@ let private t4 = Utf8.lit "<turbo-stream action=\"replace\" target=\""
 let private t5 = Utf8.lit "\"><template>"
 let private t6 = Utf8.lit "</template></turbo-stream>\n"
 
-let render (w: Out) (ctx: ViewContext) (refresh: RefreshView) : unit =
+let render (w: Out) (refresh: RefreshView) : unit =
     if not refresh.NewMessages.IsEmpty then
         w.Lit t0
         writeRoomDomId w messagesPrefix refresh.RoomKind refresh.RoomId
         w.Lit t1
         for message in refresh.NewMessages do
-            MessagesCached.cachedMessageItem w ctx message
+            w.Fragment message.Html
         w.Lit t2
     w.Lit t3
     for message in refresh.UpdatedMessages do
@@ -35,5 +35,5 @@ let render (w: Out) (ctx: ViewContext) (refresh: RefreshView) : unit =
         w.Lit messageId
         w.Text message.ClientMessageId
         w.Lit t5
-        MessagesCached.cachedMessageItem w ctx message
+        w.Fragment message.Html
         w.Lit t6

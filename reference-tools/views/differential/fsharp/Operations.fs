@@ -184,43 +184,6 @@ let private helper (name: string) (args: JsonElement) (ctx: JsonElement) (shared
         | other -> failwith $"turbo helper {other}"
     | other -> failwith $"unknown helper {other}"
 
-let private cacheOp (name: string) (args: JsonElement) : Answer =
-    match name with
-    | "keys" ->
-        let at = timestamp (get args "at")
-        let id = int64Of (get args "id")
-        let table = str (get args "table")
-        let record = KeyBuf.Of "existing/"
-        FragmentCache.pushRecordFragmentKey record (str (get args "template")) (str (get args "digest")) table id at
-        text (
-            $"{FragmentCache.cacheVersion at}\n{FragmentCache.cacheKeyWithVersion table id at}\n{record}"
-        )
-    | "script" ->
-        let cache = FragmentCache(intOf (get args "max_bytes"))
-        let lines = ResizeArray<string>()
-        let keys = ResizeArray<string>()
-        let flag (b: bool) = if b then "true" else "false"
-        for step in arr (get args "steps") do
-            let key = str (at step 1)
-            if not (keys.Contains key) then keys.Add key
-            match str (at step 0) with
-            | "fetch" ->
-                let mutable rendered = false
-                let size = intOf (at step 2)
-                let fragment =
-                    cache.Fetch(key, fun () ->
-                        rendered <- true
-                        CachedFragment(String('x', size)))
-                lines.Add $"fetch {key} rendered={flag rendered} len={fragment.Length} bytes={cache.Bytes} count={cache.Count}"
-            | _ ->
-                let found = (cache.TryGet<CachedFragment> key).IsSome
-                lines.Add $"get {key} found={flag found} bytes={cache.Bytes} count={cache.Count}"
-        let held = keys |> Seq.filter (fun key -> (cache.TryGet<CachedFragment> key).IsSome) |> Seq.map (fun key -> $"\"{key}\"")
-        let heldList = String.Join(", ", held)
-        lines.Add $"held [{heldList}] bytes={cache.Bytes}"
-        text (String.Join("\n", lines))
-    | other -> failwith $"unknown cache op {other}"
-
 let private messageOp (name: string) (args: JsonElement) (ctx: JsonElement) (shared: JsonElement) : Answer =
     match name with
     | "epoch_ms" -> text (string (MessagesSupport.epochMs (timestamp (get args "at"))))
@@ -318,16 +281,14 @@ let run (case: JsonElement) (shared: JsonElement) : Answer =
     | "users/direct_room" ->
         let ctx = ctxOf ()
         let first, second = sidebarDirect (get args "membership"), sidebarDirect (get args "second")
-        let cache = FragmentCache FragmentCacheLimits.DefaultMaxBytes
-        FragmentCache.withCache cache (fun () ->
-            let a = UsersCached.directRoom ctx first
-            let b = UsersCached.directRoom ctx second
-            if not (obj.ReferenceEquals(a, b)) then failwith "the second render did not reuse the cached fragment"
-            let c = Render.text (fun w -> UsersCached.cachedDirectRoom w ctx (View second))
-            { Out = a.ToString(); Text = Some c; Fragments = None })
+        let cache = freshHybrid ()
+        let a = await (UsersCached.directRoom cache ctx first)
+        let b = await (UsersCached.directRoom cache ctx second)
+        if not (obj.ReferenceEquals(a, b)) then failwith "the second render did not reuse the cached fragment"
+        let c = Render.text (fun w -> w.Lit b.Bytes)
+        { Out = a.ToString(); Text = Some c; Fragments = None }
     | "welcome/show" -> rendered (fun w -> Templates.Welcome.Show.render w (ctxOf ()) (str (get args "current_user_name")))
     | _ when op.StartsWith "helpers/" -> helper (op.Substring "helpers/".Length) args ctx shared
-    | _ when op.StartsWith "fragment_cache/" -> cacheOp (op.Substring "fragment_cache/".Length) args
     | _ when op.StartsWith "messages/" -> messageOp (op.Substring "messages/".Length) args ctx shared
     | "autocompletable/users_index_json" ->
         let users =

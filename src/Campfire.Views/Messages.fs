@@ -145,31 +145,18 @@ type MessageView =
     member this.BoostsPath: string = Routes.messageBoosts this.Id
     member this.NewBoostPath: string = Routes.newMessageBoost this.Id
 
-/// A message on its way into `messages/_message`: the fragment itself when the cache already
-/// holds this message version, else the view to render it from. `cache [ message,
-/// "presentation-v3" ]` wraps the whole partial, so on a hit Rails evaluates none of it (no rich
-/// text, attachment, avatar or boosts); `cachedMessageFragment` lets the presenter look first
-/// and build a `MessageView` only on a miss.
+/// A message on its way into a page: its `messages/_message` fragment, fetched up front (`MessagesCached`). `cache [ message,
+/// "presentation-v3" ]` wraps the whole partial, so on a hit Rails evaluates none of it (no rich text, attachment, avatar or
+/// boosts) and the presenter builds a `MessageView` only on a miss. What a page and a turbo stream read off the message besides
+/// the fragment is its dom id.
 type MessageItem =
-    | Cached of clientMessageId: string * roomId: int64 * html: CachedFragment
-    | View of MessageView
+    { ClientMessageId: string
+      RoomId: int64
+      Html: CachedFragment }
 
     /// `dom_id(message)` / `dom_id(message, prefix)`.
     member this.DomId(prefix: string) : string =
-        match this with
-        | Cached(clientMessageId, _, _) ->
-            if prefix = "" then $"message_{clientMessageId}" else $"{prefix}_message_{clientMessageId}"
-        | View message -> message.DomId prefix
-
-    member this.RoomId: int64 =
-        match this with
-        | Cached(_, roomId, _) -> roomId
-        | View message -> message.RoomId
-
-    member this.ClientMessageId: string =
-        match this with
-        | Cached(clientMessageId, _, _) -> clientMessageId
-        | View message -> message.ClientMessageId
+        if prefix = "" then $"message_{this.ClientMessageId}" else $"{prefix}_message_{this.ClientMessageId}"
 
 /// `EmojiHelper::REACTIONS`.
 let reactions: (string * string)[] =
@@ -188,28 +175,3 @@ type EditView =
       /// The editor's `value`: `editable_body(message)` as HTML, from the richtext crate.
       EditableBodyHtml: string }
 
-/// The template digest in `messages/_message`'s fragment keys: the partial and what it renders.
-let messageDigest: string =
-    FragmentCache.digest
-        [| "messages/_message"
-           "messages/_actions"
-           "messages/_presentation"
-           "messages/_unrenderable"
-           "messages/boosts/_boosts"
-           "messages/boosts/_boost" |]
-
-let boostDigest: string = FragmentCache.digest [| "messages/boosts/_boost" |]
-
-/// `views/messages/_message:<digest>/messages/<id>-<version>/presentation-v3`.
-let messageFragmentKey (key: KeyBuf) (id: int64) (updatedAt: Timestamp) : unit =
-    FragmentCache.pushRecordFragmentKey key "messages/_message" messageDigest "messages" id updatedAt
-    key.Append "/presentation-v3"
-
-/// `messages/boosts/_boost`'s key: `cache boost`.
-let boostFragmentKey (key: KeyBuf) (id: int64) (updatedAt: Timestamp) : unit =
-    FragmentCache.pushRecordFragmentKey key "messages/boosts/_boost" boostDigest "boosts" id updatedAt
-
-/// `messages/_message`'s fragment for this message version, if the current store holds it. The
-/// key needs only the message's id and `updated_at`.
-let cachedMessageFragment (id: int64) (updatedAt: Timestamp) : CachedFragment =
-    FragmentCache.read (fun key -> messageFragmentKey key id updatedAt)

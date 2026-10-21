@@ -132,29 +132,33 @@ module RoomsController =
             { Rendered.empty with SharedRoom = Some html })
 
     /// `rooms/show` with `find_messages`: the page around `params[:message_id]`, else the last page.
-    let private renderShow (http: HttpContext) (room: Room) : Result<Falco.HttpHandler, Error> =
-        result {
+    let private renderShow (http: HttpContext) (room: Room) : Threading.Tasks.Task<Result<Falco.HttpHandler, Error>> =
+        taskResult {
             let app = Data.app http
             let! (user: User) = Current.requireUser http
             let messageId = match Params.value http "message_id" with null -> None | id -> Ruby.integerCast id
             let requestHost = Some http.Request.Host.Host
             let! show =
-                Data.read http (fun db ->
-                    let original = Room.original db |> Option.exists (fun original -> original.Id = room.Id)
-                    let messages =
-                        match messageId |> Option.bind (fun id -> Message.findById db id) with
-                        | Some message when message.RoomId = room.Id -> Message.pageAround db room.Id message
-                        | _ -> Message.lastPage db room.Id
-                    let presenter = Presenter(db, app, requestHost)
-                    let roomGid = Campfire.RailsCompat.GlobalId.toParam (Gid.roomGid room)
-                    ({ Room = presenter.RoomView(room, user)
-                       UpdatedAt = DateTimeOffset(room.UpdatedAt)
-                       User = PresenterSupport.userView app.Secrets user
-                       // The page's message fragments come from the store the render then uses.
-                       Messages = FragmentCache.withCache app.FragmentCache (fun () -> presenter.Messages messages)
-                       Invitation = original && not (Message.paged db room.Id)
-                       JoinCode = Account.first db |> Option.map (fun account -> account.JoinCode) |> Option.defaultValue ""
-                       MessagesStreamName = Campfire.RailsCompat.Turbo.signedStreamName app.Secrets [ roomGid; "messages" ] }: Campfire.Views.Rooms.ShowView))
+                Data.readAsync http (fun db ->
+                    task {
+                        let original = Room.original db |> Option.exists (fun original -> original.Id = room.Id)
+                        let messages =
+                            match messageId |> Option.bind (fun id -> Message.findById db id) with
+                            | Some message when message.RoomId = room.Id -> Message.pageAround db room.Id message
+                            | _ -> Message.lastPage db room.Id
+                        let presenter = Presenter(db, app, requestHost)
+                        let roomGid = Campfire.RailsCompat.GlobalId.toParam (Gid.roomGid room)
+                        // The page's message fragments are fetched up front.
+                        let! items = presenter.Messages messages
+                        return
+                            ({ Room = presenter.RoomView(room, user)
+                               UpdatedAt = DateTimeOffset(room.UpdatedAt)
+                               User = PresenterSupport.userView app.Secrets user
+                               Messages = items
+                               Invitation = original && not (Message.paged db room.Id)
+                               JoinCode = Account.first db |> Option.map (fun account -> account.JoinCode) |> Option.defaultValue ""
+                               MessagesStreamName = Campfire.RailsCompat.Turbo.signedStreamName app.Secrets [ roomGid; "messages" ] }: Campfire.Views.Rooms.ShowView)
+                    })
             return!
                 Pages.framedPage
                     http

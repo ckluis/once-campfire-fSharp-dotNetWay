@@ -83,12 +83,3 @@ let byBotsShow (message: MessageJson) : string = Json.encode (messageToValue mes
 
 /// `messages/boosts/by_bots/show.json.jbuilder`.
 let boostsByBotsShow (boost: BoostJson) : string = Json.encode (boostToValue boost)
-
-/// The length of a value's JSON: the payload size of a Jbuilder value in the fragment cache
-/// (`serialized_size`).
-let serializedSize (value: Value) : int = Encoding.UTF8.GetByteCount(Json.generate value)
-
-// A Jbuilder fragment's payload is its JSON.
-let userCacheSize (user: UserJson) : int = serializedSize (userToValue user)
-let messageCacheSize (message: MessageJson) : int = serializedSize (messageToValue message)
-let boostCacheSize (boost: BoostJson) : int = serializedSize (boostToValue boost)

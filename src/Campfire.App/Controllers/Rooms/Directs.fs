@@ -42,19 +42,21 @@ module Directs =
             }
 
     /// `broadcast_create_room`: `users/sidebars/rooms/_direct` for each membership, to its user.
-    let private broadcastCreateRoom (http: HttpContext) (room: Room) : Result<unit, Error> =
-        result {
+    let private broadcastCreateRoom (http: HttpContext) (room: Room) : System.Threading.Tasks.Task<Result<unit, Error>> =
+        taskResult {
             let app = Data.app http
-            let baseUrl = Pages.rendererBaseUrl http
             let! memberships = Data.read http (fun db -> Membership.forRoom db room.Id)
             let! directRooms =
-                Data.read http (fun db ->
-                    let presenter = Presenter(db, app, None)
-                    let account = Account.first db
-                    [ for membership in memberships do
-                          let direct = presenter.SidebarDirect membership
-                          let html = Page.renderDetachedAt app account baseUrl (fun ctx -> UsersCached.directRoom ctx direct)
-                          membership.Id, html ])
+                Data.readAsync http (fun db ->
+                    task {
+                        let presenter = Presenter(db, app, None)
+                        let rooms = ResizeArray<int64 * CachedFragment>()
+                        for membership in memberships do
+                            let direct = presenter.SidebarDirect membership
+                            let! html = UsersCached.directRoom app.Fragments (Page.fragmentContext app) direct
+                            rooms.Add((membership.Id, html))
+                        return List.ofSeq rooms
+                    })
             return!
                 Data.read http (fun db ->
                     app.Broadcasts.DirectRoomCreate(db, room, Rendered.partials { Rendered.empty with DirectRooms = directRooms }))

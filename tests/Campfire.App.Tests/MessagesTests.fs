@@ -111,7 +111,7 @@ let private template (stream: string) : string =
 /// Rust subscribes through a WebSocket to `RoomMessagesChannel`, which isn't ported yet (the channels unit
 /// follows): this reads the same broadcast off the cable's hub, where that channel would have read it.
 [<Fact>]
-let ``a text message is answered and broadcast as it was stored`` () =
+let ``F3 a text message is answered and broadcast as it was stored`` () =
     task {
         use! test = bootSeeded "default"
         let! room = readEf test (fun db -> Room.find db ALL_TALK)
@@ -154,10 +154,14 @@ let ``a text message is answered and broadcast as it was stored`` () =
         Assert.Contains($"data-message-updated-at=\"{epochMs (DateTimeOffset stored.UpdatedAt)}\"", message)
         // Cached under the stored row's key (its `updated_at` to the microsecond), which is what the
         // room page, reading the message from the database, looks up.
-        let cached =
-            Campfire.Views.FragmentCache.withCache test.App.FragmentCache (fun () ->
-                Campfire.Views.Messages.cachedMessageFragment stored.Id (DateTimeOffset stored.UpdatedAt))
-        Assert.Equal(message, (if isNull cached then "" else cached.ToString()))
+        // F3: the broadcast rendered it (no request) and the page read it: one render, the same bytes. The fetch finds it, so
+        // its factory must not run; and nothing in it is the request's host.
+        let key =
+            Campfire.Views.Fragments.key "messages/_message" "messages" stored.Id (DateTimeOffset stored.UpdatedAt) (Some "presentation-v3")
+        let! cached =
+            (Campfire.Views.Fragments.fetch test.App.Fragments key (fun _ -> failwith "the fragment was rendered again")).AsTask()
+        Assert.Equal(message, cached.ToString())
+        Assert.DoesNotContain("campfire.test", cached.ToString())
         let! page = david.Get $"/rooms/{ALL_TALK}"
         Assert.Contains(message, page.Text) // the room page's copy of the message
     }

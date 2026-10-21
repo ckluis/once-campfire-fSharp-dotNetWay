@@ -47,7 +47,7 @@ let content (w: Out) (ctx: ViewContext) (sidebar: SidebarShow) : unit =
             w.Lit t5)
         w.Lit t6
         for membership in sidebar.DirectMemberships do
-            UsersCached.cachedDirectRoom w ctx membership
+            w.Lit membership.Html.Bytes
         w.Lit t7
         for user in sidebar.DirectPlaceholderUsers do
             _DirectPlaceholder.render w ctx user

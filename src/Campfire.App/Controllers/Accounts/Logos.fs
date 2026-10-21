@@ -36,7 +36,7 @@ module Logos =
                     { Freshness.Default with
                         Etag =
                             match account with
-                            | Some account -> FragmentCache.cacheKeyWithVersion "accounts" account.Id (DateTimeOffset(account.UpdatedAt))
+                            | Some account -> Fragments.cacheKeyWithVersion "accounts" account.Id (DateTimeOffset(account.UpdatedAt))
                             | None -> null }
                 match Respond.freshWhen http freshness with
                 | ValueSome notModified -> return notModified

@@ -132,12 +132,9 @@ type SidebarDirect =
                 member'.NameParts |> List.truncate 3 |> List.map (firstCharacter >> Application.capitalize) |> String.concat "")
         Application.toSentence initials "+"
 
-/// A direct room on its way into the sidebar: the `users/sidebars/rooms/_direct` fragment when
-/// the cache already holds this membership version (`cache membership` wraps the whole partial,
-/// so Rails evaluates none of it then), else the view to render it from.
-type SidebarDirectItem =
-    | Cached of CachedFragment
-    | View of SidebarDirect
+/// A direct room on its way into the sidebar: its `users/sidebars/rooms/_direct` fragment, fetched up front (`UsersCached`;
+/// `cache membership` wraps the whole partial, so Rails evaluates none of it on a hit).
+type SidebarDirectItem = { Html: CachedFragment }
 
 /// A shared room in the sidebar (`users/sidebars/rooms/_shared`).
 type SidebarRoom =
@@ -163,13 +160,3 @@ type SidebarShow =
       /// `Current.user.administrator? || !Current.account.settings.restrict_room_creation_to_administrators?`.
       CanCreateRooms: bool }
 
-/// The template digest in `users/sidebars/rooms/_direct`'s fragment keys: the partial.
-let directRoomDigest: string = FragmentCache.digest [| "users/sidebars/rooms/_direct" |]
-
-let directRoomFragmentKey (key: KeyBuf) (membershipId: int64) (updatedAt: Timestamp) : unit =
-    FragmentCache.pushRecordFragmentKey key "users/sidebars/rooms/_direct" directRoomDigest "memberships" membershipId updatedAt
-
-/// The `users/sidebars/rooms/_direct` fragment for this membership version, if the current store
-/// holds it.
-let cachedDirectRoomFragment (membershipId: int64) (updatedAt: Timestamp) : CachedFragment =
-    FragmentCache.read (fun key -> directRoomFragmentKey key membershipId updatedAt)

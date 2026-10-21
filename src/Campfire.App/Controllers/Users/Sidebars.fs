@@ -26,15 +26,16 @@ module Sidebars =
                 let! (user: User) = Current.requireUser http
                 let app = Data.app http
                 let secrets = app.Secrets
-                let fragments = app.FragmentCache
                 let! sidebar, restricted =
-                    Data.read http (fun db ->
-                        // The direct rooms' fragments come from the store the render then uses.
-                        let sidebar = FragmentCache.withCache fragments (fun () -> Accounts.sidebar db secrets user)
-                        let restricted =
-                            Account.first db
-                            |> Option.exists (fun account -> AccountSettings.restrictRoomCreationToAdministrators (Account.settings account))
-                        sidebar, restricted)
+                    Data.readAsync http (fun db ->
+                        task {
+                            // The direct rooms' fragments are fetched up front.
+                            let! sidebar = Accounts.sidebar db secrets app.Fragments (Page.fragmentContext app) user
+                            let restricted =
+                                Account.first db
+                                |> Option.exists (fun account -> AccountSettings.restrictRoomCreationToAdministrators (Account.settings account))
+                            return sidebar, restricted
+                        })
 
                 let data: SidebarShow =
                     { CurrentUser = Common.userSummary secrets user

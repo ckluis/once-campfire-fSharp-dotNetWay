@@ -28,7 +28,7 @@
 //   `CachedFragment`, never a string, so it can't be escaped twice or left unescaped by mistake.
 // - A block (`{% filter link_to(..) %}...{% endfilter %}`, `content_for`) is a function of the
 //   writer, `fun w -> ...`; helpers that take one are `inline`, so there is no closure.
-// - Cached fragments (`cache record do`) are rendered by `FragmentCache` into their own writer and
+// - Cached fragments (`cache record do`) are rendered by the fetchers (`MessagesCached` and friends) into their own writer and
 //   written with `w.Fragment`; a page rendering with `Render.page` records them instead of copying
 //   them: the result is an `HtmlOutput`, the text in parts with the fragments between.
 // - Nothing allocates a string for markup: no `sprintf`, `String.Format`, `+` on markup or
@@ -246,6 +246,9 @@ module Render =
             out.ToArray()
         finally
             Out.Return out
+
+    /// A fragment rendered into a writer of its own, as exact bytes (what the fetchers cache).
+    let inline fragment ([<InlineIfLambda>] template: Out -> unit) : CachedFragment = CachedFragment(plain template)
 
     /// What a template writes, as an html_safe value.
     let inline html ([<InlineIfLambda>] template: Out -> unit) : SafeBytes = SafeBytes(plain template)

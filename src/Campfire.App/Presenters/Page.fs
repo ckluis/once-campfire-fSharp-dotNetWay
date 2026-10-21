@@ -34,8 +34,18 @@ module Page =
               Referrer = None
               LastRoomVisitedId = None
               AppVersion = app.Config.AppVersion }
-        // Renders outside a request (broadcasts from jobs) share the fragment cache too.
-        FragmentCache.withCache app.FragmentCache (fun () -> render ctx)
+        render ctx
+
+    let private fragmentContexts = System.Runtime.CompilerServices.ConditionalWeakTable<AppState, ViewContext>()
+
+    let private makeFragmentContext =
+        System.Runtime.CompilerServices.ConditionalWeakTable<AppState, ViewContext>.CreateValueCallback(fun app ->
+            renderDetachedAt app None "http://example.org" id)
+
+    /// The `ViewContext` the cached fragments render with: no request and no `Current.user`, since nothing in a fragment may
+    /// depend on them (a fragment is shared by every page and broadcast that shows its record version); the only field they
+    /// read is the asset path, which is the process's. Made once per app.
+    let fragmentContext (app: AppState) : ViewContext = fragmentContexts.GetValue(app, makeFragmentContext)
 
     /// Renders with the `ViewContext` `ApplicationController.render` has: no request, no
     /// `Current.user`, no CSRF tokens, and the renderer's default host (`http://example.org`).

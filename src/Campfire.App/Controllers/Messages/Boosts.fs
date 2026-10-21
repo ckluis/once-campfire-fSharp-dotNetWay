@@ -61,17 +61,17 @@ module BoostsController =
         }
 
     /// `broadcast_create`: `messages/boosts/_boost` appended to the message's boosts.
-    let broadcastCreate (http: HttpContext) (message: Message) (boost: Boost) : Result<unit, Error> =
+    let broadcastCreate (http: HttpContext) (message: Message) (boost: Boost) : System.Threading.Tasks.Task<Result<unit, Error>> =
         let app = Data.app http
-        let baseUrl = Pages.rendererBaseUrl http
-        Data.read http (fun db ->
-            let presenter = Presenter(db, app, None)
-            let view = presenter.Boost boost
-            let account = Account.first db
-            let html = Page.renderDetachedAt app account baseUrl (fun ctx -> BoostsCached.boost ctx view)
-            let room = Room.find db message.RoomId
-            let partials = { Rendered.empty with Boost = Some html }
-            app.Broadcasts.BoostCreate(room, message, boost, Rendered.partials partials))
+        Data.readAsync http (fun db ->
+            task {
+                let presenter = Presenter(db, app, None)
+                let view = presenter.Boost boost
+                let! html = BoostsCached.boost app.Fragments (Page.fragmentContext app) view
+                let room = Room.find db message.RoomId
+                let partials = { Rendered.empty with Boost = Some html }
+                app.Broadcasts.BoostCreate(room, message, boost, Rendered.partials partials)
+            })
 
     let index: Web.Action =
         fun http ->
@@ -79,8 +79,15 @@ module BoostsController =
                 do! Before.chain Before.Default http
                 let! (message: Message) = setMessage http
                 do! Formats.respondTo http [ Format.Html ] |> Result.map ignore
-                let! view = Data.present http (fun presenter -> presenter.Message message)
-                return! Pages.content http 200 (fun w ctx -> IndexPage.render w ctx view)
+                let app = Data.app http
+                let! view, boosts =
+                    Data.presentAsync http (fun presenter ->
+                        task {
+                            let view = presenter.Message message
+                            let! boosts = BoostsCached.boosts app.Fragments (Page.fragmentContext app) view.Boosts
+                            return view, boosts
+                        })
+                return! Pages.content http 200 (fun w ctx -> IndexPage.render w ctx view boosts)
             }
 
     let ``new``: Web.Action =

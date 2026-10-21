@@ -54,16 +54,20 @@ module Refreshes =
                 let requestHost = Some http.Request.Host.Host
                 let since = RailsTime.truncate lastUpdatedAt
                 let! refresh =
-                    Data.read http (fun db ->
-                        let newMessages = Message.pageCreatedSince db room.Id since
-                        let newIds = newMessages |> List.map (fun message -> message.Id)
-                        let updatedMessages = Message.pageUpdatedSince db room.Id since newIds
-                        let presenter = Presenter(db, app, requestHost)
-                        FragmentCache.withCache app.FragmentCache (fun () ->
-                            ({ RoomId = room.Id
-                               RoomKind = PresenterSupport.roomKind room.Type
-                               NewMessages = presenter.Messages newMessages
-                               UpdatedMessages = presenter.Messages updatedMessages }: RefreshView)))
+                    Data.readAsync http (fun db ->
+                        task {
+                            let newMessages = Message.pageCreatedSince db room.Id since
+                            let newIds = newMessages |> List.map (fun message -> message.Id)
+                            let updatedMessages = Message.pageUpdatedSince db room.Id since newIds
+                            let presenter = Presenter(db, app, requestHost)
+                            let! newItems = presenter.Messages newMessages
+                            let! updatedItems = presenter.Messages updatedMessages
+                            return
+                                ({ RoomId = room.Id
+                                   RoomKind = PresenterSupport.roomKind room.Type
+                                   NewMessages = newItems
+                                   UpdatedMessages = updatedItems }: RefreshView)
+                        })
                 return!
-                    Pages.bare http 200 Format.TurboStream (fun ctx -> showSize.Render(fun w -> ShowPage.render w ctx refresh))
+                    Pages.bare http 200 Format.TurboStream (fun _ -> showSize.Render(fun w -> ShowPage.render w refresh))
             }

@@ -65,7 +65,7 @@ module SearchesController =
                             |> Option.map (fun room -> room.Id)
                             |> Option.defaultValue 0L
                         messages, recent, returnTo)
-                let! messages = Data.present http (fun presenter -> presenter.Messages messages)
+                let! messages = Data.presentAsync http (fun presenter -> presenter.Messages messages)
                 let index: IndexView =
                     { Query = query
                       Q = q

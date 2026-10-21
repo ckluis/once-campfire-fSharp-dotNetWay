@@ -65,7 +65,7 @@ let content (w: Out) (ctx: ViewContext) (index: IndexView) : unit =
     w.Lit t8
     for message in index.Messages do
         w.Lit t9
-        MessagesCached.cachedMessageItem w ctx message
+        w.Fragment message.Html
     w.Lit t10
 
 /// `content_for :footer`.

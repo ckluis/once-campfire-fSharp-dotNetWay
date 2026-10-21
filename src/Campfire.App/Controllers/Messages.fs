@@ -283,16 +283,15 @@ module MessagesController =
     // --- Broadcasts and webhooks -------------------------------------------------------------------
 
     /// `@message.broadcast_create`: the message partial appended to the room, then the unread pings.
-    let broadcastCreate (http: HttpContext) (room: Room) (message: Message) : Result<unit, Error> =
+    let broadcastCreate (http: HttpContext) (room: Room) (message: Message) : Task<Result<unit, Error>> =
         let app = Data.app http
-        let baseUrl = Pages.rendererBaseUrl http
-        Data.read http (fun db ->
-            let presenter = Presenter(db, app, None)
-            let view = presenter.Message message
-            let account = Account.first db
-            let html = Page.renderDetachedAt app account baseUrl (fun ctx -> MessagesCached.message ctx view)
-            let partials = { Rendered.empty with Message = Some html }
-            app.Broadcasts.MessageCreate(db, room, message, Rendered.partials partials))
+        Data.readAsync http (fun db ->
+            task {
+                let presenter = Presenter(db, app, None)
+                let! html = presenter.MessageFragment message
+                let partials = { Rendered.empty with Message = Some html }
+                app.Broadcasts.MessageCreate(db, room, message, Rendered.partials partials)
+            })
 
     /// `broadcast_replace_to @room, :messages, target: [ @message, :presentation ], partial:
     /// "messages/presentation", attributes: { maintain_scroll: true }`
@@ -349,7 +348,7 @@ module MessagesController =
                     // fresh_when @messages: the records' cache keys, their latest updated_at, and the template.
                     let etag =
                         messages
-                        |> List.map (fun m -> FragmentCache.cacheKeyWithVersion "messages" m.Id (DateTimeOffset m.UpdatedAt))
+                        |> List.map (fun m -> Fragments.cacheKeyWithVersion "messages" m.Id (DateTimeOffset m.UpdatedAt))
                         |> String.concat "/"
                     let freshness =
                         { Freshness.Default with
@@ -360,8 +359,8 @@ module MessagesController =
                     | ValueSome notModified -> return notModified
                     | ValueNone ->
                         do! Formats.respondTo http [ Web.Format.Html ] |> Result.map ignore
-                        let! views = Data.present http (fun presenter -> presenter.Messages messages)
-                        return! Pages.bare http 200 Web.Format.Html (fun ctx -> Render.page 0 (fun w -> IndexPage.render w ctx views))
+                        let! views = Data.presentAsync http (fun presenter -> presenter.Messages messages)
+                        return! Pages.bare http 200 Web.Format.Html (fun _ -> Render.page 0 (fun w -> IndexPage.render w views))
             }
 
     /// `create`: `set_room` runs inside the action, and a room that's gone renders `room_not_found`.
@@ -388,15 +387,13 @@ module MessagesController =
                     do! Formats.respondTo http [ Web.Format.TurboStream ] |> Result.map ignore
                     let kind = PresenterSupport.roomKind room.Type
                     let app = Data.app http
-                    let baseUrl = Respond.urlFor http ""
                     let! html =
-                        Data.read http (fun db ->
-                            FragmentCache.withCache app.FragmentCache (fun () ->
+                        Data.readAsync http (fun db ->
+                            task {
                                 let presenter = Presenter(db, app, None)
-                                let item = presenter.MessageItem message
-                                let account = Account.first db
-                                Page.renderDetachedAt app account baseUrl (fun ctx ->
-                                    Render.plain (fun w -> CreateStream.render w ctx item kind))))
+                                let! item = presenter.MessageItem message
+                                return Render.plain (fun w -> CreateStream.render w item kind)
+                            })
                     return Pages.turboStream http (ReadOnlyMemory<byte> html)
             }
 
@@ -407,8 +404,11 @@ module MessagesController =
                 let! (_: Membership), (room: Room) = Before.setRoom http
                 let! (message: Message) = setMessage http room
                 do! Formats.respondTo http [ Web.Format.Html ] |> Result.map ignore
-                let! view = Data.present http (fun presenter -> presenter.Message message)
-                return! Pages.contentInApplicationLayout http 200 (fun w ctx -> ShowPage.render w ctx view)
+                let! html = Data.presentAsync http (fun presenter -> task {
+                    let! html = presenter.MessageFragment message
+                    return html
+                })
+                return! Pages.contentInApplicationLayout http 200 (fun w _ -> ShowPage.render w html)
             }
 
     let edit: Web.Action =

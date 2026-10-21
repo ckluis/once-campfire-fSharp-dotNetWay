@@ -1,6 +1,6 @@
 // O1 (plans/design-views.md section 5). Replays what the Rust views crate rendered (oracle.jsonl, written once by
 // `bin/views-differential golden` in unit 4.1 and frozen) for a sample of each kind of case, hostile text included: every
-// template, the view helpers, the fragment cache and the view-model helpers. Markup answers must be equal as the loose DOM
+// template, the view helpers and the view-model helpers (the fragment cache keys and eviction retired in unit 4.3: the cache is HybridCache's, tested by F1-F3). Markup answers must be equal as the loose DOM
 // (`Campfire.Tests.LooseDom`: the pixel harness's own rule, so a template that passes here passes the loose layer in the
 // browser); the answers that are not markup (URLs, JSON, numbers, keys, scripts, the SVG avatar) must be equal as text.
 module Campfire.Views.Tests.DifferentialTests
@@ -14,8 +14,8 @@ open Campfire.Views.Differential
 
 /// The operations whose answer is text, not markup: compared exactly.
 let private textOps =
-    set [ "helpers/url"; "helpers/translations"; "helpers/asset_path"; "helpers/application:to_lowercase"; "fragment_cache/keys"
-          "fragment_cache/script"; "messages/epoch_ms"; "messages/iso8601"; "messages/json_time"; "messages/ruby_number"
+    set [ "helpers/url"; "helpers/translations"; "helpers/asset_path"; "helpers/application:to_lowercase"
+          "messages/epoch_ms"; "messages/iso8601"; "messages/json_time"; "messages/ruby_number"
           "messages/json_by_bots_index"; "messages/json_by_bots_show"; "messages/json_boosts_by_bots_show"
           "autocompletable/users_index_json"; "pwa/manifest"; "pwa/service_worker"; "searches/search_path"; "rooms/mention_prompt_src"
           "rooms/room_display_name"; "users/avatars/show" ]
@@ -64,8 +64,8 @@ let ``the views render as the rust views did`` () =
           "pwa/_system_settings"; "users/_mention"; "users/autocompletables/_template"; "users/sidebars/rooms/_direct";
           "users/sidebars/rooms/_shared"; "users/sidebars/rooms/_direct_placeholder"; "users/direct_room"; "welcome/show";
           "helpers/tag"; "helpers/form"; "helpers/button"; "helpers/link"; "helpers/image_tag"; "helpers/application";
-          "helpers/users"; "helpers/rooms"; "helpers/translations"; "helpers/url"; "helpers/turbo"; "fragment_cache/keys";
-          "fragment_cache/script"; "messages/presentation"; "messages/epoch_ms"; "messages/ruby_number";
+          "helpers/users"; "helpers/rooms"; "helpers/translations"; "helpers/url"; "helpers/turbo";
+          "messages/presentation"; "messages/epoch_ms"; "messages/ruby_number";
           "messages/json_by_bots_index"; "helpers/application:to_lowercase"; "messages/_message"; "messages/message_cached";
           "messages/_actions"; "messages/_presentation"; "messages/_unrenderable"; "messages/_template"; "messages/index";
           "messages/show"; "messages/edit"; "messages/create_turbo_stream"; "messages/destroy_turbo_stream";

@@ -7,6 +7,7 @@ namespace Campfire.App
 open System
 open System.Threading.Tasks
 open Microsoft.EntityFrameworkCore
+open Microsoft.Extensions.Caching.Hybrid
 open Microsoft.Extensions.DependencyInjection
 open Microsoft.Extensions.Logging
 open Campfire.App.Channels
@@ -42,7 +43,7 @@ type AppState
         cable: CableHandle,
         jobs: Jobs,
         webPush: WebPushPool option,
-        fragmentCache: FragmentCache,
+        fragments: HybridCache,
         loggers: ILoggerFactory
     ) =
     member _.Config = config
@@ -67,9 +68,10 @@ type AppState
     /// `config.x.web_push_pool`; `None` when Web Push is off (no valid VAPID keys).
     member _.WebPush = webPush
 
-    /// `Rails.cache` for view fragments (`cache message do`), current during every request and every
-    /// render outside one.
-    member _.FragmentCache = fragmentCache
+    /// `Rails.cache` for view fragments (`cache message do`) and the kept compressed pages: HybridCache over a size-limited memory
+    /// cache, the host's `HybridCache` as well (`Web.Services.add`). Fetched up front, awaited, by the presenters, the controllers
+    /// and the broadcasts.
+    member _.Fragments: HybridCache = fragments
 
     /// For what Rust logs with `tracing` from anywhere (integrations, mostly).
     member _.Loggers = loggers

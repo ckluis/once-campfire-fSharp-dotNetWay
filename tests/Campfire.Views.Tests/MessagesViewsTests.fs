@@ -10,8 +10,8 @@ open Campfire.Views.Tests.GoldenB
 [<Fact>]
 let ``show text message`` () =
     let g = golden "messages_show_text"
-    let message = messageView g.Input
-    g.AssertContent(Render.text (fun w -> Templates.Messages.Show.render w g.Context message))
+    let fragment = renderedMessage g.Context (messageView g.Input)
+    g.AssertContent(Render.text (fun w -> Templates.Messages.Show.render w fragment))
 
 /// The partial is cached once for every request, so nothing in it may come from the request's Host header (README,
 /// Known differences).
@@ -19,7 +19,7 @@ let ``show text message`` () =
 let ``message partial is the same on every host`` () =
     let g = golden "messages_show_text"
     let message = messageView g.Input
-    let render (g: Golden) = Render.text (fun w -> Templates.Messages._Message.render w g.Context message)
+    let render (g: Golden) = Render.text (fun w -> Templates.Messages._Message.render w g.Context message (renderedBoosts g.Context message))
     let onTheReferenceHost = render g
     Assert.Equal(onTheReferenceHost, render { g with BaseUrl = Some "https://evil.example" })
     Assert.Contains($"data-copy-to-clipboard-url-value=\"/rooms/{message.RoomId}/@{message.Id}\"", onTheReferenceHost)
@@ -27,14 +27,14 @@ let ``message partial is the same on every host`` () =
 [<Fact>]
 let ``show image message`` () =
     let g = golden "messages_show_image"
-    let message = messageView g.Input
-    g.AssertContent(Render.text (fun w -> Templates.Messages.Show.render w g.Context message))
+    let fragment = renderedMessage g.Context (messageView g.Input)
+    g.AssertContent(Render.text (fun w -> Templates.Messages.Show.render w fragment))
 
 [<Fact>]
 let ``index`` () =
     let g = golden "messages_index"
-    let messages = arr (g.InputAt "messages") |> List.map messageItem
-    g.AssertContent(Render.text (fun w -> Templates.Messages.Index.render w g.Context messages))
+    let messages = arr (g.InputAt "messages") |> List.map (messageItem g.Context)
+    g.AssertContent(Render.text (fun w -> Templates.Messages.Index.render w messages))
 
 [<Fact>]
 let ``edit text message`` () =
@@ -51,9 +51,9 @@ let ``edit attachment message`` () =
 [<Fact>]
 let ``create stream`` () =
     let g = golden "messages_create"
-    let message = messageItem (g.InputAt "message")
+    let message = messageItem g.Context (g.InputAt "message")
     let roomKind = roomKind (g.InputAt "room_kind")
-    g.AssertDom(Render.text (fun w -> Templates.Messages.CreateTurboStream.render w g.Context message roomKind))
+    g.AssertDom(Render.text (fun w -> Templates.Messages.CreateTurboStream.render w message roomKind))
 
 [<Fact>]
 let ``destroy stream`` () =
@@ -70,7 +70,7 @@ let ``room not found`` () =
 let ``boosts index`` () =
     let g = golden "messages_boosts_index"
     let message = messageView g.Input
-    g.AssertContent(Render.text (fun w -> Templates.Messages.Boosts.Index.render w g.Context message))
+    g.AssertContent(Render.text (fun w -> Templates.Messages.Boosts.Index.render w g.Context message (renderedBoosts g.Context message)))
 
 [<Fact>]
 let ``new boost`` () =

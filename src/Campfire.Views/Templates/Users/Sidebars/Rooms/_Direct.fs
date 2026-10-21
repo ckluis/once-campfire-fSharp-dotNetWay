@@ -1,7 +1,7 @@
 // Port of rust/crates/views/templates/users/sidebars/rooms/_direct.html (reference/app/views/users/sidebars/rooms/_direct.html.erb)
 /// `users/sidebars/rooms/_direct.html.erb` on its own (broadcast when a direct room appears). The reference wraps it in
 /// `cache membership do` and assigns `members` on lines Erubi drops, leaving the blank line and indentation below; the
-/// cached rendering is `UsersCached.directRoom`.
+/// cached rendering is `UsersCached.fetch`.
 module Campfire.Views.Templates.Users.Sidebars.Rooms._Direct
 
 open Campfire.Views

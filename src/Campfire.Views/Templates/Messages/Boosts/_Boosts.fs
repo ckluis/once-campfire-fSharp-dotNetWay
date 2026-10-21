@@ -18,7 +18,8 @@ let private t5 = Utf8.lit "\">\n      <div class=\"flex-inline message__boost-in
 let private t6 = Utf8.lit "\">\n          <img aria-hidden=\"true\" src=\""
 let private t7 = Utf8.lit "\" width=\"20\" height=\"20\" />\n          <span class=\"for-screen-reader\">Add a boost</span>\n</a>      </div>\n</turbo-frame>  </div>\n</turbo-frame>"
 
-let render (w: Out) (ctx: ViewContext) (message: MessageView) : unit =
+/// `boosts` are the message's boosts' fragments, fetched up front (`BoostsCached.boosts`), in order.
+let render (w: Out) (ctx: ViewContext) (message: MessageView) (boosts: CachedFragment[]) : unit =
     w.Lit t0
     w.Lit boostingId
     w.Text message.ClientMessageId
@@ -26,9 +27,9 @@ let render (w: Out) (ctx: ViewContext) (message: MessageView) : unit =
     w.Lit boostsId
     w.Text message.ClientMessageId
     w.Lit t2
-    for boost in message.Boosts do
+    for boost in boosts do
         w.Lit t3
-        BoostsCached.cachedBoost w ctx boost
+        w.Lit boost.Bytes
     w.Lit t4
     w.Lit newBoostId
     w.Text message.ClientMessageId

@@ -68,7 +68,7 @@ let content (w: Out) (ctx: ViewContext) (show: ShowView) : unit =
         Show._Invitation.render w ctx show.JoinCode
     for message in show.Messages do
         w.Lit t10
-        MessagesCached.cachedMessageItem w ctx message
+        w.Fragment message.Html
     w.Lit t11
     w.Text show.MessagesStreamName
     w.Lit t12
