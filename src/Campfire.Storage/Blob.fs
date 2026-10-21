@@ -56,12 +56,7 @@ module Blob =
 
     /// The blob attached to `record` under `name` (`has_one_attached`): the first attachment's, by id.
     let attached (db: Ef.CampfireDb) (recordType: string) (recordId: int64) (name: string) : Blob option =
-        db.Attachments
-            .Where(fun a -> a.RecordType = EF.Parameter recordType && a.RecordId = EF.Parameter recordId && a.Name = EF.Parameter name)
-            .OrderBy(fun a -> a.Id)
-            .Join(db.Blobs, (fun a -> a.BlobId), (fun b -> b.Id), (fun _ b -> b))
-        |> Ef.Data.tryFirst
-        |> Option.map ofEntity
+        Ef.FastReads.attachedBlob db recordType recordId name |> Option.map ofEntity
 
     let contentType (blob: Blob) : string = defaultArg blob.ContentType ""
 

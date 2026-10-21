@@ -26,7 +26,7 @@ guard "F#'s query { }" '(^|[^"$A-Za-z])query[[:space:]]*\{' '^$'
 guard 'a hand-built ADO.NET command' 'CommandText|CreateCommand\(' '^src/Campfire\.(Db/Ef/Interceptors|App/Boot)\.fs:'
 # Hybrid reads (Reads: hybrid EF Core + Dapper): Dapper is called in exactly one module, and no SQL there is built from values
 # (parameters only: no interpolated or concatenated string reaches a Dapper call).
-guard 'Dapper' '\bDapper\b|QueryFirstOrDefault|SqlMapper' '^src/Campfire\.Db/Ef/FastReads\.fs:'
+guard 'Dapper' '\bDapper\b|QueryFirstOrDefault|\.Query<|SqlMapper' '^src/Campfire\.Db/Ef/FastReads\.fs:'
 if grep -nE '\$"[^"]*(SELECT|INSERT|UPDATE|DELETE)|"[^"]*(SELECT|FROM)[^"]*"[[:space:]]*\+' src/Campfire.Db/Ef/FastReads.fs; then
   echo "verify: SQL built from values in src/Campfire.Db/Ef/FastReads.fs (parameters only)" >&2; exit 1
 fi
