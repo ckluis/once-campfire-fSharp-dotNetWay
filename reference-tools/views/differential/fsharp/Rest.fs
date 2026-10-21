@@ -88,32 +88,16 @@ let private run (op: string) (args: JsonElement) (ctx: ViewContext) : Answer =
         let styles = opt (get args "custom_styles")
         Pages.viewPageAnswer args ctx (Templates.Accounts.CustomStyles.Edit.rendered ctx styles)
     | "first_runs/show" ->
-        Pages.pageAnswer
-            args
-            (fun w -> Templates.FirstRuns.Show.render w ctx)
-            Templates.FirstRuns.Show.head
-            (fun w -> Templates.FirstRuns.Show.content w ctx)
+        Pages.viewPageAnswer args ctx (Templates.FirstRuns.Show.rendered ctx)
     | "sessions/new" ->
         let email = opt (get args "email_address")
         let contact = helpContact (get args "help_contact")
-        Pages.pageAnswer
-            args
-            (fun w -> Templates.Sessions.New.render w ctx email contact)
-            Templates.Sessions.New.head
-            (fun w -> Templates.Sessions.New.content w ctx email contact)
+        Pages.viewPageAnswer args ctx (Templates.Sessions.New.rendered ctx email contact)
     | "sessions/incompatible_browser" ->
-        Pages.pageAnswer
-            args
-            (fun w -> Templates.Sessions.IncompatibleBrowser.render w ctx)
-            Templates.Sessions.IncompatibleBrowser.head
-            (fun w -> Templates.Sessions.IncompatibleBrowser.content w ctx)
+        Pages.viewPageAnswer args ctx (Templates.Sessions.IncompatibleBrowser.rendered ctx)
     | "sessions/transfers/show" ->
         let action = str (get args "action")
-        Pages.pageAnswer
-            args
-            (fun w -> Templates.Sessions.Transfers.Show.render w ctx action)
-            Templates.Sessions.Transfers.Show.head
-            (fun w -> Templates.Sessions.Transfers.Show.content w action)
+        Pages.viewPageAnswer args ctx (Templates.Sessions.Transfers.Show.rendered action)
     | "users/new" ->
         let joinCode = str (get args "join_code")
         let contact = helpContact (get args "help_contact")
@@ -152,9 +136,8 @@ let private run (op: string) (args: JsonElement) (ctx: ViewContext) : Answer =
         let initials = str (get args "initials")
         Pages.nodeAnswer (fun () -> HtmlOutput.ofNode (Templates.Users.Avatars.Show.render userId initials) [])
     | "pwa/manifest" ->
-        Pages.fragmentAnswer (fun w ->
+        Pages.nodeBytesAnswer (fun () ->
             Templates.Pwa.Manifest.render
-                w
                 (opt (get args "account_name"))
                 (str (get args "logo_path_small"))
                 (str (get args "logo_path"))

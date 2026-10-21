@@ -127,3 +127,17 @@ let mentionUser (caseName: string) (userName: string) : Users.MentionUser =
              | _ -> Users.Active)
           AvatarPath = nonNull (u.GetProperty("avatar_path").GetString()) }
       AttachableSgid = nonNull (u.GetProperty("attachable_sgid").GetString()) }
+
+/// Two JSON values are equal: the same kinds and values, objects with the same properties in the same order (the manifest's key
+/// order is the port's), numbers by their text.
+let rec jsonEqual (a: JsonElement) (b: JsonElement) : bool =
+    a.ValueKind = b.ValueKind
+    && (match a.ValueKind with
+        | JsonValueKind.Object ->
+            let left, right = [ for p in a.EnumerateObject() -> p ], [ for p in b.EnumerateObject() -> p ]
+            left.Length = right.Length && List.forall2 (fun (x: JsonProperty) (y: JsonProperty) -> x.Name = y.Name && jsonEqual x.Value y.Value) left right
+        | JsonValueKind.Array ->
+            let left, right = [ for e in a.EnumerateArray() -> e ], [ for e in b.EnumerateArray() -> e ]
+            left.Length = right.Length && List.forall2 jsonEqual left right
+        | JsonValueKind.String -> a.GetString() = b.GetString()
+        | _ -> a.GetRawText() = b.GetRawText())

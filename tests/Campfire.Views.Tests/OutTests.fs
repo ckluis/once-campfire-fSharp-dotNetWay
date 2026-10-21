@@ -117,7 +117,13 @@ let ``a page renders into a pooled buffer and allocates little more than itself`
     let name = "welcome"
     let ctx = Facts.context name Facts.Request.none
     let render () =
-        Render.page 0 (fun w -> Templates.Welcome.Show.render w ctx "David")
+        Render.page 0 (fun w ->
+            Layouts.Application.render
+                w
+                ctx
+                { Layouts.Application.create (Render.html (fun w -> w.Raw "<div id=\"message-area\" class=\"message-area\"></div>")) with
+                    PageTitle = Some "No rooms yet"
+                    BodyClass = Some "sidebar" })
     let length = (render ()).Length
     for _ in 1..200 do
         render () |> ignore

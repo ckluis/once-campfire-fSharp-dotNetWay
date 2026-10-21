@@ -25,6 +25,7 @@
     <Compile Include="UsersTests.fs" />
     <Compile Include="UsersViewsTests.fs" />
     <Compile Include="AccountsViewsTests.fs" />
+    <Compile Include="SessionsViewsTests.fs" />
     <Compile Include="ParityATests.fs" />
     <Compile Include="MessagesViewsTests.fs" />
     <Compile Include="RoomsViewsTests.fs" />

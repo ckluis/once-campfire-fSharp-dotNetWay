@@ -37,8 +37,6 @@ module Pwa =
                 let logoPathSmall = Accounts.freshAccountLogoPath account (Some "small")
                 let logoPath = Accounts.freshAccountLogoPath account None
                 let baseUrl = Respond.urlFor http ""
-                let body =
-                    Render.plain (fun w ->
-                        Manifest.render w (account |> Option.map (fun account -> account.Name)) logoPathSmall logoPath baseUrl Assets.assetPath)
+                let body = Manifest.render (account |> Option.map (fun account -> account.Name)) logoPathSmall logoPath baseUrl Assets.assetPath
                 return Pages.renderAs http 200 "application/json; charset=utf-8" (ReadOnlyMemory<byte> body)
             }

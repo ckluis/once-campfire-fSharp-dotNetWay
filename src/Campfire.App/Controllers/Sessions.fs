@@ -18,8 +18,6 @@ module Sessions =
     [<Literal>]
     let private Rejection = "Too many requests or unauthorized."
 
-    let private newSize = Campfire.Views.RenderSize()
-
     /// `redirect_to first_run_url if User.none?`
     let private ensureUserExists (http: Microsoft.AspNetCore.Http.HttpContext) : Result<unit, Error> =
         match Data.read http (fun db -> Accounts.noUsers db) with
@@ -35,14 +33,7 @@ module Sessions =
             do! Formats.respondTo http [ Format.Html ] |> Result.map ignore
             let emailAddress = match Params.value http "email_address" with null -> None | email -> Some email
             let! helpContact = Data.read http (fun db -> Accounts.helpContact db)
-            return!
-                Pages.framedPage
-                    http
-                    status
-                    newSize
-                    (fun w ctx -> New.render w ctx emailAddress helpContact)
-                    New.head
-                    (fun w ctx -> New.content w ctx emailAddress helpContact)
+            return! Pages.viewPage http status (fun ctx -> New.rendered ctx emailAddress helpContact)
         }
 
     /// `flash.now[:alert] = "Too many requests or unauthorized."; render :new, status:`

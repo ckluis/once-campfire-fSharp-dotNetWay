@@ -314,6 +314,14 @@ module Pages =
     let viewPage (http: HttpContext) (status: int) (render: ViewContext -> Layouts.ViewPage) : Result<HttpHandler, Error> =
         pageOrFrame http status (fun ctx -> Legacy.inLayout ctx false (render ctx)) (fun ctx -> Legacy.inLayout ctx true (render ctx))
 
+    /// `viewPage` without the implicit render's template lookup (`render template:` answers HTML whatever the request's format).
+    let viewPageInAnyFormat (http: HttpContext) (status: int) (render: ViewContext -> Layouts.ViewPage) : Result<HttpHandler, Error> =
+        pageOrFrameInAnyFormat
+            http
+            status
+            (fun ctx -> Legacy.inLayout ctx false (render ctx))
+            (fun ctx -> Legacy.inLayout ctx true (render ctx))
+
     /// A content-only template: Rails wraps it in the application layout, or in turbo-rails' `layouts/turbo_rails/frame` when the
     /// request carries a `Turbo-Frame` header.
     let content (http: HttpContext) (status: int) (render: Out -> ViewContext -> unit) : Result<HttpHandler, Error> =
@@ -346,9 +354,6 @@ module Pages =
 
     // --- AllowBrowser ---------------------------------------------------------------------------------
 
-    /// What `IncompatibleBrowser.render` writes with the Turbo-Frame layout's help, sized from its last render.
-    let private incompatibleBrowserSize = RenderSize()
-
     /// `render template: "sessions/incompatible_browser"` (200). Rendered from a before-action, so it's HTML whatever the
     /// request format. The layout is the controller's: turbo-rails' frame layout for a Turbo-Frame request, except in
     /// controllers that declare their own layout (`MessagesController` and its `Messages::ByBotsController`).
@@ -356,10 +361,6 @@ module Pages =
         let endpoint = endpoint http
         let ownLayout = endpoint.StartsWith("messages#", StringComparison.Ordinal) || endpoint.StartsWith("messages/by_bots#", StringComparison.Ordinal)
         if ownLayout then
-            pageInAnyFormat http 200 (fun ctx -> incompatibleBrowserSize.Render(fun w -> IncompatibleBrowser.render w ctx))
+            pageInAnyFormat http 200 (fun ctx -> Legacy.inLayout ctx false (IncompatibleBrowser.rendered ctx))
         else
-            pageOrFrameInAnyFormat
-                http
-                200
-                (fun ctx -> incompatibleBrowserSize.Render(fun w -> IncompatibleBrowser.render w ctx))
-                (fun ctx -> Layouts.frame incompatibleBrowserSize IncompatibleBrowser.head (fun w -> IncompatibleBrowser.content w ctx))
+            viewPageInAnyFormat http 200 IncompatibleBrowser.rendered

@@ -17,11 +17,16 @@ let private textOps =
     set [ "helpers/url"; "helpers/translations"; "helpers/asset_path"; "helpers/application:to_lowercase"
           "messages/epoch_ms"; "messages/iso8601"; "messages/json_time"; "messages/ruby_number"
           "messages/json_by_bots_index"; "messages/json_by_bots_show"; "messages/json_boosts_by_bots_show"
-          "autocompletable/users_index_json"; "pwa/manifest"; "pwa/service_worker"; "searches/search_path"; "rooms/mention_prompt_src"
+          "autocompletable/users_index_json"; "pwa/service_worker"; "searches/search_path"; "rooms/mention_prompt_src"
           "rooms/room_display_name" ]
 
 let private sameAnswer (op: string) (expected: string) (ours: string) : string option =
     if ours = expected then None
+    // The manifest is JSON on `Utf8JsonWriter` (V10): equal as JSON, not as text (indentation and escapes are class A).
+    elif op = "pwa/manifest" then
+        use expectedJson = JsonDocument.Parse expected
+        use oursJson = JsonDocument.Parse ours
+        if Campfire.Views.Tests.Facts.jsonEqual expectedJson.RootElement oursJson.RootElement then None else Some "JSON differs"
     elif textOps.Contains op then Some "text differs"
     else LooseDom.diff (LooseDom.normalize expected) (LooseDom.normalize ours) |> Option.map (fun report -> "loose DOM differs\n" + report)
 

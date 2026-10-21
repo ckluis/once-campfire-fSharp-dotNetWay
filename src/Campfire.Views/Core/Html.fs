@@ -59,3 +59,14 @@ module Html =
 
     /// The newline Rails' `text_area` writes right after `<textarea>` (V4).
     let nl: XmlNode = Text.raw "\n"
+
+    /// An element's start tag and everything inside it, without the end tag: what a block-less `form_with` writes
+    /// (`auto_submit_form_with`). The parser keeps the form open, so what follows it in the document is its descendant, and the
+    /// loose DOM of the page says so. `node` is rendered by Falco (its values are already encoded) and must be an element named `tag`.
+    let unclosed (tag: string) (node: XmlNode) : XmlNode =
+        let rendered = renderNode node
+        let closing = "</" + tag + ">"
+        if rendered.StartsWith("<" + tag, System.StringComparison.Ordinal) && rendered.EndsWith(closing, System.StringComparison.Ordinal) then
+            Text.raw (rendered.Substring(0, rendered.Length - closing.Length))
+        else
+            invalidOp $"Html.unclosed: not a {tag} element"

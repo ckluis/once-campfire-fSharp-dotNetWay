@@ -14,8 +14,6 @@ open Campfire.App.Web
 module SessionTransfers =
     module TransferPage = Campfire.Views.Templates.Sessions.Transfers.Show
 
-    let private showSize = Campfire.Views.RenderSize()
-
     /// `allow_unauthenticated_access`: an auto-submitting form that PUTs back to this URL.
     let show: Web.Action =
         fun http ->
@@ -24,14 +22,7 @@ module SessionTransfers =
                 do! Formats.respondTo http [ Format.Html ] |> Result.map ignore
                 // `url_for({})`: this request's own path.
                 let action = Respond.rawPath http
-                return!
-                    Pages.framedPage
-                        http
-                        200
-                        showSize
-                        (fun w ctx -> TransferPage.render w ctx action)
-                        TransferPage.head
-                        (fun w _ -> TransferPage.content w action)
+                return! Pages.viewPage http 200 (fun _ -> TransferPage.rendered action)
             }
 
     let update: Web.Action =

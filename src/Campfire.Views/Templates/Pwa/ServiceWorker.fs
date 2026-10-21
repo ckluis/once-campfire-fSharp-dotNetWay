@@ -2,7 +2,6 @@
 /// `pwa/service_worker.js`, served verbatim.
 module Campfire.Views.Templates.Pwa.ServiceWorker
 
-open Campfire.Views
 
 /// The script, as text.
 let js: string =
@@ -38,4 +37,4 @@ let js: string =
     "}\n"
 
 /// The script as UTF-8, encoded once.
-let bytes: byte[] = Utf8.lit js
+let bytes: byte[] = System.Text.Encoding.UTF8.GetBytes js

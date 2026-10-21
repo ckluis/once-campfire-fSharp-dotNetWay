@@ -17,8 +17,6 @@ open Campfire.App.Web
 module FirstRuns =
     module ShowPage = Campfire.Views.Templates.FirstRuns.Show
 
-    let private showSize = RenderSize()
-
     /// `redirect_to root_url if Account.any?`
     let private preventRepeats (http: HttpContext) : Result<unit, Error> =
         match Data.read http (fun db -> Account.count db > 0L) with
@@ -36,7 +34,7 @@ module FirstRuns =
                 do! Before.chain (Before.allowUnauthenticatedAccess Before.Default) http
                 do! preventRepeats http
                 do! Formats.respondTo http [ Format.Html ] |> Result.map ignore
-                return! Pages.framedPage http 200 showSize (fun w ctx -> ShowPage.render w ctx) ShowPage.head (fun w ctx -> ShowPage.content w ctx)
+                return! Pages.viewPage http 200 ShowPage.rendered
             }
 
     let create: Web.Action =

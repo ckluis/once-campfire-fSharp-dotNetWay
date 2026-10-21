@@ -48,13 +48,12 @@ let ``pwa partials`` () =
         for kind in [ "browser_settings"; "system_settings"; "install_instructions" ] do
             let name = $"{kind}_{ua}"
             let ctx = context name Request.none
-            let html =
-                Render.text (fun w ->
-                    match kind with
-                    | "browser_settings" -> Templates.Pwa._BrowserSettings.render w ctx
-                    | "system_settings" -> Templates.Pwa._SystemSettings.render w ctx
-                    | _ -> Templates.Pwa._InstallInstructions.render w ctx)
-            assertParity name "html" html
+            let nodes =
+                match kind with
+                | "browser_settings" -> Templates.Pwa._BrowserSettings.render ctx
+                | "system_settings" -> [ Templates.Pwa._SystemSettings.render ctx ]
+                | _ -> Templates.Pwa._InstallInstructions.render ctx
+            assertParity name "html" ((HtmlOutput.ofNodes nodes []).ToString())
 
 [<Fact>]
 let ``users partials`` () =
@@ -94,7 +93,7 @@ let ``welcome show`` () =
     // The first page to use the layout: its parity covers the layout and the lightbox.
     let name = "welcome"
     let ctx = context name Request.none
-    let html = Render.text (fun w -> Templates.Welcome.Show.render w ctx ctx.CurrentUser.Value.Name)
+    let html = (Legacy.inLayout ctx false (Templates.Welcome.Show.rendered ctx ctx.CurrentUser.Value.Name)).ToString()
     assertParity name "html" html
 
 [<Fact>]
@@ -102,27 +101,31 @@ let ``application layout wrapper matches extended pages`` () =
     // A page rendered through the wrapper with its parts equals the page calling the layout directly.
     let name = "welcome"
     let ctx = context name Request.none
-    let userName = ctx.CurrentUser.Value.Name
-    let direct = Render.text (fun w -> Templates.Welcome.Show.render w ctx userName)
+    let page = Templates.Welcome.Show.rendered ctx ctx.CurrentUser.Value.Name
+    let direct = (Legacy.inLayout ctx false page).ToString()
+    let region (nodes: Falco.Markup.XmlNode list) = Render.html (fun w -> Legacy.write w (HtmlOutput.ofNodes nodes []))
     let wrapped =
         Render.text (fun w ->
             Layouts.Application.render
                 w
                 ctx
-                { Layouts.Application.create (Render.html (fun w -> Templates.Welcome.Show.content w ctx userName)) with
-                    PageTitle = Templates.Welcome.Show.pageTitle
-                    BodyClass = Templates.Welcome.Show.bodyClass
-                    Sidebar = Render.html Templates.Welcome.Show.sidebar })
+                { Layouts.Application.create (region page.Regions.Content) with
+                    PageTitle = page.Regions.Title
+                    BodyClass = page.Regions.BodyClass
+                    Sidebar = region page.Regions.Sidebar })
     Assert.Equal(direct, wrapped)
     assertParity name "html" wrapped
 
 [<Fact>]
 let ``a flash notice and a flash alert render in the layout`` () =
     let name = "welcome"
-    let notice = Render.text (fun w -> Templates.Welcome.Show.render w (context name { Request.none with FlashNotice = Some "Saved <ok>" }) "X")
+    let welcome (request: Request) =
+        let ctx = context name request
+        (Legacy.inLayout ctx false (Templates.Welcome.Show.rendered ctx "X")).ToString()
+    let notice = welcome { Request.none with FlashNotice = Some "Saved <ok>" }
     Assert.Contains("<span class=\"for-screen-reader\" role=\"alert\" aria-atomic=\"true\">Saved &lt;ok&gt;</span>", notice)
     Assert.DoesNotContain("--flash-background", notice)
-    let alert = Render.text (fun w -> Templates.Welcome.Show.render w (context name { Request.none with FlashAlert = Some "No" }) "X")
+    let alert = welcome { Request.none with FlashAlert = Some "No" }
     Assert.Contains("style=\"--flash-background: var(--color-negative)\"", alert)
     Assert.Contains("alert-", alert)
 
@@ -192,20 +195,20 @@ let ``sessions new`` () =
           "sessions_new_rejected", Some "david@37signals.com", Some "Too many requests or unauthorized."
           "sessions_new_with_logo", None, None ] do
         let ctx = context name { Request.none with FlashAlert = alert }
-        assertParity name "html" (Render.text (fun w -> Templates.Sessions.New.render w ctx email (helpContact name)))
+        assertParity name "html" ((Legacy.inLayout ctx false (Templates.Sessions.New.rendered ctx email (helpContact name))).ToString())
 
 [<Fact>]
 let ``sessions incompatible browser`` () =
     for name in [ "incompatible_browser"; "incompatible_browser_apple_messages" ] do
         let ctx = context name Request.none
-        assertParity name "html" (Render.text (fun w -> Templates.Sessions.IncompatibleBrowser.render w ctx))
+        assertParity name "html" ((Legacy.inLayout ctx false (Templates.Sessions.IncompatibleBrowser.rendered ctx)).ToString())
 
 [<Fact>]
 let ``sessions transfer`` () =
     let name = "sessions_transfer"
     let ctx = context name Request.none
     let action = text ((case name).GetProperty "path")
-    assertParity name "html" (Render.text (fun w -> Templates.Sessions.Transfers.Show.render w ctx action))
+    assertParity name "html" ((Legacy.inLayout ctx false (Templates.Sessions.Transfers.Show.rendered action)).ToString())
 
 [<Fact>]
 let ``accounts edit`` () =
@@ -279,7 +282,7 @@ let ``accounts custom styles`` () =
 let ``first runs show`` () =
     let name = "first_run"
     let ctx = context name Request.none
-    assertParity name "html" (Render.text (fun w -> Templates.FirstRuns.Show.render w ctx))
+    assertParity name "html" ((Legacy.inLayout ctx false (Templates.FirstRuns.Show.rendered ctx)).ToString())
 
 [<Fact>]
 let ``users new`` () =
@@ -354,16 +357,21 @@ let ``pwa manifest and service worker`` () =
     let assets = facts.Value.GetProperty "assets"
     let assetPath (logical: string) = text (assets.GetProperty logical)
     let json =
-        Render.text (fun w ->
+        System.Text.Encoding.UTF8.GetString(
             Templates.Pwa.Manifest.render
-                w
                 (Inputs.opt (accountFact name "name"))
                 (text (accountFact name "logo_path_small"))
                 (text (accountFact name "logo_path"))
                 (text (facts.Value.GetProperty "base_url"))
-                assetPath)
-    // Rails HTML-escapes the values into the JSON (README, Known differences)
-    Assert.Equal((golden name "json").Replace("&amp;", "&"), json)
+                assetPath
+        )
+    // Rails HTML-escapes the values into the JSON (README, Known differences); the manifest is compared as JSON (indentation is class A).
+    let expected = (golden name "json").Replace("&amp;", "&")
+    use expectedDocument = JsonDocument.Parse expected
+    use actualDocument = JsonDocument.Parse json
+    Assert.True(
+        Campfire.Views.Tests.Facts.jsonEqual expectedDocument.RootElement actualDocument.RootElement,
+        $"the manifest differs from Rails' as JSON:\n{json}")
     Assert.Equal(golden "service_worker" "js", Templates.Pwa.ServiceWorker.js)
     Assert.Equal(golden "service_worker" "js", System.Text.Encoding.UTF8.GetString Templates.Pwa.ServiceWorker.bytes)
 
@@ -372,8 +380,9 @@ let ``pwa manifest is valid json whatever the account is called`` () =
     let assetPath (logical: string) = $"/assets/{logical}"
     let name = "Back\\slash \"quoted\" <b>&amp;</b>"
     let json =
-        Render.text (fun w ->
-            Templates.Pwa.Manifest.render w (Some name) "/account/logo?size=small&v=1" "/account/logo?v=1" "http://campfire.test" assetPath)
+        System.Text.Encoding.UTF8.GetString(
+            Templates.Pwa.Manifest.render (Some name) "/account/logo?size=small&v=1" "/account/logo?v=1" "http://campfire.test" assetPath
+        )
     use manifest = JsonDocument.Parse json
     Assert.Equal(name, text (manifest.RootElement.GetProperty "name"))
     let icons = manifest.RootElement.GetProperty "icons"

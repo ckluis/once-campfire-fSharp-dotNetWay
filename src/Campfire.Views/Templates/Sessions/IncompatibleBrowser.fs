@@ -2,38 +2,39 @@
 /// `sessions/incompatible_browser.html.erb`, rendered by `AllowBrowser` for old browsers.
 module Campfire.Views.Templates.Sessions.IncompatibleBrowser
 
+open Falco.Markup
 open Campfire.Views
-open Campfire.Views.Helpers
+open Campfire.Views.Layouts
+open Campfire.Views.Markup
 
-let private t0 = Utf8.lit "<div class=\"panel center\">\n  <header>\n    <h1 class=\"txt-x-large txt-tight-lines txt-align-center margin-none-block-start margin-block-end\">\n      Upgrade to a supported web browser\n    </h1>\n    <div class=\"flex align-start gap\">\n      "
-let private t1 = Utf8.lit "\n      <p class=\"margin-none-block-start\">Campfire requires a modern web browser. Please use one of the browsers listed below and make sure auto-updates are enabled.</p>\n    </div>\n  </header>\n\n  <div class=\"browser-list flex align-center flex-wrap gap justify-center margin-block\">\n"
-let private t2 = Utf8.lit "      <div class=\"browser flex flex-column\">\n        "
-let private t3 = Utf8.lit "\n        <div class=\"flex flex-column align-center margin-block-start-half\">\n          <strong>"
-let private t4 = Utf8.lit "</strong>\n          <span> "
-let private t5 = Utf8.lit "+</span>\n        </div>\n      </div>\n"
-let private t6 = Utf8.lit "  </div>\n</div>\n"
-
-/// `@page_title`.
-let pageTitle (ctx: ViewContext) : string option =
-    Some(if ctx.Platform.AppleMessages then "Campfire" else "Unsupported browser")
-
-/// `content_for :head` (empty).
-let head: Out -> unit = ignore
-
-/// The page itself.
-let content (w: Out) (ctx: ViewContext) : unit =
-    w.Lit t0
-    Translations.translationButton w ctx "incompatible_browser_messsage"
-    w.Lit t1
-    for (browser, version) in Campfire.Views.Sessions.allowBrowserVersions do
-        w.Lit t2
-        Assets.imageTag w ctx ("browsers/" + browser + ".svg") (Tag.attrs().AriaHidden().Class("center"))
-        w.Lit t3
-        w.Text(Application.capitalize browser)
-        w.Lit t4
-        w.Text version
-        w.Lit t5
-    w.Lit t6
-
-let render (w: Out) (ctx: ViewContext) : unit =
-    Templates.Layouts.Application.render w ctx (pageTitle ctx) None head ignore (fun w -> content w ctx) ignore ignore
+/// The page: `@page_title` and the list of supported browsers.
+let rendered (ctx: ViewContext) : ViewPage =
+    { Regions =
+        { Regions.content
+            [ Elem.div
+                  [ Attr.class' "panel center" ]
+                  [ Elem.header
+                        []
+                        [ Elem.h1
+                              [ Attr.class' "txt-x-large txt-tight-lines txt-align-center margin-none-block-start margin-block-end" ]
+                              [ Text.raw "Upgrade to a supported web browser" ]
+                          Elem.div
+                              [ Attr.class' "flex align-start gap" ]
+                              [ Translations.translationButton ctx "incompatible_browser_messsage"
+                                Elem.p
+                                    [ Attr.class' "margin-none-block-start" ]
+                                    [ Text.raw
+                                          "Campfire requires a modern web browser. Please use one of the browsers listed below and make sure auto-updates are enabled." ] ] ]
+                    Elem.div
+                        [ Attr.class' "browser-list flex align-center flex-wrap gap justify-center margin-block" ]
+                        [ for (browser, version) in Campfire.Views.Sessions.allowBrowserVersions ->
+                              Elem.div
+                                  [ Attr.class' "browser flex flex-column" ]
+                                  [ Assets.image ctx ("browsers/" + browser + ".svg") [ Attr.create "aria-hidden" "true"; Attr.class' "center" ]
+                                    Elem.div
+                                        [ Attr.class' "flex flex-column align-center margin-block-start-half" ]
+                                        [ Elem.strong [] [ Html.text (Campfire.Views.Helpers.Application.capitalize browser) ]
+                                          Html.sp
+                                          Elem.span [] [ Text.raw " "; Html.text version; Text.raw "+" ] ] ] ] ] ] with
+            Title = Some(if ctx.Platform.AppleMessages then "Campfire" else "Unsupported browser") }
+      Fragments = [] }

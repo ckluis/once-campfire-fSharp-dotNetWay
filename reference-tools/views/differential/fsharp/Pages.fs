@@ -65,6 +65,13 @@ let viewPageAnswer (args: JsonElement) (ctx: ViewContext) (page: Layouts.ViewPag
     if cold <> warm then failwith "a warm render is not the cold one"
     text warm
 
+/// A body that is not markup (the manifest): written twice, the same bytes.
+let nodeBytesAnswer (render: unit -> byte[]) : Answer =
+    let cold = Encoding.UTF8.GetString(render ())
+    let warm = Encoding.UTF8.GetString(render ())
+    if cold <> warm then failwith "a warm render is not the cold one"
+    text warm
+
 /// A template that is not a page: rendered cold and then warm.
 let fragmentAnswer (render: Out -> unit) : Answer =
     let cold = Render.text render

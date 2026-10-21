@@ -4,20 +4,15 @@
 module Campfire.Views.Templates.Sessions.Transfers.Show
 
 open Campfire.Views
-open Campfire.Views.Helpers
+open Campfire.Views.Layouts
+open Campfire.Views.Markup
 
-let private t0 = Utf8.lit "\n"
-let private t1 = Utf8.lit "\n"
-
-/// `content_for :head` (empty).
-let head: Out -> unit = ignore
-
-/// The page itself. `action` is the request path, `session_transfer_path(params[:id])`. A block-less
-/// `form_with` renders only the opening tag and hidden fields, never `</form>`.
-let content (w: Out) (action: string) : unit =
-    w.Lit t0
-    (Forms.formWith action).Method("put").AutoSubmit().Open w
-    w.Lit t1
-
-let render (w: Out) (ctx: ViewContext) (action: string) : unit =
-    Templates.Layouts.Application.render w ctx None None head ignore (fun w -> content w action) ignore ignore
+/// The page. `action` is the request path, `session_transfer_path(params[:id])`. A block-less `form_with` renders only the opening
+/// tag and hidden fields, never `</form>` (`Html.unclosed`): the layout's footer ends up inside it, as in the reference's DOM.
+let rendered (action: string) : ViewPage =
+    { Regions =
+        Regions.content
+            [ Html.unclosed
+                  "form"
+                  (Forms.formWith action "put" [ Falco.Markup.Attr.create "data-controller" "auto-submit" ] []) ]
+      Fragments = [] }

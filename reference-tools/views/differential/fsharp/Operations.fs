@@ -257,9 +257,9 @@ let run (case: JsonElement) (shared: JsonElement) : Answer =
     | "accounts/_help_contact" ->
         text ((HtmlOutput.ofNodes (Templates.Accounts._HelpContact.render (ctxOf ()) (helpContact (get args "help_contact"))) []).ToString())
     | "accounts/_invite" -> text ((HtmlOutput.ofNode (Templates.Accounts._Invite.render (ctxOf ()) (str (get args "join_code"))) []).ToString())
-    | "pwa/_install_instructions" -> rendered (fun w -> Templates.Pwa._InstallInstructions.render w (ctxOf ()))
-    | "pwa/_browser_settings" -> rendered (fun w -> Templates.Pwa._BrowserSettings.render w (ctxOf ()))
-    | "pwa/_system_settings" -> rendered (fun w -> Templates.Pwa._SystemSettings.render w (ctxOf ()))
+    | "pwa/_install_instructions" -> text ((HtmlOutput.ofNodes (Templates.Pwa._InstallInstructions.render (ctxOf ())) []).ToString())
+    | "pwa/_browser_settings" -> text ((HtmlOutput.ofNodes (Templates.Pwa._BrowserSettings.render (ctxOf ())) []).ToString())
+    | "pwa/_system_settings" -> text ((HtmlOutput.ofNode (Templates.Pwa._SystemSettings.render (ctxOf ())) []).ToString())
     | "users/_mention" ->
         let user: MentionUser =
             { User = userSummary (get args "user")
@@ -287,7 +287,9 @@ let run (case: JsonElement) (shared: JsonElement) : Answer =
         if not (obj.ReferenceEquals(a, b)) then failwith "the second render did not reuse the cached fragment"
         let c = Render.text (fun w -> w.Lit b.Bytes)
         { Out = a.ToString(); Text = Some c; Fragments = None }
-    | "welcome/show" -> rendered (fun w -> Templates.Welcome.Show.render w (ctxOf ()) (str (get args "current_user_name")))
+    | "welcome/show" ->
+        let ctx = ctxOf ()
+        Pages.viewPageAnswer args ctx (Templates.Welcome.Show.rendered ctx (str (get args "current_user_name")))
     | _ when op.StartsWith "helpers/" -> helper (op.Substring "helpers/".Length) args ctx shared
     | _ when op.StartsWith "messages/" -> messageOp (op.Substring "messages/".Length) args ctx shared
     | "autocompletable/users_index_json" ->

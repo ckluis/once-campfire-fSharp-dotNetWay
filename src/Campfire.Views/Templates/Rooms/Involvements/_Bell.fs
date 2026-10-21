@@ -53,9 +53,9 @@ let render (ctx: ViewContext) (room: RoomView) : XmlNode =
                                 [ Elem.h1 [ Attr.class' "txt-large margin-none" ] [ Text.raw "Notifications aren’t allowed" ]
                                   Elem.div
                                       [ Attr.class' "txt-align-start margin-block-start" ]
-                                      [ Legacy.node (fun w -> Templates.Pwa._BrowserSettings.render w ctx)
-                                        Legacy.node (fun w -> Templates.Pwa._SystemSettings.render w ctx)
-                                        Legacy.node (fun w -> Templates.Pwa._InstallInstructions.render w ctx) ] ]
+                                      (Templates.Pwa._BrowserSettings.render ctx
+                                       @ [ Templates.Pwa._SystemSettings.render ctx ]
+                                       @ Templates.Pwa._InstallInstructions.render ctx) ]
                             Elem.form
                                 [ Attr.create "method" "dialog"; Attr.class' "flex align-center gap center" ]
                                 [ Elem.button

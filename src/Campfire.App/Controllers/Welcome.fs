@@ -12,8 +12,6 @@ open Campfire.Views.Templates.Welcome
 open Campfire.App.Web
 
 module Welcome =
-    let private showSize = Campfire.Views.RenderSize()
-
     /// To the last room visited, or a page saying there are no rooms yet.
     let show: Web.Action =
         fun http ->
@@ -29,12 +27,5 @@ module Welcome =
                     | None -> return! Result.Error(Internal(exn "no last room"))
                 else
                     do! Formats.respondTo http [ Format.Html ] |> Result.map ignore
-                    return!
-                        Pages.framedPage
-                            http
-                            200
-                            showSize
-                            (fun w ctx -> Show.render w ctx user.Name)
-                            ignore
-                            (fun w ctx -> Show.content w ctx user.Name)
+                    return! Pages.viewPage http 200 (fun ctx -> Show.rendered ctx user.Name)
             }
