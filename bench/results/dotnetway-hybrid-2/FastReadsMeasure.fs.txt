@@ -1,0 +1,168 @@
+/// Unit H.2 measurement (bench/results/dotnetway-hybrid-2): are Dapper's sidebar and search reads clearly faster than EF's, in process?
+/// The candidates live here, not in src (bin/verify keeps Dapper in FastReads.fs). The measurement runs only with CAMPFIRE_SPIKE=1; the
+/// output goes to CAMPFIRE_SPIKE_OUT. Without the switch only the equivalence check runs (each candidate against EF's answer).
+module Campfire.App.Tests.FastReadsMeasure
+
+open System
+open System.Data
+open System.Diagnostics
+open System.IO
+open Dapper
+open Microsoft.EntityFrameworkCore
+open Xunit
+open Campfire.App.Tests.Support
+open Campfire.Db
+open Campfire.Db.Ef
+
+[<CLIMutable>]
+type private RoomRow =
+    { Id: int64
+      Name: string | null
+      Type: string
+      CreatorId: int64
+      CreatedAt: DateTime
+      UpdatedAt: DateTime }
+
+let private spikeOn = Environment.GetEnvironmentVariable "CAMPFIRE_SPIKE" = "1"
+let private out (line: string) =
+    Console.WriteLine line
+    match Environment.GetEnvironmentVariable "CAMPFIRE_SPIKE_OUT" with
+    | null | "" -> ()
+    | path -> File.AppendAllText(path, line + "\n")
+
+let private loadavg () =
+    use p = nonNull (Process.Start(ProcessStartInfo("sysctl", "-n vm.loadavg", RedirectStandardOutput = true)))
+    let s = p.StandardOutput.ReadToEnd().Trim()
+    p.WaitForExit()
+    s
+
+let private onConn (db: CampfireDb) (f: IDbConnection -> 'T) : 'T =
+    db.Database.OpenConnection()
+    try f (db.Database.GetDbConnection()) finally db.Database.CloseConnection()
+
+let private visibleSql =
+    "SELECT memberships.id AS membership_id, memberships.room_id AS room_id, memberships.user_id AS user_id, memberships.involvement AS involvement, memberships.unread_at AS unread_at, memberships.connected_at AS connected_at, memberships.connections AS connections, memberships.created_at AS membership_created_at, memberships.updated_at AS membership_updated_at, rooms.name AS room_name, rooms.type AS room_type, rooms.creator_id AS room_creator_id, rooms.created_at AS room_created_at, rooms.updated_at AS room_updated_at FROM memberships INNER JOIN rooms ON rooms.id = memberships.room_id WHERE memberships.user_id = @userId AND memberships.involvement != 'invisible' ORDER BY LOWER(rooms.name)"
+
+let private directTypeName = Names.roomTypeToDb RoomType.Direct
+
+// The candidates: Dapper versions of the sidebar's four reads and the search page's two.
+let private visibleD (db: CampfireDb) (userId: int64) =
+    onConn db (fun c -> c.Query<MembershipRoomRow>(visibleSql, {| userId = userId |}) |> Seq.toList)
+
+let private directRoomsD (db: CampfireDb) (userId: int64) =
+    onConn db (fun c ->
+        c.Query<RoomRow>(
+            "SELECT rooms.id, rooms.name, rooms.type, rooms.creator_id, rooms.created_at, rooms.updated_at FROM rooms INNER JOIN memberships ON rooms.id = memberships.room_id WHERE memberships.user_id = @userId AND rooms.type = @roomType",
+            {| userId = userId; roomType = directTypeName |}
+        )
+        |> Seq.map (fun r -> { Room.Id = r.Id; Name = r.Name; Type = Names.roomTypeOfDb r.Type; CreatorId = r.CreatorId; CreatedAt = r.CreatedAt; UpdatedAt = r.UpdatedAt })
+        |> Seq.toList)
+
+let private directUserIdsD (db: CampfireDb) (userId: int64) =
+    onConn db (fun c ->
+        c.Query<int64>(
+            "SELECT user_id FROM memberships WHERE room_id IN (SELECT rooms.id FROM rooms INNER JOIN memberships AS own ON rooms.id = own.room_id WHERE own.user_id = @userId AND rooms.type = @roomType)",
+            {| userId = userId; roomType = directTypeName |}
+        )
+        |> Seq.toList)
+
+let private activeExcludingD (db: CampfireDb) (ids: int64[]) (limit: int) =
+    onConn db (fun c ->
+        c.Query<User>(
+            "SELECT id, name, email_address, password_digest, role, status, bio, bot_token, created_at, updated_at FROM users WHERE status = 0 AND id NOT IN (SELECT value FROM json_each(@json)) ORDER BY created_at LIMIT @limit",
+            {| json = "[" + String.Join(",", ids) + "]"; limit = limit |}
+        )
+        |> Seq.toList)
+
+let private searchesD (db: CampfireDb) (userId: int64) =
+    onConn db (fun c ->
+        c.Query<Search>("SELECT id, user_id, query, created_at, updated_at FROM searches WHERE user_id = @userId ORDER BY updated_at DESC", {| userId = userId |})
+        |> Seq.toList)
+
+let private reachableD (db: CampfireDb) (userId: int64) (terms: string) =
+    onConn db (fun c ->
+        c.Query<Message>(
+            "SELECT messages.id, messages.client_message_id, messages.created_at, messages.creator_id, messages.room_id, messages.updated_at FROM messages INNER JOIN rooms ON messages.room_id = rooms.id INNER JOIN memberships ON rooms.id = memberships.room_id JOIN message_search_index idx ON messages.id = idx.rowid WHERE memberships.user_id = @userId AND (idx.body MATCH @terms) ORDER BY messages.created_at DESC LIMIT 100",
+            {| userId = userId; terms = terms |}
+        )
+        |> Seq.toList
+        |> List.rev)
+
+let private timeLoop (iterations: int) (f: unit -> obj | null) =
+    for _ in 1..200 do f () |> ignore
+    GC.Collect()
+    let before = GC.GetAllocatedBytesForCurrentThread()
+    let sw = Stopwatch.StartNew()
+    for _ in 1..iterations do f () |> ignore
+    sw.Stop()
+    sw.Elapsed.TotalMicroseconds / float iterations, float (GC.GetAllocatedBytesForCurrentThread() - before) / float iterations
+
+[<Fact>]
+let ``the sidebar and search candidates equal EF's answers`` () =
+    task {
+        use! test = bootSeeded "default"
+        use db = test.App.DbFactory.CreateDbContext()
+        Assert.Equal<int>(Membership.visibleWithOrderedRoom db DAVID |> List.length, visibleD db DAVID |> List.length)
+        Assert.Equal<Room list>(Room.forUserOfType db DAVID RoomType.Direct, directRoomsD db DAVID)
+        Assert.Equal<int64 list>(Room.userIdsOfDirectRoomsOf db DAVID, directUserIdsD db DAVID)
+        Assert.Equal<User list>(User.activeExcluding db [| 1L; 2L |] 5, activeExcludingD db [| 1L; 2L |] 5)
+        Assert.Equal<Search list>(Search.orderedForUser db DAVID, searchesD db DAVID)
+        Assert.Equal<Message list>(Message.searchReachable db DAVID "hello", reachableD db DAVID "\"hello\"")
+    }
+
+[<Fact>]
+let ``measure d: the sidebar and search read sets, EF against Dapper`` () =
+    task {
+        if spikeOn then
+            use! test = bootSeeded "default"
+            let scalar (sql: string) =
+                test.Sql(fun c ->
+                    use cmd = c.CreateCommand()
+                    cmd.CommandText <- sql
+                    string (nonNull (cmd.ExecuteScalar())))
+            let token = scalar ("SELECT token FROM sessions WHERE user_id = " + string DAVID + " LIMIT 1")
+            let accountId = int64 (scalar "SELECT id FROM accounts LIMIT 1")
+            // The statements that are Dapper in both arms (session, user, room join, account, logo) stay in the set so the figures are a page's reads.
+            let common (db: CampfireDb) =
+                let s = Session.findByToken db token
+                let u = User.findById db s.Value.UserId
+                let r = Room.findForUser db DAVID ALL_TALK
+                let a = Account.first db
+                let b = Campfire.Storage.Blob.attached db "Account" accountId "logo"
+                box (u, r, a, b)
+            let sidebarEf () =
+                use db = test.App.DbFactory.CreateDbContext()
+                let c = common db
+                let v = Membership.visibleWithOrderedRoom db DAVID
+                let d = Room.forUserOfType db DAVID RoomType.Direct
+                let ids = Room.userIdsOfDirectRoomsOf db DAVID
+                let others = User.activeExcluding db (Array.ofList (DAVID :: ids)) 20
+                box (c, v, d, ids, others)
+            let sidebarD () =
+                use db = test.App.DbFactory.CreateDbContext()
+                let c = common db
+                let v = visibleD db DAVID
+                let d = directRoomsD db DAVID
+                let ids = directUserIdsD db DAVID
+                let others = activeExcludingD db (Array.ofList (DAVID :: ids)) 20
+                box (c, v, d, ids, others)
+            let searchEf () =
+                use db = test.App.DbFactory.CreateDbContext()
+                let c = common db
+                let m = Message.searchReachable db DAVID "hello"
+                let s = Search.orderedForUser db DAVID
+                box (c, m, s)
+            let searchD () =
+                use db = test.App.DbFactory.CreateDbContext()
+                let c = common db
+                let m = reachableD db DAVID "\"hello\""
+                let s = searchesD db DAVID
+                box (c, m, s)
+            out $"## d. sidebar and search read sets, in process, single thread, default seed, warm. load {loadavg ()}"
+            for (label, ef, dapper) in [ "sidebar", sidebarEf, sidebarD; "search", searchEf, searchD ] do
+                for round in 1..6 do
+                    for isDapper in (if round % 2 = 1 then [ false; true ] else [ true; false ]) do
+                        let us, bytes = timeLoop 10000 (if isDapper then dapper else ef)
+                        let arm = if isDapper then "dapper" else "ef"
+                        out $"d | {label} | round {round} | {arm} | {us:F1} us/page | {bytes:F0} B/page | load {loadavg ()}"
+    }

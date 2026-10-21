@@ -83,3 +83,83 @@ let ``a dapper read inside a write sees the write's own rows`` () =
         | Ok seen -> Assert.Equal(Some "Hybrid Reader", seen)
         | Error e -> failwith (DbError.display e)
     }
+
+/// Unit H.2: the sidebar and search reads. Each reference below is the EF statement the Dapper read replaced (kept here as the oracle).
+[<Fact>]
+let ``dapper sidebar and search reads equal EF's answers`` () =
+    task {
+        use! test = bootSeeded "default"
+        use db = test.App.DbFactory.CreateDbContext()
+        let users = db.Users.ToList()
+        let rooms = db.Rooms.ToList()
+        let direct = Names.roomTypeToDb RoomType.Direct
+        let mutable nonEmptySidebar = 0
+        for u in users do
+            let userId = u.Id
+            let visible =
+                db.Database
+                    .SqlQuery<MembershipRoomRow>(
+                        $"SELECT memberships.id AS membership_id, memberships.room_id AS room_id, memberships.user_id AS user_id, memberships.involvement AS involvement, memberships.unread_at AS unread_at, memberships.connected_at AS connected_at, memberships.connections AS connections, memberships.created_at AS membership_created_at, memberships.updated_at AS membership_updated_at, rooms.name AS room_name, rooms.type AS room_type, rooms.creator_id AS room_creator_id, rooms.created_at AS room_created_at, rooms.updated_at AS room_updated_at FROM memberships INNER JOIN rooms ON rooms.id = memberships.room_id WHERE memberships.user_id = {userId} AND memberships.involvement != 'invisible' ORDER BY LOWER(rooms.name)"
+                    )
+                    .ToList()
+                |> List.ofSeq
+            if not visible.IsEmpty then nonEmptySidebar <- nonEmptySidebar + 1
+            Assert.Equal<MembershipRoomRow list>(visible, FastReads.visibleMembershipRoomRows db userId)
+            for roomType in [ Names.roomTypeToDb RoomType.Direct; Names.roomTypeToDb RoomType.Open; Names.roomTypeToDb RoomType.Closed ] do
+                let expected =
+                    db.Rooms
+                        .FromSql($"SELECT rooms.* FROM rooms INNER JOIN memberships ON rooms.id = memberships.room_id WHERE memberships.user_id = {userId} AND rooms.type = {roomType}")
+                        .AsEnumerable()
+                    |> List.ofSeq
+                Assert.Equal<Room list>(expected, FastReads.roomsOfType db userId roomType)
+            let expectedIds =
+                db.Memberships
+                    .FromSql(
+                        $"SELECT * FROM memberships WHERE room_id IN (SELECT rooms.id FROM rooms INNER JOIN memberships AS own ON rooms.id = own.room_id WHERE own.user_id = {userId} AND rooms.type = {direct})"
+                    )
+                    .AsEnumerable()
+                    .Select(fun m -> m.UserId)
+                    |> List.ofSeq
+            // The order of an unordered statement is the planner's (Rails' too) and the one caller only builds a set from it, so compare sorted.
+            Assert.Equal<int64 list>(List.sort expectedIds, List.sort (FastReads.memberUserIdsOfRoomsOfType db userId direct))
+        Assert.True(nonEmptySidebar > 3)
+        Assert.True(rooms.Count > 3)
+        // activeExcluding: a few exclusion sets and limits.
+        for ids in [ [||]; [| users[0].Id |]; users.Take(3).Select(fun u -> u.Id).ToArray(); [| -1L |] ] do
+            for limit in [ 1; 3; 50 ] do
+                let json = "[" + System.String.Join(",", ids) + "]"
+                let expected =
+                    db.Users
+                        .FromSql($"SELECT * FROM users WHERE status = 0 AND id NOT IN (SELECT value FROM json_each({json})) ORDER BY created_at LIMIT {limit}")
+                        .AsEnumerable()
+                    |> List.ofSeq
+                Assert.Equal<User list>(expected, FastReads.activeUsersExcluding db ids limit)
+        // searches, after recording a few
+        for q in [ "alpha"; "bravo"; "charlie" ] do
+            let! r = Writes.run test.App.Gate test.App.Env db (fun tx -> Search.record tx DAVID q)
+            match r with
+            | Ok _ -> ()
+            | Error e -> failwith (DbError.display e)
+        let expectedSearches = db.Searches.Where(fun s -> s.UserId = DAVID).OrderByDescending(fun s -> s.UpdatedAt).ToList() |> List.ofSeq
+        Assert.True(expectedSearches.Length >= 3)
+        Assert.Equal<Search list>(expectedSearches, FastReads.searchesOrdered db DAVID)
+        Assert.Equal<Search list>([], FastReads.searchesOrdered db -1L)
+        // search: reachable messages
+        let mutable hits = 0
+        for u in users do
+            for terms in [ "\"the\""; "\"hello\""; "\"a\" \"the\""; "\"zzzznomatch\"" ] do
+                let userId = u.Id
+                let expected =
+                    db.Messages
+                        .FromSql(
+                            $"SELECT messages.* FROM messages INNER JOIN rooms ON messages.room_id = rooms.id INNER JOIN memberships ON rooms.id = memberships.room_id JOIN message_search_index idx ON messages.id = idx.rowid WHERE memberships.user_id = {userId} AND (idx.body MATCH {terms})"
+                        )
+                        .OrderByDescending(fun m -> m.CreatedAt)
+                        .Take(100)
+                        .ToList()
+                    |> List.ofSeq
+                    |> List.rev
+                hits <- hits + expected.Length
+                Assert.Equal<Message list>(expected, FastReads.searchReachable db userId terms)
+        Assert.True(hits > 0)
+    }

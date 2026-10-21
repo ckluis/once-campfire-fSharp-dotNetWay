@@ -109,6 +109,18 @@ module FastReads =
     let private attachedBlobSql =
         "SELECT b.id, b.key, b.filename, b.content_type, b.metadata, b.service_name, b.byte_size, b.checksum, b.created_at FROM active_storage_attachments a INNER JOIN active_storage_blobs b ON a.blob_id = b.id WHERE a.record_type = @recordType AND a.record_id = @recordId AND a.name = @name ORDER BY a.id LIMIT 1"
 
+    let private visibleRowsSql =
+        "SELECT memberships.id AS membership_id, memberships.room_id AS room_id, memberships.user_id AS user_id, memberships.involvement AS involvement, memberships.unread_at AS unread_at, memberships.connected_at AS connected_at, memberships.connections AS connections, memberships.created_at AS membership_created_at, memberships.updated_at AS membership_updated_at, rooms.name AS room_name, rooms.type AS room_type, rooms.creator_id AS room_creator_id, rooms.created_at AS room_created_at, rooms.updated_at AS room_updated_at FROM memberships INNER JOIN rooms ON rooms.id = memberships.room_id WHERE memberships.user_id = @userId AND memberships.involvement != 'invisible' ORDER BY LOWER(rooms.name)"
+    let private roomsOfTypeSql =
+        "SELECT rooms.id, rooms.name, rooms.type, rooms.creator_id, rooms.created_at, rooms.updated_at FROM rooms INNER JOIN memberships ON rooms.id = memberships.room_id WHERE memberships.user_id = @userId AND rooms.type = @roomType"
+    let private directMemberIdsSql =
+        "SELECT memberships.user_id FROM memberships WHERE room_id IN (SELECT rooms.id FROM rooms INNER JOIN memberships AS own ON rooms.id = own.room_id WHERE own.user_id = @userId AND rooms.type = @roomType) ORDER BY memberships.id"
+    let private activeExcludingSql =
+        "SELECT id, name, email_address, password_digest, role, status, bio, bot_token, created_at, updated_at FROM users WHERE status = 0 AND id NOT IN (SELECT value FROM json_each(@ids)) ORDER BY created_at LIMIT @limit"
+    let private searchesSql = "SELECT id, user_id, query, created_at, updated_at FROM searches WHERE user_id = @userId ORDER BY updated_at DESC"
+    let private searchReachableSql =
+        "SELECT messages.id, messages.client_message_id, messages.created_at, messages.creator_id, messages.room_id, messages.updated_at FROM messages INNER JOIN rooms ON messages.room_id = rooms.id INNER JOIN memberships ON rooms.id = memberships.room_id JOIN message_search_index idx ON messages.id = idx.rowid WHERE memberships.user_id = @userId AND (idx.body MATCH @terms) ORDER BY messages.created_at DESC LIMIT 100"
+
     /// `Session.find_by(token:)`
     let sessionByToken (db: CampfireDb) (token: string) : Session option =
         onConnection db sessionSql (fun c t -> c.QueryFirstOrDefault<Session>(sessionSql, {| token = token |}, t) |> Option.ofObj)
@@ -167,3 +179,32 @@ module FastReads =
     let attachedBlob (db: CampfireDb) (recordType: string) (recordId: int64) (name: string) : Blob option =
         onConnection db attachedBlobSql (fun c t ->
             c.QueryFirstOrDefault<Blob>(attachedBlobSql, {| recordType = recordType; recordId = recordId; name = name |}, t) |> Option.ofObj)
+
+    /// `user.memberships.visible.with_ordered_room`: the sidebar's one statement, each membership flat with its room (times as text).
+    let visibleMembershipRoomRows (db: CampfireDb) (userId: int64) : MembershipRoomRow list =
+        onConnection db visibleRowsSql (fun c t -> c.Query<MembershipRoomRow>(visibleRowsSql, {| userId = userId |}, t) |> Seq.toList)
+
+    /// `user.rooms.<type>`: the rooms of the user's memberships of one type (`roomType` is the database string).
+    let roomsOfType (db: CampfireDb) (userId: int64) (roomType: string) : Room list =
+        onConnection db roomsOfTypeSql (fun c t ->
+            c.Query<RoomRow>(roomsOfTypeSql, {| userId = userId; roomType = roomType |}, t)
+            |> Seq.map (fun r -> (ofRoomRow r).Value)
+            |> Seq.toList)
+
+    /// The user ids of every membership in the rooms of one type the user is in, in membership order.
+    let memberUserIdsOfRoomsOfType (db: CampfireDb) (userId: int64) (roomType: string) : int64 list =
+        onConnection db directMemberIdsSql (fun c t -> c.Query<int64>(directMemberIdsSql, {| userId = userId; roomType = roomType |}, t) |> Seq.toList)
+
+    /// `User.active.where.not(id: ids).order(:created_at).limit(n)`; `ids` travel as one JSON array parameter.
+    let activeUsersExcluding (db: CampfireDb) (ids: int64[]) (limit: int) : User list =
+        let json = "[" + String.Join(",", ids) + "]"
+        onConnection db activeExcludingSql (fun c t -> c.Query<User>(activeExcludingSql, {| ids = json; limit = limit |}, t) |> Seq.toList)
+
+    /// `user.searches.ordered`: most recent first.
+    let searchesOrdered (db: CampfireDb) (userId: int64) : Search list =
+        onConnection db searchesSql (fun c t -> c.Query<Search>(searchesSql, {| userId = userId |}, t) |> Seq.toList)
+
+    /// `Current.user.reachable_messages.search(query).last(100)`, oldest first; `terms` is the quoted FTS5 match expression.
+    let searchReachable (db: CampfireDb) (userId: int64) (terms: string) : Message list =
+        onConnection db searchReachableSql (fun c t ->
+            c.Query<Message>(searchReachableSql, {| userId = userId; terms = terms |}, t) |> Seq.toList |> List.rev)

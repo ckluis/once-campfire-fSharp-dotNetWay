@@ -16,7 +16,7 @@ module Search =
 
     /// `user.searches.ordered`: most recent first.
     let orderedForUser (db: CampfireDb) (userId: int64) : Search list =
-        db.Searches.Where(fun s -> s.UserId = EF.Parameter userId).OrderByDescending(fun s -> s.UpdatedAt).ToList() |> List.ofSeq
+        FastReads.searchesOrdered db userId
 
     let count (db: CampfireDb) : int64 = db.Searches.LongCount()
 

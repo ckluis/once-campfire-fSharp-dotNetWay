@@ -51,11 +51,7 @@ module User =
 
     /// `User.active.where.not(id: ids).order(:created_at).limit(n)`; `FromSql` (the sidebar runs it every request; no lambda to rebuild).
     let activeExcluding (db: Ef.CampfireDb) (ids: int64[]) (limit: int) : User list =
-        let json = "[" + String.Join(",", ids) + "]"
-        db.Users
-            .FromSql($"SELECT * FROM users WHERE status = 0 AND id NOT IN (SELECT value FROM json_each({json})) ORDER BY created_at LIMIT {limit}")
-            .ToList()
-        |> List.ofSeq
+        Ef.FastReads.activeUsersExcluding db ids limit
 
     /// `User.active.ordered`
     let activeOrdered (db: Ef.CampfireDb) : User list =
@@ -432,13 +428,7 @@ module Membership =
 
     /// `user.memberships.visible.with_ordered_room`, each with its room: the sidebar, one statement (`SqlQuery`, design 4).
     let visibleWithOrderedRoom (db: Ef.CampfireDb) (userId: int64) : (Membership * Room) list =
-        db.Database
-            .SqlQuery<MembershipRoomRow>(
-                $"SELECT memberships.id AS membership_id, memberships.room_id AS room_id, memberships.user_id AS user_id, memberships.involvement AS involvement, memberships.unread_at AS unread_at, memberships.connected_at AS connected_at, memberships.connections AS connections, memberships.created_at AS membership_created_at, memberships.updated_at AS membership_updated_at, rooms.name AS room_name, rooms.type AS room_type, rooms.creator_id AS room_creator_id, rooms.created_at AS room_created_at, rooms.updated_at AS room_updated_at FROM memberships INNER JOIN rooms ON rooms.id = memberships.room_id WHERE memberships.user_id = {userId} AND memberships.involvement != 'invisible' ORDER BY LOWER(rooms.name)"
-            )
-            .ToList()
-        |> Seq.map ofRow
-        |> List.ofSeq
+        Ef.FastReads.visibleMembershipRoomRows db userId |> List.map ofRow
 
     /// `user.memberships.with_ordered_room` (invisible included).
     let withOrderedRoom (db: Ef.CampfireDb) (userId: int64) : (Membership * Room) list =
@@ -618,24 +608,12 @@ module Room =
 
     /// `user.rooms.directs` / `.opens` / `.closeds`
     let forUserOfType (db: Ef.CampfireDb) (userId: int64) (roomType: RoomType) : Room list =
-        // `FromSql`, not `Where(lambda)`: the sidebar runs this every request and F# rebuilds a lambda's expression tree on each call (unit 1.10).
-        let typeName = Ef.Names.roomTypeToDb roomType
-        db.Rooms
-            .FromSql($"SELECT rooms.* FROM rooms INNER JOIN memberships ON rooms.id = memberships.room_id WHERE memberships.user_id = {userId} AND rooms.type = {typeName}")
-            .ToList()
-        |> List.ofSeq
+        Ef.FastReads.roomsOfType db userId (Ef.Names.roomTypeToDb roomType)
 
     /// `Membership.where(room_id: user.rooms.directs).pluck(:user_id)`: the user ids of every membership in the user's direct rooms, in
-    /// membership order (one statement; `FromSql`, same reason as `forUserOfType`).
+    /// membership id order (one statement; the one caller builds a set from them).
     let userIdsOfDirectRoomsOf (db: Ef.CampfireDb) (userId: int64) : int64 list =
-        let typeName = Ef.Names.roomTypeToDb RoomType.Direct
-        db.Memberships
-            .FromSql(
-                $"SELECT * FROM memberships WHERE room_id IN (SELECT rooms.id FROM rooms INNER JOIN memberships AS own ON rooms.id = own.room_id WHERE own.user_id = {userId} AND rooms.type = {typeName})"
-            )
-            .AsEnumerable()
-        |> Seq.map (fun m -> m.UserId)
-        |> List.ofSeq
+        Ef.FastReads.memberUserIdsOfRoomsOfType db userId (Ef.Names.roomTypeToDb RoomType.Direct)
 
     /// `user.rooms.without_directs`
     let forUserWithoutDirects (db: Ef.CampfireDb) (userId: int64) : Room list =
@@ -987,15 +965,7 @@ module Message =
         if terms = "" then
             []
         else
-            db.Messages
-                .FromSql(
-                    $"SELECT messages.* FROM messages INNER JOIN rooms ON messages.room_id = rooms.id INNER JOIN memberships ON rooms.id = memberships.room_id JOIN message_search_index idx ON messages.id = idx.rowid WHERE memberships.user_id = {userId} AND (idx.body MATCH {terms})"
-                )
-                .OrderByDescending(fun m -> m.CreatedAt)
-                .Take(100)
-                .ToList()
-            |> List.ofSeq
-            |> List.rev
+            Ef.FastReads.searchReachable db userId terms
 
     // Attributes and associations
 
