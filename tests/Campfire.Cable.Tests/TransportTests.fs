@@ -167,6 +167,19 @@ let ``P11 a client that closes is answered and the connection leaves the registr
             Assert.Equal(0, app.Server.ConnectionCount)
         })
 
+/// An empty text message ends at the zero-byte read that announces it: the read loop must not take the next frame (here the
+/// client's close) as its body, or the close goes unanswered with the client's code.
+[<Fact>]
+let ``an empty message is a message of its own, and a close after it is still echoed`` () =
+    withApp (testOptions ()) (fun app ->
+        task {
+            use! ws = open' app [ "actioncable-v1-json" ] (Some 1UL) ignore
+            let! _ = text ws
+            do! ws.SendAsync(ReadOnlyMemory<byte>.Empty, WebSocketMessageType.Text, true, CancellationToken.None).AsTask()
+            do! ws.CloseAsync(WebSocketCloseStatus.EndpointUnavailable, "", CancellationToken.None)
+            Assert.Equal(Nullable WebSocketCloseStatus.EndpointUnavailable, ws.CloseStatus)
+        })
+
 [<Fact>]
 let ``P11 a client that never answers the server's close is cut within CloseTimeout`` () =
     let options = testOptions ()

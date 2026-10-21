@@ -661,3 +661,23 @@ let ``the 101 answers as websocket-driver does, plus the host's Date`` () =
             eq (Some "Upgrade") (response.Header "Connection")
             Assert.True((response.Header "Date").IsSome, "Kestrel adds a Date")
         })
+
+/// `dispatch_websocket_message` only runs `if websocket.alive?`: once the server has begun closing, a command the client still
+/// sends (it has not read the disconnect yet) runs no callback and registers no stream.
+[<Fact>]
+let ``commands sent after the server began closing are not processed`` () =
+    withServer (testOptions ()) (fun app ->
+        task {
+            let! client = connect app 1UL
+            let! _ = client.NextText()
+            let first = room 1
+            do! client.Subscribe first
+            do! expectText (confirm first) client
+            eq 1 (app.Server.Disconnect("user-1", true))
+            let late = identifier (object' [ "channel", str "RoomChannel"; "room_id", int' 1; "late", Value.Bool true ])
+            do! client.Subscribe late
+            do! expectText """{"type":"disconnect","reason":"remote","reconnect":true}""" client
+            do! expectGot (Closed(Some(1000us, ""))) client
+            do! Task.Delay 100
+            eq 1 (logOf app |> List.filter (fun line -> line.StartsWith("subscribed", StringComparison.Ordinal)) |> List.length)
+        })

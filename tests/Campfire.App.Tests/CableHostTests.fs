@@ -54,3 +54,23 @@ let ``P12 stopping the app's host closes the cable connections with server_resta
         for ws in sockets do
             ws.Dispose()
     }
+
+/// Risk 4 of the design note: under the harness's frozen clock (what `CAMPFIRE_FROZEN_TIME` builds) the heartbeat's timer still
+/// runs in real time, and each ping carries the frozen seconds, as Rails' `Time.now.to_i` does under libfaketime.
+[<Fact>]
+let ``the heartbeat beats under the frozen harness clock with the frozen time`` () =
+    task {
+        let at = DateTimeOffset(2024, 6, 1, 12, 0, 0, TimeSpan.Zero)
+        use! test = bootSeededFrozen at "default"
+        use ws = new ClientWebSocket()
+        ws.Options.AddSubProtocol "actioncable-v1-json"
+        ws.Options.SetRequestHeader("Origin", $"http://127.0.0.1:{test.Port}")
+        ws.Options.SetRequestHeader("Cookie", davidCookie ())
+        do! ws.ConnectAsync(Uri $"ws://127.0.0.1:{test.Port}/cable", CancellationToken.None)
+        Assert.Equal("""{"type":"welcome"}""", fst (next ws))
+        let started = Stopwatch.StartNew()
+        let frame, _ = next ws
+        Assert.Equal($"{{\"type\":\"ping\",\"message\":{at.ToUnixTimeSeconds()}}}", frame)
+        Assert.True(started.Elapsed < TimeSpan.FromSeconds 4.0, $"{started.Elapsed}")
+        do! ws.CloseAsync(WebSocketCloseStatus.NormalClosure, "", CancellationToken.None)
+    }

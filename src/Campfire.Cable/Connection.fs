@@ -119,7 +119,12 @@ type internal CableConnection<'U>(ws: WebSocket, ctx: HttpContext, user: 'U vopt
     member private _.Abort() : unit =
         if Interlocked.Exchange(&aborted, 1) = 0 then
             queue.Writer.TryComplete() |> ignore
-            ctx.Abort()
+            // A broadcaster may hold this connection from a registry snapshot taken before it left; once the request has
+            // ended its HttpContext is gone, and the broadcaster (an HTTP request of its own) must not fail on it.
+            try
+                ctx.Abort()
+            with :? ObjectDisposedException ->
+                ()
 
     /// The queue itself: full is a slow consumer (abort), closed is a connection going away on its own.
     member private this.Offer(frame: ReadOnlyMemory<byte>) : bool =
@@ -139,11 +144,13 @@ type internal CableConnection<'U>(ws: WebSocket, ctx: HttpContext, user: 'U vopt
             try
                 do! work ()
             finally
+                // The flag drops only after the held frames are queued: a broadcaster that sees it down (outside the lock)
+                // must not overtake a frame of the same stream still being flushed.
                 lock held (fun () ->
-                    Volatile.Write(&inCommand, 0)
                     for frame in held do
                         this.Offer frame |> ignore
-                    held.Clear())
+                    held.Clear()
+                    Volatile.Write(&inCommand, 0))
         }
 
     /// Close after what is queued: the status goes out with the close frame.
@@ -358,19 +365,24 @@ type internal CableConnection<'U>(ws: WebSocket, ctx: HttpContext, user: 'U vopt
     /// otherwise ignored; the connection stays open.
     member private this.Dispatch(bytes: ReadOnlyMemory<byte>) : Task =
         task {
-            match Parse.document bytes with
-            | Some document ->
-                use document = document
-                let root = document.RootElement
-                if root.ValueKind <> JsonValueKind.Object then
-                    logger.LogError("Could not execute command {Message}", Encoding.UTF8.GetString bytes.Span)
-                else
-                    match Parse.text root "command" with
-                    | ValueSome "subscribe" -> do! this.InCommand(fun () -> this.Add root)
-                    | ValueSome "unsubscribe" -> do! this.InCommand(fun () -> this.Remove root)
-                    | ValueSome "message" -> do! this.InCommand(fun () -> this.PerformAction root)
-                    | _ -> logger.LogError("Received unrecognized command {Message}", Encoding.UTF8.GetString bytes.Span)
-            | None -> logger.LogError("Could not execute command {Message}", Encoding.UTF8.GetString bytes.Span)
+            // `dispatch_websocket_message` runs only `if websocket.alive?`: once the server has begun closing (a remote
+            // disconnect, a restart, an unauthorized connection), what the client still sends is not processed.
+            if Volatile.Read(&closing) <> 0 then
+                logger.LogError("Ignoring message processed after the WebSocket was closed: {Message}", Encoding.UTF8.GetString bytes.Span)
+            else
+                match Parse.document bytes with
+                | Some document ->
+                    use document = document
+                    let root = document.RootElement
+                    if root.ValueKind <> JsonValueKind.Object then
+                        logger.LogError("Could not execute command {Message}", Encoding.UTF8.GetString bytes.Span)
+                    else
+                        match Parse.text root "command" with
+                        | ValueSome "subscribe" -> do! this.InCommand(fun () -> this.Add root)
+                        | ValueSome "unsubscribe" -> do! this.InCommand(fun () -> this.Remove root)
+                        | ValueSome "message" -> do! this.InCommand(fun () -> this.PerformAction root)
+                        | _ -> logger.LogError("Received unrecognized command {Message}", Encoding.UTF8.GetString bytes.Span)
+                | None -> logger.LogError("Could not execute command {Message}", Encoding.UTF8.GetString bytes.Span)
         }
 
     /// Reads messages until the socket closes or fails. An idle connection holds no receive buffer: each message is
@@ -389,19 +401,28 @@ type internal CableConnection<'U>(ws: WebSocket, ctx: HttpContext, user: 'U vopt
                         let mutable buffer = ArrayPool<byte>.Shared.Rent 4096
                         try
                             let mutable total = 0
-                            let mutable complete = false
+                            // An empty message ends at its announcement; reading on would take the next message (or the close) as its body.
+                            let mutable complete = announced.EndOfMessage
                             let mutable tooBig = false
-                            while not complete && not tooBig do
+                            let mutable closed = false
+                            while not complete && not tooBig && not closed do
                                 if total = buffer.Length then
                                     let bigger = ArrayPool<byte>.Shared.Rent(min (buffer.Length * 2) (options.MaxMessageBytes + 1))
                                     Buffer.BlockCopy(buffer, 0, bigger, 0, total)
                                     ArrayPool<byte>.Shared.Return buffer
                                     buffer <- bigger
                                 let! part = ws.ReceiveAsync(Memory<byte>(buffer, total, buffer.Length - total), ct)
-                                total <- total + part.Count
-                                complete <- part.EndOfMessage
-                                if total > options.MaxMessageBytes then tooBig <- true
-                            if tooBig then
+                                // A close may arrive between the fragments of a message: the message is dropped, the close echoed.
+                                if part.MessageType = WebSocketMessageType.Close then
+                                    closed <- true
+                                else
+                                    total <- total + part.Count
+                                    complete <- part.EndOfMessage
+                                    if total > options.MaxMessageBytes then tooBig <- true
+                            if closed then
+                                this.BeginClose(if ws.CloseStatus.HasValue then ws.CloseStatus.Value else WebSocketCloseStatus.Empty)
+                                running <- false
+                            elif tooBig then
                                 logger.LogError("Could not execute command: message too big")
                                 this.BeginClose WebSocketCloseStatus.MessageTooBig
                                 running <- false
@@ -460,6 +481,9 @@ type internal CableConnection<'U>(ws: WebSocket, ctx: HttpContext, user: 'U vopt
                         })
             with e ->
                 logger.LogError(e, "Cable unsubscribe failed")
+            // Gone: a late `TryWrite` or `Close` (from a snapshot taken before the connection left the registries) finds the
+            // queue closed and returns, instead of counting as a slow consumer and aborting a finished request.
+            Volatile.Write(&closing, 1)
             queue.Writer.TryComplete() |> ignore
             try
                 do! writer.WaitAsync options.CloseTimeout
