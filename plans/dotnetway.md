@@ -1441,3 +1441,29 @@ Opus verifier, on `cfb08ec` plus this entry's fix (`6f95368`). Checked against c
 - A5 runs on a frozen harness clock: `Boot.bootWithClock` takes an optional `SharedClock` (`bootWith` is unchanged, env-driven), `Support.bootSeededFrozen` boots on `TestClock.FrozenAt`, and A5 asserts exact equality with 2024-06-01T12:00:00Z, with no 2-second wall-clock slack. This is the harness's own frozen clock (the same `TestClock` that `CAMPFIRE_FROZEN_TIME` builds), not the `FakeTimeProvider` package; the App's `TimeProvider` is an adapter over it, so the effect is the same without a new dependency.
 - H3 (1,157 query compilations, one-off in the verifier's run): App tests run three more times, then once inside the full `bin/verify`: all green every time, H3 did not recur (host load average 5 to 10 during the runs). Still not reproduced; the standing rule holds.
 - Gates: `CAMPFIRE_REQUIRE_SEED=1 bin/verify` Release, warnings as errors: 971 total, 965 passed, 6 skipped (Linux-only), 0 failed. `bin/kloc`: 35.1 KLOC (35.3 corrected). No speed-relevant path touched, so no bench run.
+
+### Unit H.1: Hybrid reads, the four hottest lookups
+
+- **Built:** `src/Campfire.Db/Ef/FastReads.fs` (101 lines) is the only place Dapper is called: `sessionByToken`, `userById`, `accountFirst`, `roomForUser` (the room via the membership join). `Session.findByToken`, `User.findById`, `Account.first` and `Room.findForUser` call it directly (no runtime switch). Reads run on the context's own connection opened through EF (the pragma interceptor runs) and pass `CurrentTransaction` explicitly inside writes. RoomType is read through a private row record (Dapper ignores enum TypeHandlers); the snake-case and DateTime handlers are set once, from `Data.options`. Explicit column lists, parameters only. The EF single-writer guard is untouched (reads only).
+- **Guards:** `FastReadsTests` (App.Tests): every user, every (user, room) pair against the memberships, every session, the account, each against EF's answer over the default seed, plus a read inside a write sees the write's own uncommitted row. `bin/verify` greps that Dapper appears only in FastReads.fs and that no SQL there is interpolated or concatenated. Log hook: `FastReads.logTo dataSource sink`; H2's probe registers it per database, so H2's command log lists Dapper's statements (H1 and H2 pass).
+- **Gates:** `CAMPFIRE_REQUIRE_SEED=1 bin/verify` Release, warnings as errors: 973 total, 967 passed, 6 skipped, 0 failed. (The first run failed one test, WebhookTests "gives up on a trickling reply", at host load average ~10; three reruns of App.Tests and a second full verify were green.) `bin/cookie-roundtrip` 20/20 PASSED. `bin/pixel-parity --fast` auth/** and rooms/**: 100/100 pixel, aria and loose DOM equal.
+- **Speed (`bench/quick`, 5 workloads, c=1 and c=16, 3 reps, interleaved new/control/control/new/new/control; control = `h1-control` tag, `0cf9739`, rebuilt as `campfire-dotnetway:h1ctl`; host probe ratio 1.045-1.071 on 12 probes, load 1.2-1.5 before each run, 0 non-2xx, 0 connection errors, post rows equal answers):**
+
+  | workload | c | control req/s | hybrid req/s | gain | CPU us/req control -> hybrid | x Rails |
+  |---|---|---:|---:|---:|---|---:|
+  | room page | 1 | 1,704 | 1,814 | +6.4% | 685 -> 652 | 16.9 |
+  | room page | 16 | 5,579 | 5,958 | +6.8% | 622 -> 589 | 24.9 |
+  | messages page | 1 | 1,543 | 1,593 | +3.2% | 745 -> 726 | 7.3 |
+  | messages page | 16 | 5,227 | 5,340 | +2.2% | 670 -> 651 | 14.0 |
+  | sidebar | 1 | 1,631 | 1,686 | +3.4% | 714 -> 693 | 5.88 |
+  | sidebar | 16 | 5,712 | 5,965 | +4.4% | 610 -> 589 | 10.0 |
+  | search | 1 | 1,515 | 1,573 | +3.8% | 755 -> 731 | 8.2 |
+  | search | 16 | 5,101 | 5,244 | +2.8% | 694 -> 671 | 12.9 |
+  | post | 1 | 954 | 973 | +2.0% | 1,839 -> 1,783 | 5.83 |
+  | post | 16 | 1,901 | 1,928 | +1.4% | 1,625 -> 1,587 | 5.84 |
+
+  All ten cells are over the 5x floor (thinnest: sidebar c=1 5.88x, up from 5.69x in the same session's control). The messages page c=16 warm-up did not settle on the hybrid image (noted by the runner).
+- **Do four lookups capture most of the spike's gain? No, but the comparison is soft.** The spike's end-to-end figure (1.5-1.8x on the room and messages pages) was derived from an in-process read-set microbenchmark, never measured on this rig. Measured here, the room page gains 6-7% (about 33 us of CPU per request) and the other workloads 1-4%. The four lookups are 6 of the room page's 9 statements, so a flat 15 us a statement would have saved about 150 us; the bench shows about a fifth of that. The spike's 41 us per EF statement does not appear in the container's per-request CPU, so the remaining Dapper moves (message page reads, membership, original room, logo blob) should be expected to add little; the per-request cost sits elsewhere. Not a blocker; recorded, not a gate.
+- **Lines added:** `src/` +109 / -8 (FastReads.fs 101, call sites ~8), tests +64, bin/verify +6.
+- **KLOC:** `bin/kloc` 35,146 by upstream's rules, **35,365 corrected (35.4 KLOC)**, from 35.3.
+- **Differences recorded:** none. Evidence: `bench/results/dotnetway-hybrid-1/` (`new/`, `ctl/`, logs, `bench.sh`, `cookie-roundtrip.log`, `pixel.log`). `bin/clean-docker` and `bin/clean-parity` run, control image and scratch worktree removed, disk 29 GB free.
