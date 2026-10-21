@@ -2,50 +2,68 @@
 /// `messages/boosts/new.html.erb`: the form that adds a boost; `user` is `Current.user`.
 module Campfire.Views.Templates.Messages.Boosts.New
 
+open Falco.Markup
 open Campfire.Views
+open Campfire.Views.Markup
 open Campfire.Views.Messages
 
-let private newBoostId = Utf8.lit "new_boost_message_"
-let private boostingId = Utf8.lit "boosting_message_"
-let private boostsId = Utf8.lit "boosts_message_"
-
-let private t0 = Utf8.lit "<turbo-frame id=\""
-let private t1 = Utf8.lit "\">\n  <div class=\"boost flex-inline postion--relative max-width fill-white\" style=\"--column-gap: var(--inline-space-half)\">\n    <form class=\"boost__form flex align-center gap expanded\" data-controller=\"form scroll-into-view\" data-turbo-frame=\""
-let private t2 = Utf8.lit "\" data-action=\"keydown.esc-&gt;form#cancel\" action=\""
-let private t3 = Utf8.lit "\" accept-charset=\"UTF-8\" method=\"post\">\n      <label class=\"boost__form-label flex gap\" style=\"--column-gap: 0.7ch;\" role=\"button\" tabindex=\"0\" aria-label=\"Add a boost\">\n        <figure class=\"avatar boost__avatar flex-item-no-shrink\">\n          <a title=\""
-let private t4 = Utf8.lit "\" class=\"btn avatar\" data-turbo-frame=\"_top\" href=\""
-let private t5 = Utf8.lit "\"><img aria-hidden=\"true\" src=\""
-let private t6 = Utf8.lit "\" width=\"48\" height=\"48\" /></a>\n          <span class=\"for-screen-reader\">"
-let private t7 = Utf8.lit "</span>\n        </figure>\n\n        <input autofocus=\"autofocus\" autocomplete=\"off\" autocorrect=\"off\" maxlength=\"16\" required=\"required\" pattern=\"\\S+.*\" data-boost-form-target=\"input\" class=\"input input--boost txt-small\" size=\"16\" type=\"text\" name=\"boost[content]\" />\n      </label>\n\n      <button name=\"button\" type=\"submit\" class=\"btn btn--reversed\">\n        <img aria-hidden=\"true\" src=\""
-let private t8 = Utf8.lit "\" />\n        <span class=\"for-screen-reader\">Submit</span>\n</button>\n      <a data-turbo-frame=\""
-let private t9 = Utf8.lit "\" data-form-target=\"cancel\" class=\"btn btn--negative\" href=\""
-let private t10 = Utf8.lit "\">\n        <img aria-hidden=\"true\" src=\""
-let private t11 = Utf8.lit "\" />\n        <span class=\"for-screen-reader\">Cancel</span>\n</a></form>  </div>\n</turbo-frame>"
-
-let render (w: Out) (ctx: ViewContext) (message: MessageView) (user: UserView) : unit =
-    w.Lit t0
-    w.Lit newBoostId
-    w.Text message.ClientMessageId
-    w.Lit t1
-    w.Lit boostingId
-    w.Text message.ClientMessageId
-    w.Lit t2
-    w.Text message.BoostsPath
-    w.Lit t3
-    w.Text user.Title
-    w.Lit t4
-    w.Text user.Path
-    w.Lit t5
-    w.Text user.AvatarUrl
-    w.Lit t6
-    w.Text user.Name
-    w.Lit t7
-    w.Text(ctx.Asset "check.svg")
-    w.Lit t8
-    w.Lit boostsId
-    w.Text message.ClientMessageId
-    w.Lit t9
-    w.Text message.BoostsPath
-    w.Lit t10
-    w.Text(ctx.Asset "minus.svg")
-    w.Lit t11
+/// The inline buttons of the form, each separated by the space the ERB's line breaks leave (V4).
+let render (ctx: ViewContext) (message: MessageView) (user: UserView) : XmlNode =
+    Elem.create
+        "turbo-frame"
+        [ Html.attr "id" ("new_boost_message_" + message.ClientMessageId) ]
+        [ Elem.div
+              [ Attr.class' "boost flex-inline postion--relative max-width fill-white"
+                Attr.create "style" "--column-gap: var(--inline-space-half)" ]
+              [ Forms.formWith
+                    message.BoostsPath
+                    "post"
+                    [ Attr.class' "boost__form flex align-center gap expanded"
+                      Attr.create "data-controller" "form scroll-into-view"
+                      Html.attr "data-turbo-frame" ("boosting_message_" + message.ClientMessageId)
+                      Attr.create "data-action" "keydown.esc->form#cancel" ]
+                    [ Elem.label
+                          [ Attr.class' "boost__form-label flex gap"
+                            Attr.create "style" "--column-gap: 0.7ch;"
+                            Attr.create "role" "button"
+                            Attr.create "tabindex" "0"
+                            Attr.create "aria-label" "Add a boost" ]
+                          [ Elem.figure
+                                [ Attr.class' "avatar boost__avatar flex-item-no-shrink" ]
+                                [ Links.linkTo
+                                      user.Path
+                                      [ Html.attr "title" user.Title; Attr.class' "btn avatar"; Attr.create "data-turbo-frame" "_top" ]
+                                      [ Elem.img
+                                            [ Attr.create "aria-hidden" "true"
+                                              Html.attr "src" user.AvatarUrl
+                                              Attr.create "width" "48"
+                                              Attr.create "height" "48" ] ]
+                                  Html.sp
+                                  Elem.span [ Attr.class' "for-screen-reader" ] [ Html.text user.Name ] ]
+                            Elem.input
+                                [ Attr.create "autofocus" "autofocus"
+                                  Attr.create "autocomplete" "off"
+                                  Attr.create "autocorrect" "off"
+                                  Attr.create "maxlength" "16"
+                                  Attr.create "required" "required"
+                                  Attr.create "pattern" "\\S+.*"
+                                  Attr.create "data-boost-form-target" "input"
+                                  Attr.class' "input input--boost txt-small"
+                                  Attr.create "size" "16"
+                                  Attr.create "type" "text"
+                                  Attr.create "name" "boost[content]" ] ]
+                      Html.sp
+                      Forms.buttonTag
+                          [ Attr.class' "btn btn--reversed" ]
+                          [ Assets.image ctx "check.svg" [ Attr.create "aria-hidden" "true" ]
+                            Html.sp
+                            Elem.span [ Attr.class' "for-screen-reader" ] [ Text.raw "Submit" ] ]
+                      Html.sp
+                      Links.linkTo
+                          message.BoostsPath
+                          [ Html.attr "data-turbo-frame" ("boosts_message_" + message.ClientMessageId)
+                            Attr.create "data-form-target" "cancel"
+                            Attr.class' "btn btn--negative" ]
+                          [ Assets.image ctx "minus.svg" [ Attr.create "aria-hidden" "true" ]
+                            Html.sp
+                            Elem.span [ Attr.class' "for-screen-reader" ] [ Text.raw "Cancel" ] ] ] ] ]

@@ -29,6 +29,14 @@ let private items (ctx: ViewContext) (args: JsonElement) (values: JsonElement li
     let cache = if mixed then freshHybrid () else Unchecked.defaultof<_>
     values |> List.mapi (fun n v -> if mixed && n % 2 = 1 then cachedItem cache ctx (messageView v) else messageItem ctx v)
 
+/// A Falco template (a partial or a page without a layout): rendered cold and then warm, the same bytes. A page in parts answers its
+/// whole text; the writer's fragment offsets are not Falco's (the bytes differ: class A), so none are given.
+let private nodeAnswer (render: unit -> HtmlOutput) : Answer =
+    let cold = (render ()).ToString()
+    let warm = (render ()).ToString()
+    if cold <> warm then failwith "a warm render is not the cold one"
+    text warm
+
 let private recordedAnswer (page: HtmlOutput) : Answer =
     { Out = page.ToString()
       Text = Some(recordedText page)
@@ -68,66 +76,67 @@ let private run (op: string) (args: JsonElement) (ctx: ViewContext) : Answer =
     | "messages/_message" ->
         let message = message ()
         let boosts = renderedBoosts ctx message
-        fragmentAnswer (fun w -> Templates.Messages._Message.render w ctx message boosts)
+        let placed = if message.IsUnrenderable then [||] else boosts
+        nodeAnswer (fun () -> HtmlOutput.ofNode (Templates.Messages._Message.render ctx message boosts) placed)
     | "messages/message_cached" ->
         let first, second = messageView (get args "message"), messageView (get args "second")
         let cache = freshHybrid ()
         let a = await (MessagesCached.message cache ctx first)
         let b = await (MessagesCached.message cache ctx second)
         if not (obj.ReferenceEquals(a, b)) then failwith "the second render did not reuse the cached fragment"
-        let c = Render.text (fun w -> Templates.Messages.Show.render w b)
-        let d = Render.text (fun w -> w.Fragment (itemOf second b).Html)
+        let c = (Templates.Messages.Show.output b).ToString()
+        let d = b.ToString()
         if c <> d then failwith "the copied fragment and the placed one differ"
         { Out = a.ToString(); Text = Some c; Fragments = None }
     | "messages/_actions" ->
         let message = message ()
-        fragmentAnswer (fun w -> Templates.Messages._Actions.render w ctx message)
+        nodeAnswer (fun () -> HtmlOutput.ofNode (Templates.Messages._Actions.render ctx message) [])
     | "messages/_presentation" ->
         let message = message ()
-        fragmentAnswer (fun w -> Templates.Messages._Presentation.render w ctx message)
-    | "messages/_unrenderable" -> fragmentAnswer Templates.Messages._Unrenderable.render
+        nodeAnswer (fun () -> HtmlOutput.ofNode (Templates.Messages._Presentation.render ctx message) [])
+    | "messages/_unrenderable" -> nodeAnswer (fun () -> HtmlOutput.ofNode Templates.Messages._Unrenderable.render [])
     | "messages/_template" ->
         let user = userView (get args "user")
-        fragmentAnswer (fun w -> Templates.Messages._Template.render w ctx user)
+        nodeAnswer (fun () -> HtmlOutput.ofNode (Templates.Messages._Template.render ctx user) [])
     | "messages/index" ->
         let messages = items ctx args (arr (get args "messages"))
-        recordedFragmentAnswer (fun w -> Templates.Messages.Index.render w messages)
+        nodeAnswer (fun () -> Templates.Messages.Index.output messages)
     | "messages/show" ->
         let fragment = renderedMessage ctx (message ())
-        fragmentAnswer (fun w -> Templates.Messages.Show.render w fragment)
+        nodeAnswer (fun () -> Templates.Messages.Show.output fragment)
     | "messages/edit" ->
         let edit = editView (get args "edit")
-        fragmentAnswer (fun w -> Templates.Messages.Edit.render w ctx edit)
+        nodeAnswer (fun () -> HtmlOutput.ofNode (Templates.Messages.Edit.render ctx edit) [])
     | "messages/create_turbo_stream" ->
         let message = message ()
         let kind = roomKind (get args "room_kind")
         let item = if bool (get args "fragment") then cachedItem (freshHybrid ()) ctx message else itemOf message (renderedMessage ctx message)
-        fragmentAnswer (fun w -> Templates.Messages.CreateTurboStream.render w item kind)
+        nodeAnswer (fun () -> Templates.Messages.CreateTurboStream.output item kind)
     | "messages/destroy_turbo_stream" ->
         let message = message ()
-        fragmentAnswer (fun w -> Templates.Messages.DestroyTurboStream.render w message)
-    | "messages/room_not_found" -> fragmentAnswer Templates.Messages.RoomNotFound.render
+        nodeAnswer (fun () -> Templates.Messages.DestroyTurboStream.output message)
+    | "messages/room_not_found" -> nodeAnswer (fun () -> HtmlOutput.ofNode Templates.Messages.RoomNotFound.render [])
     | "messages/boosts/_boost" ->
         let boost = boostView (get args "boost")
         let cache = freshHybrid ()
         let first = await (BoostsCached.boost cache ctx boost)
         let second = await (BoostsCached.boost cache ctx boost)
         if not (obj.ReferenceEquals(first, second)) then failwith "the second render did not reuse the cached fragment"
-        let partial = Render.text (fun w -> Templates.Messages.Boosts._Boost.render w ctx boost)
+        let partial = (HtmlOutput.ofNodes (Templates.Messages.Boosts._Boost.render ctx boost) []).ToString()
         if partial <> first.ToString() then failwith "the cached boost is not the partial"
-        { Out = partial; Text = Some(Render.text (fun w -> w.Lit first.Bytes)); Fragments = None }
+        { Out = partial; Text = Some(first.ToString()); Fragments = None }
     | "messages/boosts/_boosts" ->
         let message = message ()
         let boosts = renderedBoosts ctx message
-        fragmentAnswer (fun w -> Templates.Messages.Boosts._Boosts.render w ctx message boosts)
+        nodeAnswer (fun () -> HtmlOutput.ofNode (Templates.Messages.Boosts._Boosts.render ctx message boosts) boosts)
     | "messages/boosts/index" ->
         let message = message ()
         let boosts = renderedBoosts ctx message
-        fragmentAnswer (fun w -> Templates.Messages.Boosts.Index.render w ctx message boosts)
+        nodeAnswer (fun () -> Templates.Messages.Boosts.Index.output ctx message boosts)
     | "messages/boosts/new" ->
         let message = message ()
         let user = userView (get args "user")
-        fragmentAnswer (fun w -> Templates.Messages.Boosts.New.render w ctx message user)
+        nodeAnswer (fun () -> HtmlOutput.ofNode (Templates.Messages.Boosts.New.render ctx message user) [])
     | "rooms/show" ->
         let show = showView ctx (get args "show")
         let show = { show with Messages = items ctx args (arr (get (get args "show") "messages")) }

@@ -2,8 +2,13 @@
 /// `messages/room_not_found.html.erb`: the composer's frame when the room was deleted.
 module Campfire.Views.Templates.Messages.RoomNotFound
 
-open Campfire.Views
+open Falco.Markup
 
-let private t0 = Utf8.lit "<turbo-frame id=\"composer-frame\">\n  <span class=\"composer__input input input--actor shake margin-block-end txt-negative txt-align-center\" style=\"--input-border-color: var(--color-negative)\">\n      <span>This room was deleted.</span>\n  </span>\n</turbo-frame>"
-
-let render (w: Out) : unit = w.Lit t0
+let render: XmlNode =
+    Elem.create
+        "turbo-frame"
+        [ Attr.id "composer-frame" ]
+        [ Elem.span
+              [ Attr.class' "composer__input input input--actor shake margin-block-end txt-negative txt-align-center"
+                Attr.create "style" "--input-border-color: var(--color-negative)" ]
+              [ Elem.span [] [ Text.raw "This room was deleted." ] ] ]

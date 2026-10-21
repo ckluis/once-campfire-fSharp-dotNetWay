@@ -1,19 +1,18 @@
 // Port of rust/crates/views/templates/messages/create.turbo_stream.html (reference/app/views/messages/create.turbo_stream.erb)
-/// `messages/create.turbo_stream.erb`: appends the new message to its room's list. Also what `Message#broadcast_create` sends.
+/// `messages/create.turbo_stream.erb`: appends the new message to its room's list.
 module Campfire.Views.Templates.Messages.CreateTurboStream
 
+open Falco.Markup
 open Campfire.Views
+open Campfire.Views.Markup
 open Campfire.Views.Messages
 
-let private messagesPrefix = Utf8.lit "messages_"
+let render (message: MessageItem) (roomKind: RoomKind) : XmlNode list =
+    [ Elem.create
+          "turbo-stream"
+          [ Attr.create "action" "append"; Html.attr "target" (roomDomId roomKind message.RoomId "messages") ]
+          [ Elem.template [] [ Html.fragment message.Html ] ] ]
 
-let private t0 = Utf8.lit "<turbo-stream action=\"append\" target=\""
-let private t1 = Utf8.lit "\"><template>"
-let private t2 = Utf8.lit "</template></turbo-stream>"
-
-let render (w: Out) (message: MessageItem) (roomKind: RoomKind) : unit =
-    w.Lit t0
-    writeRoomDomId w messagesPrefix roomKind message.RoomId
-    w.Lit t1
-    w.Fragment message.Html
-    w.Lit t2
+/// The response.
+let output (message: MessageItem) (roomKind: RoomKind) : HtmlOutput =
+    HtmlOutput.ofNodes (render message roomKind) [ message.Html ]

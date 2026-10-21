@@ -2,10 +2,12 @@
 /// `messages/boosts/index.html.erb`.
 module Campfire.Views.Templates.Messages.Boosts.Index
 
+open Falco.Markup
 open Campfire.Views
 open Campfire.Views.Messages
 
+let render (ctx: ViewContext) (message: MessageView) (boosts: CachedFragment[]) : XmlNode = _Boosts.render ctx message boosts
 
-
-let render (w: Out) (ctx: ViewContext) (message: MessageView) (boosts: CachedFragment[]) : unit =
-    _Boosts.render w ctx message boosts
+/// The page.
+let output (ctx: ViewContext) (message: MessageView) (boosts: CachedFragment[]) : HtmlOutput =
+    HtmlOutput.ofNode (render ctx message boosts) boosts

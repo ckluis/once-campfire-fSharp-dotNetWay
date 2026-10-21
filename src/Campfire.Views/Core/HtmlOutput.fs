@@ -147,3 +147,7 @@ module HtmlOutput =
     /// Several roots (turbo streams, multi-root partials).
     let ofNodes (nodes: XmlNode list) (fragments: CachedFragment seq) : HtmlOutput =
         render (fun () -> String.Concat(nodes |> List.map renderNode)) fragments
+
+    /// A rendered partial as a cached fragment: its text and any fragment nested in it (a message's boosts), flattened into one
+    /// array.
+    let toFragment (output: HtmlOutput) : CachedFragment = CachedFragment(output.ToArray())

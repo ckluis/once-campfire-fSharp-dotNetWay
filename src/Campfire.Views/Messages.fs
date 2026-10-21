@@ -8,6 +8,7 @@ module Campfire.Views.Messages
 open System
 open Campfire.RailsCompat
 open Campfire.Routes
+open Campfire.Views.Markup
 open Campfire.Views.MessagesSupport
 
 /// What the message views show of a user: `avatar_tag` and the author heading.
@@ -84,8 +85,8 @@ type AttachmentView =
 
 /// `Message#content_type` with what each presentation needs.
 type MessageContent =
-    /// The presentation filters' output after `auto_link`, from the richtext crate.
-    | Text of html: string
+    /// The presentation filters' output after `auto_link`, from the richtext crate: sanitized, so it is written as it is.
+    | Text of html: Html.Trusted
     | Sound of SoundView
     | Attachment of AttachmentView
     /// Rendering raised past `message_presentation`'s own rescue (or `plain_text_body` raised):

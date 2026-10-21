@@ -234,7 +234,7 @@ type Presenter(db: Ef.CampfireDb, app: AppState, requestHost: string option) =
                           Text = sound.Text }
                 | None ->
                     match ActionText.presentMessage body ctx with
-                    | Presentation.Html html -> MessageContent.Text html
+                    | Presentation.Html html -> MessageContent.Text(Campfire.Views.Markup.Html.Trusted.ofSanitized html)
                     | Presentation.Unrenderable -> MessageContent.Unrenderable
 
     /// `message.attachment` as `Messages::AttachmentPresentation` needs it.

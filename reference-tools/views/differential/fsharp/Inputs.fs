@@ -170,7 +170,7 @@ let rubyNumber (v: JsonElement) : RubyNumber option =
 
 let messageContent (v: JsonElement) : MessageContent =
     match str (get v "type") with
-    | "text" -> Text(str (get v "html"))
+    | "text" -> Text(Markup.Html.Trusted.ofSanitized (str (get v "html")))
     | "sound" ->
         let image = get v "image"
         Sound
@@ -263,12 +263,13 @@ let roomView (v: JsonElement) : Rooms.RoomView =
 /// first, then the partial.
 let renderedBoosts (ctx: ViewContext) (view: MessageView) : CachedFragment[] =
     view.Boosts
-    |> List.map (fun boost -> Render.fragment (fun w -> Templates.Messages.Boosts._Boost.render w ctx boost))
+    |> List.map (fun boost -> HtmlOutput.toFragment (HtmlOutput.ofNodes (Templates.Messages.Boosts._Boost.render ctx boost) []))
     |> Array.ofList
 
 let renderedMessage (ctx: ViewContext) (view: MessageView) : CachedFragment =
     let boosts = renderedBoosts ctx view
-    Render.fragment (fun w -> Templates.Messages._Message.render w ctx view boosts)
+    let placed = if view.IsUnrenderable then [||] else boosts
+    HtmlOutput.toFragment (HtmlOutput.ofNode (Templates.Messages._Message.render ctx view boosts) placed)
 
 let itemOf (view: MessageView) (html: CachedFragment) : MessageItem =
     { ClientMessageId = view.ClientMessageId

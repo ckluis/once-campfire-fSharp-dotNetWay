@@ -197,7 +197,7 @@ let private messageOp (name: string) (args: JsonElement) (ctx: JsonElement) (sha
         text ((if bool (get args "half") then number.Half else number).ToString())
     | "presentation" ->
         let message = messageView (get args "message")
-        rendered (fun w -> MessagesPresentation.messagePresentation w (viewContext ctx shared) message)
+        text ((HtmlOutput.ofNode (Markup.Messages.presentation (viewContext ctx shared) message) []).ToString())
     | "json_by_bots_index" -> text (MessagesJson.byBotsIndex (arr (get args "input") |> List.map messageJson))
     | "json_by_bots_show" -> text (MessagesJson.byBotsShow (messageJson (get args "input")))
     | "json_boosts_by_bots_show" -> text (MessagesJson.boostsByBotsShow (boostJson (get args "input")))

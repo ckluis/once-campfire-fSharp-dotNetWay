@@ -2,39 +2,34 @@
 /// `messages/boosts/_boosts.html.erb`: a message's boosts and the "Add a boost" link.
 module Campfire.Views.Templates.Messages.Boosts._Boosts
 
+open Falco.Markup
 open Campfire.Views
+open Campfire.Views.Markup
 open Campfire.Views.Messages
 
-let private boostingId = Utf8.lit "boosting_message_"
-let private boostsId = Utf8.lit "boosts_message_"
-let private newBoostId = Utf8.lit "new_boost_message_"
-
-let private t0 = Utf8.lit "<turbo-frame id=\""
-let private t1 = Utf8.lit "\">\n  <div class=\"boosts flex flex-wrap align-center gap full-width\" style=\"--column-gap: 0.4ch; --row-gap: 0\"\n      data-controller=\"turbo-streaming\" data-action=\"turbo:submit-start->turbo-streaming#unsubscribe\">\n    <div class=\"flex-inline flex-wrap gap\" id=\""
-let private t2 = Utf8.lit "\" data-turbo-streaming-target=\"container\">"
-let private t3 = Utf8.lit "\n      "
-let private t4 = Utf8.lit "\n    </div>\n\n    <turbo-frame id=\""
-let private t5 = Utf8.lit "\">\n      <div class=\"flex-inline message__boost-inline\" data-controller=\"soft-keyboard\">\n        <a class=\"boost__action txt-small btn\" action=\"soft-keyboard#open\" href=\""
-let private t6 = Utf8.lit "\">\n          <img aria-hidden=\"true\" src=\""
-let private t7 = Utf8.lit "\" width=\"20\" height=\"20\" />\n          <span class=\"for-screen-reader\">Add a boost</span>\n</a>      </div>\n</turbo-frame>  </div>\n</turbo-frame>"
-
 /// `boosts` are the message's boosts' fragments, fetched up front (`BoostsCached.boosts`), in order.
-let render (w: Out) (ctx: ViewContext) (message: MessageView) (boosts: CachedFragment[]) : unit =
-    w.Lit t0
-    w.Lit boostingId
-    w.Text message.ClientMessageId
-    w.Lit t1
-    w.Lit boostsId
-    w.Text message.ClientMessageId
-    w.Lit t2
-    for boost in boosts do
-        w.Lit t3
-        w.Lit boost.Bytes
-    w.Lit t4
-    w.Lit newBoostId
-    w.Text message.ClientMessageId
-    w.Lit t5
-    w.Text message.NewBoostPath
-    w.Lit t6
-    w.Text(ctx.Asset "boost.svg")
-    w.Lit t7
+let render (ctx: ViewContext) (message: MessageView) (boosts: CachedFragment[]) : XmlNode =
+    Elem.create
+        "turbo-frame"
+        [ Html.attr "id" ("boosting_message_" + message.ClientMessageId) ]
+        [ Elem.div
+              [ Attr.class' "boosts flex flex-wrap align-center gap full-width"
+                Attr.create "style" "--column-gap: 0.4ch; --row-gap: 0"
+                Attr.create "data-controller" "turbo-streaming"
+                Attr.create "data-action" "turbo:submit-start->turbo-streaming#unsubscribe" ]
+              [ Elem.div
+                    [ Attr.class' "flex-inline flex-wrap gap"
+                      Html.attr "id" ("boosts_message_" + message.ClientMessageId)
+                      Attr.create "data-turbo-streaming-target" "container" ]
+                    [ for boost in boosts -> Html.fragment boost ]
+                Elem.create
+                    "turbo-frame"
+                    [ Html.attr "id" ("new_boost_message_" + message.ClientMessageId) ]
+                    [ Elem.div
+                          [ Attr.class' "flex-inline message__boost-inline"; Attr.create "data-controller" "soft-keyboard" ]
+                          [ Links.linkTo
+                                message.NewBoostPath
+                                [ Attr.class' "boost__action txt-small btn"; Attr.create "action" "soft-keyboard#open" ]
+                                [ Assets.imageSized ctx "boost.svg" 20 [ Attr.create "aria-hidden" "true" ]
+                                  Html.sp
+                                  Elem.span [ Attr.class' "for-screen-reader" ] [ Text.raw "Add a boost" ] ] ] ] ] ]

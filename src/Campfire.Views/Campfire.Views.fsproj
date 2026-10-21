@@ -19,9 +19,12 @@
     <Compile Include="Helpers/TranslationsTable.fs" />
     <Compile Include="Helpers/Translations.fs" />
     <Compile Include="Helpers/Filters.fs" />
+    <Compile Include="Markup/Assets.fs" />
+    <Compile Include="Markup/Links.fs" />
+    <Compile Include="Markup/Forms.fs" />
     <Compile Include="MessagesSupport.fs" />
     <Compile Include="Messages.fs" />
-    <Compile Include="MessagesPresentation.fs" />
+    <Compile Include="Markup/Messages.fs" />
     <Compile Include="MessagesJson.fs" />
     <Compile Include="Users.fs" />
     <Compile Include="Accounts.fs" />

@@ -13,7 +13,7 @@ let boost (cache: HybridCache) (ctx: ViewContext) (boost: BoostView) : ValueTask
     Fragments.fetch
         cache
         (Fragments.key "messages/boosts/_boost" "boosts" boost.Id boost.UpdatedAt None)
-        (fun _ -> ValueTask<CachedFragment>(Render.fragment (fun w -> _Boost.render w ctx boost)))
+        (fun _ -> ValueTask<CachedFragment>(HtmlOutput.toFragment (HtmlOutput.ofNodes (_Boost.render ctx boost) [])))
 
 /// A message's boosts in order, awaited one after the other.
 let boosts (cache: HybridCache) (ctx: ViewContext) (views: BoostView list) : ValueTask<CachedFragment[]> =

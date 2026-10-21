@@ -87,7 +87,7 @@ module BoostsController =
                             let! boosts = BoostsCached.boosts app.Fragments (Page.fragmentContext app) view.Boosts
                             return view, boosts
                         })
-                return! Pages.content http 200 (fun w ctx -> IndexPage.render w ctx view boosts)
+                return! Pages.content http 200 (fun w ctx -> Legacy.write w (IndexPage.output ctx view boosts))
             }
 
     let ``new``: Web.Action =
@@ -99,7 +99,7 @@ module BoostsController =
                 let! (current: User) = Current.requireUser http
                 let user = PresenterSupport.userView (Data.app http).Secrets current
                 let! view = Data.present http (fun presenter -> presenter.Message message)
-                return! Pages.content http 200 (fun w ctx -> NewPage.render w ctx view user)
+                return! Pages.content http 200 (fun w ctx -> Legacy.write w (HtmlOutput.ofNode (NewPage.render ctx view user) []))
             }
 
     let create: Web.Action =

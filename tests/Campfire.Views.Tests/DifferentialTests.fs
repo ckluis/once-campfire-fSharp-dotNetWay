@@ -54,8 +54,12 @@ let ``the views render as the rust views did`` () =
                 failures.Add $"{op}: {why}\n  first byte difference at {at}\n  rust: {around expected}\n  ours: {around ours.Out}"
             match ours.Fragments, Inputs.get rust "fragments" with
             | Some fragments, parts when parts.ValueKind = JsonValueKind.Array ->
-                let theirs = [ for p in parts.EnumerateArray() -> Inputs.intOf (Inputs.at p 0), Inputs.intOf (Inputs.at p 1) ]
-                if fragments <> theirs then failures.Add $"{op}: fragments {fragments} against rust's {theirs}"
+                // Where the fragments go in the page's text. Their lengths are not compared: a message's fragment is Falco's markup now
+                // (unit 4.4), a few percent shorter than the writer's (class A: no whitespace where it does not render), and equal
+                // to Rust's as the loose DOM (the case's answer above).
+                let theirs = [ for p in parts.EnumerateArray() -> Inputs.intOf (Inputs.at p 0) ]
+                let ours = fragments |> List.map fst
+                if ours <> theirs then failures.Add $"{op}: fragment offsets {ours} against rust's {theirs}"
             | _ -> ()
     // The sample covers every kind of case, so that a case dropped from the file fails.
     let required =

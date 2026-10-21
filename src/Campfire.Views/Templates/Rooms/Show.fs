@@ -55,7 +55,7 @@ let content (w: Out) (ctx: ViewContext) (show: ShowView) : unit =
     w.Text(ctx.Url(Routes.roomMessages show.Room.Id))
     w.Lit t3
     w.Lit t4
-    Campfire.Views.Templates.Messages._Template.render w ctx show.User
+    Legacy.write w (HtmlOutput.ofNode (Campfire.Views.Templates.Messages._Template.render ctx show.User) [])
     w.Lit t5
     writeRoomDomId w messagesPrefix show.Room.Kind show.Room.Id
     w.Lit t6

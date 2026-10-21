@@ -3,86 +3,76 @@
 /// content raised. Its body is `cache [ message, "presentation-v3" ]` (`MessagesCached.fetch`).
 module Campfire.Views.Templates.Messages._Message
 
+open Falco.Markup
 open Campfire.Views
+open Campfire.Views.Markup
 open Campfire.Views.Messages
 
-let private messageId = Utf8.lit "message_"
-let private editId = Utf8.lit "edit_message_"
+let private avatar (user: UserView) : XmlNode =
+    Elem.figure
+        [ Attr.class' "avatar message__avatar" ]
+        [ Links.linkTo
+              user.Path
+              [ Html.attr "title" user.Title; Attr.class' "btn avatar"; Attr.create "data-turbo-frame" "_top" ]
+              [ Elem.img
+                    [ Attr.create "aria-hidden" "true"
+                      Html.attr "src" user.AvatarUrl
+                      Attr.create "width" "48"
+                      Attr.create "height" "48" ] ] ]
 
-let private t0 = Utf8.lit "\n  "
-let private t1 = Utf8.lit "\n  <div id=\""
-let private t2 = Utf8.lit "\" class=\"message "
-let private t3 = Utf8.lit "message--emoji"
-let private t4 = Utf8.lit "\" data-controller=\"reply\" data-user-id=\""
-let private t5 = Utf8.lit "\" data-message-id=\""
-let private t6 = Utf8.lit "\" data-message-timestamp=\""
-let private t7 = Utf8.lit "\" data-message-updated-at=\""
-let private t8 = Utf8.lit "\" data-sort-value=\""
-let private t9 = Utf8.lit "\" data-messages-target=\"message\" data-search-results-target=\"message\" data-refresh-room-target=\"message\" data-reply-composer-outlet=\"#composer\">\n    <h2 class=\"message__day-separator\"><time datetime=\""
-let private t10 = Utf8.lit "\" data-local-time-target=\"date\"></time></h2>\n\n    <figure class=\"avatar message__avatar\">\n      <a title=\""
-let private t11 = Utf8.lit "\" class=\"btn avatar\" data-turbo-frame=\"_top\" href=\""
-let private t12 = Utf8.lit "\"><img aria-hidden=\"true\" src=\""
-let private t13 = Utf8.lit "\" width=\"48\" height=\"48\" /></a>\n    </figure>\n\n    <turbo-frame id=\""
-let private t14 = Utf8.lit "\">\n      <div class=\"message__body\">\n        <div class=\"message__body-content\">\n          <div class=\"message__meta\">\n            <h3 class=\"message__heading\">\n              <span class=\"message__author\" title=\""
-let private t15 = Utf8.lit "\">\n                <strong data-reply-target=\"author\">"
-let private t16 = Utf8.lit "</strong>\n              </span>\n              <a target=\"_top\" class=\"message__permalink\" href=\""
-let private t17 = Utf8.lit "\"><time class=\"message__timestamp\" datetime=\""
-let private t18 = Utf8.lit "\" data-local-time-target=\"time\"></time></a>\n              <span class=\"message__room\">\n                <a target=\"_top\" data-reply-target=\"link\" href=\""
-let private t19 = Utf8.lit "\">"
-let private t20 = Utf8.lit "</a>\n              </span>\n            </h3>\n            "
-let private t21 = Utf8.lit "\n          </div>\n          "
-let private t22 = Utf8.lit "\n          "
-let private t23 = Utf8.lit "\n        </div>\n      </div>\n    </turbo-frame>\n</div>"
+/// The heading's three inline pieces, each separated by the space the ERB's line breaks leave (V4).
+let private heading (message: MessageView) : XmlNode =
+    Elem.h3
+        [ Attr.class' "message__heading" ]
+        [ Elem.span
+              [ Attr.class' "message__author"; Html.attr "title" message.Creator.Title ]
+              [ Elem.strong [ Attr.create "data-reply-target" "author" ] [ Html.text message.Creator.Name ] ]
+          Html.sp
+          Elem.a
+              [ Attr.create "target" "_top"; Attr.class' "message__permalink"; Html.attr "href" message.AtPath ]
+              [ Elem.time
+                    [ Attr.class' "message__timestamp"
+                      Html.attr "datetime" message.CreatedAtIso
+                      Attr.create "data-local-time-target" "time" ]
+                    [] ]
+          Html.sp
+          Elem.span
+              [ Attr.class' "message__room" ]
+              [ Elem.a
+                    [ Attr.create "target" "_top"; Attr.create "data-reply-target" "link"; Html.attr "href" message.AtPath ]
+                    [ Html.text message.RoomName ] ] ]
 
 /// `boosts` are the message's boosts' fragments, fetched up front (`BoostsCached.boosts`).
-let render (w: Out) (ctx: ViewContext) (message: MessageView) (boosts: CachedFragment[]) : unit =
+let render (ctx: ViewContext) (message: MessageView) (boosts: CachedFragment[]) : XmlNode =
     if message.IsUnrenderable then
-        w.Lit t0
-        _Unrenderable.render w
+        _Unrenderable.render
     else
-        w.Lit t1
-        w.Lit messageId
-        w.Text message.ClientMessageId
-        w.Lit t2
-        if message.AllEmoji then
-            w.Lit t3
-        w.Lit t4
-        w.Int message.Creator.Id
-        w.Lit t5
-        w.Int message.Id
-        w.Lit t6
-        w.Int message.CreatedAtEpoch
-        w.Lit t7
-        w.Int message.UpdatedAtEpoch
-        w.Lit t8
-        w.Int message.CreatedAtEpoch
-        w.Lit t9
-        w.Text message.CreatedAtIso
-        w.Lit t10
-        w.Text message.Creator.Title
-        w.Lit t11
-        w.Text message.Creator.Path
-        w.Lit t12
-        w.Text message.Creator.AvatarUrl
-        w.Lit t13
-        w.Lit editId
-        w.Text message.ClientMessageId
-        w.Lit t14
-        w.Text message.Creator.Title
-        w.Lit t15
-        w.Text message.Creator.Name
-        w.Lit t16
-        w.Text message.AtPath
-        w.Lit t17
-        w.Text message.CreatedAtIso
-        w.Lit t18
-        w.Text message.AtPath
-        w.Lit t19
-        w.Text message.RoomName
-        w.Lit t20
-        _Actions.render w ctx message
-        w.Lit t21
-        _Presentation.render w ctx message
-        w.Lit t22
-        Boosts._Boosts.render w ctx message boosts
-        w.Lit t23
+        Elem.div
+            [ Html.attr "id" ("message_" + message.ClientMessageId)
+              (if message.AllEmoji then Attr.class' "message message--emoji" else Attr.class' "message")
+              Attr.create "data-controller" "reply"
+              Html.attrInt "data-user-id" message.Creator.Id
+              Html.attrInt "data-message-id" message.Id
+              Html.attrInt "data-message-timestamp" message.CreatedAtEpoch
+              Html.attrInt "data-message-updated-at" message.UpdatedAtEpoch
+              Html.attrInt "data-sort-value" message.CreatedAtEpoch
+              Attr.create "data-messages-target" "message"
+              Attr.create "data-search-results-target" "message"
+              Attr.create "data-refresh-room-target" "message"
+              Attr.create "data-reply-composer-outlet" "#composer" ]
+            [ Elem.h2
+                  [ Attr.class' "message__day-separator" ]
+                  [ Elem.time [ Html.attr "datetime" message.CreatedAtIso; Attr.create "data-local-time-target" "date" ] [] ]
+              avatar message.Creator
+              Elem.create
+                  "turbo-frame"
+                  [ Html.attr "id" ("edit_message_" + message.ClientMessageId) ]
+                  [ Elem.div
+                        [ Attr.class' "message__body" ]
+                        [ Elem.div
+                              [ Attr.class' "message__body-content" ]
+                              [ Elem.div
+                                    [ Attr.class' "message__meta" ]
+                                    [ heading message; _Actions.render ctx message ]
+                                _Presentation.render ctx message
+                                Boosts._Boosts.render ctx message boosts ] ] ] ]

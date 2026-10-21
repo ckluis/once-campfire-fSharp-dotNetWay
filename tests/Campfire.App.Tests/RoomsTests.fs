@@ -370,8 +370,10 @@ let ``pages of messages go out in parts`` () =
             let writes = test.BodyWrites - writesBefore
             Assert.True((plain.Status = 200), path)
             Assert.True((count plain.Text replyMarker = 40), path)
-            // Rust's `plain.frames > 40`: a page written whole, or joined first, would be one write.
-            Assert.True((writes > 40L), $"{path}: {writes} writes, one per part")
+            // Rust's `plain.frames > 40`: a page written whole, or joined first, would be one write. The messages' fragments are
+            // written one by one with nothing between them (the page of older messages is only fragments: Falco writes no text
+            // between roots, and an empty part is not a write), so 40 messages are at least 40 writes.
+            Assert.True((writes >= 40L), $"{path}: {writes} writes, one per part")
             Assert.Equal(Some(string plain.Body.Length), plain.Header "content-length")
 
             let! gzipped = david.Send(send "GET" true)

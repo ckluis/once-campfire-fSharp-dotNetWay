@@ -303,7 +303,7 @@ module MessagesController =
             let view = presenter.Message message
             let account = Account.first db
             let html =
-                Page.renderDetachedAt app account baseUrl (fun ctx -> Render.text (fun w -> PresentationPartial.render w ctx view))
+                Page.renderDetachedAt app account baseUrl (fun ctx -> (HtmlOutput.ofNode (PresentationPartial.render ctx view) []).ToString())
             let partials = { Rendered.empty with MessagePresentation = Some html }
             app.Broadcasts.MessageReplace(room, message, Rendered.partials partials))
 
@@ -330,7 +330,7 @@ module MessagesController =
     let private renderRoomNotFound (http: HttpContext) : Result<Falco.HttpHandler, Error> =
         result {
             do! Formats.respondTo http [ Web.Format.Html ] |> Result.map ignore
-            return! Pages.contentInApplicationLayout http 200 (fun w _ -> RoomNotFoundPage.render w)
+            return! Pages.contentInApplicationLayout http 200 (fun w _ -> Legacy.write w (HtmlOutput.ofNode RoomNotFoundPage.render []))
         }
 
     // --- Actions -----------------------------------------------------------------------------------
@@ -360,7 +360,7 @@ module MessagesController =
                     | ValueNone ->
                         do! Formats.respondTo http [ Web.Format.Html ] |> Result.map ignore
                         let! views = Data.presentAsync http (fun presenter -> presenter.Messages messages)
-                        return! Pages.bare http 200 Web.Format.Html (fun _ -> Render.page 0 (fun w -> IndexPage.render w views))
+                        return! Pages.bare http 200 Web.Format.Html (fun _ -> IndexPage.output views)
             }
 
     /// `create`: `set_room` runs inside the action, and a room that's gone renders `room_not_found`.
@@ -392,9 +392,9 @@ module MessagesController =
                             task {
                                 let presenter = Presenter(db, app, None)
                                 let! item = presenter.MessageItem message
-                                return Render.plain (fun w -> CreateStream.render w item kind)
+                                return CreateStream.output item kind
                             })
-                    return Pages.turboStream http (ReadOnlyMemory<byte> html)
+                    return Pages.renderOutput http 200 Pages.TurboStreamUtf8 html
             }
 
     let show: Web.Action =
@@ -408,7 +408,7 @@ module MessagesController =
                     let! html = presenter.MessageFragment message
                     return html
                 })
-                return! Pages.contentInApplicationLayout http 200 (fun w _ -> ShowPage.render w html)
+                return! Pages.contentInApplicationLayout http 200 (fun w _ -> Legacy.write w (ShowPage.output html))
             }
 
     let edit: Web.Action =
@@ -424,7 +424,7 @@ module MessagesController =
                         let editableBodyHtml = presenter.EditableBody message
                         ({ EditableBodyHtml = editableBodyHtml
                            Message = presenter.Message message }: Campfire.Views.Messages.EditView))
-                return! Pages.contentInApplicationLayout http 200 (fun w ctx -> EditPage.render w ctx edit)
+                return! Pages.contentInApplicationLayout http 200 (fun w ctx -> Legacy.write w (HtmlOutput.ofNode (EditPage.render ctx edit) []))
             }
 
     let update: Web.Action =
@@ -457,5 +457,5 @@ module MessagesController =
 
                 do! Formats.respondTo http [ Web.Format.TurboStream ] |> Result.map ignore
                 let! view = Data.present http (fun presenter -> presenter.Message message)
-                return! Pages.bare http 200 Web.Format.TurboStream (fun _ -> Render.page 0 (fun w -> DestroyStream.render w view))
+                return! Pages.bare http 200 Web.Format.TurboStream (fun _ -> DestroyStream.output view)
             }

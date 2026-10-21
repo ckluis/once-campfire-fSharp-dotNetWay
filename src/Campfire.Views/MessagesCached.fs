@@ -27,7 +27,8 @@ let fetch
                 task {
                     let view = view ()
                     let! boosts = BoostsCached.boosts cache ctx view.Boosts
-                    return Render.fragment (fun w -> _Message.render w ctx view boosts)
+                    let boosts = if view.IsUnrenderable then [||] else boosts
+                    return HtmlOutput.toFragment (HtmlOutput.ofNode (_Message.render ctx view boosts) boosts)
                 }
             ))
 

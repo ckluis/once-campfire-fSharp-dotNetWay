@@ -2,16 +2,13 @@
 /// `messages/destroy.turbo_stream.erb`, also what `Message#broadcast_remove` sends.
 module Campfire.Views.Templates.Messages.DestroyTurboStream
 
+open Falco.Markup
 open Campfire.Views
+open Campfire.Views.Markup
 open Campfire.Views.Messages
 
-let private messageId = Utf8.lit "message_"
+let render (message: MessageView) : XmlNode list =
+    [ Elem.create "turbo-stream" [ Attr.create "action" "remove"; Html.attr "target" (message.DomId "") ] [] ]
 
-let private t0 = Utf8.lit "<turbo-stream action=\"remove\" target=\""
-let private t1 = Utf8.lit "\"></turbo-stream>"
-
-let render (w: Out) (message: MessageView) : unit =
-    w.Lit t0
-    w.Lit messageId
-    w.Text message.ClientMessageId
-    w.Lit t1
+/// The response.
+let output (message: MessageView) : HtmlOutput = HtmlOutput.ofNodes (render message) []
