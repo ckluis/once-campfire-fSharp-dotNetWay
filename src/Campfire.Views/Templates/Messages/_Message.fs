@@ -38,7 +38,9 @@ let private heading (message: MessageView) : XmlNode =
           Html.sp
           Elem.span
               [ Attr.class' "message__room" ]
-              [ Elem.a
+              [ // The ERB's line break before the link renders after the `::before` arrow of a search result (the loose DOM drops it).
+                Html.sp
+                Elem.a
                     [ Attr.create "target" "_top"; Attr.create "data-reply-target" "link"; Html.attr "href" message.AtPath ]
                     [ Html.text message.RoomName ] ] ]
 
