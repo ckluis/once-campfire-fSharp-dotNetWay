@@ -16,6 +16,7 @@ module internal Campfire.Cable.Connection
 open System
 open System.Collections.Generic
 open System.IO
+open System.Text.Json
 open System.Text
 open System.Threading
 open System.Threading.Tasks
@@ -52,13 +53,24 @@ let private tryRead (reader: Channels.ChannelReader<'T>) : 'T voption =
     if reader.TryRead(&item) then ValueSome item else ValueNone
 
 /// Runs `callback`, treating an exception as the `Error` Rust's `ChannelError` is.
-let private safely (callback: unit -> Task<ChannelResult<'T>>) : Task<ChannelResult<'T>> =
+let private safely (callback: unit -> Task<'T>) : Task<Result<'T, string>> =
     task {
         try
-            return! callback ()
+            let! value = callback ()
+            return Ok value
         with e ->
-            return Error { Message = e.Message }
+            return Error e.Message
     }
+
+/// A task that completes without a result, for `safely`.
+let private unitTask (callback: unit -> Task) : unit -> Task<unit> =
+    fun () ->
+        task {
+            do! callback ()
+        }
+
+/// A decoded command: a JSON object's entries, in order.
+type private Params = (string * Value) list
 
 /// Whether `work` completed without an I/O failure: a failed socket write ends the connection.
 let private attempt (work: Task) : Task<bool> =
@@ -126,6 +138,18 @@ let private drainInternal (internal': Subscriber) : Closing voption =
         | _ -> reading <- false
     closing
 
+/// A JSON text that is an object, or null. The caller disposes it.
+let private parseObject (text: string) : JsonDocument | null =
+    try
+        let document = JsonDocument.Parse text
+        if document.RootElement.ValueKind = JsonValueKind.Object then
+            document
+        else
+            document.Dispose()
+            null
+    with :? JsonException ->
+        null
+
 let private tryGet (key: string) (data: Params) : Value option = data |> List.tryFind (fun (k, _) -> k = key) |> Option.map snd
 
 [<Sealed>]
@@ -154,8 +178,8 @@ type private Connection<'U>(server: Server<'U>, user: 'U, wake: Wake) =
             let entry = subscriptions[index]
             subscriptions.RemoveAt index
             entry.Sub.Unsubscribed <- true
-            match! safely (fun () -> entry.Channel.Unsubscribed entry.Sub) with
-            | Error error -> logger.LogError("Could not execute command: {Error}", error.Message)
+            match! safely (unitTask (fun () -> entry.Channel.Unsubscribed entry.Sub)) with
+            | Error error -> logger.LogError("Could not execute command: {Error}", error)
             | Ok() -> ()
             entry.Sub.StopAllStreams()
             entry.Sub.DrainTransmissions this.Pending
@@ -167,11 +191,11 @@ type private Connection<'U>(server: Server<'U>, user: 'U, wake: Wake) =
         task {
             let index = position identifier
             let entry = subscriptions[index]
-            let! result = safely (fun () -> entry.Channel.Subscribed entry.Sub)
+            let! result = safely (unitTask (fun () -> entry.Channel.Subscribed entry.Sub))
             entry.Sub.DrainTransmissions this.Pending
             entry.Sub.DrainStarted this.Started
             match result with
-            | Error error -> logger.LogError("Could not execute command {Identifier}: {Error}", identifier, error.Message)
+            | Error error -> logger.LogError("Could not execute command {Identifier}: {Error}", identifier, error)
             | Ok() ->
                 if entry.Sub.Rejected then
                     do! this.RemoveSubscription index
@@ -202,7 +226,7 @@ type private Connection<'U>(server: Server<'U>, user: 'U, wake: Wake) =
                             | ValueSome(struct (className, factory)) ->
                                 let channel = factory ()
                                 let sub =
-                                    new Subscription<'U>(server, className, identifier, Json.encode (Value.String identifier), user, wake)
+                                    new Subscription<'U>(server, server.Hub, server.Services, className, identifier, Json.encode (Value.String identifier), user, wake)
                                 subscriptions.Add { Channel = channel; Sub = sub }
                                 do! this.SubscribeToChannel identifier
                 | _ -> logger.LogError("Could not execute command: invalid identifier {Identifier}", identifier)
@@ -223,23 +247,25 @@ type private Connection<'U>(server: Server<'U>, user: 'U, wake: Wake) =
             match find data with
             | -1 -> logger.LogError "Unable to find subscription with identifier"
             | index ->
-                let payload =
+                // The data is itself JSON in a string; it is parsed for this call only.
+                use document =
                     match tryGet "data" data with
-                    | Some(Value.String text) ->
-                        match Json.parse (Encoding.UTF8.GetBytes text) with
-                        | Some(Value.Object payload) -> Some payload
-                        | _ -> None
-                    | _ -> None
-                match payload with
-                | None -> logger.LogError "Could not execute command: invalid data"
-                | Some payload ->
+                    | Some(Value.String text) -> parseObject text
+                    | _ -> null
+                match document with
+                | null -> logger.LogError "Could not execute command: invalid data"
+                | document ->
+                    let payload = document.RootElement
                     let action =
-                        match tryGet "action" payload with
-                        | None
-                        | Some Value.Null -> Some "receive"
-                        | Some(Value.String action) when String.IsNullOrWhiteSpace action -> Some "receive"
-                        | Some(Value.String action) -> Some action
-                        | Some _ -> None
+                        match payload.TryGetProperty "action" with
+                        | true, action ->
+                            match action.ValueKind with
+                            | JsonValueKind.Null -> Some "receive"
+                            | JsonValueKind.String ->
+                                let text = action.GetString() |> nonNull
+                                if String.IsNullOrWhiteSpace text then Some "receive" else Some text
+                            | _ -> None
+                        | _ -> Some "receive"
                     match action with
                     | None -> logger.LogError "Could not execute command: invalid action"
                     | Some action ->
@@ -250,7 +276,7 @@ type private Connection<'U>(server: Server<'U>, user: 'U, wake: Wake) =
                         match result with
                         | Ok true -> ()
                         | Ok false -> logger.LogError("Unable to process {Action}", action)
-                        | Error error -> logger.LogError("Could not execute command {Action}: {Error}", action, error.Message)
+                        | Error error -> logger.LogError("Could not execute command {Action}: {Error}", action, error)
         }
 
     /// `Subscriptions#execute_command`. Anything malformed raises in Rails, which is logged and

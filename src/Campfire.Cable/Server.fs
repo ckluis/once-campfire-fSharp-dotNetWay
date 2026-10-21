@@ -10,6 +10,7 @@ open System.Collections.Generic
 open System.Threading
 open System.Threading.Tasks
 open Microsoft.AspNetCore.Http
+open Microsoft.Extensions.DependencyInjection
 open Microsoft.Extensions.Logging
 open Microsoft.Extensions.Logging.Abstractions
 open Campfire.RailsCompat
@@ -38,7 +39,8 @@ type Server<'U>
         config: Config,
         authenticate: ConnectRequest -> Task<'U option>,
         identify: 'U -> string,
-        channels: Dictionary<string, unit -> Channel<'U>>,
+        channels: ChannelRegistry<'U>,
+        services: IServiceProvider,
         logger: ILogger
     ) =
     let hub = Hub(config.StreamCapacity)
@@ -74,46 +76,31 @@ type Server<'U>
     member _.Hub: Hub = hub
     member _.Logger: ILogger = logger
 
+    /// The root provider channels resolve services from (`Subscription.Services`) until 3.5 scopes each command.
+    member _.Services: IServiceProvider = services
+
     member internal _.Authenticate(request: ConnectRequest) : Task<'U option> = authenticate request
     member internal _.Identify(user: 'U) : string = identify user
 
-    /// The channel a client's `channel` names, with its class name: `safe_constantize` resolves
-    /// "::RoomChannel" too, but the class (and so every broadcasting it names) is "RoomChannel".
-    member internal _.Channel(requested: string) : struct (string * (unit -> Channel<'U>)) voption =
-        let name = if requested.StartsWith("::", StringComparison.Ordinal) then requested.Substring 2 else requested
-        match channels.TryGetValue name with
-        | true, factory -> ValueSome(struct (name, factory))
-        | _ -> ValueNone
+    /// The channel a client's `channel` names, with its class name (see `ChannelRegistry.resolve`).
+    member internal _.Channel(requested: string) : struct (string * (unit -> Channel<'U>)) voption = ChannelRegistry.resolve channels requested
 
-    /// `ActionCable.server.broadcast(broadcasting, message)`.
-    member this.Broadcast(broadcasting: string, message: Value) : int =
+    /// `ActionCable.server.broadcast(broadcasting, message)`; the payload is already encoded.
+    member this.Broadcast(broadcasting: string, payload: Payload) : int =
         if logger.IsEnabled LogLevel.Debug then logger.LogDebug("[ActionCable] Broadcasting {Broadcasting}", broadcasting)
-        let json = Text.Encoding.UTF8.GetBytes(Json.encode message)
-        hub.Broadcast(broadcasting, ReadOnlySpan json)
-
-    member this.BroadcastText(broadcasting: string, text: string) : int =
-        if logger.IsEnabled LogLevel.Debug then logger.LogDebug("[ActionCable] Broadcasting {Broadcasting}", broadcasting)
-        use json = new JsonStringWriter(text.Length + 16)
-        json.Begin()
-        json.Append text
-        json.End()
-        hub.Broadcast(broadcasting, json.Span)
-
-    member this.BroadcastEncoded(broadcasting: string, json: ReadOnlySpan<byte>) : int =
-        if logger.IsEnabled LogLevel.Debug then logger.LogDebug("[ActionCable] Broadcasting {Broadcasting}", broadcasting)
-        hub.Broadcast(broadcasting, json)
+        hub.Broadcast(broadcasting, ReadOnlySpan(Payload.toBytes payload))
 
     /// `SomeChannel.broadcast_to(broadcastables, message)`.
-    member this.BroadcastTo(className: string, broadcastables: string list, message: Value) : int =
-        this.Broadcast(Naming.broadcastingFor className broadcastables, message)
+    member this.BroadcastTo(className: string, broadcastables: string list, payload: Payload) : int =
+        this.Broadcast(Naming.broadcastingFor className broadcastables, payload)
 
     /// `ActionCable.server.remote_connections.where(current_user: user).disconnect(reconnect:)`:
     /// every connection with this identifier, on any socket, is sent
     /// `{"type":"disconnect","reason":"remote","reconnect":...}` and closed.
     member this.Disconnect(connectionIdentifier: string, reconnect: bool) : int =
-        this.Broadcast(
+        hub.Broadcast(
             ServerNames.internalChannel connectionIdentifier,
-            Value.Object [ "type", Value.String "disconnect"; "reconnect", Value.Bool reconnect ]
+            "{\"type\":\"disconnect\",\"reconnect\":" + (if reconnect then "true" else "false") + "}"
         )
 
     /// Broadcastings that currently have subscribers (including connections' internal channels).
@@ -182,13 +169,8 @@ type Server<'U>
         let is (name: string) (expected: string) = String.Equals(first name, expected, StringComparison.Ordinal)
         is "X-Forwarded-Ssl" "on" || is "X-Forwarded-Scheme" "https" || is "X-Forwarded-Proto" "https"
 
-    interface IServer with
-        member this.Config = config
-        member this.Hub = hub
-        member this.Logger = logger
-        member this.Broadcast(broadcasting, message) = this.Broadcast(broadcasting, message)
-        member this.BroadcastText(broadcasting, text) = this.BroadcastText(broadcasting, text)
-        member this.BroadcastEncoded(broadcasting, json) = this.BroadcastEncoded(broadcasting, json)
+    interface ICableBroadcaster with
+        member this.Broadcast(broadcasting, payload) = this.Broadcast(broadcasting, payload)
 
     interface IDisposable with
         member _.Dispose() = stop.Cancel()
@@ -198,6 +180,7 @@ type ServerBuilder<'U> =
       Authenticate: ConnectRequest -> Task<'U option>
       Identify: 'U -> string
       Channels: Map<string, unit -> Channel<'U>>
+      Services: IServiceProvider
       Logger: ILogger }
 
 module ServerBuilder =
@@ -207,15 +190,18 @@ module ServerBuilder =
     let channel (className: string) (factory: unit -> Channel<'U>) (builder: ServerBuilder<'U>) : ServerBuilder<'U> =
         { builder with Channels = Map.add className factory builder.Channels }
 
+    /// The provider `Subscription.Services` hands channels (the server's root provider).
+    let withServices (services: IServiceProvider) (builder: ServerBuilder<'U>) : ServerBuilder<'U> = { builder with Services = services }
+
     let withLogger (logger: ILogger) (builder: ServerBuilder<'U>) : ServerBuilder<'U> = { builder with Logger = logger }
 
     let build (builder: ServerBuilder<'U>) : Server<'U> =
-        let channels = Dictionary<string, unit -> Channel<'U>>(StringComparer.Ordinal)
-        for KeyValue(name, factory) in builder.Channels do
-            channels[name] <- factory
-        new Server<'U>(builder.Config, builder.Authenticate, builder.Identify, channels, builder.Logger)
+        let channels = ChannelRegistry.create [ for KeyValue(name, factory) in builder.Channels -> name, factory ]
+        new Server<'U>(builder.Config, builder.Authenticate, builder.Identify, channels, builder.Services, builder.Logger)
 
 module Server =
+    let private emptyServices: IServiceProvider = ServiceCollection().BuildServiceProvider()
+
     /// `ApplicationCable::Connection#connect` resolves the request to the connection's identity, or
     /// None for `reject_unauthorized_connection`. `identify` is `identified_by`: the connection
     /// identifier used for remote disconnects (for `identified_by :current_user`, the user's GID param,
@@ -225,6 +211,7 @@ module Server =
           Authenticate = authenticate
           Identify = identify
           Channels = Map.empty
+          Services = emptyServices
           Logger = NullLogger.Instance }
 
     /// `ActionCable::Connection::InternalChannel#internal_channel`.

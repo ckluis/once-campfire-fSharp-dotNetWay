@@ -193,7 +193,7 @@ let ``leading colons stream and broadcast under the class name`` () =
             do! plain.Subscribe plainRoom
             do! expectText (confirm plainRoom) plain
 
-            eq 2 (app.Server.BroadcastTo("RoomChannel", [ "room-1" ], object' [ "roomId", int' 1 ]))
+            eq 2 (app.Server.BroadcastTo("RoomChannel", [ "room-1" ], Payload.ofValue {| roomId = 1 |}))
             do! expectText (message prefixedRoom """{"roomId":1}""") prefixed
             do! expectText (message plainRoom """{"roomId":1}""") plain
 
@@ -204,7 +204,7 @@ let ``leading colons stream and broadcast under the class name`` () =
         })
 
 [<Fact>]
-let ``broadcasts reach subscribers as escaped JSON`` () =
+let ``broadcasts reach subscribers as JSON`` () =
     withServer testConfig (fun app ->
         task {
             let! client = connect app 1UL
@@ -213,11 +213,12 @@ let ``broadcasts reach subscribers as escaped JSON`` () =
             do! client.Subscribe room
             let! _ = client.NextText()
 
-            eq 1 (app.Server.BroadcastTo("RoomChannel", [ "room-1" ], object' [ "roomId", int' 1 ]))
+            eq 1 (app.Server.BroadcastTo("RoomChannel", [ "room-1" ], Payload.ofValue {| roomId = 1 |}))
             do! expectText (message room """{"roomId":1}""") client
 
-            app.Server.Broadcast("room:room-1", str "<b>&</b>") |> ignore
-            do! expectText (message room "\"\\u003cb\\u003e\\u0026\\u003c/b\\u003e\"") client
+            // Relaxed escaping (S6): `<`, `>` and `&` go out as they are; the frame decodes to what Rails sends.
+            app.Server.Broadcast("room:room-1", Payload.ofString "<b>&</b>") |> ignore
+            do! expectText (message room "\"<b>&</b>\"") client
         })
 
 [<Fact>]
@@ -261,7 +262,7 @@ let ``unsubscribe stops delivery silently`` () =
 
             do! client.Unsubscribe room
             do! client.AssertSilent()
-            app.Server.Broadcast("room:room-1", object' []) |> ignore
+            app.Server.Broadcast("room:room-1", Payload.ofValue (obj ())) |> ignore
             do! client.AssertSilent()
             eq 1 app.Server.StreamCount // only the internal channel remains
         })
@@ -319,7 +320,7 @@ let ``lagging subscribers are disconnected with reconnect`` () =
             let! _ = client.NextText()
 
             for i in 0..9999 do
-                app.Server.Broadcast("room:room-1", int' i) |> ignore
+                app.Server.Broadcast("room:room-1", Payload.ofValue i) |> ignore
             let delivered = Collections.Generic.List<string>()
             let mutable reading = true
             while reading do
@@ -373,7 +374,7 @@ let ``turbo streams channel verifies and guards stream names`` () =
             Turbo.broadcastRemoveTo app.Server [ "rooms" ] "list_room_1" |> ignore
             do!
                 expectText
-                    (message rooms "\"\\u003cturbo-stream action=\\\"remove\\\" target=\\\"list_room_1\\\"\\u003e\\u003c/turbo-stream\\u003e\"")
+                    (message rooms "\"<turbo-stream action=\\\"remove\\\" target=\\\"list_room_1\\\"></turbo-stream>\"")
                     client
 
             let forged = turbo (Some(str "rooms"))
@@ -466,8 +467,8 @@ let ``a broadcast is compressed once for every client that negotiated compressio
                 let! _ = client.NextText()
                 ()
             let big = String.replicate 300 "<div>message</div>"
-            app.Server.BroadcastTo("RoomChannel", [ "room-1" ], str big) |> ignore
-            let expected = message room (Json.encode (str big))
+            app.Server.BroadcastTo("RoomChannel", [ "room-1" ], Payload.ofString big) |> ignore
+            let expected = message room (Text.Encoding.UTF8.GetString(Payload.toBytes (Payload.ofString big)))
             for client in [ a; b; plain ] do
                 do! expectText expected client
             // What a compressed client sends (a command, compressed) is read too.
@@ -620,8 +621,8 @@ let ``cable over TLS`` () =
                 do! client.Subscribe room
                 do! expectText (confirm room) client
                 let big = String.replicate 300 "<div>message</div>"
-                eq 1 (server.BroadcastTo("RoomChannel", [ "room-1" ], str big))
-                do! expectText (message room (Json.encode (str big))) client
+                eq 1 (server.BroadcastTo("RoomChannel", [ "room-1" ], Payload.ofString big))
+                do! expectText (message room (Text.Encoding.UTF8.GetString(Payload.toBytes (Payload.ofString big)))) client
         finally
             (server :> IDisposable).Dispose()
             app.DisposeAsync().AsTask().Wait()
@@ -661,7 +662,7 @@ let ``turbo streams channel verifies names signed with the app's secret`` () =
                 do! expectText (reject (turbo other)) client
                 eq 1 (Campfire.Cable.Turbo.broadcastUpdateTo server [ "rooms" ] "list" "<b>1</b>")
                 let tag = Campfire.Cable.Turbo.actionTag Campfire.Cable.Turbo.Update (Campfire.Cable.Turbo.Target "list") (Some "<b>1</b>") []
-                do! expectText (message (turbo rooms) (Json.encode (str tag))) client
+                do! expectText (message (turbo rooms) (Text.Encoding.UTF8.GetString(Payload.toBytes (Payload.ofString tag)))) client
         finally
             (server :> IDisposable).Dispose()
             app.DisposeAsync().AsTask().Wait()

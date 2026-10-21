@@ -4,7 +4,6 @@
     <Compile Include="Options.fs" />
     <Compile Include="Frames.fs" />
     <Compile Include="Naming.fs" />
-    <Compile Include="JsonText.fs" />
     <Compile Include="Socket.fs" />
     <Compile Include="Pubsub.fs" />
     <Compile Include="Config.fs" />

@@ -9,109 +9,86 @@ open System.Threading.Tasks
 open Campfire.Cable
 open Campfire.Db
 
-let private nilMembership: ChannelError = Channel.error "undefined method for nil (membership)"
+let private nilMembership () : exn = System.Exception "undefined method for nil (membership)"
 
 let channel (access: RoomChannel.Access) : Channel<CableUser> =
     let room: Room option ref = ref None
 
     // `@room` is only nil after a rejection, when these callbacks don't run.
-    let ids (sub: Subscription<CableUser>) : ChannelResult<int64 * int64> =
+    let ids (sub: Subscription<CableUser>) : int64 * int64 =
         match room.Value with
-        | Some room -> Ok(room.Id, sub.CurrentUser.Id)
-        | None -> Error(Channel.error "undefined method 'memberships' for nil")
+        | Some room -> room.Id, sub.CurrentUser.Id
+        | None -> failwith "undefined method 'memberships' for nil"
 
     /// `@room.memberships.find_by(user: current_user)`, which is nil (and so raises NoMethodError) once the
     /// membership is gone.
-    let membership (sub: Subscription<CableUser>) : Task<ChannelResult<Membership>> =
-        task {
-            match ids sub with
-            | Error error -> return Error error
-            | Ok(roomId, userId) ->
-                match RoomChannel.Access.read access (fun db -> Membership.findByRoomAndUser db roomId userId) with
-                | Error error -> return Error(RoomChannel.dbError error)
-                | Ok None -> return Error nilMembership
-                | Ok(Some membership) -> return Ok membership
-        }
+    let membership (sub: Subscription<CableUser>) : Membership =
+        let roomId, userId = ids sub
+        match RoomChannel.Access.read access (fun db -> Membership.findByRoomAndUser db roomId userId) with
+        | Error error -> raise (RoomChannel.dbError error)
+        | Ok None -> raise (nilMembership ())
+        | Ok(Some membership) -> membership
 
-    let withMembership (sub: Subscription<CableUser>) (change: Ef.Tx -> Membership -> unit) : Task<ChannelResult<unit>> =
+    let withMembership (sub: Subscription<CableUser>) (change: Ef.Tx -> Membership -> unit) : Task =
         task {
-            match ids sub with
-            | Error error -> return Error error
-            | Ok(roomId, userId) ->
-                let! found =
-                    RoomChannel.Access.write access (fun tx ->
-                        match Membership.findByRoomAndUser tx.Db roomId userId with
-                        | Some membership ->
-                            change tx membership
-                            true
-                        | None -> false)
-                match found with
-                | Error error -> return Error(RoomChannel.dbError error)
-                | Ok true -> return Ok()
-                | Ok false -> return Error nilMembership
+            let roomId, userId = ids sub
+            let! found =
+                RoomChannel.Access.write access (fun tx ->
+                    match Membership.findByRoomAndUser tx.Db roomId userId with
+                    | Some membership ->
+                        change tx membership
+                        true
+                    | None -> false)
+            match found with
+            | Error error -> raise (RoomChannel.dbError error)
+            | Ok true -> ()
+            | Ok false -> raise (nilMembership ())
         }
 
     /// `present`: `membership.present`, then `broadcast_read_room`.
-    let present (sub: Subscription<CableUser>) : Task<ChannelResult<unit>> =
+    let present (sub: Subscription<CableUser>) : Task =
         task {
-            match! withMembership sub (fun tx membership -> Membership.present tx membership) with
-            | Error error -> return Error error
-            | Ok() ->
-                // `membership.room_id` finds the membership again.
-                match! membership sub with
-                | Error error -> return Error error
-                | Ok membership ->
-                    BroadcastNames.readRoom sub.Server sub.CurrentUser.Id membership.RoomId |> ignore
-                    return Ok()
+            do! withMembership sub (fun tx membership -> Membership.present tx membership)
+            // `membership.room_id` finds the membership again.
+            let membership = membership sub
+            BroadcastNames.readRoom sub.Broadcaster sub.CurrentUser.Id membership.RoomId |> ignore
         }
 
     /// `absent`: `membership.disconnected`.
-    let absent (sub: Subscription<CableUser>) : Task<ChannelResult<unit>> =
+    let absent (sub: Subscription<CableUser>) : Task =
         withMembership sub (fun tx membership -> Membership.disconnected tx membership |> ignore)
 
     /// `refresh`: `membership.refresh_connection`.
-    let refresh (sub: Subscription<CableUser>) : Task<ChannelResult<unit>> =
+    let refresh (sub: Subscription<CableUser>) : Task =
         withMembership sub (fun tx membership -> Membership.refreshConnection tx membership |> ignore)
 
-    let resubscribe (sub: Subscription<CableUser>) : Task<ChannelResult<unit>> =
+    let resubscribe (sub: Subscription<CableUser>) : unit =
+        room.Value <- RoomChannel.subscribe access sub
+
+    let ran (work: Task) : Task<bool> =
         task {
-            match! RoomChannel.subscribe access sub with
-            | Ok found ->
-                room.Value <- found
-                return Ok()
-            | Error error -> return Error error
+            do! work
+            return true
         }
 
     { Channel.empty with
         // `subscribed`, then `on_subscribe :present, unless: :subscription_rejected?`.
         Subscribed =
             fun sub ->
-                task {
-                    match! resubscribe sub with
-                    | Error error -> return Error error
-                    | Ok() -> return! (if sub.Rejected then Channel.ok else present sub)
-                }
+                resubscribe sub
+                if sub.Rejected then Task.CompletedTask else present sub
         // `on_unsubscribe :absent, unless: :subscription_rejected?`.
-        Unsubscribed = fun sub -> if sub.Rejected then Channel.ok else absent sub
+        Unsubscribed = fun sub -> if sub.Rejected then Task.CompletedTask else absent sub
         Perform =
             fun action _ sub ->
-                task {
-                    if sub.Rejected then
-                        return Ok false
-                    else
-                        let ran (result: ChannelResult<unit>) = result |> Result.map (fun () -> true)
-                        match action with
-                        | "present" ->
-                            let! result = present sub
-                            return ran result
-                        | "absent" ->
-                            let! result = absent sub
-                            return ran result
-                        | "refresh" ->
-                            let! result = refresh sub
-                            return ran result
-                        | "subscribed" ->
-                            let! result = resubscribe sub
-                            return ran result
-                        | _ -> return Ok false
-                } }
+                if sub.Rejected then
+                    Task.FromResult false
+                else
+                    match action with
+                    | "present" -> ran (present sub)
+                    | "absent" -> ran (absent sub)
+                    | "refresh" -> ran (refresh sub)
+                    | "subscribed" ->
+                        resubscribe sub
+                        Task.FromResult true
+                    | _ -> Task.FromResult false }

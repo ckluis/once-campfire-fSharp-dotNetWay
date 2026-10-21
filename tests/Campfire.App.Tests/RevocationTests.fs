@@ -68,7 +68,7 @@ let private assertNoDeliveries (app: TestApp) : Task =
         for (_, broadcasting) in channels do
             do!
                 eventually (fun () ->
-                    Task.FromResult(app.Server.Broadcast(broadcasting, obj' [ "after", Value.String "revocation" ]) = 0))
+                    Task.FromResult(app.Server.Broadcast(broadcasting, Payload.ofValue {| after = "revocation" |}) = 0))
     }
 
 [<Fact>]
@@ -153,7 +153,7 @@ let ``only the revoked users connections are closed`` () =
         let! _ = kevin.UntilClosed()
 
         let! designers = app.Room "designers"
-        app.Server.Broadcast($"room:{GlobalId.toParam (Gid.roomGid designers)}", obj' [ "still", Value.String "here" ]) |> ignore
+        app.Server.Broadcast($"room:{GlobalId.toParam (Gid.roomGid designers)}", Payload.ofValue {| still = "here" |}) |> ignore
         let! frame = jz.NextText()
-        Assert.Equal(delivery room """{"still":"here"}""", frame)
+        Campfire.Tests.JsonFrames.assertSameFrame (delivery room """{"still":"here"}""") frame
     }

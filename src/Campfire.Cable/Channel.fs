@@ -4,67 +4,76 @@
 namespace Campfire.Cable
 
 open System
+open System.Collections.Frozen
 open System.Collections.Generic
 open System.Text
+open System.Text.Json
 open System.Threading.Tasks
-open Campfire.RailsCompat
 open Campfire.Cable.Socket
 
-/// A decoded identifier or `perform` payload: a JSON object's entries, in order.
-type Params = (string * Value) list
-
-/// An exception escaping a channel callback. Rails logs it (`Subscriptions#execute_command`) and
-/// sends nothing: a subscription whose `subscribed` raised is neither confirmed nor rejected, and
-/// stays registered.
-type ChannelError = { Message: string }
-
-type ChannelResult<'T> = Result<'T, ChannelError>
-
-/// What a subscription needs of its server: the hub it streams from and the ways to broadcast.
-/// (Rust's `Subscription` holds the generic `Server<U>`, and `Server<U>` holds the channels that take
-/// a `Subscription<U>`; an interface breaks that cycle for F#'s file order.)
-type IServer =
-    abstract Config: Config
-    abstract Hub: Hub
-    abstract Logger: Microsoft.Extensions.Logging.ILogger
-    /// `ActionCable.server.broadcast(broadcasting, message)`.
-    abstract Broadcast: broadcasting: string * message: Value -> int
-    /// A broadcast of text (a Turbo Stream tag, say) sent as a JSON string, escaped straight into
-    /// the broadcast's buffer.
-    abstract BroadcastText: broadcasting: string * text: string -> int
-    /// A broadcast of JSON the caller has encoded as Active Support does, as UTF-8.
-    abstract BroadcastEncoded: broadcasting: string * json: ReadOnlySpan<byte> -> int
+/// What a channel (and a Turbo helper) broadcasts through: `ActionCable.server.broadcast(broadcasting, message)`.
+/// Returns how many subscribers it reached.
+type ICableBroadcaster =
+    abstract Broadcast: broadcasting: string * payload: Payload -> int
 
 /// The per-subscription state a channel works with: params, the connection's identity, streams,
 /// rejection and transmissions.
 [<Sealed>]
 type Subscription<'U>
-    internal (server: IServer, className: string, identifier: string, encodedIdentifier: string, currentUser: 'U, wake: Wake) =
+    internal
+    (
+        broadcaster: ICableBroadcaster,
+        hub: Hub,
+        services: IServiceProvider,
+        className: string,
+        identifier: string,
+        encodedIdentifier: string,
+        currentUser: 'U,
+        wake: Wake
+    ) =
     let streams = List<Subscriber>()
     /// Streams started by the last callback, for the connection to start reading once that
     /// callback's own frames (transmissions, the confirmation) are queued ahead of them.
     let started = List<Subscriber>()
     let transmissions = List<string>()
+    let mutable parameters = Unchecked.defaultof<JsonElement>
+    let mutable parsed = false
     let mutable rejected = false
     let mutable unsubscribed = false
 
     /// The raw identifier string the client subscribed with.
     member _.Identifier: string = identifier
 
-    /// The decoded identifier, including `channel`. Parsed when asked for (subscriptions live as
-    /// long as their sockets, and are many).
-    member _.Params() : Params =
-        match Json.parse (Encoding.UTF8.GetBytes identifier) with
-        | Some(Value.Object entries) -> entries
-        | _ -> []
+    /// The decoded identifier object, including `channel`. Parsed when asked for (subscriptions live as
+    /// long as their sockets, and are many) and detached from the parser's buffer.
+    member _.Params: JsonElement =
+        if not parsed then
+            parameters <-
+                try
+                    use document = JsonDocument.Parse identifier
+                    document.RootElement.Clone()
+                with :? JsonException ->
+                    use document = JsonDocument.Parse "{}"
+                    document.RootElement.Clone()
+            parsed <- true
+        parameters
 
-    member this.Param(key: string) : Value option =
-        this.Params() |> List.tryFind (fun (k, _) -> k = key) |> Option.map snd
+    member this.Param(key: string) : JsonElement voption =
+        let parameters = this.Params
+        if parameters.ValueKind <> JsonValueKind.Object then
+            ValueNone
+        else
+            match parameters.TryGetProperty key with
+            | true, value -> ValueSome value
+            | _ -> ValueNone
 
     /// `identified_by :current_user`.
     member _.CurrentUser: 'U = currentUser
 
-    member _.Server: IServer = server
+    /// The services a callback may resolve from: the server's root provider until 3.5 gives each command a scope.
+    member _.Services: IServiceProvider = services
+
+    member _.Broadcaster: ICableBroadcaster = broadcaster
 
     member _.ChannelName() : string = Naming.channelName className
 
@@ -72,13 +81,13 @@ type Subscription<'U>
     member _.BroadcastingFor(broadcastables: string list) : string = Naming.broadcastingFor className broadcastables
 
     /// `broadcast_to` for this channel's class.
-    member this.BroadcastTo(broadcastables: string list, message: Value) : unit =
-        server.Broadcast(this.BroadcastingFor broadcastables, message) |> ignore
+    member this.BroadcastTo(broadcastables: string list, payload: Payload) : unit =
+        broadcaster.Broadcast(this.BroadcastingFor broadcastables, payload) |> ignore
 
     member _.StreamFrom(broadcasting: string) : unit =
         if not unsubscribed then
             // The hub wraps each broadcast for this identifier once, for every subscriber sharing it.
-            let subscriber = server.Hub.Subscribe(broadcasting, encodedIdentifier, wake)
+            let subscriber = hub.Subscribe(broadcasting, encodedIdentifier, wake)
             started.Add subscriber
             streams.Add subscriber
 
@@ -112,9 +121,9 @@ type Subscription<'U>
     /// `subscription_rejected?`
     member _.Rejected: bool = rejected
 
-    /// Sends `{"identifier":...,"message":...}` to this subscriber only.
-    member _.Transmit(message: Value) : unit =
-        transmissions.Add(Protocol.message encodedIdentifier (Json.encode message))
+    /// Sends `{"identifier":...,"message":...}` to this subscriber only (not in the design's API; the old transport's tests use it).
+    member _.Transmit(payload: Payload) : unit =
+        transmissions.Add(Protocol.message encodedIdentifier (Encoding.UTF8.GetString(Payload.toBytes payload)))
 
     member internal _.Unsubscribed
         with get () = unsubscribed
@@ -143,29 +152,39 @@ type Subscription<'U>
 /// them at the end of these functions (guarding on `Subscription.Rejected` where the Ruby does
 /// `unless: :subscription_rejected?`).
 ///
-/// An exception that escapes a callback is logged and treated as `Error`, as Rails rescues
-/// whatever `execute_command` raises.
+/// An exception that escapes a callback is Rails' rescued error: logged, nothing sent (a subscription whose
+/// `subscribed` raised is neither confirmed nor rejected, and stays registered).
 type Channel<'U> =
-    { Subscribed: Subscription<'U> -> Task<ChannelResult<unit>>
+    { Subscribed: Subscription<'U> -> Task
       /// Also runs when a subscription is rejected, as in Rails (`reject_subscription` removes the
       /// subscription, which calls `unsubscribe_from_channel`).
-      Unsubscribed: Subscription<'U> -> Task<ChannelResult<unit>>
-      /// Dispatches a `perform` from the client. Return `Ok false` when `action` isn't one of the
+      Unsubscribed: Subscription<'U> -> Task
+      /// Dispatches a `perform` from the client. Return false when `action` isn't one of the
       /// channel's public methods, which Rails logs as "Unable to process". `action` is
-      /// `data["action"]`, or `"receive"` when that's blank.
-      Perform: string -> Params -> Subscription<'U> -> Task<ChannelResult<bool>> }
+      /// `data["action"]`, or `"receive"` when that's blank. The data element is only good during the call.
+      Perform: string -> JsonElement -> Subscription<'U> -> Task<bool> }
 
 module Channel =
-    let private done' : Task<ChannelResult<unit>> = Task.FromResult(Ok())
-    let private notPerformed: Task<ChannelResult<bool>> = Task.FromResult(Ok false)
+    let private notPerformed: Task<bool> = Task.FromResult false
 
     /// A channel with no callbacks: `ApplicationCable::Channel` itself and `HeartbeatChannel`
     /// subscribe, confirm and do nothing else. Build others with `{ Channel.empty with ... }`.
     let empty<'U> : Channel<'U> =
-        { Subscribed = fun _ -> done'
-          Unsubscribed = fun _ -> done'
+        { Subscribed = fun _ -> Task.CompletedTask
+          Unsubscribed = fun _ -> Task.CompletedTask
           Perform = fun _ _ _ -> notPerformed }
 
-    let ok: Task<ChannelResult<unit>> = done'
+/// Ruby class name -> channel factory.
+type ChannelRegistry<'U> = FrozenDictionary<string, unit -> Channel<'U>>
 
-    let error (message: string) : ChannelError = { Message = message }
+module ChannelRegistry =
+    let create (channels: (string * (unit -> Channel<'U>)) list) : ChannelRegistry<'U> =
+        channels |> dict |> FrozenDictionary.ToFrozenDictionary
+
+    /// The channel a client's `channel` names, with its class name: `safe_constantize` resolves
+    /// "::RoomChannel" too, but the class (and so every broadcasting it names) is "RoomChannel".
+    let resolve (registry: ChannelRegistry<'U>) (requested: string) : struct (string * (unit -> Channel<'U>)) voption =
+        let name = if requested.StartsWith("::", StringComparison.Ordinal) then requested.Substring 2 else requested
+        match registry.TryGetValue name with
+        | true, factory -> ValueSome(struct (name, factory))
+        | _ -> ValueNone

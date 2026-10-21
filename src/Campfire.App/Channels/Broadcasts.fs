@@ -62,24 +62,21 @@ module BroadcastNames =
 
     /// `ActionCable.server.broadcast "user_#{id}_reads", { room_id: }`
     /// (reference/app/channels/presence_channel.rb).
-    let readRoom (server: IServer) (userId: int64) (roomId: int64) : int =
-        server.Broadcast(ReadRooms.streamNameFor userId, Value.Object [ "room_id", Value.Int roomId ])
+    let readRoom (server: ICableBroadcaster) (userId: int64) (roomId: int64) : int =
+        server.Broadcast(ReadRooms.streamNameFor userId, Payload.ofValue {| room_id = roomId |})
 
 [<Sealed>]
-type Broadcasts(server: Cable) =
+type Broadcasts(server: ICableBroadcaster) =
     static member private RoomMessages(room: Room) : string list = [ GlobalId.toParam (Gid.roomGid room); BroadcastNames.Messages ]
 
     static member private UserRooms(userId: int64) : string list = [ GlobalId.toParam (Gid.userGid userId); BroadcastNames.Rooms ]
 
     member private _.To(streamables: string list, action: Action, target: string, html: string option, attributes: (string * string option) list) : unit =
-        let template =
-            match html with
-            | Some html -> Html html
-            | None -> NoTemplate
-        broadcastActionTo server streamables action (Target target) template attributes |> ignore
+        broadcastActionTo server streamables action (Target target) html attributes |> ignore
 
     member private _.ToUtf8(streamables: string list, action: Action, target: string, html: System.ReadOnlyMemory<byte>, attributes: (string * string option) list) : unit =
-        broadcastActionTo server streamables action (Target target) (HtmlUtf8 html) attributes |> ignore
+        // Until Phase 4 makes partials strings, a fragment's UTF-8 is decoded here.
+        broadcastActionTo server streamables action (Target target) (Some(System.Text.Encoding.UTF8.GetString html.Span)) attributes |> ignore
 
     // Message::Broadcasts (reference/app/models/message/broadcasts.rb)
 
@@ -94,9 +91,9 @@ type Broadcasts(server: Cable) =
     /// `broadcast_unread_room`: `{ roomId: }` to each member's `user_<id>_unreads`.
     member _.UnreadRoom(db: Ef.CampfireDb, room: Room) : unit =
         // The same message to every member's stream: encoded once.
-        let json = System.Text.Encoding.UTF8.GetBytes(Json.encode (Value.Object [ "roomId", Value.Int room.Id ]))
+        let payload = Payload.ofValue {| roomId = room.Id |}
         for membership in Membership.forRoom db room.Id do
-            server.BroadcastEncoded(UnreadRooms.streamNameFor membership.UserId, System.ReadOnlySpan json) |> ignore
+            server.Broadcast(UnreadRooms.streamNameFor membership.UserId, payload) |> ignore
 
     /// `message.broadcast_remove`: MessagesController#destroy and `User#remove_banned_content`.
     member this.MessageRemove(room: Room, message: Message) : unit =

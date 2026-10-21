@@ -43,10 +43,12 @@ let cookieAuth (request: ConnectRequest) : Task<User option> =
 
 type Log = List<string>
 
-let private uintParam (value: Value option) : uint64 option =
+let private uintParam (value: System.Text.Json.JsonElement voption) : uint64 option =
     match value with
-    | Some(Value.Int n) when n >= 0L -> Some(uint64 n)
-    | Some(Value.UInt n) -> Some n
+    | ValueSome v when v.ValueKind = System.Text.Json.JsonValueKind.Number ->
+        match v.TryGetUInt64() with
+        | true, n -> Some n
+        | _ -> None
     | _ -> None
 
 /// Like `RoomChannel` plus `TypingNotificationsChannel`'s actions.
@@ -54,40 +56,34 @@ let roomChannel (log: Log) () : Channel<User> =
     let room = ref None
     { Subscribed =
         fun sub ->
-            task {
-                match uintParam (sub.Param "room_id") |> Option.filter (fun id -> List.contains id sub.CurrentUser.RoomIds) with
-                | Some id ->
-                    let name = $"room-{id}"
-                    sub.StreamFor [ name ]
-                    room.Value <- Some name
-                | None -> sub.Reject()
+            match uintParam (sub.Param "room_id") |> Option.filter (fun id -> List.contains id sub.CurrentUser.RoomIds) with
+            | Some id ->
+                let name = $"room-{id}"
+                sub.StreamFor [ name ]
+                room.Value <- Some name
                 lock log (fun () -> log.Add("subscribed rejected=" + (if sub.Rejected then "true" else "false")))
-                return Ok()
-            }
+                Task.CompletedTask
+            | None ->
+                sub.Reject()
+                lock log (fun () -> log.Add("subscribed rejected=" + (if sub.Rejected then "true" else "false")))
+                Task.CompletedTask
       Unsubscribed =
         fun sub ->
-            task {
-                lock log (fun () -> log.Add("unsubscribed rejected=" + (if sub.Rejected then "true" else "false")))
-                return Ok()
-            }
+            lock log (fun () -> log.Add("unsubscribed rejected=" + (if sub.Rejected then "true" else "false")))
+            Task.CompletedTask
       Perform =
         fun action data sub ->
-            task {
-                match action with
-                | "start" ->
-                    sub.BroadcastTo(
-                        [ room.Value.Value ],
-                        Value.Object [ "action", Value.String "start"; "user", Value.Object [ "id", Value.Int(int64 sub.CurrentUser.Id) ] ]
-                    )
-                    return Ok true
-                | "echo" ->
-                    sub.Transmit(Value.Object data)
-                    return Ok true
-                | "receive" ->
-                    sub.Transmit(Value.Object [ "received", Value.Object data ])
-                    return Ok true
-                | _ -> return Ok false
-            } }
+            match action with
+            | "start" ->
+                sub.BroadcastTo([ room.Value.Value ], Payload.ofValue {| action = "start"; user = {| id = sub.CurrentUser.Id |} |})
+                Task.FromResult true
+            | "echo" ->
+                sub.Transmit(Payload.ofValue data)
+                Task.FromResult true
+            | "receive" ->
+                sub.Transmit(Payload.ofValue {| received = data |})
+                Task.FromResult true
+            | _ -> Task.FromResult false }
 
 /// Signed names in tests are `signed(<name>)`.
 let testVerifier (signed: string) : string option =

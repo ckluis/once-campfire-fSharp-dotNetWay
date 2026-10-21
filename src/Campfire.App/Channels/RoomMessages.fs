@@ -30,14 +30,14 @@ let private knownModels =
     set [ "Account"; "Ban"; "Boost"; "Current"; "Membership"; "Message"; "Push::Subscription"; "Search"; "Session"; "User"; "Webhook" ]
 
 /// `GlobalID::Locator.locate gid_param, only: Room`, with `RecordNotFound` as nil.
-let private roomFrom (db: Campfire.Db.Ef.CampfireDb) (gidParam: string) : ChannelResult<Room option> =
+let private roomFrom (db: Campfire.Db.Ef.CampfireDb) (gidParam: string) : Room option =
     // `GlobalID.parse` takes the URI form or its Base64 param.
     match GlobalId.parse gidParam |> Option.orElse (GlobalId.fromParam gidParam) with
-    | None -> Ok None
+    | None -> None
     | Some gid ->
         // `find_allowed?(gid.model_class, only: Room)`: Room or one of its STI subclasses, whose `find` also
         // requires the type to match.
-        let required: Result<RoomType option, ChannelError option> =
+        let required: Result<RoomType option, string option> =
             match gid.ModelName with
             | "Room" -> Ok None
             | name ->
@@ -45,56 +45,44 @@ let private roomFrom (db: Campfire.Db.Ef.CampfireDb) (gidParam: string) : Channe
                 | Some roomType -> Ok(Some roomType)
                 | None when knownModels.Contains name -> Error None
                 // `model_name.constantize` raises NameError.
-                | None -> Error(Some(Channel.error $"uninitialized constant {name}"))
+                | None -> Error(Some $"uninitialized constant {name}")
         match required with
-        | Error None -> Ok None
-        | Error(Some error) -> Error error
+        | Error None -> None
+        | Error(Some error) -> failwith error
         | Ok requiredType ->
             match Int64.TryParse(gid.Id, Globalization.NumberStyles.AllowLeadingSign, Globalization.CultureInfo.InvariantCulture) with
-            | false, _ -> Ok None
+            | false, _ -> None
             | true, id ->
                 Room.findById db id
                 |> Option.filter (fun room -> requiredType |> Option.forall (fun t -> t = room.Type))
-                |> Ok
 
 /// `RoomMessagesChannel.subscribable_room(user, stream_name)`.
-let subscribableRoom (db: Campfire.Db.Ef.CampfireDb) (userId: int64) (streamName: string) : ChannelResult<Room option> =
+let subscribableRoom (db: Campfire.Db.Ef.CampfireDb) (userId: int64) (streamName: string) : Room option =
     match streamName.IndexOf ':' with
-    | -1 -> Ok None
-    | colon when streamName.Substring(colon + 1) <> StreamSuffix -> Ok None
+    | -1 -> None
+    | colon when streamName.Substring(colon + 1) <> StreamSuffix -> None
     | colon ->
         match roomFrom db (streamName.Substring(0, colon)) with
-        | Error error -> Error error
-        | Ok(Some room) -> Ok(Room.findForUser db userId room.Id)
-        | Ok None -> Ok None
+        | Some room -> Room.findForUser db userId room.Id
+        | None -> None
 
 let channel (access: RoomChannel.Access) (streams: StreamsChannel) : Channel<CableUser> =
     /// `authorized_stream_name`: the verified stream name, if present and for a room the user belongs to.
-    let authorizedStreamName (sub: Subscription<CableUser>) : Task<ChannelResult<string option>> =
-        task {
-            match StreamsChannel.verifiedStreamNameFromParams streams (sub.Params()) with
-            | Error error -> return Error error
-            | Ok None -> return Ok None
-            | Ok(Some streamName) when streamName.Trim() = "" -> return Ok None
-            | Ok(Some streamName) ->
-                let userId = sub.CurrentUser.Id
-                match RoomChannel.Access.read access (fun db -> subscribableRoom db userId streamName) with
-                | Error error -> return Error(RoomChannel.dbError error)
-                | Ok(Error error) -> return Error error
-                | Ok(Ok room) -> return Ok(room |> Option.map (fun _ -> streamName))
-        }
+    let authorizedStreamName (sub: Subscription<CableUser>) : string option =
+        match StreamsChannel.verifiedStreamNameFromParams streams sub.Params with
+        | None -> None
+        | Some streamName when streamName.Trim() = "" -> None
+        | Some streamName ->
+            let userId = sub.CurrentUser.Id
+            match RoomChannel.Access.read access (fun db -> subscribableRoom db userId streamName) with
+            | Error error -> raise (RoomChannel.dbError error)
+            | Ok room -> room |> Option.map (fun _ -> streamName)
 
-    let subscribed (sub: Subscription<CableUser>) : Task<ChannelResult<unit>> =
-        task {
-            match! authorizedStreamName sub with
-            | Error error -> return Error error
-            | Ok(Some streamName) ->
-                sub.StreamFrom streamName
-                return Ok()
-            | Ok None ->
-                sub.Reject()
-                return Ok()
-        }
+    let subscribed (sub: Subscription<CableUser>) : Task =
+        match authorizedStreamName sub with
+        | Some streamName -> sub.StreamFrom streamName
+        | None -> sub.Reject()
+        Task.CompletedTask
 
     { Channel.empty with
         Subscribed = subscribed
@@ -102,15 +90,14 @@ let channel (access: RoomChannel.Access) (streams: StreamsChannel) : Channel<Cab
         // `include Turbo::Streams::StreamName::ClassMethods` (which returns without transmitting).
         Perform =
             fun action _ sub ->
-                task {
-                    if sub.Rejected then
-                        return Ok false
-                    else
-                        match action with
-                        | "subscribed" ->
-                            let! result = subscribed sub
-                            return result |> Result.map (fun () -> true)
-                        | "verified_stream_name_from_params" ->
-                            return StreamsChannel.verifiedStreamNameFromParams streams (sub.Params()) |> Result.map (fun _ -> true)
-                        | _ -> return Ok false
-                } }
+                if sub.Rejected then
+                    Task.FromResult false
+                else
+                    match action with
+                    | "subscribed" ->
+                        subscribed sub |> ignore
+                        Task.FromResult true
+                    | "verified_stream_name_from_params" ->
+                        StreamsChannel.verifiedStreamNameFromParams streams sub.Params |> ignore
+                        Task.FromResult true
+                    | _ -> Task.FromResult false }

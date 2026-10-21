@@ -257,8 +257,10 @@ let private runScript (target: Target) (tokens: Map<string, string>) : Task<Map<
 let private subscribeToRoom (sub: Subscription<GoldenUser>) : uint64 option =
     let roomId =
         match sub.Param "room_id" with
-        | Some(Value.Int n) when n >= 0L -> Some(uint64 n)
-        | Some(Value.UInt n) -> Some n
+        | ValueSome v when v.ValueKind = System.Text.Json.JsonValueKind.Number ->
+            match v.TryGetUInt64() with
+            | true, n -> Some n
+            | _ -> None
         | _ -> None
         |> Option.filter (fun id -> List.contains id sub.CurrentUser.RoomIds)
     match roomId with
@@ -271,7 +273,7 @@ let private roomChannel () : Channel<GoldenUser> =
         Subscribed =
             fun sub ->
                 subscribeToRoom sub |> ignore
-                Channel.ok }
+                Task.CompletedTask }
 
 let private typingNotificationsChannel () : Channel<GoldenUser> =
     let room = ref None
@@ -279,18 +281,15 @@ let private typingNotificationsChannel () : Channel<GoldenUser> =
         Subscribed =
             fun sub ->
                 room.Value <- subscribeToRoom sub |> Option.map (fun id -> $"room-{id}")
-                Channel.ok
+                Task.CompletedTask
         Perform =
             fun action _ sub ->
                 if action <> "start" && action <> "stop" then
-                    Task.FromResult(Ok false)
+                    Task.FromResult false
                 else
                     let user = sub.CurrentUser
-                    sub.BroadcastTo(
-                        [ room.Value.Value ],
-                        Value.Object [ "action", str action; "user", Value.Object [ "id", Value.Int(int64 user.Id); "name", str user.Name ] ]
-                    )
-                    Task.FromResult(Ok true) }
+                    sub.BroadcastTo([ room.Value.Value ], Payload.ofValue {| action = action; user = {| id = user.Id; name = user.Name |} |})
+                    Task.FromResult true }
 
 let private roomGidParam (id: string) : string =
     Naming.gidParam { App = "campfire"; ModelName = "Rooms::Open"; Id = id }

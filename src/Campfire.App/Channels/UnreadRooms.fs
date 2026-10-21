@@ -10,9 +10,9 @@ open Campfire.Cable
 /// its members.
 let streamNameFor (userId: int64) : string = $"user_{userId}_unreads"
 
-let private subscribed (sub: Subscription<CableUser>) : Task<ChannelResult<unit>> =
+let private subscribed (sub: Subscription<CableUser>) : Task =
     sub.StreamFrom(streamNameFor sub.CurrentUser.Id)
-    Channel.ok
+    Task.CompletedTask
 
 let channel: Channel<CableUser> =
     { Channel.empty with
@@ -23,8 +23,7 @@ let channel: Channel<CableUser> =
                 match action with
                 | "subscribed" ->
                     task {
-                        match! subscribed sub with
-                        | Ok() -> return Ok true
-                        | Error error -> return Error error
+                        do! subscribed sub
+                        return true
                     }
-                | _ -> Task.FromResult(Ok false) }
+                | _ -> Task.FromResult false }

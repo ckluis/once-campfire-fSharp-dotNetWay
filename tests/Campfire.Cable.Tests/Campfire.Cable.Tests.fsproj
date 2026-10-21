@@ -8,7 +8,7 @@
     <Compile Include="../Shared/JsonFrames.fs" Link="JsonFrames.fs" />
     <Compile Include="Support.fs" />
     <Compile Include="NamingTests.fs" />
-    <Compile Include="JsonTextTests.fs" />
+    <Compile Include="ChannelTests.fs" />
     <Compile Include="FramesTests.fs" />
     <Compile Include="StreamsTests.fs" />
     <Compile Include="PubsubTests.fs" />

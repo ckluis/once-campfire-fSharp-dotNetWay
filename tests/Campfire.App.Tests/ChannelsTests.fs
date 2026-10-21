@@ -11,6 +11,7 @@ open Campfire.Cable
 open Campfire.Db
 open Campfire.RailsCompat
 open Campfire.App.Tests.ChannelsSupport
+open Campfire.Tests.JsonFrames
 
 let private obj' (entries: (string * Value) list) : Value = Value.Object entries
 
@@ -93,12 +94,10 @@ let ``room channel streams for member rooms only`` () =
 
         // Both subscriptions stream the room; a connection polls its subscriptions in no set order.
         let stream = $"room:{GlobalId.toParam (Gid.roomGid designers)}"
-        app.Server.Broadcast(stream, obj' [ "hello", Value.Int 1L ]) |> ignore
+        app.Server.Broadcast(stream, Payload.ofValue {| hello = 1 |}) |> ignore
         let! first = client.NextText()
         let! second = client.NextText()
-        let received = List.sort [ first; second ]
-        let expected = List.sort [ delivery member' """{"hello":1}"""; delivery byString """{"hello":1}""" ]
-        Assert.Equal<string list>(expected, received)
+        assertSameFramesUnordered [ delivery member' """{"hello":1}"""; delivery byString """{"hello":1}""" ] [ first; second ]
         do! client.AssertSilent()
     }
 
@@ -208,7 +207,7 @@ let ``unread rooms streams only the subscribers own stream`` () =
         app.ReadEf(fun db -> app.Broadcasts.MessageCreate(db, direct, message, fakePartials))
 
         let! frame = member'.NextText()
-        Assert.Equal(delivery unreads $"""{{"roomId":{direct.Id}}}""", frame)
+        assertSameFrame (delivery unreads $"""{{"roomId":{direct.Id}}}""") frame
         do! member'.AssertSilent()
         do! outsider.AssertSilent()
     }
@@ -223,7 +222,7 @@ let ``read rooms streams the users reads`` () =
         BroadcastNames.readRoom app.Server (id "jason") 7L |> ignore
         BroadcastNames.readRoom app.Server (id "david") 8L |> ignore
         let! frame = client.NextText()
-        Assert.Equal(delivery reads """{"room_id":7}""", frame)
+        assertSameFrame (delivery reads """{"room_id":7}""") frame
         do! client.AssertSilent()
     }
 
@@ -245,14 +244,14 @@ let ``typing notifications broadcast start and stop to the room`` () =
         do! typist.Perform(typing, obj' [ "action", Value.String "start" ])
         let start' = $"""{{"action":"start","user":{{"id":{id "jz"},"name":"JZ"}}}}"""
         let! frame = reader.NextText()
-        Assert.Equal(delivery typing start', frame)
+        assertSameFrame (delivery typing start') frame
         let! frame = typist.NextText()
-        Assert.Equal(delivery typing start', frame)
+        assertSameFrame (delivery typing start') frame
 
         do! typist.Perform(typing, obj' [ "action", Value.String "stop" ])
         let stop = $"""{{"action":"stop","user":{{"id":{id "jz"},"name":"JZ"}}}}"""
         let! frame = reader.NextText()
-        Assert.Equal(delivery typing stop, frame)
+        assertSameFrame (delivery typing stop) frame
 
         // Not an action: nothing is sent.
         do! typist.Perform(typing, obj' [ "action", Value.String "dance" ])
@@ -278,16 +277,16 @@ let ``typing notifications reach the room however the channel is spelled`` () =
         do! typist.Perform(prefixed, obj' [ "action", Value.String "start" ])
         let start' = $"""{{"action":"start","user":{{"id":{id "jz"},"name":"JZ"}}}}"""
         let! frame = reader.NextText()
-        Assert.Equal(delivery plain start', frame)
+        assertSameFrame (delivery plain start') frame
         let! frame = typist.NextText()
-        Assert.Equal(delivery prefixed start', frame)
+        assertSameFrame (delivery prefixed start') frame
 
         do! reader.Perform(plain, obj' [ "action", Value.String "stop" ])
         let stop = $"""{{"action":"stop","user":{{"id":{id "kevin"},"name":"Kevin"}}}}"""
         let! frame = typist.NextText()
-        Assert.Equal(delivery prefixed stop, frame)
+        assertSameFrame (delivery prefixed stop) frame
         let! frame = reader.NextText()
-        Assert.Equal(delivery plain stop, frame)
+        assertSameFrame (delivery plain stop) frame
     }
 
 /// A subscription whose `subscribed` failed has no room: typing there is an error, not a crash that takes the
@@ -336,7 +335,7 @@ let ``a member may subscribe to a rooms message stream`` () =
         let! message = app.Message "first"
         app.Broadcasts.MessageRemove(designers, message)
         let! frame = kevin.NextText()
-        Assert.Equal(delivery channel (htmlJson """<turbo-stream action="remove" target="message_0001"></turbo-stream>"""), frame)
+        assertSameFrame (delivery channel (htmlJson """<turbo-stream action="remove" target="message_0001"></turbo-stream>""")) frame
     }
 
 [<Fact>]
@@ -407,12 +406,11 @@ let ``the stock turbo channel refuses room message streams but serves the room l
         do! kevin.Confirm rooms
         app.Broadcasts.RoomRemove designers
         let! frame = kevin.NextText()
-        Assert.Equal(
-            delivery
+        assertSameFrame
+            (delivery
                 rooms
-                (htmlJson $"""<turbo-stream action="remove" target="list_rooms_closed_{designers.Id}"></turbo-stream>"""),
+                (htmlJson $"""<turbo-stream action="remove" target="list_rooms_closed_{designers.Id}"></turbo-stream>"""))
             frame
-        )
     }
 
 // Public `subscribed` is an action in Ruby: performing it streams again.
@@ -431,32 +429,39 @@ let ``performing subscribed streams twice like ruby`` () =
         app.ReadEf(fun db -> app.Broadcasts.UnreadRoom(db, room))
         let expected = delivery unreads $"""{{"roomId":{id "bender_and_kevin"}}}"""
         let! frame = client.NextText()
-        Assert.Equal(expected, frame)
+        assertSameFrame expected frame
         let! frame = client.NextText()
-        Assert.Equal(expected, frame)
+        assertSameFrame expected frame
     }
 
 // channels/room.rs
 
 [<Fact>]
 let ``casts ids like active record`` () =
-    let cast = RoomChannel.castId
-    Assert.Equal(Some 5L, cast (Value.Int 5L))
-    Assert.Equal(Some 5L, cast (Value.Float 5.9))
-    Assert.Equal(Some 5L, cast (Value.String "5"))
-    Assert.Equal(Some 12L, cast (Value.String " 12abc"))
-    Assert.Equal(Some 1000L, cast (Value.String "1_000"))
-    Assert.Equal(Some -1L, cast (Value.String "-1"))
-    Assert.Equal(None, cast (Value.String "abc"))
-    Assert.Equal(None, cast (Value.String ""))
-    Assert.Equal(Some 1L, cast (Value.Bool true))
-    Assert.Equal(None, cast Value.Null)
-    Assert.Equal(None, cast (Value.String "99999999999999999999"))
+    let cast (json: string) =
+        use document = System.Text.Json.JsonDocument.Parse json
+        RoomChannel.castId document.RootElement
+    let text (s: string) = System.Text.Json.JsonSerializer.Serialize s
+    Assert.Equal(Some 5L, cast "5")
+    Assert.Equal(Some 5L, cast "5.9")
+    Assert.Equal(Some 5L, cast (text "5"))
+    Assert.Equal(Some 12L, cast (text " 12abc"))
+    Assert.Equal(Some 1000L, cast (text "1_000"))
+    Assert.Equal(Some -1L, cast (text "-1"))
+    Assert.Equal(None, cast (text "abc"))
+    Assert.Equal(None, cast (text ""))
+    Assert.Equal(Some 1L, cast "true")
+    Assert.Equal(Some 0L, cast "false")
+    Assert.Equal(None, cast "null")
+    Assert.Equal(None, cast (text "99999999999999999999"))
+    // A number past int64 is truncated as a float when it fits, and nothing otherwise.
+    Assert.Equal(None, cast "1e30")
+    Assert.Equal(Some 5L, cast "5.0")
     // Probed in the reference: Ruby's whitespace includes \v, and to_i reads a `0d` prefix.
-    Assert.Equal(Some 5L, cast (Value.String "\u000b5"))
-    Assert.Equal(Some 12L, cast (Value.String "0d12"))
-    Assert.Equal(None, cast (Value.String " 5"))
-    Assert.Equal(Some Int64.MinValue, cast (Value.String "-9223372036854775808"))
+    Assert.Equal(Some 5L, cast (text "\u000b5"))
+    Assert.Equal(Some 12L, cast (text "0d12"))
+    Assert.Equal(None, cast (text "\u00a05"))
+    Assert.Equal(Some Int64.MinValue, cast (text "-9223372036854775808"))
 
 // channels/room_messages.rs
 

@@ -100,7 +100,7 @@ let private benchChannel () : Channel<string> =
         Subscribed =
             fun sub ->
                 sub.StreamFrom "bench"
-                Channel.ok }
+                Task.CompletedTask }
 
 let private benchServer () : Server<string> =
     Server.builder Config.defaults (fun _ -> Task.FromResult(Some "bench")) id
@@ -111,7 +111,7 @@ let private benchServer () : Server<string> =
 let private messageSize (seq: int) (bytes: int) (compressed: bool) : int64 =
     let identifier = Json.encode (Value.String(Json.generate (Value.Object [ "channel", Value.String "BenchChannel" ])))
     let tag = Turbo.actionTag Turbo.Append (Turbo.Target "messages") (Some(html seq bytes)) []
-    let frame = Frame.OfString(Protocol.message identifier (Json.encode (Value.String tag)))
+    let frame = Frame.OfString(Protocol.message identifier (Text.Encoding.UTF8.GetString(Payload.toBytes (Payload.ofString tag))))
     let payload =
         if compressed then
             match frame.Deflated with

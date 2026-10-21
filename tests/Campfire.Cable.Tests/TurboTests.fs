@@ -45,32 +45,29 @@ let ``refresh tags`` () =
 // the tag as a string would.
 
 type private Recorder() =
+    /// Each broadcast's payload decoded back to the string it carries.
     member val Sent = Collections.Generic.List<string * string>()
 
-    interface IServer with
-        member _.Config = Config.defaults
-        member _.Hub = Hub(1)
-        member _.Logger = Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance
-        member this.Broadcast(b, v) = this.Sent.Add((b, Json.encode v)); 1
-        member this.BroadcastText(b, t) = this.Sent.Add((b, Json.encode (Value.String t))); 1
-        member this.BroadcastEncoded(b, json) = this.Sent.Add((b, Encoding.UTF8.GetString json)); 1
+    interface ICableBroadcaster with
+        member this.Broadcast(b, payload) =
+            this.Sent.Add((b, System.Text.Json.JsonSerializer.Deserialize<string>(Payload.toBytes payload) |> nonNull))
+            1
 
 [<Fact>]
-let ``broadcast helpers send the encoded tag, to the joined stream name`` () =
+let ``broadcast helpers send the tag as a JSON string, to the joined stream name`` () =
     let server = Recorder()
     let html = "<div id=\"m\" class='x'>Hi &amp; ☃ \"you\"</div>\n"
     Assert.Equal(1, broadcastAppendTo server [ "Z2lk"; "messages" ] "messages" html)
-    Assert.Equal(1, broadcastActionTo server [ "rooms" ] Replace (Targets "#a > b") (HtmlUtf8(ReadOnlyMemory(Encoding.UTF8.GetBytes html))) [ "maintain_scroll", Some "true"; "skipped", None ])
+    Assert.Equal(1, broadcastActionTo server [ "rooms" ] Replace (Targets "#a > b") (Some html) [ "maintain_scroll", Some "true"; "skipped", None ])
     Assert.Equal(1, broadcastRemoveTo server [ "rooms" ] "list_room_1")
     Assert.Equal(1, broadcastRefreshTo server [ "rooms" ] (Some "abc"))
     Assert.Equal(1, broadcastStreamTo server [ "rooms" ] "<raw/>")
     let expected =
-        [ "Z2lk:messages", Json.encode (Value.String(actionTag Append (Target "messages") (Some html) []))
-          "rooms",
-          Json.encode (Value.String(actionTag Replace (Targets "#a > b") (Some html) [ "maintain_scroll", Some "true" ]))
-          "rooms", Json.encode (Value.String(actionTag Remove (Target "list_room_1") None []))
-          "rooms", Json.encode (Value.String(refreshTag (Some "abc")))
-          "rooms", Json.encode (Value.String "<raw/>") ]
+        [ "Z2lk:messages", actionTag Append (Target "messages") (Some html) []
+          "rooms", actionTag Replace (Targets "#a > b") (Some html) [ "maintain_scroll", Some "true" ]
+          "rooms", actionTag Remove (Target "list_room_1") None []
+          "rooms", refreshTag (Some "abc")
+          "rooms", "<raw/>" ]
     Assert.Equal<(string * string) list>(expected, List.ofSeq server.Sent)
 
 [<Fact>]
@@ -79,4 +76,4 @@ let ``blank streamables are dropped, and nothing is sent when none are left`` ()
     Assert.Equal(1, broadcastStreamTo server [ " "; "rooms"; "" ] "x")
     Assert.Equal(0, broadcastStreamTo server [ ""; "  " ] "x")
     Assert.Equal(0, broadcastRemoveTo server [] "x")
-    Assert.Equal<(string * string) list>([ "rooms", "\"x\"" ], List.ofSeq server.Sent)
+    Assert.Equal<(string * string) list>([ "rooms", "x" ], List.ofSeq server.Sent)

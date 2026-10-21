@@ -41,7 +41,7 @@ let main argv =
                 Subscribed =
                     fun sub ->
                         sub.StreamFrom "bench"
-                        Channel.ok })
+                        Task.CompletedTask })
         |> ServerBuilder.build
     let builder = WebApplication.CreateSlimBuilder()
     builder.Logging.ClearProviders() |> ignore
