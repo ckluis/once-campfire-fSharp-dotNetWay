@@ -2101,3 +2101,38 @@ D1-D9, with the cheap checks re-run. Evidence in `bench/results/dotnetway-p3-ver
   shrink comes in 4.11.
 - Evidence: `bench/results/dotnetway-4-7/` (`build.sh`, `pixel.sh`, `build.log`, `pixel-users.log`, `pixel-extra.log`, `verify.log`, `STATUS-*`).
 - **Next:** 4.8 Accounts (`accounts/edit`, `_help_contact`, `_invite`, `users/_user`, `_next_page_container`, `index.turbo_stream`, `bots/*`, `custom_styles/edit`).
+
+### Phase 4, unit 4.8: Accounts (2026-10-21)
+
+- **What moved (`7a5bfb5`):** all 11 templates of the row are Falco.Markup functions: `accounts/edit` (nav, content, footer regions), `_help_contact`, `_invite`, `users/_user`,
+  `_next_page_container`, the `index.turbo_stream` (an `output` for `Pages.render`; the two streams are custom elements, so the ERB's blank line between them is an `Html.sp`), the five
+  `bots/*` (`_bot`, `_form`, `index`, `new`, `edit`) and `custom_styles/edit`. The five pages return `ViewPage` through `Pages.viewPage` (four `RenderSize` fields and four `framedPage`
+  calls gone from the controllers); the writer's layout stays until 4.10. `_help_contact` and `_invite` are nodes now, so the writer's sign-in page places the first with
+  `Legacy.write`, and the join page and the room invitation lose their `Legacy.node` calls.
+- **Helpers:** `Markup.Forms.urlField`, `hiddenField` and `checkBox` (the hidden unchecked field, then the checkbox; `disabled` goes to both as Rails does), `Markup.Application.versionBadge`.
+  A model-less `form_with` names a field after its method alone, so `nameAndId` takes an empty object name that way; the oracle's `accounts/bots/_form` cases include model-less ones
+  and stay in force (`_Form.render ctx objectName bot`: the pages pass "user"). `Forms.buttonTag` is `button_tag` (`name="button"`): the account name and custom styles submit buttons
+  need it, the bots' `profileFormSubmitButton` does not.
+- **Bare attributes:** `readonly` and `checked` are bare where the ERB writes them bare (`Attr.readonly`, `Attr.checked'`); the loose layer compares `checked` and `checked="checked"` as different.
+  Both were found by the oracle, not the browser.
+- **Whitespace (V4):** the oracle and goldens found no slip beyond the two buttons above; the rule used throughout: a space between two inline siblings (links, buttons, labels, inputs,
+  images, spans, custom elements) and none beside a block, a hidden input or at an element's edge.
+- **Security:** every attribute from data goes through `Html.attr`; no `Text.raw` takes a non-literal. URLs from data in attributes, for the gate's XSS review: the bot form's avatar
+  `src` (`AvatarAttachmentUrl`, a storage route built by `Accounts.botForm`), the account logo `src` and the logo delete form's `action` (`ctx.Account.LogoUrl`, a route), the bot's
+  webhook `value` (a user-supplied URL, but an input's value, not a link), the invite and curl URLs (`ctx.Url` of routes, as `value` and `data-*-url-value`), and the help contact's
+  `mailto:` href (the owner's name and address, encoded by `Html.attr`).
+- **Tests:** `ParityATests` (account edit x7, bots, custom styles x2, users turbo stream), the oracle runner (`Rest.fs`, `Operations.fs`) re-pointed; the account, bots, custom styles,
+  help contact, invite, `_user`, `_next_page_container` and turbo-stream oracle cases (hostile text included) and the `account_*`, `bots_*`, `custom_styles_*` goldens are loose-equal.
+  New `AccountsViewsTests.fs` (3 tests): **T1** on the custom styles textarea (leading newline, `</textarea>`, an entity, U+E000), the bot form's name and webhook encoded as data with the
+  multipart form and file field names, and a person's name as text in `_user` (no `img[onerror]`).
+- **Gates run:** lint self-test ok, lint clean (229 files); `CAMPFIRE_REQUIRE_SEED=1 bin/verify`: **986 total, 980 passed, 6 skipped (the same environmental 6), 0 failed**, H1 green.
+  Image rebuilt from `7a5bfb5`: `bin/pixel-parity --fast --only "account/**,auth/join*"`: default 18/18, crowd 4/4, custom_styles 6/6, restricted 2/2 (first_run 0 cells) screenshots, aria and loose
+  DOM equal (132 s). Beyond the row, because the unit's partials reach them: `auth/sign_in*`, `welcome/**` (the help contact): default 4/4 (36 s); `rooms/show/original_with_invitation*`
+  (`_invite`): default 2/2 (35 s). `bin/clean-parity` after each, `bin/clean-docker` after the build; 24 GB free.
+- **Speed:** no `bench/quick`: the unit moves no template of the five workloads (the account, bot and custom styles pages, the people stream and the help contact; `_invite` only appears on
+  the first room's invitation, which the room-page workload does not render). The five workloads' templates are unchanged since 4.6.
+- **Differences recorded:** none new for the README (class A as before).
+- **KLOC:** `bin/kloc` 34,352 by upstream's rules, **34,571 corrected (34.6 KLOC)**, from 34,677 (-106): `Campfire.Views` 6,011 corrected from 6,081 (-70: 785 -> 668 lines of templates, plus about 40
+  lines of new `Markup/` helpers), App 11,766 from 11,802 (-36). The drop is larger here than in 4.4-4.7 because these templates carry no writer fragments to keep.
+- Evidence: `bench/results/dotnetway-4-8/` (`verify.log`, `build.log`, `pixel-accounts.log`, `pixel-extra.log`).
+- **Next:** 4.9 Sessions, first run, PWA, welcome (`sessions/new`, `transfers/show`, `incompatible_browser`, `first_runs/show`, `pwa/*`, `welcome/show`).
