@@ -1,0 +1,4 @@
+main rc=0
+removed_from_room rc=0
+room_deleted_then_send rc=0
+typing/one rc=0

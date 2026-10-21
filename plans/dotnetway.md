@@ -1940,3 +1940,51 @@ D1-D9, with the cheap checks re-run. Evidence in `bench/results/dotnetway-p3-ver
   `Tag.fs` and the writer halves of the helpers in 4.11, and every later template that uses these helpers.
 - Evidence: `bench/results/dotnetway-4-4/` (`new/`, `ctl/`, `bench.sh`, `build.sh`, `build-ctl.sh`, `pixel.sh`, `pixel-rerun.sh`, pixel and bench logs, `first-run/`, `loads.txt`,
   `verify.log`). 27 GB free after `bin/clean-docker`.
+
+### Phase 4, unit 4.5: Rooms (2026-10-21)
+
+- **Built:** all 20 `rooms/**` templates are Falco.Markup functions (`Templates/Rooms/`): `show` (`ShowPage`) with `_nav`, `_composer` and `_invitation`; `involvements/_bell` and
+  `show`; `layouts/_form`, `_edit` and `_new`; `opens/*`, `closeds/*` (each `_form`, `_user`, `edit`, `new`); `directs/edit` and `new`; the `refreshes/show` turbo stream. New
+  `Markup/Turbo.fs` (`frameTag`, `streamFrom`, `stream`), `Rooms.fs` (`buttonToDeleteRoom`, `buttonToChangeInvolvement`, `userRow`), `Application.fs` (`screenReader`, `linkBackTo`,
+  `linkBackToLastRoomVisited`) and `Users.fs` (`accountLogoTag`, `userFilterMenu`, `userFilterSearch`, `sidebarFrame`; 4.6 and 4.7 add to them). A page module has
+  `rendered ctx model : Layouts.ViewPage` (its `Regions` and the fragments it places); `Pages.viewPage` (new, in `Web/Pages.fs`) sends it through `Legacy.inLayout`, the writer's
+  application layout or the frame layout, until 4.10. The involvement frame goes out through `Legacy.write`, the refresh as an `HtmlOutput` (an empty refresh is an empty body,
+  as the design says). The writer partials a room page still holds (the translation button, the join link, the three notification-help partials, the mention template) are
+  placed with `Legacy.node`; `UsersHelper.sidebarTurboFrameTag`, `Rooms.buttonToDeleteRoom` (writer) and the old `ShowPage.head/content/footer` functions are gone. The
+  writer's `RoomsHelper.buttonToChangeInvolvement` stays for `users/profiles/_membership` (4.7).
+- **Whitespace (V4):** a space (`Html.sp`) between every two inline siblings the ERB separates (the nav's name, settings link and bell; each icon and its label; the label's input
+  and spans; the stream source and the jump button; the composer's search link and frame; consecutive turbo streams of a refresh), and before `lexxy-prompt` (the editor's script
+  puts its toolbar in front of it, as in 4.4). Boolean attributes the ERB writes bare (`contents`, `multiple`, `hidden` on the autocomplete select) are `Attr.create "x" ""`.
+- **Tests:** `RoomsViewsTests` (goldens `rooms_*`) and the `rooms/*` cases of the frozen oracle, hostile text included, are re-pointed and loose-equal; the oracle answers the Falco
+  pages by their text without fragment offsets (the text before the first message is Falco's, not the writer's: class A). `RoomsViewsTests` "show keeps every message as a
+  fragment" checks the fragments in both layouts. P2 now builds forty distinct fragments (a fragment is placed once per page; repeating one is an O4 error) and stays under
+  300 KB. `RoomsTests` "show renders the room" reads `<meta ... />` (void elements end ` />`, class A).
+- **Gates run:** lint self-test ok (18 planted), lint clean (228 files); `CAMPFIRE_REQUIRE_SEED=1 bin/verify` on the final tree (Release, warnings as errors): **979 total, 973
+  passed, 6 skipped (the same environmental 6), 0 failed**; H1 green. `bin/pixel-parity --fast` on the image of `1ff63d5`: `rooms/**`, `interactions/composer**`,
+  `interactions/mention_autocomplete**`: default 100/100 screenshots pixel-equal, 100/100 aria, 100/100 loose; crowd 8/8, custom_styles 4/4, restricted 2/2, first_run 0/0 on all
+  three layers (441 s, first run, no fix needed). `realtime/removed_from_room`, `room_deleted_then_send`, `typing/one` one at a time: 2/2 equal on all three layers each (36-78 s).
+  `bin/clean-parity` between runs, `bin/clean-docker` after the builds.
+- **Speed (`bench/quick`, room page and post a message, 3 reps, interleaved new/ctl/ctl/new/new/ctl via `bench.sh`; control = `campfire-dotnetway:u45ctl` built from the base `2552c6f`
+  by `build-ctl.sh`, labels checked, image removed after; host probe ratio 1.046-1.091 over 12 probes, Mac load average 3.2-3.8 from other sessions (`loads.txt`), 0 non-2xx and
+  0 connection errors in 12 runs per side):**
+
+| workload | c | control req/s | new req/s | x Rails (new) | x Rails (control) | CPU us/req ctl -> new |
+|---|---:|---:|---:|---:|---:|---|
+| room page | 16 | 7,590 | 7,287 | 30.45 | 31.72 | 435 -> 446 |
+| room page | 1 | 2,399 | 2,347 | 21.91 | 22.40 | 513 -> 522 |
+| post a message | 16 | 1,982 | 2,013 | 6.10 | 6.00 | 1,515 -> 1,473 |
+| post a message | 1 | 1,119 | 1,140 | 6.83 | 6.71 | 1,659 -> 1,643 |
+
+  No cell is under 5x (thinnest: post c=16 6.10x, the control's own 6.00x in this session). The room page costs **4.0% of throughput at c=16 and 2.2% at c=1** (+11 and +9 us of
+  CPU per request): the nav, composer, bell, invitation and message-area chrome are now Falco nodes rendered to a string and split at the slots on every request (the
+  layout regions, the writer partials for the notification help as `Legacy.node` strings) where the writer copied literals; the design predicted "no change beyond noise" for the
+  room page, and the control's c=16 range (6,383-7,642) shows how noisy it is, but the median moved the same way at both concurrencies. Post a message is within +1.6% to +1.9%
+  of the control (noise: it renders no room chrome). The room page is at 30x, six times the floor, so nothing was optimised; the next cheap win, if one is wanted, is to cache the
+  static composer and bell nodes per room. Decoded bytes: the room page is **376,936 bytes against Rust's 416,122 (-9.4%)**, and `bench/quick`'s "decoded bytes equal Rust's" check
+  prints FAIL for `room_show` (the control, 378,036, fails it too, since 4.4); it is the writer's byte equality and changes with the phase (see 4.4).
+- **Differences recorded:** none for the README (the design's one class A entry is written in 4.11). Visible, class A: the empty `rooms/refreshes/show` is an empty body (Erubi
+  wrote a newline), void elements end ` />`, the room page is 1,100 bytes shorter than the control's.
+- **KLOC:** `bin/kloc` 34,418 by upstream's rules, **34,637 corrected (34.6 KLOC)**, from 34,482 (+155): `Campfire.Views` 5,997 corrected from 5,800 (+197), App 11,846 (-42: the
+  rooms controllers no longer carry a `RenderSize` each, and `Rooms.fs` lost the writer's delete button). The 20 templates were 656 non-blank, non-comment lines as literal tables and are 738 as Falco, plus 132 lines of new `Markup/` helpers
+  (counted with grep, not cloc); as in 4.4 the shrink comes in 4.11 (deleting `Out.fs`, `Tag.fs` and the writer halves of the helpers).
+- Evidence: `bench/results/dotnetway-4-5/` (`new/`, `ctl/`, `bench.sh`, `build-ctl.sh`, `pixel.sh`, pixel and bench logs, `loads.txt`, `verify.log`). 26 GB free after `bin/clean-docker`.

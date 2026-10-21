@@ -1,0 +1,7 @@
+12:45  up 3 days, 22:02, 9 users, load averages: 2.95 5.72 5.71
+12:50  up 3 days, 22:07, 9 users, load averages: 3.55 4.42 5.10
+12:54  up 3 days, 22:11, 9 users, load averages: 3.71 3.83 4.63
+12:59  up 3 days, 22:16, 9 users, load averages: 3.42 3.69 4.34
+13:03  up 3 days, 22:20, 9 users, load averages: 3.24 3.46 4.05
+13:08  up 3 days, 22:25, 9 users, load averages: 3.54 3.24 3.77
+13:12  up 3 days, 22:29, 9 users, load averages: 3.81 3.29 3.61
