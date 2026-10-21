@@ -1,12 +1,15 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
     <Compile Include="Protocol.fs" />
+    <Compile Include="Options.fs" />
+    <Compile Include="Frames.fs" />
     <Compile Include="Naming.fs" />
     <Compile Include="JsonText.fs" />
     <Compile Include="Socket.fs" />
     <Compile Include="Pubsub.fs" />
     <Compile Include="Config.fs" />
     <Compile Include="Channel.fs" />
+    <Compile Include="Streams.fs" />
     <Compile Include="Server.fs" />
     <Compile Include="Connection.fs" />
     <Compile Include="Endpoint.fs" />
