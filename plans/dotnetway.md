@@ -1988,3 +1988,45 @@ D1-D9, with the cheap checks re-run. Evidence in `bench/results/dotnetway-p3-ver
   rooms controllers no longer carry a `RenderSize` each, and `Rooms.fs` lost the writer's delete button). The 20 templates were 656 non-blank, non-comment lines as literal tables and are 738 as Falco, plus 132 lines of new `Markup/` helpers
   (counted with grep, not cloc); as in 4.4 the shrink comes in 4.11 (deleting `Out.fs`, `Tag.fs` and the writer halves of the helpers).
 - Evidence: `bench/results/dotnetway-4-5/` (`new/`, `ctl/`, `bench.sh`, `build-ctl.sh`, `pixel.sh`, pixel and bench logs, `loads.txt`, `verify.log`). 26 GB free after `bin/clean-docker`.
+
+### Phase 4, unit 4.6: Sidebar, search, mentions (2026-10-21)
+
+- **Built:** the 10 templates of the row are Falco.Markup functions: `users/sidebars/show` (`Show.rendered ctx sidebar : Layouts.ViewPage`) with `rooms/_direct`, `_shared` and
+  `_direct_placeholder` (`Templates/Users/Sidebars/Rooms/`); `searches/index` (`Index.rendered`) and `_recents`; `autocompletable/users/index` and `_prompt_item`; `users/_mention`
+  and `users/autocompletables/_template`. New helpers: `Markup.Users.avatarTag` and `sidebarFrameWith` (`sidebarFrame` is the empty one), `Markup.Rooms.linkToRoom` (the caller's
+  attributes before its first `data-*`, Rails' four defaults, its `data-*`, the rest, then `href`). The sidebar and the search page go out through `Pages.viewPage` (the writer's
+  layouts until 4.10); the direct room fragment is `HtmlOutput.toFragment (HtmlOutput.ofNode ...)` inside `UsersCached`; the shared-room broadcast partial is the node's text;
+  the mentions prompt is `HtmlOutput.ofNodes`. The direct room fragments (and the shared rooms) are separated by `Html.sp` in the page, where Rails' collection leaves whitespace
+  between inline `a`s; the fragment itself has none. `RenderSize` fields of the two controllers are gone.
+- **Found by `bin/pixel-parity`, not by the oracle or goldens:** a search result's `.message__room` is a block with a `::before` arrow (`sidebar.css`), and the ERB's line break
+  between the span and its link renders after the arrow: Rails' heading reads "JZ 3:30 PM → All Talk", ours read "→All Talk" (6 cells, 256-14,000 pixels, aria +1/-1 each, loose
+  DOM equal because it drops whitespace at an edge with no sibling before it). The message partial (4.4) had never met a search slice. Fixed with one `Html.sp` before the link
+  (`_Message.fs`, commit after the template one); the slice was then 19/19 on the default seed and 2/2 on custom_styles.
+- **Tests and oracle:** `ParityATests` (sidebar_david, sidebar_kevin, sidebar_frame, shared rooms, mention, autocompletables template, autocompletable users), `SearchesViewsTests`
+  (goldens `searches_index`, `searches_index_empty`) and the oracle runner (`Operations.fs`, `Pages.fs`) are re-pointed; the sidebar, search, autocompletable and mention cases of
+  the frozen oracle (hostile text included: 41, 17, 33, 16 and 8 cases) are loose-equal. The `users/direct_room` oracle case (one render per membership version) is unchanged.
+- **Gates run:** lint self-test ok, lint clean; `CAMPFIRE_REQUIRE_SEED=1 bin/verify` on the template commit: **979 total, 973 passed, 6 skipped (the same environmental 6), 0 failed**,
+  H1 green; after the `_Message.fs` line `Campfire.Views.Tests` 133/133 and `bin/verify` again (below). `bin/pixel-parity --fast` on the image of the fix commit:
+  `interactions/sidebar**`, `interactions/phone_sidebar`, `search/**`, `autocompletable/**`: default 19/19 screenshots, 19/19 aria, 19/19 loose; custom_styles 2/2 on all three layers
+  (crowd, first_run, restricted: 0 cells); `realtime/unread_in_sidebar`, `new_room_in_sidebar`, `presence_read` one at a time: 2/2 on all three layers each (36-40 s). The first run
+  (before the fix, image of the template commit) is kept in `first-run/`. `bin/clean-parity` between runs, `bin/clean-docker` after the builds.
+- **Speed (`bench/quick`, sidebar and search, 3 reps, interleaved new/ctl/ctl/new/new/ctl via `bench.sh`; control = `campfire-dotnetway:u46ctl` built from the base `18aad84` by
+  `build-ctl.sh`; host probe ratio 1.038-1.079 over 12 probes, Mac load average 2.6-4.7 from other sessions (`loads.txt`), every response 2xx, 0 connection errors):**
+
+| workload | c | control req/s | new req/s | x Rails (new) | x Rails (control) | CPU us/req ctl -> new |
+|---|---|---:|---:|---:|---:|---|
+| sidebar | 16 | 7,698 | 7,270 | 12.14 | 12.86 | 435 -> 455 |
+| sidebar | 1 | 2,328 | 2,373 | 8.28 | 8.12 | 524 -> 516 |
+| search | 16 | 7,252 | 7,135 | 17.49 | 17.78 | 471 -> 478 |
+| search | 1 | 2,155 | 2,140 | 11.11 | 11.18 | 558 -> 564 |
+
+  No cell is under 5x; the thinnest is sidebar c=1 at 8.28x (the control's 8.12x; the design predicted -2.4%, and the c=1 median is +1.9%, within the control's own range
+  2,318-2,392 against 2,254-2,492). Sidebar c=16 is -5.5% of the control (+20 us of CPU per request), but the ranges overlap (control 7,571-7,952, new 6,853-7,686) and the cell is at 12x.
+  Search is within 1-2% of the control at both concurrencies. Nothing was optimised. Decoded bytes: sidebar 29,950 against Rust's 30,763 (-2.6%), search 136,873 against
+  149,623 (-8.5%; the control's 137,286); `bench/quick`'s "decoded bytes equal Rust's" check prints FAIL for both (the control fails it for search since 4.4) and changes with the phase (see 4.4).
+- **Differences recorded:** none for the README (the design's one class A entry is written in 4.11). Visible, class A: the direct room fragment carries no leading or trailing
+  whitespace (Rails' "\n  <a>...</a>\n"), `contents` is `contents=""`, void elements end ` />`, the empty-search page and the prompt items have no trailing newline.
+- **KLOC:** `bin/kloc` 34,447 by upstream's rules, **34,666 corrected (34.7 KLOC)**, from 34,637 (+29): `Campfire.Views` 6,042 corrected from 5,997 (+45), App 11,830 (-16: two `RenderSize`
+  fields, three page calls shorter). The 10 templates were literal tables and are Falco nodes plus 37 lines of new `Markup/` helpers; as in 4.4 and 4.5 the shrink comes in 4.11.
+- Evidence: `bench/results/dotnetway-4-6/` (`new/`, `ctl/`, `bench.sh`, `build-ctl.sh`, `pixel.sh`, `first-run/`, pixel and bench logs, `loads.txt`, `verify.log`). 23 GB free after `bin/clean-docker`.
+- **Next:** the Opus checkpoint after this unit (design-views.md section 4): review of 4.1-4.6, then 4.7 Users.
