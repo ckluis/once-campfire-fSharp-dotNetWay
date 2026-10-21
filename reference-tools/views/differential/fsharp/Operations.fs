@@ -255,8 +255,8 @@ let run (case: JsonElement) (shared: JsonElement) : Answer =
           Text = Some(recordedText page)
           Fragments = Some(recordedOffsets page) }
     | "accounts/_help_contact" ->
-        rendered (fun w -> Templates.Accounts._HelpContact.render w (ctxOf ()) (helpContact (get args "help_contact")))
-    | "accounts/_invite" -> rendered (fun w -> Templates.Accounts._Invite.render w (ctxOf ()) (str (get args "join_code")))
+        text ((HtmlOutput.ofNodes (Templates.Accounts._HelpContact.render (ctxOf ()) (helpContact (get args "help_contact"))) []).ToString())
+    | "accounts/_invite" -> text ((HtmlOutput.ofNode (Templates.Accounts._Invite.render (ctxOf ()) (str (get args "join_code"))) []).ToString())
     | "pwa/_install_instructions" -> rendered (fun w -> Templates.Pwa._InstallInstructions.render w (ctxOf ()))
     | "pwa/_browser_settings" -> rendered (fun w -> Templates.Pwa._BrowserSettings.render w (ctxOf ()))
     | "pwa/_system_settings" -> rendered (fun w -> Templates.Pwa._SystemSettings.render w (ctxOf ()))

@@ -26,4 +26,4 @@ let render (ctx: ViewContext) (joinCode: string) : XmlNode =
                                   Elem.br []
                                   Html.sp
                                   Text.raw "To invite people to chat, share the join link below." ] ]
-                      Legacy.node (fun w -> Templates.Accounts._Invite.render w ctx joinCode) ] ] ]
+                      Templates.Accounts._Invite.render ctx joinCode ] ] ]

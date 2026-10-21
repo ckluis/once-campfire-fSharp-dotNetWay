@@ -117,8 +117,8 @@ let private content (ctx: ViewContext) (joinCode: string) (helpContact: HelpCont
                             "password.svg"
                         Forms.buttonTag
                             [ Attr.class' "btn btn--reversed center txt-large" ]
-                            [ Assets.image ctx "check.svg" [ hidden ]; Html.sp; Application.screenReader "Save" ] ] ] ]
-      Legacy.node (fun w -> Campfire.Views.Templates.Accounts._HelpContact.render w ctx helpContact) ]
+                            [ Assets.image ctx "check.svg" [ hidden ]; Html.sp; Application.screenReader "Save" ] ] ] ] ]
+    @ Campfire.Views.Templates.Accounts._HelpContact.render ctx helpContact
 
 /// The page: `@page_title`, `@body_class`, the nav and the form.
 let rendered (ctx: ViewContext) (joinCode: string) (helpContact: HelpContact option) : ViewPage =

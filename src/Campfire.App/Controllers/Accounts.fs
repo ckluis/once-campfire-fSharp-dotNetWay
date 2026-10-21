@@ -16,7 +16,6 @@ open Campfire.App.Web
 module AccountsController =
     module EditPage = Campfire.Views.Templates.Accounts.Edit
 
-    let private editSize = RenderSize()
 
     /// `set_page_and_extract_portion_from users, per_page: 500`
     let private PerPage = [ 500L ]
@@ -51,13 +50,7 @@ module AccountsController =
                       Members = members
                       NextPage = if page.IsLast then None else Some(string page.NextParam) }
                 return!
-                    Pages.framedPage
-                        http
-                        200
-                        editSize
-                        (fun w ctx -> EditPage.render w ctx edit)
-                        EditPage.head
-                        (fun w ctx -> EditPage.content w ctx edit)
+                    Pages.viewPage http 200 (fun ctx -> EditPage.rendered ctx edit)
             }
 
     /// `@account.update!(params.require(:account).permit(:name, :logo, settings: {}))`

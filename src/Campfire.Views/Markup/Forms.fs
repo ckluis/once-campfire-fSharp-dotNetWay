@@ -41,10 +41,12 @@ module Forms =
             [ Attr.class' "button_to"; methodAttr method; Html.attr "action" url ]
             (methodTag method @ [ Elem.button (options @ [ Attr.create "type" "submit" ]) content ])
 
-    /// `Tags::Base#tag_name` / `tag_id` for a model-scoped field.
+    /// `Tags::Base#tag_name` / `tag_id` for a model-scoped field (a model-less `form_with` names a field after its method alone).
     let private nameAndId (objectName: string) (method: string) (idOverride: string option) : XmlAttribute list =
-        [ Html.attr "name" (objectName + "[" + method + "]")
-          Html.attr "id" (defaultArg idOverride (Campfire.Views.Helpers.Forms.sanitizeObjectName objectName + "_" + method)) ]
+        let name = if objectName = "" then method else objectName + "[" + method + "]"
+        let id =
+            if objectName = "" then method else Campfire.Views.Helpers.Forms.sanitizeObjectName objectName + "_" + method
+        [ Html.attr "name" name; Html.attr "id" (defaultArg idOverride id) ]
 
     /// `Tags::TextField#render`: the options in order, then `type`, `value`, `name` and `id`. A `maxlength` is written with its own
     /// `size` by the caller, as Rails does.
@@ -72,6 +74,37 @@ module Forms =
     /// `form.email_field(method, options)`.
     let emailField (objectName: string) (method: string) (value: string option) (options: XmlAttribute list) : XmlNode =
         inputField "email" objectName method None value options
+
+    /// `form.url_field(method, options)`.
+    let urlField (objectName: string) (method: string) (value: string option) (options: XmlAttribute list) : XmlNode =
+        inputField "url" objectName method None value options
+
+    /// `form.hidden_field(method, options)`.
+    let hiddenField (objectName: string) (method: string) (value: string option) (options: XmlAttribute list) : XmlNode =
+        inputField "hidden" objectName method None value options
+
+    /// `form.check_box(method, options, checked_value, unchecked_value)`: a hidden field with the unchecked value (it takes the
+    /// options' `name`, `disabled` and `form`), then the checkbox. `current` is the model's value, compared with `checkedValue`.
+    let checkBox
+        (objectName: string)
+        (method: string)
+        (idOverride: string option)
+        (disabled: bool)
+        (options: XmlAttribute list)
+        (checkedValue: string)
+        (uncheckedValue: string)
+        (current: string)
+        : XmlNode list =
+        let name = Html.attr "name" (if objectName = "" then method else objectName + "[" + method + "]")
+        let disabledAttr = if disabled then [ Attr.create "disabled" "disabled" ] else []
+        [ Elem.input (name :: disabledAttr @ [ Attr.create "type" "hidden"; Html.attr "value" uncheckedValue ])
+          Elem.input (
+              options
+              @ disabledAttr
+              @ [ Attr.create "type" "checkbox"; Html.attr "value" checkedValue ]
+              @ (if current = checkedValue then [ Attr.create "checked" "checked" ] else [])
+              @ nameAndId objectName method idOverride
+          ) ]
 
     /// `form.password_field(method, options)`: never writes the model's value.
     let passwordField (objectName: string) (method: string) (options: XmlAttribute list) : XmlNode =

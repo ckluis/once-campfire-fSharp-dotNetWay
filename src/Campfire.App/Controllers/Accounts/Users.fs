@@ -31,8 +31,7 @@ module AccountUsers =
 
                 let! layout = Pages.load http
                 let html =
-                    Pages.render layout http (fun ctx ->
-                        Render.page 0 (fun w -> Campfire.Views.Templates.Accounts.Users.IndexTurboStream.render w ctx users nextPage))
+                    Pages.render layout http (fun ctx -> Campfire.Views.Templates.Accounts.Users.IndexTurboStream.output ctx users nextPage)
                 Pages.applyPageHeaders http page
                 return Pages.renderOutput http 200 Pages.TurboStreamUtf8 html
             }

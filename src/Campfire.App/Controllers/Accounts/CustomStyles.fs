@@ -14,7 +14,6 @@ open Campfire.App.Web
 module CustomStyles =
     module EditPage = Campfire.Views.Templates.Accounts.CustomStyles.Edit
 
-    let private editSize = RenderSize()
 
     /// `before_action :ensure_can_administer, :set_account`
     let edit: Web.Action =
@@ -26,13 +25,7 @@ module CustomStyles =
                 do! Formats.respondTo http [ Format.Html ] |> Result.map ignore
                 let customStyles = Option.ofObj account.CustomStyles
                 return!
-                    Pages.framedPage
-                        http
-                        200
-                        editSize
-                        (fun w ctx -> EditPage.render w ctx customStyles)
-                        EditPage.head
-                        (fun w ctx -> EditPage.content w ctx customStyles)
+                    Pages.viewPage http 200 (fun ctx -> EditPage.rendered ctx customStyles)
             }
 
     /// `@account.update!(params.require(:account).permit(:custom_styles))`

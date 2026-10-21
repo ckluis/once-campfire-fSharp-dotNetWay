@@ -24,6 +24,9 @@ module Application =
         | Some roomId -> linkBackTo ctx (Routes.room roomId)
         | None -> linkBackTo ctx (Routes.root ())
 
+    /// `version_badge`.
+    let versionBadge (ctx: ViewContext) : XmlNode = Elem.span [ Attr.class' "version-badge" ] [ Html.text ctx.AppVersion ]
+
     /// `link_back`: to the referrer, unless it is missing or the current page.
     let linkBack (ctx: ViewContext) : XmlNode =
         match ctx.Referrer with

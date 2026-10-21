@@ -58,58 +58,35 @@ let private run (op: string) (args: JsonElement) (ctx: ViewContext) : Answer =
               Administrators = users (get edit "administrators")
               Members = users (get edit "members")
               NextPage = opt (get edit "next_page") }
-        Pages.pageAnswer
-            args
-            (fun w -> Templates.Accounts.Edit.render w ctx edit)
-            Templates.Accounts.Edit.head
-            (fun w -> Templates.Accounts.Edit.content w ctx edit)
+        Pages.viewPageAnswer args ctx (Templates.Accounts.Edit.rendered ctx edit)
     | "accounts/users/_user" ->
         let user = userSummary (get args "user")
-        Pages.fragmentAnswer (fun w -> Templates.Accounts.Users._User.render w ctx user)
+        Pages.nodeAnswer (fun () -> HtmlOutput.ofNode (Templates.Accounts.Users._User.render ctx user) [])
     | "accounts/users/_next_page_container" ->
-        Pages.fragmentAnswer (fun w -> Templates.Accounts.Users._NextPageContainer.render w (str (get args "page")))
+        Pages.nodeAnswer (fun () -> HtmlOutput.ofNode (Templates.Accounts.Users._NextPageContainer.render (str (get args "page"))) [])
     | "accounts/users/index_turbo_stream" ->
         let users = users (get args "users")
-        Pages.fragmentAnswer (fun w -> Templates.Accounts.Users.IndexTurboStream.render w ctx users (opt (get args "next_page")))
+        Pages.nodeAnswer (fun () -> Templates.Accounts.Users.IndexTurboStream.output ctx users (opt (get args "next_page")))
     | "accounts/bots/_bot" ->
         let bot = bot (get args "bot")
-        Pages.fragmentAnswer (fun w -> Templates.Accounts.Bots._Bot.render w ctx bot)
+        Pages.nodeAnswer (fun () -> HtmlOutput.ofNode (Templates.Accounts.Bots._Bot.render ctx bot) [])
     | "accounts/bots/_form" ->
-        let form = get args "form"
-        let mutable builder = Helpers.Forms.formWith (str (get form "url"))
-        opt (get form "model") |> Option.iter (fun m -> builder <- builder.Model m)
-        opt (get form "class") |> Option.iter (fun c -> builder <- builder.Class c)
+        let objectName = defaultArg (opt (get (get args "form") "model")) ""
         let bot = botForm (get args "bot")
-        Pages.fragmentAnswer (fun w -> Templates.Accounts.Bots._Form.render w ctx builder bot)
+        Pages.nodeAnswer (fun () -> HtmlOutput.ofNodes (Templates.Accounts.Bots._Form.render ctx objectName bot) [])
     | "accounts/bots/index" ->
         let bots = arr (get args "bots") |> List.map bot
-        Pages.pageAnswer
-            args
-            (fun w -> Templates.Accounts.Bots.Index.render w ctx bots)
-            Templates.Accounts.Bots.Index.head
-            (fun w -> Templates.Accounts.Bots.Index.content w ctx bots)
+        Pages.viewPageAnswer args ctx (Templates.Accounts.Bots.Index.rendered ctx bots)
     | "accounts/bots/new" ->
         let bot = botForm (get args "bot")
-        Pages.pageAnswer
-            args
-            (fun w -> Templates.Accounts.Bots.New.render w ctx bot)
-            Templates.Accounts.Bots.New.head
-            (fun w -> Templates.Accounts.Bots.New.content w ctx bot)
+        Pages.viewPageAnswer args ctx (Templates.Accounts.Bots.New.rendered ctx bot)
     | "accounts/bots/edit" ->
         let botId = int64Of (get args "bot_id")
         let bot = botForm (get args "bot")
-        Pages.pageAnswer
-            args
-            (fun w -> Templates.Accounts.Bots.Edit.render w ctx botId bot)
-            Templates.Accounts.Bots.Edit.head
-            (fun w -> Templates.Accounts.Bots.Edit.content w ctx botId bot)
+        Pages.viewPageAnswer args ctx (Templates.Accounts.Bots.Edit.rendered ctx botId bot)
     | "accounts/custom_styles/edit" ->
         let styles = opt (get args "custom_styles")
-        Pages.pageAnswer
-            args
-            (fun w -> Templates.Accounts.CustomStyles.Edit.render w ctx styles)
-            Templates.Accounts.CustomStyles.Edit.head
-            (fun w -> Templates.Accounts.CustomStyles.Edit.content w ctx styles)
+        Pages.viewPageAnswer args ctx (Templates.Accounts.CustomStyles.Edit.rendered ctx styles)
     | "first_runs/show" ->
         Pages.pageAnswer
             args

@@ -1,34 +1,25 @@
 // Port of rust/crates/views/templates/accounts/_help_contact.html (reference/app/views/accounts/_help_contact.html.erb)
 /// `accounts/_help_contact.html.erb`: how to reach the person to ask for help, on the sign-in and
-/// sign-up pages.
+/// sign-up pages. Nothing when there is nobody to ask.
 module Campfire.Views.Templates.Accounts._HelpContact
 
+open Falco.Markup
 open Campfire.Views
 open Campfire.Views.Accounts
-open Campfire.Views.Helpers
+open Campfire.Views.Markup
 
-let private t0 = Utf8.lit "  <div class=\"txt-align-center margin-block-double full-width\">\n    "
-let private t1 = Utf8.lit "\n      "
-let private t2 = Utf8.lit "\n      <span>"
-let private t3 = Utf8.lit "</span>\n"
-let private t4 = Utf8.lit "\n    <div class=\"txt-align-center center margin-block txt-subtle\">Campfire&trade; version "
-let private t5 = Utf8.lit "</div>\n  </div>\n"
-
-let render (w: Out) (ctx: ViewContext) (helpContact: HelpContact option) : unit =
+let render (ctx: ViewContext) (helpContact: HelpContact option) : XmlNode list =
     match helpContact with
     | Some owner ->
-        w.Lit t0
-        Filters.linkTo
-            w
-            ("mailto:\"" + owner.Name + "\" <" + owner.EmailAddress + ">")
-            (Tag.attrs().Class("btn center").Title("Email " + owner.Name))
-            (fun w ->
-                w.Lit t1
-                Assets.imageTag w ctx "lifebuoy.svg" (Tag.attrs().AriaHidden())
-                w.Lit t2
-                w.Text owner.EmailAddress
-                w.Lit t3)
-        w.Lit t4
-        Application.versionBadge w ctx
-        w.Lit t5
-    | None -> ()
+        [ Elem.div
+              [ Attr.class' "txt-align-center margin-block-double full-width" ]
+              [ Links.linkTo
+                    ("mailto:\"" + owner.Name + "\" <" + owner.EmailAddress + ">")
+                    [ Attr.class' "btn center"; Html.attr "title" ("Email " + owner.Name) ]
+                    [ Assets.image ctx "lifebuoy.svg" [ Attr.create "aria-hidden" "true" ]
+                      Html.sp
+                      Elem.span [] [ Html.text owner.EmailAddress ] ]
+                Elem.div
+                    [ Attr.class' "txt-align-center center margin-block txt-subtle" ]
+                    [ Text.raw "Campfire&trade; version "; Application.versionBadge ctx ] ] ]
+    | None -> []

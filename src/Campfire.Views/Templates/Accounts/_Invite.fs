@@ -3,55 +3,51 @@
 /// account page and the original room's invitation.
 module Campfire.Views.Templates.Accounts._Invite
 
+open Falco.Markup
 open Campfire.Routes
 open Campfire.Views
-open Campfire.Views.Helpers
+open Campfire.Views.Markup
 
-let private t0 = Utf8.lit "<div class=\"flex flex-column align-center gap\">\n"
-let private t1 = Utf8.lit "\n  <label class=\"flex flex-column gap full-width\" style=\"--row-gap: 0.5em\">\n    <strong id=\"invite_label\" class=\"invite-label\">Share to invite more people</strong>\n    <span class=\"flex align-center gap input input--actor fill-white\">\n      "
-let private t2 = Utf8.lit "\n      <input type=\"text\" class=\"input\" id=\"invite_url\" value=\""
-let private t3 = Utf8.lit "\" aria-labelledby=\"invite_label\" readonly>\n    </span>\n  </label>\n\n  <div class=\"flex align-center gap\">\n    "
-let private t4 = Utf8.lit "\n      <span class=\"for-screen-reader\">Show join link QR code</span>\n      "
-let private t5 = Utf8.lit "\n"
-let private t6 = Utf8.lit "\n    "
-let private t7 = Utf8.lit "\n      <span class=\"for-screen-reader\">Copy join link</span>\n      "
-let private t8 = Utf8.lit "\n"
-let private t9 = Utf8.lit "\n    "
-let private t10 = Utf8.lit "\n      <span class=\"for-screen-reader\">Share join link</span>\n      "
-let private t11 = Utf8.lit "\n"
-let private t12 = Utf8.lit "\n"
-let private t13 = Utf8.lit "      "
-let private t14 = Utf8.lit "\n        "
-let private t15 = Utf8.lit "\n        <span class=\"for-screen-reader\">Regenerate join link</span>\n"
-let private t16 = Utf8.lit "  </div>\n</div>\n"
+let private icon (ctx: ViewContext) (source: string) : XmlNode =
+    Assets.imageSized ctx source 20 [ Attr.create "aria-hidden" "true"; Attr.class' "colorize--black" ]
 
-let render (w: Out) (ctx: ViewContext) (joinCode: string) : unit =
-    w.Lit t0
+/// A button's screen-reader label, then its icon.
+let private labelled (ctx: ViewContext) (label: string) (source: string) : XmlNode list =
+    [ Application.screenReader label; Html.sp; icon ctx source ]
+
+let render (ctx: ViewContext) (joinCode: string) : XmlNode =
     let url = ctx.Url(Routes.join joinCode)
-    w.Lit t1
-    Assets.imageTag w ctx "person-add.svg" (Tag.attrs().AriaHidden().Size(20).Class("colorize--black"))
-    w.Lit t2
-    w.Text url
-    w.Lit t3
-    Filters.linkToZoomQrCode w url (fun w ->
-        w.Lit t4
-        Assets.imageTag w ctx "qr-code.svg" (Tag.attrs().AriaHidden().Size(20).Class("colorize--black"))
-        w.Lit t5)
-    w.Lit t6
-    Filters.buttonToCopyToClipboard w url (fun w ->
-        w.Lit t7
-        Assets.imageTag w ctx "copy-paste.svg" (Tag.attrs().AriaHidden().Size(20).Class("colorize--black"))
-        w.Lit t8)
-    w.Lit t9
-    Filters.webShareSessionButton w url "Link to join Campfire" "Hit this link to join me in Campfire and start chatting." (fun w ->
-        w.Lit t10
-        Assets.imageTag w ctx "share.svg" (Tag.attrs().AriaHidden().Size(20).Class("colorize--black"))
-        w.Lit t11)
-    w.Lit t12
-    if ctx.CanAdminister then
-        w.Lit t13
-        Filters.buttonTo w (Routes.accountJoinCode ()) (Tag.attrs().Class("btn btn--regenerate")) (fun w ->
-            w.Lit t14
-            Assets.imageTag w ctx "refresh.svg" (Tag.attrs().AriaHidden().Size(20).Class("colorize--black"))
-            w.Lit t15)
-    w.Lit t16
+    Elem.div
+        [ Attr.class' "flex flex-column align-center gap" ]
+        [ Elem.label
+              [ Attr.class' "flex flex-column gap full-width"; Attr.create "style" "--row-gap: 0.5em" ]
+              [ Elem.strong [ Attr.id "invite_label"; Attr.class' "invite-label" ] [ Text.raw "Share to invite more people" ]
+                Html.sp
+                Elem.span
+                    [ Attr.class' "flex align-center gap input input--actor fill-white" ]
+                    [ Assets.imageSized ctx "person-add.svg" 20 [ Attr.create "aria-hidden" "true"; Attr.class' "colorize--black" ]
+                      Html.sp
+                      Elem.input
+                          [ Attr.create "type" "text"
+                            Attr.class' "input"
+                            Attr.id "invite_url"
+                            Html.attr "value" url
+                            Attr.create "aria-labelledby" "invite_label"
+                            Attr.readonly ] ] ]
+          Elem.div
+              [ Attr.class' "flex align-center gap" ]
+              [ Application.linkToZoomQrCode url (labelled ctx "Show join link QR code" "qr-code.svg")
+                Html.sp
+                Application.buttonToCopyToClipboard url (labelled ctx "Copy join link" "copy-paste.svg")
+                Html.sp
+                Application.webShareSessionButton
+                    url
+                    "Link to join Campfire"
+                    "Hit this link to join me in Campfire and start chatting."
+                    (labelled ctx "Share join link" "share.svg")
+                if ctx.CanAdminister then
+                    Forms.buttonTo
+                        (Routes.accountJoinCode ())
+                        "post"
+                        [ Attr.class' "btn btn--regenerate" ]
+                        [ icon ctx "refresh.svg"; Html.sp; Application.screenReader "Regenerate join link" ] ] ]

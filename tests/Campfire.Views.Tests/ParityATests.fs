@@ -230,7 +230,7 @@ let ``accounts edit`` () =
               Administrators = administrators
               Members = members
               NextPage = if name = "account_edit_paginated" then Some "2" else None }
-        assertParity name "html" (Render.text (fun w -> Templates.Accounts.Edit.render w ctx edit))
+        assertParity name "html" ((Legacy.inLayout ctx false (Templates.Accounts.Edit.rendered ctx edit)).ToString())
 
 /// `bot.rooms.without_directs.ordered` for each active bot of case `name`.
 let private bots (name: string) : Accounts.Bot list =
@@ -252,11 +252,11 @@ let ``accounts bots`` () =
     let name = "bots_index"
     let ctx = context name Request.none
     let list = bots name
-    assertParity name "html" (Render.text (fun w -> Templates.Accounts.Bots.Index.render w ctx list))
+    assertParity name "html" ((Legacy.inLayout ctx false (Templates.Accounts.Bots.Index.rendered ctx list)).ToString())
 
     let name = "bots_new"
     let ctx = context name Request.none
-    assertParity name "html" (Render.text (fun w -> Templates.Accounts.Bots.New.render w ctx Accounts.BotForm.empty))
+    assertParity name "html" ((Legacy.inLayout ctx false (Templates.Accounts.Bots.New.rendered ctx Accounts.BotForm.empty)).ToString())
 
     for (name, withAvatar) in [ "bots_edit", false; "bots_edit_with_avatar", true ] do
         let ctx = context name Request.none
@@ -266,14 +266,14 @@ let ``accounts bots`` () =
               WebhookUrl = Inputs.opt (bender.GetProperty "webhook_url")
               AvatarAttachmentUrl = if withAvatar then Inputs.opt ((case name).GetProperty "avatar_url") else None }
         let botId = bender.GetProperty("id").GetInt64()
-        assertParity name "html" (Render.text (fun w -> Templates.Accounts.Bots.Edit.render w ctx botId form))
+        assertParity name "html" ((Legacy.inLayout ctx false (Templates.Accounts.Bots.Edit.rendered ctx botId form)).ToString())
 
 [<Fact>]
 let ``accounts custom styles`` () =
     for name in [ "custom_styles_edit"; "custom_styles_layout" ] do
         let ctx = context name Request.none
         let styles = Inputs.opt (accountFact name "custom_styles")
-        assertParity name "html" (Render.text (fun w -> Templates.Accounts.CustomStyles.Edit.render w ctx styles))
+        assertParity name "html" ((Legacy.inLayout ctx false (Templates.Accounts.CustomStyles.Edit.rendered ctx styles)).ToString())
 
 [<Fact>]
 let ``first runs show`` () =
@@ -384,4 +384,4 @@ let ``accounts users index turbo stream`` () =
     let name = "account_users_page_2"
     let ctx = context name Request.none
     let users = [ for n in (case name).GetProperty("page_users").EnumerateArray() -> named name (text n) ]
-    assertParity name "turbo_stream.html" (Render.text (fun w -> Templates.Accounts.Users.IndexTurboStream.render w ctx users None))
+    assertParity name "turbo_stream.html" ((Templates.Accounts.Users.IndexTurboStream.output ctx users None).ToString())

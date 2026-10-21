@@ -2,75 +2,69 @@
 /// `accounts/bots/_bot.html.erb`: a bot, with the curl commands that post to each of its rooms.
 module Campfire.Views.Templates.Accounts.Bots._Bot
 
+open Falco.Markup
 open Campfire.Routes
 open Campfire.Views
 open Campfire.Views.Accounts
 open Campfire.Views.Helpers
+open Campfire.Views.Markup
 
-let private t0 = Utf8.lit "<li class=\"flex flex-column gap flush fill-shade border-radius pad-block pad-inline-double\">\n  <div class=\"flex align-center gap\">\n    <figure class=\"avatar flex-item--no-shrink\" style=\"--avatar-size: 2.65em;\">\n      "
-let private t1 = Utf8.lit "\n    </figure>\n\n    <div class=\"min-width\">\n      <div class=\"overflow-ellipsis txt-large\"><strong>"
-let private t2 = Utf8.lit "</strong></div>\n    </div>\n\n    "
-let private t3 = Utf8.lit "\n      "
-let private t4 = Utf8.lit "\n      <span class=\"for-screen-reader\">Edit "
-let private t5 = Utf8.lit "</span>\n"
-let private t6 = Utf8.lit "  </div>\n\n"
-let private t7 = Utf8.lit "    <fieldset class=\"gap max-width pad border border-radius\">\n      <legend class=\"min-width txt-align-start pad-inline\">\n        <strong class=\"overflow-ellipsis\">"
-let private t8 = Utf8.lit "</strong>\n      </legend>\n\n"
-let private t9 = Utf8.lit "      <div class=\"flex align-center gap\">\n        "
-let private t10 = Utf8.lit "\n\n        <div class=\"flex-item-grow\">\n          <input type=\"text\" class=\"input full-width fill-white\" value=\""
-let private t11 = Utf8.lit "\" aria-label=\"curl command for posting messages\" readonly>\n        </div>\n\n        <div class=\"txt-small\">\n          "
-let private t12 = Utf8.lit "\n            "
-let private t13 = Utf8.lit "\n            <span class=\"for-screen-reader\">Copy message command</span>\n"
-let private t14 = Utf8.lit "        </div>\n      </div>\n\n"
-let private t15 = Utf8.lit "      <div class=\"flex align-center gap\">\n        "
-let private t16 = Utf8.lit "\n\n        <div class=\"flex-item-grow\">\n          <input type=\"text\" class=\"input full-width fill-white\" value=\""
-let private t17 = Utf8.lit "\" aria-label=\"curl command for posting attachments\" readonly>\n        </div>\n\n        <div class=\"txt-small\">\n          "
-let private t18 = Utf8.lit "\n            "
-let private t19 = Utf8.lit "\n            <span class=\"for-screen-reader\">Copy attachment command</span>\n"
-let private t20 = Utf8.lit "        </div>\n      </div>\n    </fieldset>\n"
-let private t21 = Utf8.lit "</li>\n"
+let private hidden: XmlAttribute = Attr.create "aria-hidden" "true"
 
-let render (w: Out) (ctx: ViewContext) (bot: Bot) : unit =
-    w.Lit t0
-    UsersHelper.avatarTag w ctx bot.User.Avatar (Tag.attrs().Loading("lazy"))
-    w.Lit t1
-    w.Text bot.User.Name
-    w.Lit t2
-    Filters.linkTo
-        w
-        (Routes.editAccountBot bot.User.Id)
-        (Tag.attrs().Class("btn flex-item-justify-end").Style(Tag.Numbered("view-transition-name: chat-bot-", bot.User.Id)))
-        (fun w ->
-            w.Lit t3
-            Assets.imageTag w ctx "pencil.svg" (Tag.attrs().AriaHidden().Size(20))
-            w.Lit t4
-            w.Text bot.User.Name
-            w.Lit t5)
-    w.Lit t6
-    for room in bot.Rooms do
-        w.Lit t7
-        w.Text room.Name
-        w.Lit t8
-        let curlTextLine = UsersHelper.curlTextLine (ctx.Url(Routes.roomBotMessages room.Id bot.BotKey))
-        w.Lit t9
-        Assets.imageTag w ctx "messages-outlined.svg" (Tag.attrs().AriaHidden().Size(24).Class("colorize--black"))
-        w.Lit t10
-        w.Text curlTextLine
-        w.Lit t11
-        Filters.buttonToCopyToClipboard w curlTextLine (fun w ->
-            w.Lit t12
-            Assets.imageTag w ctx "copy-paste.svg" (Tag.attrs().AriaHidden().Size(20))
-            w.Lit t13)
-        w.Lit t14
-        let curlUploadLine = UsersHelper.curlUploadLine (ctx.Url(Routes.roomBotMessages room.Id bot.BotKey))
-        w.Lit t15
-        Assets.imageTag w ctx "attachment.svg" (Tag.attrs().AriaHidden().Size(24).Class("colorize--black"))
-        w.Lit t16
-        w.Text curlUploadLine
-        w.Lit t17
-        Filters.buttonToCopyToClipboard w curlUploadLine (fun w ->
-            w.Lit t18
-            Assets.imageTag w ctx "copy-paste.svg" (Tag.attrs().AriaHidden().Size(20))
-            w.Lit t19)
-        w.Lit t20
-    w.Lit t21
+/// One curl command: its icon, a read-only field holding it and the button that copies it.
+let private commandRow (ctx: ViewContext) (iconSource: string) (line: string) (ariaLabel: string) (copyLabel: string) : XmlNode =
+    Elem.div
+        [ Attr.class' "flex align-center gap" ]
+        [ Assets.imageSized ctx iconSource 24 [ hidden; Attr.class' "colorize--black" ]
+          Elem.div
+              [ Attr.class' "flex-item-grow" ]
+              [ Elem.input
+                    [ Attr.create "type" "text"
+                      Attr.class' "input full-width fill-white"
+                      Html.attr "value" line
+                      Html.attr "aria-label" ariaLabel
+                      Attr.readonly ] ]
+          Elem.div
+              [ Attr.class' "txt-small" ]
+              [ Application.buttonToCopyToClipboard
+                    line
+                    [ Assets.imageSized ctx "copy-paste.svg" 20 [ hidden ]; Html.sp; Application.screenReader copyLabel ] ] ]
+
+let render (ctx: ViewContext) (bot: Bot) : XmlNode =
+    Elem.li
+        [ Attr.class' "flex flex-column gap flush fill-shade border-radius pad-block pad-inline-double" ]
+        [ Elem.div
+              [ Attr.class' "flex align-center gap" ]
+              [ Elem.figure
+                    [ Attr.class' "avatar flex-item--no-shrink"; Attr.create "style" "--avatar-size: 2.65em;" ]
+                    [ Markup.Users.avatarTag ctx bot.User.Avatar [ Attr.create "loading" "lazy" ] ]
+                Elem.div
+                    [ Attr.class' "min-width" ]
+                    [ Elem.div [ Attr.class' "overflow-ellipsis txt-large" ] [ Elem.strong [] [ Html.text bot.User.Name ] ] ]
+                Links.linkTo
+                    (Routes.editAccountBot bot.User.Id)
+                    [ Attr.class' "btn flex-item-justify-end"
+                      Html.attr "style" ("view-transition-name: chat-bot-" + string bot.User.Id) ]
+                    [ Assets.imageSized ctx "pencil.svg" 20 [ hidden ]
+                      Html.sp
+                      Elem.span [ Attr.class' "for-screen-reader" ] [ Html.text ("Edit " + bot.User.Name) ] ] ]
+          for room in bot.Rooms do
+              let url = ctx.Url(Routes.roomBotMessages room.Id bot.BotKey)
+              Elem.create
+                  "fieldset"
+                  [ Attr.class' "gap max-width pad border border-radius" ]
+                  [ Elem.legend
+                        [ Attr.class' "min-width txt-align-start pad-inline" ]
+                        [ Elem.strong [ Attr.class' "overflow-ellipsis" ] [ Html.text room.Name ] ]
+                    commandRow
+                        ctx
+                        "messages-outlined.svg"
+                        (UsersHelper.curlTextLine url)
+                        "curl command for posting messages"
+                        "Copy message command"
+                    commandRow
+                        ctx
+                        "attachment.svg"
+                        (UsersHelper.curlUploadLine url)
+                        "curl command for posting attachments"
+                        "Copy attachment command" ] ]

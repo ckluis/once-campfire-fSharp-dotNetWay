@@ -18,9 +18,6 @@ module Bots =
     module NewPage = Campfire.Views.Templates.Accounts.Bots.New
     module EditPage = Campfire.Views.Templates.Accounts.Bots.Edit
 
-    let private indexSize = RenderSize()
-    let private newSize = RenderSize()
-    let private editSize = RenderSize()
 
     /// ApplicationController's chain, then `ensure_can_administer`.
     let private before (http: HttpContext) =
@@ -54,13 +51,7 @@ module Bots =
                 let! users = Data.read http User.activeBotsOrdered
                 let! bots = Data.read http (fun db -> users |> List.map (Accounts.bot db secrets))
                 return!
-                    Pages.framedPage
-                        http
-                        200
-                        indexSize
-                        (fun w ctx -> IndexPage.render w ctx bots)
-                        IndexPage.head
-                        (fun w ctx -> IndexPage.content w ctx bots)
+                    Pages.viewPage http 200 (fun ctx -> IndexPage.rendered ctx bots)
             }
 
     let ``new``: Web.Action =
@@ -70,13 +61,7 @@ module Bots =
                 do! Formats.respondTo http [ Format.Html ] |> Result.map ignore
                 let bot = Campfire.Views.Accounts.BotForm.empty
                 return!
-                    Pages.framedPage
-                        http
-                        200
-                        newSize
-                        (fun w ctx -> NewPage.render w ctx bot)
-                        NewPage.head
-                        (fun w ctx -> NewPage.content w ctx bot)
+                    Pages.viewPage http 200 (fun ctx -> NewPage.rendered ctx bot)
             }
 
     /// `User.create_bot! bot_params`
@@ -114,13 +99,7 @@ module Bots =
                 let! webhookUrl = Data.read http (fun db -> User.webhookUrl db bot)
                 let! form = Data.read http (fun db -> Accounts.botForm db storage baseUrl bot webhookUrl)
                 return!
-                    Pages.framedPage
-                        http
-                        200
-                        editSize
-                        (fun w ctx -> EditPage.render w ctx botId form)
-                        EditPage.head
-                        (fun w ctx -> EditPage.content w ctx botId form)
+                    Pages.viewPage http 200 (fun ctx -> EditPage.rendered ctx botId form)
             }
 
     /// `@bot.update_bot! bot_params`: the webhook first, then the bot, in one transaction.

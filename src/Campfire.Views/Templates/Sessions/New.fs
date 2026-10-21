@@ -79,7 +79,7 @@ let content (w: Out) (ctx: ViewContext) (emailAddress: string option) (helpConta
             w.Lit t14)
         w.Lit t15)
     w.Lit t16
-    Campfire.Views.Templates.Accounts._HelpContact.render w ctx helpContact
+    Legacy.write w (HtmlOutput.ofNodes (Campfire.Views.Templates.Accounts._HelpContact.render ctx helpContact) [])
     w.Lit t17
 
 let render (w: Out) (ctx: ViewContext) (emailAddress: string option) (helpContact: HelpContact option) : unit =
