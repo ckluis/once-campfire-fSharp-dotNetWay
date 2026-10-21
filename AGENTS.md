@@ -146,7 +146,7 @@ Project references follow the crate graph. Don't add an edge Rust doesn't have.
   about 20 seconds; ACME is tested against a stub CA in the tests, and against a real Pebble CA when `PEBBLE_MINICA`
   names its `pebble.minica.pem` (the recipe is at the top of `FrontAcmeIntegrationTests.fs`; in colima, give Pebble
   `--add-host campfire.test:192.168.5.2`, the VM's name for the Mac, and `docker cp` the root into `target/`).
-  `bench/front/run` measures the front server against Rust's; run it after changing `Front/` or `Web/PageParts.fs`.
+  `bench/front/run` measures the front server against Rust's; run it after changing `Front/` or `Web/Pages.fs`.
   The TLS session-resumption test needs Linux (Kestrel issues no session tickets through macOS's TLS stack, so it skips
   there) and `openssl`; `bin/linux-tests Kit` runs `Campfire.Kit.Tests` in `Dockerfile.toolchain` inside colima.
 - Phase 7 measuring (all inside colima, `SERVER_CPUS=0-3 LOADGEN_CPUS=4-7`): `bench/quick` is the before/after runner, **F# only by default**
@@ -208,7 +208,9 @@ Project references follow the crate graph. Don't add an edge Rust doesn't have.
   requires every non-literal attribute value or `Text.raw` in `Campfire.Views`/`Campfire.App` to go through `Core/Html.fs`
   (`Html.attr`, `Html.text`, `Html.trusted`; Falco.Markup 1.4.0 writes them raw). `tests/Shared/LooseDom.fs` is the harness's loose DOM in F#
   (AngleSharp), pinned to `loose.ts` by `tests/Campfire.Views.Tests/loose/` (`parity/bin/loose-golden` rewrites it); the view tests compare
-  through it. `tests/Campfire.Views.Tests/oracle.jsonl` is the frozen sample of Rust's answers (hostile text included): don't rerun
+  through it. `Core/HtmlOutput.fs` is a rendered page in parts (UTF-8 text parts with a `CachedFragment` between each two; `Html.fragment` is the slot a
+  Falco template places one with); `Pages.send` writes it and keeps its compressed form in HybridCache by the SHA-256 of its parts
+  (`Fragments.compressedPage`). `tests/Campfire.Views.Tests/oracle.jsonl` is the frozen sample of Rust's answers (hostile text included): don't rerun
   `bin/views-differential golden` unless you are adding an operation.
 - Commit each logical unit on the current branch with a message saying what and why. Don't push.
 - Toolchain: .NET SDK 11.0.100-rc.2.26504.105 (net11.0; 10.0.401 stays beside it) in `~/.dotnet` (`export PATH="$HOME/.dotnet:$PATH"`).

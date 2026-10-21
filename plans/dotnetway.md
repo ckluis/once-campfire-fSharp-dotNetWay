@@ -1726,3 +1726,84 @@ D1-D9, with the cheap checks re-run. Evidence in `bench/results/dotnetway-p3-ver
   (the point of V11); the lint's allowlist has a fourth maker (`ofLegacy`) that dies with the seam in 4.11.
 - **KLOC:** `bin/kloc` 34,645 by upstream's rules, **34,864 corrected (34.9 KLOC)**, from 34,837 (+27: `Html.fs` and `Legacy.fs`; the tests,
   the lint and the planted files are not counted). The drop starts when templates move.
+
+### Phase 4, unit 4.2: Pages in parts (2026-10-21)
+
+- **Built (`e6b2999`, `09b424e`):** `CachedFragment` (`Core/Fragment.fs`: bytes, SHA-256 made with it, a process-unique `Id`) replaces `Fragment`
+  in the current `FragmentCache`, and `IFragmentAttachment` goes (the cache counts a fragment's bytes, as Rust does; the SHA and the compressed
+  pieces are not the cache's any more). `Html.fragment` writes the slot (`<` U+E000 id `>`). `Core/HtmlOutput.fs`: `HtmlOutput` (parts,
+  fragments, `Length`, `TextLength`, `Digest()` = SHA-256 over each part with its length and each fragment's digest, `WriteTo`, `ToArray`,
+  `ToString`) and `ofNode`/`ofDocument`/`ofNodes`/`text`: Falco's string split at the slots, each fragment found by `Id`; a slot whose fragment
+  was not passed, a fragment placed twice, and one passed and never placed all raise. `Out.Fragment` takes a `CachedFragment` (recorded at
+  1 KB and over, copied below, as before), `Out.ToOutput()` cuts the text at the recorded offsets, `Out.Page` takes an `HtmlOutput`,
+  `Render.page` and `RenderSize.Render` return one. `Layouts.fs` has `Regions` and `ViewPage` (V8); `Core/Legacy.fs` moved after it in the
+  project (it calls the writer's layouts) with `write` and `inLayout` (each region rendered by Falco, written with `write`, so the fragments stay
+  fragments in the application layout or turbo-rails' frame layout). `Core/Fragments.fs`: `Fragments.add` (a memory cache with `SizeLimit` =
+  `FragmentCacheBytes` and `TrackStatistics`, `AddHybridCache` with `MaximumPayloadBytes` 4 MiB, 7-day expirations and
+  `DisableDistributedCache` as the default flag, because the session's `IDistributedCache` would otherwise become an L2) and
+  `Fragments.compressedPage` (key `page/<encoding>/<digest hex>`, an immutable `CompressedPage`, a serializer for it and for `CachedFragment`);
+  `Microsoft.Extensions.Caching.Hybrid` 10.11.0 in `Directory.Packages.props`. `Pages.send` writes an `HtmlOutput`: `Content-Length` from
+  `Length`, a page with at least one fragment and a compressing request goes out as the kept `CompressedPage` (already encoded, `Vary`), a page
+  in parts otherwise through `HtmlOutput.WriteTo` (part, fragment, part), and a page of one part through `Body.WriteAsync` (see below).
+  **Deleted:** `RecordedPage`, `Web/PageParts.fs` (`Generations`, `BodyDigest`, the splice and the text-digest caches, 527 lines),
+  `FragmentGlue.fs`, the `PageCompression` map, `recordedAs`, `RecordedTests`, `FragmentGlueTests`, `PagePartsTests`.
+- **Tests:** O4 (`HtmlOutputTests`: a page is its parts and fragments in order; U+E000 and a typed slot in text, an attribute value or trusted
+  text leave the part count unchanged; placed-not-passed, passed-not-placed and placed-twice throw; the digest changes with one byte of one
+  part, one fragment, or where a part boundary falls; `Legacy.inLayout` keeps the fragments in both layouts and checks them), P1
+  (`Web/PagesTests`: over the app, with a counting compression provider: `Content-Length` is the plain length, HEAD keeps it with no body,
+  the first gzip request makes one compressed stream and the second none with the same bytes, br is a page of its own made once and gzip is
+  still kept, a compressing HEAD makes none; and 16 concurrent requests for one page make one), P2 (the warm 40-fragment room page, rendered,
+  digested and written in process: **30 KB per page** against the 300 KB bound; one string per page would be 1.6 MB). `RespondTests` X4 now also
+  decodes the `gzip, br` answer and says the kept page is HybridCache's; `RoomsTests` "pages of messages go out in parts" is unchanged in what
+  it asserts (more than 40 writes, the gzip decoding to the plain page, HEAD) and its comment points at `Fragments.compressedPage`. The
+  `FragmentCacheTests` lost the two tests of fragment attachments (the budget no longer counts pieces); `OutTests` has the sized and frame-layout
+  tests that were in `RecordedTests`. The differential's F# runner computes the recorded text and offsets from the parts (`Answer.fs`).
+- **Gates run:** `CAMPFIRE_REQUIRE_SEED=1 bin/verify` (Release, warnings as errors): lint self-test ok, lint clean (222 files), **991 total, 985
+  passed, 6 skipped (the same environmental 6), 0 failed**; H1 green. **Network layer on the image** (`bench/results/dotnetway-4-2/network.log`,
+  `network.sh`: David signed in over curl): the room page (416,116 bytes) and a page of older messages (383,844) for no `Accept-Encoding`,
+  `identity`, `gzip`, `br` and `gzip, br`, twice each: no `Content-Encoding` for none and identity, exactly one header otherwise (`gzip`; `br`;
+  `br` for `gzip, br`), `Vary` carries `Accept-Encoding`, `Content-Length` is the encoded length (37,392 gzip and 21,802 br for the room page,
+  25,383 and 11,226 for the messages page), every body decodes to the plain length, the second request is the same size. `bin/pixel-parity --fast`
+  on the image built from `e6b2999`: `rooms/**,messages/**,search/**,interactions/sidebar*`: default 146/146, crowd 8/8, custom_styles 6/6,
+  first_run 0/0, restricted 2/2 screenshots, aria and loose DOM equal (504 s); `realtime/message_sent`, `realtime/boosted`,
+  `realtime/message_edited`, one at a time, 2/2 each (34-37 s). After the one-line change of `09b424e`: `rooms/**,interactions/sidebar*` on
+  the default seed, 74/74 equal (222 s). `bin/clean-parity` between runs; `bin/clean-docker` after each build.
+- **Speed (`bench/quick`, 3 reps, interleaved new/ctl/ctl/new/new/ctl via `bench.sh`; control = the image of `ff1771e`, whose `src/` is
+  identical to the base `4b7c03d` (empty `git diff`), tagged `campfire-dotnetway:u42ctl`, label checked, removed after; host probe ratio
+  1.04-1.06 on every window, Mac load average 3.2-4.3 from other sessions at each rep boundary (`loads.txt`), 0 non-2xx and 0 connection
+  errors in 30 runs per side, decoded bytes equal Rust's, post rows equal answers):** with `e6b2999`:
+
+| workload | c | control req/s | new req/s | x Rails (new) | x Rails (control) | CPU us/req ctl -> new |
+|---|---:|---:|---:|---:|---:|---|
+| room page | 16 | 8,239 | 8,149 | 34.05 | 34.43 | 399 -> 407 |
+| room page | 1 | 2,740 | 2,712 | 25.32 | 25.58 | 463 -> 466 |
+| messages page | 16 | 7,579 | 7,634 | 20.06 | 19.91 | 441 -> 437 |
+| messages page | 1 | 2,403 | 2,388 | 10.96 | 11.03 | 512 -> 514 |
+| sidebar | 16 | 7,683 | 7,670 | 12.81 | 12.84 | 438 -> 440 |
+| sidebar | 1 | 2,327 | 2,274 | 7.94 | 8.12 | 529 -> **643** |
+| search | 16 | 7,510 | 7,378 | 18.09 | 18.41 | 455 -> 462 |
+| search | 1 | 2,318 | 2,294 | 11.90 | 12.03 | 525 -> 528 |
+| post a message | 16 | 2,049 | 2,030 | 6.15 | 6.21 | 1,468 -> 1,468 |
+| post a message | 1 | 1,122 | 1,113 | 6.67 | 6.72 | 1,625 -> 1,625 |
+
+  Every cell is within -2.3% to +0.7% of the control's throughput and over the 5x floor (thinnest: post c=16 6.15x, post c=1 6.67x, sidebar
+  c=1 7.94x). **One real regression, found and fixed:** sidebar c=1 burned 643 us of CPU per request against 529 (all three reps, 613-649)
+  though its throughput moved only -2.3%. The sidebar is a page with no fragment, which `Pages` had written with `Body.WriteAsync` and
+  my first `send` wrote through `BodyWriter`, which the response compression middleware backs with a stream-pipe copy. A page of one part is
+  written with `Body.WriteAsync` again (`09b424e`); pages in parts still use the writer, as before. Re-measured, sidebar only (the one
+  workload the change touches; rooms, messages, search and post all have fragments, so their path is unchanged), 3 reps interleaved with the
+  same control, load 3.2-4.3, `bench/results/dotnetway-4-2/new2`, `ctl2`: **c=1 2,401 against 2,422 req/s (8.38x against 8.45x Rails), CPU
+  505 against 510 us/req; c=16 7,748 against 7,767 (12.94x against 12.98x), 436 against 435**. The first run's S4 prediction (sidebar c=1
+  7.99x -> about 7.8x) was pessimistic: the layout is not rebuilt by Falco until 4.10. Allocation per page on the room page: 30 KB with the
+  writer (the design's 150-200 KB arrives with the Falco templates).
+- **Not done as asked, and why:** the full five-workload bench ran on `e6b2999`, not on the final `09b424e` (a 50-minute run); the sidebar,
+  the only workload whose code path changed in `09b424e`, was re-run on it. `Fragments.add` is the first user of HybridCache: its memory cache
+  has the same 32 MiB (`FragmentCacheBytes`) as the old `FragmentCache`, so until 4.3 deletes the old one the process may hold both (the
+  kept compressed pages are 20-40 KB each).
+- **Differences recorded:** none for the README (the bytes of every page are the writer's). Internal: a kept compressed page is HybridCache's,
+  not a two-generation map (evicted by `MemoryCache` compaction, 7-day expiry, the key is the SHA-256 of the parts and the fragments' digests,
+  so a page that changes in one byte is another page).
+- **KLOC:** `bin/kloc` 34,428 by upstream's rules, **34,647 corrected (34.6 KLOC)**, from 34,864 (-217: `PageParts.fs` 384 and
+  `FragmentGlue.fs` 21 out; `HtmlOutput`, `Fragments` and the bigger `Legacy` in, about 180). `Campfire.Views` 6,017 corrected, App 11,854.
+- Evidence: `bench/results/dotnetway-4-2/` (`new/`, `ctl/`, `new2/`, `ctl2/`, `bench.sh`, `bench-sidebar.sh`, `pixel.sh`, `network.sh`, logs,
+  `loads.txt`, `loads2.txt`). `bin/clean-docker` and `bin/clean-parity` run; the control image removed; 28 GB free.
