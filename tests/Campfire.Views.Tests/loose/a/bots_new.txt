@@ -1,0 +1,200 @@
+<body class="admin" data-controller="local-time lightbox">
+  <a class="btn skip-navigation" href="#main-content">
+    "Skip to main content"
+  </a>
+  <nav id="nav">
+    <div class="flex-item-justify-start">
+      <a class="btn" href="/account/bots">
+        <img aria-hidden="true" height="20" src="/assets/arrow-left-«digest».svg" width="20">
+        <span class="for-screen-reader">
+          "Go Back"
+        </span>
+      </a>
+    </div>
+  </nav>
+  <main id="main-content">
+    <section class="panel">
+      <form accept-charset="UTF-8" action="/account/bots" class="flex flex-column gap" enctype="multipart/form-data" method="post">
+        <h1 class="for-screen-reader">
+          "Chat Bot Setup"
+        </h1>
+        <label class="align-center avatar__form center gap" data-controller="upload-preview">
+          <div class="btn input--file">
+            <img aria-hidden="true" height="20" src="/assets/camera-«digest».svg" width="20">
+            " "
+            <input accept="image/*" class="input" data-action="upload-preview#previewImage" data-upload-preview-target="input" id="user_avatar" name="user[avatar]" type="file">
+            " "
+            <span class="for-screen-reader">
+              "Upload bot avatar"
+            </span>
+          </div>
+          <div class="avatar input--file txt-xx-large" style="--avatar-size: var(--btn-size);">
+            <img alt="Bot avatar" data-upload-preview-target="image" height="48" src="/assets/default-bot-avatar-«digest».svg" width="48">
+          </div>
+        </label>
+        <div class="align-center flex gap">
+          <details class="position-relative" data-action="keydown.esc->popup#close toggle->popup#toggle click@document->popup#closeOnClickOutside" data-controller="popup" data-popup-orientation-top-class="popup-orientation-top">
+            <summary class="btn" tabindex="-1">
+              <img aria-hidden="true" class="color-icon" height="20" src="/assets/globe-«digest».svg" width="20">
+              <span class="for-screen-reader">
+                "Translate"
+              </span>
+            </summary>
+            <div class="language-list-menu shadow" data-popup-target="menu">
+              <dl class="language-list">
+                <dt>
+                  "🇺🇸"
+                </dt>
+                <dd class="margin-none">
+                  "Name the bot"
+                </dd>
+                <dt>
+                  "🇪🇸"
+                </dt>
+                <dd class="margin-none">
+                  "Nombrar al bot"
+                </dd>
+                <dt>
+                  "🇫🇷"
+                </dt>
+                <dd class="margin-none">
+                  "Nommer le bot"
+                </dd>
+                <dt>
+                  "🇮🇳"
+                </dt>
+                <dd class="margin-none">
+                  "बॉट का नाम दें"
+                </dd>
+                <dt>
+                  "🇩🇪"
+                </dt>
+                <dd class="margin-none">
+                  "Benenne den Bot"
+                </dd>
+                <dt>
+                  "🇧🇷"
+                </dt>
+                <dd class="margin-none">
+                  "Dê um nome ao bot"
+                </dd>
+                <dt>
+                  "🇯🇵"
+                </dt>
+                <dd class="margin-none">
+                  "ボットに名前を付ける"
+                </dd>
+              </dl>
+            </div>
+          </details>
+          <label class="align-center flex flex-item-grow gap input input--actor txt-large">
+            <input autocomplete="name" autofocus="autofocus" class="input" data-1p-ignore="true" id="user_name" name="user[name]" placeholder="Name the bot" required="required" type="text">
+            " "
+            <img aria-hidden="true" class="colorize--black" height="24" src="/assets/bot-«digest».svg" width="24">
+          </label>
+        </div>
+        <div class="align-center flex gap">
+          <details class="position-relative" data-action="keydown.esc->popup#close toggle->popup#toggle click@document->popup#closeOnClickOutside" data-controller="popup" data-popup-orientation-top-class="popup-orientation-top">
+            <summary class="btn" tabindex="-1">
+              <img aria-hidden="true" class="color-icon" height="20" src="/assets/globe-«digest».svg" width="20">
+              <span class="for-screen-reader">
+                "Translate"
+              </span>
+            </summary>
+            <div class="language-list-menu shadow" data-popup-target="menu">
+              <dl class="language-list">
+                <dt>
+                  "🇺🇸"
+                </dt>
+                <dd class="margin-none">
+                  "Webhook URL"
+                </dd>
+                <dt>
+                  "🇪🇸"
+                </dt>
+                <dd class="margin-none">
+                  "URL del Webhook"
+                </dd>
+                <dt>
+                  "🇫🇷"
+                </dt>
+                <dd class="margin-none">
+                  "URL du webhook"
+                </dd>
+                <dt>
+                  "🇮🇳"
+                </dt>
+                <dd class="margin-none">
+                  "वेबहुक URL"
+                </dd>
+                <dt>
+                  "🇩🇪"
+                </dt>
+                <dd class="margin-none">
+                  "Webhook-URL"
+                </dd>
+                <dt>
+                  "🇧🇷"
+                </dt>
+                <dd class="margin-none">
+                  "URL do Webhook"
+                </dd>
+                <dt>
+                  "🇯🇵"
+                </dt>
+                <dd class="margin-none">
+                  "Webhook URL"
+                </dd>
+              </dl>
+            </div>
+          </details>
+          <label class="align-center flex flex-item-grow gap input input--actor txt-large">
+            <input class="input" id="user_webhook_url" name="user[webhook_url]" placeholder="Webhook URL" type="url">
+            " "
+            <img aria-hidden="true" class="colorize--black" height="24" src="/assets/web-«digest».svg" width="24">
+          </label>
+        </div>
+        <button class="btn btn--reversed center txt-large" type="submit">
+          <img aria-hidden="true" height="20" src="/assets/check-«digest».svg" width="20">
+          <span class="for-screen-reader">
+            "Save changes"
+          </span>
+        </button>
+      </form>
+    </section>
+    <footer id="footer">
+    </footer>
+  </main>
+  <aside data-controller="toggle-class" data-toggle-class-toggle-class="open" id="sidebar">
+  </aside>
+  <dialog aria-label="Image Viewer (Press escape to close)" class="lightbox" data-action="close->lightbox#reset" data-lightbox-target="dialog">
+    <img class="lightbox__image" data-lightbox-target="zoomedImage" src>
+    <form class="lightbox__btn" method="dialog">
+      <button class="btn">
+        <img aria-hidden="true" src="/assets/remove-«digest».svg">
+        " "
+        <span class="for-screen-reader">
+          "Close image viewer"
+        </span>
+      </button>
+    </form>
+    <a class="btn hide-in-ios-pwa lightbox__btn--download" data-lightbox-target="download" href>
+      <img aria-hidden="true" src="/assets/download-«digest».svg">
+      " "
+      <span class="for-screen-reader">
+        "Download file"
+      </span>
+    </a>
+    " "
+    <button class="btn lightbox__btn--share" data-action="web-share#share" data-controller="web-share" data-lightbox-target="share" data-web-share-files-value>
+      <img aria-hidden="true" src="/assets/share-«digest».svg">
+      " "
+      <span class="for-screen-reader">
+        "Share file"
+      </span>
+    </button>
+  </dialog>
+  <a aria-label="Once software from 37signals home page" href="https://once.com" id="app-logo" target="_blank">
+    <img alt="Campfire logo" height="216" src="/assets/campfire-icon-«digest».png" width="256">
+  </a>
+</body>

@@ -1,0 +1,17 @@
+<body>
+  <div class="full-width margin-block-double txt-align-center">
+    <a class="btn center" href="mailto:\"Lea Gray\" <member132@example.com>" title="Email Lea Gray">
+      <img aria-hidden="true" src="/assets/lifebuoy-d1g3st.svg">
+      " "
+      <span>
+        "member132@example.com"
+      </span>
+    </a>
+    <div class="center margin-block txt-align-center txt-subtle">
+      "Campfire™ version "
+      <span class="version-badge">
+        "abc1234"
+      </span>
+    </div>
+  </div>
+</body>

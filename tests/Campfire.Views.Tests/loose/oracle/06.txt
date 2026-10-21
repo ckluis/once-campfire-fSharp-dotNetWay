@@ -1,0 +1,40 @@
+<body>
+  <div class="align-center flex flex-column gap">
+    <label class="flex flex-column full-width gap" style="--row-gap: 0.5em">
+      <strong class="invite-label" id="invite_label">
+        "Share to invite more people"
+      </strong>
+      " "
+      <span class="align-center fill-white flex gap input input--actor">
+        <img aria-hidden="true" class="colorize--black" height="20" src="/assets/person-add-d1g3st.svg" width="20">
+        " "
+        <input aria-labelledby="invite_label" class="input" id="invite_url" readonly type="text" value="https://x.y/z/join/CRMu-l8Ge-KB9B">
+      </span>
+    </label>
+    <div class="align-center flex gap">
+      <a class="btn" data-action="lightbox#open" data-lightbox-target="image" data-lightbox-url-value="/qr_code/«qr:https://x.y/z/join/CRMu-l8Ge-KB9B»" href="/qr_code/«qr:https://x.y/z/join/CRMu-l8Ge-KB9B»">
+        <span class="for-screen-reader">
+          "Show join link QR code"
+        </span>
+        " "
+        <img aria-hidden="true" class="colorize--black" height="20" src="/assets/qr-code-d1g3st.svg" width="20">
+      </a>
+      " "
+      <button class="btn" data-action="copy-to-clipboard#copy" data-controller="copy-to-clipboard" data-copy-to-clipboard-content-value="https://x.y/z/join/CRMu-l8Ge-KB9B" data-copy-to-clipboard-success-class="btn--success">
+        <span class="for-screen-reader">
+          "Copy join link"
+        </span>
+        " "
+        <img aria-hidden="true" class="colorize--black" height="20" src="/assets/copy-paste-d1g3st.svg" width="20">
+      </button>
+      " "
+      <button class="btn" data-action="web-share#share" data-controller="web-share" data-web-share-text-value="Hit this link to join me in Campfire and start chatting." data-web-share-title-value="Link to join Campfire" data-web-share-url-value="https://x.y/z/join/CRMu-l8Ge-KB9B" hidden="hidden">
+        <span class="for-screen-reader">
+          "Share join link"
+        </span>
+        " "
+        <img aria-hidden="true" class="colorize--black" height="20" src="/assets/share-d1g3st.svg" width="20">
+      </button>
+    </div>
+  </div>
+</body>

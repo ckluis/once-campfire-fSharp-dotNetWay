@@ -1,0 +1,54 @@
+<body>
+  <details class="hide-in-browser notifications-help" data-notifications-target="details">
+    <summary class="btn">
+      <img aria-hidden="true" height="20" src="/assets/external/gear-d1g3st.svg" width="20">
+      " "
+      <strong>
+        "Check your macOS settings"
+      </strong>
+      " "
+      <img aria-hidden="true" class="disclosure" height="10" src="/assets/disclosure-d1g3st.svg" width="10">
+    </summary>
+    <ol>
+      <li>
+        "Click "
+        <em aria-label="the Apple menu">
+          ""
+        </em>
+        " in the top left."
+      </li>
+      <li>
+        "Click "
+        <em>
+          "System Settings…"
+        </em>
+        "."
+      </li>
+      <li>
+        "Click "
+        <em>
+          "Notifications"
+        </em>
+        "."
+      </li>
+      <li>
+        "Click "
+        <em>
+          "Campfire"
+        </em>
+        "."
+      </li>
+      <li>
+        "Click "
+        <em>
+          <img alt="the allow notifications switch" height="22" src="/assets/external/switch-d1g3st.svg" width="22">
+        </em>
+        " to "
+        <em>
+          "Allow notifications"
+        </em>
+        "."
+      </li>
+    </ol>
+  </details>
+</body>

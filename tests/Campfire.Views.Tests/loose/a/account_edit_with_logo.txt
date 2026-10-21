@@ -1,0 +1,497 @@
+<body class="account-has-logo admin" data-controller="local-time lightbox">
+  <a class="btn skip-navigation" href="#main-content">
+    "Skip to main content"
+  </a>
+  <nav id="nav">
+    <div class="flex-item-justify-start">
+      <a class="btn" href="/rooms/654632876">
+        <img aria-hidden="true" height="20" src="/assets/arrow-left-«digest».svg" width="20">
+        <span class="for-screen-reader">
+          "Go Back"
+        </span>
+      </a>
+    </div>
+    <div class="align-center flex flex-item-justify-end gap">
+      <a class="btn" href="/account/bots" style="view-transition-name: chat-bots">
+        <img aria-hidden="true" height="20" src="/assets/bot-«digest».svg" width="20">
+        " "
+        <span class="for-screen-reader">
+          "Set up chat bots"
+        </span>
+      </a>
+      " "
+      <a class="btn" href="/account/custom_styles/edit" style="view-transition-name: custom-styles">
+        <img aria-hidden="true" height="20" src="/assets/art-«digest».svg" width="20">
+        " "
+        <span class="for-screen-reader">
+          "Custom styles"
+        </span>
+      </a>
+    </div>
+  </nav>
+  <main id="main-content">
+    <section class="flex flex-column gap panel txt-align-center" style="view-transition-name: account-settings">
+      <div class="align-center avatar__form center gap" data-controller="upload-preview">
+        <form accept-charset="UTF-8" action="/account.873240054" class="txt--medium" data-controller="form" enctype="multipart/form-data" method="post">
+          <input name="_method" type="hidden" value="patch">
+          <label class="btn input--file">
+            <img aria-hidden="true" height="20" src="/assets/camera-«digest».svg" width="20">
+            " "
+            <input accept="image/*" class="input" data-action="upload-preview#previewImage change->form#submit" id="account_logo" name="account[logo]" type="file">
+            " "
+            <span class="for-screen-reader">
+              "Upload logo"
+            </span>
+          </label>
+        </form>
+        <form accept-charset="UTF-8" action="/account.873240054" data-controller="form" enctype="multipart/form-data" method="post">
+          <input name="_method" type="hidden" value="patch">
+          <label class="account-logo avatar btn input--file txt-xx-large">
+            <img data-upload-preview-target="image" height="48" role="presentation" src="/account/logo?v=20260926130029" width="48">
+            " "
+            <input accept="image/*" class="input" data-action="upload-preview#previewImage change->form#submit" id="account_logo" name="account[logo]" type="file">
+            " "
+            <span class="for-screen-reader">
+              "Upload logo"
+            </span>
+          </label>
+        </form>
+        <form action="/account/logo?v=20260926130029" class="button_to" method="post">
+          <input name="_method" type="hidden" value="delete">
+          <button class="avatar__delete-btn btn btn--negative txt-small" type="submit">
+            <img aria-hidden="true" height="20" src="/assets/minus-«digest».svg" width="20">
+            " "
+            <span class="for-screen-reader">
+              "Delete logo"
+            </span>
+          </button>
+        </form>
+      </div>
+      <form accept-charset="UTF-8" action="/account.873240054" class="flex flex-column gap" data-controller="form" method="post">
+        <input name="_method" type="hidden" value="patch">
+        <div class="align-center flex gap">
+          <details class="position-relative" data-action="keydown.esc->popup#close toggle->popup#toggle click@document->popup#closeOnClickOutside" data-controller="popup" data-popup-orientation-top-class="popup-orientation-top">
+            <summary class="btn" tabindex="-1">
+              <img aria-hidden="true" class="color-icon" height="20" src="/assets/globe-«digest».svg" width="20">
+              <span class="for-screen-reader">
+                "Translate"
+              </span>
+            </summary>
+            <div class="language-list-menu shadow" data-popup-target="menu">
+              <dl class="language-list">
+                <dt>
+                  "🇺🇸"
+                </dt>
+                <dd class="margin-none">
+                  "Name this account"
+                </dd>
+                <dt>
+                  "🇪🇸"
+                </dt>
+                <dd class="margin-none">
+                  "Nombre de esta cuenta"
+                </dd>
+                <dt>
+                  "🇫🇷"
+                </dt>
+                <dd class="margin-none">
+                  "Nommez ce compte"
+                </dd>
+                <dt>
+                  "🇮🇳"
+                </dt>
+                <dd class="margin-none">
+                  "इस खाते का नाम दें"
+                </dd>
+                <dt>
+                  "🇩🇪"
+                </dt>
+                <dd class="margin-none">
+                  "Benennen Sie dieses Konto"
+                </dd>
+                <dt>
+                  "🇧🇷"
+                </dt>
+                <dd class="margin-none">
+                  "Dê um nome a essa conta"
+                </dd>
+                <dt>
+                  "🇯🇵"
+                </dt>
+                <dd class="margin-none">
+                  "アカウントに名前を付ける"
+                </dd>
+              </dl>
+            </div>
+          </details>
+          <label class="align-center flex flex-item-grow gap">
+            <input autocomplete="off" autofocus="autofocus" class="input txt-large" data-action="keydown.enter->form#submit" id="account_name" name="account[name]" placeholder="Name this account" type="text" value="37signals">
+          </label>
+          " "
+          <button class="btn btn--reversed center" name="button" type="submit">
+            <img aria-hidden="true" height="20" src="/assets/check-«digest».svg" width="20">
+            " "
+            <span class="for-screen-reader">
+              "Save changes"
+            </span>
+          </button>
+        </div>
+      </form>
+      <div class="border-radius fill-shade margin-block-start pad-block pad-inline-double">
+        <form accept-charset="UTF-8" action="/account.873240054" class="align-center center flex gap" data-controller="form" method="post">
+          <input name="_method" type="hidden" value="put">
+          <div class="align-center flex flex-item-grow gap txt-align-start">
+            <img aria-hidden="true" class="colorize--black" height="18" src="/assets/crown-«digest».svg" width="18">
+            " Must be admin to create new rooms"
+          </div>
+          <input id="account_settings_restrict_room_creation_to_administrators" name="account[settings][restrict_room_creation_to_administrators]" type="hidden" value="true">
+          <label class="switch">
+            <input class="switch__input" data-action="change->form#submit" type="checkbox">
+            " "
+            <span class="round switch__btn">
+            </span>
+            " "
+            <span class="for-screen-reader">
+              "Must be admin to create new rooms"
+            </span>
+          </label>
+        </form>
+      </div>
+      <div class="border-radius fill-shade margin-block pad-block-start pad-inline">
+        <div class="align-center flex flex-column gap">
+          <label class="flex flex-column full-width gap" style="--row-gap: 0.5em">
+            <strong class="invite-label" id="invite_label">
+              "Share to invite more people"
+            </strong>
+            " "
+            <span class="align-center fill-white flex gap input input--actor">
+              <img aria-hidden="true" class="colorize--black" height="20" src="/assets/person-add-«digest».svg" width="20">
+              " "
+              <input aria-labelledby="invite_label" class="input" id="invite_url" readonly type="text" value="http://campfire.test/join/CRMu-l8Ge-KB9B">
+            </span>
+          </label>
+          <div class="align-center flex gap">
+            <a class="btn" data-action="lightbox#open" data-lightbox-target="image" data-lightbox-url-value="/qr_code/«qr:http://campfire.test/join/CRMu-l8Ge-KB9B»" href="/qr_code/«qr:http://campfire.test/join/CRMu-l8Ge-KB9B»">
+              <span class="for-screen-reader">
+                "Show join link QR code"
+              </span>
+              " "
+              <img aria-hidden="true" class="colorize--black" height="20" src="/assets/qr-code-«digest».svg" width="20">
+            </a>
+            " "
+            <button class="btn" data-action="copy-to-clipboard#copy" data-controller="copy-to-clipboard" data-copy-to-clipboard-content-value="http://campfire.test/join/CRMu-l8Ge-KB9B" data-copy-to-clipboard-success-class="btn--success">
+              <span class="for-screen-reader">
+                "Copy join link"
+              </span>
+              " "
+              <img aria-hidden="true" class="colorize--black" height="20" src="/assets/copy-paste-«digest».svg" width="20">
+            </button>
+            " "
+            <button class="btn" data-action="web-share#share" data-controller="web-share" data-web-share-text-value="Hit this link to join me in Campfire and start chatting." data-web-share-title-value="Link to join Campfire" data-web-share-url-value="http://campfire.test/join/CRMu-l8Ge-KB9B" hidden="hidden">
+              <span class="for-screen-reader">
+                "Share join link"
+              </span>
+              " "
+              <img aria-hidden="true" class="colorize--black" height="20" src="/assets/share-«digest».svg" width="20">
+            </button>
+            <form action="/account/join_code" class="button_to" method="post">
+              <button class="btn btn--regenerate" type="submit">
+                <img aria-hidden="true" class="colorize--black" height="20" src="/assets/refresh-«digest».svg" width="20">
+                " "
+                <span class="for-screen-reader">
+                  "Regenerate join link"
+                </span>
+              </button>
+            </form>
+          </div>
+        </div>
+        <hr class="full-width margin-block separator" style="--border-style: solid">
+        <menu class="flex flex-column gap margin-none pad">
+          <turbo-frame id="account_users">
+            <li class="align-center flex gap margin-none">
+              <figure class="avatar flex-item-no-shrink" style="--avatar-size: 3.75ch;">
+                <a class="avatar btn" data-turbo-frame="_top" href="/users/127326141" title="David">
+                  <img aria-hidden="true" height="48" loading="lazy" src="/users/«signed_id:user/avatar:127326141»/avatar?v=20260926130020" width="48">
+                </a>
+              </figure>
+              <div class="min-width">
+                <div class="fill-shade overflow-ellipsis">
+                  <strong>
+                    "David"
+                  </strong>
+                </div>
+              </div>
+              <hr aria-hidden="true" class="separator">
+              <form accept-charset="UTF-8" action="/account/users/127326141" data-controller="form" method="post">
+                <input name="_method" type="hidden" value="patch">
+                <label class="btn flex-item-no-shrink txt-small" for="role_user_127326141">
+                  <span class="for-screen-reader">
+                    "Role: Administrator"
+                  </span>
+                  " "
+                  <img aria-hidden="true" height="20" src="/assets/crown-«digest».svg" width="20">
+                  " "
+                  <input disabled="disabled" name="user[role]" type="hidden" value="member">
+                  <input checked="checked" data-action="form#submit" disabled="disabled" hidden="hidden" id="role_user_127326141" name="user[role]" type="checkbox" value="administrator">
+                </label>
+              </form>
+              <a class="btn flex-item-no-shrink txt-small" href="/users/me/profile" target="_top">
+                <img aria-hidden="true" height="20" src="/assets/pencil-«digest».svg" width="20">
+                " "
+                <span class="for-screen-reader">
+                  "My settings"
+                </span>
+              </a>
+            </li>
+            <li class="align-center flex gap margin-none">
+              <figure class="avatar flex-item-no-shrink" style="--avatar-size: 3.75ch;">
+                <a class="avatar btn" data-turbo-frame="_top" href="/users/149087659" title="Jason">
+                  <img aria-hidden="true" height="48" loading="lazy" src="/users/«signed_id:user/avatar:149087659»/avatar?v=20260926130020" width="48">
+                </a>
+              </figure>
+              <div class="min-width">
+                <div class="fill-shade overflow-ellipsis">
+                  <strong>
+                    "Jason"
+                  </strong>
+                </div>
+              </div>
+              <hr aria-hidden="true" class="separator">
+              <form accept-charset="UTF-8" action="/account/users/149087659" data-controller="form" method="post">
+                <input name="_method" type="hidden" value="patch">
+                <label class="btn flex-item-no-shrink txt-small" for="role_user_149087659">
+                  <span class="for-screen-reader">
+                    "Role: Administrator"
+                  </span>
+                  " "
+                  <img aria-hidden="true" height="20" src="/assets/crown-«digest».svg" width="20">
+                  " "
+                  <input name="user[role]" type="hidden" value="member">
+                  <input checked="checked" data-action="form#submit" hidden="hidden" id="role_user_149087659" name="user[role]" type="checkbox" value="administrator">
+                </label>
+              </form>
+              <form action="/account/users/149087659" class="button_to" method="post">
+                <input name="_method" type="hidden" value="delete">
+                <button class="btn btn--negative flex-item-no-shrink txt-small" data-turbo-confirm="Are you sure you want to permanently remove this person from the account? This can’t be undone." type="submit">
+                  <img aria-hidden="true" height="20" src="/assets/minus-«digest».svg" width="20">
+                  " "
+                  <span class="for-screen-reader">
+                    "Delete Jason"
+                  </span>
+                </button>
+              </form>
+            </li>
+            <hr class="full-width separator" style="--border-style: solid">
+            <li class="align-center flex gap margin-none">
+              <figure class="avatar flex-item-no-shrink" style="--avatar-size: 3.75ch;">
+                <a class="avatar btn" data-turbo-frame="_top" href="/users/773523956" title="Anna Bea Cole">
+                  <img aria-hidden="true" height="48" loading="lazy" src="/users/«signed_id:user/avatar:773523956»/avatar?v=20260926130022" width="48">
+                </a>
+              </figure>
+              <div class="min-width">
+                <div class="fill-shade overflow-ellipsis">
+                  <strong>
+                    "Anna Bea Cole"
+                  </strong>
+                </div>
+              </div>
+              <hr aria-hidden="true" class="separator">
+              <form accept-charset="UTF-8" action="/account/users/773523956" data-controller="form" method="post">
+                <input name="_method" type="hidden" value="patch">
+                <label class="btn flex-item-no-shrink txt-small" for="role_user_773523956">
+                  <span class="for-screen-reader">
+                    "Role: Member"
+                  </span>
+                  " "
+                  <img aria-hidden="true" height="20" src="/assets/crown-«digest».svg" width="20">
+                  " "
+                  <input name="user[role]" type="hidden" value="member">
+                  <input data-action="form#submit" hidden="hidden" id="role_user_773523956" name="user[role]" type="checkbox" value="administrator">
+                </label>
+              </form>
+              <form action="/account/users/773523956" class="button_to" method="post">
+                <input name="_method" type="hidden" value="delete">
+                <button class="btn btn--negative flex-item-no-shrink txt-small" data-turbo-confirm="Are you sure you want to permanently remove this person from the account? This can’t be undone." type="submit">
+                  <img aria-hidden="true" height="20" src="/assets/minus-«digest».svg" width="20">
+                  " "
+                  <span class="for-screen-reader">
+                    "Delete Anna Bea Cole"
+                  </span>
+                </button>
+              </form>
+            </li>
+            <li class="align-center flex gap margin-none">
+              <figure class="avatar flex-item-no-shrink" style="--avatar-size: 3.75ch;">
+                <a class="avatar btn" data-turbo-frame="_top" href="/users/773523953" title="JZ – Designer">
+                  <img aria-hidden="true" height="48" loading="lazy" src="/users/«signed_id:user/avatar:773523953»/avatar?v=20260926130020" width="48">
+                </a>
+              </figure>
+              <div class="min-width">
+                <div class="fill-shade overflow-ellipsis">
+                  <strong>
+                    "JZ"
+                  </strong>
+                </div>
+              </div>
+              <hr aria-hidden="true" class="separator">
+              <form accept-charset="UTF-8" action="/account/users/773523953" data-controller="form" method="post">
+                <input name="_method" type="hidden" value="patch">
+                <label class="btn flex-item-no-shrink txt-small" for="role_user_773523953">
+                  <span class="for-screen-reader">
+                    "Role: Member"
+                  </span>
+                  " "
+                  <img aria-hidden="true" height="20" src="/assets/crown-«digest».svg" width="20">
+                  " "
+                  <input name="user[role]" type="hidden" value="member">
+                  <input data-action="form#submit" hidden="hidden" id="role_user_773523953" name="user[role]" type="checkbox" value="administrator">
+                </label>
+              </form>
+              <form action="/account/users/773523953" class="button_to" method="post">
+                <input name="_method" type="hidden" value="delete">
+                <button class="btn btn--negative flex-item-no-shrink txt-small" data-turbo-confirm="Are you sure you want to permanently remove this person from the account? This can’t be undone." type="submit">
+                  <img aria-hidden="true" height="20" src="/assets/minus-«digest».svg" width="20">
+                  " "
+                  <span class="for-screen-reader">
+                    "Delete JZ"
+                  </span>
+                </button>
+              </form>
+            </li>
+            <li class="align-center flex gap margin-none">
+              <figure class="avatar flex-item-no-shrink" style="--avatar-size: 3.75ch;">
+                <a class="avatar btn" data-turbo-frame="_top" href="/users/712064548" title="Kevin – Programmer">
+                  <img aria-hidden="true" height="48" loading="lazy" src="/users/«signed_id:user/avatar:712064548»/avatar?v=20260926130029" width="48">
+                </a>
+              </figure>
+              <div class="min-width">
+                <div class="fill-shade overflow-ellipsis">
+                  <strong>
+                    "Kevin"
+                  </strong>
+                </div>
+              </div>
+              <hr aria-hidden="true" class="separator">
+              <form accept-charset="UTF-8" action="/account/users/712064548" data-controller="form" method="post">
+                <input name="_method" type="hidden" value="patch">
+                <label class="btn flex-item-no-shrink txt-small" for="role_user_712064548">
+                  <span class="for-screen-reader">
+                    "Role: Member"
+                  </span>
+                  " "
+                  <img aria-hidden="true" height="20" src="/assets/crown-«digest».svg" width="20">
+                  " "
+                  <input name="user[role]" type="hidden" value="member">
+                  <input data-action="form#submit" hidden="hidden" id="role_user_712064548" name="user[role]" type="checkbox" value="administrator">
+                </label>
+              </form>
+              <form action="/account/users/712064548" class="button_to" method="post">
+                <input name="_method" type="hidden" value="delete">
+                <button class="btn btn--negative flex-item-no-shrink txt-small" data-turbo-confirm="Are you sure you want to permanently remove this person from the account? This can’t be undone." type="submit">
+                  <img aria-hidden="true" height="20" src="/assets/minus-«digest».svg" width="20">
+                  " "
+                  <span class="for-screen-reader">
+                    "Delete Kevin"
+                  </span>
+                </button>
+              </form>
+            </li>
+            <li class="align-center flex gap margin-none">
+              <figure class="avatar flex-item-no-shrink" style="--avatar-size: 3.75ch;">
+                <a class="avatar btn" data-turbo-frame="_top" href="/users/773523957" title="New Bie">
+                  <img aria-hidden="true" height="48" loading="lazy" src="/users/«signed_id:user/avatar:773523957»/avatar?v=20260926130029" width="48">
+                </a>
+              </figure>
+              <div class="min-width">
+                <div class="fill-shade overflow-ellipsis">
+                  <strong>
+                    "New Bie"
+                  </strong>
+                </div>
+              </div>
+              <hr aria-hidden="true" class="separator">
+              <form accept-charset="UTF-8" action="/account/users/773523957" data-controller="form" method="post">
+                <input name="_method" type="hidden" value="patch">
+                <label class="btn flex-item-no-shrink txt-small" for="role_user_773523957">
+                  <span class="for-screen-reader">
+                    "Role: Member"
+                  </span>
+                  " "
+                  <img aria-hidden="true" height="20" src="/assets/crown-«digest».svg" width="20">
+                  " "
+                  <input name="user[role]" type="hidden" value="member">
+                  <input data-action="form#submit" hidden="hidden" id="role_user_773523957" name="user[role]" type="checkbox" value="administrator">
+                </label>
+              </form>
+              <form action="/account/users/773523957" class="button_to" method="post">
+                <input name="_method" type="hidden" value="delete">
+                <button class="btn btn--negative flex-item-no-shrink txt-small" data-turbo-confirm="Are you sure you want to permanently remove this person from the account? This can’t be undone." type="submit">
+                  <img aria-hidden="true" height="20" src="/assets/minus-«digest».svg" width="20">
+                  " "
+                  <span class="for-screen-reader">
+                    "Delete New Bie"
+                  </span>
+                </button>
+              </form>
+            </li>
+            <li class="align-center banned flex gap margin-none">
+              <figure class="avatar flex-item-no-shrink" style="--avatar-size: 3.75ch;">
+                <a class="avatar btn" data-turbo-frame="_top" href="/users/773523955" title="Spam Ham">
+                  <img aria-hidden="true" height="48" loading="lazy" src="/users/«signed_id:user/avatar:773523955»/avatar?v=20260926130021" width="48">
+                </a>
+              </figure>
+              <div class="min-width">
+                <div class="fill-shade overflow-ellipsis">
+                  <strong>
+                    "Spam Ham"
+                  </strong>
+                </div>
+              </div>
+              <hr aria-hidden="true" class="separator">
+            </li>
+          </turbo-frame>
+        </menu>
+      </div>
+    </section>
+    <footer id="footer">
+      <div class="center margin-block-double txt-align-center txt-subtle">
+        "Campfire™ version "
+        <span class="version-badge">
+          "parity"
+        </span>
+      </div>
+    </footer>
+  </main>
+  <aside data-controller="toggle-class" data-toggle-class-toggle-class="open" id="sidebar">
+  </aside>
+  <dialog aria-label="Image Viewer (Press escape to close)" class="lightbox" data-action="close->lightbox#reset" data-lightbox-target="dialog">
+    <img class="lightbox__image" data-lightbox-target="zoomedImage" src>
+    <form class="lightbox__btn" method="dialog">
+      <button class="btn">
+        <img aria-hidden="true" src="/assets/remove-«digest».svg">
+        " "
+        <span class="for-screen-reader">
+          "Close image viewer"
+        </span>
+      </button>
+    </form>
+    <a class="btn hide-in-ios-pwa lightbox__btn--download" data-lightbox-target="download" href>
+      <img aria-hidden="true" src="/assets/download-«digest».svg">
+      " "
+      <span class="for-screen-reader">
+        "Download file"
+      </span>
+    </a>
+    " "
+    <button class="btn lightbox__btn--share" data-action="web-share#share" data-controller="web-share" data-lightbox-target="share" data-web-share-files-value>
+      <img aria-hidden="true" src="/assets/share-«digest».svg">
+      " "
+      <span class="for-screen-reader">
+        "Share file"
+      </span>
+    </button>
+  </dialog>
+  <a aria-label="Once software from 37signals home page" href="https://once.com" id="app-logo" target="_blank">
+    <img alt="Campfire logo" height="216" src="/assets/campfire-icon-«digest».png" width="256">
+  </a>
+</body>

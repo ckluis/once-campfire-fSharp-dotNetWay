@@ -1,0 +1,83 @@
+<body>
+  <details class="notifications-help" data-notifications-target="details">
+    <summary class="btn">
+      <img aria-hidden="true" height="20" src="/assets/external/web-«digest».svg" width="20">
+      " "
+      <strong>
+        "Check your Chrome settings"
+      </strong>
+      " "
+      <img aria-hidden="true" class="disclosure" height="10" src="/assets/disclosure-«digest».svg" width="10">
+    </summary>
+    <h2 class="margin-block-start txt-medium txt-normal">
+      "Turn on notifications for this website."
+    </h2>
+    <ol>
+      <li>
+        "Click the "
+        <em>
+          <img alt="View site information" height="20" src="/assets/external/sliders-«digest».svg" width="20">
+        </em>
+        " icon in the address bar."
+      </li>
+      <li>
+        "Click "
+        <em>
+          "Site Settings"
+        </em>
+        "."
+      </li>
+      <li>
+        "Ensure notifications are "
+        <em>
+          "Allowed"
+        </em>
+        "."
+      </li>
+    </ol>
+    <h2 class="margin-block-start txt-medium txt-normal">
+      "Turn on notifications for Chrome."
+    </h2>
+    <ol>
+      <li>
+        "Click "
+        <em aria-label="the Apple menu">
+          ""
+        </em>
+        " in the top left."
+      </li>
+      <li>
+        "Click "
+        <em>
+          "System Settings…"
+        </em>
+        "."
+      </li>
+      <li>
+        "Click "
+        <em>
+          "Notifications"
+        </em>
+        "."
+      </li>
+      <li>
+        "Click "
+        <em>
+          "Chrome"
+        </em>
+        "."
+      </li>
+      <li>
+        "Click "
+        <em>
+          <img alt="the switch" height="22" src="/assets/external/switch-«digest».svg" width="22">
+        </em>
+        " to "
+        <em>
+          "Allow notifications"
+        </em>
+        "."
+      </li>
+    </ol>
+  </details>
+</body>

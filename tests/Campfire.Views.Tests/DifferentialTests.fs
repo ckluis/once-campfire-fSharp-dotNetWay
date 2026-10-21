@@ -1,7 +1,8 @@
-// Replays what the Rust views crate rendered (differential.jsonl, written by `bin/views-differential
-// golden`) for a sample of each kind of case: every template ported so far, the view helpers, the fragment
-// cache and the view-model helpers. Anything the F# views render differently, byte for byte, fails, and
-// `bin/views-differential` runs the same comparison live against the Rust crate on thousands more.
+// O1 (plans/design-views.md section 5). Replays what the Rust views crate rendered (oracle.jsonl, written once by
+// `bin/views-differential golden` in unit 4.1 and frozen) for a sample of each kind of case, hostile text included: every
+// template, the view helpers, the fragment cache and the view-model helpers. Markup answers must be equal as the loose DOM
+// (`Campfire.Tests.LooseDom`: the pixel harness's own rule, so a template that passes here passes the loose layer in the
+// browser); the answers that are not markup (URLs, JSON, numbers, keys, scripts, the SVG avatar) must be equal as text.
 module Campfire.Views.Tests.DifferentialTests
 
 open System
@@ -11,9 +12,22 @@ open Xunit
 open Campfire.Tests
 open Campfire.Views.Differential
 
+/// The operations whose answer is text, not markup: compared exactly.
+let private textOps =
+    set [ "helpers/url"; "helpers/translations"; "helpers/asset_path"; "helpers/application:to_lowercase"; "fragment_cache/keys"
+          "fragment_cache/script"; "messages/epoch_ms"; "messages/iso8601"; "messages/json_time"; "messages/ruby_number"
+          "messages/json_by_bots_index"; "messages/json_by_bots_show"; "messages/json_boosts_by_bots_show"
+          "autocompletable/users_index_json"; "pwa/manifest"; "pwa/service_worker"; "searches/search_path"; "rooms/mention_prompt_src"
+          "rooms/room_display_name"; "users/avatars/show" ]
+
+let private sameAnswer (op: string) (expected: string) (ours: string) : string option =
+    if ours = expected then None
+    elif textOps.Contains op then Some "text differs"
+    else LooseDom.diff (LooseDom.normalize expected) (LooseDom.normalize ours) |> Option.map (fun report -> "loose DOM differs\n" + report)
+
 [<Fact>]
 let ``the views render as the rust views did`` () =
-    let lines = File.ReadAllLines(Repo.path "tests/Campfire.Views.Tests/differential.jsonl")
+    let lines = File.ReadAllLines(Repo.path "tests/Campfire.Views.Tests/oracle.jsonl")
     let mutable shared = JsonElement()
     let counts = Collections.Generic.Dictionary<string, int>()
     let failures = ResizeArray<string>()
@@ -32,10 +46,12 @@ let ``the views render as the rust views did`` () =
             replayed <- replayed + 1
             let ours = Operations.run case shared
             let expected = Inputs.str (Inputs.get rust "out")
-            if ours.Out <> expected then
+            match sameAnswer op expected ours.Out with
+            | None -> ()
+            | Some why ->
                 let at = Seq.zip ours.Out expected |> Seq.tryFindIndex (fun (a, b) -> a <> b) |> Option.defaultValue (min ours.Out.Length expected.Length)
                 let around (s: string) = s.Substring(max 0 (at - 30), min 90 (s.Length - max 0 (at - 30)))
-                failures.Add $"{op}: differs at {at}\n  rust: {around expected}\n  ours: {around ours.Out}"
+                failures.Add $"{op}: {why}\n  first byte difference at {at}\n  rust: {around expected}\n  ours: {around ours.Out}"
             match ours.Fragments, Inputs.get rust "fragments" with
             | Some fragments, parts when parts.ValueKind = JsonValueKind.Array ->
                 let theirs = [ for p in parts.EnumerateArray() -> Inputs.intOf (Inputs.at p 0), Inputs.intOf (Inputs.at p 1) ]
@@ -67,10 +83,10 @@ let ``the views render as the rust views did`` () =
           "messages/json_by_bots_show"; "messages/json_time"; "rooms/button_to_delete_room"; "rooms/mention_prompt_src";
           "rooms/room_display_name"; "searches/search_path" ]
     for op in required do
-        Assert.True(counts.ContainsKey op, $"no {op} case in differential.jsonl")
+        Assert.True(counts.ContainsKey op, $"no {op} case in oracle.jsonl")
     // And the list covers the sample, so an operation added to the generator is added here too.
     let listed = Collections.Generic.HashSet<string>(required)
     for op in counts.Keys do
-        Assert.True(listed.Contains op, $"{op} is in differential.jsonl but not in the list of operations the sample must cover")
+        Assert.True(listed.Contains op, $"{op} is in oracle.jsonl but not in the list of operations the sample must cover")
     let report = String.Join("\n", failures |> Seq.truncate 10)
     Assert.True(failures.Count = 0, $"{failures.Count} of {replayed} differ:\n{report}")

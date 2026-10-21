@@ -1,0 +1,141 @@
+<body class="admin" data-controller="local-time lightbox">
+  <a class="btn skip-navigation" href="#main-content">
+    "Skip to main content"
+  </a>
+  <nav id="nav">
+    <div class="flex-item-justify-start">
+      <a class="btn" href="/account/edit">
+        <img aria-hidden="true" height="20" src="/assets/arrow-left-«digest».svg" width="20">
+        <span class="for-screen-reader">
+          "Go Back"
+        </span>
+      </a>
+    </div>
+  </nav>
+  <main id="main-content">
+    <section class="flex flex-column panel panel--wide position-relative txt-align-center" style="view-transition-name: custom-styles">
+      <form accept-charset="UTF-8" action="http://campfire.test/account/custom_styles" class="flex flex-column gap" data-action="keydown.ctrl+enter->form#submit keydown.meta+enter->form#submit" data-controller="form" method="post">
+        <input name="_method" type="hidden" value="patch">
+        <div class="panel__button">
+          <details class="position-relative" data-action="keydown.esc->popup#close toggle->popup#toggle click@document->popup#closeOnClickOutside" data-controller="popup" data-popup-orientation-top-class="popup-orientation-top">
+            <summary class="btn" tabindex="-1">
+              <img aria-hidden="true" class="color-icon" height="20" src="/assets/globe-«digest».svg" width="20">
+              <span class="for-screen-reader">
+                "Translate"
+              </span>
+            </summary>
+            <div class="language-list-menu shadow" data-popup-target="menu">
+              <dl class="language-list">
+                <dt>
+                  "🇺🇸"
+                </dt>
+                <dd class="margin-none">
+                  "Add custom CSS styles. Use Caution: you could break things."
+                </dd>
+                <dt>
+                  "🇪🇸"
+                </dt>
+                <dd class="margin-none">
+                  "Agrega estilos CSS personalizados. Usa precaución: podrías romper cosas."
+                </dd>
+                <dt>
+                  "🇫🇷"
+                </dt>
+                <dd class="margin-none">
+                  "Ajoutez des styles CSS personnalisés. Utilisez avec précaution : vous pourriez casser des choses."
+                </dd>
+                <dt>
+                  "🇮🇳"
+                </dt>
+                <dd class="margin-none">
+                  "कस्टम CSS स्टाइल जोड़ें। सावधानी बरतें: आप चीज़ों को तोड़ सकते हैं।"
+                </dd>
+                <dt>
+                  "🇩🇪"
+                </dt>
+                <dd class="margin-none">
+                  "Fügen Sie benutzerdefinierte CSS-Stile hinzu. Vorsicht: Sie könnten Dinge kaputt machen."
+                </dd>
+                <dt>
+                  "🇧🇷"
+                </dt>
+                <dd class="margin-none">
+                  "Adicione estilos CSS personalizados. Use com cuidado: você pode quebrar coisas."
+                </dd>
+                <dt>
+                  "🇯🇵"
+                </dt>
+                <dd class="margin-none">
+                  "カスタムCSSスタイルを追加。注意: サイトが壊れる可能性があります。"
+                </dd>
+              </dl>
+            </div>
+          </details>
+        </div>
+        <div class="margin-inline pad-inline-double">
+          <h1 class="margin-none">
+            "Custom CSS"
+          </h1>
+          <p class="align-center flex flex-wrap gap justify-center margin-none-block-start" style="--column-gap: 0.5ch; --row-gap: 0">
+            <span>
+              "Add custom CSS styles."
+            </span>
+            " "
+            <img aria-hidden="true" class="colorize--black flex-inline" height="16" src="/assets/alert-«digest».svg" width="16">
+            " "
+            <span>
+              "Use Caution: you could break things."
+            </span>
+          </p>
+        </div>
+        <label class="align-start flex flex-item-grow gap">
+          <textarea autocapitalize="off" autocomplete="off" autocorrect="off" class="input input--code txt--small" id="account_custom_styles" name="account[custom_styles]" placeholder="Add CSS styles…" rows="16" spellcheck="false">
+            "body { --x: 1; } a > b { color: red }"
+          </textarea>
+        </label>
+        " "
+        <button class="btn btn--reversed center txt-large" name="button" type="submit">
+          <img aria-hidden="true" height="20" src="/assets/check-«digest».svg" width="20">
+          " "
+          <span class="for-screen-reader">
+            "Save changes"
+          </span>
+        </button>
+      </form>
+    </section>
+    <footer id="footer">
+    </footer>
+  </main>
+  <aside data-controller="toggle-class" data-toggle-class-toggle-class="open" id="sidebar">
+  </aside>
+  <dialog aria-label="Image Viewer (Press escape to close)" class="lightbox" data-action="close->lightbox#reset" data-lightbox-target="dialog">
+    <img class="lightbox__image" data-lightbox-target="zoomedImage" src>
+    <form class="lightbox__btn" method="dialog">
+      <button class="btn">
+        <img aria-hidden="true" src="/assets/remove-«digest».svg">
+        " "
+        <span class="for-screen-reader">
+          "Close image viewer"
+        </span>
+      </button>
+    </form>
+    <a class="btn hide-in-ios-pwa lightbox__btn--download" data-lightbox-target="download" href>
+      <img aria-hidden="true" src="/assets/download-«digest».svg">
+      " "
+      <span class="for-screen-reader">
+        "Download file"
+      </span>
+    </a>
+    " "
+    <button class="btn lightbox__btn--share" data-action="web-share#share" data-controller="web-share" data-lightbox-target="share" data-web-share-files-value>
+      <img aria-hidden="true" src="/assets/share-«digest».svg">
+      " "
+      <span class="for-screen-reader">
+        "Share file"
+      </span>
+    </button>
+  </dialog>
+  <a aria-label="Once software from 37signals home page" href="https://once.com" id="app-logo" target="_blank">
+    <img alt="Campfire logo" height="216" src="/assets/campfire-icon-«digest».png" width="256">
+  </a>
+</body>

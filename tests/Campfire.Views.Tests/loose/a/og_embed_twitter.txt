@@ -1,0 +1,20 @@
+<body>
+  <figure class="attachment attachment--content attachment--og">
+    <actiontext-opengraph-embed>
+      <div class="gap og-embed og-embed--twitter-avatar">
+        <div class="og-embed__content">
+          <div class="og-embed__title">
+            <a href="https://x.com/dhh" rel="noreferrer" target="_blank">
+              "DHH"
+            </a>
+          </div>
+          <div class="og-embed__description">
+          </div>
+        </div>
+        <div class="og-embed__image">
+          <img alt class="center image" src="https://pbs.twimg.com/profile_images/1/avatar.jpg">
+        </div>
+      </div>
+    </actiontext-opengraph-embed>
+  </figure>
+</body>

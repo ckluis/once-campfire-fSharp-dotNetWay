@@ -1,0 +1,5 @@
+<body>
+  <a class="avatar btn" data-turbo-frame="_top" href="/users/127326141" title="David">
+    <img aria-hidden="true" height="48" hidden="hidden" placeholder="~tilde" src="/users/127326141/avatar?v=20260102160000" target="a->b" title="a->b" width="48">
+  </a>
+</body>

@@ -5,15 +5,16 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="../Shared/Repo.fs" Link="Repo.fs" />
+    <Compile Include="../Shared/LooseDom.fs" Link="LooseDom.fs" />
     <Compile Include="../../reference-tools/views/differential/fsharp/Inputs.fs" Link="Inputs.fs" />
     <Compile Include="../../reference-tools/views/differential/fsharp/Answer.fs" Link="Answer.fs" />
     <Compile Include="../../reference-tools/views/differential/fsharp/Pages.fs" Link="Pages.fs" />
     <Compile Include="../../reference-tools/views/differential/fsharp/Rest.fs" Link="Rest.fs" />
     <Compile Include="../../reference-tools/views/differential/fsharp/Operations.fs" Link="Operations.fs" />
-    <Compile Include="Support/Dom.fs" />
     <Compile Include="Support/Facts.fs" />
     <Compile Include="Support/GoldenB.fs" />
-    <Compile Include="DomTests.fs" />
+    <Compile Include="LooseDomTests.fs" />
+    <Compile Include="HtmlTests.fs" />
     <Compile Include="OutTests.fs" />
     <Compile Include="TagTests.fs" />
     <Compile Include="FormsTests.fs" />
@@ -35,5 +36,6 @@
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="xunit.v3" />
+    <PackageReference Include="AngleSharp" />
   </ItemGroup>
 </Project>

@@ -9,8 +9,11 @@
 #   bin/views-differential 3 7             3 times as many variations, from seed 7
 #   bin/views-differential bench [rounds]  render every case that many times (default 20) with each side
 #                                          and print the time per render of each operation
-#   bin/views-differential golden          rewrite tests/Campfire.Views.Tests/differential.jsonl: a sample of the
-#                                          cases with the Rust crate's answers, which the F# tests replay
+#   bin/views-differential golden          rewrite tests/Campfire.Views.Tests/oracle.jsonl: a sample of the
+#                                          cases with the Rust crate's answers, which the F# tests replay (loose-equal).
+#                                          Phase 4 ran it once and froze the file (plans/design-views.md V11): a rerun
+#                                          changes the oracle, so rerun it only to add an operation, and run
+#                                          parity/bin/loose-golden after
 #   bin/views-differential --unicode       regenerate src/Campfire.Views/Helpers/UnicodeTables.fs from
 #                                          the Rust standard library's Unicode data
 # Adding a template or helper: a branch in reference-tools/views/differential/src/ops.rs (what Rust
@@ -53,8 +56,10 @@ seed="${2:-1}"
 python3 "$tool/generate.py" "$count" "$seed" > "$out/cases.jsonl"
 target/rust/release/views-differential < "$out/cases.jsonl" > "$out/rust.jsonl"
 if [ $mode = golden ]; then
-  python3 "$tool/golden.py" "$out/cases.jsonl" "$out/rust.jsonl" > tests/Campfire.Views.Tests/differential.jsonl
-  echo "tests/Campfire.Views.Tests/differential.jsonl: $(wc -l < tests/Campfire.Views.Tests/differential.jsonl) lines, $(du -k tests/Campfire.Views.Tests/differential.jsonl | cut -f1) KB"
+  python3 "$tool/golden.py" "$out/cases.jsonl" "$out/rust.jsonl" > "$out/oracle.new" 2> "$out/oracle-table.txt"
+  mv "$out/oracle.new" tests/Campfire.Views.Tests/oracle.jsonl
+  cat "$out/oracle-table.txt" >&2
+  echo "tests/Campfire.Views.Tests/oracle.jsonl: $(wc -l < tests/Campfire.Views.Tests/oracle.jsonl) lines, $(du -k tests/Campfire.Views.Tests/oracle.jsonl | cut -f1) KB"
   rm -f "$out/cases.jsonl" "$out/rust.jsonl"
   exit 0
 fi

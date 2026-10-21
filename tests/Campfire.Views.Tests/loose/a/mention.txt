@@ -1,0 +1,8 @@
+<body>
+  <span class="mention" sgid="«sgid:attachable:User#773523953»">
+    <a class="avatar btn" data-turbo-frame="_top" href="/users/773523953" title="JZ – Designer">
+      <img aria-hidden="true" height="48" src="/users/«signed_id:user/avatar:773523953»/avatar?v=20260926130020" width="48">
+    </a>
+    " JZ"
+  </span>
+</body>

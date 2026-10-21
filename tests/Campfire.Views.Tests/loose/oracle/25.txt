@@ -1,0 +1,46 @@
+<body>
+  <dl class="language-list">
+    <dt>
+      "🇺🇸"
+    </dt>
+    <dd class="margin-none">
+      "Enter your email address"
+    </dd>
+    <dt>
+      "🇪🇸"
+    </dt>
+    <dd class="margin-none">
+      "Introduce tu correo electrónico"
+    </dd>
+    <dt>
+      "🇫🇷"
+    </dt>
+    <dd class="margin-none">
+      "Entrez votre adresse courriel"
+    </dd>
+    <dt>
+      "🇮🇳"
+    </dt>
+    <dd class="margin-none">
+      "अपना ईमेल पता दर्ज करें"
+    </dd>
+    <dt>
+      "🇩🇪"
+    </dt>
+    <dd class="margin-none">
+      "Geben Sie Ihre E-Mail-Adresse ein"
+    </dd>
+    <dt>
+      "🇧🇷"
+    </dt>
+    <dd class="margin-none">
+      "Insira seu endereço de email"
+    </dd>
+    <dt>
+      "🇯🇵"
+    </dt>
+    <dd class="margin-none">
+      "メールアドレスを入力してください"
+    </dd>
+  </dl>
+</body>

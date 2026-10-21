@@ -1,0 +1,193 @@
+<body class data-controller="local-time lightbox">
+  <a class="btn skip-navigation" href="#main-content">
+    "Skip to main content"
+  </a>
+  <nav id="nav">
+    <div class="flex-item-justify-start">
+      <a class="btn" href="/rooms/699448325">
+        <img aria-hidden="true" height="20" src="/assets/arrow-left-«digest».svg" width="20">
+        <span class="for-screen-reader">
+          "Go Back"
+        </span>
+      </a>
+    </div>
+  </nav>
+  <main id="main-content">
+    <section class="flex flex-column gap panel txt-align-center" style="view-transition-name: account-settings">
+      <figure class="account-logo avatar center txt-xx-large">
+        <img alt="Account logo" height="300" src="/account/logo?v=20260926130020" width="300">
+      </figure>
+      <h1 class="flex-item-grow txt-x-large">
+        "37signals"
+      </h1>
+      <div class="border-radius fill-shade margin-block pad-block-start pad-inline">
+        <div class="align-center flex flex-column gap">
+          <label class="flex flex-column full-width gap" style="--row-gap: 0.5em">
+            <strong class="invite-label" id="invite_label">
+              "Share to invite more people"
+            </strong>
+            " "
+            <span class="align-center fill-white flex gap input input--actor">
+              <img aria-hidden="true" class="colorize--black" height="20" src="/assets/person-add-«digest».svg" width="20">
+              " "
+              <input aria-labelledby="invite_label" class="input" id="invite_url" readonly type="text" value="http://campfire.test/join/CRMu-l8Ge-KB9B">
+            </span>
+          </label>
+          <div class="align-center flex gap">
+            <a class="btn" data-action="lightbox#open" data-lightbox-target="image" data-lightbox-url-value="/qr_code/«qr:http://campfire.test/join/CRMu-l8Ge-KB9B»" href="/qr_code/«qr:http://campfire.test/join/CRMu-l8Ge-KB9B»">
+              <span class="for-screen-reader">
+                "Show join link QR code"
+              </span>
+              " "
+              <img aria-hidden="true" class="colorize--black" height="20" src="/assets/qr-code-«digest».svg" width="20">
+            </a>
+            " "
+            <button class="btn" data-action="copy-to-clipboard#copy" data-controller="copy-to-clipboard" data-copy-to-clipboard-content-value="http://campfire.test/join/CRMu-l8Ge-KB9B" data-copy-to-clipboard-success-class="btn--success">
+              <span class="for-screen-reader">
+                "Copy join link"
+              </span>
+              " "
+              <img aria-hidden="true" class="colorize--black" height="20" src="/assets/copy-paste-«digest».svg" width="20">
+            </button>
+            " "
+            <button class="btn" data-action="web-share#share" data-controller="web-share" data-web-share-text-value="Hit this link to join me in Campfire and start chatting." data-web-share-title-value="Link to join Campfire" data-web-share-url-value="http://campfire.test/join/CRMu-l8Ge-KB9B" hidden="hidden">
+              <span class="for-screen-reader">
+                "Share join link"
+              </span>
+              " "
+              <img aria-hidden="true" class="colorize--black" height="20" src="/assets/share-«digest».svg" width="20">
+            </button>
+          </div>
+        </div>
+        <hr class="full-width margin-block separator" style="--border-style: solid">
+        <menu class="flex flex-column gap margin-none pad">
+          <turbo-frame id="account_users">
+            <li class="align-center flex gap margin-none">
+              <figure class="avatar flex-item-no-shrink" style="--avatar-size: 3.75ch;">
+                <a class="avatar btn" data-turbo-frame="_top" href="/users/127326141" title="David">
+                  <img aria-hidden="true" height="48" loading="lazy" src="/users/«signed_id:user/avatar:127326141»/avatar?v=20260926130020" width="48">
+                </a>
+              </figure>
+              <div class="min-width">
+                <div class="fill-shade overflow-ellipsis">
+                  <strong>
+                    "David"
+                  </strong>
+                </div>
+              </div>
+              <hr aria-hidden="true" class="separator">
+            </li>
+            <li class="align-center flex gap margin-none">
+              <figure class="avatar flex-item-no-shrink" style="--avatar-size: 3.75ch;">
+                <a class="avatar btn" data-turbo-frame="_top" href="/users/149087659" title="Jason">
+                  <img aria-hidden="true" height="48" loading="lazy" src="/users/«signed_id:user/avatar:149087659»/avatar?v=20260926130020" width="48">
+                </a>
+              </figure>
+              <div class="min-width">
+                <div class="fill-shade overflow-ellipsis">
+                  <strong>
+                    "Jason"
+                  </strong>
+                </div>
+              </div>
+              <hr aria-hidden="true" class="separator">
+            </li>
+            <hr class="full-width separator" style="--border-style: solid">
+            <li class="align-center flex gap margin-none">
+              <figure class="avatar flex-item-no-shrink" style="--avatar-size: 3.75ch;">
+                <a class="avatar btn" data-turbo-frame="_top" href="/users/773523956" title="Anna Bea Cole">
+                  <img aria-hidden="true" height="48" loading="lazy" src="/users/«signed_id:user/avatar:773523956»/avatar?v=20260926130022" width="48">
+                </a>
+              </figure>
+              <div class="min-width">
+                <div class="fill-shade overflow-ellipsis">
+                  <strong>
+                    "Anna Bea Cole"
+                  </strong>
+                </div>
+              </div>
+              <hr aria-hidden="true" class="separator">
+            </li>
+            <li class="align-center flex gap margin-none">
+              <figure class="avatar flex-item-no-shrink" style="--avatar-size: 3.75ch;">
+                <a class="avatar btn" data-turbo-frame="_top" href="/users/773523953" title="JZ – Designer">
+                  <img aria-hidden="true" height="48" loading="lazy" src="/users/«signed_id:user/avatar:773523953»/avatar?v=20260926130020" width="48">
+                </a>
+              </figure>
+              <div class="min-width">
+                <div class="fill-shade overflow-ellipsis">
+                  <strong>
+                    "JZ"
+                  </strong>
+                </div>
+              </div>
+              <hr aria-hidden="true" class="separator">
+            </li>
+            <li class="align-center flex gap margin-none">
+              <figure class="avatar flex-item-no-shrink" style="--avatar-size: 3.75ch;">
+                <a class="avatar btn" data-turbo-frame="_top" href="/users/712064548" title="Kevin – Programmer">
+                  <img aria-hidden="true" height="48" loading="lazy" src="/users/«signed_id:user/avatar:712064548»/avatar?v=20260926130020" width="48">
+                </a>
+              </figure>
+              <div class="min-width">
+                <div class="fill-shade overflow-ellipsis">
+                  <strong>
+                    "Kevin"
+                  </strong>
+                </div>
+              </div>
+              <hr aria-hidden="true" class="separator">
+              <a class="btn flex-item-no-shrink txt-small" href="/users/me/profile" target="_top">
+                <img aria-hidden="true" height="20" src="/assets/pencil-«digest».svg" width="20">
+                " "
+                <span class="for-screen-reader">
+                  "My settings"
+                </span>
+              </a>
+            </li>
+          </turbo-frame>
+        </menu>
+      </div>
+    </section>
+    <footer id="footer">
+      <div class="center margin-block-double txt-align-center txt-subtle">
+        "Campfire™ version "
+        <span class="version-badge">
+          "parity"
+        </span>
+      </div>
+    </footer>
+  </main>
+  <aside data-controller="toggle-class" data-toggle-class-toggle-class="open" id="sidebar">
+  </aside>
+  <dialog aria-label="Image Viewer (Press escape to close)" class="lightbox" data-action="close->lightbox#reset" data-lightbox-target="dialog">
+    <img class="lightbox__image" data-lightbox-target="zoomedImage" src>
+    <form class="lightbox__btn" method="dialog">
+      <button class="btn">
+        <img aria-hidden="true" src="/assets/remove-«digest».svg">
+        " "
+        <span class="for-screen-reader">
+          "Close image viewer"
+        </span>
+      </button>
+    </form>
+    <a class="btn hide-in-ios-pwa lightbox__btn--download" data-lightbox-target="download" href>
+      <img aria-hidden="true" src="/assets/download-«digest».svg">
+      " "
+      <span class="for-screen-reader">
+        "Download file"
+      </span>
+    </a>
+    " "
+    <button class="btn lightbox__btn--share" data-action="web-share#share" data-controller="web-share" data-lightbox-target="share" data-web-share-files-value>
+      <img aria-hidden="true" src="/assets/share-«digest».svg">
+      " "
+      <span class="for-screen-reader">
+        "Share file"
+      </span>
+    </button>
+  </dialog>
+  <a aria-label="Once software from 37signals home page" href="https://once.com" id="app-logo" target="_blank">
+    <img alt="Campfire logo" height="216" src="/assets/campfire-icon-«digest».png" width="256">
+  </a>
+</body>

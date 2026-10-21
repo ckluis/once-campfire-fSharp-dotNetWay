@@ -7,7 +7,7 @@ module Campfire.Views.Tests.ParityATests
 open System.Text.Json
 open Xunit
 open Campfire.Views
-open Campfire.Views.Tests.Dom
+open Campfire.Tests
 open Campfire.Views.Tests.Facts
 
 module Inputs = Campfire.Views.Differential.Inputs
@@ -36,10 +36,10 @@ let private orderedUsers (name: string) : Users.UserSummary list =
 let private accountFact (name: string) (key: string) : JsonElement = (case name).GetProperty("account").GetProperty key
 
 let private assertParity (name: string) (ext: string) (rendered: string) =
-    let expected = normalizeHtml (golden name ext)
-    let actual = normalizeHtml rendered
-    match diff expected actual with
-    | Some report -> failwith $"{name}: DOM differs from the reference\n{report}"
+    let expected = LooseDom.normalize (golden name ext)
+    let actual = LooseDom.normalize rendered
+    match LooseDom.diff expected actual with
+    | Some report -> failwith $"{name}: loose DOM differs from the reference\n{report}"
     | None -> ()
 
 [<Fact>]

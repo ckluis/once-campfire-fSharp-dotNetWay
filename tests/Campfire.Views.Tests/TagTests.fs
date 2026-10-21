@@ -38,7 +38,7 @@ let ``renders attributes in order with rails value rules`` () =
             .Data("turbo_permanent", true)
             .Aria("hidden", "true")
             .Tabindex(-1)
-            .Attr("data-action", Html.Raw "a->\"b\"")
+            .Attr("data-action", SafeBytes.Raw "a->\"b\"")
     let expected =
         " class=\"a&amp;b\" hidden=\"hidden\" data-turbo-permanent=\"true\" aria-hidden=\"true\" tabindex=\"-1\" data-action=\"a->&quot;b&quot;\""
     Assert.Equal(expected, renderOf attrs)

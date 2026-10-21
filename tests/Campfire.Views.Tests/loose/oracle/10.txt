@@ -1,0 +1,8 @@
+<body>
+  <span class="mention" sgid="sgid-127326141-crowd">
+    <a class="avatar btn" data-turbo-frame="_top" href="/users/127326141" title="David">
+      <img aria-hidden="true" height="48" src="/users/127326141/avatar?v=20260102160000" width="48">
+    </a>
+    " David"
+  </span>
+</body>

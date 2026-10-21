@@ -1,0 +1,47 @@
+<body>
+  <details class="hide-in-browser notifications-help" data-notifications-target="details">
+    <summary class="btn">
+      <img aria-hidden="true" height="20" src="/assets/external/gear-«digest».svg" width="20">
+      " "
+      <strong>
+        "Check your Android settings"
+      </strong>
+      " "
+      <img aria-hidden="true" class="disclosure" height="10" src="/assets/disclosure-«digest».svg" width="10">
+    </summary>
+    <ol>
+      <li>
+        "Tap the "
+        <em>
+          <img alt="More options" height="16" src="/assets/menu-dots-vertical-«digest».svg" width="16">
+        </em>
+        " menu button."
+      </li>
+      <li>
+        "Tap "
+        <em>
+          "Settings"
+        </em>
+        "."
+      </li>
+      <li>
+        "Tap "
+        <em>
+          "Notifications"
+        </em>
+        "."
+      </li>
+      <li>
+        "Tap "
+        <em>
+          <img alt="the toggle button" height="22" src="/assets/external/switch-«digest».svg" width="22">
+        </em>
+        " to "
+        <em>
+          "Allow Firefox notifications"
+        </em>
+        "."
+      </li>
+    </ol>
+  </details>
+</body>

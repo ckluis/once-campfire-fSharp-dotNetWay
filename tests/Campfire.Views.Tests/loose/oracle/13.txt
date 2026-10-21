@@ -1,0 +1,29 @@
+<body>
+  <a class="direct unread" data-badge-dot-target="unread" data-room-id="380168926" data-rooms-list-target="room" data-sorted-list-number="«epochms+157232341.089s»" data-sorted-list-target="item" href="/rooms/380168926" id="list_rooms_direct_380168926">
+    <div class="avatar__group">
+      <span class="avatar">
+        <img aria-hidden="true" height="20" src="/users/773524173/avatar?v=20260210193400" width="20">
+      </span>
+      " "
+      <span class="avatar">
+        <img aria-hidden="true" height="20" src="/users/127326141/avatar?v=20260102160000" width="20">
+      </span>
+      " "
+      <span class="avatar">
+        <img aria-hidden="true" height="20" src="/users/773524197/avatar?v=20260210195800" width="20">
+      </span>
+      " "
+      <span class="avatar">
+        <img aria-hidden="true" height="20" src="/users/773524090/avatar?v=20260210181100" width="20">
+      </span>
+    </div>
+    <span class="align-center border-radius direct__author flex gap max-width min-width txt-small">
+      <span class="overflow-ellipsis txt-nowrap">
+        <span class="for-screen-reader">
+          "Ping with"
+        </span>
+        " OK, D, SL, and LG"
+      </span>
+    </span>
+  </a>
+</body>

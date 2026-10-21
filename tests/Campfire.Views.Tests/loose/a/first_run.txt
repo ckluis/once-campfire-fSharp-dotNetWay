@@ -1,0 +1,267 @@
+<body class="signup" data-controller="local-time lightbox">
+  <a class="btn skip-navigation" href="#main-content">
+    "Skip to main content"
+  </a>
+  <nav id="nav">
+  </nav>
+  <main id="main-content">
+    <form accept-charset="UTF-8" action="/first_run" class="center max-width" enctype="multipart/form-data" method="post">
+      <section class="nametag u-relative">
+        <div class="align-center flex justify-center pad-block">
+          <img aria-hidden="true" class="nametag__lanyard" src="/assets/lanyard-«digest».svg">
+        </div>
+        <div class="flex flex-column gap nametag__inner">
+          <fieldset class="center-block flex flex-column">
+            <legend class="txt-align-center txt-large">
+              <strong>
+                "Set up Campfire"
+              </strong>
+            </legend>
+            <label class="align-center avatar__form center gap" data-controller="upload-preview">
+              <div class="btn input--file">
+                <img aria-hidden="true" src="/assets/camera-«digest».svg">
+                " "
+                <input accept="image/*" class="input" data-action="upload-preview#previewImage" data-upload-preview-target="input" id="user_avatar" name="user[avatar]" type="file">
+                " "
+                <span class="for-screen-reader">
+                  "Add your avatar"
+                </span>
+              </div>
+              <div class="avatar btn input--file txt-xx-large">
+                <img alt="Add your avatar" aria-hidden="true" data-upload-preview-target="image" src="/assets/default-avatar-«digest».svg">
+                " "
+                <span class="for-screen-reader">
+                  "Avatar"
+                </span>
+              </div>
+            </label>
+          </fieldset>
+          <div class="align-center flex gap">
+            <details class="position-relative" data-action="keydown.esc->popup#close toggle->popup#toggle click@document->popup#closeOnClickOutside" data-controller="popup" data-popup-orientation-top-class="popup-orientation-top">
+              <summary class="btn" tabindex="-1">
+                <img aria-hidden="true" class="color-icon" height="20" src="/assets/globe-«digest».svg" width="20">
+                <span class="for-screen-reader">
+                  "Translate"
+                </span>
+              </summary>
+              <div class="language-list-menu shadow" data-popup-target="menu">
+                <dl class="language-list">
+                  <dt>
+                    "🇺🇸"
+                  </dt>
+                  <dd class="margin-none">
+                    "Enter your name"
+                  </dd>
+                  <dt>
+                    "🇪🇸"
+                  </dt>
+                  <dd class="margin-none">
+                    "Introduce tu nombre"
+                  </dd>
+                  <dt>
+                    "🇫🇷"
+                  </dt>
+                  <dd class="margin-none">
+                    "Entrez votre nom"
+                  </dd>
+                  <dt>
+                    "🇮🇳"
+                  </dt>
+                  <dd class="margin-none">
+                    "अपना नाम दर्ज करें"
+                  </dd>
+                  <dt>
+                    "🇩🇪"
+                  </dt>
+                  <dd class="margin-none">
+                    "Geben Sie Ihren Namen ein"
+                  </dd>
+                  <dt>
+                    "🇧🇷"
+                  </dt>
+                  <dd class="margin-none">
+                    "Insira seu nome"
+                  </dd>
+                  <dt>
+                    "🇯🇵"
+                  </dt>
+                  <dd class="margin-none">
+                    "お名前を入力してください"
+                  </dd>
+                </dl>
+              </div>
+            </details>
+            <label class="align-center flex flex-item-grow gap input input--actor txt-large">
+              <input autocomplete="name" autofocus="autofocus" class="input" data-1p-ignore="true" id="user_name" name="user[name]" placeholder="Name" required="required" type="text">
+              " "
+              <img aria-hidden="true" class="colorize--black" height="24" src="/assets/person-«digest».svg" width="24">
+            </label>
+          </div>
+          <div class="align-center flex gap">
+            <details class="position-relative" data-action="keydown.esc->popup#close toggle->popup#toggle click@document->popup#closeOnClickOutside" data-controller="popup" data-popup-orientation-top-class="popup-orientation-top">
+              <summary class="btn" tabindex="-1">
+                <img aria-hidden="true" class="color-icon" height="20" src="/assets/globe-«digest».svg" width="20">
+                <span class="for-screen-reader">
+                  "Translate"
+                </span>
+              </summary>
+              <div class="language-list-menu shadow" data-popup-target="menu">
+                <dl class="language-list">
+                  <dt>
+                    "🇺🇸"
+                  </dt>
+                  <dd class="margin-none">
+                    "Enter your email address"
+                  </dd>
+                  <dt>
+                    "🇪🇸"
+                  </dt>
+                  <dd class="margin-none">
+                    "Introduce tu correo electrónico"
+                  </dd>
+                  <dt>
+                    "🇫🇷"
+                  </dt>
+                  <dd class="margin-none">
+                    "Entrez votre adresse courriel"
+                  </dd>
+                  <dt>
+                    "🇮🇳"
+                  </dt>
+                  <dd class="margin-none">
+                    "अपना ईमेल पता दर्ज करें"
+                  </dd>
+                  <dt>
+                    "🇩🇪"
+                  </dt>
+                  <dd class="margin-none">
+                    "Geben Sie Ihre E-Mail-Adresse ein"
+                  </dd>
+                  <dt>
+                    "🇧🇷"
+                  </dt>
+                  <dd class="margin-none">
+                    "Insira seu endereço de email"
+                  </dd>
+                  <dt>
+                    "🇯🇵"
+                  </dt>
+                  <dd class="margin-none">
+                    "メールアドレスを入力してください"
+                  </dd>
+                </dl>
+              </div>
+            </details>
+            <label class="align-center flex flex-item-grow gap input input--actor txt-large">
+              <input autocomplete="username" class="input" id="user_email_address" name="user[email_address]" placeholder="Email address" required="required" type="email">
+              " "
+              <img aria-hidden="true" class="colorize--black" height="24" src="/assets/email-«digest».svg" width="24">
+            </label>
+          </div>
+          <div class="align-center flex gap">
+            <details class="position-relative" data-action="keydown.esc->popup#close toggle->popup#toggle click@document->popup#closeOnClickOutside" data-controller="popup" data-popup-orientation-top-class="popup-orientation-top">
+              <summary class="btn" tabindex="-1">
+                <img aria-hidden="true" class="color-icon" height="20" src="/assets/globe-«digest».svg" width="20">
+                <span class="for-screen-reader">
+                  "Translate"
+                </span>
+              </summary>
+              <div class="language-list-menu shadow" data-popup-target="menu">
+                <dl class="language-list">
+                  <dt>
+                    "🇺🇸"
+                  </dt>
+                  <dd class="margin-none">
+                    "Enter your password"
+                  </dd>
+                  <dt>
+                    "🇪🇸"
+                  </dt>
+                  <dd class="margin-none">
+                    "Introduce tu contraseña"
+                  </dd>
+                  <dt>
+                    "🇫🇷"
+                  </dt>
+                  <dd class="margin-none">
+                    "Saisissez votre mot de passe"
+                  </dd>
+                  <dt>
+                    "🇮🇳"
+                  </dt>
+                  <dd class="margin-none">
+                    "अपना पासवर्ड दर्ज करें"
+                  </dd>
+                  <dt>
+                    "🇩🇪"
+                  </dt>
+                  <dd class="margin-none">
+                    "Geben Sie Ihr Passwort ein"
+                  </dd>
+                  <dt>
+                    "🇧🇷"
+                  </dt>
+                  <dd class="margin-none">
+                    "Insira sua senha"
+                  </dd>
+                  <dt>
+                    "🇯🇵"
+                  </dt>
+                  <dd class="margin-none">
+                    "パスワードを入力してください"
+                  </dd>
+                </dl>
+              </div>
+            </details>
+            <label class="align-center flex flex-item-grow gap input input--actor txt-large">
+              <input autocomplete="new-password" class="input" id="user_password" maxlength="72" name="user[password]" placeholder="Password" required="required" size="72" type="password">
+              " "
+              <img aria-hidden="true" class="colorize--black" height="24" src="/assets/password-«digest».svg" width="24">
+            </label>
+          </div>
+          <button class="btn btn--reversed center txt-large" name="button" type="submit">
+            <img aria-hidden="true" src="/assets/arrow-right-«digest».svg">
+            " "
+            <span class="for-screen-reader">
+              "Save"
+            </span>
+          </button>
+        </div>
+      </section>
+    </form>
+    <footer id="footer">
+    </footer>
+  </main>
+  <aside data-controller="toggle-class" data-toggle-class-toggle-class="open" id="sidebar">
+  </aside>
+  <dialog aria-label="Image Viewer (Press escape to close)" class="lightbox" data-action="close->lightbox#reset" data-lightbox-target="dialog">
+    <img class="lightbox__image" data-lightbox-target="zoomedImage" src>
+    <form class="lightbox__btn" method="dialog">
+      <button class="btn">
+        <img aria-hidden="true" src="/assets/remove-«digest».svg">
+        " "
+        <span class="for-screen-reader">
+          "Close image viewer"
+        </span>
+      </button>
+    </form>
+    <a class="btn hide-in-ios-pwa lightbox__btn--download" data-lightbox-target="download" href>
+      <img aria-hidden="true" src="/assets/download-«digest».svg">
+      " "
+      <span class="for-screen-reader">
+        "Download file"
+      </span>
+    </a>
+    " "
+    <button class="btn lightbox__btn--share" data-action="web-share#share" data-controller="web-share" data-lightbox-target="share" data-web-share-files-value>
+      <img aria-hidden="true" src="/assets/share-«digest».svg">
+      " "
+      <span class="for-screen-reader">
+        "Share file"
+      </span>
+    </button>
+  </dialog>
+  <a aria-label="Once software from 37signals home page" href="https://once.com" id="app-logo" target="_blank">
+    <img alt="Campfire logo" height="216" src="/assets/campfire-icon-«digest».png" width="256">
+  </a>
+</body>

@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+# Rewrites tests/Campfire.Views.Tests/loose/: what parity/capture/loose.ts (the loose DOM layer the pixel harness compares with) makes
+# of every Rails golden page (rust/crates/views/tests/golden/a) and of 30 answers of the frozen oracle. tests/Shared/LooseDom.fs is
+# the F# port of loose.ts; its W2 test compares the port with these stored outputs line for line. Run it after changing loose.ts,
+# normalize.ts or oracle.jsonl, and commit the result.
+#
+#   parity/bin/loose-golden    (on the Mac it runs itself in colima, inside the pinned Playwright image)
+set -euo pipefail
+ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
+if [ "$(uname -s)" = Darwin ] && [ -z "${PARITY_IN_VM:-}" ]; then
+  exec colima ssh -- bash -c "cd '$ROOT' && PARITY_IN_VM=1 parity/bin/loose-golden"
+fi
+source "$ROOT/parity/capture/sandbox/run.sh"
+image=$(docker_image)
+out=tests/Campfire.Views.Tests/loose
+mkdir -p "$ROOT/$out"
+# The image carries the locked modules at /node_modules; the repo is mounted read-only except for the output directory.
+exec docker run --rm --network none -u "$(id -u):$(id -g)" -v "$ROOT:$ROOT:ro" -v "$ROOT/$out:$ROOT/$out" -w "$PARITY" "$image" \
+  node capture/loose-golden.ts "$ROOT/$out" "$ROOT/rust/crates/views/tests/golden/a" "$ROOT/tests/Campfire.Views.Tests/oracle.jsonl"

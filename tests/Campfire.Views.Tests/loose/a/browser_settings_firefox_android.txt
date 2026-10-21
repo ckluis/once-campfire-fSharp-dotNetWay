@@ -1,0 +1,33 @@
+<body>
+  <details class="notifications-help" data-notifications-target="details">
+    <summary class="btn">
+      <img aria-hidden="true" height="20" src="/assets/external/web-«digest».svg" width="20">
+      " "
+      <strong>
+        "Check your Firefox settings"
+      </strong>
+      " "
+      <img aria-hidden="true" class="disclosure" height="10" src="/assets/disclosure-«digest».svg" width="10">
+    </summary>
+    <ol>
+      <li>
+        "Tap "
+        <em>
+          <img alt="the View site information button" height="20" src="/assets/lock-«digest».svg" width="20">
+        </em>
+        " in the address bar."
+      </li>
+      <li>
+        "Tap "
+        <em>
+          "Notification"
+        </em>
+        " to change to "
+        <em>
+          "Allowed"
+        </em>
+        "."
+      </li>
+    </ol>
+  </details>
+</body>

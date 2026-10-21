@@ -1,0 +1,12 @@
+<body>
+  <form action="/users/773523955/ban" class="button_to" method="post">
+    <input name="_method" type="hidden" value="delete">
+    <button class="btn btn--negative full-width" data-turbo-confirm="Are you sure you want to remove the ban on this user?" type="submit">
+      <img aria-hidden="true" aria-label="Remove Ban Spam Ham" src="/assets/cancel-«digest».svg">
+      " "
+      <span>
+        "Remove ban"
+      </span>
+    </button>
+  </form>
+</body>

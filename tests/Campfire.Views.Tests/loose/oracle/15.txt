@@ -1,0 +1,18 @@
+<body>
+  <form action="/rooms/directs?user_ids%5B%5D=773524172" class="button_to" method="post">
+    <button class="borderless direct fill-transparent unpad" type="submit">
+      <span class="avatar">
+        <img aria-hidden="true" src="/users/773524172/avatar?v=20260210193300">
+      </span>
+      " "
+      <span class="align-center border-radius direct__author flex gap max-width min-width txt-small">
+        <span class="overflow-ellipsis txt-nowrap">
+          <span class="for-screen-reader">
+            "Start a ping with"
+          </span>
+          " Nia"
+        </span>
+      </span>
+    </button>
+  </form>
+</body>

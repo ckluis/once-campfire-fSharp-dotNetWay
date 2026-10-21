@@ -23,7 +23,7 @@ let ``text is erb escaped and raw text is not`` () =
 
 [<Fact>]
 let ``safe html is written as it is, never escaped a second time`` () =
-    let safe = Html.Text "a < b"
+    let safe = SafeBytes.Text "a < b"
     Assert.Equal("a &lt; b", safe.ToString())
     Assert.Equal("[a &lt; b]", Render.text (fun w ->
         w.Byte(byte '[')

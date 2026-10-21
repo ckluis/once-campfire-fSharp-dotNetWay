@@ -1,0 +1,21 @@
+<body>
+  <figure class="attachment attachment--content attachment--og">
+    <actiontext-opengraph-embed>
+      <div class="gap og-embed">
+        <div class="og-embed__content">
+          <div class="og-embed__title">
+            <a href="https://example.com/a?b=1&c=2" rel="noreferrer" target="_blank">
+              "Example <Title> & more"
+            </a>
+          </div>
+          <div class="og-embed__description">
+            "A description"
+          </div>
+        </div>
+        <div class="og-embed__image">
+          <img alt class="center image" src="https://example.com/image.png">
+        </div>
+      </div>
+    </actiontext-opengraph-embed>
+  </figure>
+</body>

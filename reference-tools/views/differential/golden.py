@@ -1,7 +1,11 @@
 #!/usr/bin/env python3
 """Picks a sample of the cases and the Rust views crate's answers to them, as lines of
-{"case": ..., "rust": ...} (after the `shared` line) for tests/Campfire.Views.Tests/differential.jsonl.
-A few of each operation, more of the small ones; the every-code-point cases are sampled evenly.
+{"case": ..., "rust": ...} (after the `shared` line) for tests/Campfire.Views.Tests/oracle.jsonl.
+A few of each operation, more of the small ones; the every-code-point cases are sampled evenly. On top of that every operation
+gets a hostile quota (HOSTILE_QUOTA): cases whose inputs hold one of the strings that break markup or escaping when a template writes
+it unescaped (a script tag, quotes, an apostrophe, an ampersand reference, a lone angle bracket, the slot marker U+E000 ...), so the
+frozen sample covers every template with hostile text (plans/design-views.md V11, risk 15). A table of cases per operation, hostile
+ones counted, goes to stderr.
 
   golden.py CASES RUST_OUTPUT
 """
@@ -32,6 +36,34 @@ BIG = 60_000
 HUGE = 400_000
 EVEN = ("capitalize_each", "initials_each")
 
+# The strings of generate.py's HOSTILE list that a template can get wrong (the rest are about Unicode tables, whitespace and length).
+MARKERS = [
+    "<script>alert(1)</script>", '"quoted"', "it's", "a<b>c", "&amp; already", "&lt;", "a -> b", "back\\slash", "o'Brien", "\ue000",
+    "a { color: red }\n</style>", "</textarea>", "</textarea><b>",
+]
+HOSTILE_QUOTA = 6          # per operation, in addition to the base quota
+HOSTILE_QUOTA_PAGES = 3    # operations whose answers run to tens of kilobytes (whole pages)
+HOSTILE_MAX = 120_000      # a hostile answer bigger than this is left out (the base sample keeps its one big page)
+
+def hostile(case):
+    """Does the case's input hold a marker string?"""
+    text = json.dumps(case, ensure_ascii=False)
+    return any(json.dumps(marker, ensure_ascii=False)[1:-1] in text for marker in MARKERS)
+
+
+def special(case):
+    """A weaker test for operations whose generated inputs rarely drew a marker: any string holding a markup or escaping character."""
+    def walk(value):
+        if isinstance(value, str):
+            return any(c in value for c in "<>\"'&\ue000\\")
+        if isinstance(value, dict):
+            return any(walk(v) for v in value.values())
+        if isinstance(value, list):
+            return any(walk(v) for v in value)
+        return False
+    return walk(case.get("args", {}))
+
+
 answers = {}
 for line in open(rust_path):
     answer = json.loads(line)
@@ -45,6 +77,13 @@ for line in open(cases_path):
     rows.append((case, answers[case["id"]]))
 
 taken = collections.Counter()
+kept = collections.Counter()
+total = collections.Counter()
+hostile_kept = collections.Counter()
+hostile_total = collections.Counter()
+strong = collections.Counter()
+for case, _ in rows:
+    strong[case["op"] + (":to_lowercase" if case.get("args", {}).get("name") == "to_lowercase" else "")] += hostile(case)
 even = [(c, r) for c, r in rows if c.get("args", {}).get("name") in EVEN]
 step = max(1, len(even) // 10)
 chosen = {c["id"] for c, _ in even[::step]}
@@ -64,7 +103,21 @@ for case, answer in rows:
         else:
             keep = taken[op] < QUOTA.get(op, DEFAULT)
         taken[op] += keep
+    # an operation none of whose cases drew a marker string takes cases with any markup character in an argument instead
+    is_hostile = hostile(case) or (strong[op] == 0 and special(case))
+    total[op] += 1
+    hostile_total[op] += is_hostile
+    if not keep and is_hostile and len(answer.get("out", "")) <= HOSTILE_MAX:
+        quota = HOSTILE_QUOTA_PAGES if len(answer.get("out", "")) > 20_000 else HOSTILE_QUOTA
+        keep = hostile_kept[op] < quota
     if keep:
+        hostile_kept[op] += is_hostile
+        kept[op] += 1
         # the replay compares `out` and `fragments`; `text` (a recorded page without its fragments) is `out` again for most pages
         answer = {key: value for key, value in answer.items() if key != "text"}
         print(json.dumps({"case": case, "rust": answer}, ensure_ascii=False))
+
+print(f"{'operation':50} {'cases':>6} {'kept':>5} {'hostile cases':>14} {'hostile kept':>13}", file=sys.stderr)
+for op in sorted(total):
+    print(f"{op:50} {total[op]:>6} {kept[op]:>5} {hostile_total[op]:>14} {hostile_kept[op]:>13}", file=sys.stderr)
+print(f"{'total':50} {sum(total.values()):>6} {sum(kept.values()):>5} {sum(hostile_total.values()):>14} {sum(hostile_kept.values()):>13}", file=sys.stderr)
