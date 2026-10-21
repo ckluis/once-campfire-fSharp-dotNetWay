@@ -1,0 +1,8 @@
+
+Build succeeded.
+    0 Warning(s)
+    0 Error(s)
+
+Time Elapsed 00:00:02.97
+fsharp   deflate=0 {"clients": 1000, "deflate": false, "bytes": 600, "rss_mb_before": 78.9, "rss_mb_idle": 122.2, "rss_kb_per_client": 44.3, "rss_mb_after_burst": 222.8, "idle_cpu_ms_per_second": 28.3, "publish_ms_p50": 11.53, "latency_ms_p50": 15.8, "latency_ms_max": 19.6, "single_cpu_us_per_delivery": 55.5, "single_user_us_per_delivery": 37.67, "single_sys_us_per_delivery": 17.83, "burst_seconds": 0.457, "burst_deliveries": 200000, "server_cpu_us_per_delivery": 1.55, "server_user_us_per_delivery": 1.1, "server_sys_us_per_delivery": 0.45}
+fsharp   deflate=0 {"clients": 1000, "deflate": false, "bytes": 600, "rss_mb_before": 239.7, "rss_mb_idle": 285.4, "rss_kb_per_client": 46.8, "rss_mb_after_burst": 275.3, "idle_cpu_ms_per_second": 15.0, "publish_ms_p50": 11.09, "latency_ms_p50": 16.5, "latency_ms_max": 23.0, "single_cpu_us_per_delivery": 51.0, "single_user_us_per_delivery": 34.0, "single_sys_us_per_delivery": 17.0, "burst_seconds": 0.458, "burst_deliveries": 200000, "server_cpu_us_per_delivery": 1.85, "server_user_us_per_delivery": 1.35, "server_sys_us_per_delivery": 0.5}

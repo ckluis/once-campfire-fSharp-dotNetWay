@@ -165,7 +165,7 @@ Project references follow the crate graph. Don't add an edge Rust doesn't have.
   Rebuild `campfire-dotnetway:app` from HEAD before measuring (`CAMPFIRE_REVISION=$(git rev-parse HEAD) parity/bin/candidate build`
   in colima labels the image with its commit; `bench/run`'s env.txt records the label and the digest).
 - `bench/cable/run` measures fan-out to 1,000 local subscribers against `campfire_cable` (needs python3 and mise). Run it after changing `Streams.fs`,
-  `Connection.fs` or `Server.fs`; the results (up to the old transport; the deflate mode negotiates nothing now) and what they say of the host's settings are in `bench/results/cable-fanout.md`.
+  `Connection.fs` or `Server.fs`; the results for the old transport and what they say of the host's settings are in `bench/results/cable-fanout.md`, and for the WebSocket-middleware transport in `bench/results/cable-fanout-dotnetway.md` (run it with `--plain`: the F# server negotiates no deflate now).
 - `Campfire.Storage` needs libvips (`brew install vips` on macOS; `bin/verify` points NetVips at Homebrew's) and,
   for video, ffmpeg and ffprobe. The storage vectors' byte comparisons run only against libvips 8.16.1 and
   ffmpeg 7.1.5 (rust/Dockerfile's builds); otherwise they are skipped with a note on stderr, so say so when
