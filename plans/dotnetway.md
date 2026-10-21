@@ -1882,3 +1882,61 @@ D1-D9, with the cheap checks re-run. Evidence in `bench/results/dotnetway-p3-ver
   against the cache scoping out), Db +38.
 - Evidence: `bench/results/dotnetway-4-3/` (`new/`, `ctl/`, `bench.sh`, `build.sh`, `build-ctl.sh`, `pixel.sh`, `network.sh`, logs, `loads.txt`,
   `verify.log`). 27 GB free after `bin/clean-docker`.
+
+### Phase 4, unit 4.4: Messages (2026-10-21)
+
+- **What is in** (`7b72d08`, `ab76f64`): the 15 `messages/**` templates are Falco.Markup functions: `_message`, `_actions`, `_presentation`, `_unrenderable`,
+  `_template`, `boosts/_boost` (two roots: the boost and its screen-reader label), `_boosts`, `boosts/index`, `boosts/new`, `index`, `show`, `edit`, the
+  create and destroy turbo streams and `room_not_found`. `MessagesPresentation` is `Markup.Messages.presentation` (`Markup/Messages.fs`, compiled after the
+  view-models) and `MessageContent.Text` holds `Html.Trusted` (`Trusted.ofSanitized` in `Presenter.fs`, its one allowlisted call). First parts of
+  `Markup/Assets.fs` (`image`, `imageSized`), `Links.fs` (`linkTo`) and `Forms.fs` (`formWith`, `hiddenFieldTag`, `buttonTag`, `buttonTo`; no form token).
+  A message's fragment is its node rendered with its boosts' fragments slotted (`Html.fragment`) and flattened by the new `HtmlOutput.toFragment`; the
+  unrenderable message passes no boosts (they are not placed). The templates that place fragments (`Index`, `Show`, `CreateTurboStream`,
+  `DestroyTurboStream`, `Boosts.Index`) also have `output` (an `HtmlOutput`); the controllers send the messages index and the create/destroy streams
+  as parts (`Pages.bare`, `Pages.renderOutput`) and hand `show`, `edit`, `boosts/index|new` and `room_not_found` to the writer's layout through
+  `Legacy.write`. `rooms/show` places `_template` with `Legacy.write` too. `_template` is script text with `$placeholders$`: written as the ERB's own text
+  around `Html.int`/`Html.text` values (whitespace and the ERB's stray `</div class=...>` kept: the loose layer compares a script's text).
+- **Whitespace (V4) found by the tests and the browser:** the oracle and goldens were loose-equal on the first build (every `Html.sp` was placed from the ERB: the
+  `h3` heading's three inline pieces, `img` + label in every button and link, the actions grid's buttons, the boost form's label/button/link, the two edit
+  buttons). `bin/pixel-parity` found one the tests cannot: `lexxy-editor`'s script puts its toolbar in front of the ERB's whitespace text, so the live DOM
+  has a space between the toolbar and `lexxy-prompt`; the Falco edit form lost it (`interactions/edit_form`, `edit_form/with_mention` loose DOM, 4 cells,
+  `-1` line each). Fixed with an `Html.sp` before the prompt (`ab76f64`); the slice was re-run on the new image, 94/94 loose equal.
+- **Tests:** T1 (`MessagesViewsTests`: a value starting with a newline and holding `</textarea>`, `&lt;`, quotes and `<p>` survives the message editor's
+  `value` attribute and a `textarea` written with `Html.nl`, no `script` in the page). The oracle (`DifferentialTests`, hostile text included) and the
+  `messages_*` goldens (`MessagesViewsTests`) are re-pointed to the Falco templates and loose-equal. Two assertions that checked the writer's bytes changed:
+  `DifferentialTests` compares the fragments' **offsets** in a page's text and no longer their lengths (a message's fragment is Falco's, 8.5 KB against Rust's
+  9.4 KB: class A), and `RoomsTests` "pages of messages go out in parts" asks for at least 40 writes (the page of older messages is 40 fragments with no text
+  between them, and an empty part is not a write; it was more than 40 when the writer put a newline between messages). The differential's runner
+  (`reference-tools/views/differential/fsharp`) builds the messages cases through the Falco templates (`nodeAnswer`: cold and warm, the same bytes).
+- **Gates run:** `CAMPFIRE_REQUIRE_SEED=1 bin/verify` on the final tree (Release, warnings as errors): lint self-test ok (18 planted), lint clean (224 files),
+  **979 total, 973 passed, 6 skipped (the same environmental 6), 0 failed**; H1 green. One run before the last fixes failed `FrontAcmeTests` "cached certificates
+  load and are forgotten by obtaining" (a Kit socket test, nothing in this unit touches it; it passed twice alone and in the final full run).
+  `bin/pixel-parity --fast` on the image of `ab76f64`: `messages/**`, `interactions/actions_menu**`, `boost_**`, `quick_boost`, `edit_**`, `reply`, `copy_link`,
+  `message_deleted`: default 94/94 screenshots pixel-equal, 94/94 aria, 94/94 loose (317 s; the other four seeds have no such states, 0/0); the first run on
+  `7b72d08` was 94/94, 94/94 and 90/94 loose (the four edit_form cells above). `realtime/message_sent`, `message_edited`, `message_deleted`, `boosted`,
+  `boost_removed`, `attachment_sent` one at a time on the image of `7b72d08` (the later commit changes only the edit form, which no realtime state shows):
+  2/2 equal on all three layers each (34-39 s). `bin/clean-parity` between runs, `bin/clean-docker` after the builds.
+- **Speed (`bench/quick`, messages page and post a message, 3 reps, interleaved new/ctl/ctl/new/new/ctl via `bench.sh`; control = `campfire-dotnetway:u44ctl`
+  built from the base `4756d98` by `build-ctl.sh`, labels checked, image removed after; host probe ratio 1.035-1.066 over the 12 runs, Mac load average
+  3.2-3.6 from other sessions, 0 non-2xx and 0 connection errors in 12 runs per side, post rows equal answers):**
+
+| workload | c | control req/s | new req/s | x Rails (new) | x Rails (control) | CPU us/req ctl -> new |
+|---|---:|---:|---:|---:|---:|---|
+| messages page | 16 | 7,283 | 7,325 | 19.25 | 19.14 | 457 -> 453 |
+| messages page | 1 | 2,411 | 2,397 | 11.00 | 11.07 | 508 -> 513 |
+| post a message | 16 | 2,098 | 2,076 | 6.29 | 6.36 | 1,421 -> 1,433 |
+| post a message | 1 | 1,183 | 1,185 | 7.10 | 7.09 | 1,600 -> 1,599 |
+
+  No cell is under 5x (thinnest: post c=16 6.29x). Every cell is within -1.1% to +0.6% of the control's throughput and within +0.9% to -0.9% of its CPU per
+  request: the Falco message partials cost nothing measurable because a message renders once per version (the fragment is cached) and a page places it.
+  Post c=16 is 1.0% under its control (the range of the session's noise, the host probe 1.04-1.07); the design predicted 6.15x.
+- **Differences recorded:** none for the README (the design's one class A entry is written in 4.11). Visible: the messages page decodes to **345,844 bytes against
+  Rust's 383,844 (-9.9%)**, which `bench/quick`'s "decoded bytes equal Rust's" check reports as a FAIL for `messages_page` (the control and every other route
+  pass); the check is the writer's byte equality and is meant to change with the phase (4.11 / the gate decides what replaces it: a stored expected size per route).
+  `bench/run`'s exit status is 1 in the meantime, which the bench scripts tolerate.
+- **KLOC:** `bin/kloc` 34,263 by upstream's rules, **34,482 corrected (34.5 KLOC)**, from 34,451 (+31): `Campfire.Views` 5,800 corrected from 5,769, App unchanged.
+  The messages templates and `MessagesPresentation` were 613 code lines as literal tables and are 641 as Falco templates plus the four `Markup/` files (146);
+  the design's 0.6 ratio does not hold for a directory whose writer templates were already one line per literal; the shrink comes from deleting `Out.fs`,
+  `Tag.fs` and the writer halves of the helpers in 4.11, and every later template that uses these helpers.
+- Evidence: `bench/results/dotnetway-4-4/` (`new/`, `ctl/`, `bench.sh`, `build.sh`, `build-ctl.sh`, `pixel.sh`, `pixel-rerun.sh`, pixel and bench logs, `first-run/`, `loads.txt`,
+  `verify.log`). 27 GB free after `bin/clean-docker`.
