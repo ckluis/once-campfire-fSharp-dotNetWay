@@ -103,10 +103,9 @@ let hostWith (server: CableServer<'U>) (assumeSsl: bool) : Task<WebApplication *
         builder.Logging.ClearProviders() |> ignore
         builder.WebHost.UseUrls "http://127.0.0.1:0" |> ignore
         builder.Services.AddHostedService<CableHeartbeat<'U>>(fun _ -> new CableHeartbeat<'U>(server)) |> ignore
-        builder.Services.AddHostedService<CableShutdown<'U>>(fun provider ->
-            CableShutdown<'U>(server, provider.GetRequiredService<Microsoft.Extensions.Hosting.IHostApplicationLifetime>()))
-        |> ignore
         let app = builder.Build()
+        // A server built outside the host has no lifetime to hook (`ServerBuilder.withLifetime`): the host's stop restarts it.
+        app.Lifetime.ApplicationStopping.Register(fun () -> server.Restart()) |> ignore
         if assumeSsl then
             app.Use(fun (ctx: HttpContext) (next: Func<Task>) ->
                 ctx.Request.Scheme <- "https"

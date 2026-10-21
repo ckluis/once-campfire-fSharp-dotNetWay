@@ -10,8 +10,8 @@
     <Compile Include="Concerns/UserAgent.fs" />
     <Compile Include="Concerns/Platform.fs" />
     <Compile Include="Channels/Identity.fs" />
+    <Compile Include="Channels/Publish.fs" />
     <Compile Include="Channels/Revocation.fs" />
-    <Compile Include="Channels/Connection.fs" />
     <Compile Include="Channels/ReadRooms.fs" />
     <Compile Include="Channels/UnreadRooms.fs" />
     <Compile Include="Channels/Broadcasts.fs" />
@@ -19,8 +19,6 @@
     <Compile Include="Channels/Presence.fs" />
     <Compile Include="Channels/RoomMessages.fs" />
     <Compile Include="Channels/TypingNotifications.fs" />
-    <Compile Include="Channels/Registry.fs" />
-    <Compile Include="Channels/CableServices.fs" />
     <Compile Include="Integrations/Net.fs" />
     <Compile Include="Integrations/Guard.fs" />
     <Compile Include="Integrations/Http.fs" />
@@ -62,6 +60,8 @@
     <Compile Include="Web/Before.fs" />
     <Compile Include="Web/LoginThrottle.fs" />
     <Compile Include="Web/Services.fs" />
+    <Compile Include="Channels/Auth.fs" />
+    <Compile Include="Channels/CableServices.fs" />
     <Compile Include="ActiveStorage.fs" />
     <Compile Include="Presenters/AttachmentWrites.fs" />
     <Compile Include="RichText.fs" />

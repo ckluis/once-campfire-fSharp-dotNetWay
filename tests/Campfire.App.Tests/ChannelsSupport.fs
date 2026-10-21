@@ -373,19 +373,32 @@ type TestApp
                 }
             )
 
-/// Kestrel on a loopback port with `server` mounted at /cable: the host and its `host:port`.
-let serveCable (server: Cable) : Task<WebApplication * string> =
+/// Kestrel on a loopback port with the app's cable services (`CableServices.add`, the session scheme, the data services) and
+/// the cable mounted at /cable, as the app's own host has them: the host, its `host:port` and the server it built.
+let serveCable
+    (secrets: Secrets)
+    (time: TimeProvider)
+    (factory: Microsoft.EntityFrameworkCore.IDbContextFactory<Campfire.Db.Ef.CampfireDb>)
+    (gate: WriteGate)
+    (env: Campfire.Db.Ef.Env)
+    : Task<WebApplication * string * Cable> =
     task {
         let builder = WebApplication.CreateSlimBuilder()
         builder.WebHost.UseUrls "http://127.0.0.1:0" |> ignore
         builder.Logging.ClearProviders() |> ignore
-        Campfire.App.Channels.CableServices.add builder.Services server
+        let services = builder.Services
+        services.AddSingleton<Secrets>(secrets) |> ignore
+        Campfire.Db.Ef.Data.addServices services factory gate time
+        services.AddSingleton<Campfire.Db.Ef.Env>(env) |> ignore
+        Campfire.App.Web.Services.addAuthentication services
+        Campfire.App.Channels.CableServices.add services (CableHandle())
         let app = builder.Build()
         app.UseWebSockets() |> ignore
-        app.Map(Endpoint.MountPath, Microsoft.AspNetCore.Http.RequestDelegate(fun ctx -> Endpoint.handle server ctx)) |> ignore
+        app.Map(Endpoint.MountPath, Microsoft.AspNetCore.Http.RequestDelegate(fun ctx -> Endpoint.handle (ctx.RequestServices.GetRequiredService<Cable>()) ctx))
+        |> ignore
         do! app.StartAsync()
         let address = (nonNull (app.Services.GetRequiredService<Microsoft.AspNetCore.Hosting.Server.IServer>().Features.Get<IServerAddressesFeature>())).Addresses |> Seq.head
-        return app, (Uri address).Authority
+        return app, (Uri address).Authority, app.Services.GetRequiredService<Cable>()
     }
 
 let start () : Task<TestApp> =
@@ -406,10 +419,7 @@ let start () : Task<TestApp> =
               RichText = richText
               BcryptCost = 4 }
         Testing.loadFixtures gate efEnv factory
-        let deps: Deps = { DbFactory = factory; Gate = gate; Env = efEnv; Secrets = secrets; Clock = clock }
-        let server = Registry.server deps (Campfire.Cable.CableOptions()) NullLogger.Instance
+        let! app, authority, server = serveCable secrets time factory gate efEnv
         sink.Server <- server
-
-        let! app, authority = serveCable server
-        return TestApp(gate, server, Broadcasts server, secrets, clock, app, $"ws://{authority}/cable", $"http://{authority}", dir, factory, efEnv)
+        return TestApp(gate, server, app.Services.GetRequiredService<Broadcasts>(), secrets, clock, app, $"ws://{authority}/cable", $"http://{authority}", dir, factory, efEnv)
     }

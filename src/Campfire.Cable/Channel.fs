@@ -40,6 +40,7 @@ type Subscription<'U>
     let transmissions = List<ReadOnlyMemory<byte>>()
     let mutable rejected = false
     let mutable unsubscribed = false
+    let mutable services = services
 
     /// The raw identifier string the client subscribed with.
     member _.Identifier: string = identifier
@@ -58,8 +59,11 @@ type Subscription<'U>
     /// `identified_by :current_user`.
     member _.CurrentUser: 'U = currentUser
 
-    /// The services a callback may resolve from: the server's root provider until 3.5 gives each command a scope.
-    member _.Services: IServiceProvider = services
+    /// The services a callback may resolve from: the scope of the command it is running in (C12). A new scope for each command,
+    /// so a scoped service (the `DbContext`) never outlives the command that asked for it.
+    member _.Services
+        with get (): IServiceProvider = services
+        and internal set (value: IServiceProvider) = services <- value
 
     member _.Broadcaster: ICableBroadcaster = broadcaster
 

@@ -1,7 +1,7 @@
 // Port of rust/crates/campfire/src/channels.rs (the types, and the GlobalIDs the channels and broadcasts name things by)
 //
 // Action Cable: `reference/app/channels`, the broadcasts the app makes (`Broadcasts`), and revocation
-// (`Revocation`). `Registry.server` builds the cable server with these channels, and the app routes the
+// (`Revocation`). `CableServices` builds the cable server with these channels, and the app routes the
 // models' events to `Broadcasts` and `Revocation`.
 //
 // Every channel matches its Ruby class: identifier, streams, payloads, and callback order
@@ -21,15 +21,25 @@ type CableUser = { Id: int64; Name: string }
 /// The cable server, identified by `current_user`.
 type Cable = CableServer<CableUser>
 
-/// What the cable server needs from the app.
-type Deps =
-    { /// The connection's session and user lookup, and the channels' reads and writes.
-      DbFactory: Microsoft.EntityFrameworkCore.IDbContextFactory<Campfire.Db.Ef.CampfireDb>
-      /// The write environment for the channels that write (presence); `Gate` is the one writer at a time.
-      Gate: WriteGate
-      Env: Campfire.Db.Ef.Env
-      Secrets: Secrets
-      Clock: SharedClock }
+/// The cable services of the running host, for what the app builds before the host exists (`AppState`, `Jobs`). The server
+/// is a DI singleton (it needs the host's scope factory and lifetime); `CableServices.add` attaches the host's provider
+/// when the host starts, and `Resolve` reads from it.
+[<Sealed>]
+type CableHandle() =
+    let mutable services: System.IServiceProvider | null = null
+
+    member _.Attach(provider: System.IServiceProvider) : unit = System.Threading.Volatile.Write(&services, provider)
+
+    /// A cable service, once the host has started; `ValueNone` before.
+    member _.TryResolve<'T when 'T: not null>() : 'T voption =
+        match System.Threading.Volatile.Read(&services) with
+        | null -> ValueNone
+        | provider -> ValueSome(Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<'T> provider)
+
+    member this.Resolve<'T when 'T: not null>() : 'T =
+        match this.TryResolve<'T>() with
+        | ValueSome service -> service
+        | ValueNone -> failwith "the cable is not available before the host has started"
 
 module Gid =
     let userGid (userId: int64) : GlobalId = GlobalId.create "User" (string userId)

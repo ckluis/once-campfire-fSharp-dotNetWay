@@ -82,7 +82,7 @@ let ``C1 params are the decoded identifier and Param reads one value`` () =
             })
 
 [<Fact>]
-let ``C2 Services is the server's provider and Broadcaster is the server`` () =
+let ``C2 Services is a scope of the server's provider (3.5) and Broadcaster is the server`` () =
     let provider = ServiceCollection().AddSingleton<string>("marker").BuildServiceProvider()
     let outcome = TaskCompletionSource<bool * bool>()
     task {
@@ -94,7 +94,7 @@ let ``C2 Services is the server's provider and Broadcaster is the server`` () =
                 { Channel.empty with
                     Subscribed =
                         fun sub ->
-                            outcome.SetResult(obj.ReferenceEquals(sub.Services, provider) && sub.Services.GetRequiredService<string>() = "marker", obj.ReferenceEquals(sub.Broadcaster, theServer.Value))
+                            outcome.SetResult(not (obj.ReferenceEquals(sub.Services, provider)) && sub.Services.GetRequiredService<string>() = "marker", obj.ReferenceEquals(sub.Broadcaster, theServer.Value))
                             Task.CompletedTask })
             |> ServerBuilder.build
         theServer <- Some build

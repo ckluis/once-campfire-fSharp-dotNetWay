@@ -63,6 +63,24 @@ module Services =
     /// The raw request path, still percent-encoded and without its query (`PATH_INFO`).
     let rawPath (http: HttpContext) : string = Respond.rawPath http
 
+    /// K1: the `session_token` cookie; K4: the bot key, a second scheme (no policy scheme, no default). Needs `Secrets` and
+    /// `TimeProvider` in the container (the cookie's signed ticket), and the scoped `CampfireDb` for the session lookup.
+    let addAuthentication (services: IServiceCollection) : unit =
+        AppContext.SetSwitch(SuppressAutoDefaultScheme, true)
+        services
+            .AddAuthentication()
+            .AddCookie(Schemes.Session, SessionCookie.configure)
+            .AddScheme<AuthenticationSchemeOptions, BotKeyAuthenticationHandler>(Schemes.BotKey, ignore)
+        |> ignore
+        services
+            .AddOptions<CookieAuthenticationOptions>(Schemes.Session)
+            .Configure<Secrets, TimeProvider>(fun options secrets time ->
+                options.TicketDataFormat <- RailsSignedTicketFormat(secrets, time)
+                options.TimeProvider <- time
+                options.Events.OnValidatePrincipal <- Func<CookieValidatePrincipalContext, System.Threading.Tasks.Task>(SessionCookie.validatePrincipal))
+        |> ignore
+
+
     /// Registers the app's services on the host (`Front.serveWithLines`'s `configureServices`, and the tests' hosts).
     let add (edge: EdgeConfig) (app: AppState) (services: IServiceCollection) : unit =
         AppContext.SetSwitch(SuppressAutoDefaultScheme, true)
@@ -99,19 +117,7 @@ module Services =
         |> ignore
         // K15: ten sign-in attempts per client IP in three minutes.
         services.AddSingleton<System.Threading.RateLimiting.PartitionedRateLimiter<string>>(fun _ -> LoginThrottle.create ()) |> ignore
-        // K1: the `session_token` cookie; K4: the bot key, a second scheme (no policy scheme, no default).
-        services
-            .AddAuthentication()
-            .AddCookie(Schemes.Session, SessionCookie.configure)
-            .AddScheme<AuthenticationSchemeOptions, BotKeyAuthenticationHandler>(Schemes.BotKey, ignore)
-        |> ignore
-        services
-            .AddOptions<CookieAuthenticationOptions>(Schemes.Session)
-            .Configure<Secrets, TimeProvider>(fun options secrets time ->
-                options.TicketDataFormat <- RailsSignedTicketFormat(secrets, time)
-                options.TimeProvider <- time
-                options.Events.OnValidatePrincipal <- Func<CookieValidatePrincipalContext, System.Threading.Tasks.Task>(SessionCookie.validatePrincipal))
-        |> ignore
+        addAuthentication services
 
     /// A bot API path: `/rooms/:room_id/:bot_key/messages...`, the only routes that read `raw_request_body`.
     let private isBotApiPath (path: string) : bool =

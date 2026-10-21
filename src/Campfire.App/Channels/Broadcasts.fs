@@ -63,10 +63,13 @@ module BroadcastNames =
     /// `ActionCable.server.broadcast "user_#{id}_reads", { room_id: }`
     /// (reference/app/channels/presence_channel.rb).
     let readRoom (server: ICableBroadcaster) (userId: int64) (roomId: int64) : int =
-        server.Broadcast(ReadRooms.streamNameFor userId, Payload.ofValue {| room_id = roomId |})
+        Publish.broadcast server (ReadRooms.streamNameFor userId) (Payload.ofValue {| room_id = roomId |})
 
 [<Sealed>]
-type Broadcasts(server: ICableBroadcaster) =
+type Broadcasts(cable: ICableBroadcaster) =
+    /// Every broadcast goes through `Publish` (C16): none from inside a write.
+    let server = Publish.guarded cable
+
     static member private RoomMessages(room: Room) : string list = [ GlobalId.toParam (Gid.roomGid room); BroadcastNames.Messages ]
 
     static member private UserRooms(userId: int64) : string list = [ GlobalId.toParam (Gid.userGid userId); BroadcastNames.Rooms ]

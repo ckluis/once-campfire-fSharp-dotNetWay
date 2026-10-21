@@ -11,7 +11,7 @@ open Campfire.Db
 
 let private nilMembership () : exn = System.Exception "undefined method for nil (membership)"
 
-let channel (access: RoomChannel.Access) : Channel<CableUser> =
+let channel () : Channel<CableUser> =
     let room: Room option ref = ref None
 
     // `@room` is only nil after a rejection, when these callbacks don't run.
@@ -24,7 +24,7 @@ let channel (access: RoomChannel.Access) : Channel<CableUser> =
     /// membership is gone.
     let membership (sub: Subscription<CableUser>) : Membership =
         let roomId, userId = ids sub
-        match RoomChannel.Access.read access (fun db -> Membership.findByRoomAndUser db roomId userId) with
+        match RoomChannel.Access.read sub (fun db -> Membership.findByRoomAndUser db roomId userId) with
         | Error error -> raise (RoomChannel.dbError error)
         | Ok None -> raise (nilMembership ())
         | Ok(Some membership) -> membership
@@ -33,7 +33,7 @@ let channel (access: RoomChannel.Access) : Channel<CableUser> =
         task {
             let roomId, userId = ids sub
             let! found =
-                RoomChannel.Access.write access (fun tx ->
+                RoomChannel.Access.write sub (fun tx ->
                     match Membership.findByRoomAndUser tx.Db roomId userId with
                     | Some membership ->
                         change tx membership
@@ -63,7 +63,7 @@ let channel (access: RoomChannel.Access) : Channel<CableUser> =
         withMembership sub (fun tx membership -> Membership.refreshConnection tx membership |> ignore)
 
     let resubscribe (sub: Subscription<CableUser>) : unit =
-        room.Value <- RoomChannel.subscribe access sub
+        room.Value <- RoomChannel.subscribe sub
 
     let ran (work: Task) : Task<bool> =
         task {

@@ -7,30 +7,27 @@ module Campfire.App.Channels.RoomChannel
 open System
 open System.Text.Json
 open System.Threading.Tasks
+open Microsoft.Extensions.DependencyInjection
 open Campfire.Cable
 open Campfire.Db
 open Campfire.RailsCompat
 open Campfire.Ruby
 
-/// What the room channels read and write with: the pooled context factory, the write gate and the write environment
-/// (the cable's `Deps`).
-type Access =
-    { Factory: Microsoft.EntityFrameworkCore.IDbContextFactory<Campfire.Db.Ef.CampfireDb>
-      Gate: WriteGate
-      Env: Campfire.Db.Ef.Env }
-
+/// What the room channels read and write with: the `CampfireDb` of the command's scope (C12: one per command, returned to the
+/// pool when the command ends), the write gate and the write environment.
 module Access =
-    /// `Reads.run` on a leased context, as the port's `Database.Read` boundary.
-    let read (access: Access) (f: Campfire.Db.Ef.CampfireDb -> 'T) : Result<'T, DbError> =
-        use db = access.Factory.CreateDbContext()
-        Campfire.Db.Ef.Reads.run db f
+    /// `Reads.run` on the command's context.
+    let read (sub: Subscription<CableUser>) (f: Campfire.Db.Ef.CampfireDb -> 'T) : Result<'T, DbError> =
+        Campfire.Db.Ef.Reads.run (sub.Services.GetRequiredService<Campfire.Db.Ef.CampfireDb>()) f
 
-    /// `Writes.run` on a leased context: the gate, the transaction, the after-commit queue.
-    let write (access: Access) (f: Campfire.Db.Ef.Tx -> 'T) : Task<Result<'T, DbError>> =
-        task {
-            use db = access.Factory.CreateDbContext()
-            return! Campfire.Db.Ef.Writes.run access.Gate access.Env db f
-        }
+    /// `Writes.run` on the command's context: the gate, the transaction, the after-commit queue.
+    let write (sub: Subscription<CableUser>) (f: Campfire.Db.Ef.Tx -> 'T) : Task<Result<'T, DbError>> =
+        let services = sub.Services
+        Campfire.Db.Ef.Writes.run
+            (services.GetRequiredService<WriteGate>())
+            (services.GetRequiredService<Campfire.Db.Ef.Env>())
+            (services.GetRequiredService<Campfire.Db.Ef.CampfireDb>())
+            f
 
 /// A `DbError` as the exception a callback would have raised.
 let dbError (error: DbError) : exn = Exception(DbError.display error)
@@ -51,34 +48,34 @@ let castId (value: JsonElement) : int64 option =
     | _ -> None
 
 /// `current_user.rooms.find_by(id: params[:room_id])`.
-let private findRoom (access: Access) (sub: Subscription<CableUser>) : Room option =
+let private findRoom (sub: Subscription<CableUser>) : Room option =
     match sub.Param "room_id" |> ValueOption.toOption |> Option.bind castId with
     | None -> None
     | Some roomId ->
         let userId = sub.CurrentUser.Id
-        match Access.read access (fun db -> Room.findForUser db userId roomId) with
+        match Access.read sub (fun db -> Room.findForUser db userId roomId) with
         | Ok room -> room
         | Error error -> raise (dbError error)
 
 /// `RoomChannel#subscribed`: `stream_for @room` if the user is a member, else `reject`.
-let subscribe (access: Access) (sub: Subscription<CableUser>) : Room option =
-    let room = findRoom access sub
+let subscribe (sub: Subscription<CableUser>) : Room option =
+    let room = findRoom sub
     match room with
     | Some room -> sub.StreamFor [ GlobalId.toParam (Gid.roomGid room) ]
     | None -> sub.Reject()
     room
 
-let channel (access: Access) : Channel<CableUser> =
+let channel () : Channel<CableUser> =
     let room: Room option ref = ref None
     { Channel.empty with
         Subscribed =
             fun sub ->
-                room.Value <- subscribe access sub
+                room.Value <- subscribe sub
                 Task.CompletedTask
         Perform =
             fun action _ sub ->
                 match action with
                 | "subscribed" when not sub.Rejected ->
-                    room.Value <- subscribe access sub
+                    room.Value <- subscribe sub
                     Task.FromResult true
                 | _ -> Task.FromResult false }

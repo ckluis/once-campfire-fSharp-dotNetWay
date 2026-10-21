@@ -8,7 +8,7 @@ open Campfire.Cable
 open Campfire.Db
 open Campfire.RailsCompat
 
-let channel (access: RoomChannel.Access) : Channel<CableUser> =
+let channel () : Channel<CableUser> =
     let room: Room option ref = ref None
 
     /// `broadcast_to @room, action:, user: current_user.slice(:id, :name)`.
@@ -22,7 +22,7 @@ let channel (access: RoomChannel.Access) : Channel<CableUser> =
             sub.BroadcastTo([ GlobalId.toParam (Gid.roomGid room) ], payload)
 
     let resubscribe sub =
-        room.Value <- RoomChannel.subscribe access sub
+        room.Value <- RoomChannel.subscribe sub
 
     { Channel.empty with
         Subscribed =

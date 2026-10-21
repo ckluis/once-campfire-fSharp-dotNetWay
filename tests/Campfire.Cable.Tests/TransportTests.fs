@@ -9,6 +9,7 @@ open System.Net.WebSockets
 open System.Text
 open System.Threading
 open System.Threading.Tasks
+open Microsoft.Extensions.DependencyInjection
 open Xunit
 open Campfire.RailsCompat
 open Campfire.Cable
@@ -226,4 +227,135 @@ let ``P12 stopping the host closes every connection with server_restart`` () =
                 ws.Dispose()
         finally
             (app :> IAsyncDisposable).DisposeAsync().AsTask().Wait()
+    }
+
+[<Fact>]
+let ``P12 a connection accepted after the host began stopping is sent server_restart right after its welcome`` () =
+    withApp (testOptions ()) (fun app ->
+        task {
+            // `ApplicationStopping` has run, but Kestrel has not stopped yet: an upgrade accepted now must not wait out the shutdown.
+            app.Server.Restart()
+            use! ws = open' app [ "actioncable-v1-json" ] (Some 1UL) ignore
+            let! welcome = text ws
+            Assert.Equal("""{"type":"welcome"}""", welcome)
+            let! restart = text ws
+            Assert.Equal("""{"type":"disconnect","reason":"server_restart","reconnect":true}""", restart)
+            match! next ws with
+            | Choice2Of2(status, description) ->
+                Assert.Equal(WebSocketCloseStatus.NormalClosure, status)
+                Assert.Equal("", description)
+            | Choice1Of2 other -> failwith other
+            do! ws.CloseOutputAsync(WebSocketCloseStatus.NormalClosure, "", CancellationToken.None)
+        })
+
+/// C10: the connection looks its session up again once it is registered (a remote disconnect would now reach it), in a scope of its
+/// own. A3's hook runs between the registration and that look.
+[<Fact>]
+let ``A3 the re-check hears a session that went between the first lookup and the registration`` () =
+    task {
+        let gone = ref false
+        let rechecked = List<IServiceProvider>()
+        let server =
+            Server.builder (testOptions ()) cookieAuth identify
+            |> ServerBuilder.withRecheck (fun _ services ->
+                rechecked.Add services
+                Task.FromResult(not gone.Value))
+            |> ServerBuilder.build
+        server.AfterRegistered <-
+            fun () ->
+                gone.Value <- true
+                Task.CompletedTask
+        let! host', address = host server
+        try
+            let authority = (Uri address).Authority
+            use ws = new ClientWebSocket()
+            ws.Options.SetRequestHeader("Origin", $"http://{authority}")
+            ws.Options.SetRequestHeader("Cookie", "session_token=1")
+            ws.Options.AddSubProtocol "actioncable-v1-json"
+            do! ws.ConnectAsync(Uri $"ws://{authority}/cable", CancellationToken.None)
+            let! welcome = text ws
+            Assert.Equal("""{"type":"welcome"}""", welcome)
+            let! disconnect = text ws
+            Assert.Equal("""{"type":"disconnect","reason":"unauthorized","reconnect":false}""", disconnect)
+            match! next ws with
+            | Choice2Of2(status, _) -> Assert.Equal(WebSocketCloseStatus.NormalClosure, status)
+            | Choice1Of2 other -> failwith other
+            do! ws.CloseOutputAsync(WebSocketCloseStatus.NormalClosure, "", CancellationToken.None)
+            Assert.Equal(1, rechecked.Count)
+        finally
+            host'.StopAsync().Wait()
+            host'.DisposeAsync().AsTask().Wait()
+    }
+
+type private Marker() =
+    member val Disposed = false with get, set
+
+    interface IDisposable with
+        member this.Dispose() = this.Disposed <- true
+
+[<Fact>]
+let ``A4 every command, and every unsubscribed on close, gets a scope of its own, disposed when it ends`` () =
+    task {
+        let provider = ServiceCollection().AddScoped<Marker>().BuildServiceProvider()
+        let markers = List<Marker>()
+        let note (sub: Subscription<User>) =
+            lock markers (fun () ->
+                markers.Add(sub.Services.GetRequiredService<Marker>()))
+        let server =
+            Server.builder (testOptions ()) cookieAuth identify
+            |> ServerBuilder.withServices provider
+            |> ServerBuilder.channel "ScopedChannel" (fun () ->
+                { Channel.empty with
+                    Subscribed =
+                        fun sub ->
+                            note sub
+                            Task.CompletedTask
+                    Unsubscribed =
+                        fun sub ->
+                            note sub
+                            Task.CompletedTask
+                    Perform =
+                        fun _ _ sub ->
+                            note sub
+                            sub.Transmit(Payload.ofString "noted")
+                            Task.FromResult true })
+            |> ServerBuilder.build
+        let! host', address = host server
+        try
+            let authority = (Uri address).Authority
+            use ws = new ClientWebSocket()
+            ws.Options.SetRequestHeader("Origin", $"http://{authority}")
+            ws.Options.SetRequestHeader("Cookie", "session_token=1")
+            ws.Options.AddSubProtocol "actioncable-v1-json"
+            do! ws.ConnectAsync(Uri $"ws://{authority}/cable", CancellationToken.None)
+            let! _ = text ws
+            let identifier = Json.generate (Value.Object [ "channel", Value.String "ScopedChannel" ])
+            do! send ws (Json.generate (Value.Object [ "command", Value.String "subscribe"; "identifier", Value.String identifier ]))
+            let! confirmed = text ws
+            Assert.Contains("confirm_subscription", confirmed)
+            let perform =
+                Json.generate (
+                    Value.Object
+                        [ "command", Value.String "message"
+                          "identifier", Value.String identifier
+                          "data", Value.String(Json.generate (Value.Object [ "action", Value.String "mark" ])) ]
+                )
+            for _ in 1..2 do
+                do! send ws perform
+                let! noted = text ws
+                Assert.Contains("noted", noted)
+            // A command's scope is gone when the command ends.
+            Assert.Equal(3, markers.Count)
+            Assert.All(markers, fun marker -> Assert.True marker.Disposed)
+            do! ws.CloseAsync(WebSocketCloseStatus.NormalClosure, "", CancellationToken.None)
+            let mutable waited = 0
+            while markers.Count < 4 && waited < 100 do
+                do! Task.Delay 20
+                waited <- waited + 1
+            Assert.Equal(4, markers.Count)
+            Assert.Equal(4, (markers |> Seq.distinct |> Seq.length))
+            Assert.All(markers, fun marker -> Assert.True marker.Disposed)
+        finally
+            host'.StopAsync().Wait()
+            host'.DisposeAsync().AsTask().Wait()
     }

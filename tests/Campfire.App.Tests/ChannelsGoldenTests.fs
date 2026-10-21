@@ -27,6 +27,7 @@ open Campfire.App.Channels
 open Campfire.App.Tests.ChannelsSupport
 open Campfire.App.Tests.Support
 open Campfire.Cable
+open Microsoft.Extensions.DependencyInjection
 open Campfire.Db
 open Campfire.RailsCompat
 open Campfire.RailsCompat.Clock
@@ -194,12 +195,10 @@ let private startOurs (recording: Recording) (dir: string) : Task<WriteGate * Ca
               Sink = sink
               RichText = BasicRichText()
               BcryptCost = 4 }
-        let deps: Deps = { DbFactory = factory; Gate = gate; Env = efEnv; Secrets = secrets; Clock = clock }
         // The reference runs with DISABLE_SSL, so without assume_ssl.
-        let server = Registry.server deps (Campfire.Cable.CableOptions()) NullLogger.Instance
+        let! host, authority, server = serveCable secrets (Campfire.Db.Ef.ClockTimeProvider clock) factory gate efEnv
         sink.Server <- server
-        let! host, authority = serveCable server
-        return gate, server, Broadcasts server, host, authority, (factory, efEnv)
+        return gate, server, host.Services.GetRequiredService<Broadcasts>(), host, authority, (factory, efEnv)
     }
 
 /// Frames until the socket has sent `atLeast` of them and then been quiet for a moment.

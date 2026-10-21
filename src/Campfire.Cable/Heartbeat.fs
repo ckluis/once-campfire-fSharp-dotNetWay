@@ -1,4 +1,4 @@
-// Phase 3 (plans/design-cable.md C8, C11): the heartbeat and the shutdown hook, as hosted services.
+// Phase 3 (plans/design-cable.md C8): the heartbeat, as a hosted service.
 namespace Campfire.Cable
 
 open System.Threading
@@ -26,13 +26,3 @@ type CableHeartbeat<'U>(server: CableServer<'U>) =
                     with e ->
                         server.Logger.LogError(e, "Cable heartbeat failed")
         }
-
-/// A stopping host closes its WebSockets (`server_restart`, so clients reconnect) instead of waiting out the shutdown timeout.
-[<Sealed>]
-type CableShutdown<'U>(server: CableServer<'U>, lifetime: IHostApplicationLifetime) =
-    interface IHostedService with
-        member _.StartAsync(_: CancellationToken) : Task =
-            lifetime.ApplicationStopping.Register(fun () -> server.Restart()) |> ignore
-            Task.CompletedTask
-
-        member _.StopAsync(_: CancellationToken) : Task = Task.CompletedTask

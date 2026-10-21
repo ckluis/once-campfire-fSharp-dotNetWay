@@ -66,7 +66,7 @@ let subscribableRoom (db: Campfire.Db.Ef.CampfireDb) (userId: int64) (streamName
         | Some room -> Room.findForUser db userId room.Id
         | None -> None
 
-let channel (access: RoomChannel.Access) (streams: StreamsChannel) : Channel<CableUser> =
+let channel (streams: StreamsChannel) : Channel<CableUser> =
     /// `authorized_stream_name`: the verified stream name, if present and for a room the user belongs to.
     let authorizedStreamName (sub: Subscription<CableUser>) : string option =
         match StreamsChannel.verifiedStreamNameFromParams streams sub.Params with
@@ -74,7 +74,7 @@ let channel (access: RoomChannel.Access) (streams: StreamsChannel) : Channel<Cab
         | Some streamName when streamName.Trim() = "" -> None
         | Some streamName ->
             let userId = sub.CurrentUser.Id
-            match RoomChannel.Access.read access (fun db -> subscribableRoom db userId streamName) with
+            match RoomChannel.Access.read sub (fun db -> subscribableRoom db userId streamName) with
             | Error error -> raise (RoomChannel.dbError error)
             | Ok room -> room |> Option.map (fun _ -> streamName)
 

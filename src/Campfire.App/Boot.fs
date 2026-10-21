@@ -98,8 +98,8 @@ module Boot =
 
     /// The HTTP pipeline: public files, then `/cable`, then the Rails route table. The framework's response compression
     /// (K11) is behind the public files, which are served precompressed.
-    let pipeline (app: AppState) (edge: Web.EdgeConfig) (builder: IApplicationBuilder) : unit =
-        Web.Services.pipeline edge publicFiles (fun http -> Campfire.Cable.Endpoint.handle app.Cable http) RouteTable.dispatch builder
+    let pipeline (edge: Web.EdgeConfig) (builder: IApplicationBuilder) : unit =
+        Web.Services.pipeline edge publicFiles (fun http -> Campfire.Cable.Endpoint.handle (http.RequestServices.GetRequiredService<Cable>()) http) RouteTable.dispatch builder
 
     // --- Boot ----------------------------------------------------------------------------------------------
 
@@ -134,7 +134,8 @@ module Boot =
                     | Ok clock -> clock
                     | Error message -> failwith message
 
-            let jobs = Jobs(JobLimits.QueueCapacity, loggers.CreateLogger "campfire.jobs")
+            let cableHandle = CableHandle()
+            let jobs = Jobs(JobLimits.QueueCapacity, loggers.CreateLogger "campfire.jobs", cableHandle)
             let richText = AppRichText(secrets, clock, loggers.CreateLogger "campfire.rich_text")
             let time = Campfire.Db.Ef.ClockTimeProvider clock
             let dbFactory = Campfire.Db.Ef.Data.factory (Campfire.Db.Ef.Data.options config.Storage.Database time dbOptions)
@@ -148,8 +149,7 @@ module Boot =
             let storage =
                 Storage.create (DiskService.create config.Storage.Files "local") (RailsCompat.appVerifier secrets "ActiveStorage")
 
-            // `assume_ssl` is the edge middleware's: the origin check sees the request's scheme.
-            let cableOptions = Campfire.Cable.CableOptions()
+            // `assume_ssl` is the edge middleware's: the cable's origin check sees the request's scheme.
             let efEnv: Campfire.Db.Ef.Env =
                 { Time = time
                   Sink = jobs
@@ -162,29 +162,27 @@ module Boot =
             | Ok() -> ()
             | Error error -> failwith (DbError.display error)
 
-            let deps: Deps = { DbFactory = dbFactory; Gate = gate; Env = efEnv; Secrets = secrets; Clock = clock }
-            let cable = Registry.server deps cableOptions (loggers.CreateLogger "campfire.cable")
-
             let edge = Web.EdgeConfig.production config.DisableSsl (errorPages ())
 
             let fragmentCache = FragmentCache(int (min config.FragmentCacheBytes (int64 Int32.MaxValue)))
             // config/initializers/web_push.rb: off without a valid VAPID key pair.
             let webPush = IntegrationJobs.webPushPool config dbFactory gate efEnv (loggers.CreateLogger "campfire.web_push")
             let app =
-                AppState(config, secrets, clock, gate, dbFactory, efEnv, storage, cable, Broadcasts cable, jobs, webPush, fragmentCache, loggers)
+                AppState(config, secrets, clock, gate, dbFactory, efEnv, storage, cableHandle, jobs, webPush, fragmentCache, loggers)
 
             let registry = CoreJobs.withCoreJobs ()
             IntegrationJobs.registerJobs registry
-            let runner = JobRunner.start jobs cable app registry config.JobConcurrency
+            let runner = JobRunner.start jobs app registry config.JobConcurrency
 
             return
                 { App = app
-                  Pipeline = pipeline app edge
+                  Pipeline = pipeline edge
                   ConfigureServices =
                     fun services ->
                         Campfire.Db.Ef.Data.addServices services dbFactory gate time
+                        services.AddSingleton<Campfire.Db.Ef.Env>(efEnv) |> ignore
                         Web.Services.add edge app services
-                        CableServices.add services app.Cable
+                        CableServices.add services cableHandle
                   Jobs = runner }
         }
 
@@ -226,7 +224,7 @@ module Boot =
                 task {
                     do! Server.shutdownSignal ()
                     logger.LogInformation "shutting down"
-                    // The cable's hosted `CableShutdown` closes every WebSocket (`server_restart`) on `ApplicationStopping`, which
+                    // The cable server closes every WebSocket (`server_restart`) on `ApplicationStopping`, which
                     // Front's `host.StopAsync` raises first (test P12 runs it against the app's own host).
                     stopping.TrySetResult() |> ignore
                 }

@@ -21,7 +21,7 @@ open Campfire.Db
 /// Disconnects every connection identified by this user. Returns the number of connections
 /// listening (0 if the user has none open).
 let disconnectUser (server: Cable) (userId: int64) (reconnect: bool) : int =
-    server.Disconnect(string (Gid.userGid userId), reconnect)
+    Publish.disconnectUser server userId reconnect
 
 /// Handles the events that belong to the cable server; returns false for the rest. (The app's
 /// `Jobs` sink does this itself, alongside enqueuing jobs.)

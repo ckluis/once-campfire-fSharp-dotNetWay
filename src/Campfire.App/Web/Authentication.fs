@@ -32,6 +32,14 @@ module SessionCookie =
         options.Cookie.IsEssential <- true
         options.SlidingExpiration <- false
 
+    /// The session lookup every consumer of the cookie shares (the cookie scheme below, the Cable connection's re-check):
+    /// `Session.find_by(token:)`, then its user. `None` when either is gone.
+    let lookup (db: Campfire.Db.Ef.CampfireDb) (token: string) : Result<(Session * User) option, DbError> =
+        Campfire.Db.Ef.Reads.run db (fun db ->
+            match Session.findByToken db token with
+            | None -> None
+            | Some session -> User.findById db session.UserId |> Option.map (fun user -> session, user))
+
     /// K3: is this cookie's session still valid? `Session.find_by(token:)`, then its user.
     let validatePrincipal (context: CookieValidatePrincipalContext) : Task =
         let http = context.HttpContext
@@ -43,12 +51,7 @@ module SessionCookie =
             | null -> context.RejectPrincipal()
             | claim ->
                 let db = http.RequestServices.GetRequiredService<Campfire.Db.Ef.CampfireDb>()
-                let found =
-                    Campfire.Db.Ef.Reads.run db (fun db ->
-                        match Session.findByToken db claim.Value with
-                        | None -> None
-                        | Some session -> User.findById db session.UserId |> Option.map (fun user -> session, user))
-                match found with
+                match lookup db claim.Value with
                 | Ok(Some(session, user)) ->
                     current.Session <- Some session
                     current.User <- Some user

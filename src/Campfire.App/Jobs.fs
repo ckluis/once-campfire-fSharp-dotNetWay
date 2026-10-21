@@ -94,7 +94,7 @@ module internal Work =
 
 /// The enqueueing side: the database's event sink, and `PerformLater` for everything else.
 [<Sealed>]
-type Jobs(capacity: int, logger: ILogger) =
+type Jobs(capacity: int, logger: ILogger, ?cable: CableHandle) =
     let queues =
         JobKind.all
         |> List.map (fun kind ->
@@ -104,7 +104,6 @@ type Jobs(capacity: int, logger: ILogger) =
             options.SingleReader <- false
             kind, Channel.CreateBounded<Work> options)
         |> dict
-    let mutable cable: Cable | null = null
     let mutable stopped = false
 
     member internal _.Queue(kind: JobKind) : Channel<Work> = queues[kind]
@@ -133,19 +132,17 @@ type Jobs(capacity: int, logger: ILogger) =
     /// is full. `work` runs on a worker, once the job's turn comes.
     member this.PerformLater(name: string, work: unit -> Task<Result<unit, string>>) : unit = this.Enqueue(AdHocWork(name, work))
 
-    member internal _.SetCable(server: Cable) : unit = cable <- server
-
     interface EventSink with
         member this.Emit(event: Event) : unit =
             match JobKind.ofEvent event, event with
             | Some kind, event -> this.Enqueue(EventWork(kind, event))
             // `ActionCable.server.remote_connections.where(current_user: user).disconnect`: a pub/sub
-            // broadcast in Rails, done right away. Before boot finishes there are no connections to
+            // broadcast in Rails, done right away. Before the host has started there are no connections to
             // disconnect.
             | None, Event.DisconnectUser(userId, reconnect) ->
-                match cable with
-                | null -> ()
-                | cable -> Revocation.disconnectUser cable userId reconnect |> ignore
+                match cable |> Option.bind (fun handle -> handle.TryResolve<Cable>() |> ValueOption.toOption) with
+                | None -> ()
+                | Some cable -> Revocation.disconnectUser cable userId reconnect |> ignore
             | None, event -> logger.LogWarning("not a job, dropping event {Event}", sprintf "%A" event)
 
 /// The running job runner.
@@ -206,10 +203,8 @@ module JobRunner =
                         do! perform app registry logger item
         }
 
-    /// Starts performing queued jobs: `concurrency` workers for each kind of job. `cable` is where
-    /// `DisconnectUser` events go.
-    let start (jobs: Jobs) (cable: Cable) (app: 'App) (registry: Registry<'App>) (concurrency: int) : Runner =
-        jobs.SetCable cable
+    /// Starts performing queued jobs: `concurrency` workers for each kind of job.
+    let start (jobs: Jobs) (app: 'App) (registry: Registry<'App>) (concurrency: int) : Runner =
         let workers =
             [ for kind in JobKind.all do
                   for _ in 1 .. max concurrency 1 do

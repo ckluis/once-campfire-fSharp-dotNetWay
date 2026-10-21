@@ -17,6 +17,7 @@ open System.Text.Json
 open System.Threading
 open System.Threading.Tasks
 open Microsoft.AspNetCore.Http
+open Microsoft.Extensions.DependencyInjection
 open Microsoft.Extensions.Logging
 
 /// What a connection needs of its server: the registries, the channels, the settings.
@@ -26,21 +27,31 @@ type internal ServerCore<'U>
         options: CableOptions,
         channels: ChannelRegistry<'U>,
         authenticate: HttpContext -> Task<'U option>,
+        recheck: HttpContext -> IServiceProvider -> Task<bool>,
         identify: 'U -> string,
-        services: IServiceProvider,
+        scopes: IServiceScopeFactory,
         logger: ILogger
     ) =
     let streams = StreamRegistry()
+    let mutable stopping = 0
 
     member _.Options: CableOptions = options
     member _.Channels: ChannelRegistry<'U> = channels
-    member _.Services: IServiceProvider = services
+    /// Each command, and each `unsubscribed` on close, gets a scope of its own (C12).
+    member _.Scopes: IServiceScopeFactory = scopes
+    /// Set when the host begins stopping: a connection that registers after `Restart` has walked the index closes itself.
+    member _.Stopping: bool = Volatile.Read(&stopping) <> 0
+    member _.BeginStopping() : unit = Volatile.Write(&stopping, 1)
+    /// A test hook between a connection's registration and its re-check (A3).
+    member val AfterRegistered: unit -> Task = (fun () -> Task.CompletedTask) with get, set
     member _.Logger: ILogger = logger
     member _.Streams: StreamRegistry = streams
     /// What a `Subscription` hands its channel: the server that owns this core (set by `ServerBuilder.build`).
     member val Broadcaster: ICableBroadcaster = Unchecked.defaultof<ICableBroadcaster> with get, set
     member val Connections = ConnectionIndex()
     member _.Authenticate(ctx: HttpContext) : Task<'U option> = authenticate ctx
+    /// C10: the session looked up again, in a scope of its own.
+    member _.Recheck(ctx: HttpContext, services: IServiceProvider) : Task<bool> = recheck ctx services
     member _.Identify(user: 'U) : string = identify user
 
     /// `ActionCable.server.broadcast(broadcasting, message)`; the payload is already encoded.
@@ -153,6 +164,20 @@ type internal CableConnection<'U>(ws: WebSocket, ctx: HttpContext, user: 'U vopt
                     Volatile.Write(&inCommand, 0))
         }
 
+    /// Runs one command (or one `unsubscribed` on close) in a DI scope of its own: the connection outlives any sensible
+    /// `DbContext` (C12).
+    member private _.WithScope(work: IServiceProvider -> Task) : Task =
+        task {
+            use scope = core.Scopes.CreateAsyncScope()
+            do! work scope.ServiceProvider
+        }
+
+    member private _.WithScopeResult(work: IServiceProvider -> Task<bool>) : Task<bool> =
+        task {
+            use scope = core.Scopes.CreateAsyncScope()
+            return! work scope.ServiceProvider
+        }
+
     /// Close after what is queued: the status goes out with the close frame.
     member private _.BeginClose(status: WebSocketCloseStatus) : unit =
         if Interlocked.Exchange(&closing, 1) = 0 then
@@ -232,10 +257,11 @@ type internal CableConnection<'U>(ws: WebSocket, ctx: HttpContext, user: 'U vopt
         entry.Sub.DrainOps ops
 
     /// `Subscriptions#remove_subscription` -> `Channel::Base#unsubscribe_from_channel`.
-    member private this.RemoveSubscription(index: int) : Task =
+    member private this.RemoveSubscription(index: int, services: IServiceProvider) : Task =
         task {
             let entry = entries[index]
             entries.RemoveAt index
+            entry.Sub.Services <- services
             entry.Sub.Unsubscribed <- true
             match! Safely.runUnit (fun () -> entry.Channel.Unsubscribed entry.Sub) with
             | Error error -> logger.LogError("Could not execute command: {Error}", error)
@@ -247,7 +273,7 @@ type internal CableConnection<'U>(ws: WebSocket, ctx: HttpContext, user: 'U vopt
         }
 
     /// `Channel::Base#subscribe_to_channel`: the callback's transmissions, then the confirmation, then the streams.
-    member private this.SubscribeToChannel(entry: Entry<'U>) : Task =
+    member private this.SubscribeToChannel(entry: Entry<'U>, services: IServiceProvider) : Task =
         task {
             let! result = Safely.runUnit (fun () -> entry.Channel.Subscribed entry.Sub)
             this.Collect entry
@@ -259,7 +285,7 @@ type internal CableConnection<'U>(ws: WebSocket, ctx: HttpContext, user: 'U vopt
             | Ok() ->
                 if entry.Sub.Rejected then
                     let index = this.Position entry.Sub.Identifier
-                    if index >= 0 then do! this.RemoveSubscription index
+                    if index >= 0 then do! this.RemoveSubscription(index, services)
                     this.Enqueue(Frames.rejection entry.Sub.IdentifierJson)
                 else
                     this.Enqueue(Frames.confirmation entry.Sub.IdentifierJson)
@@ -267,7 +293,7 @@ type internal CableConnection<'U>(ws: WebSocket, ctx: HttpContext, user: 'U vopt
         }
 
     /// `Subscriptions#add`. A repeated identifier (byte for byte) is ignored without a reply.
-    member private this.Add(command: JsonElement) : Task =
+    member private this.Add(command: JsonElement, services: IServiceProvider) : Task =
         task {
             match Parse.text command "identifier" with
             | ValueNone -> logger.LogError "Could not execute command: missing identifier"
@@ -293,26 +319,26 @@ type internal CableConnection<'U>(ws: WebSocket, ctx: HttpContext, user: 'U vopt
                             | ValueSome(struct (className, factory)) ->
                                 let json = Frames.identifierJson identifier
                                 let sub =
-                                    Subscription<'U>(core.Broadcaster, core.Services, className, identifier, json, parameters, user.Value)
+                                    Subscription<'U>(core.Broadcaster, services, className, identifier, json, parameters, user.Value)
                                 let entry =
                                     { Channel = factory ()
                                       Sub = sub
                                       Subscriber = { Outbound = this; Identifier = identifier; IdentifierJson = json }
                                       Registered = Dictionary<string, int>(StringComparer.Ordinal) }
                                 entries.Add entry
-                                do! this.SubscribeToChannel entry
+                                do! this.SubscribeToChannel(entry, services)
         }
 
     /// `Subscriptions#remove`: no reply either way.
-    member private this.Remove(command: JsonElement) : Task =
+    member private this.Remove(command: JsonElement, services: IServiceProvider) : Task =
         task {
             match Parse.text command "identifier" with
-            | ValueSome identifier when this.Position identifier >= 0 -> do! this.RemoveSubscription(this.Position identifier)
+            | ValueSome identifier when this.Position identifier >= 0 -> do! this.RemoveSubscription(this.Position identifier, services)
             | _ -> logger.LogError "Unable to find subscription with identifier"
         }
 
     /// `Subscriptions#perform_action` -> `Channel::Base#perform_action`.
-    member private this.PerformAction(command: JsonElement) : Task =
+    member private this.PerformAction(command: JsonElement, services: IServiceProvider) : Task =
         task {
             let index =
                 match Parse.text command "identifier" with
@@ -351,6 +377,7 @@ type internal CableConnection<'U>(ws: WebSocket, ctx: HttpContext, user: 'U vopt
                     | None -> logger.LogError "Could not execute command: invalid action"
                     | Some action ->
                         let entry = entries[index]
+                        entry.Sub.Services <- services
                         let! result = Safely.run (fun () -> entry.Channel.Perform action payload entry.Sub)
                         this.Collect entry
                         this.Flush()
@@ -378,9 +405,9 @@ type internal CableConnection<'U>(ws: WebSocket, ctx: HttpContext, user: 'U vopt
                         logger.LogError("Could not execute command {Message}", Encoding.UTF8.GetString bytes.Span)
                     else
                         match Parse.text root "command" with
-                        | ValueSome "subscribe" -> do! this.InCommand(fun () -> this.Add root)
-                        | ValueSome "unsubscribe" -> do! this.InCommand(fun () -> this.Remove root)
-                        | ValueSome "message" -> do! this.InCommand(fun () -> this.PerformAction root)
+                        | ValueSome "subscribe" -> do! this.InCommand(fun () -> this.WithScope(fun services -> this.Add(root, services)))
+                        | ValueSome "unsubscribe" -> do! this.InCommand(fun () -> this.WithScope(fun services -> this.Remove(root, services)))
+                        | ValueSome "message" -> do! this.InCommand(fun () -> this.WithScope(fun services -> this.PerformAction(root, services)))
                         | _ -> logger.LogError("Received unrecognized command {Message}", Encoding.UTF8.GetString bytes.Span)
                 | None -> logger.LogError("Could not execute command {Message}", Encoding.UTF8.GetString bytes.Span)
         }
@@ -452,13 +479,19 @@ type internal CableConnection<'U>(ws: WebSocket, ctx: HttpContext, user: 'U vopt
                     this.Enqueue Frames.welcome
                     identifier <- core.Identify current
                     core.Connections.Add(this, identifier |> nonNull)
-                    // A ban or sign-out that disconnected this user between the first lookup and the registration
-                    // would go unheard, so look again now that a remote disconnect would be heard (Rails has this gap).
-                    match! core.Authenticate ctx with
-                    | Some _ -> ()
-                    | None ->
-                        logger.LogError "An unauthorized connection attempt was rejected"
-                        (this :> IOutbound).Close(Some Unauthorized, false)
+                    // `Restart` may have walked the index just before this connection joined it: the flag is set first, so look.
+                    if core.Stopping then
+                        (this :> IOutbound).Close(Some ServerRestart, true)
+                    else
+                        do! core.AfterRegistered()
+                        // A ban or sign-out that disconnected this user between the first lookup and the registration
+                        // would go unheard, so look again now that a remote disconnect would be heard (Rails has this gap).
+                        // The lookup is the session's own, in a scope of its own: not a second `AuthenticateAsync`, which
+                        // would answer with the first result (C10).
+                        let! valid = this.WithScopeResult(fun services -> core.Recheck(ctx, services))
+                        if not valid then
+                            logger.LogError "An unauthorized connection attempt was rejected"
+                            (this :> IOutbound).Close(Some Unauthorized, false)
                 let reading = this.ReadLoop()
                 // Once the writer has sent the close frame, the client gets `CloseTimeout` to answer it.
                 let! first = Task.WhenAny(reading, writer)
@@ -477,7 +510,7 @@ type internal CableConnection<'U>(ws: WebSocket, ctx: HttpContext, user: 'U vopt
                     this.InCommand(fun () ->
                         task {
                             while entries.Count > 0 do
-                                do! this.RemoveSubscription 0
+                                do! this.WithScope(fun services -> this.RemoveSubscription(0, services))
                         })
             with e ->
                 logger.LogError(e, "Cable unsubscribe failed")

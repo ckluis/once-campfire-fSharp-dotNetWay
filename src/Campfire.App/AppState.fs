@@ -39,8 +39,7 @@ type AppState
         dbFactory: IDbContextFactory<Campfire.Db.Ef.CampfireDb>,
         env: Campfire.Db.Ef.Env,
         storage: Storage,
-        cable: Cable,
-        broadcasts: Broadcasts,
+        cable: CableHandle,
         jobs: Jobs,
         webPush: WebPushPool option,
         fragmentCache: FragmentCache,
@@ -60,8 +59,9 @@ type AppState
 
     member _.Env = env
     member _.Storage = storage
-    member _.Cable = cable
-    member _.Broadcasts = broadcasts
+    /// The cable server and the app's broadcasts: DI singletons of the host (`CableServices`), read through the handle.
+    member _.Cable: Cable = cable.Resolve<Cable>()
+    member _.Broadcasts: Broadcasts = cable.Resolve<Broadcasts>()
     member _.Jobs = jobs
 
     /// `config.x.web_push_pool`; `None` when Web Push is off (no valid VAPID keys).

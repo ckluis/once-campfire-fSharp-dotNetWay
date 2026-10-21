@@ -4,7 +4,6 @@ namespace Campfire.Cable
 open System
 
 /// `config.action_cable.*` plus the transport's limits (C5, C6, C7, C8, C17).
-[<AllowNullLiteral>]
 type CableOptions() =
     member val DisableRequestForgeryProtection = false with get, set
     member val AllowedRequestOrigins: string[] = [||] with get, set

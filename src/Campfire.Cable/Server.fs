@@ -3,33 +3,48 @@
 namespace Campfire.Cable
 
 open System
+open System.Threading
 open System.Threading.Tasks
 open Microsoft.AspNetCore.Http
 open Microsoft.Extensions.DependencyInjection
+open Microsoft.Extensions.Hosting
 open Microsoft.Extensions.Logging
+open Microsoft.Extensions.Options
 open Microsoft.Extensions.Logging.Abstractions
 
-/// One per app, with the connection authenticator (`connect`), what names a connection for remote disconnects
-/// (`identified_by`) and the channel classes.
+/// One per app (a DI singleton), with the connection authenticator (`connect`), its re-check (C10), what names a connection for
+/// remote disconnects (`identified_by`) and the channel classes. Commands run in scopes of `scopes` (C12); a stopping host
+/// restarts every connection (C11).
 [<Sealed>]
 type CableServer<'U>
-    internal
     (
-        options: CableOptions,
+        options: IOptions<CableOptions>,
         channels: ChannelRegistry<'U>,
         authenticate: HttpContext -> Task<'U option>,
+        recheck: HttpContext -> IServiceProvider -> Task<bool>,
         identify: 'U -> string,
-        services: IServiceProvider,
+        scopes: IServiceScopeFactory,
         time: TimeProvider,
+        lifetime: IHostApplicationLifetime,
         logger: ILogger
-    ) =
-    let core = ServerCore<'U>(options, channels, authenticate, identify, services, logger)
+    ) as this =
+    let options = options.Value
+    let core = ServerCore<'U>(options, channels, authenticate, recheck, identify, scopes, logger)
+    do
+        core.Broadcaster <- (this :> ICableBroadcaster)
+        // A stopping host closes its WebSockets (`server_restart`, so clients reconnect) instead of waiting out the shutdown timeout.
+        lifetime.ApplicationStopping.Register(fun () -> this.Restart()) |> ignore
 
     member _.Options: CableOptions = options
     member _.Time: TimeProvider = time
     member _.Logger: ILogger = logger
 
     member internal _.Core: ServerCore<'U> = core
+
+    /// Runs between a connection's registration and its re-check (test hook for A3).
+    member internal _.AfterRegistered
+        with get () = core.AfterRegistered
+        and set value = core.AfterRegistered <- value
 
     /// `ActionCable.server.broadcast(broadcasting, message)`; the payload is already encoded.
     member _.Broadcast(broadcasting: string, payload: Payload) : int = core.Broadcast(broadcasting, payload)
@@ -46,8 +61,10 @@ type CableServer<'U>
             connection.Close(Some Remote, reconnect)
         connections.Length
 
-    /// `ActionCable.server.restart`: closes every connection with `server_restart`.
+    /// `ActionCable.server.restart`: closes every connection with `server_restart`. A connection accepted after this
+    /// (between `ApplicationStopping` and Kestrel's stop) is sent it right after its `welcome`.
     member _.Restart() : unit =
+        core.BeginStopping()
         for connection in core.Connections.All do
             connection.Close(Some ServerRestart, true)
 
@@ -83,6 +100,9 @@ type CableServer<'U>
 type ServerBuilder<'U> =
     { Options: CableOptions
       Authenticate: HttpContext -> Task<'U option>
+      /// C10's second look; the default runs `Authenticate` again.
+      Recheck: (HttpContext -> IServiceProvider -> Task<bool>) option
+      Lifetime: IHostApplicationLifetime
       Identify: 'U -> string
       Channels: Map<string, unit -> Channel<'U>>
       Services: IServiceProvider
@@ -96,7 +116,12 @@ module ServerBuilder =
     let channel (className: string) (factory: unit -> Channel<'U>) (builder: ServerBuilder<'U>) : ServerBuilder<'U> =
         { builder with Channels = Map.add className factory builder.Channels }
 
-    /// The provider `Subscription.Services` hands channels (the server's root provider).
+    let withRecheck (recheck: HttpContext -> IServiceProvider -> Task<bool>) (builder: ServerBuilder<'U>) : ServerBuilder<'U> =
+        { builder with Recheck = Some recheck }
+
+    let withLifetime (lifetime: IHostApplicationLifetime) (builder: ServerBuilder<'U>) : ServerBuilder<'U> = { builder with Lifetime = lifetime }
+
+    /// The provider commands take their scopes from (`Subscription.Services` is a scope of it).
     let withServices (services: IServiceProvider) (builder: ServerBuilder<'U>) : ServerBuilder<'U> = { builder with Services = services }
 
     let withLogger (logger: ILogger) (builder: ServerBuilder<'U>) : ServerBuilder<'U> = { builder with Logger = logger }
@@ -106,9 +131,34 @@ module ServerBuilder =
 
     let build (builder: ServerBuilder<'U>) : CableServer<'U> =
         let channels = ChannelRegistry.create [ for KeyValue(name, factory) in builder.Channels -> name, factory ]
-        let server = CableServer<'U>(builder.Options, channels, builder.Authenticate, builder.Identify, builder.Services, builder.Time, builder.Logger)
-        server.Core.Broadcaster <- server
-        server
+        let recheck =
+            match builder.Recheck with
+            | Some recheck -> recheck
+            | None ->
+                fun ctx _ ->
+                    task {
+                        let! user = builder.Authenticate ctx
+                        return user.IsSome
+                    }
+        CableServer<'U>(
+            Microsoft.Extensions.Options.Options.Create builder.Options,
+            channels,
+            builder.Authenticate,
+            recheck,
+            builder.Identify,
+            builder.Services.GetRequiredService<IServiceScopeFactory>(),
+            builder.Time,
+            builder.Lifetime,
+            builder.Logger
+        )
+
+/// A lifetime that never stops: a server built outside a host (tests, the bench) is stopped by `Restart`.
+type private NeverStops() =
+    interface IHostApplicationLifetime with
+        member _.ApplicationStarted = CancellationToken.None
+        member _.ApplicationStopping = CancellationToken.None
+        member _.ApplicationStopped = CancellationToken.None
+        member _.StopApplication() = ()
 
 module Server =
     let private emptyServices: IServiceProvider = ServiceCollection().BuildServiceProvider()
@@ -120,6 +170,8 @@ module Server =
     let builder (options: CableOptions) (authenticate: HttpContext -> Task<'U option>) (identify: 'U -> string) : ServerBuilder<'U> =
         { Options = options
           Authenticate = authenticate
+          Recheck = None
+          Lifetime = NeverStops()
           Identify = identify
           Channels = Map.empty
           Services = emptyServices
