@@ -296,8 +296,12 @@ module Respond =
             if host.Port.HasValue && host.Port.Value = (if request.IsHttps then 443 else 80) then host.Host else host.ToString()
         $"{request.Scheme}://{authority}{path}"
 
-    /// `_url_host_allowed?`: a path, or a URL on this request's host.
-    let private hostAllowed (http: HttpContext) (url: string) : bool =
+    /// `_url_host_allowed?`: a path, or a URL on this request's host. A backslash anywhere makes the URL invalid for Ruby's `URI` (the check rescues `URI::Error` and answers false), and browsers
+    /// read `\` as `/`, so `/\evil.com` and `http://evil.com\@host/` are refused outright.
+    let internal hostAllowed (http: HttpContext) (url: string) : bool =
+        if url.Contains '\\' then
+            false
+        else
         match urlHost url with
         | null -> url.StartsWith '/' && not (url.StartsWith("//", StringComparison.Ordinal))
         | host -> String.Equals(host, http.Request.Host.Host, StringComparison.OrdinalIgnoreCase)

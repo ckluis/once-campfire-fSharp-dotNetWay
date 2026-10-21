@@ -116,7 +116,9 @@ module Boot =
 
     /// Boots the app from `config`: prepares the database, restores the reference's boot-time side
     /// effects, and builds the HTTP stack.
-    let bootWith
+    /// `bootWith` on a given clock (tests hand in a frozen one instead of setting the process-wide environment variable).
+    let bootWithClock
+        (clockOverride: SharedClock option)
         (dbOptions: Microsoft.EntityFrameworkCore.DbContextOptionsBuilder<Campfire.Db.Ef.CampfireDb> -> unit)
         (config: AppConfig)
         (loggers: ILoggerFactory)
@@ -125,9 +127,12 @@ module Boot =
             StoragePaths.createDirs config.Storage
             let secrets = Secrets.create config.SecretKeyBase
             let clock =
-                match clockFromEnv () with
-                | Ok clock -> clock
-                | Error message -> failwith message
+                match clockOverride with
+                | Some clock -> clock
+                | None ->
+                    match clockFromEnv () with
+                    | Ok clock -> clock
+                    | Error message -> failwith message
 
             let jobs = Jobs(JobLimits.QueueCapacity, loggers.CreateLogger "campfire.jobs")
             let richText = AppRichText(secrets, clock, loggers.CreateLogger "campfire.rich_text")
@@ -180,6 +185,9 @@ module Boot =
                         Web.Services.add edge app services
                   Jobs = runner }
         }
+
+    /// Boots the app on the process clock (`CAMPFIRE_FROZEN_TIME` or the system clock).
+    let bootWith dbOptions config loggers : Task<Booted> = bootWithClock None dbOptions config loggers
 
     /// `bootWith` with no extra context options (production).
     let boot (config: AppConfig) (loggers: ILoggerFactory) : Task<Booted> = bootWith ignore config loggers

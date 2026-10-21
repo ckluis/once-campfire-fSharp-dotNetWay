@@ -38,6 +38,37 @@ let private unbrotli (bytes: byte[]) : byte[] =
     output.ToArray()
 
 [<Fact>]
+let ``X1b redirect_back refuses a Referer that backslash, userinfo or protocol-relative forms point at another host`` () =
+    task {
+        use! test = bootSeeded "default"
+        let routes (http: HttpContext) =
+            match http.Request.Path.Value with
+            | "/back" -> ok (Respond.redirectBackOrTo http "/fallback")
+            | _ -> ok (Result.Error NotFound)
+        use! host = startRoutes test routes
+        let back (referer: string) = host.Send((get "/back").With("referer", referer))
+        // Same host, or a path: followed.
+        for followed in [ "http://campfire.test/rooms/1"; "http://user@campfire.test/rooms/1" ] do
+            let! reply = back followed
+            Assert.Equal(Some followed, reply.Location)
+        let! pathReply = back "/rooms/1"
+        Assert.Equal(Some "http://campfire.test/rooms/1", pathReply.Location)
+        // Another host, in every form a parser might disagree about: the fallback.
+        for refused in
+            [ "http://evil.com\\@campfire.test/"
+              "http://campfire.test\\@evil.com/"
+              "/\\evil.com"
+              "\\\\evil.com"
+              "//evil.com"
+              "//evil.com/rooms/1"
+              "http://evil.com/rooms/1"
+              "http://campfire.test@evil.com/"
+              "http://evil.com:80@campfire.test.evil.com/" ] do
+            let! reply = back refused
+            Assert.Equal(Some "http://campfire.test/fallback", reply.Location)
+    }
+
+[<Fact>]
 let ``X1 redirects: paths and same-host URLs pass, another host or a relative path is an UnsafeRedirect`` () =
     task {
         use! test = bootSeeded "default"

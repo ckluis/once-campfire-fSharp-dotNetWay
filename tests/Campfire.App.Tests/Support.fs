@@ -384,18 +384,18 @@ let configFor (root: string) (extra: (string * string) list) : AppConfig =
     | Ok config -> config
     | Error message -> failwith message
 
-let private startWith dbOptions (config: AppConfig) (dir: string) : Task<Test> =
+let private startWith clock dbOptions (config: AppConfig) (dir: string) : Task<Test> =
     task {
         let logs = new CapturingLoggers()
-        let! booted = Boot.bootWith dbOptions config logs
+        let! booted = Boot.bootWithClock clock dbOptions config logs
         let! host = startPipelineWith booted.ConfigureServices booted.Pipeline
         return new Test(booted, dir, host, logs)
     }
 
-let private start (config: AppConfig) (dir: string) : Task<Test> = startWith ignore config dir
+let private start (config: AppConfig) (dir: string) : Task<Test> = startWith None ignore config dir
 
 /// An app booted over a private copy of seed `name`, with `dbOptions` applied to the EF context options (tests: `LogTo`).
-let bootSeededConfigured dbOptions (extra: (string * string) list) (name: string) : Task<Test> =
+let bootSeededClocked (clock: Campfire.RailsCompat.Clock.SharedClock option) dbOptions (extra: (string * string) list) (name: string) : Task<Test> =
     task {
         match Repo.seed name with
         | None ->
@@ -409,11 +409,18 @@ let bootSeededConfigured dbOptions (extra: (string * string) list) (name: string
                 if File.Exists from then File.Copy(from, Path.Combine(dir, "db", file))
             let storage = Path.Combine(seed, "storage")
             if Directory.Exists storage then copyDir storage (Path.Combine(dir, "files"))
-            let! test = startWith dbOptions (configFor dir extra) dir
+            let! test = startWith clock dbOptions (configFor dir extra) dir
             let labels = Path.Combine(seed, "labels.json")
             if File.Exists labels then test.Labels <- Some((JsonDocument.Parse(File.ReadAllText labels)).RootElement.Clone())
             return test
     }
+
+let bootSeededConfigured dbOptions (extra: (string * string) list) (name: string) : Task<Test> =
+    bootSeededClocked None dbOptions extra name
+
+/// An app booted over seed `name` on a harness clock frozen at `at` (the parity harness's `CAMPFIRE_FROZEN_TIME`, per test).
+let bootSeededFrozen (at: DateTimeOffset) (name: string) : Task<Test> =
+    bootSeededClocked (Some(Campfire.RailsCompat.Clock.TestClock.FrozenAt at :> Campfire.RailsCompat.Clock.SharedClock)) ignore [] name
 
 /// `bootSeededConfigured` with no environment of its own.
 let bootSeededWith dbOptions (name: string) : Task<Test> = bootSeededConfigured dbOptions [] name

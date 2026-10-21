@@ -17,11 +17,16 @@ let private davidSessionId = 481019661L
 let private dbTime (at: DateTime) : string = Campfire.Db.RailsTime.toDb at
 
 /// Puts David's seed session's `last_active_at` `age` ago.
-let private ageSession (test: Test) (age: TimeSpan) : Task<unit> =
+/// The harness clock A5 freezes the app on: a fixed instant, so no assertion depends on the wall clock.
+let private frozenNow = DateTimeOffset(2024, 6, 1, 12, 0, 0, TimeSpan.Zero)
+
+let private ageSessionFrom (now: DateTime) (test: Test) (age: TimeSpan) : Task<unit> =
     test.Execute(
         "UPDATE sessions SET last_active_at = ? WHERE id = ?",
-        [ box (dbTime (DateTime.UtcNow - age)); box davidSessionId ]
+        [ box (dbTime (now - age)); box davidSessionId ]
     )
+
+let private ageSession (test: Test) (age: TimeSpan) : Task<unit> = ageSessionFrom DateTime.UtcNow test age
 
 type private Row = { UserAgent: string | null; Ip: string | null; LastActive: DateTime; UpdatedAt: DateTime }
 
@@ -158,28 +163,28 @@ let ``A4 padding is percent-encoded on the wire both ways`` () =
 [<Fact>]
 let ``A5 an hour old activity is refreshed and the cookie re-issued, a recent one is left alone`` () =
     task {
-        use! test = bootSeeded "default"
+        use! test = bootSeededFrozen frozenNow "default"
         let cookie = davidCookie ()
-        do! ageSession test (TimeSpan.FromMinutes 30.0)
+        do! ageSessionFrom frozenNow.UtcDateTime test (TimeSpan.FromMinutes 30.0)
         let before = sessionRow test davidSessionId
         let! recent = test.Send(getWithCookie "/account/edit" cookie)
         Assert.Equal(200, recent.Status)
         Assert.True(recent.Header("set-cookie").IsNone, $"{recent.Headers}")
         Assert.Equal(before, sessionRow test davidSessionId)
 
-        do! ageSession test (TimeSpan.FromHours 2.0)
-        let started = DateTime.UtcNow
+        do! ageSessionFrom frozenNow.UtcDateTime test (TimeSpan.FromHours 2.0)
+        let started = frozenNow.UtcDateTime
         let! stale =
             test.Send((getWithCookie "/account/edit" cookie).With("x-forwarded-for", "203.0.113.50").With("user-agent", "Test/1.0"))
         Assert.Equal(200, stale.Status)
         let row = sessionRow test davidSessionId
         Assert.Equal("203.0.113.50", row.Ip)
         Assert.Equal("Test/1.0", row.UserAgent)
-        Assert.True(row.LastActive >= started.AddSeconds(-2.0), $"{row.LastActive}")
-        Assert.True(row.UpdatedAt >= started.AddSeconds(-2.0), $"{row.UpdatedAt}")
+        Assert.True(row.LastActive >= started, $"{row.LastActive}")
+        Assert.True(row.UpdatedAt >= started, $"{row.UpdatedAt}")
         let header = stale.SetCookies |> List.find (fun c -> c.StartsWith "session_token=")
         let raw = Uri.UnescapeDataString(cookieValue header)
-        Assert.Equal(Some "AxJs94fteQ5Autv2VrKsH68c", Cookies.verifySigned test.App.Secrets "session_token" raw (DateTimeOffset.UtcNow))
+        Assert.Equal(Some "AxJs94fteQ5Autv2VrKsH68c", Cookies.verifySigned test.App.Secrets "session_token" raw frozenNow)
         // The framework's no-cache headers for sign in are not Rails' answer to a page.
         Assert.Equal(Some "max-age=0, private, must-revalidate", stale.Header "cache-control")
         Assert.True(stale.Header("pragma").IsNone && stale.Header("expires").IsNone, $"{stale.Headers}")
