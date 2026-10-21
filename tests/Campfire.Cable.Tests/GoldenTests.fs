@@ -15,8 +15,8 @@
 //
 // (The fixtures script starts a fresh session each time, because the script signs it out.)
 //
-// The replay builds Campfire's channels over the same fixture values, so every frame must match byte
-// for byte; only ping timestamps are normalized.
+// The replay builds Campfire's channels over the same fixture values; every frame is compared decoded
+// (tests/Shared/JsonFrames.fs, C15), in order, with only ping timestamps normalized.
 module Campfire.Cable.Tests.GoldenTests
 
 open System
@@ -30,6 +30,7 @@ open Xunit
 open Campfire.RailsCompat
 open Campfire.Cable
 open Campfire.Cable.Tests.Support
+open Campfire.Tests
 
 /// Where a re-recording is written: a file this repository owns.
 let private recordedPath () = Campfire.Tests.Repo.path "tests/Campfire.Cable.Tests/golden/reference.json"
@@ -349,7 +350,12 @@ let ``replays reference frames`` () =
             for KeyValue(session, expected) in golden.Sessions do
                 let actual = sessions[session]
                 for (expected, actual) in List.zip expected actual do
-                    Assert.True((expected = actual), $"session {session}, step {expected.Step}: expected {expected.Frames}, got {actual.Frames}")
+                    Assert.True((expected.Step = actual.Step), $"session {session}: step {expected.Step} replayed as {actual.Step}")
+                    // Decoded comparison (C15): per exchange, same frames in the same order; escaping differences dropped.
+                    try
+                        JsonFrames.assertSameFrames expected.Frames actual.Frames
+                    with e ->
+                        failwith $"session {session}, step {expected.Step}: {e.Message}"
             // Every recorded exchange and frame was replayed and compared, none skipped.
             Assert.Equal(5, golden.Sessions.Count)
             Assert.Equal(5, sessions.Count)

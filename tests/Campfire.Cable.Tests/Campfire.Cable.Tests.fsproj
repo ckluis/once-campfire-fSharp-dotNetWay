@@ -5,6 +5,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="../Shared/Repo.fs" Link="Repo.fs" />
+    <Compile Include="../Shared/JsonFrames.fs" Link="JsonFrames.fs" />
     <Compile Include="Support.fs" />
     <Compile Include="NamingTests.fs" />
     <Compile Include="JsonTextTests.fs" />
@@ -13,6 +14,7 @@
     <Compile Include="ServerTests.fs" />
     <Compile Include="TurboTests.fs" />
     <Compile Include="ProtocolTests.fs" />
+    <Compile Include="JsonFramesTests.fs" />
     <Compile Include="GoldenTests.fs" />
     <Compile Include="FanOutTests.fs" />
   </ItemGroup>

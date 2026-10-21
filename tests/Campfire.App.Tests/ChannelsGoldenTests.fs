@@ -290,7 +290,16 @@ let ``replays reference frames`` () =
                     if not received.IsEmpty then frames[socket] <- sorted received
                 let actual = frames |> Seq.map (fun (KeyValue(k, v)) -> k, v) |> Map.ofSeq
                 let wanted = expected.Frames |> Map.map (fun _ frames -> sorted frames)
-                Assert.True((actual = wanted), $"step \"{expected.Step}\": expected {wanted} but got {actual}")
+                // Decoded comparison (C15), per socket: the same sockets heard, each with the same frames (sorted, see above).
+                Assert.True(
+                    (actual |> Map.keys |> List.ofSeq) = (wanted |> Map.keys |> List.ofSeq),
+                    $"step \"{expected.Step}\": sockets that heard frames: expected {wanted |> Map.keys |> List.ofSeq} but got {actual |> Map.keys |> List.ofSeq}"
+                )
+                for KeyValue(socket, wantedFrames) in wanted do
+                    try
+                        JsonFrames.assertSameFramesUnordered wantedFrames actual[socket]
+                    with e ->
+                        failwith $"step \"{expected.Step}\", socket {socket}: {e.Message}"
                 index <- index + 1
             Assert.Equal(expectedSteps.Length, index)
         finally

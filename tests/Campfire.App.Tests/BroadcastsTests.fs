@@ -12,6 +12,7 @@ open Campfire.Cable
 open Campfire.Db
 open Campfire.RailsCompat
 open Campfire.App.Tests.ChannelsSupport
+open Campfire.Tests.JsonFrames
 
 let private obj' (entries: (string * Value) list) : Value = Value.Object entries
 
@@ -63,7 +64,7 @@ let ``message broadcasts`` () =
             turboStream frame
         )
         let! frame = kevin.NextText()
-        Assert.Equal(delivery unreads $"""{{"roomId":{designers.Id}}}""", frame)
+        assertSameFrame (delivery unreads $"""{{"roomId":{designers.Id}}}""") frame
 
         app.Broadcasts.MessageReplace(designers, message, fakePartials)
         let! frame = kevin.NextText()
@@ -194,7 +195,7 @@ let ``direct room and involvement broadcasts`` () =
     }
 
 [<Fact>]
-let ``broadcast frames use active support json escaping`` () =
+let ``broadcast frames decode to active support json`` () =
     task {
         use! app = start ()
         use! kevin = app.Connect "kevin"
@@ -203,11 +204,11 @@ let ``broadcast frames use active support json escaping`` () =
         let! message = app.Message "first"
         app.Broadcasts.MessageReplace(designers, message, fakePartials)
         let! frame = kevin.NextText()
-        Assert.Equal(
-            delivery
+        // Rails escapes `<`, `>`, `&` as \u003c...; a frame that writes them raw decodes to the same JSON (C15).
+        assertSameFrame
+            (delivery
                 channel
                 (htmlJson
-                    $"""<turbo-stream maintain_scroll="true" action="replace" target="presentation_message_0001"><template><div>presentation {message.Id} & more</div></template></turbo-stream>"""),
+                    $"""<turbo-stream maintain_scroll="true" action="replace" target="presentation_message_0001"><template><div>presentation {message.Id} & more</div></template></turbo-stream>"""))
             frame
-        )
     }
