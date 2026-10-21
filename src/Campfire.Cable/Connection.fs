@@ -255,7 +255,8 @@ type internal CableConnection<'U>(ws: WebSocket, ctx: HttpContext, user: 'U vopt
             this.Enqueue frame
         transmissions.Clear()
 
-    /// Starts and stops the streams the last callback asked for, once its own frames are queued (C13).
+    /// Starts and stops the streams the last callback asked for, once its transmissions are queued; while the command runs, what
+    /// they deliver is held back behind the command's own frames (C13).
     member private _.ApplyOps(entry: Entry<'U>) : unit =
         for op in ops do
             match op with
@@ -292,7 +293,8 @@ type internal CableConnection<'U>(ws: WebSocket, ctx: HttpContext, user: 'U vopt
             this.ApplyOps entry
         }
 
-    /// `Channel::Base#subscribe_to_channel`: the callback's transmissions, then the confirmation, then the streams.
+    /// `Channel::Base#subscribe_to_channel`: the callback's transmissions, the streams, then the confirmation; broadcasts the
+    /// streams deliver meanwhile are held until the command ends, so they follow it.
     member private this.SubscribeToChannel(entry: Entry<'U>, services: IServiceProvider) : Task =
         task {
             let! result = Safely.runUnit (fun () -> entry.Channel.Subscribed entry.Sub)
@@ -308,8 +310,12 @@ type internal CableConnection<'U>(ws: WebSocket, ctx: HttpContext, user: 'U vopt
                     if index >= 0 then do! this.RemoveSubscription(index, services)
                     this.Enqueue(Frames.rejection entry.Sub.IdentifierJson)
                 else
-                    this.Enqueue(Frames.confirmation entry.Sub.IdentifierJson)
+                    // Registered, then confirmed: the command holds every broadcast back until its own frames are queued, so each
+                    // broadcast made from the registration on is delivered, and after the confirmation (Rails confirms once the
+                    // pub/sub adapter has acknowledged the stream, and delivers from then on). Confirming first left a window in
+                    // which a client had its confirmation and a broadcast still reached nobody.
                     this.ApplyOps entry
+                    this.Enqueue(Frames.confirmation entry.Sub.IdentifierJson)
         }
 
     /// `Subscriptions#add`. A repeated identifier (byte for byte) is ignored without a reply.

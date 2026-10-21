@@ -105,6 +105,40 @@ let ``A1 the Rails minted session cookie opens the cable; no cookie, a forged on
         do! connectionsGone test
     }
 
+/// Cross-site WebSocket hijacking, on the app's real pipeline and its default `CableOptions`: a page on another origin can make the
+/// browser send David's cookie with an upgrade, so `allow_request_origin?` must refuse it before anything is authenticated or
+/// accepted (Rails' 404 "Page not found"). A missing Origin, another port, another scheme and `null` are refused alike.
+[<Fact>]
+let ``cross-origin upgrades carrying a valid session cookie get Rails 404 and no socket`` () =
+    task {
+        use! test = bootSeeded "default"
+        for origin in [ Some "http://evil.example"; Some $"http://127.0.0.1:{test.Port + 1}"; Some $"https://127.0.0.1:{test.Port}"; Some "null"; None ] do
+            use ws = new ClientWebSocket()
+            ws.Options.CollectHttpResponseDetails <- true
+            ws.Options.AddSubProtocol "actioncable-v1-json"
+            ws.Options.SetRequestHeader("Cookie", davidCookie ())
+            match origin with
+            | Some origin -> ws.Options.SetRequestHeader("Origin", origin)
+            | None -> ()
+            let! refused =
+                task {
+                    try
+                        do! ws.ConnectAsync(Uri $"ws://127.0.0.1:{test.Port}/cable", CancellationToken.None)
+                        return false
+                    with :? WebSocketException ->
+                        return true
+                }
+            Assert.True(refused, $"the upgrade from {origin} was accepted")
+            Assert.Equal(Net.HttpStatusCode.NotFound, ws.HttpStatusCode)
+        Assert.Equal(0, test.App.Cable.ConnectionCount)
+        // The same cookie from the app's own origin is welcome.
+        use! david = connect test (Some(davidCookie ()))
+        let! first = text david
+        Assert.Equal(welcome, first)
+        do! david.CloseAsync(WebSocketCloseStatus.NormalClosure, "", CancellationToken.None)
+        do! connectionsGone test
+    }
+
 [<Fact>]
 let ``A2 an upgrade writes no sessions row and sets no cookie, even for a session two hours stale`` () =
     task {

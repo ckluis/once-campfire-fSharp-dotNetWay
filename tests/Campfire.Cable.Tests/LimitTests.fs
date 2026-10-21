@@ -55,18 +55,32 @@ let private unsubscribedCount (app: TestServer) : int =
 /// otherwise wait as long as the server keeps pinging.
 let private within (seconds: float) (read: Task<string>) : Task<string> = read.WaitAsync(TimeSpan.FromSeconds seconds)
 
-/// The stream registers after the confirmation (C13): a broadcast made as soon as a client has read it can precede the
-/// registration and reach nobody. Broadcast until `subscribers` of them were reached.
+/// Streams register before the confirmation (C13): one broadcast made as soon as a client has read it reaches every subscriber.
 let private broadcastUntilReached (app: TestServer) (subscribers: int) (payload: Payload) : Task =
     task {
-        let mutable reached = 0
-        let mutable tries = 0
-        while reached < subscribers && tries < 200 do
-            reached <- app.Server.Broadcast("room:room-1", payload)
-            tries <- tries + 1
-            if reached < subscribers then do! Task.Delay 5
-        if reached < subscribers then failwith "the stream never had its subscribers"
+        let reached = app.Server.Broadcast("room:room-1", payload)
+        Assert.Equal(subscribers, reached)
     }
+
+/// C13: a client that has its confirmation is on the stream. The registration used to follow the confirmation, so a broadcast made
+/// in between reached nobody although the client had been confirmed; each round here broadcasts once, right after the read. The old
+/// window was microseconds wide, so this is a stress guard, not a deterministic one (it passed 5 runs against the old order); L1 and
+/// L2 broadcast once too, and under CPU contention they are what first showed the window.
+[<Fact>]
+let ``C13 a broadcast made as soon as the confirmation is read reaches the subscriber, every time`` () =
+    withServer (testOptions ()) (fun app ->
+        task {
+            let! client = connect app 1UL
+            let! _ = client.NextText()
+            for round in 1..300 do
+                do! subscribed client (roomId 1)
+                let reached = app.Server.Broadcast("room:room-1", Payload.ofValue round)
+                Assert.True((reached = 1), $"round {round}: the confirmed subscriber was not on the stream")
+                let! frame = within 5.0 (client.NextText())
+                Assert.Contains($"\"message\":{round}}}", frame)
+                do! client.Unsubscribe(roomId 1)
+            (client :> IDisposable).Dispose()
+        })
 
 [<Fact>]
 let ``L1 a client that never reads is aborted when its queue fills, and another client on the stream gets every frame`` () =

@@ -261,10 +261,6 @@ specific to this port are listed below, each citing the reference file it depart
   - **Limits, as in Rust (Rails has none):** 64 subscriptions and 4 KiB identifiers per connection (beyond them the command is logged
     and ignored), messages of at most 1 MiB (larger closes with 1009, also when sent in fragments), a binary message is logged and
     ignored, invalid UTF-8 in a text message closes with 1007. Tested by `ProtocolTests` (L3, L5, L6) and `LimitTests` (L4, L5).
-  - **A broadcast reaches a stream after the confirmation, not before.** A subscription's streams are registered once its
-    `confirm_subscription` is queued, so a broadcast made between the callback and that registration is not delivered to it; the
-    confirmation, any transmission the callback made, and then the stream's broadcasts are in that order on the socket
-    (`TransportTests` P8). Rails registers with its pub/sub adapter first and confirms when the adapter acknowledges.
   - **Origin check:** `Origin` is compared with the request's scheme and host as ASP.NET Core sees them after the trusted-proxy
     forwarded headers and `assume_ssl` (`allow_request_origin?`); behind a proxy that rewrites `Host` and sends `X-Forwarded-Host` from
     a trusted range, the forwarded host is the one compared (Rails compares the raw `Host`).

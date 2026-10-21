@@ -1,6 +1,6 @@
 // Phase 3 (plans/design-cable.md C6): the stream registry (broadcasting -> subscribers) and the connection index.
 //
-// `StreamSubscriber` is the design's `Subscriber`; the old Pubsub.fs still owns that name until 3.4 deletes it.
+// `StreamSubscriber` is the design's `Subscriber` (named so in 3.2, beside the old transport's type of that name).
 namespace Campfire.Cable
 
 open System

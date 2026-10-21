@@ -30,6 +30,16 @@ guard 'Dapper' '\bDapper\b|QueryFirstOrDefault|\.Query<|SqlMapper' '^src/Campfir
 if grep -nE '\$"[^"]*(SELECT|INSERT|UPDATE|DELETE)|"[^"]*(SELECT|FROM)[^"]*"[[:space:]]*\+' src/Campfire.Db/Ef/FastReads.fs; then
   echo "verify: SQL built from values in src/Campfire.Db/Ef/FastReads.fs (parameters only)" >&2; exit 1
 fi
+# The grep above misses `+` before a literal and SQL kept in a non-literal value. So, by construction: every Dapper call takes a named
+# `...Sql` value as its SQL, and every `let [private] ...Sql =` is one plain string literal (no `$`, no `+`, nothing after it).
+if grep -nE '\.(Query|Execute)[A-Za-z]*(<[^>]*>)?\(' src/Campfire.Db/Ef/FastReads.fs | grep -vE '\.(Query|Execute)[A-Za-z]*(<[^>]*>)?\([a-z][A-Za-z]*Sql,'; then
+  echo "verify: a Dapper call in src/Campfire.Db/Ef/FastReads.fs whose SQL is not a named ...Sql constant" >&2; exit 1
+fi
+if awk '/^[[:space:]]*let (private |mutable )*[a-z][A-Za-z]*Sql[[:space:]]*=/ { v = $0; sub(/^[^=]*=[[:space:]]*/, "", v); if (v == "") { getline v }
+       sub(/^[[:space:]]+/, "", v); sub(/[[:space:]]+$/, "", v); if (v !~ /^"[^"$+]*"$/) { print FILENAME ":" NR ": " v; bad = 1 } }
+     END { exit bad ? 0 : 1 }' src/Campfire.Db/Ef/FastReads.fs; then
+  echo "verify: a ...Sql value in src/Campfire.Db/Ef/FastReads.fs that is not one plain string literal" >&2; exit 1
+fi
 dotnet build CampfireFs.slnx -c Release -warnaserror -v quiet -nologo
 if [ $# -eq 0 ]; then
   dotnet test --solution CampfireFs.slnx -c Release --no-build

@@ -34,8 +34,8 @@ type Subscription<'U>
         currentUser: 'U
     ) =
     let streams = List<string>()
-    /// Stream changes made by the last callback; the connection applies them after the callback's transmissions
-    /// and the confirmation are queued, so a broadcast on a new stream never precedes the confirmation.
+    /// Stream changes made by the last callback; the connection applies them after the callback's transmissions are queued
+    /// and holds what they deliver until the command ends, so a broadcast on a new stream never precedes the confirmation.
     let ops = List<StreamOp>()
     let transmissions = List<ReadOnlyMemory<byte>>()
     let mutable rejected = false
@@ -76,7 +76,8 @@ type Subscription<'U>
     member this.BroadcastTo(broadcastables: string list, payload: Payload) : unit =
         broadcaster.Broadcast(this.BroadcastingFor broadcastables, payload) |> ignore
 
-    /// Recorded here and registered after the confirmation (C13). A stream named twice is delivered twice, as in Rails.
+    /// Recorded here and registered once the callback has returned, before the confirmation (C13). A stream named twice is
+    /// delivered twice, as in Rails.
     member _.StreamFrom(broadcasting: string) : unit =
         if not unsubscribed then
             streams.Add broadcasting
