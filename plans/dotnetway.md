@@ -1398,3 +1398,22 @@ Code in `3a7e9cb` (the deletion and the rehoming) and `09bf227` (HEAD-from-POST,
   `X-Request-Id` are read through the visible-ASCII rule).
 - **For Phase 3 and later:** A5 still compares timestamps with the wall clock rather than the frozen harness clock (design risk 11). `Campfire.Kit` keeps `Front/` and `Server.fs` until Phase 7. The phase gates (plan section 4): the
   matrix, `db-differential` (sessions are written; not rerun in this unit, which touches no schema or model) and the same-day-control bench were run per unit; `bin/db-differential` remains for the phase close.
+
+### Phase 2: gate (2026-10-20) - DONE, no blocker
+
+Evidence: `bench/results/dotnetway-p2/` (all of it on an image built fresh from `898f154`; label `org.opencontainers.image.revision` checked equal to HEAD; the tree was clean). No code changed in this unit.
+- **Cookie round trip:** `bin/cookie-roundtrip` 20/20 both ways (Rails -> ours -> Rails and ours -> Rails -> ours). `rails_compat_verify_rust.rb` pointed at our output (`mint.sh` signs David in on our image, takes the `session_token` it set, puts it into the Rust vectors file as the `session` entry): 51 checks, 0 failures. The `campfire_sessions.json` vectors are test A1 in `bin/verify` (green).
+- **`controllers_a/replay.py`** (restart of both servers per seed, frozen clock): default 152 matched, 3 differed by design, 0 differed; crowd 15/0/0; first_run 11/0/0 (`replay.log`).
+- **Lean pixel gate** (`--fast` off; slices with `--only`, the 13 `realtime/**` states one at a time; `pixels/`): every one of the 940 cells equal on screenshots, aria and loose DOM. default 860/860, crowd 24/24, custom_styles 32/32, first_run 16/16, restricted 8/8, on each of the three layers; 25 slices, all rc 0.
+- **Other gates:** `CAMPFIRE_REQUIRE_SEED=1 bin/verify` (Release, warnaserror): 969 tests, 963 passed, 0 failed, 6 skipped (the same environmental 6), H1 green. `bin/db-differential`: ok (fixtures and scenario, Rails boots on the database we wrote, rollback ok).
+- **Speed (`bench/quick`, 5 workloads, c=1 and c=16, 3 reps; same-session control = the Phase 1 image rebuilt from `063b940` as `campfire-dotnetway:p1ctl`, same 3 reps, alternating order; host probe 1.04-1.08 on 12 probes, load 2.3-3.2, 0 non-2xx, 0 connection errors, post rows equal answers):**
+| workload | c=16 req/s | x Rails | c=1 req/s | x Rails | vs Phase 1, same session (c=16 / c=1) |
+|---|---:|---:|---:|---:|---|
+| room page | 5,498 | 22.97x | 1,689 | 15.77x | 0.83 / 0.83 |
+| messages page | 5,191 | 13.64x | 1,541 | 7.07x | 0.97 / 0.98 |
+| sidebar | 5,582 | 9.33x | 1,620 | 5.65x | 0.93 / 0.91 |
+| search | 5,062 | 12.41x | 1,505 | 7.81x | 0.97 / 0.99 |
+| post a message | 1,885 | 5.71x | 945 | 5.66x | 1.00 / 0.99 |
+  All ten cells are over the 5x floor; no workload is a blocker, so no speed fix was made. Thinnest: sidebar c=1 (5.65x, 13% headroom), post c=1 (5.66x) and c=16 (5.71x). The control ran at its Phase 1 numbers (post 1,880 against 1,857; sidebar c=1 1,772 against 1,703), so the host is as quiet as then. Phase 2 cost against Phase 1: the room page lost 17% (still 23x Rails), the sidebar 7-9%, post and search nothing; recorded, not a gate.
+- **KLOC:** `bin/kloc` 35,064 by upstream's rules, **35,283 corrected (35.3 KLOC)**, from 38,352 at the Phase 1 close (-3.1); App 12,277, Kit 2,838. The plan projected 31.7 for the phase: over by 3.6, as the 2.13 entry recorded (`Edge`, `Outgoing`, `PageParts`, `Flash`, `Errors`, kept `Splice`/`Generations`).
+- **Differences recorded:** none new. `bin/clean-docker` and `bin/clean-parity` run; disk 16-28 GB free during the run (the control image was removed after the bench).
