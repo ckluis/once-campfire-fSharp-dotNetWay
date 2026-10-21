@@ -1,5 +1,5 @@
-// `RoomsHelper` and `Rooms::InvolvementsHelper` as Falco.Markup functions (plans/design-views.md V13). The writer halves that the
-// sidebar and the profile's memberships still use are `Helpers/RoomsHelper.fs` (deleted with the writer in 4.11).
+// `RoomsHelper` and `Rooms::InvolvementsHelper` as Falco.Markup functions (plans/design-views.md V13). `Helpers/RoomsHelper.fs` keeps
+// what is not markup (the involvement words, `InvolvementRoom`) and the writer's `linkToRoom` (deleted with the writer in 4.11).
 namespace Campfire.Views.Markup
 
 open Falco.Markup

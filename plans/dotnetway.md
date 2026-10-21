@@ -2063,3 +2063,41 @@ D1-D9, with the cheap checks re-run. Evidence in `bench/results/dotnetway-p3-ver
   frame. The KLOC drop is all in 4.11 (templates grew 613 -> 641, 656 -> 738 lines): record the result against the design's 3.40 honestly.
 - **KLOC:** `bin/kloc` 34,449 by upstream's rules, **34,668 corrected (34.7 KLOC)** (+2: `Html.fs`).
 - Evidence: `bench/results/dotnetway-4-6/checkpoint/` (`build.sh`, `pixel.sh`, logs, `STATUS-*`).
+
+### Phase 4, unit 4.7: Users (2026-10-21)
+
+- **Built:** the 9 templates of the row are Falco.Markup functions: `users/show` (`Show.rendered ctx user transferId : Layouts.ViewPage`), `users/new` (`New.rendered`), `users/_ban_button`,
+  `users/profiles/show` (`Show.rendered`), `_membership`, `_transfer`, `users/push_subscriptions/index` (`Index.rendered`) and `_push_subscription`, and the initials avatar
+  `users/avatars/show.svg` (`Show.render userId initials : XmlNode` made of `Elem.create "svg"` elements, initials through `Html.text`; the avatars controller writes it with
+  `HtmlOutput.ofNode`). The four pages go out through `Pages.viewPage` (the writer's layout until 4.10); `RenderSize` fields of the four controllers are gone. New helpers:
+  `Markup.Forms` fields (`textField`, `emailField`, `passwordField`, `fileField`, `textArea`: options, then `type`, `value`, `name`, `id` as `Tags::TextField` does; the multipart
+  `enctype` is a form option the template passes, a `maxlength` is written with its own `size`; `textArea` opens with `Html.nl`), `Markup.Translations` (`translationButton`,
+  `translationsFor`), `Markup.Application.linkBack`, `linkToZoomQrCode`, `buttonToCopyToClipboard`, `webShareSessionButton`, `Markup.Links.mailTo`, `Markup.Users.buttonToDirectRoomWith`
+  and `profileFormSubmitButton`. Per the checkpoint note: the writer's `RoomsHelper.buttonToChangeInvolvement` is deleted, the profile's `_membership` and the differential's
+  `button_to_change_involvement` op use `Markup.Rooms.buttonToChangeInvolvement`. The Falco translation button also replaced the `Legacy.node` calls in `rooms/layouts/_form` and
+  `rooms/show/_invitation` (4.5), which opening `Markup` after `Helpers` forced anyway (`Translations.x` resolves to the later module). The profile still places `pwa/_install_instructions`
+  and the join page `accounts/_help_contact` with `Legacy.node` (4.9 and 4.8 own them).
+- **Whitespace (V4) cases worth knowing:** `_transfer`'s three action buttons write their screen-reader label before the icon (the ERB block starts with the span), so the
+  space sits between label and icon; the label before the input needs a space only in the branch where it is a `label` (the other branch is a block `div`); the push
+  subscription's two heading spans are separated by a space. All three were found by the golden or oracle comparison, none needed the browser.
+- **Tests and oracle:** `ParityATests` (users new, show x6, profile x10, push subscriptions, avatars x2, ban button), the oracle runner (`Rest.fs`, `Pages.fs`, `Operations.fs`) are re-pointed
+  and the avatar goldens and the oracle's `users/avatars/show` cases are compared loose, not as text (Falco writes no indentation: class A); the users, profile, push-subscription,
+  ban-button and avatar oracle cases (hostile text included) and the `users_show_*`, `profile_*`, `users_new`, `ban_button_*`, `push_subscriptions` and `avatar_*` goldens are loose-equal.
+  `PresenterAccountsTests` looks for `>D</text>` in the SVG instead of the ERB's indentation. New `UsersViewsTests.fs` (3 tests): T1 on the profile's bio `textarea` (newline,
+  `</textarea>`, entity, U+E000), the profile forms' field names and ids (both file fields keep Rails' shared `id="file"`, in multipart forms, the user's name encoded as data), and the
+  SVG well-formed as XML for hostile initials (`<`, quotes, `&`, non-ASCII, three characters).
+- **Gates run:** lint self-test ok (27), lint clean (229 files); `CAMPFIRE_REQUIRE_SEED=1 bin/verify`: **983 total, 977 passed, 6 skipped (the same environmental 6), 0 failed**, H1 green
+  (the first full run had `FrontAcmeTests.cached certificates load and are forgotten by obtaining` fail once under load; it passed alone and in both later full runs).
+  Image rebuilt from the template commit (`4b2dc6f`, revision label), `bin/pixel-parity --fast`: `users/**`, `interactions/pwa_install**`, `interactions/notifications_help`: default 34/34,
+  custom_styles 2/2 (crowd, first_run, restricted 0 cells) screenshots, aria and loose DOM equal (127 s); beyond the row, because the new helpers and the translation button reach them:
+  `auth/join**`, `pwa/install/**`, `interactions/translation_menu`, `rooms/opens/**`, `rooms/closeds/**`: default 40/40, crowd 8/8, restricted 2/2 on all three layers (163 s). No `realtime/**`
+  state renders these pages. `bin/clean-parity` after each run, `bin/clean-docker` after the build; 24 GB free.
+- **Speed:** no `bench/quick`: the unit moves no page of the five workloads (the profile, person, join and push pages and the avatar SVG, which the avatar cache keeps on disk per user).
+  The five workloads' templates are unchanged since 4.6.
+- **Differences recorded:** none new for the README (class A as in 4.4-4.6: no whitespace where it does not render, numeric references for non-ASCII and `'`, ` />` on voids); the SVG
+  avatar is no longer byte-identical to Rails' (no indentation or line breaks), the same picture.
+- **KLOC:** `bin/kloc` 34,458 by upstream's rules, **34,677 corrected (34.7 KLOC)**, from 34,668 (+9): `Campfire.Views` 6,081 corrected from 6,042 (+39: 710 -> 643 lines of templates,
+  against about 140 lines of new `Markup/` helpers: the form fields, translations, QR/copy/share buttons), App 11,802 (-28 lines: four `RenderSize` fields, four calls shorter). As in 4.4-4.6 the
+  shrink comes in 4.11.
+- Evidence: `bench/results/dotnetway-4-7/` (`build.sh`, `pixel.sh`, `build.log`, `pixel-users.log`, `pixel-extra.log`, `verify.log`, `STATUS-*`).
+- **Next:** 4.8 Accounts (`accounts/edit`, `_help_contact`, `_invite`, `users/_user`, `_next_page_container`, `index.turbo_stream`, `bots/*`, `custom_styles/edit`).

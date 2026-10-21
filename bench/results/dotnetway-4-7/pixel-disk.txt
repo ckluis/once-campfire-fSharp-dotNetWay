@@ -1,0 +1,1 @@
+/dev/disk3s1s1   228Gi    13Gi    24Gi    35%    484k  257M    0%   /
