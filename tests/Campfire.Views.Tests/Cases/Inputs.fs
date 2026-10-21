@@ -1,5 +1,4 @@
-/// Reading the cases `bin/views-differential` generates (see `src/ops.rs` of the Rust tool for what each
-/// operation's arguments are).
+/// Reading the oracle's cases (`oracle.jsonl`, the answers frozen from the Rust views crate in unit 4.1).
 module Campfire.Views.Differential.Inputs
 
 open System
@@ -7,7 +6,7 @@ open System.Text.Json
 open Campfire.RailsCompat
 open Campfire.Views
 open Campfire.Views.Helpers
-open Campfire.Views.Helpers.Tag
+open Falco.Markup
 open Campfire.Views.Messages
 open Campfire.Views.MessagesSupport
 open Campfire.Views.Users
@@ -114,20 +113,18 @@ let viewContext (ctx: JsonElement) (shared: JsonElement) : ViewContext =
          | _ -> None)
       AppVersion = str (get ctx "app_version") }
 
-/// `[[name, kind, value], ...]`: kind is "text", "safe", "bool", "int" or "none".
-let attrs (list: JsonElement) : Attrs =
-    let attrs = Tag.attrs ()
-    for item in arr list do
-        let name = str (at item 0)
-        let value = at item 2
-        match str (at item 1) with
-        | "text" -> attrs.Attr(name, str value) |> ignore
-        | "safe" -> attrs.Attr(name, Safe(str value)) |> ignore
-        | "bool" -> attrs.Attr(name, bool value) |> ignore
-        | "int" -> attrs.Attr(name, int64Of value) |> ignore
-        | "none" -> attrs.Set(name, ValueNone)
-        | other -> failwith $"attribute kind {other}"
-    attrs
+/// `[[name, kind, value], ...]`: kind is "text", "safe", "bool", "int" or "none"; Falco attributes, text encoded.
+let attrs (list: JsonElement) : XmlAttribute list =
+    [ for item in arr list do
+          let name = str (at item 0)
+          let value = at item 2
+          match str (at item 1) with
+          | "text" -> Markup.Html.attr name (str value)
+          | "safe" -> Attr.create name (str value)
+          | "bool" -> if bool value then Attr.create name name
+          | "int" -> Attr.create name (string (int64Of value))
+          | "none" -> ()
+          | other -> failwith $"attribute kind {other}" ]
 
 let userSummary (v: JsonElement) : UserSummary =
     { Id = int64Of (get v "id")

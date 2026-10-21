@@ -1,4 +1,9 @@
 <body>
-  <a data-badge-dot-target="unread" data-room-id="250779876" data-rooms-list-target="room" data-sorted-list-target="item" data-x="1" href="/rooms/250779876" required="<b>">
-  </a>
+  <div class="center message message--failed message--formatted">
+    <div class="message__body">
+      <div class="message__body-content txt-align-center">
+        "Failed to load message content"
+      </div>
+    </div>
+  </div>
 </body>

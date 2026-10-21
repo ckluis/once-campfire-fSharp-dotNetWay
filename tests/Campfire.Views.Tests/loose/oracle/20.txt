@@ -1,7 +1,4 @@
 <body>
-  <form accept-charset="UTF-8" action="á b" enctype="multipart/form-data" id="form_1" method="post">
-    <input name="_method" type="hidden" value="delete">
-    <input id="a_b_bio" name="a b[bio]" type="url">
-    <input id="a_b_x]y" name="a b[x]y]" type="file">
-  </form>
+  <turbo-cable-stream-source channel="Turbo::StreamsChannel" signed-stream-name="a -> b">
+  </turbo-cable-stream-source>
 </body>

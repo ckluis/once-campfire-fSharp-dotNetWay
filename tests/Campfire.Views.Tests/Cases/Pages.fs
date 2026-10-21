@@ -37,11 +37,6 @@ let nodeAnswer (render: unit -> HtmlOutput) : Answer =
     if cold <> warm then failwith "a warm render is not the cold one"
     text warm
 
-let private recordedAnswer (page: HtmlOutput) : Answer =
-    { Out = page.ToString()
-      Text = Some(recordedText page)
-      Fragments = Some(recordedOffsets page) }
-
 /// A Falco page: its regions in the layout (`Layouts.page`), cold and then warm, the same bytes, and
 /// in the Turbo-Frame layout when `frame` is set. The page's text is the answer (the writer's fragment offsets are not Falco's).
 let viewPageAnswer (args: JsonElement) (ctx: ViewContext) (page: Layouts.ViewPage) : Answer =
@@ -57,20 +52,6 @@ let nodeBytesAnswer (render: unit -> byte[]) : Answer =
     let warm = Encoding.UTF8.GetString(render ())
     if cold <> warm then failwith "a warm render is not the cold one"
     text warm
-
-/// A template that is not a page: rendered cold and then warm.
-let fragmentAnswer (render: Out -> unit) : Answer =
-    let cold = Render.text render
-    let warm = Render.text render
-    if cold <> warm then failwith "a warm render is not the cold one"
-    text warm
-
-/// A list of messages as a recorded page, as a template that isn't a page is served.
-let private recordedFragmentAnswer (render: Out -> unit) : Answer =
-    let recorded = Render.page 0 render
-    let plain = Render.text render
-    if recorded.ToString() <> plain then failwith "a recorded page is not the plain render"
-    { recordedAnswer recorded with Out = plain }
 
 let private run (op: string) (args: JsonElement) (ctx: ViewContext) : Answer =
     let message () = messageView (get args "message")
@@ -89,7 +70,7 @@ let private run (op: string) (args: JsonElement) (ctx: ViewContext) : Answer =
         let c = (Templates.Messages.Show.output b).ToString()
         let d = b.ToString()
         if c <> d then failwith "the copied fragment and the placed one differ"
-        { Out = a.ToString(); Text = Some c; Fragments = None }
+        { Body = a.ToString(); Text = Some c; Fragments = None }
     | "messages/_actions" ->
         let message = message ()
         nodeAnswer (fun () -> HtmlOutput.ofNode (Templates.Messages._Actions.render ctx message) [])
@@ -126,7 +107,7 @@ let private run (op: string) (args: JsonElement) (ctx: ViewContext) : Answer =
         if not (obj.ReferenceEquals(first, second)) then failwith "the second render did not reuse the cached fragment"
         let partial = (HtmlOutput.ofNodes (Templates.Messages.Boosts._Boost.render ctx boost) []).ToString()
         if partial <> first.ToString() then failwith "the cached boost is not the partial"
-        { Out = partial; Text = Some(first.ToString()); Fragments = None }
+        { Body = partial; Text = Some(first.ToString()); Fragments = None }
     | "messages/boosts/_boosts" ->
         let message = message ()
         let boosts = renderedBoosts ctx message

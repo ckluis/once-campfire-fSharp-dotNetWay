@@ -1,3 +1,8 @@
 <body>
-  <input name="_method" type="hidden" value="a]b">
+  <div class="sound" data-action="messages:play->sound#play" data-controller="sound" data-sound-url-value="/assets/a.mp3">
+    <button class="btn btn--plain" data-action="sound#play">
+      "🔊"
+    </button>
+    <img class="align--middle" height="270" src="100%" width="188">
+  </div>
 </body>

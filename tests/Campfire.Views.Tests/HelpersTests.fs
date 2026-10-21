@@ -35,7 +35,7 @@ let ``builds sentences`` () =
 [<Fact>]
 let ``qr code links take the url urlsafe base64 encoded`` () =
     // `Base64.urlsafe_encode64` in the reference: padded, with `-` and `_`.
-    let link (url: string) = Render.text (fun w -> Application.linkToZoomQrCode w url ignore)
+    let link (url: string) = (HtmlOutput.ofNode (Markup.Application.linkToZoomQrCode url []) []).ToString()
     Assert.Contains("href=\"/qr_code/aHR0cDovL3gvP2E=\"", link "http://x/?a")
     Assert.Contains("href=\"/qr_code/aHR0cDovL3gvPz4_\"", link "http://x/?>?")
 
@@ -106,9 +106,9 @@ let ``involvement cycles through its states`` () =
 
 [<Fact>]
 let ``every translation key has its popup and an unknown key is a bug`` () =
-    let html = Render.text (fun w -> Translations.translationsFor w "password")
-    Assert.StartsWith("<dl class=\"language-list\"><dt>🇺🇸</dt><dd class=\"margin-none\">Enter your password</dd>", html)
-    Assert.Throws<exn>(fun () -> Render.plain (fun w -> Translations.translationsFor w "nope") |> ignore) |> ignore
+    let html = (HtmlOutput.ofNode (Campfire.Views.Markup.Translations.translationsFor "password") []).ToString()
+    Assert.StartsWith("<dl class=\"language-list\"><dt>&#127482;&#127480;</dt><dd class=\"margin-none\">Enter your password</dd>", html)
+    Assert.Throws<exn>(fun () -> Campfire.Views.Markup.Translations.translationsFor "nope" |> ignore) |> ignore
 
 // `str::to_lowercase`, which the room forms' `data-value` calls on a user's name: the answers are Rust's (the
 // differential compares every code point and the sigma rules live; these are the cases that explain them).

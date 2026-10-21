@@ -27,7 +27,7 @@ type private Writer() =
     let out = ResizeArray<byte>([ 4uy; 8uy ])
     let symbols = ResizeArray<string>()
 
-    member _.Out : ResizeArray<byte> = out
+    member _.Buffer : ResizeArray<byte> = out
 
     /// `w_long` in marshal.c.
     member _.Long(n: int64) : unit =
@@ -118,4 +118,4 @@ type private Writer() =
 let dump (value: Value) : byte[] =
     let writer = Writer()
     writer.Value value
-    writer.Out.ToArray()
+    writer.Buffer.ToArray()

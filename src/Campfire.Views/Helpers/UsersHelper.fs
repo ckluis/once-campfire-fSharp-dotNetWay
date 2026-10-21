@@ -5,12 +5,6 @@ module Campfire.Views.Helpers.UsersHelper
 
 open System
 open System.Text
-open Campfire.Routes
-open Campfire.Views
-open Campfire.Views.Helpers.Tag
-open Campfire.Views.Helpers.Links
-open Campfire.Views.Helpers.Turbo
-open Campfire.Views.Helpers.Url
 
 /// `Users::AvatarsHelper::AVATAR_COLORS`.
 let avatarColors: string[] =
@@ -80,73 +74,7 @@ type AvatarUser =
       /// `fresh_user_avatar_path(user)`.
       AvatarPath: string }
 
-/// `avatar_tag(user, **options)`: the options go to the image.
-let avatarTag (w: Out) (ctx: ViewContext) (user: AvatarUser) (options: Attrs) : unit =
-    linkTo w (Routes.user user.Id) (attrs().Title(user.Title).Class("btn avatar").Data("turbo_frame", "_top")) (fun w ->
-        Assets.imageTag w ctx user.AvatarPath (attrs().AriaHidden().Size(48).Merge options))
-
-/// `button_to_direct_room_with(user)`.
-let buttonToDirectRoomWith (w: Out) (ctx: ViewContext) (userId: int64) : unit =
-    Forms.buttonToBlock w (roomsDirectsWithUsers [ userId ]) (attrs().Class("btn btn--primary full-width txt--large")) (fun w ->
-        Assets.imageTag w ctx "messages.svg" (attrs ()))
-
 /// The bot curl commands in `accounts/bots/_bot`.
 let curlTextLine (url: string) : string = $"curl -d 'Hello!' {url}"
 
 let curlUploadLine (url: string) : string = $"curl -F \"attachment=@/path/to/file\" {url}"
-
-/// `account_logo_tag(style:)`. A nil style leaves a trailing space in the class.
-let accountLogoTag (w: Out) (ctx: ViewContext) (style: string option) : unit =
-    contentTagBlock w "figure" (attrs().Class("account-logo avatar " + defaultArg style "")) (fun w ->
-        Assets.imageTag w ctx ctx.Account.LogoUrl (attrs().Alt("Account logo").Size 300))
-
-/// `profile_form_submit_button`.
-let profileFormSubmitButton (w: Out) (ctx: ViewContext) : unit =
-    contentTagBlock w "button" (attrs().Class("btn btn--reversed center txt-large").Type("submit")) (fun w ->
-        Assets.imageTag w ctx "check.svg" (attrs().AriaHidden().Size 20)
-        contentTagText w "span" (attrs().Class("for-screen-reader")) "Save changes")
-
-/// `sidebar_turbo_frame_tag`'s attributes: `data: { turbo_permanent: true, controller: ...,
-/// rooms_list_unread_class: ..., action: ... }` for `turbo_frame_tag`.
-let sidebarTurboFrameOptions (src: string option) : Attrs =
-    let data =
-        Attrs(7)
-            .Attr("data-turbo-permanent", true)
-            .Attr("data-controller", "rooms-list read-rooms turbo-frame")
-            .Attr("data-rooms-list-unread-class", "unread")
-            // html_safe in the reference so "->" isn't escaped
-            .Attr(
-                "data-action",
-                Safe
-                    "presence:present@window->rooms-list#read read-rooms:read->rooms-list#read turbo:frame-load->rooms-list#loaded refresh-room:visible@window->turbo-frame#reload"
-            )
-    turboFrameOptions "user_sidebar" src (Some "_top") data
-
-/// `sidebar_turbo_frame_tag(src:) { content }`.
-let inline sidebarTurboFrameTag (w: Out) (src: string option) ([<InlineIfLambda>] content: Out -> unit) : unit =
-    contentTagBlock w "turbo-frame" (sidebarTurboFrameOptions src) content
-
-/// `user_filter_menu_tag { content }`.
-let inline userFilterMenuTag (w: Out) ([<InlineIfLambda>] content: Out -> unit) : unit =
-    let options =
-        attrs()
-            .Class("flex flex-column gap margin-none pad overflow-y constrain-height")
-            .Data("controller", "filter")
-            .Data("filter_active_class", "filter--active")
-            .Data("filter_selected_class", "selected")
-    contentTagBlock w "menu" options content
-
-/// `user_filter_search_tag`.
-let userFilterSearchTag (w: Out) : unit =
-    builderTag
-        w
-        "input"
-        (attrs()
-            .Type("search")
-            .Id("search")
-            .Attr("autocorrect", "off")
-            .Autocomplete("off")
-            .Attr("data-1p-ignore", "true")
-            .Class("input input--transparent full-width")
-            .Placeholder("Filter…")
-            .Data("action", "input->filter#filter"))

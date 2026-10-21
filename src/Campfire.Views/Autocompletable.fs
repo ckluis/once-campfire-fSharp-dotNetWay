@@ -18,7 +18,7 @@ type UserJson =
 
 module UserJson =
     let create (user: MentionUser) (baseUrl: string) : UserJson =
-        { Name = Tag.escape user.User.Name
+        { Name = Campfire.Ruby.Erb.htmlEscape user.User.Name
           Value = user.User.Id
           AvatarUrl = baseUrl + user.User.AvatarPath
           Sgid = user.AttachableSgid }

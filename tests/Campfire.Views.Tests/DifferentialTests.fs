@@ -14,7 +14,7 @@ open Campfire.Views.Differential
 
 /// The operations whose answer is text, not markup: compared exactly.
 let private textOps =
-    set [ "helpers/url"; "helpers/translations"; "helpers/asset_path"; "helpers/application:to_lowercase"
+    set [ "helpers/url"; "helpers/asset_path"; "helpers/application:to_lowercase"
           "messages/epoch_ms"; "messages/iso8601"; "messages/json_time"; "messages/ruby_number"
           "messages/json_by_bots_index"; "messages/json_by_bots_show"; "messages/json_boosts_by_bots_show"
           "autocompletable/users_index_json"; "pwa/service_worker"; "searches/search_path"; "rooms/mention_prompt_src"
@@ -51,12 +51,12 @@ let ``the views render as the rust views did`` () =
             replayed <- replayed + 1
             let ours = Operations.run case shared
             let expected = Inputs.str (Inputs.get rust "out")
-            match sameAnswer op expected ours.Out with
+            match sameAnswer op expected ours.Body with
             | None -> ()
             | Some why ->
-                let at = Seq.zip ours.Out expected |> Seq.tryFindIndex (fun (a, b) -> a <> b) |> Option.defaultValue (min ours.Out.Length expected.Length)
+                let at = Seq.zip ours.Body expected |> Seq.tryFindIndex (fun (a, b) -> a <> b) |> Option.defaultValue (min ours.Body.Length expected.Length)
                 let around (s: string) = s.Substring(max 0 (at - 30), min 90 (s.Length - max 0 (at - 30)))
-                failures.Add $"{op}: {why}\n  first byte difference at {at}\n  rust: {around expected}\n  ours: {around ours.Out}"
+                failures.Add $"{op}: {why}\n  first byte difference at {at}\n  rust: {around expected}\n  ours: {around ours.Body}"
             match ours.Fragments, Inputs.get rust "fragments" with
             | Some fragments, parts when parts.ValueKind = JsonValueKind.Array ->
                 // Where the fragments go in the page's text. Their lengths are not compared: a message's fragment is Falco's markup now
@@ -72,7 +72,7 @@ let ``the views render as the rust views did`` () =
           "accounts/_help_contact"; "accounts/_invite"; "pwa/_install_instructions"; "pwa/_browser_settings";
           "pwa/_system_settings"; "users/_mention"; "users/autocompletables/_template"; "users/sidebars/rooms/_direct";
           "users/sidebars/rooms/_shared"; "users/sidebars/rooms/_direct_placeholder"; "users/direct_room"; "welcome/show";
-          "helpers/tag"; "helpers/form"; "helpers/button"; "helpers/link"; "helpers/image_tag"; "helpers/application";
+          "helpers/link"; "helpers/application";
           "helpers/users"; "helpers/rooms"; "helpers/translations"; "helpers/url"; "helpers/turbo";
           "messages/presentation"; "messages/epoch_ms"; "messages/ruby_number";
           "messages/json_by_bots_index"; "helpers/application:to_lowercase"; "messages/_message"; "messages/message_cached";

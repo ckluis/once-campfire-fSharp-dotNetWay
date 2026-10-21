@@ -88,7 +88,7 @@ type AppConfig =
       JobConcurrency: int
       LogLevel: string
       /// The fragment store's limit in bytes (`CAMPFIRE_FRAGMENT_CACHE_MB`).
-      FragmentCacheBytes: int64 }
+      FragmentBytes: int64 }
 
 module AppConfig =
     /// The install's own HTTPS URL when it has a TLS domain; the project's otherwise.
@@ -179,6 +179,6 @@ module AppConfig =
                       Storage = storage
                       JobConcurrency = int (max concurrency 1L)
                       LogLevel = defaultArg (present "RAILS_LOG_LEVEL") "info"
-                      FragmentCacheBytes = megabytes * (1L <<< 20) }
+                      FragmentBytes = megabytes * (1L <<< 20) }
 
     let fromEnv () : Result<AppConfig, string> = fromLookup Environment.GetEnvironmentVariable

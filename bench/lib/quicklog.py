@@ -101,19 +101,23 @@ def compare(directory):
             if ratio and ratio > 1.10:
                 print(f"  note {w} c={c}: host probe {ratio} after the window (noisy host)")
     print(f"  responses: every one 2xx with 0 connection errors in {sum(len(m['runs']) for m in mine.values())} runs" if not bad else f"  {bad} run(s) with errors")
+    # Rust's decoded size per route, except where the Falco.Markup pages differ on purpose (unit 4.11): those routes have a stored expected
+    # size (bench/lib/expected-sizes.json, the size after the views moved to Falco.Markup; update it when a template changes on purpose).
     rust_probe = {p["route"]: p["gzip"]["decoded_bytes"] for p in (load(FINAL, "rust") or [{"probe": []}])[0]["probe"]}
+    with open(os.path.join(ROOT, "bench/lib/expected-sizes.json")) as f:
+        rust_probe.update(json.load(f))
     for r in load(directory, app):
         for p in r["probe"]:
             want = rust_probe.get(p["route"])
             if want is not None and p["gzip"]["decoded_bytes"] != want:
-                print(f"  FAIL decoded bytes {p['route']}: {p['gzip']['decoded_bytes']} vs Rust {want}")
+                print(f"  FAIL decoded bytes {p['route']}: {p['gzip']['decoded_bytes']} vs expected {want}")
                 bad += 1
         for row in r["post_rows"]:
             if row["rows"] != sum(v for k, v in row["statuses"].items() if int(k) < 400):
                 print(f"  FAIL post rows {row}")
                 bad += 1
     if not bad:
-        print("  decoded bytes equal Rust's on every probed route; post rows written equal the 2xx answers in every phase")
+        print("  decoded bytes equal the stored expected size (Rust's where the page is unchanged) on every probed route; post rows written equal the 2xx answers in every phase")
     return bad
 
 

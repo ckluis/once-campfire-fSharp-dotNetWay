@@ -168,7 +168,7 @@ module Boot =
             // registers this instance as its `HybridCache` (`Web.Services.add`).
             let fragments =
                 let services = ServiceCollection()
-                Campfire.Views.Fragments.add services config.FragmentCacheBytes
+                Campfire.Views.Fragments.add services config.FragmentBytes
                 services.BuildServiceProvider().GetRequiredService<Microsoft.Extensions.Caching.Hybrid.HybridCache>()
             // config/initializers/web_push.rb: off without a valid VAPID key pair.
             let webPush = IntegrationJobs.webPushPool config dbFactory gate efEnv (loggers.CreateLogger "campfire.web_push")

@@ -6,19 +6,17 @@
   <ItemGroup>
     <Compile Include="../Shared/Repo.fs" Link="Repo.fs" />
     <Compile Include="../Shared/LooseDom.fs" Link="LooseDom.fs" />
-    <Compile Include="../../reference-tools/views/differential/fsharp/Inputs.fs" Link="Inputs.fs" />
-    <Compile Include="../../reference-tools/views/differential/fsharp/Answer.fs" Link="Answer.fs" />
-    <Compile Include="../../reference-tools/views/differential/fsharp/Pages.fs" Link="Pages.fs" />
-    <Compile Include="../../reference-tools/views/differential/fsharp/Rest.fs" Link="Rest.fs" />
-    <Compile Include="../../reference-tools/views/differential/fsharp/Operations.fs" Link="Operations.fs" />
+    <Compile Include="Cases/Inputs.fs" />
+    <Compile Include="Cases/Answer.fs" />
+    <Compile Include="Cases/Pages.fs" />
+    <Compile Include="Cases/Rest.fs" />
+    <Compile Include="Cases/Operations.fs" />
     <Compile Include="Support/Facts.fs" />
     <Compile Include="Support/GoldenB.fs" />
     <Compile Include="LooseDomTests.fs" />
     <Compile Include="HtmlTests.fs" />
-    <Compile Include="OutTests.fs" />
     <Compile Include="HtmlOutputTests.fs" />
     <Compile Include="LayoutsTests.fs" />
-    <Compile Include="TagTests.fs" />
     <Compile Include="FormsTests.fs" />
     <Compile Include="HelpersTests.fs" />
     <Compile Include="FragmentsTests.fs" />

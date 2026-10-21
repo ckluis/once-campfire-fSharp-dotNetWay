@@ -1,3 +1,5 @@
 <body>
-  <img height="true" src="a-b://x" target="a->b" width="true">
+  <title>
+    "tab here"
+  </title>
 </body>

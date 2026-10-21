@@ -1,4 +1,0 @@
-<body>
-  <turbo-cable-stream-source channel="Turbo::StreamsChannel" signed-stream-name="a -> b">
-  </turbo-cable-stream-source>
-</body>

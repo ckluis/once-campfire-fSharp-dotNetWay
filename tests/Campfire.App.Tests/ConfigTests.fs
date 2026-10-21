@@ -32,11 +32,11 @@ let ``production defaults`` () =
     Assert.Equal(Path.Combine("storage", "db", "production.sqlite3"), config.Storage.Database)
     Assert.Equal(Path.Combine("storage", "files"), config.Storage.Files)
     Assert.Equal(Path.Combine("storage", "backups", "production.sqlite3"), StoragePaths.backupFile config.Storage)
-    Assert.Equal(32L * 1024L * 1024L, config.FragmentCacheBytes)
+    Assert.Equal(32L * 1024L * 1024L, config.FragmentBytes)
 
 [<Fact>]
 let ``fragment cache size in megabytes`` () =
-    let bytes = (unwrap (config [ "SECRET_KEY_BASE", "abc"; "CAMPFIRE_FRAGMENT_CACHE_MB", "64" ])).FragmentCacheBytes
+    let bytes = (unwrap (config [ "SECRET_KEY_BASE", "abc"; "CAMPFIRE_FRAGMENT_CACHE_MB", "64" ])).FragmentBytes
     Assert.Equal(64L * 1024L * 1024L, bytes)
     Assert.True((config [ "SECRET_KEY_BASE", "abc"; "CAMPFIRE_FRAGMENT_CACHE_MB", "lots" ]).IsError)
 

@@ -1,18 +1,15 @@
-/// What an operation answers (`src/main.rs` of the Rust tool writes the same three fields).
+/// What an operation answers: the oracle's `out`, and the optional `text` and `fragments` fields of the frozen answers.
 module Campfire.Views.Differential.Answer
 
 open System.Text
 open Campfire.Views
 
 type Answer =
-    { Out: string
+    { Body: string
       Text: string option
       Fragments: (int * int) list option }
 
-let text (out: string) : Answer = { Out = out; Text = None; Fragments = None }
-
-/// Renders with `ctx` and takes the text.
-let rendered (f: Campfire.Views.Out -> unit) : Answer = text (Campfire.Views.Render.text f)
+let text (out: string) : Answer = { Body = out; Text = None; Fragments = None }
 
 /// A recorded page's text without its fragments, and the offsets in it where the fragments go: the parts joined, and their ends.
 let recordedText (page: HtmlOutput) : string = Encoding.UTF8.GetString(Array.concat page.Parts)

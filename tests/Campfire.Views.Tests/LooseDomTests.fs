@@ -1,5 +1,5 @@
 // W2 (plans/design-views.md section 5): tests/Shared/LooseDom.fs, the F# port of parity/capture/loose.ts over AngleSharp, equals what
-// loose.ts itself made of every Rails golden page and of 30 oracle answers (stored in tests/Campfire.Views.Tests/loose/ by
+// loose.ts itself made of every Rails golden page and of the stored oracle answers (24 since 4.11 dropped the writer helpers' cases; stored in tests/Campfire.Views.Tests/loose/ by
 // parity/bin/loose-golden), line for line; plus the rules of loose.ts's own self-test (parity/capture/test/loose.test.ts).
 module Campfire.Views.Tests.LooseDomTests
 
@@ -30,9 +30,9 @@ let ``loose dom of every rails golden page equals loose.ts`` () =
         check name (File.ReadAllText file) (File.ReadAllText(Path.Combine(Facts.goldenDir, name + ".html")))
 
 [<Fact>]
-let ``loose dom of 30 oracle answers equals loose.ts`` () =
+let ``loose dom of the stored oracle answers equals loose.ts`` () =
     let picked = JsonDocument.Parse(File.ReadAllText(Path.Combine(looseDir, "oracle", "index.json"))).RootElement
-    Assert.Equal(30, picked.GetArrayLength())
+    Assert.Equal(Directory.GetFiles(Path.Combine(looseDir, "oracle"), "*.txt").Length, picked.GetArrayLength())
     let lines = File.ReadAllLines(Repo.path "tests/Campfire.Views.Tests/oracle.jsonl")
     let mutable n = 0
     for pick in picked.EnumerateArray() do

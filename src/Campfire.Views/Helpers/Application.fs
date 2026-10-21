@@ -5,67 +5,6 @@ module Campfire.Views.Helpers.Application
 
 open System
 open System.Text
-open Campfire.RailsCompat
-open Campfire.Routes
-open Campfire.Views
-open Campfire.Views.Helpers.Tag
-open Campfire.Views.Helpers.Links
-
-/// `link_back_to(destination)`.
-let linkBackTo (w: Out) (ctx: ViewContext) (destination: string) : unit =
-    linkTo w destination (attrs().Class("btn")) (fun w ->
-        Assets.imageTag w ctx "arrow-left.svg" (attrs().AriaHidden().Size 20)
-        contentTagText w "span" (attrs().Class("for-screen-reader")) "Go Back")
-
-/// `link_back`: to the referrer, unless it's missing or the current page.
-let linkBack (w: Out) (ctx: ViewContext) : unit =
-    let backUrl =
-        match ctx.Referrer with
-        | Some referrer when referrer <> ctx.RequestUrl -> referrer
-        | _ -> Routes.root ()
-    linkBackTo w ctx backUrl
-
-/// `RoomsHelper#link_back_to_last_room_visited`.
-let linkBackToLastRoomVisited (w: Out) (ctx: ViewContext) : unit =
-    match ctx.LastRoomVisitedId with
-    | Some roomId -> linkBackTo w ctx (Routes.room roomId)
-    | None -> linkBackTo w ctx (Routes.root ())
-
-/// `version_badge`.
-let versionBadge (w: Out) (ctx: ViewContext) : unit =
-    contentTagText w "span" (attrs().Class("version-badge")) ctx.AppVersion
-
-/// `button_to_copy_to_clipboard(url) { content }`.
-let inline buttonToCopyToClipboard (w: Out) (url: string) ([<InlineIfLambda>] content: Out -> unit) : unit =
-    let options =
-        attrs()
-            .Class("btn")
-            .Data("controller", "copy-to-clipboard")
-            .Data("action", "copy-to-clipboard#copy")
-            .Data("copy_to_clipboard_success_class", "btn--success")
-            .Data("copy_to_clipboard_content_value", url)
-    contentTagBlock w "button" options content
-
-/// `link_to_zoom_qr_code(url) { content }`: the QR code route takes the URL,
-/// `Base64.urlsafe_encode64`d (reference/app/helpers/qr_code_helper.rb).
-let inline linkToZoomQrCode (w: Out) (url: string) ([<InlineIfLambda>] content: Out -> unit) : unit =
-    let path = Routes.qrCode (RailsEncoding.urlsafeEncodePadded (Encoding.UTF8.GetBytes url))
-    let options =
-        attrs().Class("btn").Data("lightbox_target", "image").Data("action", "lightbox#open").Data("lightbox_url_value", path)
-    linkTo w path options content
-
-/// `web_share_session_button(url, title, text) { content }` (`Users::ProfilesHelper`).
-let inline webShareSessionButton (w: Out) (url: string) (title: string) (text: string) ([<InlineIfLambda>] content: Out -> unit) : unit =
-    let options =
-        attrs()
-            .Class("btn")
-            .Hidden()
-            .Data("controller", "web-share")
-            .Data("action", "web-share#share")
-            .Data("web_share_url_value", url)
-            .Data("web_share_text_value", text)
-            .Data("web_share_title_value", title)
-    contentTagBlock w "button" options content
 
 /// `truncate(text, length:, omission:)` with Rails' default of no separator: the result,
 /// omission included, is at most `length` characters. Returns plain text (escape on output).

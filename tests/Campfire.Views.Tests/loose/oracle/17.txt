@@ -1,7 +1,5 @@
 <body>
-  <a autofocus="a->b" content="244" id="345" required="59" size="𝒜𝒷">
-    <b>
-      "x"
-    </b>
+  <a href="mailto:%EF%BD%81%EF%BD%82%EF%BD%83">
+    "ａｂｃ"
   </a>
 </body>

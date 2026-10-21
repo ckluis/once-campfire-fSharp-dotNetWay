@@ -1,9 +1,0 @@
-<body>
-  <div class="center message message--failed message--formatted">
-    <div class="message__body">
-      <div class="message__body-content txt-align-center">
-        "Failed to load message content"
-      </div>
-    </div>
-  </div>
-</body>

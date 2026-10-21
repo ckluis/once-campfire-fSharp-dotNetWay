@@ -4,12 +4,9 @@
     <Compile Include="Core/Html.fs" />
     <Compile Include="Core/HtmlOutput.fs" />
     <Compile Include="Core/Fragments.fs" />
-    <Compile Include="Core/Out.fs" />
     <Compile Include="Core/ViewContext.fs" />
-    <Compile Include="Helpers/Tag.fs" />
     <Compile Include="Helpers/Url.fs" />
     <Compile Include="Helpers/Turbo.fs" />
-    <Compile Include="Helpers/Links.fs" />
     <Compile Include="Helpers/Assets.fs" />
     <Compile Include="Helpers/Forms.fs" />
     <Compile Include="Helpers/UnicodeTables.fs" />
@@ -17,8 +14,6 @@
     <Compile Include="Helpers/RoomsHelper.fs" />
     <Compile Include="Helpers/UsersHelper.fs" />
     <Compile Include="Helpers/TranslationsTable.fs" />
-    <Compile Include="Helpers/Translations.fs" />
-    <Compile Include="Helpers/Filters.fs" />
     <Compile Include="Markup/Assets.fs" />
     <Compile Include="Markup/Links.fs" />
     <Compile Include="Markup/Forms.fs" />
