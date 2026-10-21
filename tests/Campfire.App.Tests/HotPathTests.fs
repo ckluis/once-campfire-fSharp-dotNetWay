@@ -23,6 +23,8 @@ type private Probe() =
     let commands = ConcurrentQueue<string>()
     member _.Compilations = Volatile.Read(&compilations)
     member _.Commands = commands.ToArray()
+    /// A Dapper statement, in the shape of EF's "Executed DbCommand" entry (the log line is the text after a newline).
+    member _.AddRead(sql: string) = commands.Enqueue("Executed DbCommand (Dapper)\n" + sql)
 
     member this.Attach(builder: DbContextOptionsBuilder<Ef.CampfireDb>) : unit =
         builder.LogTo(
@@ -35,7 +37,14 @@ type private Probe() =
         )
         |> ignore
 
-let private boot (probe: Probe) = bootSeededWith probe.Attach "default"
+/// Boots the app with EF's command log attached, and lists Dapper's hybrid reads (Ef/FastReads.fs) in the same log.
+let private boot (probe: Probe) =
+    task {
+        let! test = bootSeededWith probe.Attach "default"
+        use db = test.App.DbFactory.CreateDbContext()
+        Ef.FastReads.logTo (db.Database.GetDbConnection().DataSource) (Action<string>(fun sql -> probe.AddRead sql))
+        return test
+    }
 
 let private messageIds (test: Test) (roomId: int64) : int64 list =
     use context = test.App.DbFactory.CreateDbContext()

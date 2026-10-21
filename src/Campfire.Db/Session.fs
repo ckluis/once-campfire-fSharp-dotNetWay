@@ -16,8 +16,8 @@ module Session =
 
     /// `Session.find_by(token:)` (the sign-in lookup of every authenticated request).
     let findByToken (db: CampfireDb) (token: string) : Session option =
-        // `FromSql`: the lookup every authenticated request makes (unit 1.10: no expression tree to build).
-        db.Sessions.FromSql($"SELECT * FROM sessions WHERE token = {token} LIMIT 1") |> Data.sqlFirst
+        // The lookup every authenticated request makes: a hybrid read (Ef/FastReads.fs).
+        FastReads.sessionByToken db token
 
     let forUser (db: CampfireDb) (userId: int64) : Session list =
         db.Sessions.Where(fun s -> s.UserId = EF.Parameter userId).ToList() |> List.ofSeq

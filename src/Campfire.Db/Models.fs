@@ -28,7 +28,7 @@ module User =
 
     /// `User.find_by(id:)`
     let findById (db: Ef.CampfireDb) (id: int64) : User option =
-        db.Users.FromSql($"SELECT * FROM users WHERE id = {id} LIMIT 1") |> Ef.Data.sqlFirst
+        Ef.FastReads.userById db id
 
     /// `User.find`
     let find (db: Ef.CampfireDb) (id: int64) : User = findById db id |> Err.orNotFound "User"
@@ -614,10 +614,7 @@ module Room =
 
     /// `user.rooms.find_by(id:)`
     let findForUser (db: Ef.CampfireDb) (userId: int64) (roomId: int64) : Room option =
-        db.Rooms.FromSql(
-            $"SELECT rooms.* FROM rooms INNER JOIN memberships ON rooms.id = memberships.room_id WHERE memberships.user_id = {userId} AND rooms.id = {roomId} LIMIT 1"
-        )
-        |> Ef.Data.sqlFirst
+        Ef.FastReads.roomForUser db userId roomId
 
     /// `user.rooms.directs` / `.opens` / `.closeds`
     let forUserOfType (db: Ef.CampfireDb) (userId: int64) (roomType: RoomType) : Room list =

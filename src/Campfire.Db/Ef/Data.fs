@@ -29,6 +29,7 @@ module Data =
     let options (path: string) (time: TimeProvider) (extra: DbContextOptionsBuilder<CampfireDb> -> unit) : DbContextOptions<CampfireDb> =
         // SQLite's library-wide settings (no memory statistics mutex) must be made before the first connection of the process.
         Library.ensureConfigured ()
+        FastReads.ensureConfigured ()
         let builder =
             DbContextOptionsBuilder<CampfireDb>()
                 .UseSqlite($"Data Source={path}", fun sqlite -> sqlite.CommandTimeout 1 |> ignore)

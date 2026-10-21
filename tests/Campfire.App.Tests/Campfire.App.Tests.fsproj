@@ -50,6 +50,7 @@
     <Compile Include="RevocationTests.fs" />
     <Compile Include="ChannelsGoldenTests.fs" />
     <Compile Include="HotPathTests.fs" />
+    <Compile Include="FastReadsTests.fs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="testdata/**" CopyToOutputDirectory="PreserveNewest" />

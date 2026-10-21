@@ -24,6 +24,12 @@ guard 'FormattableStringFactory' 'FormattableStringFactory' '^src/Campfire\.Db/(
 guard "F#'s query { }" '(^|[^"$A-Za-z])query[[:space:]]*\{' '^$'
 # ADO.NET commands bypass EF's parameterization: only the constant pragmas (Interceptors.fs) and the backup's busy_timeout (Boot.fs).
 guard 'a hand-built ADO.NET command' 'CommandText|CreateCommand\(' '^src/Campfire\.(Db/Ef/Interceptors|App/Boot)\.fs:'
+# Hybrid reads (Reads: hybrid EF Core + Dapper): Dapper is called in exactly one module, and no SQL there is built from values
+# (parameters only: no interpolated or concatenated string reaches a Dapper call).
+guard 'Dapper' '\bDapper\b|QueryFirstOrDefault|SqlMapper' '^src/Campfire\.Db/Ef/FastReads\.fs:'
+if grep -nE '\$"[^"]*(SELECT|INSERT|UPDATE|DELETE)|"[^"]*(SELECT|FROM)[^"]*"[[:space:]]*\+' src/Campfire.Db/Ef/FastReads.fs; then
+  echo "verify: SQL built from values in src/Campfire.Db/Ef/FastReads.fs (parameters only)" >&2; exit 1
+fi
 dotnet build CampfireFs.slnx -c Release -warnaserror -v quiet -nologo
 if [ $# -eq 0 ]; then
   dotnet test --solution CampfireFs.slnx -c Release --no-build
