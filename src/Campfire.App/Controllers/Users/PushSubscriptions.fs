@@ -22,8 +22,6 @@ open Campfire.App.Web
 module PushSubscriptions =
     module IndexPage = Campfire.Views.Templates.Users.PushSubscriptions.Index
 
-    let private indexSize = RenderSize()
-
     /// `params.require(:push_subscription).permit(:endpoint, :p256dh_key, :auth_key)`: the scalar members given, in the order
     /// permitted.
     let private pushSubscriptionParams (http: HttpContext) : Result<(string * string) list, Error> =
@@ -90,13 +88,7 @@ module PushSubscriptions =
                 let! subscriptions = Data.read http (fun db -> PushSubscription.forUser db user.Id)
                 let pushSubscriptions = subscriptions |> List.map Accounts.pushSubscription
                 return!
-                    Pages.framedPage
-                        http
-                        200
-                        indexSize
-                        (fun w ctx -> IndexPage.render w ctx pushSubscriptions)
-                        IndexPage.head
-                        (fun w ctx -> IndexPage.content w ctx pushSubscriptions)
+                    Pages.viewPage http 200 (fun ctx -> IndexPage.rendered ctx pushSubscriptions)
             }
 
     let create: Web.Action =

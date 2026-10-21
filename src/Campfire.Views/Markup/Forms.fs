@@ -40,3 +40,52 @@ module Forms =
         Elem.form
             [ Attr.class' "button_to"; methodAttr method; Html.attr "action" url ]
             (methodTag method @ [ Elem.button (options @ [ Attr.create "type" "submit" ]) content ])
+
+    /// `Tags::Base#tag_name` / `tag_id` for a model-scoped field.
+    let private nameAndId (objectName: string) (method: string) (idOverride: string option) : XmlAttribute list =
+        [ Html.attr "name" (objectName + "[" + method + "]")
+          Html.attr "id" (defaultArg idOverride (Campfire.Views.Helpers.Forms.sanitizeObjectName objectName + "_" + method)) ]
+
+    /// `Tags::TextField#render`: the options in order, then `type`, `value`, `name` and `id`. A `maxlength` is written with its own
+    /// `size` by the caller, as Rails does.
+    let private inputField
+        (fieldType: string)
+        (objectName: string)
+        (method: string)
+        (idOverride: string option)
+        (value: string option)
+        (options: XmlAttribute list)
+        : XmlNode =
+        Elem.input (
+            options
+            @ [ Html.attr "type" fieldType
+                match value with
+                | Some value -> Html.attr "value" value
+                | None -> () ]
+            @ nameAndId objectName method idOverride
+        )
+
+    /// `form.text_field(method, options)`.
+    let textField (objectName: string) (method: string) (value: string option) (options: XmlAttribute list) : XmlNode =
+        inputField "text" objectName method None value options
+
+    /// `form.email_field(method, options)`.
+    let emailField (objectName: string) (method: string) (value: string option) (options: XmlAttribute list) : XmlNode =
+        inputField "email" objectName method None value options
+
+    /// `form.password_field(method, options)`: never writes the model's value.
+    let passwordField (objectName: string) (method: string) (options: XmlAttribute list) : XmlNode =
+        inputField "password" objectName method None None options
+
+    /// `form.file_field(method, options)`; the form that holds it needs `enctype="multipart/form-data"` (a form option).
+    let fileField (objectName: string) (method: string) (idOverride: string option) (options: XmlAttribute list) : XmlNode =
+        inputField "file" objectName method idOverride None options
+
+    /// `form.text_area(method, options)`: Rails writes a newline right after the opening tag.
+    let textArea (objectName: string) (method: string) (value: string option) (options: XmlAttribute list) : XmlNode =
+        Elem.textarea
+            (options @ nameAndId objectName method None)
+            [ Html.nl
+              match value with
+              | Some value -> Html.text value
+              | None -> () ]

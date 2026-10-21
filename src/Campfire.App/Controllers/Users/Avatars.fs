@@ -90,7 +90,7 @@ module Avatars =
 
     /// `render formats: :svg` (`users/avatars/show.svg.erb`).
     let private renderInitials (http: HttpContext) (user: User) : Falco.HttpHandler =
-        let svg = Render.plain (fun w -> Campfire.Views.Templates.Users.Avatars.Show.render w user.Id (User.initials user))
+        let svg = (HtmlOutput.ofNode (Campfire.Views.Templates.Users.Avatars.Show.render user.Id (User.initials user)) []).ToArray()
         // `Vary: Accept` like any render when the format came from a non-browser `Accept` (e.g.
         // `image/*`); a browser's image `Accept` ends in `*/*`, so it usually doesn't apply.
         Pages.renderAs http 200 "image/svg+xml; charset=utf-8" (ReadOnlyMemory<byte> svg)

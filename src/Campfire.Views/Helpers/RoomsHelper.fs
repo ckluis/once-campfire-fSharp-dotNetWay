@@ -42,20 +42,3 @@ type InvolvementRoom =
       /// `model_name.param_key` of the room's class: "rooms_open", "rooms_closed" or "rooms_direct".
       ParamKey: string
       Direct: bool }
-
-/// `button_to_change_involvement(room, involvement)`.
-let buttonToChangeInvolvement (w: Out) (ctx: ViewContext) (room: InvolvementRoom) (involvement: string) : unit =
-    let labelId = domId room.ParamKey room.Id (Some "involvement_label")
-    let url =
-        withQuery (Routes.roomInvolvement room.Id) [ "involvement", One(nextInvolvement room.Direct involvement) ]
-    let options =
-        attrs()
-            .Method("put")
-            .Role("checkbox")
-            .Aria("checked", true)
-            .Aria("labelledby", labelId)
-            .Tabindex(0)
-            .Class("btn " + involvement)
-    Forms.buttonToBlock w url options (fun w ->
-        Assets.imageTag w ctx ($"notification-bell-{involvement}.svg") (attrs().AriaHidden().Size 20)
-        contentTagText w "span" (attrs().Class("for-screen-reader").Id(labelId)) (humanizeInvolvement involvement))

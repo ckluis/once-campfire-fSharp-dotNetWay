@@ -66,7 +66,7 @@ let ``users partials`` () =
 
     let name = "ban_button_banned"
     let ctx = context name { Request.none with Partial = true }
-    assertParity name "html" (Render.text (fun w -> Templates.Users._BanButton.render w ctx (named name "Spam Ham")))
+    assertParity name "html" ((HtmlOutput.ofNode (Templates.Users._BanButton.render ctx (named name "Spam Ham")) []).ToString())
 
     for (name, roomName, unread) in [ "shared_room_unread", "HQ", true; "shared_room", "All Talk", false ] do
         let room = facts.Value.GetProperty("rooms").GetProperty roomName
@@ -113,23 +113,6 @@ let ``application layout wrapper matches extended pages`` () =
                     PageTitle = Templates.Welcome.Show.pageTitle
                     BodyClass = Templates.Welcome.Show.bodyClass
                     Sidebar = Render.html Templates.Welcome.Show.sidebar })
-    Assert.Equal(direct, wrapped)
-    assertParity name "html" wrapped
-
-    // The same for a page with a nav (users/show), as parity_a.rs's own case.
-    let name = "users_show_self"
-    let ctx = context name Request.none
-    let transferId = text ((user name "David").GetProperty "transfer_id")
-    let user = named name "David"
-    let direct = Render.text (fun w -> Templates.Users.Show.render w ctx user transferId)
-    let wrapped =
-        Render.text (fun w ->
-            Layouts.Application.render
-                w
-                ctx
-                { Layouts.Application.create (Render.html (fun w -> Templates.Users.Show.content w ctx user transferId)) with
-                    PageTitle = Templates.Users.Show.pageTitle user
-                    Nav = Render.html (fun w -> Templates.Users.Show.nav w ctx user) })
     Assert.Equal(direct, wrapped)
     assertParity name "html" wrapped
 
@@ -303,7 +286,7 @@ let ``users new`` () =
     let name = "users_new"
     let ctx = context name Request.none
     let joinCode = text (accountFact name "join_code")
-    assertParity name "html" (Render.text (fun w -> Templates.Users.New.render w ctx joinCode (helpContact name)))
+    assertParity name "html" ((Legacy.inLayout ctx false (Templates.Users.New.rendered ctx joinCode (helpContact name))).ToString())
 
 [<Fact>]
 let ``users show`` () =
@@ -316,7 +299,7 @@ let ``users show`` () =
           "users_show_banned", "Spam Ham" ] do
         let ctx = context name Request.none
         let transferId = text ((user name shown).GetProperty "transfer_id")
-        assertParity name "html" (Render.text (fun w -> Templates.Users.Show.render w ctx (named name shown) transferId))
+        assertParity name "html" ((Legacy.inLayout ctx false (Templates.Users.Show.rendered ctx (named name shown) transferId)).ToString())
 
 let private profileMemberships (list: JsonElement) : Users.ProfileMembership list =
     [ for m in list.EnumerateArray() ->
@@ -340,7 +323,7 @@ let ``users profiles show`` () =
               TransferId = text (me.GetProperty "transfer_id")
               SharedMemberships = profileMemberships ((data name).GetProperty("profile").GetProperty "shared")
               DirectMemberships = profileMemberships ((data name).GetProperty("profile").GetProperty "direct") }
-        assertParity name "html" (Render.text (fun w -> Templates.Users.Profiles.Show.render w ctx profile))
+        assertParity name "html" ((Legacy.inLayout ctx false (Templates.Users.Profiles.Show.rendered ctx profile)).ToString())
 
 [<Fact>]
 let ``users push subscriptions`` () =
@@ -353,17 +336,17 @@ let ``users push subscriptions`` () =
                 Browser = text (ps.GetProperty "browser")
                 Version = text (ps.GetProperty "version")
                 Platform = text (ps.GetProperty "platform") } ]
-    assertParity name "html" (Render.text (fun w -> Templates.Users.PushSubscriptions.Index.render w ctx subscriptions))
+    assertParity name "html" ((Legacy.inLayout ctx false (Templates.Users.PushSubscriptions.Index.rendered ctx subscriptions)).ToString())
 
 [<Fact>]
 let ``users avatars show`` () =
     for (name, shown) in [ "avatar_david", "David"; "avatar_three_initials", "Anna Bea Cole" ] do
         let user = user name shown
         let svg =
-            Render.text (fun w ->
-                Templates.Users.Avatars.Show.render w (user.GetProperty("id").GetInt64()) (text (user.GetProperty "initials")))
+            (HtmlOutput.ofNode (Templates.Users.Avatars.Show.render (user.GetProperty("id").GetInt64()) (text (user.GetProperty "initials"))) [])
+                .ToString()
+        // Falco writes the same elements without the ERB's indentation: loose-equal, not byte-equal (class A).
         assertParity name "svg" svg
-        Assert.Equal(golden name "svg", svg)
 
 [<Fact>]
 let ``pwa manifest and service worker`` () =

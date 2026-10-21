@@ -19,7 +19,7 @@ let render (ctx: ViewContext) (joinCode: string) : XmlNode =
                           [ Attr.class' "flex align-center gap" ]
                           [ Elem.div
                                 [ Attr.class' "system-welcome--translation" ]
-                                [ Legacy.node (fun w -> Translations.translationButton w ctx "invite_message") ]
+                                [ Translations.translationButton ctx "invite_message" ]
                             Elem.p
                                 []
                                 [ Elem.strong [] [ Text.raw "Welcome to Campfire" ]

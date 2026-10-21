@@ -2,203 +2,181 @@
 /// `users/profiles/show.html.erb`: the signed-in user's own profile.
 module Campfire.Views.Templates.Users.Profiles.Show
 
+open Falco.Markup
 open Campfire.Routes
 open Campfire.Views
-open Campfire.Views.Helpers
+open Campfire.Views.Layouts
+open Campfire.Views.Markup
 open Campfire.Views.Users
 
-let private t0 = Utf8.lit "  <div class=\"flex-item-justify-start\">\n    "
-let private t1 = Utf8.lit "\n  </div>\n\n  <div class=\"flex-item-justify-end\">\n"
-let private t2 = Utf8.lit "    "
-let private t3 = Utf8.lit "\n      "
-let private t4 = Utf8.lit "\n\n      <button class=\"btn\" data-action=\"sessions#logout:prevent\">\n        "
-let private t5 = Utf8.lit "\n        <span class=\"for-screen-reader\">Log out</span>\n      </button>\n"
-let private t6 = Utf8.lit "  </div>\n"
-let private t7 = Utf8.lit "<section class=\"panel flex flex-column gap\" style=\"view-transition-name: avatar-"
-let private t8 = Utf8.lit "\">\n  "
-let private t9 = Utf8.lit "\n\n  <div class=\"align-center center avatar__form gap\" data-controller=\"upload-preview\">\n"
-let private t10 = Utf8.lit "    "
-let private t11 = Utf8.lit "\n      <label class=\"btn input--file\">\n        "
-let private t12 = Utf8.lit "\n        "
-let private t13 = Utf8.lit "\n        <span class=\"for-screen-reader\">Upload avatar</span>\n      </label>\n"
-let private t14 = Utf8.lit "\n"
-let private t15 = Utf8.lit "    "
-let private t16 = Utf8.lit "\n      <label class=\"btn avatar input--file txt-xx-large\">\n        "
-let private t17 = Utf8.lit "\n        "
-let private t18 = Utf8.lit "\n        <span class=\"for-screen-reader\">Avatar</span>\n      </label>\n"
-let private t19 = Utf8.lit "\n"
-let private t20 = Utf8.lit "      "
-let private t21 = Utf8.lit "\n        "
-let private t22 = Utf8.lit "\n        <span class=\"for-screen-reader\">Delete avatar</span>\n"
-let private t23 = Utf8.lit "  </div>\n\n"
-let private t24 = Utf8.lit "  "
-let private t25 = Utf8.lit "\n    <div class=\"flex flex-column gap\">\n      <div class=\"flex align-center gap\">\n        "
-let private t26 = Utf8.lit "\n\n        <label class=\"flex align-center gap flex-item-grow input input--actor\">\n          "
-let private t27 = Utf8.lit "\n          "
-let private t28 = Utf8.lit "\n        </label>\n      </div>\n\n      <div class=\"flex align-center gap\">\n        "
-let private t29 = Utf8.lit "\n\n        <label class=\"flex align-center gap flex-item-grow input input--actor\">\n          "
-let private t30 = Utf8.lit "\n          "
-let private t31 = Utf8.lit "\n        </label>\n      </div>\n\n      <div class=\"flex align-center gap\">\n        "
-let private t32 = Utf8.lit "\n\n        <label class=\"flex align-center gap flex-item-grow input input--actor\">\n          "
-let private t33 = Utf8.lit "\n          "
-let private t34 = Utf8.lit "\n        </label>\n      </div>\n\n      <div class=\"flex align-start gap\">\n        "
-let private t35 = Utf8.lit "\n\n        <label class=\"flex align--center gap flex-item--grow input input--actor\">\n          "
-let private t36 = Utf8.lit "\n          "
-let private t37 = Utf8.lit "\n        </label>\n      </div>\n\n      "
-let private t38 = Utf8.lit "\n    </div>\n"
-let private t39 = Utf8.lit "\n  <div class=\"margin-block pad-inline pad-block fill-shade border-radius\">\n    <menu class=\"flex flex-column gap margin-none pad\">\n      "
-let private t40 = Utf8.lit "\n"
-let private t41 = Utf8.lit "        <hr class=\"separator full-width\" style=\"--border-style: solid\">\n"
-let private t42 = Utf8.lit "\n      "
-let private t43 = Utf8.lit "    </menu>\n  </div>\n\n  "
-let private t44 = Utf8.lit "\n</section>\n"
+let private hidden: XmlAttribute = Attr.create "aria-hidden" "true"
 
-/// `profile_form_with(@user, **params)`.
-let private profileForm () : Forms.FormWith =
-    (Forms.formWith (Routes.userProfile ())).Model("user").Method("patch").Data("controller", "form")
-
-/// `@page_title`.
-let pageTitle (profile: ProfileShow) : string option = Some profile.User.Name
-
-/// `content_for :head` (empty).
-let head: Out -> unit = ignore
+/// `profile_form_with(@user, **params)`: a patch to the profile, handled by the `form` controller.
+let private profileForm (options: XmlAttribute list) (content: XmlNode list) : XmlNode =
+    Forms.formWith (Routes.userProfile ()) "patch" (options @ [ Attr.create "data-controller" "form" ]) content
 
 /// `content_for :nav`.
-let nav (w: Out) (ctx: ViewContext) : unit =
-    w.Lit t0
-    Application.linkBack w ctx
-    w.Lit t1
-    let form = (Forms.formWith (Routes.session ())).Method("delete").Data("controller", "sessions")
-    w.Lit t2
-    Filters.formWith w form (fun w ->
-        w.Lit t3
-        Forms.hiddenFieldTag w "push_subscription_endpoint" None (Tag.attrs().Data("sessions_target", "pushSubscriptionEndpoint"))
-        w.Lit t4
-        Assets.imageTag w ctx "logout.svg" (Tag.attrs().AriaHidden())
-        w.Lit t5)
-    w.Lit t6
+let private nav (ctx: ViewContext) : XmlNode list =
+    [ Elem.div [ Attr.class' "flex-item-justify-start" ] [ Application.linkBack ctx ]
+      Elem.div
+          [ Attr.class' "flex-item-justify-end" ]
+          [ Forms.formWith
+                (Routes.session ())
+                "delete"
+                [ Attr.create "data-controller" "sessions" ]
+                [ Elem.input
+                      [ Attr.create "type" "hidden"
+                        Attr.create "name" "push_subscription_endpoint"
+                        Attr.create "id" "push_subscription_endpoint"
+                        Attr.create "data-sessions-target" "pushSubscriptionEndpoint" ]
+                  Elem.button
+                      [ Attr.class' "btn"; Attr.create "data-action" "sessions#logout:prevent" ]
+                      [ Assets.image ctx "logout.svg" [ hidden ]; Html.sp; Application.screenReader "Log out" ] ] ] ]
+
+/// The avatar's file field, which submits the form on change.
+let private avatarFile: XmlNode =
+    Forms.fileField
+        "user"
+        "avatar"
+        (Some "file")
+        [ Attr.class' "input"
+          Attr.create "accept" "image/*"
+          Attr.create "data-upload-preview-target" "input"
+          Attr.create "data-action" "upload-preview#previewImage change->form#submit" ]
+
+let private multipart: XmlAttribute = Attr.create "enctype" "multipart/form-data"
+
+/// A labelled field with an icon, as the profile form lays them out.
+let private field (ctx: ViewContext) (key: string) (rowClass: string) (labelClass: string) (input: XmlNode) (icon: string) : XmlNode =
+    Elem.div
+        [ Html.attr "class" rowClass ]
+        [ Translations.translationButton ctx key
+          Elem.label
+              [ Html.attr "class" labelClass ]
+              [ input
+                Html.sp
+                Assets.imageSized ctx icon 24 [ hidden; Attr.class' "colorize--black" ] ] ]
 
 /// The page itself.
-let content (w: Out) (ctx: ViewContext) (profile: ProfileShow) : unit =
+let private content (ctx: ViewContext) (profile: ProfileShow) : XmlNode =
     let user = profile.User
-    let avatarFile () =
-        Tag.attrs()
-            .Id("file")
-            .Class("input")
-            .Accept("image/*")
-            .Data("upload_preview_target", "input")
-            .Data("action", "upload-preview#previewImage change->form#submit")
-    w.Lit t7
-    w.Int user.Id
-    w.Lit t8
-    Campfire.Views.Templates.Pwa._InstallInstructions.render w ctx
-    w.Lit t9
-    let form = (profileForm ()).Class("txt-medium")
-    w.Lit t10
-    Filters.formWith w form (fun w ->
-        w.Lit t11
-        Assets.imageTag w ctx "camera.svg" (Tag.attrs().AriaHidden().Size(20))
-        w.Lit t12
-        form.FileField(w, "avatar", avatarFile ())
-        w.Lit t13)
-    w.Lit t14
-    let form = profileForm ()
-    w.Lit t15
-    Filters.formWith w form (fun w ->
-        w.Lit t16
-        Assets.imageTag w ctx user.AvatarPath (Tag.attrs().AriaHidden().Size(300).Data("upload_preview_target", "image"))
-        w.Lit t17
-        form.FileField(w, "avatar", avatarFile ())
-        w.Lit t18)
-    w.Lit t19
-    if profile.AvatarAttached then
-        w.Lit t20
-        Filters.buttonTo w (Routes.userAvatar user.Id) (Tag.attrs().Method("delete").Class("btn btn--negative txt-small avatar__delete-btn")) (fun w ->
-            w.Lit t21
-            Assets.imageTag w ctx "minus.svg" (Tag.attrs().AriaHidden().Size(20))
-            w.Lit t22)
-    w.Lit t23
-    let form = profileForm ()
-    w.Lit t24
-    Filters.formWith w form (fun w ->
-        w.Lit t25
-        Translations.translationButton w ctx "user_name"
-        w.Lit t26
-        form.TextField(
-            w,
-            "name",
-            Some user.Name,
-            Tag.attrs()
-                .Class("input txt-large ")
-                .Autocomplete("name")
-                .Placeholder("Enter your name")
-                .Autofocus()
-                .Required(true)
-                .Data("1p-ignore", true)
-        )
-        w.Lit t27
-        Assets.imageTag w ctx "person.svg" (Tag.attrs().AriaHidden().Size(24).Class("colorize--black"))
-        w.Lit t28
-        Translations.translationButton w ctx "email_address"
-        w.Lit t29
-        form.EmailField(
-            w,
-            "email_address",
-            None,
-            Tag.attrs()
-                .Class("input txt-large")
-                .AttrOpt("value", user.EmailAddress)
-                .Autocomplete("username")
-                .Placeholder("Enter your email address")
-                .Required(false)
-        )
-        w.Lit t30
-        Assets.imageTag w ctx "email.svg" (Tag.attrs().AriaHidden().Size(24).Class("colorize--black"))
-        w.Lit t31
-        Translations.translationButton w ctx "update_password"
-        w.Lit t32
-        form.PasswordField(
-            w,
-            "password",
-            Tag.attrs().Class("input txt-large").Autocomplete("new-password").Placeholder("Change password").Required(false).Maxlength(72)
-        )
-        w.Lit t33
-        Assets.imageTag w ctx "password.svg" (Tag.attrs().AriaHidden().Size(24).Class("colorize--black"))
-        w.Lit t34
-        Translations.translationButton w ctx "bio"
-        w.Lit t35
-        form.TextArea(
-            w,
-            "bio",
-            user.Bio,
-            Tag.attrs().Class("input txt-large").Placeholder("A few words about yourself…").Maxlength(200).Rows(3).Required(false)
-        )
-        w.Lit t36
-        Assets.imageTag w ctx "bio.svg" (Tag.attrs().AriaHidden().Size(24).Class("colorize--black"))
-        w.Lit t37
-        UsersHelper.profileFormSubmitButton w ctx
-        w.Lit t38)
-    w.Lit t39
-    for membership in profile.SharedMemberships do
-        _Membership.render w ctx membership
-    w.Lit t40
-    if not profile.DirectMemberships.IsEmpty && not profile.SharedMemberships.IsEmpty then
-        w.Lit t41
-    w.Lit t42
-    for membership in profile.DirectMemberships do
-        _Membership.render w ctx membership
-    w.Lit t43
-    _Transfer.render w ctx user profile.TransferId
-    w.Lit t44
+    Elem.section
+        [ Attr.class' "panel flex flex-column gap"; Html.attr "style" ("view-transition-name: avatar-" + string user.Id) ]
+        [ Legacy.node (fun w -> Campfire.Views.Templates.Pwa._InstallInstructions.render w ctx)
+          Elem.div
+              [ Attr.class' "align-center center avatar__form gap"; Attr.create "data-controller" "upload-preview" ]
+              [ profileForm
+                    [ Attr.class' "txt-medium"; multipart ]
+                    [ Elem.label
+                          [ Attr.class' "btn input--file" ]
+                          [ Assets.imageSized ctx "camera.svg" 20 [ hidden ]
+                            Html.sp
+                            avatarFile
+                            Html.sp
+                            Application.screenReader "Upload avatar" ] ]
+                profileForm
+                    [ multipart ]
+                    [ Elem.label
+                          [ Attr.class' "btn avatar input--file txt-xx-large" ]
+                          [ Assets.imageSized
+                                ctx
+                                user.AvatarPath
+                                300
+                                [ hidden; Attr.create "data-upload-preview-target" "image" ]
+                            Html.sp
+                            avatarFile
+                            Html.sp
+                            Application.screenReader "Avatar" ] ]
+                if profile.AvatarAttached then
+                    Forms.buttonTo
+                        (Routes.userAvatar user.Id)
+                        "delete"
+                        [ Attr.class' "btn btn--negative txt-small avatar__delete-btn" ]
+                        [ Assets.imageSized ctx "minus.svg" 20 [ hidden ]
+                          Html.sp
+                          Application.screenReader "Delete avatar" ] ]
+          profileForm
+              []
+              [ Elem.div
+                    [ Attr.class' "flex flex-column gap" ]
+                    [ field
+                          ctx
+                          "user_name"
+                          "flex align-center gap"
+                          "flex align-center gap flex-item-grow input input--actor"
+                          (Forms.textField
+                              "user"
+                              "name"
+                              (Some user.Name)
+                              [ Attr.class' "input txt-large "
+                                Attr.create "autocomplete" "name"
+                                Attr.create "placeholder" "Enter your name"
+                                Attr.create "autofocus" "autofocus"
+                                Attr.create "required" "required"
+                                Attr.create "data-1p-ignore" "true" ])
+                          "person.svg"
+                      field
+                          ctx
+                          "email_address"
+                          "flex align-center gap"
+                          "flex align-center gap flex-item-grow input input--actor"
+                          (Forms.emailField
+                              "user"
+                              "email_address"
+                              None
+                              [ Attr.class' "input txt-large"
+                                match user.EmailAddress with
+                                | Some email -> Html.attr "value" email
+                                | None -> ()
+                                Attr.create "autocomplete" "username"
+                                Attr.create "placeholder" "Enter your email address" ])
+                          "email.svg"
+                      field
+                          ctx
+                          "update_password"
+                          "flex align-center gap"
+                          "flex align-center gap flex-item-grow input input--actor"
+                          (Forms.passwordField
+                              "user"
+                              "password"
+                              [ Attr.class' "input txt-large"
+                                Attr.create "autocomplete" "new-password"
+                                Attr.create "placeholder" "Change password"
+                                Attr.create "maxlength" "72"
+                                Attr.create "size" "72" ])
+                          "password.svg"
+                      field
+                          ctx
+                          "bio"
+                          "flex align-start gap"
+                          "flex align--center gap flex-item--grow input input--actor"
+                          (Forms.textArea
+                              "user"
+                              "bio"
+                              user.Bio
+                              [ Attr.class' "input txt-large"
+                                Attr.create "placeholder" "A few words about yourself…"
+                                Attr.create "maxlength" "200"
+                                Attr.create "rows" "3" ])
+                          "bio.svg"
+                      Markup.Users.profileFormSubmitButton ctx ] ]
+          Elem.div
+              [ Attr.class' "margin-block pad-inline pad-block fill-shade border-radius" ]
+              [ Elem.create
+                    "menu"
+                    [ Attr.class' "flex flex-column gap margin-none pad" ]
+                    [ for membership in profile.SharedMemberships do
+                          _Membership.render ctx membership
+                      if not profile.DirectMemberships.IsEmpty && not profile.SharedMemberships.IsEmpty then
+                          Elem.hr [ Attr.class' "separator full-width"; Attr.create "style" "--border-style: solid" ]
+                      for membership in profile.DirectMemberships do
+                          _Membership.render ctx membership ] ]
+          _Transfer.render ctx user profile.TransferId ]
 
-let render (w: Out) (ctx: ViewContext) (profile: ProfileShow) : unit =
-    Templates.Layouts.Application.render
-        w
-        ctx
-        (pageTitle profile)
-        None
-        head
-        (fun w -> nav w ctx)
-        (fun w -> content w ctx profile)
-        ignore
-        ignore
+/// The page: `@page_title`, the nav and the content.
+let rendered (ctx: ViewContext) (profile: ProfileShow) : ViewPage =
+    { Regions =
+        { Regions.content [ content ctx profile ] with
+            Title = Some profile.User.Name
+            Nav = nav ctx }
+      Fragments = [] }

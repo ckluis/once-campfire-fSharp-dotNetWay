@@ -140,22 +140,14 @@ let private run (op: string) (args: JsonElement) (ctx: ViewContext) : Answer =
     | "users/new" ->
         let joinCode = str (get args "join_code")
         let contact = helpContact (get args "help_contact")
-        Pages.pageAnswer
-            args
-            (fun w -> Templates.Users.New.render w ctx joinCode contact)
-            Templates.Users.New.head
-            (fun w -> Templates.Users.New.content w ctx joinCode contact)
+        Pages.viewPageAnswer args ctx (Templates.Users.New.rendered ctx joinCode contact)
     | "users/show" ->
         let user = userSummary (get args "user")
         let transferId = str (get args "transfer_id")
-        Pages.pageAnswer
-            args
-            (fun w -> Templates.Users.Show.render w ctx user transferId)
-            Templates.Users.Show.head
-            (fun w -> Templates.Users.Show.content w ctx user transferId)
+        Pages.viewPageAnswer args ctx (Templates.Users.Show.rendered ctx user transferId)
     | "users/_ban_button" ->
         let user = userSummary (get args "user")
-        Pages.fragmentAnswer (fun w -> Templates.Users._BanButton.render w ctx user)
+        Pages.nodeAnswer (fun () -> HtmlOutput.ofNode (Templates.Users._BanButton.render ctx user) [])
     | "users/profiles/show" ->
         let profile = get args "profile"
         let profile: ProfileShow =
@@ -164,32 +156,24 @@ let private run (op: string) (args: JsonElement) (ctx: ViewContext) : Answer =
               TransferId = str (get profile "transfer_id")
               SharedMemberships = memberships (get profile "shared_memberships")
               DirectMemberships = memberships (get profile "direct_memberships") }
-        Pages.pageAnswer
-            args
-            (fun w -> Templates.Users.Profiles.Show.render w ctx profile)
-            Templates.Users.Profiles.Show.head
-            (fun w -> Templates.Users.Profiles.Show.content w ctx profile)
+        Pages.viewPageAnswer args ctx (Templates.Users.Profiles.Show.rendered ctx profile)
     | "users/profiles/_membership" ->
         let membership = membership (get args "membership")
-        Pages.fragmentAnswer (fun w -> Templates.Users.Profiles._Membership.render w ctx membership)
+        Pages.nodeAnswer (fun () -> HtmlOutput.ofNode (Templates.Users.Profiles._Membership.render ctx membership) [])
     | "users/profiles/_transfer" ->
         let user = userSummary (get args "user")
         let transferId = str (get args "transfer_id")
-        Pages.fragmentAnswer (fun w -> Templates.Users.Profiles._Transfer.render w ctx user transferId)
+        Pages.nodeAnswer (fun () -> HtmlOutput.ofNode (Templates.Users.Profiles._Transfer.render ctx user transferId) [])
     | "users/push_subscriptions/index" ->
         let subscriptions = arr (get args "push_subscriptions") |> List.map pushSubscription
-        Pages.pageAnswer
-            args
-            (fun w -> Templates.Users.PushSubscriptions.Index.render w ctx subscriptions)
-            Templates.Users.PushSubscriptions.Index.head
-            (fun w -> Templates.Users.PushSubscriptions.Index.content w ctx subscriptions)
+        Pages.viewPageAnswer args ctx (Templates.Users.PushSubscriptions.Index.rendered ctx subscriptions)
     | "users/push_subscriptions/_push_subscription" ->
         let subscription = pushSubscription (get args "push_subscription")
-        Pages.fragmentAnswer (fun w -> Templates.Users.PushSubscriptions._PushSubscription.render w ctx subscription)
+        Pages.nodeAnswer (fun () -> HtmlOutput.ofNode (Templates.Users.PushSubscriptions._PushSubscription.render ctx subscription) [])
     | "users/avatars/show" ->
         let userId = int64Of (get args "user_id")
         let initials = str (get args "initials")
-        Pages.fragmentAnswer (fun w -> Templates.Users.Avatars.Show.render w userId initials)
+        Pages.nodeAnswer (fun () -> HtmlOutput.ofNode (Templates.Users.Avatars.Show.render userId initials) [])
     | "pwa/manifest" ->
         Pages.fragmentAnswer (fun w ->
             Templates.Pwa.Manifest.render

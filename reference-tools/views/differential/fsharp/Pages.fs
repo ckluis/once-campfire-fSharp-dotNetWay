@@ -31,7 +31,7 @@ let private items (ctx: ViewContext) (args: JsonElement) (values: JsonElement li
 
 /// A Falco template (a partial or a page without a layout): rendered cold and then warm, the same bytes. A page in parts answers its
 /// whole text; the writer's fragment offsets are not Falco's (the bytes differ: class A), so none are given.
-let private nodeAnswer (render: unit -> HtmlOutput) : Answer =
+let nodeAnswer (render: unit -> HtmlOutput) : Answer =
     let cold = (render ()).ToString()
     let warm = (render ()).ToString()
     if cold <> warm then failwith "a warm render is not the cold one"
@@ -58,7 +58,7 @@ let pageAnswer (args: JsonElement) (render: Out -> unit) (head: Out -> unit) (co
 
 /// A Falco page: its regions in the writer's layouts (`Legacy.inLayout`, until unit 4.10), cold and then warm, the same bytes, and
 /// in the Turbo-Frame layout when `frame` is set. The page's text is the answer (the writer's fragment offsets are not Falco's).
-let private viewPageAnswer (args: JsonElement) (ctx: ViewContext) (page: Layouts.ViewPage) : Answer =
+let viewPageAnswer (args: JsonElement) (ctx: ViewContext) (page: Layouts.ViewPage) : Answer =
     let frame = bool (get args "frame")
     let cold = (Legacy.inLayout ctx frame page).ToString()
     let warm = (Legacy.inLayout ctx frame page).ToString()

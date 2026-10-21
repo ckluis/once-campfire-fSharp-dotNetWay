@@ -58,3 +58,18 @@ module Users =
 
     /// `sidebar_turbo_frame_tag(src:)` with nothing in it.
     let sidebarFrame (src: string option) : XmlNode = sidebarFrameWith src []
+
+    /// `button_to_direct_room_with(user)`: a button to the direct room with one person.
+    let buttonToDirectRoomWith (ctx: ViewContext) (userId: int64) : XmlNode =
+        Forms.buttonTo
+            (Campfire.Views.Helpers.Url.roomsDirectsWithUsers [ userId ])
+            "post"
+            [ Attr.class' "btn btn--primary full-width txt--large" ]
+            [ Assets.image ctx "messages.svg" [] ]
+
+    /// `profile_form_submit_button`: no whitespace between the icon and its label.
+    let profileFormSubmitButton (ctx: ViewContext) : XmlNode =
+        Elem.button
+            [ Attr.class' "btn btn--reversed center txt-large"; Attr.create "type" "submit" ]
+            [ Assets.imageSized ctx "check.svg" 20 [ Attr.create "aria-hidden" "true" ]
+              Application.screenReader "Save changes" ]

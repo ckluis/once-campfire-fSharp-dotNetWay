@@ -16,8 +16,6 @@ open Campfire.App.Web
 module Profiles =
     module ShowPage = Campfire.Views.Templates.Users.Profiles.Show
 
-    let private showSize = RenderSize()
-
     /// `set_user` (`Current.user`); memberships partitioned into direct and shared rooms.
     let show: Web.Action =
         fun http ->
@@ -36,13 +34,7 @@ module Profiles =
                       SharedMemberships = sharedMemberships
                       DirectMemberships = directMemberships }
                 return!
-                    Pages.framedPage
-                        http
-                        200
-                        showSize
-                        (fun w ctx -> ShowPage.render w ctx profile)
-                        ShowPage.head
-                        (fun w ctx -> ShowPage.content w ctx profile)
+                    Pages.viewPage http 200 (fun ctx -> ShowPage.rendered ctx profile)
             }
 
     /// `@user.update user_params`, then `redirect_to user_profile_url, notice: update_notice`.

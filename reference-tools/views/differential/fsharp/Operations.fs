@@ -159,7 +159,7 @@ let private helper (name: string) (args: JsonElement) (ctx: JsonElement) (shared
                 { Id = int64Of (get args "room_id")
                   ParamKey = str (get args "param_key")
                   Direct = bool (get args "direct") }
-            rendered (fun w -> RoomsHelper.buttonToChangeInvolvement w (view ()) room (str (get args "involvement")))
+            text ((HtmlOutput.ofNode (Markup.Rooms.buttonToChangeInvolvement (view ()) room (str (get args "involvement"))) []).ToString())
         | other -> failwith $"rooms helper {other}"
     | "translations" ->
         match str (get args "kind") with

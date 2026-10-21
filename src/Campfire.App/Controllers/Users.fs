@@ -21,9 +21,6 @@ module UsersController =
     module NewPage = Campfire.Views.Templates.Users.New
     module ShowPage = Campfire.Views.Templates.Users.Show
 
-    let private newSize = RenderSize()
-    let private showSize = RenderSize()
-
     /// `User.find(params[key])`: 404 when there's no such user.
     let findUser (http: HttpContext) (key: string) : Result<User, Error> =
         match (match Params.value http key with null -> None | id -> Ruby.integerCast id) with
@@ -53,13 +50,7 @@ module UsersController =
                 let! helpContact = Data.read http (fun db -> Accounts.helpContact db)
                 let joinCode = account.JoinCode
                 return!
-                    Pages.framedPage
-                        http
-                        200
-                        newSize
-                        (fun w ctx -> NewPage.render w ctx joinCode helpContact)
-                        NewPage.head
-                        (fun w ctx -> NewPage.content w ctx joinCode helpContact)
+                    Pages.viewPage http 200 (fun ctx -> NewPage.rendered ctx joinCode helpContact)
             }
 
     let create: Web.Action =
@@ -116,11 +107,5 @@ module UsersController =
                 let transferId = Accounts.transferId secrets user.Id (Data.now http)
                 let user = Common.userSummary secrets user
                 return!
-                    Pages.framedPage
-                        http
-                        200
-                        showSize
-                        (fun w ctx -> ShowPage.render w ctx user transferId)
-                        ShowPage.head
-                        (fun w ctx -> ShowPage.content w ctx user transferId)
+                    Pages.viewPage http 200 (fun ctx -> ShowPage.rendered ctx user transferId)
             }

@@ -27,6 +27,7 @@
     <Compile Include="Markup/Messages.fs" />
     <Compile Include="Markup/Turbo.fs" />
     <Compile Include="Markup/Application.fs" />
+    <Compile Include="Markup/Translations.fs" />
     <Compile Include="Markup/Users.fs" />
     <Compile Include="Markup/Rooms.fs" />
     <Compile Include="MessagesJson.fs" />

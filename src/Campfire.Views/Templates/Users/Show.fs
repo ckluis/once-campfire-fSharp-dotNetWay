@@ -2,128 +2,75 @@
 /// `users/show.html.erb`: a person's page.
 module Campfire.Views.Templates.Users.Show
 
+open Falco.Markup
 open Campfire.Routes
 open Campfire.Views
-open Campfire.Views.Helpers
+open Campfire.Views.Layouts
+open Campfire.Views.Markup
 open Campfire.Views.Users
 
-let private t0 = Utf8.lit "  <div class=\"flex-item-justify-start\">\n    "
-let private t1 = Utf8.lit "\n  </div>\n\n  <div class=\"flex align-center gap flex-item-justify-end\">\n"
-let private t2 = Utf8.lit "      "
-let private t3 = Utf8.lit "\n        "
-let private t4 = Utf8.lit "\n        <span class=\"for-screen-reader\">Edit my profile</span>\n"
-let private t5 = Utf8.lit "  </div>\n"
-let private t6 = Utf8.lit "<section class=\"panel txt-align-center\">\n  <div class=\"flex flex-column gap "
-let private t7 = Utf8.lit "banned"
-let private t8 = Utf8.lit "\">\n    <div class=\"avatar txt-xx-large center\" style=\"background: white\">\n      "
-let private t9 = Utf8.lit "\n    </div>\n\n"
-let private t10 = Utf8.lit "      <div class=\"pad-double--inline push--inline push--block-start\">\n"
-let private t11 = Utf8.lit "          "
-let private t12 = Utf8.lit "\n"
-let private t13 = Utf8.lit "          <div>"
-let private t14 = Utf8.lit " is no longer on this account</div>\n"
-let private t15 = Utf8.lit "      </div>\n"
-let private t16 = Utf8.lit "        <div class=\"flex flex-column gap\" style=\"--row-gap: calc(var(--block-space) / 3)\">\n          <h1 class=\"txt-x-large txt-tight-lines margin-none\">"
-let private t17 = Utf8.lit "</h1>\n"
-let private t18 = Utf8.lit "            <div>"
-let private t19 = Utf8.lit "</div>\n"
-let private t20 = Utf8.lit "          <div>"
-let private t21 = Utf8.lit "</div>\n        </div>\n\n"
-let private t22 = Utf8.lit "          <div class=\"pad-inline-double margin-inline margin-block-start\">\n            "
-let private t23 = Utf8.lit "\n              "
-let private t24 = Utf8.lit "\n"
-let private t25 = Utf8.lit "          </div>\n\n"
-let private t26 = Utf8.lit "            <hr class=\"margin-block-start borderless\">\n\n            "
-let private t27 = Utf8.lit "\n"
-let private t28 = Utf8.lit "\n"
-let private t29 = Utf8.lit "          <div class=\"margin-block-start\">\n            "
-let private t30 = Utf8.lit "\n          </div>\n"
-let private t31 = Utf8.lit "        <div>\n          <h1 class=\"txt-x-large margin-none\">"
-let private t32 = Utf8.lit "</h1>\n          <div>"
-let private t33 = Utf8.lit " is no longer on this account</div>\n        </div>\n"
-let private t34 = Utf8.lit "  </div>\n</section>\n"
-
-/// `@page_title`.
-let pageTitle (user: UserSummary) : string option = Some user.Name
-
-/// `content_for :head` (empty).
-let head: Out -> unit = ignore
+let private hidden: XmlAttribute = Attr.create "aria-hidden" "true"
 
 /// `content_for :nav`.
-let nav (w: Out) (ctx: ViewContext) (user: UserSummary) : unit =
-    w.Lit t0
-    Application.linkBack w ctx
-    w.Lit t1
-    if ctx.IsCurrentUser user.Id then
-        w.Lit t2
-        Filters.linkTo w (Routes.userProfile ()) (Tag.attrs().Class("btn")) (fun w ->
-            w.Lit t3
-            Assets.imageTag w ctx "pencil.svg" (Tag.attrs().AriaHidden())
-            w.Lit t4)
-    w.Lit t5
+let private nav (ctx: ViewContext) (user: UserSummary) : XmlNode list =
+    [ Elem.div [ Attr.class' "flex-item-justify-start" ] [ Application.linkBack ctx ]
+      Elem.div
+          [ Attr.class' "flex align-center gap flex-item-justify-end" ]
+          [ if ctx.IsCurrentUser user.Id then
+                Links.linkTo
+                    (Routes.userProfile ())
+                    [ Attr.class' "btn" ]
+                    [ Assets.image ctx "pencil.svg" [ hidden ]; Html.sp; Application.screenReader "Edit my profile" ] ] ]
 
 /// The page itself. `transferId` is `user.transfer_id`, for `users/profiles/_transfer` (shown to administrators).
-let content (w: Out) (ctx: ViewContext) (user: UserSummary) (transferId: string) : unit =
-    w.Lit t6
-    if user.Banned then
-        w.Lit t7
-    w.Lit t8
-    Assets.imageTag w ctx user.AvatarPath (Tag.attrs().Alt("Profile avatar").Class("avatar"))
-    w.Lit t9
-    if user.Bot then
-        w.Lit t10
-        if user.Active then
-            w.Lit t11
-            UsersHelper.buttonToDirectRoomWith w ctx user.Id
-            w.Lit t12
-        else
-            w.Lit t13
-            w.Text user.Name
-            w.Lit t14
-        w.Lit t15
-    else if not user.Deactivated then
-        w.Lit t16
-        w.Text user.Name
-        w.Lit t17
-        if ctx.CanAdminister then
-            w.Lit t18
-            Links.mailTo w (defaultArg user.EmailAddress "")
-            w.Lit t19
-        w.Lit t20
-        w.Text(defaultArg user.Bio "")
-        w.Lit t21
-        if user.Active then
-            w.Lit t22
-            Filters.buttonTo w (Url.roomsDirectsWithUser user.Id) (Tag.attrs().Class("btn btn--reversed full-width txt-large")) (fun w ->
-                w.Lit t23
-                Assets.imageTag w ctx "messages.svg" (Tag.attrs().Aria("hidden", "true").Aria("label", "Ping " + user.Name))
-                w.Lit t24)
-            w.Lit t25
-            if ctx.CanAdminister then
-                w.Lit t26
-                Profiles._Transfer.render w ctx user transferId
-                w.Lit t27
-        w.Lit t28
-        if ctx.CanAdminister && not (ctx.IsCurrentUser user.Id) then
-            w.Lit t29
-            _BanButton.render w ctx user
-            w.Lit t30
-    else
-        w.Lit t31
-        w.Text user.Name
-        w.Lit t32
-        w.Text user.Name
-        w.Lit t33
-    w.Lit t34
+let private content (ctx: ViewContext) (user: UserSummary) (transferId: string) : XmlNode =
+    Elem.section
+        [ Attr.class' "panel txt-align-center" ]
+        [ Elem.div
+              [ Html.attr "class" ("flex flex-column gap " + (if user.Banned then "banned" else "")) ]
+              [ Elem.div
+                    [ Attr.class' "avatar txt-xx-large center"; Attr.create "style" "background: white" ]
+                    [ Assets.image ctx user.AvatarPath [ Attr.create "alt" "Profile avatar"; Attr.class' "avatar" ] ]
+                if user.Bot then
+                    Elem.div
+                        [ Attr.class' "pad-double--inline push--inline push--block-start" ]
+                        [ if user.Active then
+                              Markup.Users.buttonToDirectRoomWith ctx user.Id
+                          else
+                              Elem.div [] [ Html.text user.Name; Text.raw " is no longer on this account" ] ]
+                elif not user.Deactivated then
+                    Elem.div
+                        [ Attr.class' "flex flex-column gap"; Attr.create "style" "--row-gap: calc(var(--block-space) / 3)" ]
+                        [ Elem.h1 [ Attr.class' "txt-x-large txt-tight-lines margin-none" ] [ Html.text user.Name ]
+                          if ctx.CanAdminister then
+                              Elem.div [] [ Links.mailTo (defaultArg user.EmailAddress "") ]
+                          Elem.div [] [ Html.text (defaultArg user.Bio "") ] ]
+                    if user.Active then
+                        Elem.div
+                            [ Attr.class' "pad-inline-double margin-inline margin-block-start" ]
+                            [ Forms.buttonTo
+                                  (Campfire.Views.Helpers.Url.roomsDirectsWithUser user.Id)
+                                  "post"
+                                  [ Attr.class' "btn btn--reversed full-width txt-large" ]
+                                  [ Assets.image
+                                        ctx
+                                        "messages.svg"
+                                        [ hidden; Html.attr "aria-label" ("Ping " + user.Name) ] ] ]
+                        if ctx.CanAdminister then
+                            Elem.hr [ Attr.class' "margin-block-start borderless" ]
+                            Profiles._Transfer.render ctx user transferId
+                    if ctx.CanAdminister && not (ctx.IsCurrentUser user.Id) then
+                        Elem.div [ Attr.class' "margin-block-start" ] [ _BanButton.render ctx user ]
+                else
+                    Elem.div
+                        []
+                        [ Elem.h1 [ Attr.class' "txt-x-large margin-none" ] [ Html.text user.Name ]
+                          Elem.div [] [ Html.text user.Name; Text.raw " is no longer on this account" ] ] ] ]
 
-let render (w: Out) (ctx: ViewContext) (user: UserSummary) (transferId: string) : unit =
-    Templates.Layouts.Application.render
-        w
-        ctx
-        (pageTitle user)
-        None
-        head
-        (fun w -> nav w ctx user)
-        (fun w -> content w ctx user transferId)
-        ignore
-        ignore
+/// The page: `@page_title`, the nav and the content.
+let rendered (ctx: ViewContext) (user: UserSummary) (transferId: string) : ViewPage =
+    { Regions =
+        { Regions.content [ content ctx user transferId ] with
+            Title = Some user.Name
+            Nav = nav ctx user }
+      Fragments = [] }

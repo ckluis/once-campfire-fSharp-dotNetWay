@@ -18,7 +18,7 @@ let private textOps =
           "messages/epoch_ms"; "messages/iso8601"; "messages/json_time"; "messages/ruby_number"
           "messages/json_by_bots_index"; "messages/json_by_bots_show"; "messages/json_boosts_by_bots_show"
           "autocompletable/users_index_json"; "pwa/manifest"; "pwa/service_worker"; "searches/search_path"; "rooms/mention_prompt_src"
-          "rooms/room_display_name"; "users/avatars/show" ]
+          "rooms/room_display_name" ]
 
 let private sameAnswer (op: string) (expected: string) (ours: string) : string option =
     if ours = expected then None

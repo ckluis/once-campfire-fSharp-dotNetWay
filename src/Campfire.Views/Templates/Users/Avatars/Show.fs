@@ -1,27 +1,55 @@
 // Port of rust/crates/views/templates/users/avatars/show.svg (reference/app/views/users/avatars/show.svg.erb)
-/// `users/avatars/show.svg.erb`: the initials avatar for users without an uploaded one.
+/// `users/avatars/show.svg.erb`: the initials avatar for users without an uploaded one, as Falco.Markup elements (plans/design-views.md V10).
 module Campfire.Views.Templates.Users.Avatars.Show
 
+open Falco.Markup
 open Campfire.Views
 open Campfire.Views.Helpers
+open Campfire.Views.Markup
 
-let private t0 = Utf8.lit "<svg version=\"1.1\" xmlns=\"http://www.w3.org/2000/svg\" xmlns:xlink=\"http://www.w3.org/1999/xlink\"\n  viewBox=\"0 0 512 512\" class=\"avatar\" aria-hidden=\"true\">\n  <defs>\n    <clipPath id=\"porthole\">\n      <circle cx=\"50%\" cy=\"50%\" r=\"50%\" />\n    </clipPath>\n  </defs>\n\n  <g>\n    <rect width=\"100%\" height=\"100%\" rx=\"50\" fill=\""
-let private t1 = Utf8.lit "\" />\n\n    <text x=\"50%\" y=\"50%\" fill=\"#FFFFFF\"\n      text-anchor=\"middle\" dy=\"0.35em\"\n      "
-let private t2 = Utf8.lit "textLength=\"85%\" lengthAdjust=\"spacingAndGlyphs\""
-let private t3 = Utf8.lit "\n      font-family=\"-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial, sans-serif\"\n      font-size=\"230\"\n      font-weight=\"800\"\n      letter-spacing=\"-5\">\n      "
-let private t4 = Utf8.lit "\n    </text>\n  </g>\n</svg>\n"
-
-/// `userId` is the user's id and `initials` `User#initials`.
-let render (w: Out) (userId: int64) (initials: string) : unit =
-    w.Lit t0
-    w.Text(UsersHelper.avatarBackgroundColor userId)
-    w.Lit t1
+/// `userId` is the user's id and `initials` `User#initials`. The initials are encoded as text (numeric references are valid XML).
+let render (userId: int64) (initials: string) : XmlNode =
     // `initials.chars().count() >= 3`
     let mutable characters = 0
     for _ in initials.EnumerateRunes() do
         characters <- characters + 1
-    if characters >= 3 then
-        w.Lit t2
-    w.Lit t3
-    w.Text initials
-    w.Lit t4
+    Elem.create
+        "svg"
+        [ Attr.create "version" "1.1"
+          Attr.create "xmlns" "http://www.w3.org/2000/svg"
+          Attr.create "xmlns:xlink" "http://www.w3.org/1999/xlink"
+          Attr.create "viewBox" "0 0 512 512"
+          Attr.class' "avatar"
+          Attr.create "aria-hidden" "true" ]
+        [ Elem.create
+              "defs"
+              []
+              [ Elem.create
+                    "clipPath"
+                    [ Attr.create "id" "porthole" ]
+                    [ Elem.create "circle" [ Attr.create "cx" "50%"; Attr.create "cy" "50%"; Attr.create "r" "50%" ] [] ] ]
+          Elem.create
+              "g"
+              []
+              [ Elem.create
+                    "rect"
+                    [ Attr.create "width" "100%"
+                      Attr.create "height" "100%"
+                      Attr.create "rx" "50"
+                      Html.attr "fill" (UsersHelper.avatarBackgroundColor userId) ]
+                    []
+                Elem.create
+                    "text"
+                    [ Attr.create "x" "50%"
+                      Attr.create "y" "50%"
+                      Attr.create "fill" "#FFFFFF"
+                      Attr.create "text-anchor" "middle"
+                      Attr.create "dy" "0.35em"
+                      if characters >= 3 then
+                          Attr.create "textLength" "85%"
+                          Attr.create "lengthAdjust" "spacingAndGlyphs"
+                      Attr.create "font-family" "-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial, sans-serif"
+                      Attr.create "font-size" "230"
+                      Attr.create "font-weight" "800"
+                      Attr.create "letter-spacing" "-5" ]
+                    [ Html.text initials ] ] ]

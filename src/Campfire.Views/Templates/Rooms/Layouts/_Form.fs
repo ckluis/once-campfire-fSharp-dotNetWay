@@ -17,7 +17,7 @@ let render (ctx: ViewContext) (room: FormRoom) (canAdminister: bool) (kind: Room
         [ Elem.div
               [ Attr.class' "flex align-center gap" ]
               [ if canAdminister then
-                    Legacy.node (fun w -> Translations.translationButton w ctx "room_name")
+                    Translations.translationButton ctx "room_name"
                     Elem.label
                         [ Attr.class' "flex-item-grow txt-large" ]
                         [ Elem.input
