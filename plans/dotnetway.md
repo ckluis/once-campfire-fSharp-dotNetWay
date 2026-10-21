@@ -1677,3 +1677,52 @@ D1-D9, with the cheap checks re-run. Evidence in `bench/results/dotnetway-p3-ver
 - **Phase 4 (Views on Falco.Markup): GO.** Every Phase 3 gate holds, no workload is near the floor (post c=16 6.20x is the thinnest
   cell, and Phase 4 is where the string-render cost lands, so the bench against a same-session control in each Phase 4 unit matters).
 - `bin/clean-docker` after the build and `bin/clean-parity` after each state; 31 GB free.
+
+### Phase 4, unit 4.1: Foundation and oracles (2026-10-21)
+
+- **Built (`dc41436`, `96eb43e`, `ff1771e`; no template moved):** `Falco.Markup` 1.4.0 and `AngleSharp` 1.8.3 (the design said 1.8.5; 1.8.3 is
+  the version in the local package cache and does the job) in `Directory.Packages.props`; `Core/Html.fs` (module
+  `Campfire.Views.Markup.Html`: `attr`, `attrInt`, `text`, `int`, `trusted`, `sp`, `nl`, and `Trusted` with a private constructor and the
+  makers `ofSanitized`, `ofAssetTags`, `ofAccountStyles`, plus an internal `ofLegacy` the design did not list, for the seam; the lint
+  allows it in `Core/Legacy.fs` only). `Html.fragment` is not here: it needs `CachedFragment`, which is unit 4.2's. The writer's byte
+  type `Html` is renamed `SafeBytes` (7 files, nothing else used it). `Core/Legacy.fs` has `Legacy.node`; `write` and `inLayout` come
+  with 4.2. `bin/lint-markup` (python3, a token scan, so strings and comments cannot fool it) with `--self-test` over 18 planted files in
+  `tests/lint-markup/planted/` (each must give exactly one finding of the rule its first line names; the 12 of the design's S2 plus
+  `Elem.createSelfClosing "turbo-frame"`, `Elem.create "img"`, a variable tag, `Trusted.ofSanitized` and `GetOrCreateAsync` outside their
+  files, `TextNode`) and `tests/lint-markup/clean.fs` (literals, the encoding module, the forbidden spellings in comments and strings);
+  `bin/verify` runs the self-test and the lint over `src/Campfire.Views` and `src/Campfire.App` (222 files, clean). The 52 zero-argument
+  `Attr` values in the lint were read from the package's dll by reflection, not guessed.
+- **LooseDom (`tests/Shared/LooseDom.fs`, 450 lines):** `loose.ts` and the masks of `normalize.ts` over AngleSharp (scripting on, as parse5
+  and the browser have it), with the JavaScript semantics that matter kept by hand: `trim` (U+0085 is not whitespace, U+FEFF is), `\d`
+  and `\b` as ASCII, `$` as end of input, `JSON.stringify` string escaping, and Node's lenient base64 (`Convert.FromBase64String` refuses
+  the leftover bits that the Rails tokens with a path prefix have). `parity/bin/loose-golden` runs `loose.ts` itself in the pinned
+  Playwright image over the 84 Rails `golden/a` pages and 30 oracle answers (the first markup answer of each of 30 operations) and stores
+  the output in `tests/Campfire.Views.Tests/loose/` (2.0 MB); **W2** requires the port to equal it line for line (with the harness's seed
+  clock, so the timestamp masks run too). Sabotaged once (one stored line indented): W2 failed naming the page.
+- **Oracle:** `golden.py` has a hostile quota (6 extra cases per operation whose input holds one of 13 marker strings: a script tag,
+  quotes, an apostrophe, an ampersand reference, a lone angle bracket, U+E000, a closing style or textarea; 3 for whole pages; an operation
+  with no marker case takes any case with a markup character in an argument) and prints the cases per operation with the hostile ones
+  counted. `bin/views-differential golden` ran **once** (seed 1, 22,374 cases): **1,139 cases, 546 hostile, every operation that has a
+  template has at least 3 hostile cases** (`welcome/show` 3, `layouts/application_wrapper` 4, `sessions/incompatible_browser` 5, the rest
+  5-15); the operations without any are the ones with no string input (keys, epoch and ISO times, Ruby numbers, the service worker,
+  `messages/_unrenderable`, `rooms/mention_prompt_src`, `messages/room_not_found`). Frozen as `tests/Campfire.Views.Tests/oracle.jsonl`
+  (7.2 MB; was `differential.jsonl`, 886 cases, 5.3 MB); the script now writes it to `oracle.jsonl` through a temporary file and prints
+  the table. A rerun changes the oracle: do it only to add an operation, and run `parity/bin/loose-golden` after.
+- **Comparators:** `DifferentialTests` (O1) compares each answer loose (exact for the operations whose answer is text: URLs, JSON, numbers,
+  keys, scripts, the SVG avatar), the recorded-fragment offsets still exactly (the writer is untouched; 4.2 re-points them);
+  `ParityATests` and `GoldenB` (O2) go through `LooseDom`, GoldenB rebuilding HTML from `canonical.rb`'s token streams (text re-escaped,
+  `script`/`style` text raw) and comparing a page's regions (title, head block, nav, main, footer, sidebar) as before; `Support/Dom.fs`
+  and `DomTests.fs` (the html5ever tokenizer) are retired. All of them green on the untouched writer on the first run. Sabotage that
+  shows they bite: removing the newline between the `<img>` and the `<span>` of `messages/_actions` failed 10 tests (the messages, rooms
+  and search goldens and the oracle), restored. `HtmlTests`: Falco writes `title="a"b<c>"` and `Html.attr` writes
+  `a&quot;b&lt;c&gt;&amp;d&#39;e &#233; &#128512;`, the same rule as `Html.text`; `Legacy.node` places a writer partial.
+- **Gates run:** `CAMPFIRE_REQUIRE_SEED=1 bin/verify`: lint self-test ok (18 planted files), lint clean (222 files), Release build with
+  warnings as errors, **1006 total, 1000 passed, 6 skipped (the same environmental 6), 0 failed** (Phase 3 closed at 996/990/6/0: +10 =
+  W2 x2, the loose rules x5, `HtmlTests` x5 and the differential/golden tests re-pointed, less `DomTests` x2); H1 green. Image rebuilt from
+  `ff1771e` (revision label checked equal): `bin/pixel-parity --fast --seeds default --only "rooms/show/**,auth/sign_in"`: **38/38
+  screenshots pixel-equal, 38/38 aria equal, 38/38 loose DOM equal** (141 s). `bin/clean-parity` and `bin/clean-docker` after; 30 GB free.
+  No `bench/quick`: no template and nothing on the request path moved (the rename is a type name); the speed gates begin with 4.2.
+- **Differences recorded:** none for the README (nothing visible changed). Internal: the oracle's comparison is loose, not byte for byte
+  (the point of V11); the lint's allowlist has a fourth maker (`ofLegacy`) that dies with the seam in 4.11.
+- **KLOC:** `bin/kloc` 34,645 by upstream's rules, **34,864 corrected (34.9 KLOC)**, from 34,837 (+27: `Html.fs` and `Legacy.fs`; the tests,
+  the lint and the planted files are not counted). The drop starts when templates move.
