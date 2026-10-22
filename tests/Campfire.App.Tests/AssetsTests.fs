@@ -374,3 +374,41 @@ let ``H8 a message with a sound renders the fingerprinted mp3 and image URLs`` (
         Assert.Contains(image, page.Text)
         Assert.DoesNotContain("/assets/yeah.mp3", page.Text)
     }
+
+// --- Unit 6.6 (design section 5, H5-H6): public files on the asset endpoints ---------------------------------------------
+
+let private publicBytes (name: string) : byte[] = File.ReadAllBytes(Repo.path $"reference/public/{name}")
+
+[<Fact>]
+let ``H5 the public files are served with Rails' bytes, a 404 the app renders has 404.html's bytes, and /404 is the app's 404 (class B)`` () =
+    task {
+        use! test = Campfire.App.Tests.Support.bootSeeded "default"
+        for name in [ "404.html"; "422.html"; "500.html"; "502.html"; "robots.txt" ] do
+            let! response = test.Send(Campfire.App.Tests.Support.get $"/{name}")
+            Assert.Equal(200, response.Status)
+            Assert.True(response.Body = publicBytes name, $"/{name}: bytes differ from reference/public/{name}")
+        // The app's own 404 (an unknown path, and the extensionless /404 that Rails' Static answered with the file and 200) is the page.
+        for url in [ "/nope"; "/404"; "/422"; "/500"; "/502" ] do
+            let! response = test.Send(Campfire.App.Tests.Support.get url)
+            Assert.Equal(404, response.Status)
+            Assert.True(response.Body = publicBytes "404.html", $"{url}: not 404.html's bytes")
+            Assert.True(response.Header("x-request-id").IsSome, $"{url}: the app's own 404, not an endpoint's")
+    }
+
+[<Fact>]
+let ``H6 a bot without an avatar gets default-bot-avatar.svg's bytes as image/svg+xml`` () =
+    task {
+        use! test = Campfire.App.Tests.Support.bootSeeded "default"
+        let b = Campfire.App.Tests.Support.browser test "198.51.100.9"
+        do! b.SignIn "david@37signals.com"
+        let token = Campfire.App.Presenters.Common.avatarToken test.Booted.App.Secrets Campfire.App.Tests.Support.BENDER
+        let! response = b.Get $"/users/{token}/avatar"
+        Assert.Equal(200, response.Status)
+        Assert.Equal(Some "image/svg+xml", response.ContentType)
+        Assert.True(response.Body = stagedBytes "default-bot-avatar.svg", "bytes differ from the staged default-bot-avatar.svg")
+        // The stock logo (`send_stock_icon`) is read the same way.
+        let! logo = b.Get "/account/logo"
+        Assert.Equal(200, logo.Status)
+        Assert.Equal(Some "image/png", logo.ContentType)
+        Assert.True(response.Body.Length > 0)
+    }

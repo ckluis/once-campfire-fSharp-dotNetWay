@@ -13,6 +13,7 @@ open Campfire.App.Presenters
 open Campfire.Db
 open Campfire.Routes
 open Campfire.Storage
+open Microsoft.Extensions.DependencyInjection
 open Campfire.App.Web
 
 module Logos =
@@ -59,7 +60,7 @@ module Logos =
                     // send_stock_icon
                     | None ->
                         let filename = if small then "app-icon-192.png" else "app-icon.png"
-                        let! path = Avatars.assetFile $"logos/{filename}"
+                        let! path = Avatars.assetFile (http.RequestServices.GetRequiredService<Microsoft.AspNetCore.Hosting.IWebHostEnvironment>()) $"logos/{filename}"
                         return! Respond.sendFile path (SendOptions.Inline "image/png")
             }
 

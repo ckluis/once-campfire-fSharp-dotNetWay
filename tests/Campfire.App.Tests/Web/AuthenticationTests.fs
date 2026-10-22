@@ -233,8 +233,7 @@ let ``A7 requests that do not authenticate never read the cookie`` () =
             |> ignore
         use! host = startPipelineWith services test.Booted.Pipeline
         let cookie = davidCookie ()
-        let asset = Campfire.Assets.Assets.manifest () |> Seq.head |> snd
-        for path in [ "/up"; $"{Campfire.Assets.Assets.Prefix}/{asset}"; "/webmanifest.json" ] do
+        for path in [ "/up"; Campfire.App.Web.StaticAssets.path "composer.css"; "/webmanifest.json" ] do
             let! reply = host.Send(getWithCookie path cookie)
             Assert.True((reply.Status = 200), $"{path} {reply.Status}")
         Assert.Equal(0, calls.Value)

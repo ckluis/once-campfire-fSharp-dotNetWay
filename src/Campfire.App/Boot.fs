@@ -5,8 +5,8 @@
 // controllers, channels, jobs and integrations share. Actions reach it with `Data.app`.
 //
 // Request flow (mirroring the Rails middleware order): the pre-routing middleware (`Web.Edge`)
-// (`ActionDispatch::SSL`, request id, `_method` override) -> public files
-// (`ActionDispatch::Static`, from `Campfire.Assets`) -> `UseResponseCompression` -> `/cable` (Action Cable) or the Rails route table
+// (`ActionDispatch::SSL`, request id, `_method` override) -> the asset endpoints
+// (`ActionDispatch::Static`'s place, `StaticAssets.map`) -> `UseResponseCompression` -> `/cable` (Action Cable) or the Rails route table
 // (`RouteTable.dispatch`). The `/cable` endpoint is Falco's; the route table is what Falco falls back to
 // for every other path, so ASP.NET Core's own routing never sees (and never rewrites) a path.
 namespace Campfire.App
@@ -25,7 +25,6 @@ open Microsoft.Extensions.DependencyInjection
 open Microsoft.Extensions.Logging
 open Campfire.App.Channels
 open Campfire.App.Integrations
-open Campfire.Assets
 open Campfire.Db
 open Campfire.RailsCompat
 open Campfire.RailsCompat.Clock
@@ -46,60 +45,14 @@ type Booted =
 module Boot =
     // --- The HTTP stack ----------------------------------------------------------------------------------
 
-    /// The error pages the app renders (`ActionDispatch::PublicExceptions`), from the embedded `public/`.
-    let errorPages () : Web.ErrorPages =
-        Web.ErrorPages
-            [ for status in [ 404; 422; 500; 502 ] do
-                  match Assets.serve (Serve.StaticRequest.create "GET" $"/{status}.html") with
-                  | Some page -> status, page.Body
-                  | None -> () ]
+    /// The error pages the app renders (`ActionDispatch::PublicExceptions`): empty here, filled from the web root's
+    /// `404/422/500/502.html` when the pipeline is built (`Web.Services.pipeline`).
+    let errorPages () : Web.ErrorPages = Web.ErrorPages()
 
-    let private headerValue (http: HttpContext) (name: string) : string option =
-        match http.Request.Headers[name].ToString() with
-        | "" -> None
-        | value -> Some value
-
-    /// `ActionDispatch::Static`: the public file (including digested `/assets`) a request names, as the
-    /// response `Web.Outgoing` writes. The body is the embedded bytes themselves (never copied), and an empty
-    /// one (HEAD, 304) keeps the `Content-Length` the served headers carry.
-    let staticResponse (meth: string) (path: string) (acceptEncoding: string option) (range: string option) (ifModifiedSince: string option) : Web.Outgoing voption =
-        match
-            Assets.serve
-                { Method = meth
-                  Path = path
-                  AcceptEncoding = acceptEncoding
-                  Range = range
-                  IfModifiedSince = ifModifiedSince }
-        with
-        | None -> ValueNone
-        | Some served ->
-            let response = Web.Outgoing(served.Status)
-            if served.Body.IsEmpty then () else response.Body <- Web.OutgoingBody.InMemory served.Body
-            response.StaticFile <- true
-            for (name, value) in served.Headers do
-                if Web.HeaderMap.IsValidValue value then response.Headers.Append(name.ToLowerInvariant(), value)
-            ValueSome response
-
-    /// `ActionDispatch::Static`: serve `public/` (including digested `/assets`) before routing.
-    let publicFiles : Func<HttpContext, RequestDelegate, Task> =
-        Func<HttpContext, RequestDelegate, Task>(fun http next ->
-            let request = http.Request
-            match
-                staticResponse
-                    request.Method
-                    (Web.Services.rawPath http)
-                    (headerValue http "accept-encoding")
-                    (headerValue http "range")
-                    (headerValue http "if-modified-since")
-            with
-            | ValueSome response ->
-                Web.Outgoing.write ((http.RequestServices.GetRequiredService<AppState>()).Loggers.CreateLogger "campfire") http response
-            | ValueNone -> next.Invoke http)
-
-    /// The HTTP pipeline: public files, then `/cable`, then the Rails route table. The framework's response compression
-    /// (K11) is behind the public files, which are served precompressed.
+    /// The HTTP pipeline: the asset endpoints (assets and public files), then `/cable`, then the Rails route table. The framework's
+    /// response compression (K11) is behind the asset endpoints, which serve precompressed files.
     let pipeline (edge: Web.EdgeConfig) (builder: IApplicationBuilder) : unit =
-        Web.Services.pipeline edge publicFiles (fun http -> Campfire.Cable.Endpoint.handle (http.RequestServices.GetRequiredService<Cable>()) http) RouteTable.dispatch builder
+        Web.Services.pipeline edge (fun http -> Campfire.Cable.Endpoint.handle (http.RequestServices.GetRequiredService<Cable>()) http) RouteTable.dispatch builder
 
     // --- Boot ----------------------------------------------------------------------------------------------
 

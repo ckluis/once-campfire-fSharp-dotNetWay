@@ -11,7 +11,7 @@ open System.Threading.Tasks
 open FsToolkit.ErrorHandling
 open Microsoft.AspNetCore.Http
 open Campfire.Views
-open Campfire.Assets
+open Microsoft.Extensions.DependencyInjection
 open Campfire.App
 open Campfire.App.Presenters
 open Campfire.Db
@@ -57,34 +57,18 @@ module Avatars =
     let private avatarVariant (http: HttpContext) (user: User) : Task<Result<Campfire.Storage.Blob option, Web.Error>> =
         AttachmentWrites.processedVariant (Data.app http) (Record.user user.Id) "avatar" (Variation.resizeToLimit 512L 512L (Some "webp"))
 
-    let private assetDirectory = lazy (Directory.CreateTempSubdirectory "campfire-assets-")
-
-    let private assetLock = obj ()
-
-    /// A file under `app/assets/images` (embedded by `Campfire.Assets`) on disk, for `send_file`: it's
-    /// written once per process to a private directory under its own name, so the response carries
-    /// the same filename and, like Rails' file bodies, gets no `Rack::ETag` digest. The lock makes the
-    /// first write race-free: concurrent first requests would otherwise see a half-written file.
-    let assetFile (logicalPath: string) : Result<string, Web.Error> =
-        lock assetLock (fun () ->
-            let path = Path.Combine(assetDirectory.Value.FullName, logicalPath)
-            if File.Exists path then
-                Ok path
-            else
-                let url = Assets.assetPath logicalPath
-                match Assets.serve (Serve.StaticRequest.create "GET" url) with
-                | None -> Result.Error(Internal(exn $"missing asset {logicalPath}"))
-                | Some response ->
-                    let parent = Path.GetDirectoryName path |> nonNull
-                    Directory.CreateDirectory parent |> ignore
-                    let partial = Path.Combine(parent, $".{Guid.NewGuid():N}.partial")
-                    File.WriteAllBytes(partial, response.Body.ToArray())
-                    File.Move(partial, path, true)
-                    Ok path)
+    /// A file under `app/assets/images` on disk, for `send_file`: the staged file in the web root (`assets/<logical path>`), under its own
+    /// name, so the response carries the same filename and, like Rails' file bodies, gets no `Rack::ETag` digest.
+    let assetFile (env: Microsoft.AspNetCore.Hosting.IWebHostEnvironment) (logicalPath: string) : Result<string, Web.Error> =
+        let file = StaticAssets.webRootFile env $"assets/{logicalPath}"
+        match file.PhysicalPath with
+        | null -> Result.Error(Internal(exn $"missing asset {logicalPath}"))
+        | path when file.Exists -> Ok path
+        | _ -> Result.Error(Internal(exn $"missing asset {logicalPath}"))
 
     /// `send_file Rails.root.join("app/assets/images/default-bot-avatar.svg"), content_type: "image/svg+xml", disposition: :inline`
-    let private renderDefaultBot () : Result<Falco.HttpHandler, Web.Error> =
-        match assetFile "default-bot-avatar.svg" with
+    let private renderDefaultBot (http: HttpContext) : Result<Falco.HttpHandler, Web.Error> =
+        match assetFile (http.RequestServices.GetRequiredService<Microsoft.AspNetCore.Hosting.IWebHostEnvironment>()) "default-bot-avatar.svg" with
         | Ok path -> Respond.sendFile path (SendOptions.Inline "image/svg+xml")
         | Result.Error e -> Result.Error e
 
@@ -115,7 +99,7 @@ module Avatars =
                     | Some variant ->
                         let path = DiskService.pathFor (Data.app http).Storage.Service variant.Key
                         return! Respond.sendFile path (SendOptions.Inline "image/webp")
-                    | None -> if User.isBot user then return! renderDefaultBot () else return renderInitials http user
+                    | None -> if User.isBot user then return! renderDefaultBot http else return renderInitials http user
             }
 
     /// `Current.user.avatar.destroy`, then back to the profile.

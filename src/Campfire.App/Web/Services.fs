@@ -162,17 +162,26 @@ module Services =
             }
             :> System.Threading.Tasks.Task)
 
-    /// The app's branch of the host: the pre-routing middleware (`Edge`), public files, `/cable`, then the route table
+    /// The app's branch of the host: the pre-routing middleware (`Edge`), the asset endpoints (assets and public files), `/cable`, then the route table
     /// (`dispatch`) as Falco's not-found handler, so ASP.NET Core's own routing never rewrites a path.
-    let pipeline (edge: EdgeConfig) (publicFiles: Func<HttpContext, RequestDelegate, System.Threading.Tasks.Task>) (cable: HttpHandler) (dispatch: Campfire.App.Web.Action) (builder: IApplicationBuilder) : unit =
+    let pipeline (edge: EdgeConfig) (cable: HttpHandler) (dispatch: Campfire.App.Web.Action) (builder: IApplicationBuilder) : unit =
         builder.UseExceptionHandler(ExceptionHandlerOptions(ExceptionHandler = PublicExceptions.exceptionHandler)) |> ignore
         builder.UseForwardedHeaders() |> ignore
         builder.Use(Edge.assumeSsl edge) |> ignore
         builder.Use(Edge.defaultHeaders edge) |> ignore
-        // K11: public files are served precompressed (`.br`/`.gz` beside them), so only what the app renders pays for it.
-        builder.Use(publicFiles) |> ignore
-        // Phase 6 seam: the asset endpoints sit behind the old public files until 6.6 (they answer only the new fingerprinted URLs).
+        // K11: assets and public files are served precompressed by the endpoints (`ActionDispatch::Static`'s place), so only what the
+        // app renders pays for compression.
         StaticAssets.map builder
+        // `public/404.html` and the others, read from the web root now that it is known (`ActionDispatch::PublicExceptions`).
+        let env = builder.ApplicationServices.GetRequiredService<Microsoft.AspNetCore.Hosting.IWebHostEnvironment>()
+        edge.ErrorPages.Fill
+            [ for status in [ 404; 422; 500; 502 ] do
+                  let file = StaticAssets.webRootFile env $"{status}.html"
+                  if file.Exists then
+                      use stream = file.CreateReadStream()
+                      use buffer = new System.IO.MemoryStream()
+                      stream.CopyTo buffer
+                      status, ReadOnlyMemory<byte>(buffer.ToArray()) ]
         builder.UseResponseCompression() |> ignore
         builder.Use(Compression.compressEmptyErrors) |> ignore
         builder.Use(Edge.bodyLimit) |> ignore

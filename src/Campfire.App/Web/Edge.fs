@@ -16,15 +16,19 @@ open Microsoft.AspNetCore.Http.Features
 open Microsoft.AspNetCore.HttpOverrides
 open Microsoft.Extensions.Primitives
 
-/// The `public/<status>.html` pages, held in memory.
+/// The `public/<status>.html` pages, held in memory. Empty until `Fill` (the pipeline reads them from the web root through
+/// `StaticAssets.webRootFile` when it is built); a page asked for before then is absent.
 [<Sealed>]
-type ErrorPages(pages: (int * ReadOnlyMemory<byte>) seq) =
-    let pages = dict pages
+type ErrorPages() =
+    let mutable pages = System.Collections.Generic.Dictionary<int, ReadOnlyMemory<byte>>()
 
-    static member Empty = ErrorPages(Seq.empty)
+    static member Empty = ErrorPages()
+
+    member _.Fill(loaded: (int * ReadOnlyMemory<byte>) seq) : unit =
+        System.Threading.Volatile.Write(&pages, System.Collections.Generic.Dictionary<int, ReadOnlyMemory<byte>>(dict loaded))
 
     member _.Get(status: int) : ReadOnlyMemory<byte> voption =
-        match pages.TryGetValue status with
+        match System.Threading.Volatile.Read(&pages).TryGetValue status with
         | true, page -> ValueSome page
         | _ -> ValueNone
 

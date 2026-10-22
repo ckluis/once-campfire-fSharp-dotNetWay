@@ -29,16 +29,6 @@ let ``unfurls nothing from private addresses and needs a url`` () =
 
 // --- users/avatars.rs ------------------------------------------------------------------------------
 
-[<Fact>]
-let ``concurrent first requests all get the whole file`` () =
-    let read () =
-        match Avatars.assetFile "default-bot-avatar.svg" with
-        | Ok path -> File.ReadAllBytes path
-        | Error e -> failwith (sprintf "%A" e)
-    let contents = [| for _ in 1..16 -> Task.Run read |] |> Array.map (fun t -> t.GetAwaiter().GetResult())
-    Assert.NotEmpty contents[0]
-    Assert.True(contents |> Array.forall (fun c -> c = contents[0]))
-
 // --- qr_code.rs ------------------------------------------------------------------------------------
 
 [<Fact>]

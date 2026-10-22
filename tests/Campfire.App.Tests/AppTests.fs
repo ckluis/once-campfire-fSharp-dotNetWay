@@ -21,7 +21,6 @@ open Xunit
 open Campfire.App
 open Campfire.App.Presenters
 open Campfire.App.Tests.Support
-open Campfire.Assets
 open Campfire.Db
 open Campfire.Storage
 open Campfire.Tests
@@ -58,80 +57,6 @@ let ``health check`` () =
         use value = JsonDocument.Parse json.Body
         Assert.Equal("up", str (value.RootElement.GetProperty "status"))
     }
-
-[<Fact>]
-let ``public files are served before routing`` () =
-    task {
-        use! test = bootSeeded "default"
-        let css = Assets.stylesheetPath ((Assets.allStylesheetPaths ()).[0])
-        let! reply = test.Send(get css)
-        Assert.True((reply.Status = 200), css)
-        Assert.Equal(Some "public, max-age=2592000", reply.Header "cache-control")
-
-        let! robots = test.Send(get "/robots.txt")
-        Assert.Equal(200, robots.Status)
-    }
-
-/// Every file `ActionDispatch::Static` serves: `public/` and the digested assets.
-let private staticCorpus () : string list =
-    let publicFiles = [ "/robots.txt"; "/404.html"; "/422.html"; "/500.html"; "/502.html"; "/assets/.manifest.json" ]
-    let assets = [ for (_, digested) in Assets.manifest () -> $"{Assets.Prefix}/{digested}" ]
-    publicFiles @ assets
-
-[<Fact>]
-let ``static responses send the embedded bytes without copying them`` () =
-    let serve meth path range ifModifiedSince : Serve.StaticResponse option =
-        Assets.serve { Method = meth; Path = path; AcceptEncoding = None; Range = range; IfModifiedSince = ifModifiedSince }
-    let builtAt = (serve "GET" "/robots.txt" None None).Value |> Serve.StaticResponse.header "last-modified" |> Option.get
-    let variants =
-        [ "GET", None, None
-          "HEAD", None, None
-          "GET", Some "bytes=1-10", None
-          "GET", Some "bytes=0-1, 4-5", None
-          "GET", Some "bytes=999999999-", None
-          "GET", None, Some builtAt ]
-    for path in staticCorpus () do
-        for (meth, range, ifModifiedSince) in variants do
-            let served = (serve meth path range ifModifiedSince).Value
-            let response = (Boot.staticResponse meth path None range ifModifiedSince).Value
-            let case = $"{meth} {path} {range} {ifModifiedSince}"
-            Assert.True((response.Status = served.Status), case)
-            let headers = [ for i in 0 .. response.Headers.Count - 1 -> response.Headers.NameAt i, response.Headers.ValueAt i ]
-            let expected = [ for (name, value) in served.Headers -> name.ToLowerInvariant(), value ]
-            Assert.True((headers = expected), case)
-            match response.Body with
-            | Campfire.App.Web.OutgoingBody.InMemory body ->
-                Assert.True(body.Span.SequenceEqual served.Body.Span, case)
-                // Sent from the embedded bytes themselves: the same memory, not a copy.
-                // (Several ranges, and a 416's message, are assembled into a body of their own.)
-                let multipart = served.Status = 206 && (range |> Option.exists (fun r -> r.Contains ','))
-                let borrowed = served.Status = 200 || (served.Status = 206 && not multipart)
-                if not body.IsEmpty && borrowed then Assert.True(body.Span.Overlaps served.Body.Span, $"{case}: sent from the embedded bytes")
-            | Campfire.App.Web.OutgoingBody.NoBody -> Assert.True(served.Body.IsEmpty, case)
-            | other -> failwith $"{case}: a static response has a buffer body, got {other}"
-
-/// Times `staticResponse` for an identity GET of a small public file, the first stylesheet, the largest
-/// script and the largest file; per call, median and range of 7 runs. Set `CAMPFIRE_TIMING=1`: the numbers
-/// are in bench/results/campfire-app-boot.md (Rust's are in its bench/results/static-body-20260930).
-[<Fact>]
-let ``static response timing`` () =
-    if Environment.GetEnvironmentVariable "CAMPFIRE_TIMING" = "1" then
-        let size (path: string) =
-            match Assets.serve (Serve.StaticRequest.create "GET" path) with
-            | Some response -> response.Body.Length
-            | None -> 0
-        let largest (suffix: string) = staticCorpus () |> List.filter (fun p -> p.EndsWith suffix) |> List.maxBy size
-        let stylesheet = Assets.stylesheetPath ((Assets.allStylesheetPaths ()).[0])
-        for path in [ "/robots.txt"; stylesheet; largest ".js"; largest "" ] do
-            let iterations = 20_000
-            let runs =
-                [ for _ in 1..7 do
-                      let started = Diagnostics.Stopwatch.GetTimestamp()
-                      for _ in 1..iterations do
-                          Boot.staticResponse "GET" path None None None |> ignore
-                      Diagnostics.Stopwatch.GetElapsedTime(started).TotalNanoseconds / float iterations ]
-                |> List.sort
-            Console.Error.WriteLine $"{path} ({size path} bytes): median {runs[3]:F0} ns, range {runs[0]:F0}..{runs[6]:F0} ns"
 
 [<Fact>]
 let ``unknown and unported routes`` () =
@@ -195,7 +120,7 @@ let private routedPipeline (routes: (string * Campfire.App.Web.Action) list) : M
             match routes |> List.tryFind (fun (path, _) -> path = string http.Request.Path.Value) with
             | Some(_, action) -> action http
             | None -> System.Threading.Tasks.Task.FromResult(Result.Error Campfire.App.Web.NotFound)
-    fun builder -> Campfire.App.Web.Services.pipeline edge (Func<Microsoft.AspNetCore.Http.HttpContext, Microsoft.AspNetCore.Http.RequestDelegate, System.Threading.Tasks.Task>(fun http next -> next.Invoke http)) (fun _ -> System.Threading.Tasks.Task.CompletedTask) dispatch builder
+    fun builder -> Campfire.App.Web.Services.pipeline edge (fun _ -> System.Threading.Tasks.Task.CompletedTask) dispatch builder
 
 let private whoamiPipeline = routedPipeline [ "/whoami", whoami ]
 
