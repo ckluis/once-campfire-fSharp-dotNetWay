@@ -2346,3 +2346,29 @@ Evidence: `bench/results/dotnetway-p4/` (slim: logs, `report.json` per pixel sli
 - **KLOC:** `bin/kloc` 33,551 by upstream's rules, **33,723 corrected (33.7 KLOC)**, from 34.8 at the Phase 3 close (-1.1); `Campfire.Views` 5,219, App 11,710. Unchanged by this unit (+1 line).
 - **Differences recorded:** none new for the README. Open for a fix unit: the Firefox empty-404 pair above; the 16 KB Cable bound and the two test packages (Phase 3 questions) remain open.
 - Disk: 19-28 GB free at starts (the Mac's free space fell to 13 GB during the full matrix and was recovered by `fstrim` in the VM); `bin/clean-docker` and `bin/clean-parity` run; the control image is removed.
+
+### Phase 4: security review of the views (2026-10-22)
+
+Opus reviewer, on `306f048`. Findings and method in `plans/design-views.md` section 11 ("Security review").
+- **Read:** the 79 templates, 9 `Markup/` helpers, `Core/Html.fs`, `HtmlOutput.fs`, `Fragment.fs`, `ViewContext.fs`, `Layouts.fs` and the five
+  helpers that feed attributes (98 files read whole; the remaining 17 `Campfire.Views` files scanned for string-built markup: none); in the
+  App the three `Trusted` call sites, the string response writers and their 14 callers, the broadcasts and Cable's tag builder.
+- **Templates:** no runtime XSS or HTML injection found. Every data text and attribute goes through `Html.text`/`Html.attr`; no
+  user-typed URL reaches `href`/`src` (`link_back`'s `Referer` is Rails' behaviour); style attributes carry integers only; the custom CSS
+  can inject CSS (Rails' feature) but not markup (`</style` escaped, the README difference); `messages/_template`'s script template encodes
+  its data; no JSON in data attributes.
+- **The lint had nine holes, all fixed** (X1-X9): code hidden after a block comment holding `"*)"` and after an interpolation hole holding
+  `'"'` (both valid F#, both swallowed by the lint's string scan), double-backtick identifiers, whitespace or a line break around a dot,
+  unchecked attribute names (`Markup.Rooms.linkToRoom` took `data-*` names as strings; it now takes attributes), raw makers
+  (`HtmlOutput.text`/`ofBytes`, `CachedFragment` from a string), raw responses (`Pages.html`/`renderText`/`renderAs` with an HTML, Turbo
+  Stream or SVG type), a scan limited to two projects (now all of `src`), and the exempt encoder file (its definitions are now pinned).
+  Each has a planted file the old lint passed: `--self-test` against the old lint fails 11 of the 12 new plants (the twelfth is a
+  regression guard), the new lint catches 39 of 39; `bin/lint-markup` 340 files clean.
+- **Also fixed:** `PresenterAccountsTests` "serves the account logo and avatars" failed on `306f048` (it looked for `>D</text>`; the gate's
+  `e7f5b52` keeps the ERB's indentation around the initials, and `7be22a7` re-pointed only the Views test). Now a whitespace-tolerant match.
+- **Gates run:** `bin/verify` green: lint self-test 39/39 and 340 files clean, Release build 0 warnings, tests 969 total, 963 passed, 0 failed, 6 skipped (the usual Linux-only, seed-only and filtered ones; H1-H3 in `HotPathTests` passed). Not run: `bench/quick` and the pixel slices. The only template change is `linkToRoom`'s
+  argument type: its two callers build the same `data-sorted-list-*` attribute with the same encoder, so the sidebar renders the same bytes
+  (the sidebar oracle and golden tests in `Campfire.Views.Tests` compare it) at the same cost.
+- **KLOC:** `bin/kloc` 33,551, corrected 33,723 (33.7), unchanged (`Campfire.Views` 5,219).
+- **Differences recorded:** none new. Open, accepted (O3): the lint is a token scan; reflection or unchecked casts that build Falco nodes
+  are not seen.
