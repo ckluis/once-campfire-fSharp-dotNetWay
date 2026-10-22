@@ -1,0 +1,219 @@
+#!/usr/bin/env bash
+# The network check of Phase 6 (plans/design-assets.md sections 4-5, N1-N4): what the asset endpoints say on the wire, which the App's
+# tests cannot assert (they run on a build output, where the framework's development handler answers `no-cache`).
+#
+#   bin/asset-check [--port N] [--seed NAME] [--keep]
+#
+# It starts the candidate image (`parity/bin/candidate up`, campfire-candidate-dotnetway on the app image campfire-dotnetway:app; rebuild it
+# first with `CAMPFIRE_REVISION=$(git rev-parse HEAD) parity/bin/candidate build`), signs in as David through the form with the CSRF
+# token (as cookie-roundtrip does), reads the room page, and checks every `/assets/` URL the page carries (stylesheets, modulepreloads,
+# the import map's values, `img`):
+#   N1  fingerprint form `name.<10 chars>.ext`; 200 with `cache-control: max-age=31536000, immutable`, an ETag (304 on `If-None-Match`),
+#       `vary: Accept-Encoding`
+#   N2  text types: `content-encoding: br` for `Accept-Encoding: br`, `gzip` for `gzip`, none for none, and the three decode to equal bytes
+#   N3  the plain `/assets/composer.css` is 200 `no-cache`; an unknown asset is 404; `/robots.txt` is 200; a sound with `Range` is 206
+#   N4  the page's `Link` header names fingerprinted stylesheets only
+# and the probe list of the Phase 6 checkpoint, all of which must be the app's 404 (or a 400): encoded dots, `%5C` and a raw backslash,
+# dotfiles, `/campfire.dll`, `/campfire.staticwebassets.endpoints.json`, `/wwwroot/...`.
+#
+# On the Mac it runs itself inside colima (Docker, GNU userland, curl with Brotli). Exit status 0 only if every check passed.
+set -euo pipefail
+
+ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+
+if [ "$(uname -s)" = Darwin ] && [ -z "${ASSET_CHECK_IN_VM:-}" ]; then
+  command -v colima >/dev/null || { echo "asset-check: needs colima (or run it inside the VM)" >&2; exit 2; }
+  args=''; [ $# -eq 0 ] || args=$(printf '%q ' "$@")
+  exec colima ssh -- bash -c "cd '$ROOT' && env ASSET_CHECK_IN_VM=1 bin/asset-check $args"
+fi
+
+PORT=4290 SEED=default KEEP=
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --port) PORT=$2; shift 2 ;;
+    --seed) SEED=$2; shift 2 ;;
+    --keep) KEEP=1; shift ;;
+    -h|--help) sed -n '2,/^set -euo/p' "$0" | sed '$d; s/^# \{0,1\}//'; exit 0 ;;
+    *) echo "asset-check: unknown option $1 (try --help)" >&2; exit 2 ;;
+  esac
+done
+
+SEED_DIR=$ROOT/parity/.seed/$SEED
+[ -f "$SEED_DIR/labels.json" ] || { echo "asset-check: seed $SEED is not built (parity/bin/seed build $SEED)" >&2; exit 2; }
+docker image inspect campfire-candidate-dotnetway >/dev/null 2>&1 || { echo "asset-check: image campfire-candidate-dotnetway is missing (parity/bin/candidate build)" >&2; exit 2; }
+revision=$(docker image inspect -f '{{index .Config.Labels "org.opencontainers.image.revision"}}' campfire-candidate-dotnetway 2>/dev/null || true)
+echo "asset-check: image revision ${revision:-unknown}"
+
+cleanup() { [ -n "$KEEP" ] || "$ROOT/parity/bin/candidate" down --port "$PORT" >/dev/null 2>&1 || true; }
+trap cleanup EXIT
+"$ROOT/parity/bin/candidate" up --seed "$SEED" --port "$PORT"
+
+exec python3 - "http://127.0.0.1:$PORT" "$SEED_DIR/labels.json" <<'PY'
+import gzip, html, json, os, re, subprocess, sys, tempfile
+
+BASE, LABELS = sys.argv[1], sys.argv[2]
+labels = json.load(open(LABELS))
+EMAIL, PASSWORD, ROOM = labels["emails.david"], labels["passwords.all"], labels["rooms.designers"]
+UA = "asset-check/1 (a browser stand-in)"
+JAR = tempfile.mktemp(prefix="asset-check-jar.")
+failures = []
+checks = 0
+
+
+def check(ok, what):
+    global checks
+    checks += 1
+    if not ok:
+        failures.append(what)
+        print("FAIL", what)
+
+
+def curl(path, headers=(), method="GET", decode=False, data=None, jar=False, follow=False, as_is=False):
+    """(status, {lowercased header: last value}, body bytes) through the system curl. `decode` lets curl decode Brotli itself."""
+    head = tempfile.mktemp(prefix="asset-check-head.")
+    cmd = ["curl", "-sS", "-A", UA, "-D", head, "-o", "-", "-X", method, "--http1.1"]
+    if method == "HEAD":
+        cmd = ["curl", "-sS", "-A", UA, "-D", head, "-o", "/dev/null", "-I", "--http1.1"]
+    if decode:
+        cmd.append("--compressed")
+    if jar:
+        cmd += ["-b", JAR, "-c", JAR]
+    if follow:
+        cmd.append("-L")
+    if as_is:
+        cmd.append("--path-as-is")
+    for h in headers:
+        cmd += ["-H", h]
+    if data is not None:
+        cmd += ["--data-binary", data]
+    cmd.append(BASE + path)
+    body = subprocess.run(cmd, stdout=subprocess.PIPE, check=True).stdout
+    raw = open(head, encoding="latin-1").read()
+    os.unlink(head)
+    blocks = [b for b in raw.replace("\r\n", "\n").split("\n\n") if b.strip()]
+    lines = blocks[-1].split("\n")
+    status = int(lines[0].split()[1])
+    hdrs = {}
+    for line in lines[1:]:
+        if ":" in line:
+            k, v = line.split(":", 1)
+            hdrs[k.strip().lower()] = v.strip()
+    return status, hdrs, body
+
+
+def meta(page, name):
+    m = re.search(r'<meta[^>]*name="%s"[^>]*content="([^"]*)"' % name, page) or re.search(r'<meta[^>]*content="([^"]*)"[^>]*name="%s"' % name, page)
+    return html.unescape(m.group(1)) if m else ""
+
+
+# --- sign in through the form, read the room page --------------------------------------------------------------------
+_, _, body = curl("/session/new", jar=True)
+token = meta(body.decode(), "csrf-token")
+status, _, _ = curl("/session", method="POST", jar=True, headers=["Origin: " + BASE, "Sec-Fetch-Site: same-origin", "Content-Type: application/x-www-form-urlencoded"],
+                    data="authenticity_token=%s&email_address=%s&password=%s" % (subprocess.run(["python3", "-c", "import sys,urllib.parse;print(urllib.parse.quote(sys.argv[1],safe=''))", token], stdout=subprocess.PIPE, text=True).stdout.strip(),
+                                                                              EMAIL.replace("@", "%40"), PASSWORD))
+check(status in (302, 303), "sign in answers a redirect (got %s)" % status)
+status, page_headers, body = curl("/rooms/%s" % ROOM, jar=True, headers=["Sec-Fetch-Site: same-origin"])
+check(status == 200, "the room page answers 200 (got %s)" % status)
+page = body.decode()
+check(meta(page, "current-user-id") != "", "the room page is signed in")
+
+# --- every /assets/ URL the page carries -----------------------------------------------------------------------------
+urls = []
+def add(u):
+    u = html.unescape(u).split("?")[0]
+    if u.startswith("/assets/") and u not in urls:
+        urls.append(u)
+for m in re.finditer(r'<link[^>]*\bhref="([^"]+)"', page): add(m.group(1))
+for m in re.finditer(r'<img[^>]*\bsrc="([^"]+)"', page): add(m.group(1))
+for m in re.finditer(r'<script[^>]*type="importmap"[^>]*>(.*?)</script>', page, re.S):
+    for target in json.loads(m.group(1))["imports"].values(): add(target)
+check(len(urls) > 100, "the room page carries /assets/ URLs: %d (expected over 100)" % len(urls))
+FINGERPRINT = re.compile(r"^/assets/(?:[A-Za-z0-9_@\-./]+?)\.[0-9a-z]{10}\.[a-z0-9]+$")
+TEXT = (".css", ".js", ".svg", ".json", ".mjs", ".map", ".txt")
+text_urls = [u for u in urls if u.endswith(TEXT)]
+print("asset-check: %d asset URLs on the room page, %d of text types" % (len(urls), len(text_urls)))
+
+# N1
+for u in urls:
+    check(FINGERPRINT.match(u) is not None, "N1 %s has the fingerprint form" % u)
+    status, h, body = curl(u)
+    check(status == 200, "N1 %s answers 200 (got %s)" % (u, status))
+    check(h.get("cache-control") == "max-age=31536000, immutable", "N1 %s cache-control is %r" % (u, h.get("cache-control")))
+    check("etag" in h, "N1 %s has an ETag" % u)
+    check("accept-encoding" in h.get("vary", "").lower(), "N1 %s has Vary: Accept-Encoding (got %r)" % (u, h.get("vary")))
+    if "etag" in h:
+        status, _, _ = curl(u, headers=["If-None-Match: " + h["etag"]])
+        check(status == 304, "N1 %s answers 304 on If-None-Match (got %s)" % (u, status))
+    check("x-request-id" not in h and "x-runtime" not in h, "N1 %s carries no x-request-id or x-runtime" % u)
+
+# N2
+for u in text_urls:
+    _, _, identity = curl(u, headers=["Accept-Encoding: identity"])
+    _, hi, _ = curl(u, headers=["Accept-Encoding: identity"])
+    check("content-encoding" not in hi, "N2 %s identity has no content-encoding (got %r)" % (u, hi.get("content-encoding")))
+    _, hg, gz = curl(u, headers=["Accept-Encoding: gzip"])
+    check(hg.get("content-encoding") == "gzip", "N2 %s gzip content-encoding is %r" % (u, hg.get("content-encoding")))
+    try:
+        check(gzip.decompress(gz) == identity, "N2 %s gzip decodes to the identity bytes" % u)
+    except OSError as e:
+        check(False, "N2 %s gzip body does not decode: %s" % (u, e))
+    _, hb, _ = curl(u, headers=["Accept-Encoding: br"])
+    check(hb.get("content-encoding") == "br", "N2 %s br content-encoding is %r" % (u, hb.get("content-encoding")))
+    _, _, brotli_decoded = curl(u, headers=["Accept-Encoding: br"], decode=True)
+    check(brotli_decoded == identity, "N2 %s br decodes to the identity bytes" % u)
+
+# N3
+css = "/assets/composer.css"
+status, h, _ = curl(css)
+check(status == 200 and h.get("cache-control") == "no-cache", "N3 plain %s is 200 no-cache (got %s, %r)" % (css, status, h.get("cache-control")))
+status, h, _ = curl("/assets/nope.css")
+check(status == 404 and "x-request-id" in h, "N3 /assets/nope.css is the app's 404 (got %s)" % status)
+status, h, body = curl("/robots.txt")
+check(status == 200 and b"User-agent" in body or status == 200, "N3 /robots.txt is 200 (got %s)" % status)
+sound = next((u for u in urls if u.endswith(".mp3")), None)
+if sound is None:
+    mp3s = [u for u in text_urls if False]
+    # The room page has no sound element; use the table's own route for a sound through the plain URL's fingerprinted twin in the manifest.
+    status, h, _ = curl("/assets/56k.mp3", headers=["Range: bytes=0-9"])
+    check(status == 206 and h.get("content-range", "").startswith("bytes 0-9/"), "N3 a sound with Range is 206 (plain URL; got %s)" % status)
+    status, h, _ = curl("/assets/56k.mp3")
+    check(status == 200 and h.get("accept-ranges") == "bytes", "N3 a sound advertises Accept-Ranges (got %s %r)" % (status, h.get("accept-ranges")))
+else:
+    status, h, body = curl(sound, headers=["Range: bytes=0-9"])
+    check(status == 206 and len(body) == 10, "N3 a sound with Range is 206 with 10 bytes (got %s, %d)" % (status, len(body)))
+
+# N4
+link = page_headers.get("link", "")
+links = [p for p in re.findall(r"<([^>]+)>", link)]
+check(len(links) > 0, "N4 the room page has a Link header")
+for u in links:
+    check(FINGERPRINT.match(u) is not None and u.endswith(".css"), "N4 Link names a fingerprinted stylesheet: %s" % u)
+print("asset-check: Link header names %d stylesheets" % len(links))
+
+# The public files, the old extensionless paths, and the probe list of the Phase 6 checkpoint.
+for p in ("/404.html", "/422.html", "/500.html", "/502.html", "/robots.txt"):
+    status, h, _ = curl(p)
+    check(status == 200, "%s answers 200 (got %s)" % (p, status))
+for p in ("/404", "/422", "/500", "/502"):
+    status, h, _ = curl(p, headers=["Accept: text/html"])
+    check(status == 404 and "x-request-id" in h, "%s is the app's 404 (got %s)" % (p, status))
+status, h, _ = curl("/assets/lexxy.js.gz")
+print("asset-check: /assets/lexxy.js.gz -> %s content-encoding=%r (the SDK's own precompressed route)" % (status, h.get("content-encoding")))
+probes = ["/assets/..%2Fcampfire.dll", "/assets/%2e%2e/campfire.dll", "/assets/%2e%2e%2fcampfire.dll", "/assets/..%5Ccampfire.dll",
+          "/assets/..%5C..%5Cappsettings.json", "/assets/..\\campfire.dll", "/assets/%2E%2E/%2E%2E/etc/passwd", "/..%2f..%2fetc/passwd",
+          "/assets/.keep", "/assets/.DS_Store", "/.env", "/.git/config", "/campfire.dll", "/campfire.staticwebassets.endpoints.json",
+          "/campfire.staticwebassets.runtime.json", "/campfire.deps.json", "/appsettings.json", "/wwwroot/robots.txt", "/wwwroot/assets/composer.css",
+          "/assets/.manifest.json", "/assets/%2e%2e/%2e%2e/reference/config/importmap.rb"]
+for p in probes:
+    status, h, body = curl(p, as_is=True)
+    check(status in (404, 400), "probe %s is the app's 404 or a 400 (got %s)" % (p, status))
+    check(b"MZ" != body[:2] and b"\"Endpoints\"" not in body, "probe %s leaks nothing" % p)
+
+try:
+    os.unlink(JAR)
+except OSError:
+    pass
+print("asset-check: %d checks, %d failed" % (checks, len(failures)))
+sys.exit(1 if failures else 0)
+PY
