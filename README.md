@@ -317,7 +317,11 @@ specific to this port are listed below, each citing the reference file it depart
   - Comments after an explicit `</body>` that content follows arrive after that content. Element-context parses keep foreign content inside.
   - A layout-only case (corpus fuzz 398): an `action-text-attachment` whose replacement begins with another `action-text-attachment` inside a foreign element stays inside it (Gumbo breaks out beside it).
   - Opengraph URLs are read by `System.Uri` behind an RFC 3986 character check, not Ruby's parser: `mailto:nobody`, a host with empty labels, `[v1.x]` and a port past 65535 give an embed without a link, where Rails raises or links.
-  - Upstream: the sibling-walk cost and the tokenizer's raw-text lowercasing are to be reported to AngleSharp (Q1).
+  - Markup AngleSharp's tree builder throws on is refused as a body past a limit is (`ParseError.ParserFailed`): the message renders `messages/_unrenderable`, its plain
+    text is empty and logged, and posting it stores it as it came. AngleSharp 1.8.4 and 1.8.5 throw a `NullReferenceException` on `<p><select><xmp></xmp><select>x` (an
+    `xmp` in a select closes the paragraph, and the select with it); Rails renders it. Before, one such stored body failed every page showing it (security review F1,
+    `plans/design-richtext.md` section 11).
+  - Upstream: the sibling-walk cost, the tokenizer's raw-text lowercasing and the select-mode `NullReferenceException` are to be reported to AngleSharp (Q1).
 
 ## License
 

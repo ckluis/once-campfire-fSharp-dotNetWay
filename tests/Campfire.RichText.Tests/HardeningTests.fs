@@ -191,3 +191,40 @@ let ``a_mention_of_a_deleted_user_leaves_the_editor`` () =
     let ctx = render (DeletedUsers()) None
     let value = (okR (ActionText.editableValue deletedMention ctx)).Value
     Assert.True(not (contains value "action-text-attachment") && contains value "welcome", value)
+
+// --- A parser that throws (security review F1, plans/design-richtext.md section 11) ------------------------------------
+
+/// AngleSharp 1.8.4 (and 1.8.5) throws a NullReferenceException from its select mode when an `<xmp>` inside a `<select>` closes
+/// the paragraph the select is in and another `<select>` follows. Uncaught, a stored body like this failed every page, broadcast and
+/// search result that renders the message (Rails renders it). It is refused like a body past a limit: the message renders empty.
+let private parserThrows =
+    [ "<p><select><xmp></xmp><select>x"
+      "<div><p><select><xmp></xmp><select>x"
+      "<table><caption><p><select><xmp></xmp><select>x"
+      "<p>see https://example.com <b><select><xmp></xmp><select>x" ]
+
+[<Fact>]
+let ``markup_the_parser_throws_on_is_refused_not_raised`` () =
+    for body in parserThrows do
+        match Html5.parseBody body with
+        | Error(ParserFailed _) -> ()
+        | other -> failwithf "%s parsed as %A" body (other |> Result.map Html5.innerHtml)
+        Assert.Equal(Presentation.Html "", ActionText.presentMessage body ctx)
+        Assert.True(isError (ActionText.toPlainText body ctx), body)
+        Assert.True(isError (ActionText.mentionedUsers body ctx), body)
+        Assert.True(isError (ActionText.editableValue body ctx), body)
+        Assert.True(isError (Content.load body ctx), body)
+        Assert.True(isError (Sanitizer.sanitize body SafeList.actionText), body)
+        Assert.True(isError (Autolink.autoLink body SafeList.autoLink), body)
+
+[<Fact>]
+let ``markup_the_parser_throws_on_inside_an_attachment_is_refused_not_raised`` () =
+    // A content attachment's markup and an attachment caption are parsed again, in the attachment's context
+    let throws = (List.head parserThrows).Replace("<", "&lt;").Replace(">", "&gt;")
+    for body in
+        [ $"<p>a</p><action-text-attachment content-type=\"text/html\" content=\"{throws}\"></action-text-attachment>"
+          $"<p><action-text-attachment content-type=\"image/png\" url=\"https://example.com/i.png\" caption=\"{throws}\"></action-text-attachment></p>" ] do
+        ActionText.presentMessage body ctx |> ignore
+        ActionText.toPlainText body ctx |> ignore
+        ActionText.editableValue body ctx |> ignore
+    Assert.Equal(Presentation.Html "", ActionText.presentMessage $"<action-text-attachment content-type=\"text/html\" content=\"{throws}\"></action-text-attachment>" ctx)

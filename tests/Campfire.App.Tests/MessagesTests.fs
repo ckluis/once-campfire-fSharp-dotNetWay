@@ -99,6 +99,33 @@ let ``create appends the message as a turbo stream`` () =
         Assert.Equal(("abc-123", DAVID), (message.ClientMessageId, message.CreatorId))
     }
 
+/// Security review F1 (plans/design-richtext.md section 11): a body AngleSharp 1.8.4's tree builder throws on. It is refused as a body
+/// past a limit is: stored as it came, rendered as `messages/_unrenderable`. Before, the post was a 500, and the same body stored by
+/// Rails (before a switch) failed every page that showed it.
+[<Fact>]
+let ``a body the parser throws on fails neither the post nor the pages that show it`` () =
+    task {
+        use! test = bootSeeded "default"
+        let david = david test
+        let body = "<p><select><xmp></xmp><select>x"
+        let! reply =
+            david.Write(
+                ((request "POST" $"/rooms/{ALL_TALK}/messages").With("accept", TURBO_STREAM_ACCEPT))
+                    .Form(formBody [ "message[body]", body; "message[client_message_id]", "parser-throws" ])
+            )
+        Assert.True((reply.Status = 200), reply.Text)
+        Assert.Contains("Failed to load message content", reply.Text)
+        let! message = lastMessage test ALL_TALK
+        Assert.Equal("parser-throws", message.ClientMessageId)
+        let! stored = readEf test (fun db -> Message.bodyHtml db message)
+        Assert.Equal(Some body, stored)
+        let! room = david.Get $"/rooms/{ALL_TALK}"
+        Assert.True((room.Status = 200), room.Text)
+        Assert.Contains("Failed to load message content", room.Text)
+        let! page = david.Get $"/rooms/{ALL_TALK}/messages"
+        Assert.True((page.Status = 200), page.Text)
+    }
+
 /// The message in a turbo stream: what's inside its `<template>`.
 let private template (stream: string) : string =
     let start = stream.IndexOf "<template>" + "<template>".Length

@@ -13,6 +13,9 @@ type ParseError =
     | TooManyTokens
     /// More than 400 attributes summed over the `<html>` and `<body>` start tags.
     | TooManyRootAttributes
+    /// AngleSharp's tree builder threw on the markup (1.8.4: `<p><select><xmp></xmp><select>x`, a NullReferenceException in its
+    /// select mode). Refused like a body past a limit, so that one message cannot fail every page that shows it.
+    | ParserFailed of exceptionType: string
 
     member this.Message =
         match this with
@@ -21,6 +24,7 @@ type ParseError =
         | TooManyElements -> "Element count limit exceeded"
         | TooManyTokens -> "Token count limit exceeded"
         | TooManyRootAttributes -> "Attributes on html and body tags limit exceeded"
+        | ParserFailed exceptionType -> "The HTML parser failed (" + exceptionType + ")"
 
 /// Something Ruby would have raised while rendering. Callers mirror what the Rails code does with
 /// the exception (`message_presentation` rescues everything and renders "").

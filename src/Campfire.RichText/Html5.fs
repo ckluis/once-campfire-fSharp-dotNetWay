@@ -290,7 +290,9 @@ module Html5 =
                 if current :? IComment then body.AppendChild current |> ignore
             body :> IElement
 
-    /// Runs `parse` with fresh counters; the limits' exception, whatever the parser did with it, becomes the `ParseError`.
+    /// Runs `parse` with fresh counters; the limits' exception, whatever the parser did with it, becomes the `ParseError`. So does
+    /// any exception AngleSharp's tree builder throws on hostile markup (security review, plans/design-richtext.md section 11, F1):
+    /// a stored body that threw would fail every page, broadcast and search that renders it, where Rails renders the message.
     let private guarded (baseline: int) (elements: int) (tokens: int) (parse: unit -> 'a) : Result<'a, ParseError> =
         let st = ParseState.Current
         st.Reset(baseline, elements, tokens)
@@ -300,8 +302,10 @@ module Html5 =
                 let result = parse ()
                 checkPrevious st
                 Ok result
-            with LimitExceeded error ->
-                Error error
+            with
+            | LimitExceeded error -> Error error
+            | :? OutOfMemoryException -> reraise ()
+            | e -> Error(ParserFailed(e.GetType().Name))
         finally
             st.Reset(0, 0, 0)
 

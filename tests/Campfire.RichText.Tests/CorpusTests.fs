@@ -160,6 +160,37 @@ let private securityViolationsWith (allowed: SafeList) (html: string) (allowStyl
 let private securityViolations (html: string) (allowStyle: bool) : string list =
     securityViolationsWith SafeList.autoLink html allowStyle
 
+/// The browser model (security review, plans/design-richtext.md section 11): Html5.parseBody is the pipeline's own parser, with
+/// scripting off and as a body, so an output it reads one way and a browser another (mutation XSS) would pass the assertions above.
+/// This parses the output as a page does: scripting on, inside `messages/_presentation`'s container, with a sentinel after it.
+let private browser =
+    AngleSharp.Html.Parser.HtmlParser(AngleSharp.Html.Parser.HtmlParserOptions(IsScripting = true), AngleSharp.BrowsingContext.New(AngleSharp.Configuration.Default))
+
+let private browserViolationsWith (allowed: SafeList) (html: string) (allowStyle: bool) : string list =
+    let page = browser.ParseDocument("<!DOCTYPE html><body><div id=\"x-container\">" + html + "</div><p id=\"x-after\">after</p></body>")
+    let body = nonNull page.Body
+    match page.GetElementById "x-container", page.GetElementById "x-after" with
+    | null, _
+    | _, null -> [ "the container or the sentinel is gone" ]
+    | container, after ->
+        let violations = ResizeArray<string>()
+        let top = Html5.childrenOf body
+        if top.Length <> 2 || not (obj.ReferenceEquals(top[0], container)) || not (obj.ReferenceEquals(top[1], after)) || after.TextContent <> "after" then
+            violations.Add "escapes its container"
+        // The same assertions, on what the browser built inside the container
+        let inner = Html5.innerHtml container
+        for v in securityViolationsWith allowed inner allowStyle do
+            violations.Add $"as a browser parses it: {v}"
+        for node in Html5.descendants container do
+            match node with
+            | :? AngleSharp.Dom.IComment -> violations.Add "as a browser parses it: comment"
+            | :? AngleSharp.Dom.IElement as element when not (String.Equals(element.NamespaceUri, "http://www.w3.org/1999/xhtml", StringComparison.Ordinal)) ->
+                violations.Add $"as a browser parses it: foreign <{element.LocalName}>"
+            | _ -> ()
+        List.ofSeq violations
+
+let private browserViolations (html: string) : string list = browserViolationsWith SafeList.autoLink html false
+
 // --- The comparison ------------------------------------------------------------------------------
 
 /// `corpus/known-differences.json`: for each kind of answer, the corpus cases whose new answer differs from Rails' (loosely compared,
@@ -346,6 +377,13 @@ let ``security_assertions_catch_planted_defects`` () =
           "<details>x</details>", "element outside the allowlist" ] do
         Assert.True(not (List.isEmpty (securityViolations html false)), $"missed {what} in {html}")
     Assert.True(List.isEmpty (securityViolations "<p><a href=\"https://example.com\">x</a><img src=\"/a.png\"></p>" false))
+    // What only the browser model sees: markup that leaves the message's container, and structure a browser rebuilds
+    for (html, what) in
+        [ "<p>x</p></div><p>outside</p>", "an end tag that closes the container"
+          "<table><div><table><tr><td>x</td></tr></table></div></table><b>y</b>", "a div inside a table that closes the container"
+          "<p title=\"</noscript><img src=x onerror=alert(1)>\"><noscript><p title=\"</noscript><img src=x onerror=alert(1)>\"></noscript></p>", "a noscript a browser reads as text" ] do
+        Assert.True(not (List.isEmpty (browserViolations html)), $"the browser model missed {what} in {html}")
+    Assert.True(List.isEmpty (browserViolations "<p><a href=\"https://example.com\">x</a><img src=\"/a.png\"></p>"))
 
 
 // --- Unit 5.5: the new presentation (C1, N1, N2) ---------------------------------------------------------------------------------
@@ -475,7 +513,7 @@ let ``N2 the security assertions hold for every new presentation and body.html``
         match ActionText.presentMessage body ctx with
         | Presentation.Html html ->
             checkedOutputs <- checkedOutputs + 1
-            for v in securityViolations html false do
+            for v in securityViolations html false @ browserViolations html do
                 violations.Add $"{name}: {v}"
         | _ -> ()
         // The bot API's body.html: the content partial inside the layout, sanitized with Action Text's list
@@ -490,7 +528,8 @@ let ``N2 the security assertions hold for every new presentation and body.html``
     Assert.True(violations.Count = 0, String.Join("\n", violations))
 
 /// S7 (unit 5.6b): a seeded fuzz of the new presentation, including autolink. Hostile fragments are spliced into the corpus bodies and
-/// into each other; every output is parsed again (AngleSharp as the browser model) and must hold no
+/// into each other; every output is parsed again, by the pipeline's parser and by the browser model (scripting on, inside its
+/// container: since the security review), and must stay inside its container and hold no
 /// disallowed element or attribute, no foreign element, no comment, no event attribute and no dangerous URL. The larger run of 151,087
 /// outputs belongs to the checkpoint's out-of-repo harness; this one keeps the oracle in the build.
 [<Fact>]
@@ -510,7 +549,17 @@ let ``S7 fuzzed bodies present with no disallowed markup`` () =
            "<isindex>"; "&lt;script&gt;"; "<div style=\"background:url(javascript:x)\">s</div>"; "<a href=\"vbscript:x\">v</a>"
            "<action-text-attachment sgid=\"bad\" content-type=\"text/html\" content=\"<script>x</script>\"></action-text-attachment>"
            "<action-text-attachment content-type=\"application/vnd.actiontext.opengraph-embed\" url=\"javascript:x\" href=\"javascript:x\" content=\"<img src=x onerror=x>\"></action-text-attachment>"
-           "https://example.com/(a)>"; "\u0000"; "<plaintext>"; "<xmp><img src=x onerror=x></xmp>"; "<template><script>x</script></template>" |]
+           "https://example.com/(a)>"; "\u0000"; "<plaintext>"; "<xmp><img src=x onerror=x></xmp>"; "<template><script>x</script></template>"
+           // The security review's (plans/design-richtext.md section 11): a body AngleSharp's tree builder throws on, structure a browser
+           // rebuilds, and the classic mutation shapes
+           "<p><select><xmp></xmp><select>x"; "<table><template><div><table><tr><td>x</td></tr></table></div></template></table>"
+           "<b><table><tr><td></b>x</td></tr></table>"; "<li><figure><li>x</li></figure></li>"; "<a><template><a>x</a></template></a>"
+           "<svg></p><style><a id=\"</style><img src=1 onerror=alert(1)>\">"; "<math><mtext><table><mglyph><style><!--</style><img title=\"--&gt;&lt;img src=1 onerror=alert(1)&gt;\">"
+           "<form><math><mtext></form><form><mglyph><style></math><img src onerror=alert(1)>"; "<p title=\"<!--\">a</p><p title=\"--><img src=x onerror=x>\">b</p>"
+           "<math><annotation-xml encoding=\"text/html\"><style><img src=x onerror=x></style></annotation-xml></math>"
+           "<a title=\"&lt;/noscript&gt;&lt;img src=x onerror=x&gt;\">x</a>"; "<a href=\"javascript&colon;x\">c</a><a href=\"&#14;javascript:x\">d</a>"
+           "<action-text-attachment content-type=\"image/png\" url=\"javascript://%0aalert(1)\" caption=\"<img src=x onerror=x>\"></action-text-attachment>"
+           "<action-text-attachment content-type=\"text/html\" content=\"&lt;p&gt;&lt;select&gt;&lt;xmp&gt;&lt;/xmp&gt;&lt;select&gt;x\"></action-text-attachment>" |]
     let rng = Random(56)
     let violations = ResizeArray<string>()
     let mutable outputs = 0
@@ -523,7 +572,7 @@ let ``S7 fuzzed bodies present with no disallowed markup`` () =
         match ActionText.presentMessage body ctx with
         | Presentation.Html html ->
             outputs <- outputs + 1
-            for v in securityViolations html false do
+            for v in securityViolations html false @ browserViolations html do
                 violations.Add $"{i}: {v}"
             match Html5.parseBody html with
             | Ok root ->
