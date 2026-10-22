@@ -28,7 +28,7 @@ module Html =
         /// character reference: the sanitizer keeps no `script` or `style`, so it is in text or an attribute value, where the
         /// reference parses to the same character.
         let ofSanitized (html: string) : Trusted = Trusted(withoutMarker "&#57344;" html)
-        /// The import map and stylesheet tags `Campfire.Assets` builds from digests (allowlisted: where the ViewContext is built).
+        /// The import map and stylesheet tags `StaticAssets` builds from its table (allowlisted: where the ViewContext is built).
         let ofAssetTags (html: string) : Trusted = Trusted html
         /// The account's custom CSS, which Rails writes `html_safe` (allowlisted: Markup/Application.fs).
         /// U+E000 becomes a CSS escape (`\E000 `, the same character in an identifier or a string): the styles are a `style`

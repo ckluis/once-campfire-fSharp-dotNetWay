@@ -2,8 +2,8 @@
 
 Files in `overrides/` shadow the reference app's assets of the same logical path (the path under
 `app/javascript`, `app/assets/*` or a vendored gem's asset directory), so the F# app can change its
-frontend without editing the `reference/` submodule. `Campfire.Assets.Build` puts that directory
-first on the load path.
+frontend without editing the `reference/` submodule. The `CampfireStageWebRoot` target in `Campfire.App.fsproj` stages them
+over the vendored files, so an override wins.
 
 | File | Differs from the reference by |
 |---|---|

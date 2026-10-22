@@ -8,8 +8,7 @@
 #
 # The build runs on a private copy of the sources (without bin/, obj/, target/, rust/ and the parity seeds,
 # which the tests still read from the real repository through CAMPFIRE_ROOT), so it can't clash with the
-# host's obj/ and bin/, and the projects that generate files beside their sources (Campfire.Assets writes its
-# embedded assets under obj/) can build. A run starts from a clean build.
+# host's obj/ and bin/, and the build's own staging (the App stages its web root under obj/) can run. A run starts from a clean build.
 set -euo pipefail
 root="$(cd "$(dirname "$0")/.." && pwd)"
 

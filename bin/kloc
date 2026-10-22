@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # KLOC by upstream's rules, per project: cloc 2.10 --by-file --skip-uniqueness over `git ls-files 'src/**/*.fs'`, without
-# src/Campfire.Assets.Build (a build-time tool, as Rust's build.rs is) and without the static-data modules upstream's rule leaves
+# the static-data modules upstream's rule leaves
 # out (the same list as onCrack's bench/results/oncrack-r5-final/kloc/kloc.py). Rust's 31.0 is the bar (plans/dotnetway.md, D7).
 #
 #   bin/kloc            per-project table of the working tree, both columns, and the total
@@ -19,7 +19,7 @@ CLOC=${CLOC:-$ROOT/../upstream-campfire/tools/cloc-2.10.pl}
 [ -f "$CLOC" ] || { echo "kloc: cloc 2.10 not found at $CLOC (set CLOC)" >&2; exit 2; }
 TMP=$(mktemp -d); trap 'rm -rf "$TMP"' EXIT
 cd "$ROOT"
-git ls-files 'src/**/*.fs' | grep -v '^src/Campfire.Assets.Build/' > "$TMP/files"
+git ls-files 'src/**/*.fs' > "$TMP/files"
 xargs perl "$CLOC" --by-file --skip-uniqueness --quiet --csv < "$TMP/files" > "$TMP/raw.csv"
 while read -r f; do mkdir -p "$TMP/fix/$(dirname "$f")"; sed 's/(\*/(_/g' "$f" > "$TMP/fix/$f"; done < "$TMP/files"
 (cd "$TMP/fix" && xargs perl "$CLOC" --by-file --skip-uniqueness --quiet --csv < "$TMP/files" > "$TMP/fixed.csv")

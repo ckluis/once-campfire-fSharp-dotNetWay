@@ -103,10 +103,8 @@ RUN curl -fsSL https://dot.net/v1/dotnet-install.sh -o /tmp/dotnet-install.sh &&
 
 
 # Publish the app. NetVips loads the system libvips by its soname at run time, so nothing here links
-# against the media libraries; src/Campfire.Assets digests and embeds the reference's assets and public/
-# at build time (src/Campfire.Assets.Build), which is why reference/ is in the context. That tool runs from
-# bin/Release/net11.0, where a build without a runtime identifier puts it; publishing with `-r` would
-# build it under a runtime-specific directory, so it is built once without one first.
+# against the media libraries; the App's CampfireStageWebRoot target stages the vendored assets and public/ files
+# into its web root at build time and the SDK fingerprints them (StaticAssets), which is why reference/ is in the context.
 FROM media-base AS build
 COPY --from=dotnet /opt/dotnet /opt/dotnet
 ENV DOTNET_ROOT=/opt/dotnet \
@@ -128,7 +126,6 @@ RUN --mount=type=cache,id=campfire-fsharp-nuget,target=/root/.nuget/packages \
       arm64) rid=linux-arm64 ;; \
       *) echo "unsupported architecture: $TARGETARCH" >&2; exit 1 ;; \
     esac && \
-    dotnet build src/Campfire.Assets.Build/Campfire.Assets.Build.fsproj -c Release && \
     dotnet publish src/Campfire.App/Campfire.App.fsproj -c Release -r "$rid" --self-contained true \
       -p:PublishReadyToRun=$READY_TO_RUN -p:DebugType=None -p:DebugSymbols=false -o /out/campfire
 
