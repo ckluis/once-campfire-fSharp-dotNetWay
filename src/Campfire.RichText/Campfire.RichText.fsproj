@@ -8,6 +8,7 @@
     <Compile Include="Unicode/Chars.fs" />
     <Compile Include="Dom.fs" />
     <Compile Include="RubyExt.fs" />
+    <Compile Include="Loofah.fs" />
     <Compile Include="Sanitizer.fs" />
     <Compile Include="RubyUri.fs" />
     <Compile Include="Error.fs" />
@@ -18,6 +19,7 @@
     <Compile Include="Autolink.fs" />
     <Compile Include="ActionText.fs" />
     <Compile Include="Next/Html5.fs" />
+    <Compile Include="Next/Sanitizer.fs" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="AngleSharp" />
