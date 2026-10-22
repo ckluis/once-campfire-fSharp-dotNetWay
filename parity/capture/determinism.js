@@ -3,7 +3,7 @@
 // Math.random is replaced with a seeded PRNG so client-generated ids (Lexxy's link input ids,
 // composer_controller.js client message ids) are the same on every run. One global sequence isn't
 // enough: modules evaluate in network order, so which caller drew first varied. Each call site
-// (its script, with asset digests stripped, line and column) gets its own sequence instead.
+// (its script, with asset digests and SDK fingerprints stripped, line and column) gets its own sequence instead.
 ;(() => {
   const counters = new Map()
   const hash = (text) => {
@@ -20,7 +20,7 @@
   const callSite = () => {
     const lines = (new Error().stack || "").split("\n").filter((l) => l.trim() && !/^Error/.test(l))
     // [0] is callSite, [1] is random, [2] is the caller (V8, SpiderMonkey and JSC agree on this).
-    return (lines[2] || "").replace(/-[0-9a-f]{7,64}(\.[a-z]+)/g, "$1").replace(/^\s*at\s+/, "").trim()
+    return (lines[2] || "").replace(/(?:-[0-9a-f]{7,64}|\.[0-9a-z]{10})(\.[a-z]+)/g, "$1").replace(/^\s*at\s+/, "").trim()
   }
   Math.random = function random() {
     const site = callSite()
