@@ -7,6 +7,7 @@
     <Compile Include="../Shared/Repo.fs" Link="Repo.fs" />
     <Compile Include="Support.fs" />
     <Compile Include="DomTests.fs" />
+    <Compile Include="Html5Tests.fs" />
     <Compile Include="TokenizerTests.fs" />
     <Compile Include="SanitizerTests.fs" />
     <Compile Include="RubyTests.fs" />
@@ -26,5 +27,8 @@
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="xunit.v3" />
+    <!-- Reads the parity seed's bodies (Html5Tests P1). -->
+    <PackageReference Include="Microsoft.Data.Sqlite" />
+    <PackageReference Include="AngleSharp" />
   </ItemGroup>
 </Project>
