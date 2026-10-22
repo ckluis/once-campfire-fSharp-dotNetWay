@@ -2967,3 +2967,36 @@ Adversarial review of `e58de72..9e31f63` (6.1-6.4) against `plans/design-assets.
 - **KLOC** `bin/kloc` after commit: 30,273 by upstream's rules, 30,445 corrected (+121 over 30,152 at 6.4's fix: tests H7/H8 and the unit's changes; 6.7 still
   deletes `Campfire.Assets`).
 - **Differences recorded.** None new (fingerprint URL form A5, plain `@import` fetches A12, A15 masks).
+
+### Phase 6, unit 6.6: public files and the network check (2026-10-22)
+
+- **Built.** The old `publicFiles` middleware and `Boot.staticResponse` are gone; `Web.Services.pipeline` calls `StaticAssets.map` where Rails' `ActionDispatch::Static`
+  ran (it no longer takes a public-files delegate). `ErrorPages` (`Web/Edge.fs`) starts empty and is filled by the pipeline from `404/422/500/502.html` through
+  `StaticAssets.webRootFile` once the host's web root is known (`Boot.errorPages ()` returns the empty instance; the tests' `routedPipeline` gets the same fill).
+  `Avatars.assetFile` takes the `IWebHostEnvironment` and returns the staged file's `PhysicalPath` (`assets/default-bot-avatar.svg`; `Logos` reads
+  `assets/logos/app-icon*.png` the same way); the temporary-directory extraction and its lock are deleted. `Boot` and `Avatars` no longer open `Campfire.Assets`
+  (only the project reference remains, for 6.7). Nothing renders before `StaticAssets.map`: the error pages read the web root, not the table.
+- **Tests.** AppTests' four `Assets.serve`/`staticResponse` tests (public files before routing, the byte-borrowing corpus, the timing probe) and ControllerTests'
+  concurrent-first-write test are gone with the code they covered; `AuthenticationTests`' no-cookie-read test takes its asset path from `StaticAssets.path`.
+  New H5 (the five public files carry `reference/public`'s bytes; `/nope`, `/404`, `/422`, `/500` and `/502` are the app's 404 with `404.html`'s bytes) and H6
+  (a bot without an avatar gets the staged `default-bot-avatar.svg` as `image/svg+xml`; the stock logo is 200 `image/png`). `CAMPFIRE_REQUIRE_SEED=1 bin/verify`:
+  1,025 total, 1,019 passed, 0 failed, 6 skipped (the environmental six); lint, Dapper guard, H1 green.
+- **`bin/asset-check`** (bash and python3 inside colima, against `parity/bin/candidate up --seed default`; curl with Brotli decodes `br`): signs in through the form, reads
+  the Designers room page, and checks the 144 `/assets/` URLs it carries (142 of text types): N1 (fingerprint form, 200, `max-age=31536000, immutable`, ETag, 304,
+  `Vary: Accept-Encoding`, no `x-request-id`/`x-runtime`), N2 (`br`/`gzip`/identity content-encodings, the three decode to equal bytes), N3 (plain `composer.css` 200
+  `no-cache`, `nope.css` 404, `/robots.txt` 200, a sound with `Range` 206), N4 (the `Link` header names 15 fingerprinted stylesheets), the five public files, the
+  extensionless error paths as the app's 404, and the checkpoint's probe list (21 URLs: encoded dots, `%5C`, a raw backslash, dotfiles, `/campfire.dll`, the endpoint
+  manifest, `/wwwroot/...`, `/.env`, `/.git/config`, `/assets/.manifest.json`), each a 404 or 400 that leaks nothing. **Image rebuilt** with
+  `CAMPFIRE_REVISION=$(git rev-parse HEAD) parity/bin/candidate build` at `a0cb099` (label checked on `campfire-dotnetway:app` and `campfire-candidate-dotnetway`; only
+  `bin/asset-check` and this entry were committed after it): **1,794 checks, 0 failed.** A planted `max-age=1` in the expected header failed 144 checks (one per URL), then
+  was removed. (The script first `exec`'d python, so its cleanup trap never ran and a candidate container stayed up; fixed, `bin/clean-docker` ran after.)
+  `/assets/lexxy.js.gz` answers 200 `Content-Encoding: gzip`: the SDK's own precompressed route of `lexxy.js`, as the README now says.
+- **Pixel (`--fast --only 'errors/**,users/**,bot_api/**,pwa/**'`, every seed, `bin/clean-parity` after).** default 66/66 screenshots, aria and loose equal; custom_styles 2/2;
+  crowd, first_run and restricted have no such states (0/0); PASSED in 226 s.
+- **`bin/cookie-roundtrip` once:** 20/20 checks, both ways (Rails -> ours -> Rails).
+- **README.** The "Known differences" **Assets** entry (class A: fingerprint form, `url()`/`@import` not rewritten, ETag and `Last-Modified`, precompressed text, `ImportMapDefinition`,
+  15-link header; class B: cache headers, extensionless error paths, no `.manifest.json`/dotfiles/build output, multi-range, 405 on other methods, the vendored `lexxy.js.gz`/`.br`
+  names, no `x-request-id` on assets), each with the test that pins it.
+- **KLOC** `bin/kloc` after the commits: 30,231 by upstream's rules, 30,403 corrected (-42 against 6.5's 30,273 / 30,445: `Boot`'s static code, `Avatars`' extraction and four retired tests go, H5/H6 and the `ErrorPages` fill come in). 6.7 still deletes `Campfire.Assets` (-429).
+- **Differences recorded.** The README Assets entry (design section 8). Beyond it, one that the design's list did not name: `/robots.txt` and the error pages are `no-cache` with an ETag
+  (Rails: `public, max-age=2592000`), covered by the cache-header class B line.

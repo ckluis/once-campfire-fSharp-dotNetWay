@@ -48,7 +48,7 @@ cleanup() { [ -n "$KEEP" ] || "$ROOT/parity/bin/candidate" down --port "$PORT" >
 trap cleanup EXIT
 "$ROOT/parity/bin/candidate" up --seed "$SEED" --port "$PORT"
 
-exec python3 - "http://127.0.0.1:$PORT" "$SEED_DIR/labels.json" <<'PY'
+python3 - "http://127.0.0.1:$PORT" "$SEED_DIR/labels.json" <<'PY'
 import gzip, html, json, os, re, subprocess, sys, tempfile
 
 BASE, LABELS = sys.argv[1], sys.argv[2]
