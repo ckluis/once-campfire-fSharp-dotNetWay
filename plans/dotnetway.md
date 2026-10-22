@@ -2897,3 +2897,34 @@ this entry and its evidence are the commit after it).
 - **KLOC** `bin/kloc`: 30,195 by upstream's rules, 30,367 corrected (+37 over 30,330: `Importmap.fs` and the load and accessors in `StaticAssets.fs`, before the 6.7
   deletion of `Campfire.Assets` -429). The design projected 45 lines for `Importmap.fs` alone (105 lines on disk, comments included).
 - **Differences recorded.** None new: the 15-link preload header and the import map's text are A5/A6's class A entries.
+
+### Phase 6, checkpoint after 6.4: Opus review (2026-10-22) - GO for 6.5, with notes
+
+Adversarial review of `e58de72..9e31f63` (6.1-6.4) against `plans/design-assets.md` and D1-D9. Fix in `b5d84cb`.
+- **Re-run.** `CAMPFIRE_REQUIRE_SEED=1 bin/verify` on `9e31f63`: 1,024 total, 1,018 passed, 0 failed, 6 skipped; on `b5d84cb`: **1,025 total, 1,019
+  passed, 0 failed, 6 skipped** (lint self-test 39/39, 339 files clean, the guards, H1). `bin/check-assets-incremental` ok. Image rebuilt at `b5d84cb`
+  (label checked; `bin/clean-docker` run); `bin/pixel-parity --fast --seeds default --only 'auth/sign_in*,rooms/show/designers'`: **4/4 screenshots, aria
+  and loose equal**; `bin/clean-parity` run. Disk 25-26 GB free throughout. No bench: 6.4 and this fix change only strings computed once at boot (the 6.3
+  bench in `bench/results/quick-63` stands: labels 47eb5b8 / 853604f, probe and load recorded, no cell under 5x).
+- **Checked and holding.** The masks (A15): over all 315 logical paths the asset mask matches no plain URL, and a Propshaft digest and an SDK fingerprint
+  of each path mask equal. The table takes only fingerprinted, unselected, uncompressed descriptors under `assets/`; the startup validation and the
+  failing host without `configureHost` are tested. T1-T6 match the Rails fixtures. **Published image probed** (`parity/bin/candidate up`, `default`): no
+  `campfire.staticwebassets.runtime.json` in `/opt/campfire` (so no development fallback route), no dotfile in `wwwroot`; a fingerprinted URL gives
+  `max-age=31536000, immutable`, ETag, `Vary: Accept-Encoding`, br 1,225 / gzip 1,439 / identity 4,113 bytes, 304 on `If-None-Match`, 206 on a sound's
+  `Range`, 405 on POST, no `x-request-id`/`x-runtime`; `/assets/..%2Fcampfire.dll`, `%2e%2e`, `%5C` and raw-backslash forms, `/campfire.dll`, the endpoints
+  manifest, `/wwwroot/...`, `/assets/.keep`, `/assets/.DS_Store` and `/..%2f..%2fetc/passwd` are all the app's 404. Until 6.6 the old middleware still
+  answers `/404` (200), `/robots.txt` (`public, max-age=2592000`) and the vendored `/assets/lexxy.js.br`; `/assets/lexxy.js.gz` is the SDK's own
+  precompressed route (Content-Encoding gzip), not the vendored file. No CSP is configured in the reference (`content_security_policy.rb` is all
+  comments), so no nonce; no integrity in the import map (Rails' has none).
+- **Fixed (`b5d84cb`).** (1) `Importmap.pins` sorted `pin_all_from` files by path component (the Rust port's `PathBuf` order); importmap-rails sorts
+  `Dir[...]` as strings (byte order: `a-b.js` and `a.js` before `a/b.js`). Same output on today's `importmap.rb`; T6 now pins Ruby's order. Also `to:` without
+  `under:` (Ruby's `compact`: no prefix) and a repeated `pin_all_from` of a directory keeping its place. (2) The preload `Link` header skipped a link that
+  would not fit and counted the comma; actionview's `send_preload_links_header` breaks at the first such link and does not count the comma. Same 15 links
+  today; T5 pins Rails' rule. (3) **Security:** the staging target filtered dotfiles only from the load path: a `.DS_Store` in `Assets/overrides` was
+  staged and would be served at `/assets/.DS_Store` (shown by a planted file on `9e31f63`'s target). Dotfiles and dot-directories are now left out of the
+  overrides and `reference/public` too (planted `.DS_Store` and `.hidden/x.js`: nothing staged). (4) `.dockerignore` keeps the locally staged `wwwroot`
+  out of the image's context. (5) New App test: encoded dots and backslashes, the build output and the web root by name are not served.
+- **KLOC.** 6.4's entry under-counted: `bin/kloc` at `9e31f63` is **30,278 by upstream's rules, 30,450 corrected** (+120 over 6.3, not +37; `bin/kloc`
+  reads `git ls-files`, so an uncommitted `Importmap.fs` is not counted). At `b5d84cb`: **30,280 / 30,452**. The asset layer in the App is about 0.24 KLOC
+  (`StaticAssets.fs` and `Importmap.fs`) against the design's 0.15, so the phase lands near 30.2 after 6.7's -429, not 29.9.
+- **Differences recorded.** None new.
