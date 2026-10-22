@@ -330,3 +330,47 @@ let ``T6 Importmap.pins on small sources`` () =
     Assert.ThrowsAny<exn>(fun () -> pinsFrom "pin_all_from_x \"a\"" [] |> ignore) |> ignore
     Assert.ThrowsAny<exn>(fun () -> pinsFrom "pin \"a\", integrity: true" [ "a.js" ] |> ignore) |> ignore
     Assert.ThrowsAny<exn>(fun () -> pinsFrom "pin \"a\", to: foo" [ "a.js" ] |> ignore) |> ignore
+
+// --- Unit 6.5 (design section 5, H7-H8): the pages' asset URLs are the table's fingerprinted ones ---------------------------
+
+let private fingerprinted = System.Text.RegularExpressions.Regex(@"/assets/((?:[A-Za-z0-9_\-/]+?))\.[0-9a-z]{10}(\.[a-z0-9]+)")
+
+let private logicalNames (text: string) : string list =
+    [ for m in fingerprinted.Matches text -> m.Groups[1].Value + m.Groups[2].Value ] |> List.distinct |> List.sort
+
+[<Fact>]
+let ``H7 the web app manifest's icons, screenshots and shortcuts are fingerprinted URLs of the logical paths Rails names`` () =
+    task {
+        use! test = Campfire.App.Tests.Support.bootSeeded "default"
+        let! manifest = test.Send(Campfire.App.Tests.Support.get "/webmanifest.json")
+        Assert.Equal(200, manifest.Status)
+        let text = manifest.Text
+        // Every asset URL in the manifest is fingerprinted (none is a plain `/assets/<logical>`).
+        let all = System.Text.RegularExpressions.Regex.Matches(text, @"/assets/[^""]+") |> Seq.map (fun m -> m.Value) |> List.ofSeq
+        Assert.NotEmpty all
+        for url in all do
+            Assert.True(fingerprinted.IsMatch url, $"not fingerprinted: {url}")
+        // Each is the table's own route for that logical path, as Rails names the manifest's images.
+        let names = logicalNames text
+        for name in names do
+            Assert.Contains(Campfire.App.Web.StaticAssets.path name, text.Replace("\\/", "/"))
+        Assert.Equal<string list>([ "add.svg"; "person.svg"; "screenshots/android-chat.png"; "screenshots/android-dark-mode.png"; "screenshots/android-sidebar.png" ], names)
+    }
+
+[<Fact>]
+let ``H8 a message with a sound renders the fingerprinted mp3 and image URLs`` () =
+    task {
+        use! test = Campfire.App.Tests.Support.bootSeeded "default"
+        let bot = Campfire.App.Tests.Support.anonymous test
+        let! created = bot.Send((Campfire.App.Tests.Support.request "POST" $"/rooms/{Campfire.App.Tests.Support.ALL_TALK}/{Campfire.App.Tests.Support.BENDER_KEY}/messages").WithBody "/play yeah")
+        Assert.Equal(201, created.Status)
+        let b = Campfire.App.Tests.Support.browser test "198.51.100.9"
+        do! b.SignIn "david@37signals.com"
+        let! page = b.Get $"/rooms/{Campfire.App.Tests.Support.ALL_TALK}"
+        Assert.Equal(200, page.Status)
+        let mp3 = Campfire.App.Web.StaticAssets.path "yeah.mp3"
+        let image = Campfire.App.Web.StaticAssets.path "sounds/yeah.webp"
+        Assert.Contains(mp3, page.Text)
+        Assert.Contains(image, page.Text)
+        Assert.DoesNotContain("/assets/yeah.mp3", page.Text)
+    }
