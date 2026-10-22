@@ -20,6 +20,9 @@
     <Compile Include="ActionText.fs" />
     <Compile Include="Next/Html5.fs" />
     <Compile Include="Next/Sanitizer.fs" />
+    <Compile Include="Next/PlainText.fs" />
+    <Compile Include="Next/Content.fs" />
+    <Compile Include="Next/ActionText.fs" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="AngleSharp" />

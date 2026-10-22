@@ -39,7 +39,7 @@ let removeSoloUnfurledLinkText (content: Content) (ctx: RenderContext) : Result<
     result {
         let! soloUnfurledUrl =
             if unfurledLinks.Length = 1 then
-                Attachables.opengraphEmbedFromNode dom unfurledLinks[0] ctx |> Result.map (Option.bind (fun embed -> embed.Href))
+                Attachables.opengraphEmbedFrom (fun n -> dom.Attr(unfurledLinks[0], n)) ctx |> Result.map (Option.bind (fun embed -> embed.Href))
             else
                 Ok None
         let! plainText = Content.toPlainText content ctx

@@ -65,7 +65,7 @@ module ActionText =
             let dom = Dom()
             let! root = parseErr (dom.ParseFragment(RubyString.strip body))
             for node in Content.attachmentNodes dom root do
-                let! attachment = Attachables.attachmentFromNode dom node ctx
+                let! attachment = Attachables.attachmentFrom (fun n -> dom.Attr(node, n)) ctx
                 match attachment.Attachable with
                 // A mention of a deleted user, say: nothing to edit, so it leaves the editor (Rails raises).
                 | Attachable.Missing _ -> dom.Detach node
@@ -87,7 +87,7 @@ module ActionText =
                         | ValueNone -> true
                         | ValueSome url -> isBlank url
                     if noUrl then
-                        let! attachment = Attachables.attachmentFromNode dom node ctx
+                        let! attachment = Attachables.attachmentFrom (fun n -> dom.Attr(node, n)) ctx
                         let! content = Content.renderAttachmentHtml attachment ctx
                         dom.SetAttr(node, "content", Json.encode (Value.String content))
                 return Some(dom.ToHtml root)
@@ -99,7 +99,7 @@ module ActionText =
         |> Result.map (fun content ->
             let users = ResizeArray<MentionUser>()
             for node in Content.attachmentNodes content.Dom content.Root do
-                match Attachables.actionTextAttachableFromNode content.Dom node ctx with
+                match Attachables.actionTextAttachableFrom (fun n -> content.Dom.Attr(node, n)) ctx with
                 | Attachable.User user when not (users.Exists(fun u -> u.Id = user.Id)) -> users.Add user
                 | _ -> ()
             List.ofSeq users)

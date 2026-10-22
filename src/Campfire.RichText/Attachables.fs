@@ -95,6 +95,9 @@ type PlainTextRepresentation =
     | Markup of string
     | Fragment of string
 
+/// A node's attributes by name, so the resolution rules do not care which DOM the node lives in (plans/design-richtext.md R13).
+type Attrs = string -> string voption
+
 module Attachables =
     [<Literal>]
     let MentionContentType = "application/vnd.campfire.mention"
@@ -248,17 +251,17 @@ module Attachables =
     /// `ActionText::Attachable.from_node`, with Lexxy's RemoteVideo fallback for missing attachables.
     /// `Content#attachables` (and so `Message#mentionees`) uses this directly, without Campfire's
     /// invalid-signature fallback.
-    let actionTextAttachableFromNode (dom: Dom) (node: NodeId) (ctx: RenderContext) : Attachable =
+    let actionTextAttachableFrom (attrs: Attrs) (ctx: RenderContext) : Attachable =
         let signed =
-            match dom.Attr(node, "sgid") with
+            match attrs "sgid" with
             | ValueSome sgid -> ctx.Resolver.LocateSigned sgid
             | ValueNone -> SignedLookup.Invalid
         match signed with
         | SignedLookup.User user -> Attachable.User user
         | _ ->
-            let contentType = dom.Attr(node, "content-type")
+            let contentType = attrs "content-type"
             let isContent =
-                match dom.Attr(node, "content"), contentType with
+                match attrs "content", contentType with
                 | ValueSome content, ValueSome t when t.Contains "html" && not (isBlank content) -> Some content
                 | _ -> None
             match isContent with
@@ -266,19 +269,19 @@ module Attachables =
             | None ->
                 let opt (v: string voption) = match v with ValueSome s -> Some s | ValueNone -> None
                 let fromUrl =
-                    match dom.Attr(node, "url") with
+                    match attrs "url" with
                     | ValueSome url ->
                         let t = defaultValueArg contentType ""
                         if matchesMediaType "image" t then
-                            Some(Attachable.RemoteImage(url, opt (dom.Attr(node, "width")), opt (dom.Attr(node, "height"))))
+                            Some(Attachable.RemoteImage(url, opt (attrs "width"), opt (attrs "height")))
                         elif matchesMediaType "video" t then
                             Some(
                                 Attachable.RemoteVideo(
                                     url,
                                     t,
-                                    opt (dom.Attr(node, "width")),
-                                    opt (dom.Attr(node, "height")),
-                                    opt (dom.Attr(node, "filename"))
+                                    opt (attrs "width"),
+                                    opt (attrs "height"),
+                                    opt (attrs "filename")
                                 )
                             )
                         else
@@ -374,48 +377,48 @@ module Attachables =
         }
 
     /// `ActionText::Attachment::OpengraphEmbed.from_node`
-    let opengraphEmbedFromNode (dom: Dom) (node: NodeId) (ctx: RenderContext) : Result<OpengraphEmbed option, RenderError> =
-        match dom.Attr(node, "content-type") with
+    let opengraphEmbedFrom (attrs: Attrs) (ctx: RenderContext) : Result<OpengraphEmbed option, RenderError> =
+        match attrs "content-type" with
         | ValueNone -> Ok None
         | ValueSome contentType when not (isOpengraphContentType contentType) -> Ok None
         | ValueSome _ ->
             let host = defaultArg ctx.RequestHost ""
             result {
-                if (presence (dom.Attr(node, "filename"))).IsSome then
-                    let! href = webUrl (dom.Attr(node, "href")) host
-                    let! url = webUrl (dom.Attr(node, "url")) host
+                if (presence (attrs "filename")).IsSome then
+                    let! href = webUrl (attrs "href") host
+                    let! url = webUrl (attrs "url") host
                     return
                         Some
                             { Href = href
                               Url = url
-                              Filename = opt (dom.Attr(node, "filename"))
-                              Description = opt (dom.Attr(node, "caption")) }
+                              Filename = opt (attrs "filename")
+                              Description = opt (attrs "caption") }
                 else
-                    let! embed = embedFromContent (defaultValueArg (dom.Attr(node, "content")) "") host
+                    let! embed = embedFromContent (defaultValueArg (attrs "content") "") host
                     return Some embed
             }
 
     let twitterAvatar (embed: OpengraphEmbed) : bool =
         (defaultArg embed.Url "").StartsWith(TwitterAvatarUrlPrefix, StringComparison.Ordinal)
 
-    let private attachableFromNode (dom: Dom) (node: NodeId) (ctx: RenderContext) : Result<Attachable, RenderError> =
+    let private attachableFrom (attrs: Attrs) (ctx: RenderContext) : Result<Attachable, RenderError> =
         result {
-            match! opengraphEmbedFromNode dom node ctx with
+            match! opengraphEmbedFrom attrs ctx with
             | Some embed -> return Attachable.OpengraphEmbed embed
             | None ->
-                match! attachableFromPossiblyExpiredSgid (dom.Attr(node, "sgid")) ctx with
+                match! attachableFromPossiblyExpiredSgid (attrs "sgid") ctx with
                 | Some user -> return Attachable.User user
-                | None -> return actionTextAttachableFromNode dom node ctx
+                | None -> return actionTextAttachableFrom attrs ctx
         }
 
     /// Campfire's `ActionText::Attachment.from_node` (reference/lib/rails_ext/action_text_attachables.rb):
     /// an opengraph embed, else a User found through a possibly invalid SGID, else Action Text's own
     /// lookup (as extended by Lexxy).
-    let attachmentFromNode (dom: Dom) (node: NodeId) (ctx: RenderContext) : Result<Attachment, RenderError> =
-        attachableFromNode dom node ctx
+    let attachmentFrom (attrs: Attrs) (ctx: RenderContext) : Result<Attachment, RenderError> =
+        attachableFrom attrs ctx
         |> Result.map (fun attachable ->
             { Attachable = attachable
-              Caption = presence (dom.Attr(node, "caption")) |> opt })
+              Caption = presence (attrs "caption") |> opt })
 
     // --- Partials ----------------------------------------------------------------------------
 

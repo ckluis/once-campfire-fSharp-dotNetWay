@@ -461,3 +461,27 @@ module Html5 =
                 parent.RemoveChild node |> ignore
                 Ok()
         | _ -> Ok()
+
+    /// The node's attributes by name, as the resolution rules in `Attachables` read them (R13).
+    let attrsOf (node: INode) : Attrs = fun name -> attr node name
+
+    /// A detached element of `owner`'s document with these attributes, in order.
+    let createElement (owner: INode) (local: string) (attributes: (string * string) list) : IElement =
+        let document = match owner with :? IDocument as d -> d | _ -> nonNull owner.Owner
+        let element = document.CreateElement local
+        for (name, value) in attributes do
+            element.SetAttribute(name, value)
+        element
+
+    /// libxml2's `xmlNodeGetContent`: a text node's data, an element's text descendants joined (comments left out).
+    let textContent (node: INode) : string =
+        match node with
+        | :? IText as text -> text.Data
+        | :? IComment as comment -> comment.Data
+        | _ ->
+            let out = StringBuilder()
+            for d in descendants node do
+                match d with
+                | :? IText as text -> out.Append text.Data |> ignore
+                | _ -> ()
+            out.ToString()

@@ -86,7 +86,7 @@ module Content =
                     else
                         let element = dom.CreateElement(AttachmentTag, List.ofSeq elementAttrs)
                         // Attachment.from_node resolves the attachable, which may raise
-                        Attachables.attachmentFromNode dom element ctx
+                        Attachables.attachmentFrom (fun n -> dom.Attr(element, n)) ctx
                         |> Result.map (fun _ -> dom.ToHtml element)
                 do! parseErr (dom.ReplaceWithHtml(node, replacement))
         }
@@ -157,7 +157,7 @@ module Content =
         result {
             for node in attachmentNodes dom root do
                 do! sanitizeContentAttribute dom node
-                let! attachment = Attachables.attachmentFromNode dom node ctx
+                let! attachment = Attachables.attachmentFrom (fun n -> dom.Attr(node, n)) ctx
                 match Attachables.attachmentPlainText attachment with
                 | PlainTextRepresentation.Markup text -> do! parseErr (dom.ReplaceWithHtml(node, text))
                 | PlainTextRepresentation.Fragment fragmentHtml ->
@@ -223,7 +223,7 @@ module Content =
         result {
             for node in attachmentNodes dom root do
                 do! sanitizeContentAttribute dom node
-                let! attachment = Attachables.attachmentFromNode dom node ctx
+                let! attachment = Attachables.attachmentFrom (fun n -> dom.Attr(node, n)) ctx
                 let! full = nodeWithFullAttributes dom node attachment.Attachable
                 let attachment =
                     { Attachable = attachment.Attachable
@@ -240,7 +240,7 @@ module Content =
                 let members = dom.Descendants gallery |> Seq.filter (isGalleryAttachment dom) |> List.ofSeq
                 let rendered = StringBuilder()
                 for memberNode in members do
-                    let! attachment = Attachables.attachmentFromNode dom memberNode ctx
+                    let! attachment = Attachables.attachmentFrom (fun n -> dom.Attr(memberNode, n)) ctx
                     let! full = nodeWithFullAttributes dom memberNode attachment.Attachable
                     let! html = renderAttachmentHtmlAt attachment ctx depth
                     do! parseErr (dom.SetInnerHtml(full, html))
