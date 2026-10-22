@@ -2509,3 +2509,21 @@ lives until 5.7), AngleSharp 1.8.4 pinned in `Directory.Packages.props` (the tes
 - **Gates run:** `CAMPFIRE_REQUIRE_SEED=1 bin/verify` green: lint, Dapper and EF guards, Release build with warnings as errors, every test (996 total, 990 passed, 0 failed, 6 skipped: the environmental six), run after the last code and test change.
   Not run: pixel slices and `bench/quick` (no app change). Disk 28 GB free.
 - **Next:** unit 5.3 (Attachables on attribute functions, PlainText, Content on the AngleSharp DOM).
+
+### Phase 5, unit 5.3: Attachments, load, plain text, mentions (2026-10-22)
+
+`plans/design-richtext.md` section 4, unit 5.3. **Built:** `Attachables.fs` split: `type Attrs = string -> string voption`; `attachmentFrom`, `actionTextAttachableFrom` and `opengraphEmbedFrom` take it (the old `...FromNode` names are gone; the old `Content`,
+`ActionText` and `Filters` pass `fun n -> dom.Attr(node, n)`, so the old pipeline's outputs are unchanged). `Next/PlainText.fs` (81 lines), `Next/Content.fs` (174: `attachmentNodes`, Trix conversion, `attachmentGalleryNodes`, `loadRoot`/`load`, `wrap`,
+`toHtml`, `toPlainText`; `Content = { Root: IElement }`), `Next/ActionText.fs` (26: `toPlainText`, `mentionedUsers`), and three helpers on `Next/Html5.fs` (`attrsOf`, `createElement`, `textContent`).
+- **Tests** (`NextContentTests.fs`): **M1** canonical bodies (bytes), plain text and mentions on the 1,479: 8 canonical bodies differ, 2 plain texts, 1 mention list, **every one on P1's list** (the test fails on any other name). **C2:** the 658 corpus canonical
+  bodies byte-equal except P1's 8. **C3:** the 164 seed bodies' plain text and mentions equal (0 differences; with a resolver that makes every SGID a user, 2 seed bodies mention someone). `Attachables` resolves every attachment node of the corpus
+  alike through either DOM's attributes (attachment and opengraph embed, structurally equal). The old `AttachablesTests` and `CorpusTests` are unchanged and green.
+- **Deviations from the note:** (1) `attrsOf` lives in `Next/Html5.fs`, not `Attachables.fs` (`Attachables.fs` compiles before AngleSharp's helpers; the plan's final order puts `Html5.fs` first, so 5.7 can move it). (2) `Attachables.embedFromContent` (the
+  opengraph embed's `content` markup) still parses with the **old `Dom`**, for both pipelines: it is DOM work, not attribute lookup. 5.7 (or earlier) moves it onto `Html5.parseBody` once `Html5.fs` precedes `Attachables.fs`; until then the new pipeline
+  depends on the old parser for that one string (M1 shows no difference). (3) `Next/Content.fs` and `Next/ActionText.fs` re-open `Campfire.RichText.Next` after `Campfire.RichText` so `Content` means the new module.
+- **Cost (S6, risk 10, seed bodies, 30 rounds, this host under load):** canonical load + `toHtml` old 5.7 us / 6.1 KB, new 13.5 us / 10.7 KB; plain text old 5.9 us / 8.9 KB, new 16.9 us / 13.0 KB. The ratio (2.3-2.9x) is S6's (5.1 against 1.8); a post's added CPU
+  is about 8 us (load) + 11 us per plain text, within R12's margin. The floor is judged by `bench/quick` in 5.6.
+- **KLOC:** `bin/kloc` 34,250 by upstream's rules, **34,422 corrected (34.4 KLOC)**, from 34,012 / 34,184 (+238: `Next/` +281, `Attachables`/old callers -43 net). `Campfire.RichText` 6,879.
+- **Gates run:** `CAMPFIRE_REQUIRE_SEED=1 bin/verify` green (lint and self-test, Dapper and EF guards, Release warnings-as-errors build, every test: 1,003 total, 997 passed, 0 failed, 6 skipped: the environmental six; `Campfire.RichText.Tests` 110 passed).
+  Not run: pixel slices and `bench/quick` (no app change). Disk 28 GB free.
+- **Next:** unit 5.4 (rendering, editor value, filters on `Next/Content.fs`/`Next/ActionText.fs`/`Next/Filters.fs`), then the Opus checkpoint.
