@@ -2872,3 +2872,28 @@ this entry and its evidence are the commit after it).
   12.92x (c16), post 6.73x (c1) and 6.09x (c16); no cell under 5x and no drop beyond the control's range (the asset routing pass costs nothing measurable).
 - **KLOC** `bin/kloc`: 30,158 by upstream's rules, 30,330 corrected (+110 over 30,220: `StaticAssets.fs` 147 lines written for the asset layer, still before
   the 6.7 deletion of `Campfire.Assets` -429).
+
+### Phase 6, unit 6.4 (tags and import map), 2026-10-22
+
+- **Built.** `src/Campfire.App/Web/Importmap.fs` (`Pin`, `Importmap.pins`, `Importmap.tags`): the `pin` and `pin_all_from` reader with importmap-rails 2.2.2's
+  rules (a later pin of a name replaces it in place; the directory's module name drops the extension and a trailing `index`; `to:`, `under:`, `preload:`; an
+  unsupported statement, option or value raises); `pin_all_from` lists the table's logical paths under `<under>/` ending `.js`/`.jsm` in path-component order
+  (no directory is read); a pin whose file is not in the table is skipped; `tags` writes the `ImportMapDefinition` JSON in its script element, one
+  modulepreload per preloaded pin's distinct URL, then the module script. `StaticAssets.fs`: the loaded state is one record (table, stylesheet tags, preload
+  header, import map tags) made once in `map`'s load from the descriptors and the embedded `importmap.rb`; `stylesheetTags ()` (every `.css` logical path,
+  ordinal order, `data-turbo-track="reload"`), `preloadLinks ()` (Rails' 1,000-byte rule, the comma counted: a link that would pass 1,000 is left out, a later
+  shorter one may fit), `importmapTags ()`, and `logicalPaths ()` (the table's keys, for the tests). Not used by any page yet (no response changes).
+- **Fixtures.** `git mv tests/Campfire.Assets.Tests/reference tests/Campfire.App.Tests/Assets/reference`; `revendor`'s `FIXTURES`, `export_reference.rb`'s
+  comment, the old `ReferenceTests.fs` and S1 point at the new place.
+- **Tests** (`AssetsTests.fs`): T1 table = staged set, fingerprint form, `MissingAsset`; T2 bytes equal Rails' compiled files except exactly A12's 11 (310
+  compared, 299 equal); T3 31 stylesheets in Rails' order by logical path, equal line for line after the A15 mask; T4 89 pins (names, order, logical targets), 89
+  modulepreloads, the module script last, text equal after the mask; T5 preload header 15 links in at most 1,000 bytes, a prefix of Rails' 16 by logical path,
+  and no omitted link would fit; T6 the reader on small sources. All green on the first run of the real code (T6's expected order was my slip: `a/b`, `a-b`,
+  `index`, `z` is path-component order).
+- **Planted failures (run once each, reverted, working tree identical to the commit).** A wrong pin (`initializers/current` pointing at `initializers/highlight.js`)
+  fails T4; a dropped `pin_all_from` (`vendor/javascript/languages`) fails T4; a reordered stylesheet list (descending) fails T3 and T5.
+- **Gates.** `CAMPFIRE_REQUIRE_SEED=1 bin/verify` (Release, warnings as errors, lint 339 files clean, Dapper guard, H1): 1,024 total, 1,018 passed, 0 failed, 6
+  skipped (the environmental six). No pixel run or bench (no response changes).
+- **KLOC** `bin/kloc`: 30,195 by upstream's rules, 30,367 corrected (+37 over 30,330: `Importmap.fs` and the load and accessors in `StaticAssets.fs`, before the 6.7
+  deletion of `Campfire.Assets` -429). The design projected 45 lines for `Importmap.fs` alone (105 lines on disk, comments included).
+- **Differences recorded.** None new: the 15-link preload header and the import map's text are A5/A6's class A entries.

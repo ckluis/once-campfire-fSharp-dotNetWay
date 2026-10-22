@@ -43,7 +43,7 @@ let ``S1 the staged web root holds Rails' manifest minus the lexxy compressed fi
     let webRoot = Path.Combine(Repo.path "src/Campfire.App", "wwwroot/assets")
     Assert.True(Directory.Exists webRoot, "wwwroot/assets is missing: dotnet build stages it")
     let staged = files webRoot
-    let manifest = JsonDocument.Parse(File.ReadAllText(Repo.path "tests/Campfire.Assets.Tests/reference/manifest.json")).RootElement
+    let manifest = JsonDocument.Parse(File.ReadAllText(Repo.path "tests/Campfire.App.Tests/Assets/reference/manifest.json")).RootElement
     let expected =
         [ for p in manifest.EnumerateObject() do
               let name = p.Name
@@ -157,3 +157,157 @@ let ``a host built without configureHost fails at boot, naming the cause`` () =
         Assert.Contains("UseStaticWebAssets", failure.Message)
         Assert.Contains("not in the web root", failure.Message)
     }
+
+// --- Unit 6.4 (design section 5, T1-T6): the table, the tags and the import map against Rails' own output ----------------------
+
+open System
+open System.Security.Cryptography
+open System.Text.RegularExpressions
+open Campfire.App.Web
+
+let private fixture (name: string) : string =
+    File.ReadAllText(Repo.path $"tests/Campfire.App.Tests/Assets/reference/{name}")
+
+/// Rails' manifest: logical path to digested path, in the file's order.
+let private railsManifest () : (string * string) list =
+    [ for p in (JsonDocument.Parse(fixture "manifest.json")).RootElement.EnumerateObject() ->
+          p.Name, nonNull (p.Value.GetProperty("digested_path").GetString()) ]
+
+/// Digested path (no leading slash) to logical path.
+let private railsLogical () : Map<string, string> =
+    railsManifest () |> List.map (fun (logical, digested) -> digested, logical) |> Map.ofList
+
+/// The A15 mask: Propshaft's `-<hex digest>` and the SDK's `.<10 [0-9a-z]>` fingerprint become one placeholder.
+let private assetDigest =
+    Regex(@"/assets/([^\s""'()?#]+?)(?:-([0-9a-f]{7,64})|\.([0-9a-z]{10}))(\.[A-Za-z0-9.]+)")
+
+let private mask (text: string) : string =
+    assetDigest.Replace(text, MatchEvaluator(fun m -> $"/assets/{m.Groups[1].Value}-«digest»{m.Groups[4].Value}"))
+
+/// The logical path an `/assets/...` URL names in Rails' output.
+let private railsPathOf (url: string) : string = (railsLogical ())[url.Substring "/assets/".Length]
+
+let private hrefs (text: string) (rel: string) : string list =
+    [ for m in Regex.Matches(text, $"<link rel=\"{rel}\" href=\"([^\"]+)\"") -> m.Groups[1].Value ]
+
+/// The A12 list: Rails' compiled files that differ from the staged sources, by logical path.
+let private a12 =
+    [ "controllers/copy_to_clipboard_controller.js"; "lib/autocomplete/base_autocomplete_handler.js"; "models/file_uploader.js"
+      "avatars.css"; "composer.css"; "lexxy.css"; "lexxy-content.css"; "lexxy-editor.css"
+      "lexxy.js"; "stimulus.min.js"; "turbo.min.js" ]
+    |> List.sort
+
+let private booted () = Campfire.App.Tests.Support.bootSeeded "default"
+
+[<Fact>]
+let ``T1 the table's logical paths are the staged set, every route has the fingerprint form, path raises MissingAsset`` () =
+    task {
+        use! _test = booted ()
+        let table = StaticAssets.logicalPaths () |> List.sort
+        Assert.Equal<string list>(files stagedRoot, table)
+        for logical in table do
+            Assert.Matches(@"^/assets/.+\.[0-9a-z]{10}\.[^./]+$", StaticAssets.path logical)
+        let missing = Assert.Throws<MissingAsset>(fun () -> StaticAssets.path "nope.css" |> ignore)
+        Assert.Equal("nope.css", missing.logicalPath)
+    }
+
+[<Fact>]
+let ``T2 the bytes equal Rails' compiled files except exactly A12's 11`` () =
+    task {
+        use! _test = booted ()
+        let logical = railsLogical ()
+        let compiled = (JsonDocument.Parse(fixture "compiled_sha256.json")).RootElement.EnumerateObject() |> List.ofSeq
+        Assert.Equal(314, compiled.Length)
+        let differs =
+            [ for p in compiled do
+                  let name = logical[p.Name]
+                  // lexxy's .gz and .br are in Rails' manifest and are not served under their own names.
+                  if not (name.StartsWith "lexxy" && (name.EndsWith ".gz" || name.EndsWith ".br")) then
+                      let ours = Convert.ToHexStringLower(SHA256.HashData(stagedBytes name))
+                      if ours <> nonNull (p.Value.GetString()) then name ]
+            |> List.sort
+        Assert.Equal<string list>(a12, differs)
+    }
+
+[<Fact>]
+let ``T3 stylesheetTags are Rails' 31 stylesheets in Rails' order, equal line for line after the mask`` () =
+    task {
+        use! _test = booted ()
+        let rails = fixture "stylesheet_link_tag_all.html"
+        let ours = StaticAssets.stylesheetTags ()
+        let railsHrefs, ourHrefs = hrefs rails "stylesheet", hrefs ours "stylesheet"
+        Assert.Equal(31, railsHrefs.Length)
+        let reverse = StaticAssets.logicalPaths () |> List.map (fun l -> StaticAssets.path l, l) |> Map.ofList
+        Assert.Equal<string list>(railsHrefs |> List.map railsPathOf, ourHrefs |> List.map (fun h -> reverse[h]))
+        let lines (t: string) = (mask t).Split '\n' |> List.ofArray
+        Assert.Equal<string list>(lines rails, lines ours)
+    }
+
+[<Fact>]
+let ``T4 importmapTags have Rails' 89 pins and modulepreloads in Rails' order and targets, the same text after the mask`` () =
+    task {
+        use! _test = booted ()
+        let rails = fixture "javascript_importmap_tags.html"
+        let ours = StaticAssets.importmapTags ()
+        let pinsOf (text: string) : (string * string) list =
+            let json = Regex.Match(text, @"<script type=""importmap""[^>]*>(.*?)</script>", RegexOptions.Singleline).Groups[1].Value
+            [ for p in (JsonDocument.Parse json).RootElement.GetProperty("imports").EnumerateObject() -> p.Name, nonNull (p.Value.GetString()) ]
+        let railsPins, ourPins = pinsOf rails, pinsOf ours
+        Assert.Equal(89, railsPins.Length)
+        let reverse = StaticAssets.logicalPaths () |> List.map (fun l -> StaticAssets.path l, l) |> Map.ofList
+        Assert.Equal<(string * string) list>(
+            railsPins |> List.map (fun (n, u) -> n, railsPathOf u),
+            ourPins |> List.map (fun (n, u) -> n, reverse[u]))
+        let railsPreload, ourPreload = hrefs rails "modulepreload", hrefs ours "modulepreload"
+        Assert.Equal(89, railsPreload.Length)
+        Assert.Equal<string list>(railsPreload |> List.map railsPathOf, ourPreload |> List.map (fun u -> reverse[u]))
+        Assert.EndsWith("\n<script type=\"module\">import \"application\"</script>", ours)
+        Assert.Equal(mask rails, mask ours)
+    }
+
+[<Fact>]
+let ``T5 preloadLinks name Rails' first stylesheets, fit 1,000 bytes and no omitted link would fit`` () =
+    task {
+        use! _test = booted ()
+        let header = StaticAssets.preloadLinks ()
+        let railsLinks = Regex.Matches(fixture "link_header.txt", "<([^>]+)>") |> Seq.map (fun m -> m.Groups[1].Value) |> List.ofSeq
+        let links = Regex.Matches(header, "<([^>]+)>") |> Seq.map (fun m -> m.Groups[1].Value) |> List.ofSeq
+        let reverse = StaticAssets.logicalPaths () |> List.map (fun l -> StaticAssets.path l, l) |> Map.ofList
+        let ourLogical = links |> List.map (fun h -> reverse[h])
+        Assert.Equal<string list>(railsLinks |> List.map railsPathOf |> List.truncate ourLogical.Length, ourLogical)
+        Assert.True(ourLogical.Length >= 15, $"{ourLogical.Length} links")
+        let size = Text.Encoding.UTF8.GetByteCount header
+        Assert.True(size <= 1000, $"{size} bytes")
+        let omitted =
+            hrefs (StaticAssets.stylesheetTags ()) "stylesheet" |> List.filter (fun h -> not (List.contains h links))
+        Assert.NotEmpty omitted
+        for href in omitted do
+            let link = $"<{href}>; rel=preload; as=style; nopush"
+            Assert.True(size + 1 + Text.Encoding.UTF8.GetByteCount link > 1000, $"{href} would still fit")
+    }
+
+let private pinsFrom (rb: string) (paths: string list) =
+    Importmap.pins rb paths |> List.map (fun p -> p.Name, p.Path, p.Preload)
+
+[<Fact>]
+let ``T6 Importmap.pins on small sources`` () =
+    // A later pin of a name replaces it in place.
+    Assert.Equal<(string * string * bool) list>(
+        [ "a", "b.js", true; "c", "c.js", true ],
+        pinsFrom "pin \"a\"\npin \"c\"\npin \"a\", to: \"b.js\"  # again\n" [ "a.js"; "b.js"; "c.js" ])
+    // index.js gives the directory's name; modules sort by path component; .jsm counts; other files do not.
+    Assert.Equal<(string * string * bool) list>(
+        [ "ctl/a/b", "ctl/a/b.js", true; "ctl/a-b", "ctl/a-b.jsm", true; "ctl", "ctl/index.js", true; "ctl/z", "ctl/z.js", true ],
+        pinsFrom "pin_all_from \"app/javascript/ctl\", under: \"ctl\"" [ "ctl/z.js"; "ctl/a-b.jsm"; "ctl/a/b.js"; "ctl/index.js"; "ctl/x.css"; "other/q.js" ])
+    // preload: false keeps a pin out of the modulepreloads.
+    let pins = Importmap.pins "pin \"a\", preload: false\npin \"b\"" [ "a.js"; "b.js" ]
+    let tags = Importmap.tags pins (fun l -> ValueSome $"/assets/{l}")
+    Assert.Contains("<link rel=\"modulepreload\" href=\"/assets/b.js\">", tags)
+    Assert.DoesNotContain("modulepreload\" href=\"/assets/a.js", tags)
+    Assert.Contains("\"a\": \"/assets/a.js\"", tags)
+    // A pin to a missing file is skipped.
+    Assert.Equal<(string * string * bool) list>([ "b", "b.js", true ], pinsFrom "pin \"a\"\npin \"b\"" [ "b.js" ])
+    // An unsupported statement or option raises.
+    Assert.ThrowsAny<exn>(fun () -> pinsFrom "pin_all_from_x \"a\"" [] |> ignore) |> ignore
+    Assert.ThrowsAny<exn>(fun () -> pinsFrom "pin \"a\", integrity: true" [ "a.js" ] |> ignore) |> ignore
+    Assert.ThrowsAny<exn>(fun () -> pinsFrom "pin \"a\", to: foo" [ "a.js" ] |> ignore) |> ignore

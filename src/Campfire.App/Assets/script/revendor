@@ -11,7 +11,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../../../.." && pwd)"
 CRATE="$ROOT/src/Campfire.App/Assets"
-FIXTURES="$ROOT/tests/Campfire.Assets.Tests/reference"
+FIXTURES="$ROOT/tests/Campfire.App.Tests/Assets/reference"
 mkdir -p "$FIXTURES"
 REFERENCE_SHA="$(git -C "$ROOT/reference" rev-parse HEAD)"
 

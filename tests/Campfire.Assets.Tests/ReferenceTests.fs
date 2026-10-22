@@ -1,6 +1,6 @@
 // Port of rust/crates/assets/tests/reference.rs
 //
-// Golden tests against what the reference app produced (tests/Campfire.Assets.Tests/reference/*,
+// Golden tests against what the reference app produced (tests/Campfire.App.Tests/Assets/reference/*,
 // written by src/Campfire.App/Assets/script/revendor from `assets:precompile` and the real Rails
 // helpers). Files in `overrides/` deliberately differ from the reference, so only their digests
 // and bytes are allowed to.
@@ -16,14 +16,14 @@ open Campfire.Assets
 open Campfire.Assets.Serve
 open Campfire.Tests
 
-// Case counts in tests/Campfire.Assets.Tests/reference; regenerate the fixtures and these together.
+// Case counts in tests/Campfire.App.Tests/Assets/reference; regenerate the fixtures and these together.
 [<Literal>]
 let ManifestEntries = 314
 
 [<Literal>]
 let StaticCases = 332
 
-let private fixture (name: string) : string = File.ReadAllText(Repo.path $"tests/Campfire.Assets.Tests/reference/{name}")
+let private fixture (name: string) : string = File.ReadAllText(Repo.path $"tests/Campfire.App.Tests/Assets/reference/{name}")
 
 let private jsonFixture (name: string) : JsonElement = JsonDocument.Parse(fixture name).RootElement
 

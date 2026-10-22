@@ -58,6 +58,7 @@
     <Compile Include="Web/Pages.fs" />
     <Compile Include="Web/Before.fs" />
     <Compile Include="Web/LoginThrottle.fs" />
+    <Compile Include="Web/Importmap.fs" />
     <Compile Include="Web/StaticAssets.fs" />
     <Compile Include="Web/Services.fs" />
     <Compile Include="Channels/Auth.fs" />

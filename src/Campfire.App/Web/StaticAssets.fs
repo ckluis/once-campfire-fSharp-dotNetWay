@@ -39,7 +39,14 @@ module StaticAssets =
     /// What makes a build output (tests, `dotnet run`) serve its static web assets; a no-op in a publish.
     let configureHost (builder: WebApplicationBuilder) : unit = builder.WebHost.UseStaticWebAssets() |> ignore
 
-    let mutable private loaded: FrozenDictionary<string, string> | null = null
+    /// What one load of the manifest makes: the table and the three head strings (A5, A6), all computed once.
+    type private Loaded =
+        { Routes: FrozenDictionary<string, string>
+          Stylesheets: string
+          Preload: string
+          Importmap: string }
+
+    let mutable private loaded: Loaded | null = null
 
     /// The pattern of the catch-all route a build output (not a publish) adds for files that exist in the web root.
     let private devFallback = "{**path:file}"
@@ -75,6 +82,42 @@ module StaticAssets =
                   | _ -> () ]
         |> dict
         |> fun d -> d.ToFrozenDictionary()
+
+    /// Rails' MAX_HEADER_SIZE for the preload `Link` header (ActionView::Helpers::AssetTagHelper).
+    let private maxLinkHeaderSize = 1_000
+
+    /// `stylesheet_link_tag :all, "data-turbo-track": "reload"`: every `.css` logical path, sorted ordinally (Propshaft's
+    /// `all_stylesheets_paths`), and the preload `Link` header Rails adds while rendering it: a link that would pass 1,000 bytes is
+    /// left out, later (shorter) ones may still fit.
+    let private stylesheets (routes: FrozenDictionary<string, string>) : string * string =
+        let hrefs =
+            routes.Keys |> Seq.filter (fun l -> l.EndsWith(".css", StringComparison.Ordinal)) |> Seq.sortWith (fun a b -> String.CompareOrdinal(a, b))
+            |> Seq.map (fun l -> routes[l]) |> List.ofSeq
+        let tags =
+            hrefs |> List.map (fun href -> $"<link rel=\"stylesheet\" href=\"{Campfire.Ruby.Erb.htmlEscape href}\" data-turbo-track=\"reload\" />")
+        let header = System.Text.StringBuilder()
+        for href in hrefs do
+            let link = $"<{href}>; rel=preload; as=style; nopush"
+            let size = header.Length + (if header.Length > 0 then 1 else 0) + System.Text.Encoding.UTF8.GetByteCount link
+            if size <= maxLinkHeaderSize then
+                (if header.Length > 0 then header.Append ',' |> ignore)
+                header.Append link |> ignore
+        String.concat "\n" tags, header.ToString()
+
+    /// config/importmap.rb, the App's embedded resource (reference/config/importmap.rb).
+    let private importmapRb () : string =
+        use stream = typeof<Pin>.Assembly.GetManifestResourceStream "importmap.rb" |> nonNull
+        use reader = new StreamReader(stream)
+        reader.ReadToEnd()
+
+    let private load (descriptors: StaticAssetDescriptor list) : Loaded =
+        let routes = tableOf descriptors
+        let stylesheetTags, preload = stylesheets routes
+        let pins = Importmap.pins (importmapRb ()) routes.Keys
+        { Routes = routes
+          Stylesheets = stylesheetTags
+          Preload = preload
+          Importmap = Importmap.tags pins (fun l -> match routes.TryGetValue l with | true, r -> ValueSome r | _ -> ValueNone) }
 
     /// Every descriptor's file must be in the web root, else the host serves empty bodies (A4).
     let private validate (env: IWebHostEnvironment) (descriptors: StaticAssetDescriptor list) : unit =
@@ -116,7 +159,7 @@ the host must be created with StaticAssets.hostOptions and StaticAssets.configur
             let descriptors = descriptorsOf endpoints
             validate env descriptors
             routes <- HashSet<string>((descriptors |> List.map (fun d -> "/" + d.Route.TrimStart '/')), StringComparer.OrdinalIgnoreCase)
-            Volatile.Write(&loaded, tableOf descriptors))
+            Volatile.Write(&loaded, load descriptors))
         |> ignore
 
     /// For the app's own routing pass (after its `UseRouting`): both passes share one set of endpoints, so the asset endpoints and, in
@@ -133,14 +176,28 @@ the host must be created with StaticAssets.hostOptions and StaticAssets.configur
         )
         |> ignore
 
-    /// "/assets/composer.zroil2fb6p.css"; raises `MissingAsset` for a logical path the build does not have.
-    let path (logicalPath: string) : string =
+    let private current () : Loaded =
         match Volatile.Read(&loaded) with
         | null -> invalidOp "static assets are not mapped"
-        | table ->
-            match table.TryGetValue logicalPath with
-            | true, route -> route
-            | _ -> raise (MissingAsset logicalPath)
+        | state -> state
+
+    /// "/assets/composer.zroil2fb6p.css"; raises `MissingAsset` for a logical path the build does not have.
+    let path (logicalPath: string) : string =
+        match (current ()).Routes.TryGetValue logicalPath with
+        | true, route -> route
+        | _ -> raise (MissingAsset logicalPath)
+
+    /// Every logical path in the table.
+    let logicalPaths () : string list = (current ()).Routes.Keys |> List.ofSeq
+
+    /// `stylesheet_link_tag :all, "data-turbo-track": "reload"`, made once at load (A5).
+    let stylesheetTags () : string = (current ()).Stylesheets
+
+    /// The preload `Link` header value, made once at load (A5).
+    let preloadLinks () : string = (current ()).Preload
+
+    /// `javascript_importmap_tags`, made once at load (A6).
+    let importmapTags () : string = (current ()).Importmap
 
     /// A file of the web root (error pages, `send_file` of an image asset): "404.html", "assets/default-bot-avatar.svg".
     let webRootFile (env: IWebHostEnvironment) (relativePath: string) : IFileInfo =

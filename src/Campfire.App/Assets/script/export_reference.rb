@@ -5,7 +5,7 @@
 #   vendor/LOAD_PATH        the load path, in Propshaft's order, as `reference:<dir>` / `vendor:<dir>`
 #   vendor/MANIFEST.md      provenance: gem, version, source, path and sha256 of every vendored file
 #   vendor/<gem>/<license>  each vendored gem's license file (all MIT), which its copies carry
-#   $FIXTURES_DIR/*         golden outputs (tests/Campfire.Assets.Tests/reference): the precompiled manifest, sha256 of every compiled file,
+#   $FIXTURES_DIR/*         golden outputs (tests/Campfire.App.Tests/Assets/reference): the precompiled manifest, sha256 of every compiled file,
 #                           the rendered layout head tags, the Link header, public file headers
 #
 # Invoked by src/Campfire.App/Assets/script/revendor. ASSETS_DIR is the project directory to write
