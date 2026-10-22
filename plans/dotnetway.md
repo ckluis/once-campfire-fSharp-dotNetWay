@@ -2928,3 +2928,10 @@ Adversarial review of `e58de72..9e31f63` (6.1-6.4) against `plans/design-assets.
   reads `git ls-files`, so an uncommitted `Importmap.fs` is not counted). At `b5d84cb`: **30,280 / 30,452**. The asset layer in the App is about 0.24 KLOC
   (`StaticAssets.fs` and `Importmap.fs`) against the design's 0.15, so the phase lands near 30.2 after 6.7's -429, not 29.9.
 - **Differences recorded.** None new.
+- **Notes for 6.5-6.7.** (a) 6.5 will not fit 90 minutes with its whole pixel list: commit the flip with `bin/verify` and the `interactions/**` slice
+  first, then the remaining slices, `realtime/*` one at a time, and the bench as a second part. (b) Before the flip, check that nothing renders a page,
+  a broadcast or a job before `StaticAssets.map` runs (`InvalidOperationException "static assets are not mapped"`): boot warm-ups and the error pages
+  read the web root, not the table. (c) In 6.5's live-layer grep, count `-«digest»` in the head against Rails' and also count plain `/assets/` URLs in
+  `.loose.norm.html` (must be 0 outside `url()`). (d) 6.6: plain `/assets/<logical>` URLs are already 200 since 6.3 (behind the old middleware); the
+  README's Assets entry covers it (N3). Keep this checkpoint's probe list in `bin/asset-check` (encoded dots, `%5C`, dotfiles, the build output's
+  files). (e) 6.7: KLOC lands near 30.2, not 29.9; record it, do not chase it in this phase.
