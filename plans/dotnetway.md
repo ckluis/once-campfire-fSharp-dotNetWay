@@ -318,6 +318,11 @@ Kept hand-written: the Action Cable protocol (about 300 lines), the registry, th
 
 ### 2.6 Assets: `Campfire.Assets` -> `MapStaticAssets`
 
+**Phase 6's design note, `plans/design-assets.md` (2026-10-22), wins where it and this section disagree** (the web root is a staged
+copy in `src/Campfire.App/wwwroot/`, because files linked from elsewhere are served empty outside a publish; `reference/public` is
+served by `MapStaticAssets` too, not `UseStaticFiles`, and keeps the framework's cache headers; `pin_all_from` is listed from the
+descriptor table; the harness learns the SDK's fingerprint form first; units 6.1-6.7; about 0.15 KLOC).
+
 **Replaces it:** `MapStaticAssets` (shared framework, .NET 9+). Spike, F# `Microsoft.NET.Sdk.Web` project with Falco: the
 static web assets pipeline ran, wrote `web.staticwebassets.endpoints.json`, fingerprinted every file
 (`application.ah3pz4gezj.css`, `controllers/hello.z7ea3mj4ir.js`), precompressed `.gz` variants, and exposed each endpoint's
