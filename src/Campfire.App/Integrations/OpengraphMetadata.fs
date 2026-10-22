@@ -137,29 +137,28 @@ module OpengraphMetadata =
                 return Ok { Attributes = attributes }
         }
 
-    /// `strip_tags` (Rails::HTML5::FullSanitizer): the text of the HTML5 fragment, serialized.
+    /// `strip_tags` (Rails::HTML5::FullSanitizer): the text of the HTML5 fragment, serialized (on `Next.Html5`, R10).
     let private stripTags (html: string) : Result<string, UnfurlError> =
         if html = "" then
             Ok ""
         else
-            let dom = Dom()
-            match dom.ParseFragment html with
+            match Next.Html5.parseBody html with
             | Error _ -> Error(Raised "ArgumentError")
-            | Ok fragment ->
+            | Ok root ->
                 let text =
                     String.Concat(
-                        [ for node in dom.Descendants fragment do
-                              match dom.Text node with
-                              | ValueSome text -> text
-                              | ValueNone -> () ]
+                        [ for node in Next.Html5.descendants root do
+                              match node with
+                              | :? AngleSharp.Dom.IText as text -> text.Data
+                              | _ -> () ]
                     )
-                let out = dom.NewFragment()
-                if text <> "" then dom.Append(out, dom.CreateText text)
-                Ok(dom.ToHtml out)
+                let out = System.Text.StringBuilder()
+                Next.Html5.escapeText text out
+                Ok(out.ToString())
 
     /// `sanitize` (Rails::HTML5::SafeListSanitizer with its default allowlist).
     let private sanitizeHtml (html: string) : Result<string, UnfurlError> =
-        match Sanitizer.sanitize html SafeList.defaults with
+        match Next.Sanitizer.sanitize html SafeList.defaults with
         | Ok html -> Ok html
         | Error _ -> Error(Raised "ArgumentError")
 

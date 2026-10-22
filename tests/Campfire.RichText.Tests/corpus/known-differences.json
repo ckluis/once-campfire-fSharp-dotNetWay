@@ -1,5 +1,23 @@
 {
   "presentation": {
-    "limits attributes on an unfinished tag": "L1 boundary (P1's list). The body ends inside a tag that has reached Gumbo's attribute limit; Gumbo refuses it and Rails renders nothing, AngleSharp drops the unfinished tag and renders the rest. Class B, hostile-only."
+    "limits attributes on an unfinished tag": "L1 boundary (P1's list). The body ends inside a tag that has reached Gumbo's attribute limit; Gumbo refuses it and Rails renders nothing, AngleSharp drops the unfinished tag and renders the rest. Class B, hostile-only.",
+    "og mailto raises": "R8 (System.Uri behind the RFC 3986 character check). Ruby raises URI::InvalidComponentError on `mailto:nobody` (an opaque part it cannot read), which blanks the message; System.Uri reads a mailto URL and the embed renders without a link. Class B, hand-made bodies only.",
+    "og dots host raises": "R8 (System.Uri behind the RFC 3986 character check). Ruby accepts a host with empty labels (`example..com`) and raises NoMethodError on `...` (a host with no label), which blanks the message; System.Uri refuses the first (no link) and the second (no link, no raise). Class B, hand-made bodies only."
+  },
+  "plain_text": {
+    "og mailto raises": "R8 (System.Uri behind the RFC 3986 character check). Ruby raises URI::InvalidComponentError on `mailto:nobody` (an opaque part it cannot read), which blanks the message; System.Uri reads a mailto URL and the embed renders without a link. Class B, hand-made bodies only.",
+    "og dots host raises": "R8 (System.Uri behind the RFC 3986 character check). Ruby accepts a host with empty labels (`example..com`) and raises NoMethodError on `...` (a host with no label), which blanks the message; System.Uri refuses the first (no link) and the second (no link, no raise). Class B, hand-made bodies only."
+  },
+  "editable": {
+    "og mailto raises": "R8 (System.Uri behind the RFC 3986 character check). Ruby raises URI::InvalidComponentError on `mailto:nobody` (an opaque part it cannot read), which blanks the message; System.Uri reads a mailto URL and the embed renders without a link. Class B, hand-made bodies only.",
+    "og dots host raises": "R8 (System.Uri behind the RFC 3986 character check). Ruby accepts a host with empty labels (`example..com`) and raises NoMethodError on `...` (a host with no label), which blanks the message; System.Uri refuses the first (no link) and the second (no link, no raise). Class B, hand-made bodies only."
+  },
+  "web_url": {
+    "mailto:nobody": "R8 (System.Uri behind the RFC 3986 character check). Ruby raises URI::InvalidComponentError on `mailto:nobody` (an opaque part it cannot read), which blanks the message; System.Uri reads a mailto URL and the embed renders without a link. Class B, hand-made bodies only.",
+    "https://.../x": "R8 (System.Uri behind the RFC 3986 character check). Ruby accepts a host with empty labels (`example..com`) and raises NoMethodError on `...` (a host with no label), which blanks the message; System.Uri refuses the first (no link) and the second (no link, no raise). Class B, hand-made bodies only.",
+    "https://example..com/": "R8. Ruby's parser accepts empty host labels, System.Uri refuses the URL: the embed has no link. Class B, hand-made bodies only.",
+    "https://.example.com/": "R8. Ruby's parser accepts a leading dot in a host, System.Uri refuses the URL: the embed has no link. Class B, hand-made bodies only.",
+    "https://[v1.x]/": "R8. Ruby's parser accepts an IPvFuture host literal, System.Uri refuses it: the embed has no link. Class B, hand-made bodies only.",
+    "http://example.com:99999999999999999999/": "R8. Ruby accepts a port of any length, System.Uri refuses one past 65535: the embed has no link. Class B, hand-made bodies only."
   }
 }

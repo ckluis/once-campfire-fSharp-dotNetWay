@@ -1,9 +1,18 @@
 // Port of the tests in rust/crates/richtext/src/uri.rs
-module Campfire.RichText.Tests.UriTests
+module Campfire.App.Tests.UriTests
 
 open Xunit
 open Campfire.RichText
-open Campfire.RichText.Tests.Support
+
+let private ok (r: Result<'a, 'e>) : 'a =
+    match r with
+    | Ok v -> v
+    | Error e -> failwithf "expected Ok, got Error %A" e
+
+let private isError (r: Result<'a, 'e>) : bool =
+    match r with
+    | Error _ -> true
+    | Ok _ -> false
 
 [<Fact>]
 let ``parses_like_ruby`` () =

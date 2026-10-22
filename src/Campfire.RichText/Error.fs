@@ -48,3 +48,6 @@ module ResultCe =
 
     /// Lifts a parse failure into a render failure, as `.map_err(Error::Parse)`.
     let parseErr (r: Result<'a, ParseError>) : Result<'a, RenderError> = r |> Result.mapError Parse
+
+/// A node's attributes by name, so the resolution rules do not care which DOM the node lives in (plans/design-richtext.md R13).
+type Attrs = string -> string voption

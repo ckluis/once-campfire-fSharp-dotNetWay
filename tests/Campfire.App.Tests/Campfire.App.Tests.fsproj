@@ -9,6 +9,7 @@
     <Compile Include="../Shared/Testing.fs" Link="Testing.fs" />
     <Compile Include="Support.fs" />
     <Compile Include="ConfigTests.fs" />
+    <Compile Include="UriTests.fs" />
     <Compile Include="UserAgentTests.fs" />
     <Compile Include="PlatformTests.fs" />
     <Compile Include="RouteTableTests.fs" />

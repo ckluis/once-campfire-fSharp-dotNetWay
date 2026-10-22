@@ -20,13 +20,15 @@ let normalizeTweetUrl (url: string option) : Result<string option, RenderError> 
         if not isTwitterUrl then
             Ok(Some url)
         else
-            match RubyUri.parse url with
-            | Error InvalidUri -> Ok(Some url)
-            | Error InvalidComponent -> Error(Raised "URI::InvalidComponentError")
-            | Ok parsed ->
-                let host =
-                    if parsed.Host |> Option.map Unicode.Chars.toLowercase = Some "x.com" then Some "twitter.com" else parsed.Host
-                Ok(Some(RubyUri.toS { parsed with Host = host; Query = None }))
+            match Attachables.tryAbsoluteUri url with
+            | ValueNone -> Ok(Some url)
+            | ValueSome parsed ->
+                // The result is only compared with another normalized URL: scheme, authority, path and fragment, no query.
+                let host = if parsed.IdnHost = "x.com" then "twitter.com" else parsed.IdnHost
+                let port = if parsed.IsDefaultPort then "" else $":{parsed.Port}"
+                let userInfo = if parsed.UserInfo = "" then "" else parsed.UserInfo + "@"
+                let fragment = parsed.Fragment
+                Ok(Some $"{parsed.Scheme}://{userInfo}{host}{port}{parsed.AbsolutePath}{fragment}")
 
 /// A message that is nothing but a link to what it unfurls shows just the unfurl.
 let removeSoloUnfurledLinkText (content: Content) (ctx: RenderContext) : Result<Content, RenderError> =

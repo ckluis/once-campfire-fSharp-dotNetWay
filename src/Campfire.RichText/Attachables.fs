@@ -95,9 +95,6 @@ type PlainTextRepresentation =
     | Markup of string
     | Fragment of string
 
-/// A node's attributes by name, so the resolution rules do not care which DOM the node lives in (plans/design-richtext.md R13).
-type Attrs = string -> string voption
-
 module Attachables =
     [<Literal>]
     let MentionContentType = "application/vnd.campfire.mention"
@@ -298,8 +295,8 @@ module Attachables =
 
     // --- Opengraph embeds --------------------------------------------------------------------
 
-    let private hasClass (dom: Dom) (node: NodeId) (cls: string) : bool =
-        match dom.Attr(node, "class") with
+    let private hasClass (node: AngleSharp.Dom.INode) (cls: string) : bool =
+        match Next.Html5.attr node "class" with
         | ValueSome c -> c.Split([| ' '; '\t'; '\n'; '\r' |]) |> Array.exists (fun token -> token = cls)
         | ValueNone -> false
 
@@ -330,16 +327,70 @@ module Attachables =
                 if not named then return false else return canonicalHost host <> canonicalHost requestHost
             }
 
-    /// `web_url`: an absolute http(s) URL on a named host other than this Campfire's.
+    /// RFC 3986's character rules (plans/design-richtext.md R8): printable ASCII only, none of `"<>\\^`{|}`, at most one `#`,
+    /// every `%` followed by two hex digits. What Ruby's `URI.parse` refuses outright (`URI::InvalidURIError`). The query
+    /// (from the first `?` to the first `#`) is exempt, as in Ruby's parser (`[^#]*`): a link to `?x=<y>` is a link.
+    let private isHex (c: char) = (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F')
+
+    /// Where the query is: from the first `?` to the first `#` (start -1 when there is none).
+    let private querySpan (value: string) : struct (int * int) =
+        let hash = value.IndexOf '#'
+        let question = value.IndexOf '?'
+        let start = if question >= 0 && (hash < 0 || question < hash) then question else -1
+        struct (start, (if start < 0 then -1 elif hash < 0 then value.Length else hash))
+
+    /// `URI::Generic#query=` refuses (`InvalidURIError`, so no link) a `%` followed by two non-hex characters.
+    let private queryEscapeRaises (value: string) : bool =
+        let struct (start, finish) = querySpan value
+        if start < 0 then
+            false
+        else
+            let query = value.Substring(start + 1, finish - start - 1).Replace("\t", "").Replace("\r", "").Replace("\n", "")
+            let mutable bad = false
+            for w in 0 .. query.Length - 3 do
+                if query[w] = '%' && not (isHex query[w + 1]) && not (isHex query[w + 2]) then bad <- true
+            bad
+
+    let rfc3986Characters (value: string) : bool =
+        let struct (queryStart, queryEnd) = querySpan value
+        let mutable ok = true
+        let mutable hashes = 0
+        let mutable i = 0
+        while ok && i < value.Length do
+            if i = queryStart then
+                i <- queryEnd
+            else
+                let c = value[i]
+                if c < '\u0021' || c > '\u007e' || "\"<>\\^`{|}".IndexOf c >= 0 then
+                    ok <- false
+                elif c = '#' then
+                    hashes <- hashes + 1
+                    if hashes > 1 then ok <- false
+                elif c = '%' && not (i + 2 < value.Length && isHex value[i + 1] && isHex value[i + 2]) then
+                    ok <- false
+                i <- i + 1
+        ok
+
+    /// An absolute `System.Uri` (R8) for a string that passes the character check.
+    let tryAbsoluteUri (value: string) : Uri voption =
+        if not (rfc3986Characters value) then
+            ValueNone
+        else
+            match Uri.TryCreate(value, UriKind.Absolute) with
+            | true, uri -> ValueSome(nonNull uri)
+            | _ -> ValueNone
+
+    /// `web_url`: an absolute http(s) URL on a named host other than this Campfire's. `System.Uri` behind the character
+    /// check (R8); Ruby's `InvalidComponentError` and the few hand-made URLs it accepts and `System.Uri` refuses are class B.
     let webUrl (value: string voption) (requestHost: string) : Result<string option, RenderError> =
         match value with
         | ValueSome value when not (isBlank value) ->
-            match RubyUri.parse value with
-            | Error InvalidUri -> Ok None
-            | Error InvalidComponent -> Error(Raised "URI::InvalidComponentError")
-            | Ok parsed ->
-                if RubyUri.isHttp parsed then
-                    elsewhere parsed.Host requestHost
+            match tryAbsoluteUri value with
+            | ValueNone -> Ok None
+            | ValueSome _ when queryEscapeRaises value -> Ok None
+            | ValueSome parsed ->
+                if parsed.Scheme = Uri.UriSchemeHttp || parsed.Scheme = Uri.UriSchemeHttps then
+                    elsewhere (Some parsed.IdnHost) requestHost
                     |> Result.map (fun other -> if other then Some value else None)
                 else
                     Ok None
@@ -350,30 +401,34 @@ module Attachables =
         | ValueSome s -> Some s
         | ValueNone -> None
 
+    let rec private hasClassAncestor (node: AngleSharp.Dom.INode) (cls: string) : bool =
+        match node.Parent with
+        | null -> false
+        | parent -> hasClass parent cls || hasClassAncestor parent cls
+
     /// `attributes_from_content`: the details Lexxy serializes as the embed's content markup.
     let private embedFromContent (content: string) (host: string) : Result<OpengraphEmbed, RenderError> =
-        // Rails parses this with Nokogiri::HTML (libxml2's HTML4 parser); html5ever agrees with it
-        // on the markup the embed partial and Lexxy produce.
-        let dom = Dom()
         result {
-            let! fragment = parseErr (dom.ParseFragment content)
-            let all = dom.Descendants fragment
-            let withClass (cls: string) = all |> Seq.tryFind (fun n -> hasClass dom n cls)
+            let! root = Next.Html5.parseBody content |> Result.mapError Parse
+            let all = Next.Html5.descendants root
+            let withClass (cls: string) = all |> List.tryFind (fun n -> hasClass n cls)
             let title = withClass "og-embed__title"
             let link =
                 title
-                |> Option.bind (fun t -> dom.Descendants t |> Seq.tryFind (fun n -> dom.IsNamed(n, "a")))
+                |> Option.bind (fun t -> Next.Html5.descendants t |> List.tryFind (fun n -> Next.Html5.isNamed n "a"))
             let image =
                 all
-                |> Seq.tryFind (fun n -> dom.IsNamed(n, "img") && dom.Ancestors n |> Seq.exists (fun a -> hasClass dom a "og-embed__image"))
+                |> List.tryFind (fun n ->
+                    Next.Html5.isNamed n "img"
+                    && hasClassAncestor n "og-embed__image")
             let description = withClass "og-embed__description"
-            let! href = webUrl (link |> Option.map (fun l -> dom.Attr(l, "href")) |> Option.defaultValue ValueNone) host
-            let! url = webUrl (image |> Option.map (fun i -> dom.Attr(i, "src")) |> Option.defaultValue ValueNone) host
+            let! href = webUrl (link |> Option.map (fun l -> Next.Html5.attr l "href") |> Option.defaultValue ValueNone) host
+            let! url = webUrl (image |> Option.map (fun i -> Next.Html5.attr i "src") |> Option.defaultValue ValueNone) host
             return
                 { Href = href
                   Url = url
-                  Filename = (match link with Some l -> Some l | None -> title) |> Option.map (fun n -> RubyString.strip (dom.TextContent n))
-                  Description = description |> Option.map (fun n -> RubyString.strip (dom.TextContent n)) }
+                  Filename = (match link with Some l -> Some l | None -> title) |> Option.map (fun n -> RubyString.strip (Next.Html5.textContent n))
+                  Description = description |> Option.map (fun n -> RubyString.strip (Next.Html5.textContent n)) }
         }
 
     /// `ActionText::Attachment::OpengraphEmbed.from_node`

@@ -60,3 +60,21 @@ let ``possibly_expired_sgids_find_users_like_rails`` () =
         | _ -> Assert.True(isError found, $"{label} should raise like Rails ({expected})")
         run <- run + 1
     Assert.Equal(23, run)
+
+// --- web_url on System.Uri behind the RFC 3986 character check (R8) -----------------------------
+
+[<Fact>]
+let ``web_url on System.Uri keeps Ruby's verdicts on the character rules`` () =
+    let webUrl (value: string) = okR (Attachables.webUrl (ValueSome value) "once.campfire.test")
+    // the query is exempt, as in Ruby's parser: a link to `?x=<y>` is a link; a `%` with two non-hex characters is not
+    Assert.Equal(Some "https://example.com/i.png?x=<y>", webUrl "https://example.com/i.png?x=<y>")
+    Assert.Equal(Some "https://example.com/p?q=%z", webUrl "https://example.com/p?q=%z")
+    Assert.Equal(None, webUrl "https://example.com/p?q=%zz")
+    // outside the query: printable ASCII only, no "<>\^`{|}, one `#`, `%` + two hex digits
+    for bad in [ "https://example.com/a b"; "https://example.com/<x>"; "https://example.com/a|b"; "https://example.com/a%zzb"; "https://example.com/#a#b"; "https://exämple.com/"; " https://example.com/" ] do
+        Assert.True((webUrl bad).IsNone, bad)
+    // this Campfire's own host, a numeric host, a scheme that is not http(s)
+    Assert.Equal(None, webUrl "https://once.campfire.test/a")
+    Assert.Equal(None, webUrl "http://127.0.0.1/a")
+    Assert.Equal(None, webUrl "ftp://example.com/a")
+    // (the six hand-made URLs where Ruby raises or accepts and System.Uri refuses are known-differences.json's web_url entries)

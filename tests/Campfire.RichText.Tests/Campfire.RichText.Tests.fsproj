@@ -12,7 +12,6 @@
     <Compile Include="SanitizerTests.fs" />
     <Compile Include="NextSanitizerTests.fs" />
     <Compile Include="RubyTests.fs" />
-    <Compile Include="UriTests.fs" />
     <Compile Include="AutolinkTests.fs" />
     <Compile Include="AttachablesTests.fs" />
     <Compile Include="FiltersTests.fs" />

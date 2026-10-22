@@ -163,6 +163,18 @@ let private securityViolations (html: string) (allowStyle: bool) : string list =
 
 // --- The comparison ------------------------------------------------------------------------------
 
+/// `corpus/known-differences.json`: for each kind of answer, the corpus cases whose new answer differs from Rails' (loosely compared,
+/// after the port's divergences), each with why. The comparison fails both ways.
+let private knownDifferences (kind: string) : IDictionary<string, string> =
+    use doc = JsonDocument.Parse(File.ReadAllText(Repo.path "tests/Campfire.RichText.Tests/corpus/known-differences.json"))
+    let out = SortedDictionary<string, string>()
+    match doc.RootElement.TryGetProperty kind with
+    | true, entries ->
+        for e in entries.EnumerateObject() do
+            out[e.Name] <- e.Value.GetString() |> nonNull
+    | _ -> ()
+    out :> IDictionary<string, string>
+
 type private Tally() =
     member val Exact = 0 with get, set
     member val DomEqual = 0 with get, set
@@ -294,9 +306,22 @@ let ``corpus_matches_rails`` () =
     for KeyValue(kind, tally) in tallies do
         let total = tally.Exact + tally.Mismatched.Count
         report.AppendLine $"{kind}: {total} cases, {tally.Exact} byte-identical, {tally.DomEqual} DOM-equal only, {tally.Mismatched.Count - tally.DomEqual} different" |> ignore
+        // known-differences.json: a listed case may differ, and a listed case that no longer does fails
+        let listed = knownDifferences kind
+        let nameOf (m: string) =
+            let first = m.Split('\n')[0]
+            let first = first.Substring(first.IndexOf(']') + 2)
+            if first.EndsWith " (DOM-equal)" then first.Substring(0, first.Length - " (DOM-equal)".Length) else first
+        let differing = tally.Mismatched |> Seq.map nameOf |> Set.ofSeq
         for m in tally.Mismatched do
-            report.AppendLine $"  MISMATCH {m}" |> ignore
-            failed <- true
+            if not (listed.ContainsKey(nameOf m)) then
+                report.AppendLine $"  MISMATCH {m}" |> ignore
+                failed <- true
+        for name in listed.Keys do
+            // (presentations are checked both ways by C1 on the new pipeline; this test runs the old one, which lacks the L1 boundary)
+            if usesCommittedCorpus && kind <> "presentation" && not (differing.Contains name) then
+                report.AppendLine $"  STALE known difference {kind}: {name}" |> ignore
+                failed <- true
     report.AppendLine $"security: {cases.Length} outputs checked, {security.Count} violations" |> ignore
     for v in security do
         report.AppendLine $"  VIOLATION {v}" |> ignore
@@ -371,18 +396,6 @@ let private normalizedNextDom (html: string) : string =
                 | _ -> ()
         walk root
         out.ToString()
-
-/// `corpus/known-differences.json`: for each kind of answer, the corpus cases whose new answer differs from Rails' (loosely compared,
-/// after the port's divergences), each with why. The comparison fails both ways.
-let private knownDifferences (kind: string) : IDictionary<string, string> =
-    use doc = JsonDocument.Parse(File.ReadAllText(Repo.path "tests/Campfire.RichText.Tests/corpus/known-differences.json"))
-    let out = SortedDictionary<string, string>()
-    match doc.RootElement.TryGetProperty kind with
-    | true, entries ->
-        for e in entries.EnumerateObject() do
-            out[e.Name] <- e.Value.GetString() |> nonNull
-    | _ -> ()
-    out :> IDictionary<string, string>
 
 /// What Loofah strips must not survive: every element name, attribute name and URI attribute value of `ours` also occurs in `rails`.
 let private strippedSurvivors (ours: string) (rails: string) : string list =
