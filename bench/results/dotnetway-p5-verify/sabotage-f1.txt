@@ -1,0 +1,16 @@
+/private/tmp/claude-501/-Users-clank-Desktop-projects/fea4ed62-8823-4b82-bed5-fc54b6214d57/scratchpad/p5v/sabotage-app.log:5:failed Campfire.App.Tests.AppTests.writes proceed while a variant is transf
+/private/tmp/claude-501/-Users-clank-Desktop-projects/fea4ed62-8823-4b82-bed5-fc54b6214d57/scratchpad/p5v/sabotage-app.log:6:  System.Exception : libvips: vips_init failed: Unable to load shared libra
+/private/tmp/claude-501/-Users-clank-Desktop-projects/fea4ed62-8823-4b82-bed5-fc54b6214d57/scratchpad/p5v/sabotage-app.log:25:  Xunit.MicrosoftTestingPlatform.XunitException: System.Exception : libvip
+/private/tmp/claude-501/-Users-clank-Desktop-projects/fea4ed62-8823-4b82-bed5-fc54b6214d57/scratchpad/p5v/sabotage-app.log:46:failed Campfire.App.Tests.MessagesTests.uploads attach and process the fil
+/private/tmp/claude-501/-Users-clank-Desktop-projects/fea4ed62-8823-4b82-bed5-fc54b6214d57/scratchpad/p5v/sabotage-app.log:347:failed Campfire.App.Tests.MessagesTests.a message whose plain text raises
+/private/tmp/claude-501/-Users-clank-Desktop-projects/fea4ed62-8823-4b82-bed5-fc54b6214d57/scratchpad/p5v/sabotage-app.log:648:failed Campfire.App.Tests.MessagesTests.the bot api (98ms)
+/private/tmp/claude-501/-Users-clank-Desktop-projects/fea4ed62-8823-4b82-bed5-fc54b6214d57/scratchpad/p5v/sabotage-app.log:659:failed Campfire.App.Tests.AttachmentTests.uploads and removes the account
+/private/tmp/claude-501/-Users-clank-Desktop-projects/fea4ed62-8823-4b82-bed5-fc54b6214d57/scratchpad/p5v/sabotage-app.log:670:failed Campfire.App.Tests.MessagesTests.a body the parser throws on fails
+/private/tmp/claude-501/-Users-clank-Desktop-projects/fea4ed62-8823-4b82-bed5-fc54b6214d57/scratchpad/p5v/sabotage-app.log:971:failed Campfire.App.Tests.AttachmentTests.uploads and removes an avatar (
+/private/tmp/claude-501/-Users-clank-Desktop-projects/fea4ed62-8823-4b82-bed5-fc54b6214d57/scratchpad/p5v/sabotage-app.log:1277:  total: 319
+/private/tmp/claude-501/-Users-clank-Desktop-projects/fea4ed62-8823-4b82-bed5-fc54b6214d57/scratchpad/p5v/sabotage-app.log:1278:  failed: 7
+/private/tmp/claude-501/-Users-clank-Desktop-projects/fea4ed62-8823-4b82-bed5-fc54b6214d57/scratchpad/p5v/sabotage.log:10:failed Campfire.RichText.Tests.HardeningTests.markup_the_parser_throws_on_insi
+/private/tmp/claude-501/-Users-clank-Desktop-projects/fea4ed62-8823-4b82-bed5-fc54b6214d57/scratchpad/p5v/sabotage.log:30:failed Campfire.RichText.Tests.HardeningTests.markup_the_parser_throws_on_is_r
+/private/tmp/claude-501/-Users-clank-Desktop-projects/fea4ed62-8823-4b82-bed5-fc54b6214d57/scratchpad/p5v/sabotage.log:42:failed Campfire.RichText.Tests.CorpusTests.S7 fuzzed bodies present with no di
+/private/tmp/claude-501/-Users-clank-Desktop-projects/fea4ed62-8823-4b82-bed5-fc54b6214d57/scratchpad/p5v/sabotage.log:65:  total: 115
+/private/tmp/claude-501/-Users-clank-Desktop-projects/fea4ed62-8823-4b82-bed5-fc54b6214d57/scratchpad/p5v/sabotage.log:66:  failed: 3

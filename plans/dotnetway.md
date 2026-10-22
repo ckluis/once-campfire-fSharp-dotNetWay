@@ -2743,3 +2743,58 @@ Opus reviewer, on `414caa8`. Findings and method in `plans/design-richtext.md` s
   `reference-tools/` (outside the solution and the count).
 - **Differences recorded:** one class B (README "Rich text": markup the parser throws on is refused). Q1's upstream list gains the select-mode exception.
   Disk 28 GB free throughout; no image rebuilt.
+
+### Phase 5: independent verification (2026-10-22) - PHASE 5 DONE; Phase 6 GO
+
+Opus verifier, adversarial review of `c88f590..74b4908` (5.1-5.7, the checkpoint, the gate, the security review) against `plans/design-richtext.md`
+and D1-D9, with the cheap checks re-run. Evidence in `bench/results/dotnetway-p5-verify/`. Fix in `853604f` (docs and a comment; no behaviour change). **Phase 5 closes at `853604f`** (the last code;
+this entry and its evidence are the commit after it).
+- **Deleted, checked:** `Html5ever/`, `Dom.fs`, `Library.fs`, the old `Content`/`Filters`/`Autolink`/`PlainText`/`ActionText`, the arena walker,
+  `TokenizerTests`, `DomTests`, `bin/richtext-differential` and `reference-tools/richtext/differential/` are gone; `grep` for `Html5ever`, `NodeId`,
+  `DomContext`, `DepthLimit`, `TagIndex`, `richtext-differential`, `sanitizeWithEscapedAttributeBrackets` over `src`, `tests`, `bin`, `parity`,
+  `AGENTS.md` and `README.md` finds only the vendored `lexxy.js`. `RubyUri.fs` lives in the App until Phase 8 (R9). No HtmlSanitizer package (R4, a
+  D9 call: Loofah's rules are parity). AngleSharp pinned at 1.8.4.
+- **Pixel evidence, checked and re-run.** The gate's `report.json`s hold 942 lean records with pixels, aria and loose equal: 940 distinct cells plus
+  the harness's own retry of `auth/sign_in/error` (two phone cells "not ready after 30000 ms" on the first attempt, equal on the retry; the gate's
+  "nothing needed a re-run" means after that automatic retry). Its fast slice is 116/116. **On the closing code** (image rebuilt at `853604f`, label
+  equal to HEAD, `bin/clean-docker` run): `--fast --only 'rooms/show/**,messages/**,search/**,interactions/edit_form*'` on every seed: default
+  **110/110**, custom_styles **6/6** (the other seeds have no cells) on screenshots, aria and loose DOM; `realtime/message_sent` 2/2 and
+  `realtime/message_edited` 2/2, one at a time. PASSED; `bin/clean-parity` after each.
+- **Gates re-run.** `CAMPFIRE_REQUIRE_SEED=1 bin/verify` on `74b4908` and again on `853604f`: **1,011 total, 1,005 passed, 0 failed, 6 skipped** (the
+  environmental six), lint self-test 39/39 and 337 files clean, the Dapper and EF guards, H1 and the warnings-as-errors build green (load 4-11, no
+  flaky failure). `bin/kloc` matches the security review's figures.
+- **Security, re-checked independently.** (1) **F1's fix is load-bearing:** with `guarded`'s catch-all narrowed to `ArgumentNullException`, three
+  RichText tests fail (the two `HardeningTests` and S7) and `MessagesTests` "a body the parser throws on fails neither the post nor the pages that show
+  it" fails; restored (`sabotage-f1.txt`). Every AngleSharp parse in `src` goes through `Html5.guarded` (`parseBody`, `parseIn` both routes,
+  `setInnerHtml`); nothing else calls `ParseDocument`/`InnerHtml`. (2) **Fuzz with a new seed** (`reference-tools/richtext/review`, 100,000
+  generated + the fixed cases, seed 17): **101,494 inputs, 798,599 outputs, 0 exceptions, 0 mutations, 0 violations in any presentation or stored
+  presentation**. Its 39 violations are F3's class (direct `sanitize` outputs and `body.html` leaving a container or refused by our own depth limit
+  after the layout's `div`) plus one `body.html` `style="color: expression;"`: a bare keyword that Lexxy's colour rule (`[a-z]+`) lets through,
+  inert without parentheses (the harness flags the substring; info, not a finding). (3) **26 hand-written shapes** (`probe.fsx`,
+  `probe-output.txt`): F1 and five neighbours (only the F1 shape throws; refused as `ParserFailed`, 3,000 copies too), nested selects, foster
+  parenting, formatting elements reopened 300 x 30 times, 3,000 nested `a`, `foreignObject`/`annotation-xml`/`caption` towers, 9,000 `noscript`,
+  16,000 URLs, 3,000 attachments, attachments nested 10 deep, `isindex`, a tabbed `javascript:`, `svg a`, a `noscript` breakout: nothing raised
+  (presentation, plain text, editor value), every shape under 160 ms; the `javascript:` link lost its `href`, `svg a`, `isindex` and the `noscript`
+  breakout presented empty. (4) `Trusted.ofSanitized` is still the presenter's only way to
+  place rich text and still rewrites U+E000 (Phase 4's condition).
+- **Fixed (`853604f`).** README "Rich text" lacked three things the design's section 8 lists: the caps (10,000 elements, 40,000 tokens, 400 root
+  attributes: refused where Rails renders), two of L1's three depth boundaries (400 `<b>` then `</p>` refused, reopened formatting elements then a
+  comment rendered), and the class A attribute-value bytes. AGENTS.md now says any AngleSharp exception is `ParserFailed` and how to re-run the review
+  harness. `AppRichText.MentionedUserIds`' comment said a parse fails only past the limits; since F1 a short body can fail too (same answer, no
+  mentions; only that log line is skipped, `ToPlainText` logs the failure on save).
+- **Speed.** The gate's table stands (`4e03f48` against a same-session `b2322f3` control; host probe 1.044-1.081, load 1.3-2.8; 0 non-2xx): **no
+  cell under 5x**, thinnest post c=16 6.04x, post c=1 6.49x, sidebar c=1 7.74x; the phase costs -0.7% to -3.2% at c=16 and -1.7% to -7.4% at c=1,
+  CPU per request +1% to +7%. Since then only `d076556`'s `try`/`with` around a parse and comments changed: no work on a parse that succeeds, so no
+  re-bench.
+- **KLOC.** `bin/kloc` **30,048 by upstream's rules, 30,220 corrected (30.2)**; `Campfire.RichText` 2,268. Phase 4 closed at 33.7, so the phase is
+  **-3.5** against the design's -4.0 (29.7, range 29.4-30.0): 0.2 over the range, all of it RichText (2.27 against 1.75: `Html5` limits and parse
+  routes, the URI rules on `System.Uri`, the matchers kept whole). The project is under Rust's 31.0 for the first time; D7's bar is Phase 9's.
+- **Differences recorded:** README "Rich text" amended as above; `known-differences.json` unchanged (5 kinds, 20 entries, each pinned both ways by
+  `CorpusTests`).
+- **Open, none blocking:** Q1 (report AngleSharp's defects upstream, now with the select-mode `NullReferenceException`) waits on Chris; F6 (replay
+  the harness's outputs in real browsers in the parity image); fuzz 125, 177, 325 untraced; the corpus's `filtered` field not compared; the byte
+  agreement of canonical bodies with the old pipeline is no longer tested (5.7); Phase 4's carried items (WebKit WebP avatar flake, 16 KB Cable bound,
+  the two test packages for Phase 8).
+- **Phase 6 GO.** Conditions: keep AngleSharp pinned (bump only with P1's frozen trees green and the review harness at 0 exceptions and 0
+  presentation violations); parse only through `Html5`; keep `Trusted.ofSanitized` the one way rich text reaches a page. Phase 6 moves every asset
+  path, so run every state `--fast` (any wrong pin breaks interaction states), then the lean matrix on `default`, as the plan's row says.

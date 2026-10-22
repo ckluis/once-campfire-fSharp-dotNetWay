@@ -1,0 +1,26 @@
+F1 base                          55 ms  error The HTML parser failed (NullReferenceException) | pt err The HTML parser failed (NullReferenceException) | ed err The HTML parser failed (NullReferenceException)
+F1 in li                         21 ms  ok 57 bytes: <div class="lexxy-content">   <ul><li>x</li></ul> </div>  | pt 3 | ed ok
+F1 variant textarea               1 ms  ok 45 bytes: <div class="lexxy-content">   <p></p> </div>  | pt 1 | ed ok
+F1 variant input                  1 ms  ok 45 bytes: <div class="lexxy-content">   <p></p> </div>  | pt 1 | ed ok
+F1 variant keygen                 0 ms  ok 45 bytes: <div class="lexxy-content">   <p></p> </div>  | pt 1 | ed ok
+F1 variant plaintext              0 ms  ok 45 bytes: <div class="lexxy-content">   <p></p> </div>  | pt 1 | ed ok
+select in table in select         0 ms  ok 38 bytes: <div class="lexxy-content">    </div>  | pt 2 | ed ok
+select nested 5000              105 ms  ok 38 bytes: <div class="lexxy-content">    </div>  | pt 0 | ed ok
+p select xmp 3000                 0 ms  error The HTML parser failed (NullReferenceException) | pt err The HTML parser failed (NullReferenceException) | ed err The HTML parser failed (NullReferenceException)
+option hr 9000                    4 ms  error Document tree depth limit exceeded | pt err Document tree depth limit exceeded | ed err Document tree depth limit exceeded
+formatting distinct + p          51 ms  ok 2378 bytes: <div class="lexxy-content">   <b><b><b><b><b><b><b><b><b><b><b><b><b><b><b><b><b><b><b><b><b><b><b><b><b><b><b><b><b><b><b><b><b><b><b><b><b><b><b><b><b><b><b>< | pt 88 | ed ok
+formatting reopen in table       48 ms  ok 2477 bytes: <div class="lexxy-content">   <b><b><b><b><b><b><b><b><b><b><b><b><b><b><b><b><b><b><b><b><b><b><b><b><b><b><b><b><b><b><b><b><b><b><b><b><b><b><b><b><b><b><b>< | pt 30 | ed ok
+a nested 3000 + /a               78 ms  ok 48038 bytes: <div class="lexxy-content">   <a href="x"></a><a href="x"></a><a href="x"></a><a href="x"></a><a href="x"></a><a href="x"></a><a href="x"></a><a href="x"></a><a | pt 0 | ed ok
+adoption div 300                 11 ms  error Document tree depth limit exceeded | pt err Document tree depth limit exceeded | ed err Document tree depth limit exceeded
+foreignObject 3000                7 ms  error Document tree depth limit exceeded | pt err Document tree depth limit exceeded | ed err Document tree depth limit exceeded
+math annotation                   5 ms  error Document tree depth limit exceeded | pt err Document tree depth limit exceeded | ed err Document tree depth limit exceeded
+table caption 3000                6 ms  error Document tree depth limit exceeded | pt err Document tree depth limit exceeded | ed err Document tree depth limit exceeded
+frameset+text                    36 ms  ok 38 bytes: <div class="lexxy-content">    </div>  | pt 0 | ed ok
+noscript                         49 ms  error Element count limit exceeded | pt err Element count limit exceeded | ed err Element count limit exceeded
+urls 16000                       80 ms  ok 896037 bytes: <div class="lexxy-content">   <a target="_blank" href="http://a.b/c">http://a.b/c</a> <a target="_blank" href="http://a.b/c">http://a.b/c</a> <a target="_blank" | pt 207999 | ed ok
+attachment flood                140 ms  error raised ArgumentError: invalid base64 | pt err raised ArgumentError: invalid base64 | ed err raised ArgumentError: invalid base64
+nested attachment content        18 ms  ok 82 bytes: <div class="lexxy-content">                                                </div>  | pt 0 | ed err raised NoMethodError: attachable_content_type
+isindex                           0 ms  ok 38 bytes: <div class="lexxy-content">    </div>  | pt 28 | ed ok
+javascript href                   0 ms  ok 46 bytes: <div class="lexxy-content">   <a>x</a> </div>  | pt 1 | ed ok
+svg a                             0 ms  ok 38 bytes: <div class="lexxy-content">    </div>  | pt 1 | ed ok
+noscript mxss                     0 ms  ok 38 bytes: <div class="lexxy-content">    </div>  | pt 0 | ed ok
