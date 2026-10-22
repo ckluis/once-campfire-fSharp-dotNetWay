@@ -2836,3 +2836,39 @@ this entry and its evidence are the commit after it).
 - **Gates.** `CAMPFIRE_REQUIRE_SEED=1 bin/verify` (Release, warnings as errors): 1,013 total, 1,007 passed, 0 failed, 6 skipped (the environmental six). No pixel run
   (no response changes). Disk 26 GB free.
 - **KLOC** `bin/kloc`: 30,048 by upstream's rules, 30,220 corrected (unchanged).
+
+### Phase 6, unit 6.3 (host and table), 2026-10-22
+
+- **Built.** `src/Campfire.App/Web/StaticAssets.fs` (module `StaticAssets`, before `Services.fs`): `ManifestPath`, `hostOptions` (ApplicationName `campfire`,
+  WebRootPath `<base>/wwwroot`, content root unchanged), `configureHost` (`UseStaticWebAssets`), `map` (`UseRouting`; the marker middleware that sets
+  `SkipRequestHeaders` for `StaticAssetDescriptor` endpoints; `UseEndpoints` + `MapStaticAssets ManifestPath`), the process-wide `FrozenDictionary` table
+  (logical path to fingerprinted route: descriptors with no selectors, no `Content-Encoding`, a `fingerprint` and a `label` under `assets/`), the startup
+  validation (every descriptor's `AssetPath` must exist in `WebRootFileProvider`, else `InvalidOperationException` naming the web root and `hostOptions` +
+  `configureHost`), `path` (raises `MissingAsset`; `InvalidOperationException "static assets are not mapped"` before `map`), `webRootFile`.
+  `Front.serveWithLines` takes the `WebApplicationOptions` and a `configureHost` callback (`Front.hostArgs` holds the old `reloadConfigOnChange=false`
+  argument; `serveWith`/`serve` and the Kit test harness pass it and `ignore`); `Boot` passes `StaticAssets.hostOptions` and `configureHost`;
+  `Support.startPipelineWith` uses them (new `startPipelineOn` takes both explicitly). `Web.Services.pipeline` calls `StaticAssets.map` right after the old
+  `publicFiles` middleware.
+- **Differences from the design note found while building (recorded, both internal).** (1) `StaticAssetsEndpointDataSource` is not a public type in
+  11.0.0-rc.2 and `StaticAssetDescriptor` has `Properties`, not `EndpointProperties`: the descriptors are read from every `EndpointDataSource` in the route
+  builder through the public `endpoint.Metadata.GetMetadata<StaticAssetDescriptor>()` (the helper class is still not used). (2) A build output (tests,
+  `dotnet run`; not a publish) adds a catch-all fallback route `{**path:file}` to the asset endpoints, and the two `UseRouting` passes share one set of
+  endpoints. That fallback matched every request (a method mismatch became a 405 endpoint for POST/DELETE on any path, GET `/cable` a 404: 103 App tests
+  failed on the first run). Fix: after the first `UseRouting` the marker middleware drops an endpoint that is not an asset descriptor unless the request
+  path is one of the asset routes (so POST to an asset URL is still the framework's 405, H4); `StaticAssets.appEndpointsOnly` runs after the app's own
+  `UseRouting` and keeps only the app's own `RouteEndpoint`s (`/cable`). In a publish there is no fallback and both are no-ops (`GetEndpoint` is null).
+- **Tests** (`tests/Campfire.App.Tests/AssetsTests.fs`): H1 (all 311 table routes 200 with the staged file's bytes; gzip via `Accept-Encoding` decodes to the
+  same bytes; HEAD has no body), H2 (ETag gives 304; `Range: bytes=0-9` on an mp3 gives 206, 10 bytes), H3 (no `x-request-id`/`x-runtime` on an asset, both on
+  a page), H4 (`/assets/nope.css` is the app's 404; POST to an asset URL is 405), and a host built without `configureHost` fails at boot with
+  "not in the web root ... UseStaticWebAssets". A HEAD response carries no `content-length` through `MapStaticAssets` (not asserted).
+- **Gates.** `CAMPFIRE_REQUIRE_SEED=1 bin/verify` (Release, warnings as errors, lint, Dapper guard, H1 zero compilations): 1,018 total, 1,012 passed, 0 failed,
+  6 skipped (the environmental six). Image rebuilt (`parity/bin/candidate build`, label 47eb5b8) and the control `campfire-dotnetway:p5ctl` built once from 853604f
+  in a scratch worktree with the submodule copied in (worktree removed; the image stays for 6.5/6.6 and the phase gate); the published image boots (validation passes
+  in the publish layout). `bin/pixel-parity --fast --only 'auth/sign_in*,rooms/show/designers'` on `default`: 4/4 screenshots, aria and loose equal.
+- **Bench** (`bench/quick --reps 3 --apps fsharp,dotnetway --routes post_message,sidebar`, `FSHARP_IMAGE=campfire-dotnetway:p5ctl` as the control, interleaved,
+  detached and polled; `bench/results/quick-63`). Host probe ratio 1.03-1.09 before and after every window, load before runs 1.07-1.38; 12 runs all 2xx, 0
+  errors, rows written equal 2xx. Medians new / control (req/s): sidebar c1 2,562 / 2,530, c16 7,734 / 7,727; post c1 1,123 / 1,111, c16 2,011 / 2,028 (new
+  1,954-2,047 inside the control's 1,970-2,050). CPU per request, new / control: sidebar c1 479 / 490, post c1 1,639 / 1,664. **vs Rails:** sidebar 8.94x (c1) and
+  12.92x (c16), post 6.73x (c1) and 6.09x (c16); no cell under 5x and no drop beyond the control's range (the asset routing pass costs nothing measurable).
+- **KLOC** `bin/kloc`: 30,158 by upstream's rules, 30,330 corrected (+110 over 30,220: `StaticAssets.fs` 147 lines written for the asset layer, still before
+  the 6.7 deletion of `Campfire.Assets` -429).
