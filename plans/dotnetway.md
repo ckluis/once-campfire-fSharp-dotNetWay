@@ -3000,3 +3000,16 @@ Adversarial review of `e58de72..9e31f63` (6.1-6.4) against `plans/design-assets.
 - **KLOC** `bin/kloc` after the commits: 30,231 by upstream's rules, 30,403 corrected (-42 against 6.5's 30,273 / 30,445: `Boot`'s static code, `Avatars`' extraction and four retired tests go, H5/H6 and the `ErrorPages` fill come in). 6.7 still deletes `Campfire.Assets` (-429).
 - **Differences recorded.** The README Assets entry (design section 8). Beyond it, one that the design's list did not name: `/robots.txt` and the error pages are `no-cache` with an ETag
   (Rails: `public, max-age=2592000`), covered by the cache-header class B line.
+
+#### Phase 6, unit 6.7 (Delete)
+
+- **Built.** `src/Campfire.Assets/`, `src/Campfire.Assets.Build/` and `tests/Campfire.Assets.Tests/` are deleted (with their ignored `bin/`/`obj/`), their `CampfireFs.slnx` rows and the App's project
+  reference; the Dockerfile's `Assets.Build` step and comment (the comment now names the staging target), `bin/publish-mounted`'s step and comment, `bin/kloc`'s exclusion, `bin/linux-tests`' comment,
+  `Core/Html.fs`' comment, `OVERRIDES.md`' sentence, `parity/capture/overrides.ts`' dead fallback directory; AGENTS.md loses the two layout rows and gains the **Assets** working-rules bullet
+  (staging target, `StaticAssets`, startup validation and "nothing before `map`", harness masks, `bin/asset-check`); the layout pointer in section 2's table says where the layer went.
+- **Acceptance.** `git grep -n -E 'Campfire\.Assets|Assets\.Build|assets\.bin|EmbeddedData'` over `src tests bin parity bench/quick bench/run Dockerfile AGENTS.md README.md CampfireFs.slnx`: no hits
+  (history lives in `plans/`). `CAMPFIRE_REQUIRE_SEED=1 bin/verify` green at `184cae3`: lint (331 files) and self-test, Dapper guard, H1, 1,011 tests, 0 failed, 6 skipped. Image rebuilt with
+  `CAMPFIRE_REVISION=$(git rev-parse HEAD) parity/bin/candidate build`; `bin/pixel-parity --fast --only 'rooms/show/designers'` PASSED (default equal in screenshots, aria and loose).
+- **KLOC** (`bin/kloc` after the commit): 29,802 by upstream's rules, 29,974 corrected (6.6: 30,231 / 30,403; -429 for `Campfire.Assets`, the rest of the phase already counted). Design projected
+  about 29.9 corrected with 0.15 in the App; the App's asset layer is nearer 0.24 and the total is 30.0 corrected. Recorded, not chased. Rust's bar is 31.0.
+- **Differences recorded.** None new. The phase gates (every state on every seed, lean matrices, `bin/asset-check`, `bench/quick` against `p5ctl`, `bin/cookie-roundtrip`) are NOT yet run.
