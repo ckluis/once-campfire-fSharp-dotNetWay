@@ -2487,3 +2487,25 @@ lives until 5.7), AngleSharp 1.8.4 pinned in `Directory.Packages.props` (the tes
 - **Gates run:** `CAMPFIRE_REQUIRE_SEED=1 bin/verify` green on the second commit: lint self-test 39/39 and 341 files clean, Dapper and EF guards, Release build with warnings as errors 0 warnings, tests 990 total, 984 passed, 0 failed,
   6 skipped (the same environmental six; was 971 before, +19 here); H1 in `HotPathTests` passed. Not run: pixel slices and `bench/quick` (no app change). Disk 27 GB free at the start and after.
 - **Next:** unit 5.2 (Sanitizer: `Loofah.fs` out of `Sanitizer.fs`, the walker on AngleSharp nodes), with the `<isindex>` item above.
+
+### Phase 5, unit 5.2: Sanitizer (2026-10-22)
+
+`plans/design-richtext.md` section 4, unit 5.2: `src/Campfire.RichText/Loofah.fs` (444 lines: `SafeList`, `SafeListData`, `SafeList`, and module `Loofah` with `allowedUri`/`allowedUriUsing`, `cgiUnescapeHtml`, `attrValIsUri`, `escapesAttribute`,
+`needsEscaping`, `escapeAttributeValue`, `scrubStyle: string -> string option`) moved out of `Sanitizer.fs` unchanged in substance; the old arena walker (`Sanitizer.fs`, now 117 lines) calls them, so the old pipeline's outputs are unchanged.
+`src/Campfire.RichText/Next/Sanitizer.fs` (95 lines): `scrub: INode -> SafeList -> unit` and `sanitize`, Loofah's `PermitScrubber` as a bottom-up walker over AngleSharp nodes (R4).
+
+- **S1:** the new sanitizer equals the old on the 1,479 inputs for all four lists (5,916 comparisons, byte-equal), except 8 inputs, every one on P1's list (`malformed select`, fuzz 125, 177, 188, 325, 362, 395,
+  `limits attributes on an unfinished tag`); the test fails on any other name.
+- **S2:** `SanitizerTests`' three Rails-vector tests now run on both sanitizers (`S2 next ...`), byte-equal (stricter than loose); all pass.
+- **S3:** `Loofah.allowedUri` is the old code (0 verdict differences against `Sanitizer.allowedUri`). **The `WebUtility.HtmlDecode` trial failed and was not kept:** over 2,512 URI attribute values of the corpus bodies, Rails' presentations
+  and the seed (237 distinct) plus 466 hardening inputs (695 distinct), HtmlDecode's output differs from `cgiUnescapeHtml`'s on 20 and the **verdict on 3** (`&nbsp;avascript:alert(1)`, `&copy;...`, `&eacute;...`: HtmlDecode decodes
+  every named entity, and a decoded U+00A0 is then stripped as a control character, where CGI leaves it and Rails allows the value). The corpus's own values agree; the hardening inputs are what differ. `cgiUnescapeHtml` stays in `Loofah`
+  (a test fails the day HtmlDecode would pass).
+- **Known difference found (class B):** `<isindex>` (5.1's item d): AngleSharp expands it, so `Next.Sanitizer.sanitize "<isindex>"` with the default list is `<hr>This is a searchable index. Enter search keywords: <hr>`, where the old
+  sanitizer (Gumbo) gives "". Not dropped in code (a rename of the subtree would be a heuristic over `form > hr > label`); recorded for `known-differences.json` in 5.6 and pinned by a test.
+- **Not done:** `sanitizeWithEscapedAttributeBrackets` has no Next counterpart (R6 removes its reason: the spec serialization writes `<` raw).
+- **KLOC:** `bin/kloc` 34,012 by upstream's rules, **34,184 corrected (34.2 KLOC)**, from 33,929 / 34,101 (+83: `Loofah.fs` +444 and `Next/Sanitizer.fs` +95, `Sanitizer.fs` -426). **Against the design** (`Loofah` 0.33, `Sanitizer` about 0.06): 0.44 and 0.095
+  (the walker keeps a snapshot of the attributes to model the order-dependent re-escaping). The old walker goes in 5.7.
+- **Gates run:** `CAMPFIRE_REQUIRE_SEED=1 bin/verify` green: lint, Dapper and EF guards, Release build with warnings as errors, every test (996 total, 990 passed, 0 failed, 6 skipped: the environmental six), run after the last code and test change.
+  Not run: pixel slices and `bench/quick` (no app change). Disk 28 GB free.
+- **Next:** unit 5.3 (Attachables on attribute functions, PlainText, Content on the AngleSharp DOM).
