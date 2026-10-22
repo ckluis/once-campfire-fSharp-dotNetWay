@@ -7,8 +7,8 @@
     <PackageVersion Include="Falco.Markup" Version="1.4.0" />
     <!-- The fragment cache and the kept compressed pages (plans/design-views.md V5, V7): local memory only, no L2. -->
     <PackageVersion Include="Microsoft.Extensions.Caching.Hybrid" Version="10.11.0" />
-    <!-- The tests read pages as the browser does (tests/Shared/LooseDom.fs). -->
-    <PackageVersion Include="AngleSharp" Version="1.8.3" />
+    <!-- Rich text parsing and serialization (plans/design-richtext.md R1), pinned: a parser upgrade changes trees. The tests also read pages as the browser does (tests/Shared/LooseDom.fs). -->
+    <PackageVersion Include="AngleSharp" Version="1.8.4" />
     <!-- taskResult { } for the Web/ actions (plans/design-kit-auth.md K8). -->
     <PackageVersion Include="FsToolkit.ErrorHandling" Version="5.2.0" />
     <PackageVersion Include="Microsoft.Data.Sqlite" Version="10.0.13" />

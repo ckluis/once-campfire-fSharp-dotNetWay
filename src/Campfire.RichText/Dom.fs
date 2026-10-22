@@ -26,11 +26,20 @@ module DomLimits =
 type ParseError =
     | TreeDepthExceeded
     | TooManyAttributes
+    /// More than 10,000 elements (Next.Html5's caps, plans/design-richtext.md R3); the old parser maps nothing to the three below.
+    | TooManyElements
+    /// More than 40,000 tokens.
+    | TooManyTokens
+    /// More than 400 attributes summed over the `<html>` and `<body>` start tags.
+    | TooManyRootAttributes
 
     member this.Message =
         match this with
         | TreeDepthExceeded -> "Document tree depth limit exceeded"
         | TooManyAttributes -> "Attributes per element limit exceeded"
+        | TooManyElements -> "Element count limit exceeded"
+        | TooManyTokens -> "Token count limit exceeded"
+        | TooManyRootAttributes -> "Attributes on html and body tags limit exceeded"
 
 /// An element's attribute; `Name` is as html5ever made it (an SVG attribute can have a prefix).
 [<Sealed>]

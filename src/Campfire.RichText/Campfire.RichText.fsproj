@@ -17,6 +17,10 @@
     <Compile Include="Filters.fs" />
     <Compile Include="Autolink.fs" />
     <Compile Include="ActionText.fs" />
+    <Compile Include="Next/Html5.fs" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="AngleSharp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="../Campfire.RailsCompat/Campfire.RailsCompat.fsproj" />
