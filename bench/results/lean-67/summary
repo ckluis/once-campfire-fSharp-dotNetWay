@@ -1,0 +1,25 @@
+auth rc=0
+errors rc=0
+pwa rc=0
+welcome rc=0
+bot_api rc=0
+search rc=0
+account rc=0
+users rc=0
+autocompletable rc=0
+messages rc=0
+interactions rc=0
+rooms rc=0
+rt_message_sent rc=0
+rt_attachment_sent rc=0
+rt_message_edited rc=0
+rt_message_deleted rc=0
+rt_boosted rc=0
+rt_boost_removed rc=0
+rt_typing rc=0
+rt_unread_in_sidebar rc=0
+rt_new_room_in_sidebar rc=0
+rt_removed_from_room rc=0
+rt_room_deleted_then_send rc=0
+rt_presence_read rc=0
+DONE
