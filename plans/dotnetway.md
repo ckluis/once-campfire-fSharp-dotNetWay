@@ -133,6 +133,10 @@ speed check before anything else is replaced.
 
 ### 2.2 Rich text: `Campfire.RichText` -> AngleSharp + HtmlSanitizer
 
+**Phase 5's design note, `plans/design-richtext.md` (2026-10-22), wins where it and this section disagree** (no HtmlSanitizer: Loofah's
+scrubber as a walker over AngleSharp; bodies parsed as AngleSharp documents after `<body>`; three caps besides Gumbo's limits;
+autolink links inside `pre` and `code` as rails_autolink does; `RubyUri` moves to the App until Phase 8; about 1.75 KLOC).
+
 **Replaces it:** `AngleSharp` 1.8.4 (active, net10.0 target) for parsing and serializing; `HtmlSanitizer` 9.2.1039 (mganss,
 active; stable targets netstandard2.0/net8.0, depends on AngleSharp >= 1.7.2 and AngleSharp.Css >= 1.0.2) for the allowlist
 layers. Deleted: `Html5ever/` (3.58 KLOC), `Dom.fs`, `Sanitizer.fs`, most of `RubyUri.fs` and `RubyExt.fs`.
