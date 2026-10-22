@@ -2425,3 +2425,65 @@ Opus verifier, adversarial review of `b632a7c..088fbf6` (4.1-4.11, the checkpoin
 - **Differences recorded:** README compression entry amended (empty errors are compressed, as Rails). No new class B entry.
 - **Phase 5 GO.** Conditions: keep `Trusted.ofSanitized` the only way rich text reaches a page and keep escaping `<` in attribute
   values or the U+E000 rewrite (AGENTS.md); re-run the lint's planted files if the sanitizer's output type changes.
+
+### Phase 5, unit 5.1: Html5 (2026-10-22)
+
+`plans/design-richtext.md` section 4, unit 5.1: `src/Campfire.RichText/Next/Html5.fs` (namespace `Campfire.RichText.Next`, module `Html5`, 361 lines), `ParseError`'s three new cases (in `Dom.fs`, where the type still
+lives until 5.7), AngleSharp 1.8.4 pinned in `Directory.Packages.props` (the tests move from 1.8.3; `Campfire.RichText.fsproj` references it), `tests/Campfire.RichText.Tests/Html5Tests.fs` (19 tests; the Tests project also references
+`Microsoft.Data.Sqlite` to read the seed's 164 bodies). No app change, so no pixel run and no bench. Nothing calls `Next` yet.
+
+- **Built as the row says:** one shared `HtmlParser` over one `BrowsingContext` (scripting off); `parseBody` (a document parse, leading U+FEFF dropped, templates flattened), `parseIn` (`ParseFragment` in the element's
+  context, the nodes detached from the parse's context copy from the back, templates flattened), `setInnerHtml`, `replaceWithHtml`, Nokogiri's serializer (`toHtml`, `innerHtml`: no newline after `pre`/`textarea`/`listing`; raw text for
+  `style`, `script`, `xmp`, `iframe`, `noembed`, `noframes`, `plaintext`, `noscript`; `&`, U+00A0, `<`, `>` in text, `&`, U+00A0, `"` in attributes; void elements bare), `descendants`, `attr`, `isNamed`, `clone`. The limits and caps are
+  counted in the parser's callbacks through a thread-static `ParseState` (the parser is shared; a callback raises `LimitExceeded`, which `parseBody`/`parseIn` turn into the `ParseError`; the state is reset in a `finally`).
+- **What the spikes did not tell and the build found (each pinned by a test):**
+  1. **A document parse needs a doctype.** Without one AngleSharp parses in quirks mode and `<p><table>` keeps the table inside the `<p>` (Gumbo and html5ever's fragment parses are no-quirks): the first run differed on
+     S2's "fuzz 44" and "fuzz 63". Every parse starts `<!DOCTYPE html><body>`; both bodies are equal now.
+  2. **AngleSharp's `IAttr.Name` drops the XLink prefix** (`xlink:href` is `href` with the XLink namespace; `xml:` and `xmlns:` keep theirs). `Html5.qualifiedName` applies the serialization algorithm's rule by namespace.
+  3. **Comments after `</body>` or `</html>` leave the body** (the document algorithm puts them in `html` and the document; the fragment algorithm, and so the old parser, keeps them in order). `bodyOf` moves them back, after the
+     body's other children: exact unless content follows them (`</body><!--c-->tail` gives `tail<!--c-->`; a recorded, pinned class B corner, P2).
+  4. **A leading `<frameset>` is not a `ParseFragment` fallback.** The row says to reparse with `ParseFragment`; that is the quadratic path (design S3) and also keeps foreign content inside its element. The body is parsed again
+     with one letter in front (a character closes the window for a frameset, which is the fragment algorithm's own rule), and the letter is taken off the first text node: linear, and foreign content breaks out as everywhere else.
+     P2 compares six frameset shapes to the old parser's trees.
+  5. **`OnCreated` is not called for an `svg` or `math` start tag in HTML content** (its children are). So those two are not counted as elements (only the 40,000-token cap bounds a flat `<svg></svg>` run: 20,000 parse in under
+     50 ms) and the depth of an element inside one is still right (it is counted from the tree, not from a counter).
+  6. **Depth is checked at the next token**, not only when the next element is created: an element created last is checked when the token after it is read, and at the end of the input. A comment or tag name of 16 MB after 401
+     `<div>`s is still read whole (AngleSharp calls no callback inside a token): 37-44 ms, where tags are refused at once (2.4 ms).
+  7. **A template's content is its own fragment**: the template's depth is recorded when it is checked and carried into the fragment (10,000 nested templates are refused as too deep in 0.4 ms).
+  8. **The attribute count needs distinct names.** AngleSharp's token keeps duplicates until the tag is finished, and `ShouldEmitAttribute` is called for every name, duplicates and end tags included. Gumbo refuses when a tag that
+     already holds 400 attributes meets another name, but 1,000 equal ones are one attribute. Below 400 names nothing is counted; from the 400th a set of the tag's names is kept. 200,000 equal attributes parse in 36 ms.
+- **Acceptance (Release, `CAMPFIRE_REQUIRE_SEED=1`, CPU time, best of five unless noted):**
+  - **P1 (trees with namespaces vs the old `Dom`, the 1,479 inputs = 658 corpus bodies + 164 seed bodies + 657 Rails presentations):** equal on 1,471; **eight corpus bodies differ, 0 seed bodies, 0 presentations**. The named list: `malformed
+    select` and fuzz 125, 177, 188, 325, 362, 395 (the 2025 standard's `select` content model: a `<b>`/`<hr>`/`<s>` inside an `<option>` or `<select>` is kept, Gumbo drops it) and `limits attributes on an unfinished tag` (L1). **S2
+    named twelve; four are gone for the reasons in 1, 6 and 8** (fuzz 44, fuzz 63, `limits too deep before the adoption agency cuts`; and `limits attributes at the limit and a duplicate` was never different once the count is
+    made before the duplicate is dropped). The test fails on an unlisted difference and on a listed case that no longer differs.
+  - **L1 (Gumbo's truth table: the 19 cases of the old `DomTests`):** 16 equal, 3 named boundary cases. Beyond `attributes on an unfinished tag` (the input ends inside the 401st name; no callback sees it: renders here, refused by
+    Gumbo): `400 x <b> + </p>` (the implied `<p>` of an end tag with none open is an element at depth 401 for AngleSharp, never on Gumbo's stack: refused here, rendered by Gumbo) and `reopened b's + a comment`
+    (Gumbo checks again after the formatting elements are reopened past the limit; here the last element's depth is checked and is under it: rendered here, refused by Gumbo). `400 x <b> + <br>`, `1,000 equal attributes`,
+    `adoption agency, too deep before` and the rest equal Gumbo. Each of the three also goes into `known-differences.json` in 5.6.
+  - **P2:** template contents are children (nested too); BOM dropped at the start only; six frameset shapes equal the old trees; `<html a=1>`/`<body a=1>` add nothing; comments after `</body>`/`</html>` stay in the container (3 above).
+  - **P3:** the old `DomTests`' serializer cases (copied), plus `pre`/`textarea`/`listing` losing one newline per round trip, the eight raw-text elements, escaping, void elements, `xlink:href`/`xml:lang`/`xmlns:xlink`.
+  - **P4 (`parseIn` in `action-text-attachment`, `div`, `p`, `li`, `figure`, `td` against the old `ParseNodes`):** the plain texts of the corpus and the partial-shaped strings are equal, **except strings holding `<svg`, `<math` or `<select`**
+    (set aside, counted: AngleSharp's fragment algorithm keeps foreign content inside its element and has the `select` rule). **Unit 5.4 must therefore hand `parseIn` only markup the pipeline built** (partials, `"@Name"`,
+    `"[caption]"`), **never a message's own markup or a `replace(plain text)` of text that can hold `<svg>`**: for those, build nodes (`CreateTextNode`) or go through `parseBody`. A test pins the difference (`<svg><p>y</p></svg>`).
+  - **P5 (no quadratic step):** 9,900 `<p>x</p>` 14.0 ms, 9,900 `x<br>` 12.8 ms, 8,000 paragraphs 17.5 ms, a 2,000-row table 14.1 ms, 20,000 chunks of 1 KB text parse (bound 50 ms). **The row's 20,000 paragraphs and 20,000
+    `x<br>` are over the 10,000-element cap (R3), so they are refused (17 ms and 13 ms), not parsed**: the test sets the no-quadratic bar at the cap's edge and checks that 20,000 are refused in under 50 ms.
+  - **L2 (the port's hostile shapes):** 80,000 `<div>` 0.35 ms, 80,000 `<a><b>` 1.1 ms, 30,000 `<a><div><div>` 0.9 ms (all refused as too deep); 401 `<div>` + 16 MB of tags 2.4 ms; + a 16 MB comment 37 ms, + a 16 MB tag name 44 ms
+    (bound 250 ms, not the port's 100: 6 above); a tag with 64,000 attributes 0.17 ms; 550 KB of `<html>` tags with 400 new attributes each is **now refused** (`TooManyRootAttributes`, 0.17 ms for 300 tags; Rails and the port render
+    it empty: class B, R3); 200,000 `<br>` after a `<table>` refused at the element cap in 48 ms (bound 1 s).
+  - **L3 (the caps):** 9,000 `<br>` after a `<table>` parses in 41 ms (bound 400); 10,000 elements parse, 10,001 are refused in 3.0 ms; 40,000 tokens parse, 40,001 are refused in 5.4 ms; 160,000 ignored end tags refused in 26 ms;
+    400 attributes over `<html>` and `<body>` parse, 401 refused (0.17 ms); one tag: 400 names parse, 401 refused; 8,000 paragraphs and a 2,000-row table parse. The other shapes S3 or the build found (10,000 templates, 10,000 nested
+    `<svg>`, 9,000 `<table><td>`, formatting elements reopened in a table, 9,000 `<option>`, 12,000 stray `</p>`, text split by `</q>`, 3,000 nested tables) each stay under 400 ms (a test).
+  - **L4:** 8 threads x 20,000 parses of 164 seed bodies, the 658 corpus bodies and four refusals/templates give the single-threaded results (innerHtml or the refusal) every time; managed memory after a full collection within 5 MB of the
+    start.
+- **Known differences found (class B, for `known-differences.json` and the README in 5.6):** (a) the 2025 `select` model (P1's seven bodies); (b) the three limit boundaries (L1); (c) comments after an explicit `</body>` that
+  content follows arrive after that content (3); (d) **`<isindex>`**: AngleSharp still expands it as the 2008 standard did (`<form><hr><label>This is a searchable index. Enter search keywords: <input name="isindex"></label><hr></form>`),
+  where Gumbo and browsers leave an element of that name. The sanitizer of 5.2 drops `form` and `input` and `label` by the allowlist, but the sentence survives as text and the `hr`s may. AngleSharp offers no switch, and an `OnToken`
+  rename does not reach the tree builder; 5.2 should either drop that exact subtree or record the sentence. (e) element-context parses keep foreign content inside (4 under P4); (f) the caps and the root-attribute cap (R3).
+- **Not done / left for later units:** the migration differential's other halves (S1, M1 need the sanitizer and the pipeline); the unfinished-tag boundary could close if `StructHtmlToken` exposed the pending attribute at the end
+  of input (it does not in 1.8.4).
+- **KLOC:** `bin/kloc` 33,929 by upstream's rules, **34,101 corrected (34.1 KLOC)**, from 33,740 (+361: `Next/Html5.fs`; `Campfire.RichText` 6,197 -> 6,558). **Against the design** (`Html5` about 0.14): 0.36, a hundred lines of it
+  the thread-local counters, the depth/template/attribute logic and the comment/frameset handling that the spikes did not need. The old parser goes in 5.7; the phase projection (about 29.7) is unchanged for now.
+- **Gates run:** `CAMPFIRE_REQUIRE_SEED=1 bin/verify` green on the second commit: lint self-test 39/39 and 341 files clean, Dapper and EF guards, Release build with warnings as errors 0 warnings, tests 990 total, 984 passed, 0 failed,
+  6 skipped (the same environmental six; was 971 before, +19 here); H1 in `HotPathTests` passed. Not run: pixel slices and `bench/quick` (no app change). Disk 27 GB free at the start and after.
+- **Next:** unit 5.2 (Sanitizer: `Loofah.fs` out of `Sanitizer.fs`, the walker on AngleSharp nodes), with the `<isindex>` item above.
