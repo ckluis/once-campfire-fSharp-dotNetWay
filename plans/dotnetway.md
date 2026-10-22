@@ -2372,3 +2372,52 @@ Opus reviewer, on `306f048`. Findings and method in `plans/design-views.md` sect
 - **KLOC:** `bin/kloc` 33,551, corrected 33,723 (33.7), unchanged (`Campfire.Views` 5,219).
 - **Differences recorded:** none new. Open, accepted (O3): the lint is a token scan; reflection or unchecked casts that build Falco nodes
   are not seen.
+
+### Phase 4: independent verification (2026-10-22) - PHASE 4 DONE; Phase 5 GO
+
+Opus verifier, adversarial review of `b632a7c..088fbf6` (4.1-4.11, the checkpoint, the gate, the security review) against
+`plans/design-views.md` and D1-D9, with the cheap checks re-run. Evidence in `bench/results/dotnetway-p4-verify/`. Fixes in `59207f1`,
+`592ed71`, `49e1e09`.
+- **Checked and holding:** the writer is gone (no `Out.fs`, `Tag.fs`, `Filters.fs`, `Links.fs`, `Legacy.fs`, `PageParts.fs`,
+  `FragmentGlue.fs`, `RecordedPage`, `RenderSize`, `SafeBytes`, `bin/views-differential`, `bin/views-test-parity` in `src`, `tests`
+  or `bin`; `Helpers/` keeps only text helpers). Escaping: one encoder (`Core/Html.fs`, `WebUtility.HtmlEncode`), the three `Trusted`
+  makers at their one call site each, every `Html.attr` name a literal; data-fed `href`/`src`/`action` values are routes, asset paths and
+  blob paths, `style` values numbers; the slot marker is neutralised in sanitized HTML and custom CSS. `bin/lint-markup` self-test 39/39
+  and 340 files clean. Fragments: only `Fragments.fs` calls HybridCache; keys are Rails' `cache_key_with_version` (+ partial, variant);
+  boosts and body/attachment changes touch the message (`Models.fs`), so a change re-keys it; the cached templates read nothing of the
+  viewer (`_Message`, `_Actions`, `_Boost(s)` use `ctx` only for asset paths; `RoomName` is `for_user: nil`); the direct-room fragment
+  is keyed by the viewer's own membership. Pixel evidence: the gate's lean `report.json`s give 940 screenshot cells equal on pixels,
+  aria and loose, as it said (+16 server-only states whose only red layer is the reported server bytes); the full matrix's only uncaptured cells
+  were the 16 Firefox ones below plus the one Chromium readiness timeout the gate re-ran.
+- **Fixed:** (1) **The 16 Firefox cells (`auth/join/invalid_code`, `rooms/opens/new/restricted_member`), `49e1e09`.** Not a header
+  problem: our 404 was a well-formed `Content-Length: 0` (`curl --raw` on the image). Firefox shows its own NS_ERROR_NET_EMPTY_RESPONSE
+  page for an error document of zero bytes; Rails' `Rack::Deflater` gzips the empty body into a few bytes, which Firefox renders blank.
+  `Compression.compressEmptyErrors` (a middleware just inside `UseResponseCompression`) starts an unstarted empty response with status
+  >= 400, and `SkipSmall` lets that one through, so the framework compresses it when the client takes gzip/Brotli; identity is
+  unchanged. `RespondTests` X4b (fails with the middleware removed). On the `49e1e09` image, full matrix (3 engines x 4 viewports x
+  light/dark): `auth/join/invalid_code` 24/24 and `rooms/opens/new/restricted_member` (restricted) 24/24 equal on pixels, aria and
+  loose. README compression entry updated (and its stale "16 MiB bounded map": kept pages share the fragments' HybridCache). (2) **No
+  test rendered a page after a change to a cached record** (F1-F3 test the cache, not freshness): `MessagesTests` "V4 cached fragments
+  show a change on the next render and nothing of another viewer" (edit, boost and its removal show on Jason's next room page; David's
+  and Jason's pages hold the same message bytes; each member's sidebar names the other), `59207f1`; with the key's version sabotaged it
+  fails. (3) Two comments naming the deleted tool, `592ed71`.
+- **Re-run here:** `CAMPFIRE_REQUIRE_SEED=1 bin/verify` on `49e1e09`: 971 total, 965 passed, 6 skipped (the same environmental 6), 0
+  failed, 0 warnings, H1 green. One earlier run on the same tree failed `FrontAcmeTests` "cached certificates load and are forgotten by
+  obtaining" (`ObtainingCount` 1, expected 0); it passed 3/3 alone and in the next full run. Third time in Phase 4 (4.4, 4.7): a race
+  in the Phase 7 front server, left for Phase 7 (which deletes `Front/`). Pixels on the `49e1e09` image (label checked): the two states
+  above, then `--fast` `interactions/sidebar**,interactions/phone_sidebar,rooms/show/**,search/**` on every seed (the security review's
+  `linkToRoom` change had no pixel run): default 55/55, custom_styles 6/6, all three layers.
+- **Speed** (`bench/quick --routes post_message,sidebar`, the floor's thinnest cells, 3 reps interleaved new/ctl/ctl/new/new/ctl; control
+  the 4.10 image `p411ctl`, removed afterwards; host probe 1.04-1.09 before and after, 0 of 24 windows above 1.10, Mac load 2.4-5.5,
+  every response 2xx, 0 connection errors, decoded bytes equal the stored expected sizes): new / control req/s and x Rails (new):
+  sidebar c=16 7,619 / 7,593 (12.73x), c=1 2,525 / 2,552 (8.81x); post c=16 2,046 / 2,070 (6.20x), c=1 1,150 / 1,152 (6.89x). Within
+  -1.2% to +0.3% of the control; CPU per request within 1%. No cell under 5x. The gate's five-workload table against the Phase 3
+  control (room page -12%, search -11.7% at c=16, everything still 6.04x-31x) stands as the phase's string-render cost.
+- **KLOC:** `bin/kloc` 33,551 by upstream's rules, **33,723 corrected (33.7)**, unchanged by the fixes (tests and 15 lines of
+  middleware and comments). Against the design: Views 5.22 (projected 3.40), project 33.7 (projected 32.0, range top 32.6). The miss
+  is the templates (Falco came out at the writer's size, not 0.6 of it). Not a blocker: D7's bar (Rust, 31.0) is the close's (Phase 9)
+  and Phase 5's projected -4.8 takes the project to about 28.9. If Phase 9 lands above 31.0, a template-compaction unit (shared partial
+  shapes, repeated markup as data) is the lever.
+- **Differences recorded:** README compression entry amended (empty errors are compressed, as Rails). No new class B entry.
+- **Phase 5 GO.** Conditions: keep `Trusted.ofSanitized` the only way rich text reaches a page and keep escaping `<` in attribute
+  values or the U+E000 rewrite (AGENTS.md); re-run the lint's planted files if the sanitizer's output type changes.

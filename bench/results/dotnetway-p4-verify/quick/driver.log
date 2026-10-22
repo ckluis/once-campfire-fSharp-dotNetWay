@@ -1,0 +1,12 @@
+=== new rep 1 05:01:30 mac-free 25Gi load 2.39 5.16 5.52
+rc=0
+=== ctl rep 1 05:04:25 mac-free 25Gi load 3.81 4.49 5.16
+rc=0
+=== ctl rep 2 05:07:51 mac-free 25Gi load 3.24 3.73 4.67
+rc=0
+=== new rep 2 05:11:35 mac-free 25Gi load 3.40 3.56 4.36
+rc=0
+=== new rep 3 05:15:01 mac-free 25Gi load 3.66 3.46 4.12
+rc=0
+=== ctl rep 3 05:18:16 mac-free 25Gi load 3.81 3.43 3.95
+rc=0
