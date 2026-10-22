@@ -285,18 +285,24 @@ let ``S6 cost per seed body: canonical load with toHtml and plain text, old agai
 
 /// Checkpoint after 5.4: AngleSharp finds a node's siblings, and a child it removes or inserts before, by scanning its parent's list,
 /// so a walk by NextSibling/PreviousSibling, a removal from the back or an insertion per child is quadratic in a wide node. Before
-/// the fix these took 0.4-2.7 s (the old pipeline 5-350 ms); every one is a body under the parse caps.
+/// the fix these took 0.4-2.7 s (the old pipeline 5-350 ms; a caption in a td 1.5 s through ParseFragment); every one is a body under
+/// the parse caps.
 [<Fact>]
 let ``wide bodies cost linear time through load, plain text, render and filters`` () =
     let ctx = render (NoRecords()) (Some "once.campfire.test")
     let caption = Net.WebUtility.HtmlEncode(String.replicate 9_500 "<b>x</b>")
     let content = Net.WebUtility.HtmlEncode(String.replicate 9_500 "x<br>")
+    let captioned = $"<action-text-attachment content-type=\"image/png\" url=\"https://x.test/y.png\" caption=\"{caption}\"></action-text-attachment>"
     let bodies =
         [ "9,900 x<br>", String.replicate 9_900 "x<br>"
           "19,000 comments", String.replicate 19_000 "x<!---->"
           "an unknown element around 9,900 x<br>", "<foo>" + String.replicate 9_900 "x<br>" + "</foo>"
           "a caption of 9,500 <b>", $"<action-text-attachment content-type=\"image/png\" url=\"https://x.test/y.png\" caption=\"{caption}\"></action-text-attachment>"
-          "a content attachment of 9,500 x<br>", $"<action-text-attachment content-type=\"text/html\" content=\"{content}\"></action-text-attachment>" ]
+          "a content attachment of 9,500 x<br>", $"<action-text-attachment content-type=\"text/html\" content=\"{content}\"></action-text-attachment>"
+          // A table cell, a caption and a form are contexts the body parse does not stand in for
+          "that caption in a td", $"<table><tr><td>{captioned}</td></tr></table>"
+          "that caption in a table caption", $"<table><caption>{captioned}</caption></table>"
+          "that caption in a form", $"<form>{captioned}</form>" ]
     let steps: (string * (string -> unit)) list =
         [ "plain text", (fun b -> Next.ActionText.toPlainText b ctx |> ignore)
           "layout", (fun b -> Next.Content.load b ctx |> Result.bind (fun c -> Next.Content.toRenderedHtmlWithLayout c ctx) |> ignore)

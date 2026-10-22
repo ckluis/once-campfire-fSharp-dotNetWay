@@ -346,13 +346,14 @@ module Html5 =
 
     /// An HTML context in which the fragment algorithm parses as the body does: its insertion mode resets to "in body", the tokenizer
     /// starts in the data state, and no `form` is on the way up (the form element pointer).
+    let private parsesUnlikeBody (localName: string) : bool =
+        match localName with
+        | "select" | "td" | "th" | "tr" | "tbody" | "thead" | "tfoot" | "caption" | "colgroup" | "table" | "template" | "html" | "head"
+        | "frameset" | "title" | "textarea" | "style" | "xmp" | "iframe" | "noembed" | "noframes" | "script" | "noscript" | "plaintext" -> true
+        | _ -> false
+
     let private parsesAsBody (context: IElement) : bool =
-        isHtml context
-        && (match context.LocalName with
-            | "select" | "td" | "th" | "tr" | "tbody" | "thead" | "tfoot" | "caption" | "colgroup" | "table" | "template" | "html" | "head"
-            | "frameset" | "title" | "textarea" | "style" | "xmp" | "iframe" | "noembed" | "noframes" | "script" | "noscript" | "plaintext"
-            | "form" -> false
-            | _ -> isNull (context.Closest "form"))
+        isHtml context && not (parsesUnlikeBody context.LocalName) && isNull (context.Closest "form")
 
     /// Nokogiri's `Node#fragment`: `html` parsed in `context`'s context; the nodes, detached, owned by a document of the parse.
     let parseIn (context: IElement) (html: string) : Result<INode[], ParseError> =
@@ -362,23 +363,32 @@ module Html5 =
         // equal for the markup the pipeline builds (spans, images, divs: breakout tags), recorded for the rest (unit 5.4).
         let context = if isForeignContext context then (nonNull context.Owner).CreateElement "div" else context
         // ParseFragment moves its top-level nodes into the context one at a time (quadratic: a caption of 9,500 <b>s in plain text took
-        // 1.3 s). Where the fragment algorithm parses as the body does (every context the pipeline hands it but a table cell), the
+        // 1.3 s). Where the fragment algorithm parses as the body does (every context but table parts, raw text, select and forms), the
         // document parse after <body> is the same tree in linear time (checkpoint after 5.4).
         if parsesAsBody context then
             parseBody text |> Result.map detachChildren
         else
-            guarded 1 0 0 (fun () ->
-                let nodes = parser.ParseFragment(text, context)
-                let result = Array.init nodes.Length (fun i -> nodes[i])
-                // First to last (see detachChildren)
-                for node in result do
-                    match node.Parent with
-                    | null -> ()
-                    | parent -> parent.RemoveChild node |> ignore
-                if ParseState.Current.SawTemplate then
+            // ParseFragment moves its nodes one at a time here too (32,000 in a td: 4.7 s). The limits and caps are counted on the
+            // markup's body parse (linear; the counts are the context's but for the elements a table context implies), then the tree
+            // comes from the fragment algorithm through the InnerHtml setter, which moves the nodes in one go. A detached copy of the
+            // context stands in for it, inside a `form` when the context has one above it (the form element pointer).
+            match parseBody text with
+            | Error error -> Error error
+            | Ok _ ->
+                guarded 1 0 0 (fun () ->
+                    let owner = nonNull context.Owner
+                    // Any other name parses as a div does (and may not be a name the DOM API accepts: the parser makes `a"b`)
+                    let copy = owner.CreateElement(if parsesUnlikeBody context.LocalName then context.LocalName else "div")
+                    if not (isNull (context.Closest "form")) then (owner.CreateElement "form").AppendChild copy |> ignore
+                    copy.InnerHtml <- text
+                    let holder: INode =
+                        match copy with
+                        | :? IHtmlTemplateElement as template -> template.Content
+                        | _ -> copy
+                    let result = detachChildren holder
                     for node in result do
                         flattenTemplates node
-                result)
+                    result)
 
     // --- Serialization ----------------------------------------------------------------------------
 
