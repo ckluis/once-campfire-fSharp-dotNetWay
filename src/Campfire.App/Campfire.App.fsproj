@@ -138,4 +138,42 @@
   <ItemGroup>
     <InternalsVisibleTo Include="Campfire.App.Tests" />
   </ItemGroup>
+<PropertyGroup>
+  <CampfireAssetsDir>$(MSBuildProjectDirectory)/Assets/</CampfireAssetsDir>
+  <CampfireReferenceRoot>$(MSBuildProjectDirectory)/../../reference/</CampfireReferenceRoot>
+</PropertyGroup>
+<ItemGroup>
+  <EmbeddedResource Include="$(CampfireReferenceRoot)config/importmap.rb" LogicalName="importmap.rb" />
+</ItemGroup>
+<!-- Propshaft's load path (Assets/overrides first, then Assets/vendor/LOAD_PATH; an override shadows the file of its logical
+     path) and reference/public, copied into wwwroot/ (gitignored) before static web assets discovery. -->
+<Target Name="CampfireStageWebRoot" BeforeTargets="ResolveProjectStaticWebAssets">
+  <Error Condition="!Exists('$(CampfireReferenceRoot)config/importmap.rb')" Text="reference/ submodule is missing (git submodule update --init reference)" />
+  <ReadLinesFromFile File="$(CampfireAssetsDir)vendor/LOAD_PATH">
+    <Output TaskParameter="Lines" ItemName="_CampfireLoadPathLine" />
+  </ReadLinesFromFile>
+  <ItemGroup>
+    <_CampfireLoadPathGlob Include="$([System.String]::Copy('%(_CampfireLoadPathLine.Identity)').Replace('reference:', '$(CampfireReferenceRoot)').Replace('vendor:', '$(CampfireAssetsDir)vendor/'))/**" />
+    <_CampfireOverride Include="$(CampfireAssetsDir)overrides/**" />
+    <_CampfireOverride Link="wwwroot/assets/%(RecursiveDir)%(Filename)%(Extension)" />
+    <_CampfireAsset Include="@(_CampfireLoadPathGlob)" />
+    <_CampfireAsset Remove="@(_CampfireAsset)" Condition="$([System.String]::Copy('%(Filename)%(Extension)').StartsWith('.')) Or '%(Extension)' == '.gz' Or '%(Extension)' == '.br'" />
+    <_CampfireAsset Link="wwwroot/assets/%(RecursiveDir)%(Filename)%(Extension)" />
+    <_CampfireAsset Remove="@(_CampfireOverride)" MatchOnMetadata="Link" />
+    <_CampfirePublic Include="$(CampfireReferenceRoot)public/**" />
+    <_CampfirePublic Link="wwwroot/%(RecursiveDir)%(Filename)%(Extension)" />
+    <_CampfireStage Include="@(_CampfireOverride);@(_CampfireAsset);@(_CampfirePublic)" />
+  </ItemGroup>
+  <Copy SourceFiles="@(_CampfireStage)" DestinationFiles="@(_CampfireStage->'%(Link)')" SkipUnchangedFiles="true">
+    <Output TaskParameter="DestinationFiles" ItemName="_CampfireStaged" />
+  </Copy>
+  <ItemGroup>
+    <_CampfireStale Include="wwwroot/**" Exclude="@(_CampfireStaged)" />
+  </ItemGroup>
+  <Delete Files="@(_CampfireStale)" />
+  <ItemGroup>
+    <Content Remove="@(_CampfireStaged);@(_CampfireStale)" />
+    <Content Include="@(_CampfireStaged)" />
+  </ItemGroup>
+</Target>
 </Project>

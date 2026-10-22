@@ -54,6 +54,7 @@
     <Compile Include="CableAuthTests.fs" />
     <Compile Include="HotPathTests.fs" />
     <Compile Include="FastReadsTests.fs" />
+    <Compile Include="AssetsTests.fs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="testdata/**" CopyToOutputDirectory="PreserveNewest" />

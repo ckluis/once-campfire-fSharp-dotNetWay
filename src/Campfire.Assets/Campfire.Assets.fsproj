@@ -33,7 +33,7 @@
 
   <!-- Everything build.rs watches with cargo:rerun-if-changed. -->
   <ItemGroup>
-    <AssetInput Include="vendor/**;overrides/**" />
+    <AssetInput Include="../Campfire.App/Assets/vendor/**;../Campfire.App/Assets/overrides/**" />
     <AssetInput Include="$(ReferenceRoot)app/assets/**;$(ReferenceRoot)app/javascript/**;$(ReferenceRoot)vendor/javascript/**;$(ReferenceRoot)public/**" />
     <AssetInput Include="$(ReferenceRoot)config/importmap.rb;$(ReferenceRoot)config/initializers/assets.rb" />
   </ItemGroup>
@@ -55,7 +55,7 @@
 
   <Target Name="GenerateAssets" AfterTargets="StampAssetsInputs" Inputs="@(AssetInput);$(AssetsBuildDll);$(AssetsGenDir)source-date-epoch.txt;$(AssetsGenDir)inputs.txt" Outputs="$(AssetsGenDir)EmbeddedData.fs;$(AssetsGenDir)assets.bin;$(AssetsGenDir)importmap-tags.html">
     <Error Condition="!Exists('$(ReferenceRoot)config/importmap.rb')" Text="reference/ submodule is missing (git submodule update --init reference)" />
-    <Exec Command="&quot;$(DOTNET_HOST_PATH)&quot; &quot;$(AssetsBuildDll)&quot; --reference &quot;$(ReferenceRoot)&quot; --assets &quot;$(MSBuildProjectDirectory)&quot; --out &quot;$(AssetsGenDir)&quot;" />
+    <Exec Command="&quot;$(DOTNET_HOST_PATH)&quot; &quot;$(AssetsBuildDll)&quot; --reference &quot;$(ReferenceRoot)&quot; --assets &quot;$(MSBuildProjectDirectory)/../Campfire.App/Assets&quot; --out &quot;$(AssetsGenDir)&quot;" />
     <!-- The tool leaves an unchanged output alone; touching them keeps the stamps from being newer than the outputs for good. -->
     <Touch Files="$(AssetsGenDir)EmbeddedData.fs;$(AssetsGenDir)assets.bin;$(AssetsGenDir)importmap-tags.html" />
   </Target>

@@ -19,3 +19,5 @@ bench/*/bin/
 bench/*/obj/
 reference-tools/**/bin/
 reference-tools/**/obj/
+
+src/Campfire.App/wwwroot/

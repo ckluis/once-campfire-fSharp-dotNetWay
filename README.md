@@ -15,7 +15,7 @@ It is translated from the [Rust port](https://github.com/basecamp/once-campfire-
 golden vectors and benchmark tooling this repository reuses under the MIT license.
 
 The Rails frontend ships with a few
-[port-owned overrides](src/Campfire.Assets/OVERRIDES.md): three JavaScript files and one image that
+[port-owned overrides](src/Campfire.App/Assets/OVERRIDES.md): three JavaScript files and one image that
 deliberately differ from Rails.
 
 ## Performance

@@ -1,16 +1,16 @@
 #!/usr/bin/env bash
 # Re-vendor gem-provided assets and regenerate the golden fixtures after a reference bump.
 #
-#   src/Campfire.Assets/script/revendor
+#   src/Campfire.App/Assets/script/revendor
 #
 # Uses the `campfire-reference` Docker image (whose build already ran assets:precompile) when
 # Docker is reachable. Otherwise it copies reference/ to a scratch directory, installs the bundle
 # (into $BUNDLE_PATH, default target/reference-bundle), precompiles there, and exports from that.
-# Either way, src/Campfire.Assets/script/export_reference.rb does the work inside the reference app.
+# Either way, src/Campfire.App/Assets/script/export_reference.rb does the work inside the reference app.
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
-CRATE="$ROOT/src/Campfire.Assets"
+ROOT="$(cd "$(dirname "$0")/../../../.." && pwd)"
+CRATE="$ROOT/src/Campfire.App/Assets"
 FIXTURES="$ROOT/tests/Campfire.Assets.Tests/reference"
 mkdir -p "$FIXTURES"
 REFERENCE_SHA="$(git -C "$ROOT/reference" rev-parse HEAD)"

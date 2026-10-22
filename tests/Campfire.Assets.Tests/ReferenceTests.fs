@@ -1,7 +1,7 @@
 // Port of rust/crates/assets/tests/reference.rs
 //
 // Golden tests against what the reference app produced (tests/Campfire.Assets.Tests/reference/*,
-// written by src/Campfire.Assets/script/revendor from `assets:precompile` and the real Rails
+// written by src/Campfire.App/Assets/script/revendor from `assets:precompile` and the real Rails
 // helpers). Files in `overrides/` deliberately differ from the reference, so only their digests
 // and bytes are allowed to.
 module Campfire.Assets.Tests.ReferenceTests
@@ -33,7 +33,7 @@ let private str (e: JsonElement) : string = nonNull (e.GetString())
 
 /// The logical paths in `overrides/`.
 let private overrideFiles () : string list =
-    let dir = Repo.path "src/Campfire.Assets/overrides"
+    let dir = Repo.path "src/Campfire.App/Assets/overrides"
     Directory.EnumerateFiles(dir, "*", SearchOption.AllDirectories)
     |> Seq.map (fun file -> Path.GetRelativePath(dir, file).Replace('\\', '/'))
     |> Seq.sort

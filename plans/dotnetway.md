@@ -2821,3 +2821,18 @@ this entry and its evidence are the commit after it).
 - **Gates.** `CAMPFIRE_REQUIRE_SEED=1 bin/verify`: 1,012 total, 1,006 passed, 0 failed, 6 skipped (the environmental six). `bin/pixel-parity --fast
   --only 'auth/sign_in*,rooms/show/designers'` on `default`: 4/4 screenshots, aria and loose equal. `bin/clean-parity` run. Disk 26 GB free.
 - **KLOC** `bin/kloc`: 30,048 by upstream's rules, 30,220 corrected (unchanged).
+
+### Phase 6, unit 6.2 (staging), 2026-10-22
+
+- **Built (no served response changes; no `.fs` under `src` touched).** `git mv src/Campfire.Assets/{vendor,overrides,script,OVERRIDES.md}` to
+  `src/Campfire.App/Assets/`; `revendor`'s `ROOT`/`CRATE` retargeted (and the path mentions in `export_reference.rb`, `vendor/MANIFEST.md`); the old
+  `Campfire.Assets.fsproj` `AssetInput` globs and `--assets` argument point at the new directory, so the old pipeline still serves. `Campfire.App.fsproj`
+  gained the `CampfireStageWebRoot` target and the `importmap.rb` `EmbeddedResource` exactly as design-assets.md section 3; `.gitignore` gained
+  `src/Campfire.App/wwwroot/`; README's overrides link fixed; `bin/check-assets-incremental` rewritten for the staging target.
+- **Acceptance.** `dotnet build` stages 311 files in `wwwroot/assets` + 5 public files (404/422/500/502.html, robots.txt). `campfire.staticwebassets.endpoints.json`
+  has a fingerprinted endpoint (label + fingerprint) for each of the 316 (plus the SDK's `.gz` variants: 539 fingerprinted asset files in all). `bin/check-assets-incremental`
+  passes (added override staged, in the manifest with a fingerprinted route; deleted, gone from both). New App test S1 (`tests/Campfire.App.Tests/AssetsTests.fs`):
+  staged set = Rails' manifest minus the 4 lexxy `.gz`/`.br` plus `install-edge.svg`, bytes equal the sources (overrides first, then LOAD_PATH order).
+- **Gates.** `CAMPFIRE_REQUIRE_SEED=1 bin/verify` (Release, warnings as errors): 1,013 total, 1,007 passed, 0 failed, 6 skipped (the environmental six). No pixel run
+  (no response changes). Disk 26 GB free.
+- **KLOC** `bin/kloc`: 30,048 by upstream's rules, 30,220 corrected (unchanged).
