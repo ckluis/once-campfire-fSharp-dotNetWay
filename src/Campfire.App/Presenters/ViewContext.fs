@@ -15,7 +15,6 @@ namespace Campfire.App.Presenters
 open System
 open System.Threading.Tasks
 open Campfire.App
-open Campfire.Assets
 open Campfire.Db
 open Campfire.Views
 
@@ -30,15 +29,10 @@ type Layout =
       AppVersion: string }
 
 module ViewContextBuilder =
-    /// The layout's `stylesheet_link_tag :all, "data-turbo-track": "reload"`: the assets are fixed at
-    /// build time, so it renders once per process.
-    let private tags = lazy (Assets.stylesheetLinkTagAll [ "data-turbo-track", "reload" ])
-
-    let stylesheetTags () : Campfire.Assets.Tags.StylesheetTags = tags.Value
-
-    // Both are built from digests at build time (`Campfire.Assets`), so each is one `Trusted` string made once per process.
-    let private stylesheetHtml = lazy (Campfire.Views.Markup.Html.Trusted.ofAssetTags tags.Value.Html)
-    let private importmapHtml = lazy (Campfire.Views.Markup.Html.Trusted.ofAssetTags (Assets.javascriptImportmapTags ()))
+    // Both come from the static asset table (`Web.StaticAssets`), made once at `map`; each is one `Trusted` string made lazily on
+    // first use (after the host has mapped the assets), once per process.
+    let private stylesheetHtml = lazy (Campfire.Views.Markup.Html.Trusted.ofAssetTags (Web.StaticAssets.stylesheetTags ()))
+    let private importmapHtml = lazy (Campfire.Views.Markup.Html.Trusted.ofAssetTags (Web.StaticAssets.importmapTags ()))
 
     /// `stylesheet_link_tag :all`'s tags, as the layout writes them.
     let stylesheetTrusted () : Campfire.Views.Markup.Html.Trusted = stylesheetHtml.Value

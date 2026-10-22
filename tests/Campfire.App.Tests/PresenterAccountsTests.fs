@@ -149,7 +149,7 @@ let ``edge gets its install instructions`` () =
         do! b.SignIn "david@37signals.com"
         let! profile = b.Send((get "/users/me/profile").With("user-agent", edge))
         Assert.Equal(200, profile.Status)
-        Assert.True(profile.Text.Contains "/assets/install-edge-", profile.Text)
+        Assert.True(profile.Text.Contains "/assets/install-edge.", profile.Text)
     }
 
 [<Fact>]

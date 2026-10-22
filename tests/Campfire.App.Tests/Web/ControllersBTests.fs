@@ -69,7 +69,7 @@ let ``J2 the account form reads its name and its settings hash`` () =
         Assert.Contains("✓", edit.Text)
         // The flash is shown once.
         let! again = b.Get "/account/edit"
-        Assert.DoesNotContain("flash", again.Text.Replace("flash-", ""), StringComparison.Ordinal)
+        Assert.DoesNotContain("flash", again.Text.Replace("flash-", "").Replace("/assets/flash.", ""), StringComparison.Ordinal)
         // A JSON body carries the same hash.
         let! json =
             b.Write(

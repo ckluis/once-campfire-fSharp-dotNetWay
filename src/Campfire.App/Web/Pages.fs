@@ -16,7 +16,6 @@ open Microsoft.AspNetCore.ResponseCompression
 open Microsoft.Extensions.DependencyInjection
 open Campfire.App
 open Campfire.App.Presenters
-open Campfire.Assets
 open Campfire.Db
 open Campfire.Ruby
 open Campfire.Views
@@ -125,7 +124,7 @@ module Pages =
               FlashAlert = option flash.Alert
               Platform = layout.Platform
               VapidPublicKey = layout.VapidPublicKey
-              AssetPath = Assets.assetPath
+              AssetPath = StaticAssets.path
               ImportmapTags = ViewContextBuilder.importmapTrusted ()
               StylesheetTags = ViewContextBuilder.stylesheetTrusted ()
               CustomStyles = layout.CustomStyles
@@ -260,8 +259,7 @@ module Pages =
 
     /// A page rendered in the application layout: plus the `Link` preload header `stylesheet_link_tag` adds.
     let private sendPage (http: HttpContext) (status: int) (html: HtmlOutput) : HttpHandler =
-        let links = (ViewContextBuilder.stylesheetTags ()).PreloadLinks
-        output http status HtmlUtf8 [ "link", Assets.appendPreloadLinks "" links ] html
+        output http status HtmlUtf8 [ "link", StaticAssets.preloadLinks () ] html
 
     /// A page rendered in turbo-rails' frame layout (no stylesheets, so no `Link` header).
     let private sendFrame (http: HttpContext) (status: int) (html: HtmlOutput) : HttpHandler = output http status HtmlUtf8 [] html

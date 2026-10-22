@@ -224,11 +224,11 @@ type Presenter(db: Ef.CampfireDb, app: AppState, requestHost: string option) =
                 match Message.soundIn plainText with
                 | Some sound ->
                     MessageContent.Sound
-                        { Url = Campfire.Assets.Assets.assetPath (Sound.assetPath sound)
+                        { Url = Campfire.App.Web.StaticAssets.path (Sound.assetPath sound)
                           Image =
                             sound.Image
                             |> Option.map (fun image ->
-                                { Src = Campfire.Assets.Assets.imagePath (SoundImage.assetPath image)
+                                { Src = Campfire.App.Web.StaticAssets.path (SoundImage.assetPath image)
                                   Width = uint32 image.Width
                                   Height = uint32 image.Height })
                           Text = sound.Text }

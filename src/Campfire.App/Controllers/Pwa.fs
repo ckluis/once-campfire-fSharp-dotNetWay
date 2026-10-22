@@ -8,7 +8,6 @@ open System
 open FsToolkit.ErrorHandling
 open Campfire.Views
 open Campfire.Views.Templates.Pwa
-open Campfire.Assets
 open Campfire.App
 open Campfire.App.Presenters
 open Campfire.Db
@@ -37,6 +36,6 @@ module Pwa =
                 let logoPathSmall = Accounts.freshAccountLogoPath account (Some "small")
                 let logoPath = Accounts.freshAccountLogoPath account None
                 let baseUrl = Respond.urlFor http ""
-                let body = Manifest.render (account |> Option.map (fun account -> account.Name)) logoPathSmall logoPath baseUrl Assets.assetPath
+                let body = Manifest.render (account |> Option.map (fun account -> account.Name)) logoPathSmall logoPath baseUrl Web.StaticAssets.path
                 return Pages.renderAs http 200 "application/json; charset=utf-8" (ReadOnlyMemory<byte> body)
             }

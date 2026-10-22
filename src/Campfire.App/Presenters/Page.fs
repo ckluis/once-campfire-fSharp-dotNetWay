@@ -8,7 +8,6 @@ namespace Campfire.App.Presenters
 open System.Threading.Tasks
 open Campfire.App
 open Campfire.App.Channels
-open Campfire.Assets
 open Campfire.Db
 open Campfire.Views
 
@@ -23,7 +22,7 @@ module Page =
               FlashAlert = None
               Platform = Platform.none
               VapidPublicKey = app.VapidPublicKey
-              AssetPath = Assets.assetPath
+              AssetPath = Web.StaticAssets.path
               ImportmapTags = ViewContextBuilder.importmapTrusted ()
               StylesheetTags = ViewContextBuilder.stylesheetTrusted ()
               CustomStyles = None
