@@ -446,3 +446,76 @@ let ``the bot api`` () =
         let! denied = bot.Get $"/rooms/{ALL_TALK}/messages?bot_key={BENDER_KEY}"
         Assert.Equal(403, denied.Status)
     }
+
+/// The message `<div>` a page holds for `clientMessageId`: from its start tag to the next message's (or the list's end).
+let private messageDiv (page: string) (clientMessageId: string) : string =
+    let start = page.IndexOf($"<div id=\"message_{clientMessageId}\"", StringComparison.Ordinal)
+    Assert.True(start >= 0, $"message_{clientMessageId} is on the page")
+    let next = page.IndexOf("<div id=\"message_", start + 1, StringComparison.Ordinal)
+    if next < 0 then page.Substring start else page.Substring(start, next - start)
+
+/// The sidebar's link to a direct room (`list_rooms_direct_<id>`), to its end tag.
+let private directLink (page: string) (roomId: int64) : string =
+    let id = $"id=\"list_rooms_direct_{roomId}\""
+    let at = page.IndexOf(id, StringComparison.Ordinal)
+    Assert.True(at >= 0, $"direct room {roomId} is in the sidebar")
+    let start = page.LastIndexOf("<a ", at, StringComparison.Ordinal)
+    page.Substring(start, page.IndexOf("</a>", at, StringComparison.Ordinal) + 4 - start)
+
+/// Phase 4 verifier: the fragment caches end to end. A cached message shows an edit, a boost and the boost's removal on the next
+/// page render (each touches the message, so its key changes); two viewers get the same message bytes (nothing of the viewer is
+/// in a message fragment); and a direct room's fragment is per membership, so each member's sidebar names the other one.
+[<Fact>]
+let ``V4 cached fragments show a change on the next render and nothing of another viewer`` () =
+    task {
+        use! test = bootSeeded "default"
+        let david = david test
+        let jason = anonymous test
+        do! jason.SignIn(test.Label "emails.jason")
+        let room = $"/rooms/{ALL_TALK}"
+        let! message = lastMessage test ALL_TALK
+        let path = $"{room}/messages/{message.Id}"
+
+        // Warm: both viewers' pages hold the one fragment, byte for byte.
+        let! davidsPage = david.Get room
+        let! jasonsPage = jason.Get room
+        Assert.Equal(200, davidsPage.Status)
+        Assert.Equal(200, jasonsPage.Status)
+        Assert.Equal(messageDiv davidsPage.Text message.ClientMessageId, messageDiv jasonsPage.Text message.ClientMessageId)
+
+        // An edit by its creator shows on the next render, for the other viewer too.
+        let! creator = readEf test (fun db -> Message.find db message.Id)
+        let editor = if creator.CreatorId = DAVID then david else jason
+        let! updated = editor.Write((request "PATCH" path).Form(formBody [ "message[body]", "<p>Freshly edited V4</p>" ]))
+        Assert.True((updated.Status = 302), $"update: {updated.Status} {updated.Text}")
+        let! afterEdit = jason.Get room
+        let edited = messageDiv afterEdit.Text message.ClientMessageId
+        Assert.Contains("Freshly edited V4", edited)
+        let! davidsAfterEdit = david.Get room
+        Assert.Equal(edited, messageDiv davidsAfterEdit.Text message.ClientMessageId)
+
+        // A boost shows on the next render, and its removal too.
+        let! boosted = david.Write((request "POST" $"/messages/{message.Id}/boosts").Form(formBody [ "boost[content]", "owlhootV4" ]))
+        Assert.Equal(302, boosted.Status)
+        let! afterBoost = jason.Get room
+        Assert.Contains("owlhootV4", messageDiv afterBoost.Text message.ClientMessageId)
+        Assert.Contains("Freshly edited V4", messageDiv afterBoost.Text message.ClientMessageId)
+        let! boost = readEf test (fun db -> Boost.forMessage db message.Id |> List.last)
+        let! removed = david.Write(request "DELETE" $"/messages/{message.Id}/boosts/{boost.Id}")
+        Assert.Equal(204, removed.Status)
+        let! afterRemoval = jason.Get room
+        Assert.DoesNotContain("owlhootV4", afterRemoval.Text)
+
+        // A direct room's fragment is the viewer's membership's: each member's sidebar names the other.
+        let! davidsSidebar = david.Get "/users/me/sidebar"
+        let! jasonsSidebar = jason.Get "/users/me/sidebar"
+        let davidSees = directLink davidsSidebar.Text DIRECT_DAVID_JASON
+        let jasonSees = directLink jasonsSidebar.Text DIRECT_DAVID_JASON
+        Assert.Contains("Jason", davidSees)
+        Assert.DoesNotContain("David", davidSees)
+        Assert.Contains("David", jasonSees)
+        Assert.DoesNotContain("Jason", jasonSees)
+        // Warm again: the second render is the cached one and still each viewer's own.
+        let! davidsAgain = david.Get "/users/me/sidebar"
+        Assert.Equal(davidSees, directLink davidsAgain.Text DIRECT_DAVID_JASON)
+    }
