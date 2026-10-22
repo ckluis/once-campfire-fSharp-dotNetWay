@@ -52,4 +52,5 @@ let render (userId: int64) (initials: string) : XmlNode =
                       Attr.create "font-size" "230"
                       Attr.create "font-weight" "800"
                       Attr.create "letter-spacing" "-5" ]
-                    [ Html.text initials ] ] ]
+                    [ // The ERB keeps its indentation around the initials; WebKit centres the text with it (a pixel gate difference without it).
+                      Html.text ("\n      " + initials + "\n    ") ] ] ]
