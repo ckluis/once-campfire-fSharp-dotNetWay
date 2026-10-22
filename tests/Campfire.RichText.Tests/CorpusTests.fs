@@ -135,7 +135,7 @@ let private dangerousUrl (value: string) : bool =
         false
 
 /// Parses rendered output the way a browser would and returns the security violations in it.
-let private securityViolations (html: string) (allowStyle: bool) : string list =
+let private securityViolationsWith (allowed: SafeList) (html: string) (allowStyle: bool) : string list =
     let dom = Dom()
     match dom.ParseFragment html with
     | Error _ -> [ "unparseable output" ]
@@ -147,7 +147,6 @@ let private securityViolations (html: string) (allowStyle: bool) : string list =
             | ValueSome name ->
                 if dangerousElements.Contains name then violations.Add $"<{name}> element"
                 // Nothing auto_link inserts may escape its own sanitizer's allowlist
-                let allowed = SafeList.autoLink
                 if not (allowed.AllowsTag name) then violations.Add $"<{name}> not in the allowlist"
                 for (attr, value) in dom.Attrs node do
                     if not (allowed.AllowsAttribute attr) && attr <> "target" && not (attr = "style" && allowStyle) then
@@ -158,6 +157,9 @@ let private securityViolations (html: string) (allowStyle: bool) : string list =
                     if lower = "style" && not allowStyle then violations.Add $"style on <{name}>"
                     if lower.StartsWith("data-", StringComparison.Ordinal) && lower <> "data-language" then violations.Add $"{attr} on <{name}>"
         List.ofSeq violations
+
+let private securityViolations (html: string) (allowStyle: bool) : string list =
+    securityViolationsWith SafeList.autoLink html allowStyle
 
 // --- The comparison ------------------------------------------------------------------------------
 
@@ -344,3 +346,179 @@ let ``security_assertions_catch_planted_defects`` () =
           "<details>x</details>", "element outside the allowlist" ] do
         Assert.True(not (List.isEmpty (securityViolations html false)), $"missed {what} in {html}")
     Assert.True(List.isEmpty (securityViolations "<p><a href=\"https://example.com\">x</a><img src=\"/a.png\"></p>" false))
+
+
+// --- Unit 5.5: the new presentation (C1, N1, N2) ---------------------------------------------------------------------------------
+
+/// A DOM normalization for comparing the new pipeline's output with Rails': AngleSharp's tree, whitespace-only text dropped and the
+/// rest collapsed, attributes sorted.
+let private normalizedNextDom (html: string) : string =
+    match Next.Html5.parseBody html with
+    | Error _ -> $"unparseable: {html}"
+    | Ok root ->
+        let out = StringBuilder()
+        let rec walk (node: AngleSharp.Dom.INode) =
+            for child in Next.Html5.childrenOf node do
+                match child with
+                | :? AngleSharp.Dom.IText as text ->
+                    let collapsed = text.Data.Split([| ' '; '\t'; '\n'; '\r'; '\u000c'; '\u000b' |], StringSplitOptions.RemoveEmptyEntries) |> String.concat " "
+                    if collapsed.Length > 0 then out.Append collapsed |> ignore
+                | :? AngleSharp.Dom.IElement as element ->
+                    let attrs = [ for a in element.Attributes -> $"{Next.Html5.qualifiedName a}={a.Value}" ] |> List.sort
+                    out.Append($"<{element.LocalName} {attrs}>") |> ignore
+                    walk element
+                    out.Append($"</{element.LocalName}>") |> ignore
+                | _ -> ()
+        walk root
+        out.ToString()
+
+/// `corpus/known-differences.json`: for each kind of answer, the corpus cases whose new answer differs from Rails' (loosely compared,
+/// after the port's divergences), each with why. The comparison fails both ways.
+let private knownDifferences (kind: string) : IDictionary<string, string> =
+    use doc = JsonDocument.Parse(File.ReadAllText(Repo.path "tests/Campfire.RichText.Tests/corpus/known-differences.json"))
+    let out = SortedDictionary<string, string>()
+    match doc.RootElement.TryGetProperty kind with
+    | true, entries ->
+        for e in entries.EnumerateObject() do
+            out[e.Name] <- e.Value.GetString() |> nonNull
+    | _ -> ()
+    out :> IDictionary<string, string>
+
+/// What Loofah strips must not survive: every element name, attribute name and URI attribute value of `ours` also occurs in `rails`.
+let private strippedSurvivors (ours: string) (rails: string) : string list =
+    let facts (html: string) =
+        let elements = HashSet<string>()
+        let attributes = HashSet<string>()
+        let uris = HashSet<string>()
+        match Next.Html5.parseBody html with
+        | Error _ -> ()
+        | Ok root ->
+            for node in Next.Html5.descendants root do
+                match node with
+                | :? AngleSharp.Dom.IElement as element ->
+                    elements.Add($"{element.NamespaceUri}|{element.LocalName}") |> ignore
+                    for a in element.Attributes do
+                        let name = Next.Html5.qualifiedName a
+                        attributes.Add name |> ignore
+                        if urlAttributes.Contains(Chars.toLowercase name) then uris.Add $"{name}={a.Value}" |> ignore
+                | _ -> ()
+        elements, attributes, uris
+    let (oe, oa, ou) = facts ours
+    let (re, ra, ru) = facts rails
+    [ for e in oe do if not (re.Contains e) then yield $"element {e}"
+      for a in oa do if not (ra.Contains a) then yield $"attribute {a}"
+      for u in ou do if not (ru.Contains u) then yield $"URI {u}" ]
+
+/// Rails' presentation of a case as the port renders it on purpose, or None for an unrenderable one.
+let private railsPresentation (case: JsonElement) : Presentation =
+    match outcome (case.GetProperty "presentation") with
+    | Ok html -> Presentation.Html(withPortDivergences (defaultArg html ""))
+    | Error _ -> Presentation.Unrenderable
+
+let private isMissingPartial (case: JsonElement) : bool =
+    match case.TryGetProperty "presentation_raised_message" with
+    | true, m when m.ValueKind = JsonValueKind.String -> (str m).Contains("to_missing_attachable_partial_path", StringComparison.Ordinal)
+    | _ -> false
+
+[<Fact>]
+let ``C1 the corpus's presentations equal Rails' through known-differences.json, both ways`` () =
+    use corpus = load ()
+    let json = corpus.RootElement
+    let resolver = resolverOf json
+    let listed = knownDifferences "presentation"
+    let differing = SortedDictionary<string, string>()
+    let report = StringBuilder()
+    let mutable exact = 0
+    let mutable loose = 0
+    let cases = json.GetProperty("cases").EnumerateArray() |> Seq.toArray
+    for case in cases do
+        let name = str (case.GetProperty "name")
+        let body = str (case.GetProperty "body")
+        let host = match case.TryGetProperty "host" with | true, h when h.ValueKind = JsonValueKind.String -> Some(str h) | _ -> None
+        let ctx = render resolver host
+        let actual = Next.ActionText.presentMessage body ctx
+        match railsPresentation case, actual with
+        | Presentation.Html _, Presentation.Html a when isMissingPartial case ->
+            // Deliberate (the old pipeline too): a deleted user's mention renders as ☒ where Rails raises
+            Assert.True(a.Contains '☒', $"{name}: {a}")
+            exact <- exact + 1
+        | Presentation.Html e, Presentation.Html a ->
+            if e = a then exact <- exact + 1
+            elif normalizedNextDom e = normalizedNextDom a then loose <- loose + 1
+            else
+                differing[name] <- "differs"
+                report.AppendLine $"{name}\n  rails: {e}\n  ours:  {a}" |> ignore
+        | Presentation.Unrenderable, Presentation.Unrenderable -> exact <- exact + 1
+        | e, a ->
+            differing[name] <- "differs"
+            report.AppendLine $"{name}\n  rails: {e}\n  ours:  {a}" |> ignore
+    let unlisted = differing.Keys |> Seq.filter (fun n -> not (listed.ContainsKey n)) |> List.ofSeq
+    let stale = listed.Keys |> Seq.filter (fun n -> not (differing.ContainsKey n)) |> List.ofSeq
+    eprintfn "C1: %d cases, %d byte-equal, %d loose-equal, %d known differences" cases.Length exact loose differing.Count
+    let unlistedNames = String.Join("; ", unlisted)
+    let staleNames = String.Join("; ", stale)
+    Assert.True(unlisted.IsEmpty, $"{unlisted.Length} unlisted differences: {unlistedNames}\n{report}")
+    Assert.True(stale.IsEmpty, $"listed cases that no longer differ: {staleNames}")
+    Assert.Equal(658, cases.Length)
+
+[<Fact>]
+let ``N1 nothing Loofah strips survives in the new presentations`` () =
+    use corpus = load ()
+    let json = corpus.RootElement
+    let resolver = resolverOf json
+    let violations = ResizeArray<string>()
+    let mutable checkedCases = 0
+    let known = knownDifferences "presentation"
+    for case in json.GetProperty("cases").EnumerateArray() do
+        let name = str (case.GetProperty "name")
+        let body = str (case.GetProperty "body")
+        let host = match case.TryGetProperty "host" with | true, h when h.ValueKind = JsonValueKind.String -> Some(str h) | _ -> None
+        match railsPresentation case, Next.ActionText.presentMessage body (render resolver host) with
+        | Presentation.Html rails, Presentation.Html ours when not (isMissingPartial case) && not (known.ContainsKey name) ->
+            checkedCases <- checkedCases + 1
+            for v in strippedSurvivors ours rails do
+                violations.Add $"{name}: {v}"
+        | _ -> ()
+    Assert.True(checkedCases > 600, $"{checkedCases} presentations compared")
+    Assert.True(violations.Count = 0, String.Join("\n", violations))
+
+[<Fact>]
+let ``N1 catches planted survivors`` () =
+    let rails = "<p><a href=\"https://example.com\" target=\"_blank\">x</a></p>"
+    Assert.True(List.isEmpty (strippedSurvivors rails rails))
+    for (ours, what) in
+        [ "<p><script>x</script></p>", "an element"
+          "<p onclick=\"x()\"><a href=\"https://example.com\" target=\"_blank\">x</a></p>", "an event attribute"
+          "<p><a href=\"javascript:alert(1)\" target=\"_blank\">x</a></p>", "a javascript URL"
+          "<p><a href=\"https://example.com/other\" target=\"_blank\">x</a></p>", "a URI Rails does not have"
+          "<p><svg><a href=\"https://example.com\" target=\"_blank\">x</a></svg></p>", "a foreign element" ] do
+        Assert.True(not (List.isEmpty (strippedSurvivors ours rails)), $"missed {what} in {ours}")
+
+[<Fact>]
+let ``N2 the security assertions hold for every new presentation and body.html`` () =
+    use corpus = load ()
+    let json = corpus.RootElement
+    let resolver = resolverOf json
+    let violations = ResizeArray<string>()
+    let mutable checkedOutputs = 0
+    for case in json.GetProperty("cases").EnumerateArray() do
+        let name = str (case.GetProperty "name")
+        let body = str (case.GetProperty "body")
+        let host = match case.TryGetProperty "host" with | true, h when h.ValueKind = JsonValueKind.String -> Some(str h) | _ -> None
+        let ctx = render resolver host
+        match Next.ActionText.presentMessage body ctx with
+        | Presentation.Html html ->
+            checkedOutputs <- checkedOutputs + 1
+            for v in securityViolations html false do
+                violations.Add $"{name}: {v}"
+        | _ -> ()
+        // The bot API's body.html: the content partial inside the layout, sanitized with Action Text's list
+        match Next.Content.load body ctx |> Result.bind (fun c -> Next.Content.toRenderedHtmlWithLayout c ctx) with
+        | Ok html ->
+            checkedOutputs <- checkedOutputs + 1
+            // Campfire's Action Text list allows `embed` (the unfurl's), and the old parser the oracle uses refuses the depth-limit cases
+            for v in securityViolationsWith SafeList.actionText html true do
+                if v <> "<embed> element" && v <> "unparseable output" then violations.Add $"{name} (body.html): {v}"
+        | Error _ -> ()
+    Assert.True(checkedOutputs > 1000, $"{checkedOutputs} outputs")
+    Assert.True(violations.Count = 0, String.Join("\n", violations))

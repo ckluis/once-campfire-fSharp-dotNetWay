@@ -1,0 +1,5 @@
+{
+  "presentation": {
+    "limits attributes on an unfinished tag": "L1 boundary (P1's list). The body ends inside a tag that has reached Gumbo's attribute limit; Gumbo refuses it and Rails renders nothing, AngleSharp drops the unfinished tag and renders the rest. Class B, hostile-only."
+  }
+}
