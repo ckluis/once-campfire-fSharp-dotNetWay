@@ -1,5 +1,6 @@
-// Unit 5.1 of plans/design-richtext.md: `Next.Html5` (the parser, the limits and caps, the serializer, the DOM helpers) against the old
-// `Dom` (P1-P5) and against Gumbo's truth table and the port's hostile shapes (L1-L4).
+// Unit 5.1 of plans/design-richtext.md: `Html5` (the parser, the limits and caps, the serializer, the DOM helpers) against the trees
+// the old parser (Gumbo's port) built, frozen in corpus/trees.jsonl and corpus/context-trees.jsonl before it was deleted (P1-P5),
+// and against Gumbo's truth table and the port's hostile shapes (L1-L4).
 module Campfire.RichText.Tests.Html5Tests
 
 open System
@@ -18,38 +19,12 @@ open Campfire.Tests
 
 // --- Trees ---------------------------------------------------------------------------------------------------------------------
 
-let private nsUri (ns: Html5ever.Ns) : string =
-    match ns with
-    | Html5ever.Ns.Html -> "http://www.w3.org/1999/xhtml"
-    | Html5ever.Ns.Svg -> "http://www.w3.org/2000/svg"
-    | Html5ever.Ns.MathMl -> "http://www.w3.org/1998/Math/MathML"
-    | other -> $"{other}"
-
 let private quote (s: string) : string = JsonSerializer.Serialize s
 
 let private line (out: StringBuilder) (depth: int) (text: string) = out.Append(' ', depth).Append(text).Append('\n') |> ignore
 
 let private attributesText (attributes: (string * string) list) : string =
     attributes |> List.sortWith (fun (a, _) (b, _) -> String.CompareOrdinal(a, b)) |> List.map (fun (k, v) -> $"{k}={quote v}") |> String.concat " "
-
-/// The tree the old parser builds: element names with namespaces, attribute sets, text and comments, in order.
-let oldTree (html: string) : Result<string, ParseError> =
-    let dom = Dom()
-    match dom.ParseFragment html with
-    | Error e -> Error e
-    | Ok root ->
-        let out = StringBuilder()
-        let rec walk (id: NodeId) (depth: int) =
-            for child in dom.Children id do
-                match dom.Node(child).Data with
-                | Element e ->
-                    line out depth $"<{nsUri e.Name.Ns} {e.Name.Local} {attributesText (dom.Attrs child)}>"
-                    walk child (depth + 1)
-                | Text t -> line out depth ("#text " + quote t.Value)
-                | Comment c -> line out depth ("#comment " + quote c)
-                | _ -> ()
-        walk root 0
-        Ok(out.ToString())
 
 /// The same dump of a container's children.
 let treeOf (container: INode) : string =
@@ -68,6 +43,21 @@ let treeOf (container: INode) : string =
     out.ToString()
 
 let newTree (html: string) : Result<string, ParseError> = Html5.parseBody html |> Result.map treeOf
+
+/// The old parser's trees, frozen by unit 5.7 from the old `Dom` on the 1,479 inputs (labels as `inputs` makes them) and on the few
+/// strings the P2 tests name (`p2:` and the markup). One JSON line each: `{"label", "tree"}`.
+let private loadFrozen (file: string) : IReadOnlyDictionary<string, string> =
+    let d = Dictionary<string, string>()
+    for line in File.ReadLines(Repo.path $"tests/Campfire.RichText.Tests/corpus/{file}") do
+        use j = JsonDocument.Parse line
+        d[j.RootElement.GetProperty("label").GetString() |> nonNull] <- j.RootElement.GetProperty("tree").GetString() |> nonNull
+    d
+
+let private frozenTrees = lazy (loadFrozen "trees.jsonl")
+let private frozenContextTrees = lazy (loadFrozen "context-trees.jsonl")
+
+/// What the old parser built for a P2 string, as stored.
+let private oldShown (html: string) : string = frozenTrees.Force().["p2:" + html]
 
 // --- The 1,479 inputs ----------------------------------------------------------------------------------------------------------
 
@@ -105,10 +95,13 @@ let private shown (r: Result<string, ParseError>) : string =
     | Ok tree -> tree
     | Error e -> $"refused: {e.Message}"
 
-/// P1's named list (S2's, plans/design-richtext.md section 2): corpus bodies whose tree differs from the old parser's, none of the
-/// seed's 164 and none of Rails' 657 presentations. Seven are the 2025 standard's `select` content model (a `<b>` or `<hr>` inside
-/// an `<option>` is kept, which Gumbo drops: `malformed select` and fuzz 125, 177, 188, 325, 362, 395), one is a limit boundary
-/// (`limits attributes on an unfinished tag`, L1's list). S2 listed twelve: fuzz 44 and 63 (a `<table>` in a `<p>`, which a
+/// P1's named list (S2's, plans/design-richtext.md section 2): corpus bodies whose tree differs from the old parser's (frozen), none of
+/// the seed's 164 and none of Rails' 657 presentations. Fuzz 188, 362 and 395 were reduced in 5.7 (deleting tokens while the two
+/// trees still differed) to one shape each; `malformed select` and fuzz 125, 177 and 325 are S2's reading, the same select model.
+/// Fuzz 362 is `<select><option><span>`: an element inside an `<option>` (the 2025 content model keeps it, Gumbo flattens it to text). Fuzz 188 is `<select><hr>` (AngleSharp
+/// drops an `<hr>` start tag in a select, Gumbo keeps it); fuzz 395 is `<template><form><summary></form>text` (the `</form>` closes
+/// the `<summary>` for Gumbo and not for AngleSharp, so the text stays in it); `limits attributes on an unfinished tag` is a limit
+/// boundary (L1's list). S2 listed twelve: fuzz 44 and 63 (a `<table>` in a `<p>`, which a
 /// document without a doctype, in quirks mode, leaves inside the `<p>`) are equal here because every parse starts with a doctype;
 /// "limits attributes at the limit and a duplicate" because the attribute count is made before AngleSharp drops a duplicate, as
 /// Gumbo's is; and "limits too deep before the adoption agency cuts" because an element's depth is checked at the next token.
@@ -119,14 +112,14 @@ let p1Differences =
           "corpus:fuzz 395" ]
 
 [<Fact>]
-let ``P1 trees with namespaces equal the old Dom's on the 1,479 inputs, S2's named list apart`` () =
+let ``P1 trees with namespaces equal the frozen old-parser trees on the 1,479 inputs, S2's named list apart`` () =
     let bodies, presentations, seeds = inputs.Force()
     Assert.Equal(658, bodies.Length)
     Assert.True(seeds.IsEmpty || seeds.Length = 164, $"{seeds.Length} seed bodies")
     let differing = ResizeArray<string>()
     let report = StringBuilder()
     for (label, html) in bodies @ presentations @ seeds do
-        let o = shown (oldTree html)
+        let o = frozenTrees.Force().[label]
         let n = shown (newTree html)
         if o <> n then
             differing.Add label
@@ -234,7 +227,7 @@ let ``P2 a leading frameset parses as the fragment algorithm does`` () =
     for html in
         [ "<frameset><frame></frameset>x"; " <!--c--><frameset><p>y</p>"; "<frameset><svg><p>y</p></svg>"; "<frameset>"; "x<frameset>y"
           "\n<frameset rows=1><frame src=a>text" ] do
-        Assert.Equal(shown (oldTree html), shown (newTree html))
+        Assert.Equal(oldShown html, shown (newTree html))
     Assert.Equal("x", roundtrip "<frameset><frame></frameset>x")
     Assert.Equal("<!--c-->\n<p>y</p>", roundtrip "<!--c-->\n<frameset><p>y</p>")
     Assert.Equal("", roundtrip "<frameset>")
@@ -245,16 +238,16 @@ let ``P2 a leading frameset parses as the fragment algorithm does`` () =
 let ``P2 html and body tags add nothing`` () =
     Assert.Equal("<p>x</p>", roundtrip "<html a=1><p>x</p></html>")
     Assert.Equal("x", roundtrip "<body a=1 class=b>x</body>")
-    Assert.Equal(shown (oldTree "<head><title>t</title></head>x"), shown (newTree "<head><title>t</title></head>x"))
-    Assert.Equal(shown (oldTree "<body><body>x"), shown (newTree "<body><body>x"))
+    Assert.Equal(oldShown "<head><title>t</title></head>x", shown (newTree "<head><title>t</title></head>x"))
+    Assert.Equal(oldShown "<body><body>x", shown (newTree "<body><body>x"))
     // The container is the body: the attributes of a body tag in the input do not reach it as markup of the container's children
     Assert.Equal("", roundtrip "<html a=1>")
 
 [<Fact>]
 let ``P2 comments after body and html stay in the container`` () =
-    Assert.Equal(shown (oldTree "<p>a</p></body><!--c--></html><!--d-->"), shown (newTree "<p>a</p></body><!--c--></html><!--d-->"))
+    Assert.Equal(oldShown "<p>a</p></body><!--c--></html><!--d-->", shown (newTree "<p>a</p></body><!--c--></html><!--d-->"))
     Assert.Equal("<p>a</p><!--c--><!--d-->", roundtrip "<p>a</p></body><!--c--></html><!--d-->")
-    Assert.Equal(shown (oldTree "<p>a</p></body>text</body>more"), shown (newTree "<p>a</p></body>text</body>more"))
+    Assert.Equal(oldShown "<p>a</p></body>text</body>more", shown (newTree "<p>a</p></body>text</body>more"))
     // Known difference: a comment after </body> that content follows arrives after that content
     Assert.Equal("<p>a</p>tail<!--c-->", roundtrip "<p>a</p></body><!--c-->tail")
     Assert.Equal("<p>a</p><!--c-->tail", Html5.innerHtml (okP (Html5.parseBody "<p>a</p><!--c-->tail")))
@@ -322,7 +315,7 @@ let ``P3 the deduplicated attributes are kept as the tokenizer left them`` () =
 
 
 [<Fact>]
-let ``P4 element-context parses give the old ParseNodes' trees for the markup the pipeline builds`` () =
+let ``P4 element-context parses give the frozen old ParseNodes' trees for the markup the pipeline builds`` () =
     // What the pipeline hands an element-context parse: partials it rendered ("<div>" + inner + "</div>", figures, a gallery's
     // markup), "@Name", "[caption]", and the plain texts of the corpus (the text of a node, as `replace` puts it back).
     let corpus = JsonDocument.Parse(File.ReadAllText(Repo.path "tests/Campfire.RichText.Tests/corpus/expected.json"))
@@ -337,24 +330,7 @@ let ``P4 element-context parses give the old ParseNodes' trees for the markup th
           "text &amp; more"; "<figure class=\"attachment attachment--file\"><a href=\"/x\"><figcaption>c &amp; d</figcaption></a></figure>"
           "<div class=\"attachment-gallery attachment-gallery--2\"><figure><img src=\"a\"></figure><figure><img src=\"b\"></figure></div>" ]
     let owner = nonNull (containerOf "").Owner
-    let oldNodes (context: string) (html: string) : string =
-        let oldDom = Dom()
-        match oldDom.ParseNodes(html, Html5ever.QualName.unprefixed Html5ever.Ns.Html context) with
-        | Error e -> $"refused: {e.Message}"
-        | Ok ids ->
-            let out = StringBuilder()
-            let rec walk (id: NodeId) (depth: int) =
-                match oldDom.Node(id).Data with
-                | Element e ->
-                    line out depth $"<{nsUri e.Name.Ns} {e.Name.Local} {attributesText (oldDom.Attrs id)}>"
-                    for child in oldDom.Children id do
-                        walk child (depth + 1)
-                | Text t -> line out depth ("#text " + quote t.Value)
-                | Comment c -> line out depth ("#comment " + quote c)
-                | _ -> ()
-            for id in ids do
-                walk id 0
-            out.ToString()
+    let oldNodes (context: string) (label: string) : string = frozenContextTrees.Force().[$"{context}/{label}"]
     let newNodes (context: string) (html: string) : string =
         match Html5.parseIn (owner.CreateElement context) html with
         | Error e -> $"refused: {e.Message}"
@@ -378,7 +354,7 @@ let ``P4 element-context parses give the old ParseNodes' trees for the markup th
             if isForeign context html then
                 foreign <- foreign + 1
             else
-                let o = oldNodes context html
+                let o = oldNodes context label
                 let n = newNodes context html
                 if o <> n then
                     differing.Add $"{context}/{label}"
@@ -620,3 +596,4 @@ let ``the DOM helpers`` () =
     // A refusal leaves the tree alone
     Assert.Equal(Error TreeDepthExceeded, Html5.setInnerHtml row (String.replicate 401 "<div>"))
     Assert.Equal("<td>cell</td>", Html5.innerHtml row)
+
