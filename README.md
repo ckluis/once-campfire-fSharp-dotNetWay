@@ -307,6 +307,17 @@ specific to this port are listed below, each citing the reference file it depart
   - Timestamps in cache keys and `to_fs(:epoch)` are `DateTimeOffset`s, which hold 100 ns where jiff holds 1 ns.
     A key shows microseconds, so no key differs; a record dated before 1970 or outside the years 1 to 9999 is not
     representable (no record is).
+- **Rich text** (`Campfire.RichText`; the pipeline runs on AngleSharp's HTML5 parser, where Rails runs Nokogiri/Gumbo and the Rust port html5ever). Every difference below needs a hostile, hand-made body; none appears in the
+  658-case corpus's ordinary bodies or the 164 seed bodies, and `tests/Campfire.RichText.Tests/corpus/known-differences.json` lists the corpus cases that differ, checked both ways. Class B:
+  - End-tag-shaped text inside raw-text and RCDATA elements is lowercased by AngleSharp's tokenizer: `<textarea></FooBar></textarea>` shows `</foobar>` (403 of 13,872 fuzz comparisons against Rails).
+  - Raw-text-named elements inside `svg` or `math`, and a few table-part shapes, follow AngleSharp's tree builder: the text is dropped with the foreign element, or `tbody`/`tr` land outside the table (15 cases).
+  - Limits (400 deep, 400 attributes, 10,000 elements) are counted on the markup's body parse; in a non-body context that changes only the depth boundary. A body that ends inside a tag that has reached the attribute limit
+    renders its remaining content where Rails renders nothing (L1).
+  - The 2025 `select` model: AngleSharp keeps markup inside `option` and `select` that Gumbo flattens. `<isindex>` is still expanded to a search form as the 2008 standard did; the sanitizer drops the form, the sentence stays as text.
+  - Comments after an explicit `</body>` that content follows arrive after that content. Element-context parses keep foreign content inside.
+  - A layout-only case (corpus fuzz 398): an `action-text-attachment` whose replacement begins with another `action-text-attachment` inside a foreign element stays inside it (Gumbo breaks out beside it).
+  - Opengraph URLs are read by `System.Uri` behind an RFC 3986 character check, not Ruby's parser: `mailto:nobody`, a host with empty labels, `[v1.x]` and a port past 65535 give an embed without a link, where Rails raises or links.
+  - Upstream: the sibling-walk cost and the tokenizer's raw-text lowercasing are to be reported to AngleSharp (Q1).
 
 ## License
 

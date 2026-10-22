@@ -12,6 +12,7 @@ open Campfire.App.Channels
 open Campfire.Db
 open Campfire.App.Web
 open Campfire.RichText
+open Campfire.RichText.Next
 open Campfire.Routes
 open Campfire.Ruby
 open Campfire.Storage

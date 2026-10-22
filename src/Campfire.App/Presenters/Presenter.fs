@@ -14,6 +14,7 @@ open Campfire.App
 open Campfire.Db
 open Campfire.RailsCompat
 open Campfire.RichText
+open Campfire.RichText.Next
 open Campfire.Routes
 open Campfire.Storage
 open Campfire.Views

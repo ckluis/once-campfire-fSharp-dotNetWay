@@ -230,33 +230,10 @@ let ``corpus_matches_rails`` () =
                  | true, h when h.ValueKind = JsonValueKind.String -> Some(str h)
                  | _ -> None)
 
-        // presentation
-        let expected =
-            match outcome (case.GetProperty "presentation") with
-            | Ok html -> Presentation.Html(withPortDivergences (defaultArg html ""))
-            | Error _ -> Presentation.Unrenderable
-        let actual = ActionText.presentMessage body ctx
-        let label = $"[presentation] {name}"
-        // Deliberate: a missing attachable Rails can't find a partial for (a deleted user's
-        // mention) renders ☒ instead of raising and blanking the message.
-        let missingPartial =
-            match case.TryGetProperty "presentation_raised_message" with
-            | true, m when m.ValueKind = JsonValueKind.String -> (str m).Contains("to_missing_attachable_partial_path", StringComparison.Ordinal)
-            | _ -> false
-        match expected, actual with
-        | Presentation.Html _, Presentation.Html a when missingPartial ->
-            Assert.True(a.Contains '☒', $"{label}: {a}")
-            (tallyOf tallies "presentation").Exact <- (tallyOf tallies "presentation").Exact + 1
-        | Presentation.Html e, Presentation.Html a -> (tallyOf tallies "presentation").Record(label, e, a)
-        | _ -> (tallyOf tallies "presentation").Record(label, $"{expected}", $"{actual}")
-        match actual with
-        | Presentation.Html html ->
-            for v in securityViolations html false do
-                security.Add $"{name}: {v}"
-        | _ -> ()
+        // presentation: C1 and N2 below, on the new pipeline, with the loose DOM of the new parser
 
         // plain text
-        let actual = ActionText.toPlainText body ctx
+        let actual = Next.ActionText.toPlainText body ctx
         let label = $"[plain_text] {name}"
         match outcome (case.GetProperty "plain_text"), actual with
         | Ok e, Ok a -> (tallyOf tallies "plain_text").Record(label, defaultArg e "", a)
@@ -264,7 +241,7 @@ let ``corpus_matches_rails`` () =
         | e, a -> (tallyOf tallies "plain_text").Record(label, $"{e}", $"{a}")
 
         // editable value
-        let actual = ActionText.editableValue body ctx
+        let actual = Next.ActionText.editableValue body ctx
         let label = $"[editable] {name}"
         // Deliberate: missing attachables leave the editor, where Rails raises.
         let missingInEditor =
@@ -278,7 +255,7 @@ let ``corpus_matches_rails`` () =
         | e, a -> (tallyOf tallies "editable").Record(label, $"{e}", $"{a}")
 
         // mentioned users
-        let actual = ActionText.mentionedUsers body ctx |> Result.map (List.map (fun u -> u.Id))
+        let actual = Next.ActionText.mentionedUsers body ctx |> Result.map (List.map (fun u -> u.Id))
         let expected =
             match (case.GetProperty "mentioned").TryGetProperty "ok" with
             | true, ids -> Ok [ for i in ids.EnumerateArray() -> i.GetInt64() ]
@@ -318,8 +295,7 @@ let ``corpus_matches_rails`` () =
                 report.AppendLine $"  MISMATCH {m}" |> ignore
                 failed <- true
         for name in listed.Keys do
-            // (presentations are checked both ways by C1 on the new pipeline; this test runs the old one, which lacks the L1 boundary)
-            if usesCommittedCorpus && kind <> "presentation" && not (differing.Contains name) then
+            if usesCommittedCorpus && not (differing.Contains name) then
                 report.AppendLine $"  STALE known difference {kind}: {name}" |> ignore
                 failed <- true
     report.AppendLine $"security: {cases.Length} outputs checked, {security.Count} violations" |> ignore
@@ -330,7 +306,7 @@ let ``corpus_matches_rails`` () =
     if usesCommittedCorpus then
         Assert.Equal(658, cases.Length)
         Assert.Equal(54, webUrls.Length)
-        for kind in [ "presentation"; "plain_text"; "editable"; "mentioned" ] do
+        for kind in [ "plain_text"; "editable"; "mentioned" ] do
             Assert.Equal(658, (tallyOf tallies kind).Exact + (tallyOf tallies kind).Mismatched.Count)
         Assert.Equal(54, (tallyOf tallies "web_url").Exact + (tallyOf tallies "web_url").Mismatched.Count)
     Assert.True(security.Count = 0, $"security assertions failed\n{report}")

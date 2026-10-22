@@ -6,11 +6,17 @@
   },
   "plain_text": {
     "og mailto raises": "R8 (System.Uri behind the RFC 3986 character check). Ruby raises URI::InvalidComponentError on `mailto:nobody` (an opaque part it cannot read), which blanks the message; System.Uri reads a mailto URL and the embed renders without a link. Class B, hand-made bodies only.",
-    "og dots host raises": "R8 (System.Uri behind the RFC 3986 character check). Ruby accepts a host with empty labels (`example..com`) and raises NoMethodError on `...` (a host with no label), which blanks the message; System.Uri refuses the first (no link) and the second (no link, no raise). Class B, hand-made bodies only."
+    "og dots host raises": "R8 (System.Uri behind the RFC 3986 character check). Ruby accepts a host with empty labels (`example..com`) and raises NoMethodError on `...` (a host with no label), which blanks the message; System.Uri refuses the first (no link) and the second (no link, no raise). Class B, hand-made bodies only.",
+    "limits attributes on an unfinished tag": "L1 boundary (P1's list). The body ends inside a tag that has reached Gumbo's attribute limit; Gumbo refuses it and Rails renders nothing, AngleSharp drops the unfinished tag and renders the rest. Class B, hostile-only.",
+    "fuzz 362": "S5 (design-richtext.md): plain text of fuzz 362 differs where `]]>` and a foreign-element boundary meet; AngleSharp's tree builder breaks out of the foreign element differently from Gumbo. Class B, hostile-only fuzz body."
   },
   "editable": {
     "og mailto raises": "R8 (System.Uri behind the RFC 3986 character check). Ruby raises URI::InvalidComponentError on `mailto:nobody` (an opaque part it cannot read), which blanks the message; System.Uri reads a mailto URL and the embed renders without a link. Class B, hand-made bodies only.",
-    "og dots host raises": "R8 (System.Uri behind the RFC 3986 character check). Ruby accepts a host with empty labels (`example..com`) and raises NoMethodError on `...` (a host with no label), which blanks the message; System.Uri refuses the first (no link) and the second (no link, no raise). Class B, hand-made bodies only."
+    "og dots host raises": "R8 (System.Uri behind the RFC 3986 character check). Ruby accepts a host with empty labels (`example..com`) and raises NoMethodError on `...` (a host with no label), which blanks the message; System.Uri refuses the first (no link) and the second (no link, no raise). Class B, hand-made bodies only.",
+    "limits attributes on an unfinished tag": "L1 boundary (P1's list). The body ends inside a tag that has reached Gumbo's attribute limit; Gumbo refuses it and Rails renders nothing, AngleSharp drops the unfinished tag and renders the rest. Class B, hostile-only.",
+    "malformed select": "The select model (5.1-5.4). AngleSharp's tree builder keeps `<b>` inside an `<option>` of a malformed select where Gumbo flattens it. Class B, hostile-only.",
+    "fuzz 188": "The select model (5.1-5.4): content after a malformed `<select>` and a `<table>` nests differently in AngleSharp's tree builder, so a text run lands in another place. Class B, hostile-only fuzz body.",
+    "fuzz 395": "Table-part and select model (5.1-5.4, class B (b)): a `<summary>` after a `<form>` nested in `<em>` is re-parented differently by AngleSharp's tree builder. Class B, hostile-only fuzz body."
   },
   "web_url": {
     "mailto:nobody": "R8 (System.Uri behind the RFC 3986 character check). Ruby raises URI::InvalidComponentError on `mailto:nobody` (an opaque part it cannot read), which blanks the message; System.Uri reads a mailto URL and the embed renders without a link. Class B, hand-made bodies only.",
@@ -19,5 +25,8 @@
     "https://.example.com/": "R8. Ruby's parser accepts a leading dot in a host, System.Uri refuses the URL: the embed has no link. Class B, hand-made bodies only.",
     "https://[v1.x]/": "R8. Ruby's parser accepts an IPvFuture host literal, System.Uri refuses it: the embed has no link. Class B, hand-made bodies only.",
     "http://example.com:99999999999999999999/": "R8. Ruby accepts a port of any length, System.Uri refuses one past 65535: the embed has no link. Class B, hand-made bodies only."
+  },
+  "mentioned": {
+    "limits attributes on an unfinished tag": "L1 boundary (P1's list). The body ends inside a tag that has reached Gumbo's attribute limit; Gumbo refuses it and Rails renders nothing, AngleSharp drops the unfinished tag and renders the rest. Class B, hostile-only."
   }
 }

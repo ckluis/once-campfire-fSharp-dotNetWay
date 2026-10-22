@@ -13,6 +13,7 @@ open Campfire.Db
 open Campfire.RailsCompat
 open Campfire.RailsCompat.Clock
 open Campfire.RichText
+open Campfire.RichText.Next
 
 type AppRichText(secrets: Secrets, clock: SharedClock, logger: ILogger) =
     /// The longest body that can't fail to parse (see `MentionedUserIds`).
