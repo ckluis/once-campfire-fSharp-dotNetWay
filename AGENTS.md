@@ -115,7 +115,10 @@ Project references follow the crate graph. Don't add an edge Rust doesn't have.
 - **Rich text (AngleSharp, since Phase 5; `plans/design-richtext.md` is the design).** `Campfire.RichText` has no parser of its own:
   `Html5.parseBody` parses a body with AngleSharp (pinned at 1.8.4: P1's frozen trees fail on any change, bump only with them green) and `Html5.parseIn` an
   element-context fragment. The limits Gumbo had are enforced in the parser's callbacks (400 deep, 400 attributes on an element, plus the caps: 10,000
-  elements, 40,000 tokens, 400 attributes over the `html` and `body` tags), as a `ParseError` that a caller maps to what Rails' exception did. `Html5.innerHtml`
+  elements, 40,000 tokens, 400 attributes over the `html` and `body` tags), as a `ParseError` that a caller maps to what Rails' exception did; any exception
+  AngleSharp itself throws (1.8.4 has a `NullReferenceException` in its select mode) is `ParseError.ParserFailed`, so parse only through `Html5`'s
+  entry points. After a change here or an AngleSharp bump, re-run the security fuzz (`reference-tools/richtext/review`, `dotnet run -c Release -- N SEED`;
+  `run.sh` compares with Rails in the reference image) and expect 0 violations and 0 exceptions. `Html5.innerHtml`
   is Nokogiri's serializer (`<` and `>` stay raw in attribute values, so nothing may regex-scan serialized HTML). The sanitizer is one bottom-up walk
   (`Sanitizer.scrub`) over the tree with Loofah's rules from `Loofah.fs`; autolink scans each text node's escaped form with the matchers and builds text and
   `<a target=_blank>` nodes, so no string is spliced into markup. AngleSharp makes some DOM calls quadratic: never walk siblings with

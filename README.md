@@ -308,11 +308,16 @@ specific to this port are listed below, each citing the reference file it depart
     A key shows microseconds, so no key differs; a record dated before 1970 or outside the years 1 to 9999 is not
     representable (no record is).
 - **Rich text** (`Campfire.RichText`; the pipeline runs on AngleSharp's HTML5 parser, where Rails runs Nokogiri/Gumbo and the Rust port html5ever). Every difference below needs a hostile, hand-made body; none appears in the
-  658-case corpus's ordinary bodies or the 164 seed bodies, and `tests/Campfire.RichText.Tests/corpus/known-differences.json` lists the corpus cases that differ, checked both ways. Class B:
+  658-case corpus's ordinary bodies or the 164 seed bodies, and `tests/Campfire.RichText.Tests/corpus/known-differences.json` lists the corpus cases that differ, checked both ways. Class A: the serializer is Nokogiri's, so `<` and `>` inside attribute values are written as themselves, as Rails writes them (the F# port wrote `&lt;` and `&gt;`; the trees are equal).
+  Class B:
   - End-tag-shaped text inside raw-text and RCDATA elements is lowercased by AngleSharp's tokenizer: `<textarea></FooBar></textarea>` shows `</foobar>` (403 of 13,872 fuzz comparisons against Rails).
   - Raw-text-named elements inside `svg` or `math`, and a few table-part shapes, follow AngleSharp's tree builder: the text is dropped with the foreign element, or `tbody`/`tr` land outside the table (15 cases).
+  - Caps Gumbo does not have: a body of more than 10,000 elements or 40,000 tokens, or whose `<html>` and `<body>` tags carry more than 400 attributes between them, is refused as a body past Gumbo's
+    limits is (the message renders `messages/_unrenderable`, its plain text is empty and logged); Rails renders it. AngleSharp's tree builder is quadratic on such bodies (`plans/design-richtext.md` R3, S3;
+    `Html5Tests` L2, L3); no body the composer produces comes near them.
   - Limits (400 deep, 400 attributes, 10,000 elements) are counted on the markup's body parse; in a non-body context that changes only the depth boundary. A body that ends inside a tag that has reached the attribute limit
-    renders its remaining content where Rails renders nothing (L1).
+    renders its remaining content where Rails renders nothing. Depth is counted on the elements AngleSharp creates, not on Gumbo's stack, so two boundary shapes go the other way: 400 `<b>` then `</p>` (the
+    implied `<p>` is element 401) is refused where Rails renders it, and formatting elements reopened past the limit then a comment render where Rails refuses them (`Html5Tests` L1).
   - The 2025 `select` model: AngleSharp keeps markup inside `option` and `select` that Gumbo flattens. `<isindex>` is still expanded to a search form as the 2008 standard did; the sanitizer drops the form, the sentence stays as text.
   - Comments after an explicit `</body>` that content follows arrive after that content. Element-context parses keep foreign content inside.
   - A layout-only case (corpus fuzz 398): an `action-text-attachment` whose replacement begins with another `action-text-attachment` inside a foreign element stays inside it (Gumbo breaks out beside it).

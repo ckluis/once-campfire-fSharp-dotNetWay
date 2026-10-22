@@ -36,10 +36,12 @@ type AppRichText(secrets: Secrets, clock: SharedClock, logger: ILogger) =
         member this.MentionedUserIds(db: Ef.CampfireDb, html: string) : int64 list =
             // A body that holds no attachment (an `<action-text-attachment>`, or the editor's `data-trix-attachment` that becomes one)
             // has no mentions: most messages, which are not parsed to find that out. Rust parses every body and logs
-            // `mentioned_users raised` where the parse fails, and the parse fails only past the parse limits (`ParseError`: 400 deep, 400 attributes on an
-            // element). A body of at most `ParseSafeLength` UTF-16 units can't reach either (the shortest element, `<b>`, is 3 units,
-            // so 266 of them at most, plus a few dozen elements the tree builder re-opens; 401 attributes take 802), so only those
-            // skip the parse; a longer body is parsed and logs as before (`MentionedUsersTests`).
+            // `mentioned_users raised` where the parse fails, and the parse fails past the parse limits (`ParseError`: 400 deep, 400 attributes on an
+            // element, and the element, token and root-attribute caps). A body of at most `ParseSafeLength` UTF-16 units can't reach any of them (the
+            // shortest element, `<b>`, is 3 units, so 266 of them at most, plus a few dozen elements the tree builder re-opens; 401 attributes take 802),
+            // so only those skip the parse; a longer body is parsed and logs as before (`MentionedUsersTests`). The one other failure,
+            // `ParserFailed` (AngleSharp throwing, design-richtext.md section 11, F1), can hit a short body too: skipping it gives the same
+            // answer (no mentions) and leaves out only this log line; `ToPlainText` logs the same body's failure when the message is saved.
             let span = System.MemoryExtensions.AsSpan html
             if html.Length <= AppRichText.ParseSafeLength
                && System.MemoryExtensions.IndexOf(span, "action-text-attachment", System.StringComparison.OrdinalIgnoreCase) < 0
