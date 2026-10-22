@@ -2527,3 +2527,21 @@ lives until 5.7), AngleSharp 1.8.4 pinned in `Directory.Packages.props` (the tes
 - **Gates run:** `CAMPFIRE_REQUIRE_SEED=1 bin/verify` green (lint and self-test, Dapper and EF guards, Release warnings-as-errors build, every test: 1,003 total, 997 passed, 0 failed, 6 skipped: the environmental six; `Campfire.RichText.Tests` 110 passed).
   Not run: pixel slices and `bench/quick` (no app change). Disk 28 GB free.
 - **Next:** unit 5.4 (rendering, editor value, filters on `Next/Content.fs`/`Next/ActionText.fs`/`Next/Filters.fs`), then the Opus checkpoint.
+
+### Phase 5, unit 5.4: Rendering, editor value, filters (2026-10-22)
+
+`plans/design-richtext.md` section 4, unit 5.4. **Built:** `Next/Content.fs` second half (`render` with nested content attachments 8 deep and the Action Text sanitize, attachments with full attributes, galleries, `renderAttachmentHtml`, `toRenderedHtmlWithLayout`),
+`Next/ActionText.editableValue`, and `Next/Filters.fs` (RemoveSoloUnfurledLinkText, SanitizeTags, SanitizeAttributes; `normalizeTweetUrl` is the old module's, shared). `Html5.parseIn` gained one rule (below).
+- **Tests** (`NextContentTests.fs`, old pipeline as the oracle on the 1,479): **M1** `toRenderedHtmlWithLayout` (the bot API's `body.html`): 6 differ, 5 on P1's list plus `corpus:fuzz 398` (recorded below); **M1 filtered content:** 1 differs (P1's `attributes on an unfinished tag`);
+  **M1 editor values:** 8 differ, all on P1's list, and byte-equal everywhere else (so exact, not only loose). **C4:** a deleted user's mention leaves the editor and the words around it stay; old and new agree. Nested content attachments (depths 1, 3, 8, 9, 12) render
+  byte-equal to the old pipeline and stop at the 8th. The test failure output now shows the window around the first differing byte.
+- **Found and fixed (`Html5.parseIn`):** an attachment whose parent is an SVG or MathML element (not an integration point) was replaced by markup parsed *inside* that foreign element, where AngleSharp's fragment algorithm never breaks HTML out (the pre-2017 rule, design S2/Q1) and
+  Gumbo does. The mention's `<span>` and its avatar vanished from the rendered output of 4 fuzz bodies (24, 68, 207, 299). `parseIn` now parses in a `div` of the same document when the context is foreign and not an integration point: equal to Gumbo whenever the partial's
+  first tag is a breakout tag (a mention's span, an image, a div).
+- **Difference recorded (class B, `corpus:fuzz 398`, layout only):** when the replacement's first tag is `action-text-attachment` itself inside a foreign element (Gumbo leaves that element empty and breaks the partial out beside it) the partial stays inside the attachment element.
+  Only a hostile body puts an attachment in an svg or math; the Action Text sanitize drops foreign elements with their contents, and the editor value and filters are unaffected (no reparse). Goes into `known-differences.json` in 5.6.
+- **Cost (S6, seed bodies, 30 rounds, this host):** canonical load + `toHtml` old 4.6 us / 6.1 KB, new 14.0 us / 10.7 KB; plain text old 6.3 us / 8.9 KB, new 17.9 us / 13.0 KB; **render** (load + `toRenderedHtmlWithLayout`) old 13.7 us / 16.4 KB, new 39.2 us / 25.8 KB (2.9x, S6's range).
+  A post's added CPU is about 9 us (load) + 11 us (plain text) + 25 us (render): within R12's margin; the floor is judged by `bench/quick` in 5.6.
+- **KLOC:** `bin/kloc` 34,369 by upstream's rules, **34,541 corrected (34.5 KLOC)**, from 34,422 (+119). `Campfire.RichText` 6,998.
+- **Gates run:** `CAMPFIRE_REQUIRE_SEED=1 bin/verify` green (lint and self-test, Dapper and EF guards, Release warnings-as-errors build, every test: 1,008 total, 1,002 passed, 0 failed, 6 skipped: the environmental six). Not run: pixel slices and `bench/quick` (no app change). Disk 28 GB free.
+- **Next:** the Opus checkpoint over 5.1-5.4, then unit 5.5 (the presentation and autolink on AngleSharp).
