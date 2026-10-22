@@ -74,7 +74,7 @@ let newTree (html: string) : Result<string, ParseError> = Html5.parseBody html |
 let private str (e: JsonElement) : string = e.GetString() |> nonNull
 
 /// (label, body): the corpus's bodies, Rails' presentations of them, and the default seed's message bodies.
-let private inputs =
+let inputs =
     lazy
         (let corpus = JsonDocument.Parse(File.ReadAllText(Repo.path "tests/Campfire.RichText.Tests/corpus/expected.json"))
          let cases = corpus.RootElement.GetProperty("cases").EnumerateArray() |> Seq.toArray
@@ -112,7 +112,7 @@ let private shown (r: Result<string, ParseError>) : string =
 /// document without a doctype, in quirks mode, leaves inside the `<p>`) are equal here because every parse starts with a doctype;
 /// "limits attributes at the limit and a duplicate" because the attribute count is made before AngleSharp drops a duplicate, as
 /// Gumbo's is; and "limits too deep before the adoption agency cuts" because an element's depth is checked at the next token.
-let private p1Differences =
+let p1Differences =
     set
         [ "corpus:malformed select"; "corpus:limits attributes on an unfinished tag"
           "corpus:fuzz 125"; "corpus:fuzz 177"; "corpus:fuzz 188"; "corpus:fuzz 325"; "corpus:fuzz 362"

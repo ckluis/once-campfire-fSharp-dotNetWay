@@ -5,10 +5,10 @@ open Xunit
 open Campfire.RichText
 open Campfire.RichText.Tests.Support
 
-let private sanitize (html: string) (list: SafeList) : string = okP (Sanitizer.sanitize html list)
+let private sanitizeOld (html: string) (list: SafeList) : string = okP (Sanitizer.sanitize html list)
+let private sanitizeNext (html: string) (list: SafeList) : string = okP (Next.Sanitizer.sanitize html list)
 
-[<Fact>]
-let ``scrubs_like_rails`` () =
+let private check_scrubs_like_rails (sanitize: string -> SafeList -> string) =
     let list = SafeList.contentFilter
     Assert.Equal("<div><a>x</a></div>", sanitize "<div><a href=\"javascript:alert(1)\">x</a></div>" list)
     Assert.Equal("<a href=\"/x\">x</a>", sanitize "<a href=\"/x\" onmouseover=\"alert(1)\">x</a>" list)
@@ -17,8 +17,7 @@ let ``scrubs_like_rails`` () =
     Assert.Equal("yz", sanitize "<svg><a>x</a></svg>y<script>z</script>" list)
 
 /// The outputs are rails-html-sanitizer's, from the reference image.
-[<Fact>]
-let ``re_escapes_url_attributes_as_each_attribute_is_scrubbed`` () =
+let private check_re_escapes_url_attributes_as_each_attribute_is_scrubbed (sanitize: string -> SafeList -> string) =
     let list = SafeList([| "img"; "a" |], [| "src"; "href"; "name"; "title"; "alt" |])
     // The blank src is removed, and the escaping it still triggers lets the href through
     Assert.Equal("<img href=\"%20javascript:alert(1)\">", sanitize "<img src=\" \" href=\" javascript:alert(1)\">" list)
@@ -29,8 +28,7 @@ let ``re_escapes_url_attributes_as_each_attribute_is_scrubbed`` () =
     )
     Assert.Equal("<img src=\"a%20b\" alt=\"q\">", sanitize "<img src=\"a b\" alt=\"q\">" list)
 
-[<Fact>]
-let ``keeps_only_lexxys_highlight_colors_in_style`` () =
+let private check_keeps_only_lexxys_highlight_colors_in_style (sanitize: string -> SafeList -> string) =
     let list = SafeList.actionText
     let highlight = "<mark style=\"color: var(--highlight-1);background-color: var(--highlight-bg-2);\">x</mark>"
     Assert.Equal(highlight, sanitize highlight list)
@@ -69,7 +67,8 @@ let ``checks_uris_like_loofah`` () =
     // Rails' SafeListSanitizer drops this href: CGI.unescapeHTML turns the zero-padded `&` into
     // `&#106;`, which Loofah then decodes.
     let list = SafeList.contentFilter
-    Assert.Equal("<a>x</a>", sanitize "<a href=\"&amp;#0000000000038;#106;avascript:alert(1)\">x</a>" list)
+    Assert.Equal("<a>x</a>", sanitizeOld "<a href=\"&amp;#0000000000038;#106;avascript:alert(1)\">x</a>" list)
+    Assert.Equal("<a>x</a>", sanitizeNext "<a href=\"&amp;#0000000000038;#106;avascript:alert(1)\">x</a>" list)
 
 [<Fact>]
 let ``unescapes_html_like_cgi`` () =
@@ -97,3 +96,23 @@ let ``unescapes_html_like_cgi`` () =
           "&#0x41;", "&#0x41;"
           "&amp;#65;", "&#65;" ] do
         Assert.True((Sanitizer.cgiUnescapeHtml escaped = unescaped), escaped)
+
+// S2 (plans/design-richtext.md): the Rails vectors above on both sanitizers.
+
+[<Fact>]
+let ``scrubs_like_rails`` () = check_scrubs_like_rails sanitizeOld
+
+[<Fact>]
+let ``S2 next scrubs_like_rails`` () = check_scrubs_like_rails sanitizeNext
+
+[<Fact>]
+let ``re_escapes_url_attributes_as_each_attribute_is_scrubbed`` () = check_re_escapes_url_attributes_as_each_attribute_is_scrubbed sanitizeOld
+
+[<Fact>]
+let ``S2 next re_escapes_url_attributes_as_each_attribute_is_scrubbed`` () = check_re_escapes_url_attributes_as_each_attribute_is_scrubbed sanitizeNext
+
+[<Fact>]
+let ``keeps_only_lexxys_highlight_colors_in_style`` () = check_keeps_only_lexxys_highlight_colors_in_style sanitizeOld
+
+[<Fact>]
+let ``S2 next keeps_only_lexxys_highlight_colors_in_style`` () = check_keeps_only_lexxys_highlight_colors_in_style sanitizeNext
