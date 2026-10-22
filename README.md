@@ -194,6 +194,31 @@ specific to this port are listed below, each citing the reference file it depart
   `pwa/manifest`, which doesn't match the sub-state, and ours is kept no larger than Rust's. Tested by `ParityATests`
   ("pwa manifest is valid json whatever the account is called").
 
+- **Assets** (`Campfire.App/Web/StaticAssets.fs`, `Importmap.fs` and the `CampfireStageWebRoot` build target; the references are
+  Propshaft 1.2.1, importmap-rails 2.2.2, `ActionDispatch::Static` and `config/environments/production.rb`). Assets and the five
+  `public/` files are staged into the web root at build time and served by ASP.NET Core's `MapStaticAssets` where Rails'
+  `ActionDispatch::Static` ran; the page's stylesheet tags, import map and `Link` header are made once at start from that table.
+  Class A (the bytes differ, the behaviour does not):
+  - Asset URLs are `name.<fingerprint>.ext` (the SDK's ten-character form) where Propshaft writes `name-<digest>.ext`.
+  - A CSS `url()` or `@import` and a JavaScript `sourceMappingURL` are not rewritten: they fetch the plain URL of the same file
+    (pinned by T2's list of 11 files; the three `lexxy-*.css` files are fetched twice per page for it).
+  - Assets carry an ETag and a per-file `Last-Modified`, and text assets are precompressed (Brotli or gzip by `Accept-Encoding`)
+    where Rails' front server compressed them on the fly.
+  - The import map's JSON is written by `ImportMapDefinition` (the same text after the digest mask), and the preload `Link` header
+    holds 15 stylesheets where Rails' holds 16 (Rails' 1,000-byte rule, the same rule, a different byte count per link).
+  Class B (the behaviour differs), each with the test or check that pins it:
+  - Cache headers are the framework's: `max-age=31536000, immutable` on a fingerprinted URL and `no-cache` on a plain one
+    (`/assets/<logical path>`, which Rails does not serve at all), against `public, max-age=2592000` on every public file
+    (`bin/asset-check`, N1 and N3). `/robots.txt` and the error pages are `no-cache` with an ETag too.
+  - An extensionless `/404`, `/422`, `/500` or `/502` is the app's own 404 page, not the `.html` file with 200 (H5).
+  - `/assets/.manifest.json` is not served, and neither is any dotfile, the build output (`/campfire.dll`, the endpoint manifest) or
+    the web root by name (`/wwwroot/...`); encoded dots and backslashes are the app's 404 (an App test, and `bin/asset-check`).
+  - A request with several byte ranges gets the whole file with 200, where Rails answers `multipart/byteranges`.
+  - A method other than GET or HEAD on an asset URL is 405, where Rails' router answers 404 (H4).
+  - The vendored `lexxy.js.gz` and `lexxy.js.br` are not served under their own names: `/assets/lexxy.js.gz` is the SDK's own
+    precompressed route of `lexxy.js` (it answers `Content-Encoding: gzip`), and `/assets/lexxy.js.br` is the app's 404.
+  - Asset responses carry neither `x-request-id` nor `x-runtime`, which Rails' `Static` also answers ahead of (H3).
+
 - **A response header value with a line break** (the `?disposition=` of a proxied blob, the one header the app builds from
   the request) keeps every line, and a line holding another control character is left out. The Rust port keeps only the first
   line; Puma writes them all (puma 7.2.1, `Puma::Request#str_headers`, the reference's server). Tested by `AppTests`
