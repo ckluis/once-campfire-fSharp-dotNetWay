@@ -76,3 +76,24 @@ test("volatile values are masked as in the live layer, forgery tokens left out",
   assert.equal(equal(`<body><meta name="csrf-token" content="abc"><time datetime="2026-03-02T16:00:05Z">x</time></body>`, `<body><time datetime="2026-03-02T16:00:05Z">x</time></body>`), true)
   assert.equal(equal(`<body><time datetime="2026-03-02T16:00:05Z">x</time></body>`, `<body><time datetime="2026-03-02T16:00:09Z">x</time></body>`), false)
 })
+
+// design-assets.md A15 (unit 6.1): Propshaft's digest and the SDK's fingerprint mask to one placeholder in the DOM layers.
+test("a Propshaft URL and a fingerprinted URL of one logical path mask equal", () => {
+  const page = (href: string) => `<body><link rel="stylesheet" href="${href}" data-turbo-track="reload">x</body>`
+  assert.ok(equal(page("/assets/composer-0a1b2c3d4e5f.css"), page("/assets/composer.zroil2fb6p.css")))
+  assert.ok(equal(page("/assets/models/file_uploader-d3a5c44b.js"), page("/assets/models/file_uploader.abcde12345.js")))
+  assert.match(loose(page("/assets/composer.zroil2fb6p.css")), /\/assets\/composer-«digest»\.css/)
+})
+
+test("fingerprints with dots in the name are masked; a plain URL is not", () => {
+  const out = loose(`<body><script src="/assets/highlight.js/core.abcdefghij.js"></script><script src="/assets/stimulus.min.ubi9oscxp6.js"></script><script src="/assets/languages/javascript.js"></script></body>`)
+  assert.match(out, /\/assets\/highlight\.js\/core-«digest»\.js/)
+  assert.match(out, /\/assets\/stimulus\.min-«digest»\.js/)
+  assert.match(out, /"\/assets\/languages\/javascript\.js"/)
+  assert.equal(equal(`<body><img src="/assets/a.png"></body>`, `<body><img src="/assets/a.abcdefghij.png"></body>`), false)
+})
+
+test("Rails' import map text and a fingerprinted one are equal after masking", () => {
+  const map = (a: string, b: string) => `<body><script type="importmap" data-turbo-track="reload">{"imports":{"application":"/assets/application${a}.js","@hotwired/stimulus":"/assets/stimulus.min${b}.js"}}</script></body>`
+  assert.ok(equal(map("-0123456789abcdef0123456789abcdef01234567", "-fedcba9876543210"), map(".qwertyuiop", ".ubi9oscxp6")))
+})

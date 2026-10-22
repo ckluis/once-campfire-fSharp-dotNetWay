@@ -3,7 +3,7 @@
 // sent the same bytes (up to the typed placeholders of normalize.ts) produce the same text.
 import { createHash } from "node:crypto"
 import type { Page, Request, Response } from "playwright"
-import { maskText, normalizeFragment, normalizeResponse } from "./normalize.ts"
+import { describeAssetPath, maskText, normalizeFragment, normalizeResponse } from "./normalize.ts"
 import type { NormalizeOptions } from "./normalize.ts"
 
 // Headers whose presence says nothing about the app (transport, timing, per-request ids).
@@ -48,7 +48,7 @@ export class NetworkLog {
       // Media is fetched in ranges whose sizes are the engine's choice; the total is the server's.
       body = `range of ${headers["content-range"]?.split("/")[1] ?? "?"} bytes`
     } else if (DIGESTED_ASSET.test(url.pathname)) {
-      // Propshaft names an asset after its content's digest, and the path keeps that digest here.
+      // Propshaft names an asset after its content's digest (the SDK after its fingerprint), and the path keeps that name here.
       body = "named by its digest"
     } else if (request.method() !== "GET") {
       // A form submission's response is gone as soon as the page navigates, which may be before
@@ -120,12 +120,13 @@ function maskBlobKeys(text: string): string {
     .replace(/filename="[a-z0-9]{28}"; filename\*=UTF-8''[a-z0-9]{28}/g, "filename=\"«blob-key»\"; filename*=UTF-8''«blob-key»")
 }
 
-const DIGESTED_ASSET = /^\/assets\/.+-[0-9a-f]{8,}\.[a-z0-9]+$/
+// Propshaft's digest, the SDK's fingerprint, or a plain /assets/ URL (described as if digested, A15; network layer only).
+const DIGESTED_ASSET = /^\/assets\/.+-[0-9a-f]{8,}\.[a-z0-9]+$|^\/assets\/.+\.[0-9a-z]{10}\.[a-z0-9]+$|^\/assets\/.+\.[a-z0-9]+$/
 
 function describeRequest(request: Request, origin: string, options: NormalizeOptions): string {
   const url = new URL(request.url())
   const nav = request.isNavigationRequest() ? " (navigation)" : ""
-  const target = DIGESTED_ASSET.test(url.pathname) ? url.pathname + url.search : maskText(url.pathname + url.search, options)
+  const target = DIGESTED_ASSET.test(url.pathname) ? describeAssetPath(url.pathname) + url.search : maskText(url.pathname + url.search, options)
   return `${request.method()} ${target}${nav}`.replace(origin, "")
 }
 

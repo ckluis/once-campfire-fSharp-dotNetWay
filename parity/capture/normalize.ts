@@ -124,7 +124,7 @@ export function maskText(text: string, options: NormalizeOptions): string {
     .replace(SIGNED_TOKEN, (token) => describeSignedToken(token, options))
     .replace(ENCRYPTED_MESSAGE, "«encrypted»")
     .replace(BLOB_URL, "blob:«object-url»")
-    .replace(ASSET_DIGEST, (_, name, _digest, ext) => `/assets/${name}-«digest»${ext}`)
+    .replace(ASSET_DIGEST, (_, name, _digest, _fingerprint, ext) => `/assets/${name}-«digest»${ext}`)
 }
 
 // URL.createObjectURL: a random UUID per call (upload previews).
@@ -133,8 +133,19 @@ const BLOB_URL = /blob:[a-z]+:\/\/[^\/\s"]+\/[0-9a-f-]{36}/g
 // QrCodeController takes the URL to encode as base64 in the path.
 const QR_CODE = /\/qr_code\/([A-Za-z0-9_=-]{8,})/g
 
-// Propshaft: /assets/name-<8+ hex>.ext (also .digested.js files keep their name).
-const ASSET_DIGEST = /\/assets\/([^\s"'()?#]+?)-([0-9a-f]{7,64})(\.[A-Za-z0-9.]+)/g
+// Propshaft: /assets/name-<8+ hex>.ext (also .digested.js files keep their name); the ASP.NET Core SDK's
+// fingerprint: /assets/name.<10 [0-9a-z]>.ext. Both become one placeholder (design-assets.md A15). A plain
+// /assets/ URL is not touched here, so a page that lost its fingerprints still differs.
+const ASSET_DIGEST = /\/assets\/([^\s"'()?#]+?)(?:-([0-9a-f]{7,64})|\.([0-9a-z]{10}))(\.[A-Za-z0-9.]+)/g
+
+// Network layer only (reported, not gated): a request path under /assets/ described as a digested one, plain
+// or fingerprinted, because url(), @import and source maps fetch plain URLs by design (A12).
+export function describeAssetPath(pathname: string): string {
+  const masked = pathname.replace(ASSET_DIGEST, (_, name, _digest, _fingerprint, ext) => `/assets/${name}-«digest»${ext}`)
+  if (masked !== pathname || !pathname.startsWith("/assets/")) return masked
+  const dot = pathname.lastIndexOf(".")
+  return dot > "/assets/".length ? `${pathname.slice(0, dot)}-«digest»${pathname.slice(dot)}` : pathname
+}
 
 // ActiveSupport::MessageVerifier output: base64(data)--hexdigest, possibly URL-escaped.
 const SIGNED_TOKEN = /(?<![A-Za-z0-9+%_-])((?:[A-Za-z0-9+\/_-]|%2[BbFf]|%3[Dd])+={0,2}(?:%3[Dd]){0,2})--([0-9a-f]{40,128})(?![0-9a-f])/g

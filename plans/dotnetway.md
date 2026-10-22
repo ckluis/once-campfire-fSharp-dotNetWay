@@ -2803,3 +2803,21 @@ this entry and its evidence are the commit after it).
 - **Phase 6 GO.** Conditions: keep AngleSharp pinned (bump only with P1's frozen trees green and the review harness at 0 exceptions and 0
   presentation violations); parse only through `Html5`; keep `Trusted.ofSanitized` the one way rich text reaches a page. Phase 6 moves every asset
   path, so run every state `--fast` (any wrong pin breaks interaction states), then the lean matrix on `default`, as the plan's row says.
+
+### Phase 6, unit 6.1 (harness masks), 2026-10-22
+
+- **Built (no app change; `git diff --stat src` empty).** The harness learns the SDK's fingerprint form `/assets/<name>.<10 [0-9a-z]><ext>` beside Propshaft's
+  digest, both masked to `/assets/<name>-«digest»<ext>` (design-assets.md A15): `parity/capture/normalize.ts` (`ASSET_DIGEST`; new `describeAssetPath`),
+  `network.ts` (`DIGESTED_ASSET` both forms plus a plain `/assets/` URL, described as digested and its body "named by its digest", network layer only),
+  `overrides.ts` (`src/Campfire.App/Assets/overrides` tried first; the pattern takes both forms), `tests/Shared/LooseDom.fs` (same alternative),
+  `reference-tools/campfire/controllers_a/replay.py` (mask). A plain URL in the DOM layer is untouched, so a page that lost its fingerprints still differs.
+- **Tests.** New cases in `loose.test.ts` (Propshaft and fingerprinted URL of one logical path equal; `/assets/highlight.js/core.abcdefghij.js` and
+  `/assets/stimulus.min.ubi9oscxp6.js` masked; plain `/assets/languages/javascript.js` unchanged and a plain/fingerprinted pair still differs; an
+  import map with both forms equal), `normalize.test.ts` (mask and `describeAssetPath`), `overrides.test.ts`, and an F# twin in `LooseDomTests.fs`.
+  `parity/bin/test-loose-dom` 29/29.
+- **Goldens.** `parity/bin/loose-golden` rerun: `loose/golden/a` and `oracle/00-18` byte-unchanged (no asset URL in them has either form that the old mask
+  missed). It also rewrote `oracle/19-24` and added `25-30`: that is selection drift (the script takes up to 30 answers of the 1,037-line `oracle.jsonl`
+  trimmed to 24 in 4.11), unrelated to the masks; the committed files were kept, because W2 compares the port with them and passes.
+- **Gates.** `CAMPFIRE_REQUIRE_SEED=1 bin/verify`: 1,012 total, 1,006 passed, 0 failed, 6 skipped (the environmental six). `bin/pixel-parity --fast
+  --only 'auth/sign_in*,rooms/show/designers'` on `default`: 4/4 screenshots, aria and loose equal. `bin/clean-parity` run. Disk 26 GB free.
+- **KLOC** `bin/kloc`: 30,048 by upstream's rules, 30,220 corrected (unchanged).

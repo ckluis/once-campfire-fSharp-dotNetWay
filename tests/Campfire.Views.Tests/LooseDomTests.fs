@@ -98,3 +98,12 @@ let ``forgery tokens are left out and volatile values masked`` () =
     Assert.True(same """<form><input type="hidden" name="authenticity_token" value="abc">x</form>""" "<form>x</form>")
     Assert.True(same """<script nonce="a">1</script>""" """<script nonce="b">1</script>""")
     Assert.Contains("/assets/app-«digest».js", loose """<script src="/assets/app-0123456789abcdef.js"></script>""")
+
+[<Fact>]
+let ``A15 fingerprints mask like Propshaft digests and a plain asset URL stays plain`` () =
+    Assert.True(same """<script src="/assets/application-0123456789abcdef.js"></script>""" """<script src="/assets/application.zroil2fb6p.js"></script>""")
+    let out = loose """<script src="/assets/highlight.js/core.abcdefghij.js"></script><script src="/assets/stimulus.min.ubi9oscxp6.js"></script><script src="/assets/languages/javascript.js"></script>"""
+    Assert.Contains("/assets/highlight.js/core-«digest».js", out)
+    Assert.Contains("/assets/stimulus.min-«digest».js", out)
+    Assert.Contains("\"/assets/languages/javascript.js\"", out)
+    Assert.False(same """<img src="/assets/a.png">""" """<img src="/assets/a.abcdefghij.png">""")

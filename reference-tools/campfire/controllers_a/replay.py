@@ -138,7 +138,7 @@ def normalize_body(text):
     text = re.sub(r'<meta name="csrf-(param|token)"[^>]*>\n?', "", text)
     text = re.sub(r'<input type="hidden" name="authenticity_token" value="[^"]*" ?/?>', "", text)
     text = re.sub(r'<meta name="vapid-public-key"[^>]*>', '<meta name="vapid-public-key">', text)
-    text = re.sub(r'(/assets/[A-Za-z0-9_/.-]+?)-[0-9a-f]{8}\.(js|css|svg|png)', r'\1-«digest».\2', text)
+    text = re.sub(r'(/assets/[A-Za-z0-9_/.-]+?)(?:-[0-9a-f]{8}|\.[0-9a-z]{10})\.(js|css|svg|png)', r'\1-«digest».\2', text)
     text = text.replace("&amp;", "&")
     text = re.sub(r'(name="authenticity_token" value=")[^"]+"', r'\1«csrf»"', text)
     text = re.sub(r'(name="csrf-token" content=")[^"]+"', r'\1«csrf»"', text)

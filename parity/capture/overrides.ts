@@ -1,4 +1,4 @@
-// The port's own versions of reference assets (src/Campfire.Assets/overrides here, copied from
+// The port's own versions of reference assets (src/Campfire.App/Assets/overrides here, src/Campfire.Assets/overrides before Phase 6, copied from
 // the Rust port's crates/assets/overrides; README "Known differences") differ from the reference's on purpose, and so do their digests. Where a capture
 // names one by its digested path, the digest becomes a placeholder; every other digest-named asset
 // still has to match exactly, since its digest is its content.
@@ -8,6 +8,7 @@ import { REPO_DIR } from "./config.ts"
 
 // This repo keeps them under src/; the Rust repo (where this file came from) under crates/.
 const OVERRIDES_DIR = [
+  path.join(REPO_DIR, "src/Campfire.App/Assets/overrides"),
   path.join(REPO_DIR, "src/Campfire.Assets/overrides"),
   path.join(REPO_DIR, "crates/assets/overrides"),
 ].find((dir) => fs.existsSync(dir)) ?? path.join(REPO_DIR, "src/Campfire.Assets/overrides")
@@ -28,7 +29,7 @@ export function maskOverriddenAssets(text: string, logicalPaths: string[] = OVER
   return logicalPaths.reduce((masked, logical) => {
     const ext = path.extname(logical)
     const stem = logical.slice(0, logical.length - ext.length)
-    const digested = new RegExp(`/assets/${escape(stem)}-[0-9a-f]{7,64}${escape(ext)}`, "g")
+    const digested = new RegExp(`/assets/${escape(stem)}(?:-[0-9a-f]{7,64}|\\.[0-9a-z]{10})${escape(ext)}`, "g")
     return masked.replace(digested, `/assets/${stem}-«override»${ext}`)
   }, text)
 }

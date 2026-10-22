@@ -1,6 +1,6 @@
 import { test } from "node:test"
 import assert from "node:assert/strict"
-import { maskText, normalizeDocument } from "../normalize.ts"
+import { describeAssetPath, maskText, normalizeDocument } from "../normalize.ts"
 
 const seedTime = Date.parse("2026-03-02T16:00:00Z")
 
@@ -62,4 +62,21 @@ test("compares a message's copy link by its path", () => {
   assert.match(port, /data-copy-to-clipboard-url-value="\/rooms\/1\/@2"/)
   const invite = normalizeDocument(`<button title="Copy" data-copy-to-clipboard-content-value="http://a.test/join/x"></button>`)
   assert.match(invite, /content-value="http:\/\/a.test\/join\/x"/)
+})
+
+test("masks Propshaft digests and SDK fingerprints to one placeholder (A15)", () => {
+  const options = { seedTime }
+  assert.equal(maskText("/assets/composer-0a1b2c3d.css", options), "/assets/composer-«digest».css")
+  assert.equal(maskText("/assets/composer.zroil2fb6p.css", options), "/assets/composer-«digest».css")
+  assert.equal(maskText("/assets/highlight.js/core.abcdefghij.js", options), "/assets/highlight.js/core-«digest».js")
+  assert.equal(maskText("/assets/stimulus.min.ubi9oscxp6.js", options), "/assets/stimulus.min-«digest».js")
+  assert.equal(maskText("/assets/languages/javascript.js", options), "/assets/languages/javascript.js")
+  assert.equal(maskText("/assets/turbo.min.js.map", options), "/assets/turbo.min.js.map")
+})
+
+test("the network layer describes a plain /assets/ path as digested (A15)", () => {
+  assert.equal(describeAssetPath("/assets/common-file-text.svg"), "/assets/common-file-text-«digest».svg")
+  assert.equal(describeAssetPath("/assets/common-file-text.abcdefghij.svg"), "/assets/common-file-text-«digest».svg")
+  assert.equal(describeAssetPath("/assets/common-file-text-0a1b2c3d4e.svg"), "/assets/common-file-text-«digest».svg")
+  assert.equal(describeAssetPath("/rooms/1"), "/rooms/1")
 })

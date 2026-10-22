@@ -145,7 +145,7 @@ let private jsSpaceClass = @"\t\n\u000B\u000C\r    -     　﻿"
 
 let private blobUrl = Regex(@"blob:[a-z]+://[^/" + jsSpaceClass + @"""]+/[0-9a-f-]{36}")
 let private qrCode = Regex(@"/qr_code/([A-Za-z0-9_=-]{8,})")
-let private assetDigest = Regex(@"/assets/([^" + jsSpaceClass + @"""'()?#]+?)-([0-9a-f]{7,64})(\.[A-Za-z0-9.]+)")
+let private assetDigest = Regex(@"/assets/([^" + jsSpaceClass + @"""'()?#]+?)(?:-([0-9a-f]{7,64})|\.([0-9a-z]{10}))(\.[A-Za-z0-9.]+)")
 let private signedToken =
     Regex(@"(?<![A-Za-z0-9+%_-])((?:[A-Za-z0-9+/_-]|%2[BbFf]|%3[Dd])+={0,2}(?:%3[Dd]){0,2})--([0-9a-f]{40,128})(?![0-9a-f])")
 let private encryptedMessage = Regex(@"(?<![A-Za-z0-9+/])[A-Za-z0-9+/]{16,}={0,2}--[A-Za-z0-9+/]{12,}={0,2}--[A-Za-z0-9+/]{16,}={0,2}(?![A-Za-z0-9+/])")
@@ -269,7 +269,7 @@ let rec maskText (text: string) (options: Options) : string =
     let t = signedToken.Replace(t, MatchEvaluator(fun m -> describeSignedToken m.Value options))
     let t = encryptedMessage.Replace(t, "«encrypted»")
     let t = blobUrl.Replace(t, "blob:«object-url»")
-    assetDigest.Replace(t, MatchEvaluator(fun m -> $"/assets/{m.Groups[1].Value}-«digest»{m.Groups[3].Value}"))
+    assetDigest.Replace(t, MatchEvaluator(fun m -> $"/assets/{m.Groups[1].Value}-«digest»{m.Groups[4].Value}"))
 
 let private relativeEpoch (name: string) (value: string) (options: Options) : string option =
     match options.SeedTime with
