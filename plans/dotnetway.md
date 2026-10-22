@@ -2545,3 +2545,63 @@ lives until 5.7), AngleSharp 1.8.4 pinned in `Directory.Packages.props` (the tes
 - **KLOC:** `bin/kloc` 34,369 by upstream's rules, **34,541 corrected (34.5 KLOC)**, from 34,422 (+119). `Campfire.RichText` 6,998.
 - **Gates run:** `CAMPFIRE_REQUIRE_SEED=1 bin/verify` green (lint and self-test, Dapper and EF guards, Release warnings-as-errors build, every test: 1,008 total, 1,002 passed, 0 failed, 6 skipped: the environmental six). Not run: pixel slices and `bench/quick` (no app change). Disk 28 GB free.
 - **Next:** the Opus checkpoint over 5.1-5.4, then unit 5.5 (the presentation and autolink on AngleSharp).
+
+### Phase 5, checkpoint after 5.4: Opus review (2026-10-22) - GO for 5.5, with notes
+
+Adversarial review of `c88f590..eb87751` (5.1-5.4) against `plans/design-richtext.md` and D1-D9. Fixes in `8abdb6b` and `86943ee`.
+- **Gates re-run.** `CAMPFIRE_REQUIRE_SEED=1 bin/verify` on `eb87751` (load average 4-7 from other sessions): 1,008 total, **3 failed**, none in rich text:
+  `FrontAcmeTests` "cached certificates load and are forgotten by obtaining" (the known Phase 7 race), Cable `GoldenTests` "replays reference frames"
+  (`subscribe base channel`: no confirm frame) and `PresenterAccountsTests` "profile sidebar and user pages" (302 for 200). App, Cable and Kit re-run alone:
+  316, 80 and 66 green; the units' green runs stand (the Phase log's 990/996/1,003/1,008 totals match the tests in the tree). After the fixes, on `86943ee`:
+  **1,010 total, 1,004 passed, 0 failed, 6 skipped** (the environmental six), 0 warnings, lint self-test 39/39 and 347 files clean, H1 green. **Pixels:** image
+  rebuilt at `8abdb6b` (label checked; 5.2 and 5.3 changed code the live pipeline runs: `Loofah.fs`, the `Attachables` split), `bin/pixel-parity --fast --seeds
+  default --only 'rooms/show/**,messages/**'`: **96/96 pixels, aria and loose** (309 s). `86943ee` changes only `Next/`, which the app does not call yet.
+- **Checked and holding:** the walker against rails-html-sanitizer's `PermitScrubber` and the old arena walker line by line (bottom-up over a children snapshot;
+  text skipped; comments and unlisted HTML elements unwrapped, foreign elements dropped with their contents; attributes in order, a removed one not re-escaped,
+  `force_correct_attribute_escaping` over the remaining URI attributes after each kept one, a blank `src` removed after its escaping pass, Lexxy's `style` rule
+  last): the same. `Loofah.fs` is the old code (the diff is visibility and `allowedUriUsing`). The `Attachables` split is mechanical (`dom.Attr(node, n)` became
+  `attrs n`; no rule changed). P1's list is S2's minus four, each explained in 5.1; L1-L4 are in `Html5Tests` with their numbers. The serializer writes no
+  raw-text element's text where the sanitizers can keep one (none of the four lists allows `style`, `script`, `xmp`, `iframe`, `noembed`, `noframes`,
+  `plaintext`, `noscript`, `svg`, `math`); `<` in attribute values is raw and `Trusted.ofSanitized` still rewrites U+E000 (Phase 4's condition).
+- **Fuzz (scratch harness, not committed):** 21,939 inputs (the corpus's 658 bodies and 657 Rails presentations, 53 mutation-XSS shapes: `noscript`,
+  `template`, `style`, `xmp`, `iframe`, `noembed`, `noframes`, `plaintext`, `textarea`, `title`, `svg`/`math` with `mglyph`/`malignmark`/`annotation-xml`/
+  `foreignObject`, CDATA, comment tricks, `select`, `isindex`; 46 `javascript:`/`vbscript:`/`data:` spellings with entities, controls, tabs, newlines, soft
+  hyphens and zero-width spaces, each in `href`/`src`/`poster` and in 11 attachment shapes: images, files, videos, mentions with captions, content
+  attachments, opengraph embeds, Trix figures, galleries, attachments inside `svg`/`math`; 20,000 generated hostile bodies). Each went through
+  `Next.Sanitizer.sanitize` on the four lists, `load` + `toRenderedHtmlWithLayout`, the stored canonical body loaded and rendered again, and `Filters.apply`:
+  **151,087 outputs parsed again as a browser does (AngleSharp, scripting on, inside a div): 0 elements or attributes outside the list, 0 foreign elements,
+  0 comments, 0 event attributes, 0 `javascript:`/`vbscript:` or unlisted `data:` URLs after a browser's URL clean-up, 0 URI values `allowedUri` refuses.**
+  823 outputs parse back into another structure (unwrapped template contents and tables the body parse rearranges, as Rails' own output does); one of them
+  closes the container `div` early (a `table` from an unwrapped `template` inside a `table`): structure only, every node in it sanitized.
+- **Against Loofah itself** (the reference image: `SafeListSanitizer` with Campfire's configured lists, `sanitize_action_text_content`, on 4,624 hostile
+  inputs x 3 lists = 13,872): the new sanitizer differs from Rails on 679, of which the old equals Rails on 488. Those 488: **403 are AngleSharp lowercasing
+  `</Name` inside raw text** (`<textarea></FooBar></textarea>` shows `</foobar>`; text only; new class B), 67 the `select` content model (P1's class), 3
+  `isindex` (5.1), 15 foreign-content shapes where AngleSharp drops text Rails keeps (a raw-text name inside `math`) or nests table parts elsewhere. In
+  every one the elements and attributes the new output keeps beyond Rails' are allowed ones from those parses (an `img src="x"` from a `select`, `hr`s from
+  `isindex`); nothing outside a list.
+- **Found and fixed (`8abdb6b`, `86943ee`): quadratic DOM work on wide bodies, under every parse cap.** AngleSharp finds `NextSibling`/`PreviousSibling` and
+  the child it removes or inserts before by scanning the parent's list from the front, and `ParseFragment` moves its nodes one at a time. L2/L3 timed the
+  parse only; the pipeline was not timed on wide bodies. Before: 9,900 `x<br>` 668 ms layout, 846 ms filters (old 20/27 ms); 19,000 `x<!---->` 2.3 s
+  layout, 1.4 s plain text (old 350/5 ms); a caption of 9,500 `<b>`s 1.3 s per plain text, 1.5 s in a `td` (old 10-43 ms); 32,000 nodes in a `td` 4.7 s; a post
+  runs plain text two or three times. Now: children by index (`Html5.childrenOf`) in the serializer, `descendants` and template flattening;
+  `Html5.detachChildren` (first to last) and `Html5.insertAllBefore` (one fragment) for the unwrap, `replaceWithHtml`, `clear` and the plain-text fragment;
+  `parseIn` uses the document parse where the fragment algorithm parses as the body does (HTML contexts other than table parts, `select`, `template`,
+  raw-text elements, `html`/`head`/`frameset`, and no `form` above), and elsewhere counts the limits on the body parse and takes the tree from the
+  InnerHtml setter of a detached copy of the context (inside a `form` when one is above). After: 6-145 ms for every shape above (the comment case faster
+  than the old pipeline's 350 ms). The body-like route also breaks HTML out of foreign content as Gumbo does in those contexts (P4 now sets `svg`/`math`
+  aside only in `td`). Tests: `NextContentTests` "wide bodies cost linear time ..." (8 bodies x plain text, layout, filters, 400 ms CPU each in Release;
+  every pre-fix figure fails it), `Html5Tests` P5 "an element-context parse of many top-level nodes is linear", P4 rewritten. M1, S1, C2, C3 unchanged.
+- **Differences to record in 5.6** (`known-differences.json`, README, class B, all hostile-only): (a) end-tag-shaped text inside `textarea`/`title`/`style`/
+  `xmp`/`iframe`/`noembed`/`noframes`/`script`/`plaintext` is lowercased by AngleSharp's tokenizer; (b) raw-text-named elements inside `svg`/`math` and a few
+  table-part shapes parse as AngleSharp's tree builder does (text dropped with the foreign element, or tbody/tr placed outside the table); (c) the
+  element-context limits are counted on the markup's body parse (depth boundary only). Q1 (report AngleSharp's defects upstream) gains (a) and the
+  `NextSibling` cost.
+- **Cost:** a seed-sized body is unchanged (the fixes only remove scans); S6's ratios stand for 5.6's bench.
+- **KLOC:** `bin/kloc` 34,437 by upstream's rules, **34,609 corrected (34.6)**, +68 over 5.4 (`Html5` helpers and the fragment route). `Campfire.RichText`
+  7,066; `Next/Html5.fs` is about 0.4 KLOC against the design's 0.14 (the limit bookkeeping, comments, frameset, and now the parse routes).
+- **Remaining units still fit, with one split recommended:** 5.5 (autolink, presentation) fits 90 minutes. **5.6 does not**: split it into 5.6a (`webUrl` and
+  `normalizeTweetUrl` on `System.Uri`, `RubyUri.fs` and `UriTests` to the App, `OpengraphMetadata`'s two helpers, `Attachables.embedFromContent` off the old
+  `Dom`) and 5.6b (the flip, `CorpusTests` on the new pipeline with `known-differences.json`, README, image, pixel slices, `bench/quick`). 5.7 fits.
+- **GO for 5.5.** Conditions: no `NextSibling`/`PreviousSibling` walk, per-child `InsertBefore`, removal from the back or `ParseFragment` call in `Next/`
+  (use `Html5.childrenOf`/`detachChildren`/`insertAllBefore`/`parseIn`); 5.5 adds its own wide cases (9,900 URLs, 9,900 e-mail addresses, one text node of
+  16,000 URLs) to the linear-time test.
