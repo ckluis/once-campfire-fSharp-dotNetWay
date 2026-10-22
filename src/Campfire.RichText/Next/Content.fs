@@ -1,11 +1,12 @@
 // plans/design-richtext.md (Phase 5, unit 5.3): `ActionText::Content` on AngleSharp, the first half: the attachment nodes, Trix
-// conversion, galleries, `load`, `wrap`, `toHtml` and `toPlainText`. The second half (rendering) arrives in 5.4.
+// conversion, galleries, `load`, `wrap`, `toHtml` and `toPlainText`. The second half (unit 5.4): rendering.
 //
 // As in ../Content.fs, each Ruby step that serializes a node and parses the markup back (`Fragment#replace` with a string,
 // `inner_html=`) does the same here, in the same parse context, because those round trips are where the output takes its shape.
 namespace Campfire.RichText.Next
 
 open System
+open System.Text
 open AngleSharp.Dom
 open Campfire.RailsCompat
 open Campfire.Ruby
@@ -172,3 +173,95 @@ module Content =
                         parent.RemoveChild node |> ignore
             return PlainText.nodeToPlainText root
         }
+
+    /// `Attachment#with_full_attributes`: a new node carrying the node's attachment attributes, the
+    /// attachable's own (sgid and content type, for a user), and the node's sgid if it had one.
+    let private nodeWithFullAttributes (node: IElement) (attachable: Attachable) : Result<IElement, RenderError> =
+        let attrs = ResizeArray<string * string>()
+        for name in SafeListData.attachmentAttributes do
+            let value =
+                match name, attachable with
+                | "sgid", Attachable.User user -> Some(defaultValueArg (Html5.attr node "sgid") user.AttachableSgid)
+                | "content-type", Attachable.User _ -> Some Attachables.MentionContentType
+                | _ -> match Html5.attr node name with ValueSome v -> Some v | ValueNone -> None
+            match value with
+            | Some v -> attrs.Add((name, v))
+            | None -> ()
+        if attrs.Count = 0 then
+            // from_attributes returns nil, and the render block calls #node on it
+            Error(Raised "NoMethodError: node for nil")
+        else
+            Ok(Html5.createElement node AttachmentTag (List.ofSeq attrs))
+
+    /// How deep content attachments render inside one another (the same bound as the old pipeline).
+    [<Literal>]
+    let MaxContentAttachmentDepth = 8
+
+    /// `render`, for content `depth` content attachments down.
+    let rec private renderNested (content: Content) (ctx: RenderContext) (depth: int) : Result<string, RenderError> =
+        let root = Html5.clone content.Root
+        result {
+            do! renderAttachments root ctx depth
+            do! renderAttachmentGalleries root ctx depth
+            return! Sanitizer.sanitize (Html5.innerHtml root) SafeList.actionText |> parseErr
+        }
+
+    /// `render_action_text_attachment`, with nested content attachments rendered through
+    /// `ContentAttachment#to_html` (the content partial, without the layout).
+    and private renderAttachmentHtmlAt (attachment: Attachment) (ctx: RenderContext) (depth: int) : Result<string, RenderError> =
+        Attachables.renderAttachment attachment (fun contentHtml ->
+            if depth >= MaxContentAttachmentDepth then
+                Ok ""
+            else
+                result {
+                    let! nested = load contentHtml ctx
+                    let! rendered = renderNested nested ctx (depth + 1)
+                    return rendered + "\n"
+                })
+
+    and private renderAttachments (root: IElement) (ctx: RenderContext) (depth: int) : Result<unit, RenderError> =
+        result {
+            for node in attachmentNodes root do
+                do! sanitizeContentAttribute node
+                let! attachment = Attachables.attachmentFrom (Html5.attrsOf node) ctx
+                let! full = nodeWithFullAttributes node attachment.Attachable
+                let attachment =
+                    { Attachable = attachment.Attachable
+                      Caption = presence (Html5.attr full "caption") |> (function ValueSome c -> Some c | ValueNone -> None) }
+                let! html = renderAttachmentHtmlAt attachment ctx depth
+                do! parseErr (Html5.setInnerHtml full html)
+                do! parseErr (Html5.replaceWithHtml node (Html5.toHtml full))
+        }
+
+    and private renderAttachmentGalleries (root: IElement) (ctx: RenderContext) (depth: int) : Result<unit, RenderError> =
+        result {
+            for gallery in attachmentGalleryNodes root do
+                let members = Html5.descendants gallery |> List.filter isGalleryAttachment |> List.map asElement
+                let rendered = StringBuilder()
+                for memberNode in members do
+                    let! attachment = Attachables.attachmentFrom (Html5.attrsOf memberNode) ctx
+                    let! full = nodeWithFullAttributes memberNode attachment.Attachable
+                    let! html = renderAttachmentHtmlAt attachment ctx depth
+                    do! parseErr (Html5.setInnerHtml full html)
+                    rendered.Append(Html5.toHtml full) |> ignore
+                let html =
+                    "<div class=\"attachment-gallery attachment-gallery--"
+                    + string members.Length
+                    + "\">\n  "
+                    + rendered.ToString()
+                    + "\n</div>"
+                do! parseErr (Html5.replaceWithHtml gallery html)
+        }
+
+    /// `render_action_text_attachment`, with nested content attachments rendered through
+    /// `ContentAttachment#to_html` (the content partial, without the layout).
+    let renderAttachmentHtml (attachment: Attachment) (ctx: RenderContext) : Result<string, RenderError> =
+        renderAttachmentHtmlAt attachment ctx 0
+
+    /// `render_action_text_content(content)`: attachments and galleries rendered, then sanitized
+    /// with Action Text's allowlist.
+    let render (content: Content) (ctx: RenderContext) : Result<string, RenderError> = renderNested content ctx 0
+
+    /// `Content#to_s`: the content partial inside Campfire's `lexxy-content` layout.
+    let toRenderedHtmlWithLayout (content: Content) (ctx: RenderContext) : Result<string, RenderError> =
+        render content ctx |> Result.map (fun html -> "<div class=\"lexxy-content\">\n  " + html + "\n</div>\n")

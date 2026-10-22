@@ -311,9 +311,28 @@ module Html5 =
                 flattened body
                 body)
 
+    /// An element in the SVG or MathML namespace where HTML start tags still break out (not an HTML integration point, not a MathML
+    /// text integration point).
+    let private isForeignContext (e: IElement) : bool =
+        not (isHtml e)
+        && (match e.NamespaceUri, e.LocalName with
+            | "http://www.w3.org/2000/svg", ("foreignObject" | "desc" | "title") -> false
+            | "http://www.w3.org/1998/Math/MathML", ("mi" | "mo" | "mn" | "ms" | "mtext") -> false
+            | "http://www.w3.org/1998/Math/MathML", "annotation-xml" ->
+                (match e.GetAttribute "encoding" with
+                 | null -> true
+                 | encoding ->
+                     not (String.Equals(encoding, "text/html", StringComparison.OrdinalIgnoreCase)
+                          || String.Equals(encoding, "application/xhtml+xml", StringComparison.OrdinalIgnoreCase)))
+            | _ -> true)
+
     /// Nokogiri's `Node#fragment`: `html` parsed in `context`'s context; the nodes, detached, owned by a document of the parse.
     let parseIn (context: IElement) (html: string) : Result<INode[], ParseError> =
         let text = withoutBom html
+        // AngleSharp's fragment algorithm never lets HTML break out of a foreign context (the pre-2017 rule), where Gumbo, as
+        // browsers do, pops to the HTML root. A context that is foreign and not an integration point is parsed as a `div` instead:
+        // equal for the markup the pipeline builds (spans, images, divs: breakout tags), recorded for the rest (unit 5.4).
+        let context = if isForeignContext context then (nonNull context.Owner).CreateElement "div" else context
         guarded 1 0 0 (fun () ->
             let nodes = parser.ParseFragment(text, context)
             let result = Array.init nodes.Length (fun i -> nodes[i])

@@ -22,6 +22,7 @@
     <Compile Include="Next/Sanitizer.fs" />
     <Compile Include="Next/PlainText.fs" />
     <Compile Include="Next/Content.fs" />
+    <Compile Include="Next/Filters.fs" />
     <Compile Include="Next/ActionText.fs" />
   </ItemGroup>
   <ItemGroup>
