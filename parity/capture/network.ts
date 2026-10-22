@@ -74,8 +74,14 @@ export class NetworkLog {
     try {
       return await response.body()
     } catch {
-      const again = await this.page.context().request.get(response.url(), { maxRedirects: 0, headers: { accept: response.request().headers()["accept"] ?? "*/*" } })
-      return again.body()
+      try {
+        const again = await this.page.context().request.get(response.url(), { maxRedirects: 0, headers: { accept: response.request().headers()["accept"] ?? "*/*" } })
+        return await again.body()
+      } catch {
+        // The context itself is gone (a cell torn down, a browser killed): an empty body, not an unhandled rejection that ends the whole
+        // run (the full matrix hit it on the restricted and default seeds). The network layer is not one the pixel gate reports.
+        return Buffer.alloc(0)
+      }
     }
   }
 
