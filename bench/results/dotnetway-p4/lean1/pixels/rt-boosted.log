@@ -1,0 +1,15 @@
+pixel-parity: dotnetway vs the Rails reference, layers pixels,aria,loose, seeds default,crowd,custom_styles,first_run,restricted
+pixel-parity: VM free 38G, parity/out 36M
+seed default: 6/8 screenshots pixel-equal, 2 DIFFERENT; 8/8 aria equal; 8/8 loose equal  [99s]
+    DIFF realtime/boosted @ webkit-desktop-light: 124 pixels  (diff image: /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/parity/out/p4lean-rt-boosted/default/diff/candidate/realtime/boosted/webkit-desktop-light.png)
+    DIFF realtime/boosted @ webkit-phone-light: 305 pixels  (diff image: /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/parity/out/p4lean-rt-boosted/default/diff/candidate/realtime/boosted/webkit-phone-light.png)
+pixel-parity: VM free 38G, parity/out 36M
+seed crowd: 0/0 screenshots pixel-equal; 0/0 aria equal; 0/0 loose equal  [6s]
+pixel-parity: VM free 38G, parity/out 36M
+seed custom_styles: 0/0 screenshots pixel-equal; 0/0 aria equal; 0/0 loose equal  [6s]
+pixel-parity: VM free 38G, parity/out 36M
+seed first_run: 0/0 screenshots pixel-equal; 0/0 aria equal; 0/0 loose equal  [6s]
+pixel-parity: VM free 38G, parity/out 36M
+seed restricted: 0/0 screenshots pixel-equal; 0/0 aria equal; 0/0 loose equal  [6s]
+pixel-parity: FAILED in 123s; reports under /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/parity/out/p4lean-rt-boosted
+time="2026-10-21T19:52:15-04:00" level=fatal msg="exit status 1"

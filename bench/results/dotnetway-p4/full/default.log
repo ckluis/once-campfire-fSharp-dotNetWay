@@ -1,0 +1,164 @@
+candidate: reference :4111 vs candidate :4112 (seed default, clock frozen at 2026-03-02T16:00:00Z)
+breakpoint widths: {"chromium":[799,800,801],"firefox":[960,961],"webkit":[959,960]}
+4452 cells (3406 on shared servers, 1046 on fresh servers in 3 slots) × 2 targets, 4 workers
+[1/4452] auth/sign_in @ chromium-desktop-light fail
+[2/4452] auth/sign_in @ firefox-desktop-light fail
+[3/4452] auth/sign_in/error @ firefox-desktop-light fail
+[4/4452] auth/sign_in/error @ chromium-desktop-light fail
+[5/4452] auth/sign_in/error @ webkit-desktop-light fail
+[6/4452] auth/sign_in @ webkit-desktop-light fail
+[7/4452] auth/sign_in @ chromium-desktop-dark fail
+[8/4452] auth/sign_in/error @ firefox-desktop-dark fail
+[9/4452] auth/sign_in/error @ chromium-desktop-dark fail
+[10/4452] auth/sign_in @ firefox-desktop-dark fail
+[11/4452] auth/sign_in/error @ webkit-desktop-dark fail
+[12/4452] auth/sign_in @ webkit-desktop-dark fail
+[13/4452] auth/sign_in @ chromium-laptop-light fail
+[14/4452] auth/sign_in/error @ firefox-laptop-light fail
+[15/4452] auth/sign_in/error @ chromium-laptop-light fail
+[16/4452] auth/sign_in/error @ webkit-laptop-light fail
+[17/4452] auth/sign_in @ firefox-laptop-light fail
+[18/4452] auth/sign_in @ webkit-laptop-light fail
+[19/4452] auth/sign_in/error @ webkit-laptop-dark fail
+[20/4452] auth/sign_in/error @ firefox-laptop-dark fail
+[21/4452] auth/sign_in/error @ chromium-laptop-dark fail
+[22/4452] auth/sign_in @ chromium-laptop-dark fail
+[23/4452] auth/sign_in @ firefox-laptop-dark fail
+[24/4452] auth/sign_in @ webkit-laptop-dark fail
+[25/4452] auth/sign_in/error @ webkit-tablet-light fail
+[26/4452] auth/sign_in/error @ firefox-tablet-light fail
+[27/4452] auth/sign_in @ chromium-tablet-light fail
+[28/4452] auth/sign_in @ firefox-tablet-light fail
+[29/4452] auth/sign_in/error @ chromium-tablet-dark fail
+[30/4452] auth/sign_in/error @ firefox-tablet-dark fail
+[31/4452] auth/sign_in @ webkit-tablet-light fail
+[32/4452] auth/sign_in @ chromium-tablet-dark fail
+[33/4452] auth/sign_in/error @ chromium-tablet-light fail
+[34/4452] auth/sign_in @ firefox-tablet-dark fail
+[35/4452] auth/sign_in/error @ webkit-tablet-dark fail
+[36/4452] auth/sign_in @ webkit-tablet-dark fail
+[37/4452] auth/sign_in @ chromium-phone-light fail
+[38/4452] auth/sign_in/error @ firefox-phone-light fail
+[39/4452] auth/sign_in/error @ webkit-phone-light fail
+[40/4452] auth/sign_in @ firefox-phone-light fail
+[41/4452] auth/sign_in @ webkit-phone-light fail
+[42/4452] auth/sign_in/error @ chromium-phone-dark fail
+[43/4452] auth/sign_in/error @ chromium-phone-light fail
+[44/4452] auth/sign_in/error @ firefox-phone-dark fail
+[45/4452] auth/sign_in @ chromium-phone-dark fail
+[46/4452] auth/sign_in @ firefox-phone-dark fail
+[47/4452] auth/sign_in @ webkit-phone-dark fail
+[48/4452] auth/sign_in/error @ webkit-phone-dark fail
+[49/4452] auth/sign_in @ chromium-bp799-light fail
+[50/4452] auth/sign_in @ firefox-bp960-light fail
+[51/4452] auth/sign_in @ webkit-bp959-light fail
+[52/4452] auth/sign_in @ chromium-bp799-dark fail
+[53/4452] auth/sign_in @ firefox-bp960-dark fail
+[54/4452] auth/sign_in/rate_limited @ chromium-desktop-light fail
+[55/4452] auth/sign_in/rate_limited @ firefox-desktop-light fail
+[56/4452] auth/sign_in @ webkit-bp959-dark fail
+[57/4452] auth/sign_in @ chromium-bp800-light fail
+[58/4452] auth/sign_in/rate_limited @ webkit-desktop-light fail
+[59/4452] auth/sign_in @ firefox-bp961-light fail
+[60/4452] auth/sign_in @ webkit-bp960-light fail
+[61/4452] auth/sign_in @ chromium-bp800-dark fail
+[62/4452] auth/sign_in @ firefox-bp961-dark fail
+[63/4452] auth/sign_in @ webkit-bp960-dark fail
+[64/4452] auth/sign_in/rate_limited @ chromium-desktop-dark fail
+[65/4452] auth/sign_in/rate_limited @ firefox-desktop-dark fail
+[66/4452] auth/sign_in @ chromium-bp801-light fail
+[67/4452] auth/sign_in/rate_limited @ webkit-desktop-dark fail
+[68/4452] auth/sign_in/banned_ip @ firefox-desktop-light fail
+[69/4452] auth/sign_in/banned_ip @ webkit-desktop-light fail
+[70/4452] auth/sign_in @ chromium-bp801-dark fail
+[71/4452] auth/sign_in/banned_ip @ firefox-desktop-dark fail
+[72/4452] auth/sign_in/rate_limited @ chromium-laptop-light fail
+[73/4452] auth/sign_in/rate_limited @ firefox-laptop-light fail
+[74/4452] auth/sign_in/banned_ip @ webkit-desktop-dark fail
+[75/4452] auth/sign_in/banned_ip @ chromium-desktop-light fail
+[76/4452] auth/sign_in/banned_ip @ firefox-laptop-light fail
+[77/4452] auth/sign_in/banned_ip @ webkit-laptop-light fail
+[78/4452] auth/sign_in/rate_limited @ chromium-laptop-dark fail
+[79/4452] auth/sign_in/rate_limited @ firefox-laptop-dark fail
+[80/4452] auth/sign_in/banned_ip @ chromium-desktop-dark fail
+[81/4452] auth/sign_in/rate_limited @ webkit-laptop-light fail
+[82/4452] auth/sign_in/banned_ip @ firefox-laptop-dark fail
+[83/4452] auth/sign_in/banned_ip @ webkit-laptop-dark fail
+[84/4452] auth/sign_in/banned_ip @ chromium-laptop-light fail
+[85/4452] auth/sign_in/rate_limited @ webkit-laptop-dark fail
+[86/4452] auth/sign_in/rate_limited @ chromium-tablet-light fail
+[87/4452] auth/sign_in/banned_ip @ firefox-tablet-light fail
+[88/4452] auth/sign_in/rate_limited @ firefox-tablet-light fail
+[89/4452] auth/sign_in/banned_ip @ webkit-tablet-light fail
+[90/4452] auth/sign_in/banned_ip @ chromium-laptop-dark fail
+[91/4452] auth/sign_in/banned_ip @ firefox-tablet-dark fail
+[92/4452] auth/sign_in/rate_limited @ webkit-tablet-light fail
+[93/4452] auth/sign_in/banned_ip @ webkit-tablet-dark fail
+[94/4452] auth/sign_in/rate_limited @ chromium-tablet-dark fail
+[95/4452] auth/sign_in/rate_limited @ firefox-tablet-dark fail
+[96/4452] auth/sign_in/banned_ip @ chromium-tablet-light fail
+[97/4452] auth/sign_in/banned_ip @ firefox-phone-light fail
+[98/4452] auth/sign_in/banned_ip @ webkit-phone-light fail
+[99/4452] auth/sign_in/banned_ip @ chromium-tablet-dark fail
+[100/4452] auth/sign_in/rate_limited @ webkit-tablet-dark fail
+[101/4452] auth/sign_in/banned_ip @ firefox-phone-dark fail
+[102/4452] auth/sign_in/rate_limited @ chromium-phone-light fail
+[103/4452] auth/sign_in/rate_limited @ firefox-phone-light fail
+[104/4452] auth/sign_in/banned_ip @ webkit-phone-dark fail
+[105/4452] auth/sign_in/banned_ip @ chromium-phone-light fail
+[106/4452] auth/join @ firefox-desktop-light fail
+[107/4452] auth/join @ webkit-desktop-light fail
+[108/4452] auth/sign_in/rate_limited @ webkit-phone-light fail
+[109/4452] auth/sign_in/banned_ip @ chromium-phone-dark fail
+[110/4452] auth/join @ firefox-desktop-dark fail
+[111/4452] auth/sign_in/rate_limited @ firefox-phone-dark fail
+[112/4452] auth/join @ webkit-desktop-dark fail
+[113/4452] auth/join @ chromium-desktop-light fail
+[114/4452] auth/join @ firefox-laptop-light fail
+[115/4452] auth/join/completed @ chromium-desktop-light fail
+[116/4452] auth/sign_in/rate_limited @ chromium-phone-dark fail
+[117/4452] auth/join @ webkit-laptop-light fail
+[118/4452] auth/join @ chromium-desktop-dark fail
+[119/4452] auth/sign_in/rate_limited @ webkit-phone-dark fail
+[120/4452] auth/join @ firefox-laptop-dark fail
+[121/4452] auth/join/completed @ firefox-desktop-light fail
+[122/4452] auth/join @ webkit-laptop-dark fail
+[123/4452] auth/join/completed @ webkit-desktop-light fail
+[124/4452] auth/join @ chromium-laptop-light fail
+[125/4452] auth/join/completed @ chromium-desktop-dark fail
+[126/4452] auth/join @ firefox-tablet-light fail
+[127/4452] auth/join/completed @ firefox-desktop-dark fail
+[128/4452] auth/join @ webkit-tablet-light fail
+[129/4452] auth/join/completed @ webkit-desktop-dark fail
+[130/4452] auth/join @ chromium-laptop-dark fail
+[131/4452] auth/join/completed @ chromium-laptop-light fail
+[132/4452] auth/join @ firefox-tablet-dark fail
+[133/4452] auth/join/completed @ firefox-laptop-light fail
+[134/4452] auth/join @ webkit-tablet-dark fail
+[135/4452] auth/join/completed @ webkit-laptop-light fail
+[136/4452] auth/join @ chromium-tablet-light fail
+[137/4452] auth/join/completed @ chromium-laptop-dark fail
+[138/4452] auth/join @ firefox-phone-light fail
+[139/4452] auth/join/completed @ firefox-laptop-dark fail
+[140/4452] auth/join @ webkit-phone-light fail
+[141/4452] auth/join/completed @ webkit-laptop-dark fail
+[142/4452] auth/join @ chromium-tablet-dark fail
+[143/4452] auth/join/completed @ chromium-tablet-light fail
+[144/4452] auth/join @ firefox-phone-dark fail
+[145/4452] auth/join/completed @ firefox-tablet-light fail
+[146/4452] auth/join @ webkit-phone-dark fail
+[147/4452] auth/join/completed @ webkit-tablet-light fail
+[148/4452] auth/join @ chromium-phone-light fail
+[149/4452] auth/join/completed @ chromium-tablet-dark fail
+node:internal/process/promises:394
+    triggerUncaughtException(err, true /* fromPromise */);
+    ^
+
+apiRequestContext.get: Target page, context or browser has been closed
+    at NetworkLog.bodyOf (/Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/parity/capture/network.ts:77:55)
+    at async NetworkLog.describe (/Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/parity/capture/network.ts:58:22) {
+  log: []
+}
+
+Node.js v24.20.0
+/Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/parity/bin/../capture/sandbox/run.sh: line 128: /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/parity/out/.control.0O40ru/.done.16975.1792634062288055028: No such file or directory

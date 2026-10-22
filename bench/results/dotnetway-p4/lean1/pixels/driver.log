@@ -1,0 +1,50 @@
+=== auth 18:48:20 df 25Gi load 5.81 5.01 4.07
+auth rc=0
+=== errors 18:55:17 df 24Gi load 2.81 3.59 3.75
+errors rc=0
+=== pwa 18:56:29 df 24Gi load 2.99 3.46 3.69
+pwa rc=0
+=== welcome 18:59:36 df 23Gi load 4.14 3.95 3.85
+welcome rc=0
+=== bot_api 19:00:42 df 23Gi load 2.60 3.52 3.70
+bot_api rc=0
+=== search 19:01:18 df 23Gi load 3.69 3.67 3.74
+search rc=0
+=== account 19:03:27 df 23Gi load 3.92 3.85 3.81
+account rc=0
+=== users 19:07:29 df 23Gi load 10.16 6.99 5.15
+users rc=0
+=== autocompletable 19:11:18 df 27Gi load 4.73 6.47 5.43
+autocompletable rc=0
+=== messages 19:11:49 df 27Gi load 4.12 6.15 5.35
+messages rc=0
+=== interactions 19:18:10 df 23Gi load 3.41 4.77 5.00
+interactions rc=1
+=== rooms 19:31:00 df 20Gi load 3.33 4.24 4.63
+rooms rc=1
+=== rt-message_sent 19:41:33 df 19Gi load 4.53 4.66 4.78
+rt-message_sent rc=1
+=== rt-attachment_sent 19:43:39 df 20Gi load 4.11 4.53 4.71
+rt-attachment_sent rc=0
+=== rt-message_edited 19:45:46 df 20Gi load 4.43 4.62 4.72
+rt-message_edited rc=1
+=== rt-message_deleted 19:48:02 df 20Gi load 4.73 4.83 4.80
+rt-message_deleted rc=1
+=== rt-boosted 19:50:12 df 20Gi load 2.63 4.14 4.54
+rt-boosted rc=1
+=== rt-boost_removed 19:52:15 df 20Gi load 3.82 4.34 4.58
+rt-boost_removed rc=1
+=== rt-typing_one 19:54:17 df 20Gi load 3.32 4.14 4.47
+rt-typing_one rc=1
+=== rt-typing_many 19:56:15 df 19Gi load 4.39 4.43 4.55
+rt-typing_many rc=1
+=== rt-unread_in_sidebar 19:58:40 df 20Gi load 5.16 4.83 4.69
+rt-unread_in_sidebar rc=1
+=== rt-new_room_in_sidebar 20:00:56 df 19Gi load 3.20 4.25 4.47
+rt-new_room_in_sidebar rc=1
+=== rt-removed_from_room 20:03:09 df 19Gi load 3.28 4.02 4.35
+rt-removed_from_room rc=1
+=== rt-room_deleted_then_send 20:07:13 df 19Gi load 3.05 3.35 3.97
+rt-room_deleted_then_send rc=0
+=== rt-presence_read 20:09:27 df 19Gi load 3.61 3.54 3.95
+rt-presence_read rc=0

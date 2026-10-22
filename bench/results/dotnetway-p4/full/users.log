@@ -1,0 +1,4 @@
+pixel-parity: dotnetway vs the Rails reference, layers pixels,aria,loose, seeds default
+pixel-parity: VM free 38G, parity/out 173M
+seed default: 388/388 screenshots pixel-equal; 388/388 aria equal; 388/388 loose equal  [911s]
+pixel-parity: PASSED, the UI is pixel-identical in 911s; reports under /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/parity/out/p4full-users

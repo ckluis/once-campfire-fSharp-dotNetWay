@@ -2296,3 +2296,53 @@ behind it, not a rewrite.
 - **Phase 5 note (checkpoint):** whatever replaces the sanitizer must keep escaping `<` in attribute values or keep relying on the U+E000 rewrite in `Trusted.ofSanitized`; do not drop both (AGENTS.md says it too).
 - Evidence: `bench/results/dotnetway-4-11/` (`build.sh`, `build.log`, `pixel-driver.sh`, `pixels/` (a log and `report.json` per slice), `bench.sh`, `quick/` (`compare-new.txt`, `compare-ctl.txt`, `bench-*.log`, one JSON per rep)).
 - **Next:** Phase 4 independent verification (luminary), then Phase 5.
+
+### Phase 4: gate (2026-10-21/22)
+
+Evidence: `bench/results/dotnetway-p4/` (slim: logs, `report.json` per pixel slice, bench JSON; `lean1/` is the first lean run on the `4a8d095` image, `diag/` the A/B reruns). Gate runner; two code changes: `e7f5b52`/`7be22a7` (avatar SVG) and the harness fix below.
+- **`CAMPFIRE_REQUIRE_SEED=1 bin/verify`** on `4a8d095`: 969 total, 963 passed, 6 skipped (the same environmental 6), 0 failed; lint self-test (27 planted files) ok, lint 222 files clean; H1 green (`verify.log`). The Views project alone on `7be22a7`: 123/123 (`views-tests.log`). There is no test named HT1-HT3: the hostile-text render coverage is the frozen oracle (546 hostile cases, `DifferentialTests`), `LayoutsTests` (hostile custom styles inside the `style` element), `UsersViewsTests` (hostile avatar initials as XML), `HtmlTests`, and the lint's planted files; all green.
+- **First lean pixel run found a real regression** (image `4a8d095`): 21 of 25 slices red in **WebKit, light scheme only**, 37 to 305 pixels, aria and loose equal. A/B on `rooms/show/designers` against the Phase 3 control: control equal, HEAD 37 pixels. The diff was the `RL` initials of the SVG avatar: the ERB leaves `\n      initials\n    ` inside `<text>` and WebKit centres the text with it; Falco wrote none. Fixed in `e7f5b52` (the test compares the initials trimmed, `7be22a7`). Class C, found only by the engines the `--fast` runs of 4.2-4.11 (Chromium) did not use.
+- **Lean pixel gate on `7be22a7`** (25 slices, `realtime/**` one at a time, every engine of the lean matrix): **940 of 940 cells equal on all three layers**.
+
+| seed | screenshots | aria | loose DOM |
+|---|---:|---:|---:|
+| default | 860/860 | 860/860 | 860/860 |
+| crowd | 24/24 | 24/24 | 24/24 |
+| custom_styles | 32/32 | 32/32 | 32/32 |
+| first_run | 16/16 | 16/16 | 16/16 |
+| restricted | 8/8 | 8/8 | 8/8 |
+
+  One cell (`auth/sign_in/error` chromium-desktop-dark) was NOT CAPTURED in its slice (30 s readiness, 8 requests in flight, after three attempts); the state re-run alone (4 cells) was 4/4 equal on all layers, so default counts 859 + 1.
+- **Full pixel matrix, once** (`--matrix full`: every state on chromium, firefox, webkit, desktop/laptop/tablet/phone, light and dark, the breakpoint sweep; image `7be22a7`). The harness first died twice (default after 149 of 4,452 cells, restricted after 64 s) from an unhandled rejection in `parity/capture/network.ts` (`bodyOf`'s fallback request on a closed context); fixed in the harness (empty body; the network layer is not reported), and default and restricted re-run in slices with a retry. Result:
+
+| seed | cells with a screenshot | screenshots | aria | loose DOM | not captured |
+|---|---:|---:|---:|---:|---:|
+| default (4,452 cells incl. fragment states) | 4,438 | 4,436 equal, 2 differ (flake, below) | all equal | all equal | 8 |
+| crowd | 144 | 144/144 | 144/144 | 144/144 | 0 |
+| custom_styles | 192 | 192/192 | 192/192 | 192/192 | 0 |
+| first_run | 96 | 96/96 | 96/96 | 96/96 | 0 |
+| restricted | 48 | 40/40 | 40/40 | 40/40 | 8 |
+
+  Default by slice: errors 120, auth 318 (+8 not captured), pwa 276, welcome 38, search 156/158, account 206, users 388, messages 720, interactions 964, rooms 930, the 13 `realtime/**` states 24 each: every cell equal on all three layers except the items below. **The gate is NOT clean on the full matrix:**
+  1. **16 Firefox cells not captured, two states** (`auth/join/invalid_code` and `rooms/opens/new/restricted_member`, 8 cells each: Firefox, 4 viewports x light/dark): `candidate: page.goto: NS_ERROR_NET_EMPTY_RESPONSE`. Reproduces on the Phase 3 control image (`b632a7c`), so it is not Phase 4's; the full matrix is the first run that puts these states on Firefox. Cause seen: both are empty-body 404s; with `Accept-Encoding: gzip, br, zstd` Rails answers `Content-Encoding: gzip` with an empty gzip body (chunked), ours answers `Content-Length: 0` plain (`Respond.fs`/`Before.fs`, Phase 2 code). Firefox accepts the first and reports an empty response on the second. A Firefox user opening such a URL on our server gets an error page instead of a blank 404. Not fixed here (Phase 2 layer, outside the unit); needs a fix unit, then those two states on Firefox.
+  2. **`search/results/many` WebKit, one or two cells differing by 24-222 pixels** at the right edge of an uploaded WebP avatar (the DOM and avatar bytes are equal). Intermittent: in the slice 2 cells (desktop-dark, laptop-dark), then 1 (desktop-dark, 54 px), isolated reruns of the same cell 3 of 3 equal on HEAD; and the Phase 3 control, run on the same slice, also differed in one cell (`webkit-laptop-light`, 24 px). Judged a WebKit image-decode flake of the harness under load, not Phase 4; recorded, not fixed.
+- **`bin/cookie-roundtrip`** 20/20 both ways. **`bin/db-differential`** rc 0 (reference boots on the database we wrote, rollback ok).
+- **Speed** (`bench/quick`, 5 workloads, c=1 and c=16, 3 reps, interleaved new/ctl/ctl/new/new/ctl; new = `7be22a7`, control = Phase 3 verifier `b632a7c` as `campfire-dotnetway:p3ctl` (built in a scratch worktree with the submodule copied in, label checked, removed); host probe 1.04-1.07 before and after every rep of both, 0 of 10 windows above 1.10 in any rep, Mac load average 3.3-4.3 throughout (other programs on the Mac; the probe says the pinned cores were not slowed), 0 non-2xx and 0 connection errors in 30 runs per side):
+
+| workload | c | new req/s | control req/s | new vs control | x Rails (new) | x Rails (control) | CPU us/req new / control |
+|---|---:|---:|---:|---:|---:|---:|---|
+| room page | 16 | 7,433 | 8,442 | -12.0% | 31.06 | 35.28 | 437 / 399 |
+| room page | 1 | 2,504 | 2,747 | -8.8% | 23.38 | 25.65 | 496 / 462 |
+| messages page | 16 | 7,286 | 7,708 | -5.5% | 19.15 | 20.25 | 458 / 437 |
+| messages page | 1 | 2,303 | 2,386 | -3.5% | 10.57 | 10.95 | 530 / 514 |
+| sidebar | 16 | 7,605 | 7,870 | -3.4% | 12.71 | 13.15 | 433 / 436 |
+| sidebar | 1 | 2,440 | 2,317 | +5.3% | 8.51 | 8.09 | 504 / 532 |
+| search | 16 | 6,650 | 7,534 | -11.7% | 16.30 | 18.47 | 511 / 455 |
+| search | 1 | 2,181 | 2,295 | -5.0% | 11.32 | 11.91 | 557 / 530 |
+| post a message | 16 | 1,995 | 2,056 | -3.0% | 6.04 | 6.23 | 1,523 / 1,465 |
+| post a message | 1 | 1,138 | 1,124 | +1.2% | 6.82 | 6.73 | 1,665 / 1,635 |
+
+  **No cell under 5x** (thinnest: post c=16 6.04x, post c=1 6.82x, sidebar c=1 8.51x); no speed fix made. The string-render cost of Phase 4, against the last writer-based code: -3% to -12% throughput at c=16 on the pages (room page and search the most, as they render the most nodes; search's new range 6,627-7,053 is wide), +0.7% to +12% CPU per request, posting -3%/+1%. The control's decoded-bytes check prints FAIL on purpose (writer pages are 8-10% larger than the Falco pages).
+- **KLOC:** `bin/kloc` 33,551 by upstream's rules, **33,723 corrected (33.7 KLOC)**, from 34.8 at the Phase 3 close (-1.1); `Campfire.Views` 5,219, App 11,710. Unchanged by this unit (+1 line).
+- **Differences recorded:** none new for the README. Open for a fix unit: the Firefox empty-404 pair above; the 16 KB Cable bound and the two test packages (Phase 3 questions) remain open.
+- Disk: 19-28 GB free at starts (the Mac's free space fell to 13 GB during the full matrix and was recovered by `fstrim` in the VM); `bin/clean-docker` and `bin/clean-parity` run; the control image is removed.

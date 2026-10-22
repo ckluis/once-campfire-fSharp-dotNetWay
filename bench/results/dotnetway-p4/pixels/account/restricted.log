@@ -1,0 +1,9 @@
+candidate: reference :4111 vs candidate :4112 (seed restricted, clock frozen at 2026-03-02T16:00:00Z)
+breakpoint widths: {"chromium":[799,800,801],"firefox":[960,961],"webkit":[959,960]}
+4 cells (4 on shared servers, 0 on fresh servers in 3 slots) × 2 targets, 4 workers
+[1/4] account/edit/restricted_room_creation @ chromium-phone-light fail
+[2/4] account/edit/restricted_room_creation @ chromium-desktop-dark fail
+[3/4] account/edit/restricted_room_creation @ chromium-phone-dark fail
+[4/4] account/edit/restricted_room_creation @ chromium-desktop-light fail
+4 cells: 0 pass (0 flaky), 4 fail, 0 allowed, 0 error in 11.9s
+report: /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/parity/out/p4lean-account/restricted/report.html

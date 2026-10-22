@@ -1,0 +1,17 @@
+pixel-parity: dotnetway vs the Rails reference, layers pixels,aria,loose, seeds restricted
+pixel-parity: VM free 38G, parity/out 21M
+seed restricted: capturing again (attempt 2): rooms/opens/new/restricted_member
+pixel-parity: VM free 38G, parity/out 22M
+seed restricted: capturing again (attempt 3): rooms/opens/new/restricted_member
+pixel-parity: VM free 38G, parity/out 24M
+seed restricted: 40/40 screenshots pixel-equal; 40/40 aria equal; 40/40 loose equal, 8 NOT CAPTURED  [187s]
+    NOT CAPTURED rooms/opens/new/restricted_member @ firefox-desktop-light: candidate: page.goto: NS_ERROR_NET_EMPTY_RESPONSE
+    NOT CAPTURED rooms/opens/new/restricted_member @ firefox-desktop-dark: candidate: page.goto: NS_ERROR_NET_EMPTY_RESPONSE
+    NOT CAPTURED rooms/opens/new/restricted_member @ firefox-laptop-light: candidate: page.goto: NS_ERROR_NET_EMPTY_RESPONSE
+    NOT CAPTURED rooms/opens/new/restricted_member @ firefox-laptop-dark: candidate: page.goto: NS_ERROR_NET_EMPTY_RESPONSE
+    NOT CAPTURED rooms/opens/new/restricted_member @ firefox-tablet-light: candidate: page.goto: NS_ERROR_NET_EMPTY_RESPONSE
+    NOT CAPTURED rooms/opens/new/restricted_member @ firefox-tablet-dark: candidate: page.goto: NS_ERROR_NET_EMPTY_RESPONSE
+    NOT CAPTURED rooms/opens/new/restricted_member @ firefox-phone-light: candidate: page.goto: NS_ERROR_NET_EMPTY_RESPONSE
+    NOT CAPTURED rooms/opens/new/restricted_member @ firefox-phone-dark: candidate: page.goto: NS_ERROR_NET_EMPTY_RESPONSE
+pixel-parity: FAILED in 187s; reports under /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/parity/out/p4full-restricted
+time="2026-10-21T22:29:43-04:00" level=fatal msg="exit status 1"

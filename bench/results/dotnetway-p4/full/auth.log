@@ -1,0 +1,17 @@
+pixel-parity: dotnetway vs the Rails reference, layers pixels,aria,loose, seeds default
+pixel-parity: VM free 38G, parity/out 168M
+seed default: capturing again (attempt 2): auth/join/invalid_code,auth/sign_in/error
+pixel-parity: VM free 38G, parity/out 183M
+seed default: capturing again (attempt 3): auth/join/invalid_code
+pixel-parity: VM free 38G, parity/out 184M
+seed default: 318/318 screenshots pixel-equal; 318/318 aria equal; 318/318 loose equal, 8 NOT CAPTURED  [1488s]
+    NOT CAPTURED auth/join/invalid_code @ firefox-desktop-light: candidate: page.goto: NS_ERROR_NET_EMPTY_RESPONSE
+    NOT CAPTURED auth/join/invalid_code @ firefox-desktop-dark: candidate: page.goto: NS_ERROR_NET_EMPTY_RESPONSE
+    NOT CAPTURED auth/join/invalid_code @ firefox-laptop-light: candidate: page.goto: NS_ERROR_NET_EMPTY_RESPONSE
+    NOT CAPTURED auth/join/invalid_code @ firefox-laptop-dark: candidate: page.goto: NS_ERROR_NET_EMPTY_RESPONSE
+    NOT CAPTURED auth/join/invalid_code @ firefox-tablet-light: candidate: page.goto: NS_ERROR_NET_EMPTY_RESPONSE
+    NOT CAPTURED auth/join/invalid_code @ firefox-tablet-dark: candidate: page.goto: NS_ERROR_NET_EMPTY_RESPONSE
+    NOT CAPTURED auth/join/invalid_code @ firefox-phone-light: candidate: page.goto: NS_ERROR_NET_EMPTY_RESPONSE
+    NOT CAPTURED auth/join/invalid_code @ firefox-phone-dark: candidate: page.goto: NS_ERROR_NET_EMPTY_RESPONSE
+pixel-parity: FAILED in 1488s; reports under /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/parity/out/p4full-auth
+time="2026-10-21T22:54:31-04:00" level=fatal msg="exit status 1"

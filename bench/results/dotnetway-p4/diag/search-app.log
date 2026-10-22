@@ -1,0 +1,6 @@
+pixel-parity: dotnetway vs the Rails reference, layers pixels,aria,loose, seeds default
+pixel-parity: VM free 38G, parity/out 3.4M
+seed default: 1/2 screenshots pixel-equal, 1 DIFFERENT; 2/2 aria equal; 2/2 loose equal  [25s]
+    DIFF search/results/many @ webkit-desktop-dark: 168 pixels  (diff image: /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/parity/out/d4-app-search/default/diff/candidate/search/results/many/webkit-desktop-dark.png)
+pixel-parity: FAILED in 25s; reports under /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/parity/out/d4-app-search
+time="2026-10-22T03:18:31-04:00" level=fatal msg="exit status 1"

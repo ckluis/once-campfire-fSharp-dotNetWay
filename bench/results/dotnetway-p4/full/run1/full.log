@@ -1,0 +1,19 @@
+pixel-parity: dotnetway vs the Rails reference, layers pixels,aria,loose, seeds default,crowd,custom_styles,first_run,restricted
+pixel-parity: VM free 38G, parity/out 79M
+seed default: NO REPORT after 767s (/Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/parity/out/p4full/default.log)
+    
+    Node.js v24.20.0
+    /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/parity/bin/../capture/sandbox/run.sh: line 128: /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/parity/out/.control.0O40ru/.done.16975.1792634062288055028: No such file or directory
+pixel-parity: VM free 38G, parity/out 965M
+seed crowd: 144/144 screenshots pixel-equal; 144/144 aria equal; 144/144 loose equal  [412s]
+pixel-parity: VM free 38G, parity/out 1.3G
+seed custom_styles: 192/192 screenshots pixel-equal; 192/192 aria equal; 192/192 loose equal  [486s]
+pixel-parity: VM free 38G, parity/out 1.4G
+seed first_run: 96/96 screenshots pixel-equal; 96/96 aria equal; 96/96 loose equal  [312s]
+pixel-parity: VM free 38G, parity/out 1.4G
+seed restricted: NO REPORT after 64s (/Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/parity/out/p4full/restricted.log)
+    }
+    
+    Node.js v24.20.0
+pixel-parity: FAILED in 2041s; reports under /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/parity/out/p4full
+time="2026-10-21T22:15:41-04:00" level=fatal msg="exit status 1"

@@ -1,0 +1,43 @@
+candidate: reference :4111 vs candidate :4112 (seed default, clock frozen at 2026-03-02T16:00:00Z)
+breakpoint widths: {"chromium":[799,800,801],"firefox":[960,961],"webkit":[959,960]}
+38 cells (38 on shared servers, 0 on fresh servers in 3 slots) × 2 targets, 4 workers
+[1/38] welcome/no_rooms @ firefox-desktop-light fail
+[2/38] welcome/no_rooms @ webkit-desktop-light fail
+[3/38] welcome/no_rooms @ chromium-desktop-light fail
+[4/38] welcome/no_rooms @ chromium-desktop-dark fail
+[5/38] welcome/no_rooms @ firefox-desktop-dark fail
+[6/38] welcome/no_rooms @ webkit-desktop-dark fail
+[7/38] welcome/no_rooms @ firefox-laptop-light fail
+[8/38] welcome/no_rooms @ chromium-laptop-light fail
+[9/38] welcome/no_rooms @ webkit-laptop-light fail
+[10/38] welcome/no_rooms @ firefox-laptop-dark fail
+[11/38] welcome/no_rooms @ webkit-laptop-dark fail
+[12/38] welcome/no_rooms @ chromium-laptop-dark fail
+[13/38] welcome/no_rooms @ chromium-tablet-light fail
+[14/38] welcome/no_rooms @ firefox-tablet-light fail
+[15/38] welcome/no_rooms @ webkit-tablet-light fail
+[16/38] welcome/no_rooms @ chromium-tablet-dark fail
+[17/38] welcome/no_rooms @ firefox-tablet-dark fail
+[18/38] welcome/no_rooms @ webkit-tablet-dark fail
+[19/38] welcome/no_rooms @ firefox-phone-light fail
+[20/38] welcome/no_rooms @ chromium-phone-light fail
+[21/38] welcome/no_rooms @ webkit-phone-light fail
+[22/38] welcome/no_rooms @ chromium-phone-dark fail
+[23/38] welcome/no_rooms @ firefox-phone-dark fail
+[24/38] welcome/no_rooms @ webkit-phone-dark fail
+[25/38] welcome/no_rooms @ chromium-bp799-light fail
+[26/38] welcome/no_rooms @ firefox-bp960-light fail
+[27/38] welcome/no_rooms @ webkit-bp959-light fail
+[28/38] welcome/no_rooms @ chromium-bp799-dark fail
+[29/38] welcome/no_rooms @ firefox-bp960-dark fail
+[30/38] welcome/no_rooms @ webkit-bp959-dark fail
+[31/38] welcome/no_rooms @ chromium-bp800-light fail
+[32/38] welcome/no_rooms @ firefox-bp961-light fail
+[33/38] welcome/no_rooms @ webkit-bp960-light fail
+[34/38] welcome/no_rooms @ chromium-bp800-dark fail
+[35/38] welcome/no_rooms @ firefox-bp961-dark fail
+[36/38] welcome/no_rooms @ webkit-bp960-dark fail
+[37/38] welcome/no_rooms @ chromium-bp801-light fail
+[38/38] welcome/no_rooms @ chromium-bp801-dark fail
+38 cells: 0 pass (0 flaky), 38 fail, 0 allowed, 0 error in 84.3s
+report: /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/parity/out/p4full-welcome/default/report.html
