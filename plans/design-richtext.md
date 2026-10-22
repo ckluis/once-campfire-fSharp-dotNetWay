@@ -327,3 +327,73 @@ Everything else is settled by D9, the parity bar and the floor, as recorded in s
 serialization; no HtmlSanitizer (R4: it cannot be configured to Loofah's rules, and parity is the bar); the document-mode parse and
 the caps (R2, R3); rails_autolink's matchers per text node (R6); `System.Uri` for rich text and `RubyUri` deferred to Phase 8 (R8,
 R9); Rails' corpus as the oracle with an explicit known-differences list (R11).
+
+## 11. Security review (Opus, 2026-10-22, at `414caa8`)
+
+Scope: everything Phase 5 added or changed (`c88f590..414caa8`): `src/Campfire.RichText` (`Html5`, `Sanitizer`, `Loofah`, `Content`,
+`Attachables`, `Filters`, `Autolink`, `AutolinkMatch`, `PlainText`, `ActionText`, `Error`), the App's call sites (`Presenters/Presenter.fs`,
+`Controllers/Messages.fs` canonicalization, `RichText.fs`, `Integrations/OpengraphMetadata.fs`, `IntegrationJobs.fs`'s bot replies) and the
+view boundary the presentation crosses (`Core/Html.fs` `Trusted.ofSanitized`, `Core/HtmlOutput.fs` slot splitting,
+`Markup/Messages.fs`, `Templates/Messages/_Presentation.fs`, `Templates/Messages/Edit.fs`). 21 source files and the oracle tests
+(`CorpusTests`, `HardeningTests`, `Support`, `CorpusResolver`, the Views `HtmlOutputTests` O4) read. Fixes in `d076556`.
+
+**Method.** (1) Read the walker beside rails-html-sanitizer's `PermitScrubber`/Loofah 2.25 and every place a string becomes markup. (2) A
+fuzz harness, kept at `reference-tools/richtext/review/` (the checkpoint's was lost): the corpus's 658 bodies and 657 Rails presentations,
+179 fixed hostile cases (70 URL spellings of `javascript:`/`vbscript:`/`data:` with entities, `&Tab;`/`&NewLine;`/`&colon;`, C0
+controls, NUL, soft hyphen, zero-width space, U+2028, ideographic space, percent forms, each in `href`/`src`/`cite`; 35 raw tag tricks; 47 mutation-XSS
+classics: `noscript`, `template`, `style`, `xmp`, `iframe`, `noembed`, `noframes`, `plaintext`, `textarea`, `title`, `svg`/`math` with
+`mglyph`/`malignmark`/`annotation-xml`/`foreignObject`/`desc`, CDATA, comment tricks, nested forms, table foster parenting, `select`; 27
+attachment shapes: content attachments, remote images and videos with `javascript://`/`data:`/protocol-relative URLs, opengraph
+embeds by attributes and by content markup, mentions of a user whose name, title and SGID hold markup, galleries, Trix figures) and
+generated bodies from a grammar over 119 tags, 61 attribute names and those values, mutated by insert/delete/duplicate. Each input
+went through `presentMessage`, the bot API's `body.html`, `Sanitizer.sanitize` with each of the four lists, the stored canonical body
+presented again, plain text, mentions, the editor value and the unfurl's `strip_tags` + `sanitize`. Every HTML output was parsed in
+the **browser model**: a page parse with scripting on, the output inside `messages/_presentation`'s `div` with a sentinel after it,
+checked for leaving the container, elements and attributes outside the list, foreign elements, comments, event and `data-*`
+attributes, `id`/`name`/`form`, URLs by the browser's URL rules (leading and trailing C0 and space stripped, tab and newlines removed,
+scheme by its ASCII grammar; `data:` by its MIME type) and by `allowed_uri?` again, and elements or attributes the browser builds that
+the pipeline's own parse of the same output lacks (mutation). Two runs: seed 2, 201,494 inputs, 1,584,965 outputs (before the fix);
+seed 3, 251,494 inputs, 1,978,388 outputs (after). (3) Against Loofah itself: 4,179 hostile cases (the fixed ones and 4,000
+generated) through the reference image's own pipeline (`generate.rb`, `review/run.sh`), compared with our presentations.
+
+| # | Severity | Where | Finding | State |
+|---|---|---|---|---|
+| F1 | High (stored denial of service) | `src/Campfire.RichText/Html5.fs:296` (`guarded`) | AngleSharp 1.8.4 (and 1.8.5) throws a `NullReferenceException` from its select mode when an `<xmp>` inside a `<select>` closes the paragraph the select is in and another `<select>` follows (`<p><select><xmp></xmp><select>x`, also inside `div`, `b`, `caption`). Nothing caught it: every entry point raised. Posting the body was a 500 (canonicalization raised before the write), and the same body stored any other way, by Rails before a switch to this app (Rails renders it) or by a later path that skips canonicalization, failed every page, broadcast and search result that renders the message, for every member of the room, until the row was edited by hand. Found by the fuzz (4 of 201,494 inputs, 44 raised outputs) and shrunk by delta debugging. | **Fixed** (`d076556`): `guarded` turns any exception the tree builder throws (not `OutOfMemoryException`) into `ParseError.ParserFailed`, refused as a body past a limit is: `messages/_unrenderable`, plain text empty and logged, stored as it came. README class B entry; Q1's upstream list gains it. Tests that failed before: `HardeningTests` "markup the parser throws on is refused, not raised" (and inside an attachment's content and caption), `MessagesTests` "a body the parser throws on fails neither the post nor the pages that show it" (post 200, stored raw, room page and messages page 200), S7's new fragment. After the fix: 0 exceptions in 1,978,388 outputs |
+| F2 | Medium (test oracle) | `tests/Campfire.RichText.Tests/CorpusTests.fs:169` | The security assertions (N2, S7, the planted defects) parsed each output with `Html5.parseBody`, the pipeline's own parser, with scripting off and as a body. An output that a browser parses differently from AngleSharp's no-script body parse (the mutation-XSS class: `noscript` text, markup leaving the container) passes such an oracle by construction; risk 6 of section 9 asked for a scripting-on parse and 5.7 had switched it to `parseBody`. | **Fixed** (`d076556`): `browserViolations` parses as a page does (scripting on, inside the presentation's `div`, sentinel after) and runs the same assertions on what it builds, plus container escape, comments and foreign elements; N2 and S7 run both models; planted defects that only the browser model catches (an end tag that closes the container, a `div` inside a table that does, a `noscript` read as text); S7 gains 13 of the review's shapes. All green on the current pipeline |
+| F3 | Low | `src/Campfire.RichText/Sanitizer.fs:79` (`sanitize`), `Content.fs:263` (`body.html`) | Sanitizer output is not structure-stable: a flattened `template` unwrapped inside a table leaves `table > div > table` and similar trees that no parser builds, and a browser re-parsing such output inside a `div` closes that `div` early (the inner `</div>` reaches it). 44 of 1,978,388 outputs: direct `sanitize` with each list (35) and `body.html` (5 plus 4 refused by our own depth limit after the layout's `div`). **Never a presentation** (0 of about 500,000 presentation and stored-presentation outputs; neither ours nor Rails' presentations escape on the 4,179 Rails cases): the presentation's last step, `autoLink`, parses the layout's markup afresh (a parser-built tree, every `template` and table part outside the list gone in the Action Text pass) and its scrub unwraps only flow elements (`figure`, `figcaption`, `video`, `audio`, `source`, `embed`, `action-text-attachment`), which a parser never places in table context. The direct outputs reach no page: an attachment's `content` attribute (sanitized again where it renders), the filters (parsed again), the unfurl's title and description (escaped text, no element in 1.98 million checks), `body.html` (JSON for bots and webhooks; Rails' shapes are the same) | **Accepted** (parity with Loofah, no page placement). Guarded: S7 and N2 fail if a presentation leaves its container |
+| F4 | Info | N1 (section 5) | "Nothing Loofah strips survives", read literally, does not hold on hostile bodies whose parse differs from Gumbo's (the `select` model, `isindex`, `frameset`, AngleSharp's raw-text and table shapes): of the 4,179 cases, 4,023 presentations are byte-equal to Rails', 156 differ, and 45 of those keep something Rails' output lacks (161 facts: allowed elements such as `a`, `table`, `p`, `img`, `b`, allowed attributes, and URLs `http://x.test/`, `/users/1`, `src="x"`). Every one is inside the auto-link list with a safe URL: **0 browser-model violations in our 4,179 presentations** (Rails' own: 82, all the `name` attributes the port drops on purpose) | Accepted: the README's class B parse entries; the corpus's N1 stays exact |
+| F5 | Info | the views, `Attachables`, `AutolinkMatch` | Rails' behaviour kept as it is, noted for the record: the editor value is the stored body, not sanitized (`editable_body`; Lexxy imports it), and goes out through `Html.attr`; `body.html` keeps an attachment's `url` and `content` attributes (`url` is not a URI attribute to Loofah) and Campfire's list allows `embed` there; an unsigned SGID still mentions any user (`attachable_from_possibly_expired_sgid`, Campfire's own extension); rails_autolink links `file://`, `feed://`, `svn://` and the like | No change (parity; none reaches the presentation's allowlist with a script URL) |
+| F6 | Info | the review itself | The browser model is AngleSharp with scripting on, not Chromium, Firefox or WebKit; no real browser replayed the outputs. The residual is small: presentations contain no raw-text, RCDATA, foreign, `select`, `template` or `noscript` element, the places where parsers disagree | Open (a Playwright replay of the harness's outputs in the parity image would close it) |
+
+**Checked and holding** (each with the fuzz's numbers above: 0 violations in every presentation, stored presentation and unfurl output):
+- *Allowlists and the walker.* Bottom-up over a snapshot of children, as `traverse_conditionally_bottom_up`; text skipped; comments
+  and unlisted HTML elements unwrapped; a foreign element removed with its contents, which is stricter than Loofah (it unwraps). An SVG
+  or MathML element whose local name is on a list (`svg:a`) is kept by the tag check, but its foreign root (`svg`, `math`) is on no list
+  and takes it away. Attributes in order with `force_correct_attribute_escaping` re-run after each kept one, a later URI attribute
+  checked in its escaped form; blank `src` removed; Lexxy's colour rule last (`body.html` only: the auto-link list has no `style`). No
+  `id`, `name` or `data-*` but `data-language` reaches a page.
+- *URIs.* `allowed_uri?` reads the DOM value (entities already decoded once by the parser, as the browser's own value is), drops C0,
+  space, backtick, DEL and U+0080-U+0101, decodes entities again and `&Tab;`/`&NewLine;`/`&colon;`, lowercases, and takes the longest
+  `[a-z][a-z0-9+.-]*` before a separator. A browser accepts only an ASCII scheme after stripping C0 and space at the ends and tab and
+  newlines inside, so every value the browser reads as `javascript:`/`vbscript:` this reads the same or stricter (the second decoding and
+  the control stripping only refuse more). `data:` keeps Loofah's five media types, decided on the first `;`/`,` segment; a value whose
+  MIME type the browser would read as HTML, XML or SVG never passed (the 70 spellings x 3 attributes x 4 lists, and the fuzz).
+- *Mutation XSS.* The serializer is the spec's (text `&`, U+00A0, `<`, `>`; attributes `&`, U+00A0, `"`); raw text is written raw only
+  under a raw-text parent, and no list keeps one, so after unwrapping such text is escaped under its new parent. `<` and `>` stay raw in
+  attribute values (R7): safe because no presentation holds an element a browser reads as raw text, RCDATA, a comment or foreign
+  content, and the page places it in a `div` (no `script`, `template` text or attribute context). The canonical body a post stores can
+  turn `noscript` text into markup (Nokogiri does the same), and every reader sanitizes it again.
+- *Autolink.* Links are built with the DOM from text-node pieces: `href` is the matched text (scheme from rails_autolink's list or
+  `http://` added) or `mailto:` + the escaped address; no string is spliced into markup; a text node with an `a` ancestor is skipped. The
+  attribute-value breakout cases (A2) hold.
+- *Attachments and mentions.* Every partial value goes through `Erb.htmlEscape`; opengraph `href`/`url` through `webUrl` (http and https
+  only, the RFC 3986 check, the query exempt but escaped); remote image and video URLs through `imageTag`'s asset rule and then the
+  final `allowed_uri?` (`javascript://`, `data:image/svg+xml` and `data:text/html` removed in the Action Text pass); a hostile user name,
+  bio and SGID render as text; content attachments recurse 8 deep and are sanitized at each level.
+- *Limits.* Gumbo's two and the three caps are counted in the parser's callbacks; a refusal and now a parser exception are both a
+  `ParseError`; nested content attachments can exceed 400 deep only inside a render, where the final parse refuses them. The App's
+  `ParseSafeLength` shortcut (800 UTF-16 units, no attachment) stays under every cap.
+- *The U+E000 slot marker.* The serializer writes U+E000 as itself in text and attributes; `Trusted.ofSanitized` (the presenter's only way
+  to place rich text) rewrites every one to `&#57344;`, so a typed `<` U+E000 digits `>` in a `title` cannot read as a fragment slot (Views
+  O4); text `<` is always `&lt;`.
+- *Unfurl cards.* `strip_tags` is the text nodes escaped, then `sanitize` with the default list: escaped text, no element in any output.

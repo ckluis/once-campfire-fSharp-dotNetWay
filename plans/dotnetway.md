@@ -2712,3 +2712,34 @@ Evidence: `bench/results/dotnetway-p5/` (slim: logs, `report.json` per pixel sli
 - **KLOC:** `bin/kloc` 30,044 by upstream's rules, **30,216 corrected (30.2 KLOC)**; `Campfire.RichText` 2,264, App 12,130, Views 5,219. Unchanged by this unit. Phase 4 closed at 33.7, so the phase is -3.5 (the design projected -4.8, about 28.9: RichText runs +0.5 over, as 5.7 recorded).
 - **Differences recorded:** none new. Still open from 5.7's remaining list (not gate items): the checkpoint's 151,087-output fuzz harness is out of the repo and no Loofah comparison of the presentation was run in the reference image; Q1 (upstream report to AngleSharp) is in the README, not filed; fuzz 125, 177 and 325 untraced; `filtered` is in the corpus and not compared. From Phase 4: the Firefox empty-404 pair, the 16 KB Cable bound and the two test packages.
 - Disk: 20-28 GB free throughout; `bin/clean-docker` and `bin/clean-parity` run; the control image is removed.
+
+### Phase 5: security review of the rich text layer (2026-10-22)
+
+Opus reviewer, on `414caa8`. Findings and method in `plans/design-richtext.md` section 11 ("Security review"); fixes in `d076556`.
+- **Read:** the 11 `Campfire.RichText` modules Phase 5 wrote or moved, the App's 5 call sites (presenter, canonicalization, `AppRichText`, opengraph
+  metadata, bot replies) and the 5 view files the presentation crosses (`Trusted.ofSanitized`, the slot split, the message markup, the presentation and
+  edit templates); the oracle tests.
+- **Fuzzed** with a harness now kept at `reference-tools/richtext/review/` (the checkpoint's was lost): the corpus, Rails' presentations, 179 fixed hostile
+  cases and grammar-generated bodies through every entry point (presentation, `body.html`, the four sanitizer lists, stored-then-presented, plain text,
+  mentions, editor value, unfurl text), each HTML output parsed in a browser model (scripting on, inside the presentation's `div`, sentinel after).
+  201,494 inputs / 1,584,965 outputs before the fix, 251,494 / 1,978,388 after. **Against Loofah:** 4,179 hostile cases through the reference image's own
+  pipeline (`reference-tools/richtext/review/run.sh`): 4,023 presentations byte-equal, 156 differ (parse differences already class B); 0 browser-model
+  violations in ours, 82 in Rails' (the `name` attributes the port drops).
+- **F1 (High, fixed):** AngleSharp 1.8.4/1.8.5 throws a `NullReferenceException` on `<p><select><xmp></xmp><select>x`; nothing caught it, so posting it was a 500
+  and the same body stored another way (Rails before a switch) failed every page, broadcast and search showing it. `Html5.guarded` now maps any parser
+  exception to `ParseError.ParserFailed` (refused as a body past a limit: `messages/_unrenderable`, plain text empty and logged, stored as it came). README
+  class B entry. Tests failing before: two `HardeningTests`, `MessagesTests` "a body the parser throws on ...", S7. After: 0 exceptions in 1.98 million outputs.
+- **F2 (Medium, fixed):** the security oracle (N2, S7) parsed outputs with `Html5.parseBody` (our parser, scripting off), blind to mutation XSS and container
+  escape by construction. Both now also run the browser model; planted defects only it catches.
+- **F3 (Low, accepted):** direct sanitizer outputs and `body.html` are not structure-stable (a flattened `template` leaves `table > div > table`; 44 of 1.98
+  million outputs close a surrounding `div` when a browser re-parses them); never a presentation (the final auto-link pass re-parses and unwraps only flow
+  elements), and those outputs reach no page. **F4, F5, F6 (info):** N1 holds on the corpus but not literally on hostile parse differences (45 of 4,179 keep
+  allowlisted extras Rails' output lacks, none unsafe); Rails behaviours kept (unsanitized editor value, `body.html`'s `url`/`content`/`embed`, unsigned-SGID
+  mentions, rails_autolink's schemes); the browser model is AngleSharp, not a real browser (a Playwright replay is the open item).
+- **Gates:** `CAMPFIRE_REQUIRE_SEED=1 bin/verify` on `d076556`: 1,011 total, 1,005 passed, 0 failed, 6 skipped (the environmental six; +3 new tests); lint
+  self-test 39/39, 337 files clean; the Dapper and EF guards, H1 and the Release warnings-as-errors build green. No pixel slice and no bench: the change only
+  turns an exception into the existing refusal path (no output changes for any body that rendered before, no work added on the request path but a `try`).
+- **KLOC:** `bin/kloc` 30,048 by upstream's rules, **30,220 corrected (30.2 KLOC)**, +4 (`ParserFailed`); `Campfire.RichText` 2,268. The harness lives in
+  `reference-tools/` (outside the solution and the count).
+- **Differences recorded:** one class B (README "Rich text": markup the parser throws on is refused). Q1's upstream list gains the select-mode exception.
+  Disk 28 GB free throughout; no image rebuilt.

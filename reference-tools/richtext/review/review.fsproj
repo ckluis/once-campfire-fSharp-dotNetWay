@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- The Phase 5 security review's fuzz harness (plans/design-richtext.md section 11). Not in the solution; see run.sh. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <NoWarn>$(NoWarn);FS3261;FS3264</NoWarn>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../../tests/Campfire.RichText.Tests/CorpusResolver.fs" Link="CorpusResolver.fs" />
+    <Compile Include="Gen.fs" />
+    <Compile Include="Check.fs" />
+    <Compile Include="Program.fs" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../../src/Campfire.RichText/Campfire.RichText.fsproj" />
+    <ProjectReference Include="../../../src/Campfire.RailsCompat/Campfire.RailsCompat.fsproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="AngleSharp" />
+  </ItemGroup>
+</Project>
