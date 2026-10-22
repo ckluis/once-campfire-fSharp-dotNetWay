@@ -20,6 +20,7 @@
     <Compile Include="HardeningTests.fs" />
     <Compile Include="CorpusResolver.fs" />
     <Compile Include="NextContentTests.fs" />
+    <Compile Include="NextAutolinkTests.fs" />
     <Compile Include="CorpusTests.fs" />
   </ItemGroup>
   <ItemGroup>

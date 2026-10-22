@@ -36,6 +36,8 @@ type internal ParseState() =
 
     /// Elements above the container in a node's ancestors (html and body for a document parse, the context's copy for a fragment).
     member val Baseline = 0 with get, set
+    /// Parses this thread has run (test-only: A3 counts that linking adds none).
+    member val Parses = 0L with get, set
     member val Elements = 0 with get, set
     member val Tokens = 0 with get, set
     member val RootAttributes = 0 with get, set
@@ -207,6 +209,9 @@ module Html5 =
             names.Add(name.ToString()) |> ignore
         true
 
+    /// The parses this thread has run so far (test-only).
+    let parseCount () : int64 = ParseState.Current.Parses
+
     // --- The parser -------------------------------------------------------------------------------
 
     let private parser =
@@ -290,6 +295,7 @@ module Html5 =
     let private guarded (baseline: int) (elements: int) (tokens: int) (parse: unit -> 'a) : Result<'a, ParseError> =
         let st = ParseState.Current
         st.Reset(baseline, elements, tokens)
+        st.Parses <- st.Parses + 1L
         try
             try
                 let result = parse ()
@@ -392,7 +398,7 @@ module Html5 =
 
     // --- Serialization ----------------------------------------------------------------------------
 
-    let private escapeText (value: string) (out: StringBuilder) =
+    let escapeText (value: string) (out: StringBuilder) =
         for c in value do
             match c with
             | '&' -> out.Append "&amp;" |> ignore

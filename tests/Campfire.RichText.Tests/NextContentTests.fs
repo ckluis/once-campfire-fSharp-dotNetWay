@@ -16,7 +16,7 @@ open Campfire.RichText.Tests.Support
 open Campfire.RichText.Tests.CorpusResolver
 open Campfire.Tests
 
-let private str (e: JsonElement) : string = e.GetString() |> nonNull
+let str (e: JsonElement) : string = e.GetString() |> nonNull
 
 /// Every SGID is a verified one for a user who is named after it, so the seed's mentions resolve (they are signed by the seed's key,
 /// which the tests do not have): both pipelines see the same lookups.
@@ -35,7 +35,7 @@ type private AllSgids() =
         member _.FindGid _ = GidLookup.NotFound
 
 /// (label, body, context) for the 1,479: the corpus's cases with their own host, Rails' presentations and the seed's bodies.
-let private all =
+let all =
     lazy
         (let bodies, presentations, seeds = inputs.Force()
          use corpus = JsonDocument.Parse(File.ReadAllText(Repo.path "tests/Campfire.RichText.Tests/corpus/expected.json"))
@@ -51,7 +51,7 @@ let private all =
            for (label, body) in presentations -> label, body, render resolver None
            for (label, body) in seeds -> label, body, render seedResolver None ])
 
-let private shownR (r: Result<string, RenderError>) : string =
+let shownR (r: Result<string, RenderError>) : string =
     match r with
     | Ok s -> s
     | Error e -> $"error: {e.Message}"
@@ -69,7 +69,7 @@ let private canonicalNew (body: string) (ctx: RenderContext) =
 
 /// Compares `oldOf` with `newOf` on the inputs `keep` selects; the labels that differ must be P1's list, and every name on the list
 /// that has no difference left is reported (a body already equal after the pipeline is no failure).
-let private compareWith (extra: Set<string>) (what: string) (keep: string -> bool) (oldOf: string -> RenderContext -> string) (newOf: string -> RenderContext -> string) =
+let compareWith (extra: Set<string>) (what: string) (keep: string -> bool) (oldOf: string -> RenderContext -> string) (newOf: string -> RenderContext -> string) =
     let differing = ResizeArray<string>()
     let report = StringBuilder()
     let mutable compared = 0
@@ -93,7 +93,7 @@ let private compareWith (extra: Set<string>) (what: string) (keep: string -> boo
     eprintfn "%s: %d compared; %d differ, all on P1's list: %s" what compared differing.Count (String.Join(", ", differing))
     compared
 
-let private compare what keep oldOf newOf = compareWith Set.empty what keep oldOf newOf
+let compare what keep oldOf newOf = compareWith Set.empty what keep oldOf newOf
 
 /// Recorded with 5.4 (class B): an attachment inside a foreign element (here an svg `option`) is replaced by markup parsed in that
 /// element's context. Gumbo breaks the partial's HTML out of the svg; AngleSharp's fragment algorithm cannot, and `parseIn` stands a
@@ -101,7 +101,7 @@ let private compare what keep oldOf newOf = compareWith Set.empty what keep oldO
 /// `action-text-attachment` itself (it stays open here and holds the rendered partial; Gumbo leaves it empty before the partial).
 /// The sanitizer drops svg and math with their contents, so the difference only shows where a body's own structure left the
 /// attachment out of the foreign element.
-let private foreignContextDifferences = set [ "corpus:fuzz 398" ]
+let foreignContextDifferences = set [ "corpus:fuzz 398" ]
 
 [<Fact>]
 let ``M1 canonical bodies (bytes) equal the old pipeline's on the 1,479, P1's list apart`` () =
@@ -302,10 +302,18 @@ let ``wide bodies cost linear time through load, plain text, render and filters`
           // A table cell, a caption and a form are contexts the body parse does not stand in for
           "that caption in a td", $"<table><tr><td>{captioned}</td></tr></table>"
           "that caption in a table caption", $"<table><caption>{captioned}</caption></table>"
-          "that caption in a form", $"<form>{captioned}</form>" ]
+          "that caption in a form", $"<form>{captioned}</form>"
+          // Unit 5.5: the linker's wide cases (400 ms CPU each, with the presentation step below)
+          "9,900 urls, one per paragraph", String.concat "" [ for i in 1..9_900 -> $"<p>http://a.test/{i}</p>" ]
+          "9,900 urls among 9,900 text nodes", String.concat "" [ for i in 1..9_900 -> $"see http://a.test/{i}<br>" ]
+          "9,900 e-mail addresses, one per paragraph", String.concat "" [ for i in 1..9_900 -> $"<p>u{i}@a.test</p>" ]
+          "9,900 e-mail addresses among 9,900 text nodes", String.concat "" [ for i in 1..9_900 -> $"mail u{i}@a.test<br>" ]
+          "one text node of 16,000 urls", "<p>" + String.concat " " [ for i in 1..16_000 -> $"http://a.test/{i}" ] + "</p>"
+          "one text node of 16,000 e-mail addresses", "<p>" + String.concat " " [ for i in 1..16_000 -> $"u{i}@a.test" ] + "</p>" ]
     let steps: (string * (string -> unit)) list =
         [ "plain text", (fun b -> Next.ActionText.toPlainText b ctx |> ignore)
           "layout", (fun b -> Next.Content.load b ctx |> Result.bind (fun c -> Next.Content.toRenderedHtmlWithLayout c ctx) |> ignore)
+          "presentation", (fun b -> Next.ActionText.messagePresentation b ctx |> ignore)
           "filters", (fun b -> Next.Content.load b ctx |> Result.bind (fun c -> Next.Filters.apply c ctx) |> Result.map Next.Content.toHtml |> ignore) ]
     for (label, body) in bodies do
         for (step, run) in steps do

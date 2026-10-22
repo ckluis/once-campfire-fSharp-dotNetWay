@@ -40,13 +40,13 @@ let private isUrlChar (c: char) : bool =
 /// One match of `AUTO_LINK_RE`: where it starts and ends, and whether a scheme started it (the
 /// regular expression's capture group).
 [<Struct>]
-type private UrlMatch = { Start: int; End: int; HasScheme: bool }
+type internal UrlMatch = { Start: int; End: int; HasScheme: bool }
 
 let private isAsciiWordClass (c: char) = (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c = '_'
 
 /// The match of `AUTO_LINK_RE` that starts at `i`, if any:
 /// `(?:(?i:((?:ed2k|ftp|...|file):))//|(?i:www)\.[a-zA-Z0-9_])[^ \t\r\n\x0B\x0C<\u{A0}"]+`.
-let private urlMatchAt (text: string) (i: int) : UrlMatch voption =
+let internal urlMatchAt (text: string) (i: int) : UrlMatch voption =
     let n = text.Length
     let tail (from: int) =
         let mutable e = from
@@ -76,7 +76,7 @@ let private urlMatchAt (text: string) (i: int) : UrlMatch voption =
 /// `AUTO_EMAIL_RE` without its lookbehind, which is checked separately:
 /// `\A[a-zA-Z0-9_.!#$%+-]\.?[a-zA-Z0-9_.!#$%&'*/=?^`{|}~+-]*@[a-zA-Z0-9_-]+(?:\.[a-zA-Z0-9_-]+)+`.
 /// Returns where the match, anchored at `start`, ends.
-let private emailMatchEnd (text: string) (start: int) : int voption =
+let internal emailMatchEnd (text: string) (start: int) : int voption =
     let n = text.Length
     let firstClass (c: char) = isAsciiWordClass c || ".!#$%+-".IndexOf c >= 0
     let localClass (c: char) = isAsciiWordClass c || ".!#$%&'*/=?^`{|}~+-".IndexOf c >= 0
@@ -114,7 +114,7 @@ let private emailMatchEnd (text: string) (start: int) : int voption =
                         fin <- true
                 if groups > 0 then ValueSome i else ValueNone
 
-let private isEmailLocalChar (c: char) : bool = Char.IsAsciiLetterOrDigit c || "_.!#$%&'*/=?^`{|}~+-".IndexOf c >= 0
+let internal isEmailLocalChar (c: char) : bool = Char.IsAsciiLetterOrDigit c || "_.!#$%&'*/=?^`{|}~+-".IndexOf c >= 0
 
 /// `AUTO_LINK_CRE[2]`: `/<a\b.*?>/i`, where `.` stops at newlines; anchored, as it is only tried
 /// at a `<`. Returns where the match ends.
@@ -250,7 +250,7 @@ type private BracketCounts(href: string) =
         if i >= 0 then counts[i] <- counts[i] - 1
 
 /// Brackets whose closing half may end a URL when the URL opened it.
-let private openingBracket (closing: char) : char voption =
+let internal openingBracket (closing: char) : char voption =
     match closing with
     | ']' -> ValueSome '['
     | ')' -> ValueSome '('
