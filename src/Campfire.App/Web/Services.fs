@@ -171,6 +171,8 @@ module Services =
         builder.Use(Edge.defaultHeaders edge) |> ignore
         // K11: public files are served precompressed (`.br`/`.gz` beside them), so only what the app renders pays for it.
         builder.Use(publicFiles) |> ignore
+        // Phase 6 seam: the asset endpoints sit behind the old public files until 6.6 (they answer only the new fingerprinted URLs).
+        StaticAssets.map builder
         builder.UseResponseCompression() |> ignore
         builder.Use(Compression.compressEmptyErrors) |> ignore
         builder.Use(Edge.bodyLimit) |> ignore
@@ -180,5 +182,6 @@ module Services =
         builder.UseSession() |> ignore
         builder.UseWebSockets() |> ignore
         builder.UseRouting() |> ignore
+        StaticAssets.appEndpointsOnly builder
         builder.UseFalco [ any Campfire.Cable.Endpoint.MountPath cable ] |> ignore
         builder.UseFalcoNotFound(Campfire.App.Web.Action.run dispatch) |> ignore

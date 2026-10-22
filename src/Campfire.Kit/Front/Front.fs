@@ -71,7 +71,7 @@ module Front =
     /// Serves `app` (the pipeline of the kit, `Adapter.app` and what comes before it, built onto the
     /// builder it's given) the way Thruster served the reference until `shutdown` completes.
     /// `acme` replaces the configuration's ACME options (tests use a local CA), and `loggerFactory`
-    /// is where the server and Kestrel log (`configureServices` registers the app's services, which `HttpContext.RequestServices` resolves; the requests, as `thruster`, unless `lines` is given: the host then
+    /// is where the server and Kestrel log (`options` and `configureHost` are the host's creation options and its builder callback, `StaticAssets.hostOptions` and `configureHost` in the app; `configureServices` registers the app's services, which `HttpContext.RequestServices` resolves; the requests, as `thruster`, unless `lines` is given: the host then
     /// writes them itself, as bytes, see `RequestLog`).
     let serveWithLines
         (config: FrontConfig)
@@ -79,6 +79,8 @@ module Front =
         (acme: AcmeOptions voption)
         (loggerFactory: ILoggerFactory)
         (configureServices: IServiceCollection -> unit)
+        (options: WebApplicationOptions)
+        (configureHost: WebApplicationBuilder -> unit)
         (lines: RequestLines | null)
         (shutdown: Task)
         : Task =
@@ -107,10 +109,11 @@ module Front =
             // appsettings.json is read with reloadOnChange by default, which starts a FileSystemWatcher on the whole content
             // root (recursive): every write SQLite makes under storage/ then wakes the "File Watch" thread, which lstats the
             // path (about 5% of a post's CPU). Nothing here reloads configuration, so the host is told not to watch.
-            let builder = WebApplication.CreateSlimBuilder [| "--hostBuilder:reloadConfigOnChange=false" |]
+            let builder = WebApplication.CreateSlimBuilder options
             builder.Services.AddSingleton<ILoggerFactory>(loggerFactory) |> ignore
             builder.Services.AddSingleton<IHostLifetime, NoLifetime>() |> ignore
             configureServices builder.Services
+            configureHost builder
             builder.WebHost.ConfigureKestrel(fun (options: KestrelServerOptions) ->
                 configureKestrel options
                 FrontConn.configureLimits options timeouts
@@ -176,6 +179,9 @@ module Front =
             logger.LogInformation "Server stopped"
         }
 
+    /// The host's arguments: configuration is not watched (see `serveWithLines`).
+    let hostArgs: string[] = [| "--hostBuilder:reloadConfigOnChange=false" |]
+
     /// `serveWithLines` with the requests logged through `loggerFactory`.
     let serveWith
         (config: FrontConfig)
@@ -184,7 +190,7 @@ module Front =
         (loggerFactory: ILoggerFactory)
         (shutdown: Task)
         : Task =
-        serveWithLines config app acme loggerFactory ignore null shutdown
+        serveWithLines config app acme loggerFactory ignore (WebApplicationOptions(Args = hostArgs)) ignore null shutdown
 
     /// `serveWith`, with the configuration's ACME options and no logging but the requests'.
     let serve (config: FrontConfig) (app: IApplicationBuilder -> unit) (shutdown: Task) : Task =

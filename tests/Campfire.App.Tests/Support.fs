@@ -217,10 +217,17 @@ type Host(host: WebApplication, port: int, writes: BodyWrites) =
                 }
             )
 
-/// Serve `pipeline` on a free loopback port, with `configureServices` registered (the app's `ConfigureServices`).
-let startPipelineWith (configureServices: IServiceCollection -> unit) (pipeline: IApplicationBuilder -> unit) : Task<Host> =
+/// Serve `pipeline` on a free loopback port, with `configureServices` registered (the app's `ConfigureServices`), the host created
+/// with `options` and `configureHost` applied (the app's `StaticAssets.hostOptions` and `configureHost`).
+let startPipelineOn
+    (options: WebApplicationOptions)
+    (configureHost: WebApplicationBuilder -> unit)
+    (configureServices: IServiceCollection -> unit)
+    (pipeline: IApplicationBuilder -> unit)
+    : Task<Host> =
     task {
-        let builder = WebApplication.CreateSlimBuilder()
+        let builder = WebApplication.CreateSlimBuilder options
+        configureHost builder
         configureServices builder.Services
         builder.WebHost.ConfigureKestrel(fun (options: KestrelServerOptions) ->
             Campfire.Kit.Front.configureKestrel options
@@ -242,6 +249,10 @@ let startPipelineWith (configureServices: IServiceCollection -> unit) (pipeline:
         let addresses = (nonNull (app.Services.GetRequiredService<IServer>().Features.Get<IServerAddressesFeature>())).Addresses
         return new Host(app, Uri(Seq.head addresses).Port, writes)
     }
+
+/// Serve `pipeline` on a free loopback port, as the app's own host is created (A8).
+let startPipelineWith (configureServices: IServiceCollection -> unit) (pipeline: IApplicationBuilder -> unit) : Task<Host> =
+    startPipelineOn (Campfire.App.Web.StaticAssets.hostOptions [||]) Campfire.App.Web.StaticAssets.configureHost configureServices pipeline
 
 /// Serve `pipeline` on a free loopback port.
 let startPipeline (pipeline: IApplicationBuilder -> unit) : Task<Host> = startPipelineWith ignore pipeline

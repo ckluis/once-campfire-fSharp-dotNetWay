@@ -235,7 +235,7 @@ module Boot =
                 }
             // The request log goes to stdout as batched bytes (the `thruster` lines the console logger would write), not through `ILogger`.
             let requestLines = RequestLog.stdout ()
-            let server = Front.serveWithLines front booted.Pipeline ValueNone loggers booted.ConfigureServices requestLines signal
+            let server = Front.serveWithLines front booted.Pipeline ValueNone loggers booted.ConfigureServices (Web.StaticAssets.hostOptions Front.hostArgs) Web.StaticAssets.configureHost requestLines signal
             let deadline =
                 task {
                     do! stopping.Task

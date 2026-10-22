@@ -75,7 +75,7 @@ let tryStartLines
                 | true, v -> v
                 | _ -> null)
         let stop = TaskCompletionSource()
-        let running = Front.serveWithLines config app acme loggerFactory ignore lines stop.Task
+        let running = Front.serveWithLines config app acme loggerFactory ignore (Microsoft.AspNetCore.Builder.WebApplicationOptions(Args = Front.hostArgs)) ignore lines stop.Task
         let mutable listening = false
         let mutable attempts = 0
         while not listening && not running.IsCompleted && attempts < 200 do
