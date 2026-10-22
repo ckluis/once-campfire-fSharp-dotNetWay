@@ -37,3 +37,17 @@ let ignored (_ctx: int) (x: int option) =
     match x with
     | Some _ -> Templates.Layouts.render
     | _ -> Campfire.Views.Templates.Rooms.ShowPage.rendered
+
+// What the security review added: F#'s own spellings read as the compiler reads them, and the safe forms of the new rules.
+(* a string in a block comment is lexed, "so *) here" does not end it, Text.raw x *)
+let spelled (title: string) (v: string) =
+    [ Html.``attr`` "title" title
+      v |> Html.attr "data-x"
+      Attr
+          .create "data-y" "literal"
+      Html.attrInt "data-id" 1L ]
+
+let responses http (body: string) (fragments: CachedFragment seq) (f: unit -> System.Threading.Tasks.ValueTask<CachedFragment>) =
+    [ Pages.renderText http 200 Pages.JsonUtf8 body
+      Pages.renderText http 200 "application/json; charset=utf-8" body
+      Pages.html http "Going back…" ]

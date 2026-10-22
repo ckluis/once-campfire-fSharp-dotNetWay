@@ -125,9 +125,12 @@ Project references follow the crate graph. Don't add an edge Rust doesn't have.
   (`Url`, the Unicode tables, `Application`'s text functions, the involvement words, the avatar colours, `Turbo.domId`).
   - **Encoding is `Core/Html.fs`.** Falco.Markup 1.4.0 writes attribute values and `Text.raw` unescaped, so every non-literal goes through
     `Html.attr`, `Html.text` or a `Html.Trusted` value; `bin/lint-markup` (run by `bin/verify`, with `--self-test` over
-    `tests/lint-markup/planted/`) refuses anything else in `Campfire.Views` and `Campfire.App`. Keep Falco's modules qualified (`Attr.x`,
-    `Text.x`, `Elem.x`; no `open Falco.Markup.Attr`, no `module T = Text`) and never use Falco's auto-opened `_a [ _href_ v ]` spelling; the lint
-    refuses both. A URL attribute from data (`href`, `src`, `poster`, `data-*-url-value`) comes from a route or an asset path; mark any
+    `tests/lint-markup/planted/`) refuses anything else anywhere under `src`. An attribute's name is always a literal (`Html.attr "data-x"
+    v`; pass built `XmlAttribute`s, never names, to a helper). HTML never comes from a string: no `HtmlOutput.text`/`ofBytes` or
+    `CachedFragment` from a string outside `Core/`, and no `Pages.html`/`renderText`/`renderAs` body served as HTML, a Turbo Stream or SVG
+    (render with Falco, `Pages.renderOutput`). `Core/Html.fs` is exempt, so its definitions are pinned in the lint (`EXEMPT_SURFACE`). Keep
+    Falco's modules qualified (`Attr.x`, `Text.x`, `Elem.x`; no `open Falco.Markup.Attr`, no `module T = Text`) and never use Falco's
+    auto-opened `_a [ _href_ v ]` spelling; the lint refuses both. A URL attribute from data (`href`, `src`, `poster`, `data-*-url-value`) comes from a route or an asset path; mark any
     user-supplied URL for the gate's XSS review. `Html.Trusted` values come from a few makers only: `ofSanitized` (rich text, which rewrites
     `<` in attribute values to U+E000, so the serializer that replaces the sanitizer must keep escaping `<` in attribute values or keep that
     rewrite), `ofAssetTags` (the stylesheet and import map tags, `ViewContextBuilder`) and `ofAccountStyles` (the account's CSS; it writes a

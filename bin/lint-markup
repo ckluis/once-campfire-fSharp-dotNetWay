@@ -2,12 +2,13 @@
 """Markup lint (plans/design-views.md V3): Falco.Markup 1.4.0 writes attribute values and Text.raw raw, so every value that is not a
 literal must go through the project's encoding module (src/Campfire.Views/Core/Html.fs: Html.attr, Html.text, Html.trusted).
 
-  bin/lint-markup               lint src/Campfire.Views and src/Campfire.App (everything but Core/Html.fs); exit 1 on a finding
+  bin/lint-markup               lint every .fs under src (everything but Core/Html.fs, whose definitions are pinned); exit 1 on a finding
   bin/lint-markup --self-test   lint tests/lint-markup/planted/*.fs (each must give exactly one finding of its named rule) and
                                 tests/lint-markup/clean.fs (must give none); exit 1 otherwise
   bin/lint-markup FILE...       lint those files
 
-Rules (a token scan: comments are dropped, strings are single tokens):
+Rules (a token scan, reading F# as the compiler does: comments are dropped, with the strings inside them; strings are single tokens;
+`` ``raw`` `` is raw; `Attr .create`, `Attr. create` and a line break before the dot are Attr.create):
   attr-literal      Attr.<member> takes a plain string literal, not followed by + or ^ (an expression), except Falco's 52 zero-argument
                     values (Attr.methodPost, Attr.disabled, ...) and Attr.merge; Attr.create takes two literals; no pipe-in
                     (v |> Attr.title) and no partial application
@@ -21,12 +22,24 @@ Rules (a token scan: comments are dropped, strings are single tokens):
                     with no `Attr.`/`Text.` for the rules above to see), nor Falco.Markup.Templates (html5 writes its lang raw)
   falco-alias       Falco's Attr, Text, Elem, Html, Templates and Svg modules are not opened nor abbreviated (`open Falco.Markup.Attr`
                     then `create "href" v`, or `module T = Text` then `T.raw v`, would hide the qualified name the rules read)
+  attr-name         Html.attr / Html.attrInt take a plain string literal as the attribute's name (a name from data is markup)
+  raw-maker         HtmlOutput.text / HtmlOutput.ofBytes and a CachedFragment built from a string or bytes only in the core files
+                    that make them from Falco's output (RAW_MAKER_FILES); a fragment's bytes are written to the page as they are
+  raw-response      outside Web/Pages.fs: Pages.turboStream never, Pages.html only with a literal body, and Pages.renderText /
+                    renderAs never with an HTML or Turbo Stream content type, nor SVG outside the two SVG controllers
+  exempt-surface    Core/Html.fs (exempt from the rules: it is the encoder) defines only its pinned names (EXEMPT_SURFACE)
 """
 import os, re, sys
 
 ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
-SCAN = ["src/Campfire.Views", "src/Campfire.App"]
+# All of src: Falco.Markup is referenced by Campfire.Views and Campfire.App only, but a file linked in from elsewhere, or a project that
+# takes the package later, writes markup all the same.
+SCAN = ["src"]
 EXEMPT = {"src/Campfire.Views/Core/Html.fs"}
+# The exempt file is the encoder itself, so what it defines is pinned: a new definition there (a `let raw v = Text.raw v`) is a way around
+# every rule above. Change this set only with the review the new definition needs.
+EXEMPT_SURFACE = {"src/Campfire.Views/Core/Html.fs": {"withoutMarker", "StyleEnd", "ofSanitized", "ofAssetTags", "ofAccountStyles", "value",
+    "attr", "attrInt", "text", "int", "trusted", "fragment", "sp", "nl", "unclosed", "css", "rendered", "closing"}}
 
 # Falco.Markup 1.4.0: the Attr properties of type XmlAttribute (reflection over the package's dll): no argument, no value to encode.
 ATTR_VALUES = set("""async autofocus autoplay checked' controls default' defer disabled formnovalidate hidden ismap loop multiple muted
@@ -48,12 +61,74 @@ HYBRID = {"GetOrCreateAsync", "SetAsync", "RemoveAsync"}
 FALCO_DSL = re.compile(r"_text(f|Enc)?|_[a-z][A-Za-z0-9]*'|_[a-z][A-Za-z0-9]*_")
 FALCO_MODULES = {"Attr", "Text", "Elem", "Html", "Templates", "Svg", "XmlAttribute", "XmlNode"}
 HYBRID_FILES = {"src/Campfire.Views/Core/Fragments.fs"}
+# HTML that skips Falco altogether: a page or fragment made from a string or bytes as they are. Only the core files that make them from
+# Falco's output (or read them back from the cache) may.
+RAW_MAKER_FILES = {"src/Campfire.Views/Core/HtmlOutput.fs", "src/Campfire.Views/Core/Fragment.fs", "src/Campfire.Views/Core/Fragments.fs"}
+# A response body written as it is: an HTML or Turbo Stream content type takes a Falco page (`Pages.renderOutput`), never a string.
+RESPONSE_FILES = {"src/Campfire.App/Web/Pages.fs"}
+RAW_CONTENT_TYPES = {"HtmlUtf8", "TurboStreamUtf8"}
+# Not HTML, but SVG runs script too: the QR code (numbers only, Rqrcode.fs) and the avatar (a Falco render).
+SVG_RESPONSE_FILES = {"src/Campfire.App/Controllers/QrCode.fs", "src/Campfire.App/Controllers/Users/Avatars.fs"}
+TYPE_SUFFIXES = {"seq", "list", "option", "voption", "array", "ResizeArray", "with", "when", "and", "then", "else", "do", "in"}
 
 STR, ID, OP = "str", "id", "op"
 
 
+STRING_START = re.compile(r'(\$+@?|@\$+|@)?("""|")')
+CHAR = re.compile(r"'(\\.|\\u[0-9A-Fa-f]{4}|[^\\'])'")
+# An identifier segment: plain, or in double backticks (``raw`` is the identifier raw, so it is unwrapped before the rules read it).
+SEG = r"(?:``[^`\n]+``|[A-Za-z_][A-Za-z0-9_']*)"
+IDENT = re.compile(SEG + r"(?:\." + SEG + r")*")
+
+
+def hole_end(src, j, dollars):
+    """The index after the interpolation hole whose expression starts at j (strings and characters inside it are skipped whole, so a
+    `'"'` or a `"}"` in the expression does not end the string or the hole)."""
+    n, depth = len(src), 0
+    while j < n:
+        m = CHAR.match(src, j)
+        if m: j = m.end(); continue
+        k = string_end(src, j)
+        if k is not None: j = k; continue
+        if src[j] == "{": depth += 1
+        elif src[j] == "}":
+            if depth == 0: return min(n, j + dollars)
+            depth -= 1
+        j += 1
+    return n
+
+
+def string_end(src, i):
+    """If a string literal starts at i (F#'s rules: "...", @"...", \"\"\"...\"\"\", interpolated with one or more $), the index after it;
+    else None."""
+    m = STRING_START.match(src, i)
+    if not m or (m.group(1) is None and src[i] != '"'):
+        return None
+    prefix, quote = m.group(1) or "", m.group(2)
+    j, n, verbatim, dollars = m.end(), len(src), "@" in prefix, prefix.count("$")
+    while j < n:
+        if dollars:
+            if dollars == 1 and src.startswith("{{", j): j += 2; continue
+            if src.startswith("{" * dollars, j):
+                run = j
+                while run < n and src[run] == "{": run += 1
+                j = hole_end(src, run, dollars); continue
+        if quote == '"""':
+            if src.startswith('"""', j): return j + 3
+        elif src[j] == "\\" and not verbatim: j += 2; continue
+        elif src[j] == '"':
+            if verbatim and src.startswith('""', j): j += 2; continue
+            return j + 1
+        j += 1
+    return n
+
+
 def tokens(src):
-    """(kind, text, line) for strings (kind STR, text = the raw source, prefix included), identifier paths and operators."""
+    """(kind, text, line) for strings (kind STR, text = the raw source, prefix included), identifier paths and operators.
+
+    Read as F# reads it, since a difference is a place to hide code: a block comment nests and lexes the string and character literals
+    inside it (`(* "*)" *)` is one comment), an identifier may be written in double backticks, and a long identifier may have
+    whitespace or a line break around its dots (`Attr\n    .create`); each path is one ID token, backticks dropped."""
     out, i, n, line = [], 0, len(src), 1
     while i < n:
         c = src[i]
@@ -67,44 +142,42 @@ def tokens(src):
         if src.startswith("(*", i) and not src.startswith("(*)", i):
             depth, i = 1, i + 2
             while i < n and depth:
-                if src.startswith("(*", i): depth += 1; i += 2
-                elif src.startswith("*)", i): depth -= 1; i += 2
-                else:
-                    if src[i] == "\n": line += 1
-                    i += 1
+                if src.startswith("(*", i) and not src.startswith("(*)", i): depth += 1; i += 2; continue
+                if src.startswith("*)", i): depth -= 1; i += 2; continue
+                m = CHAR.match(src, i)
+                j = m.end() if m else string_end(src, i)
+                if j is None: j = i + 1
+                line += src.count("\n", i, j); i = j
             continue
-        m = re.compile(r'(\$@|@\$|\$|@)?("""|")').match(src, i)
-        if m and (m.group(1) is not None or c == '"'):
-            prefix, quote = m.group(1) or "", m.group(2)
-            j, start, l0 = m.end(), i, line
-            verbatim = "@" in prefix
-            while j < n:
-                if quote == '"""':
-                    if src.startswith('"""', j): j += 3; break
-                elif src[j] == "\\" and not verbatim: j += 2; continue
-                elif src[j] == '"':
-                    if verbatim and src.startswith('""', j): j += 2; continue
-                    j += 1; break
-                if src[j] == "\n": line += 1
-                j += 1
-            out.append((STR, src[start:j], l0)); i = j; continue
-        m = re.compile(r"'(\\.|\\u[0-9A-Fa-f]{4}|[^\\'])'").match(src, i)
+        j = string_end(src, i)
+        if j is not None:
+            out.append((STR, src[i:j], line)); line += src.count("\n", i, j); i = j; continue
+        m = CHAR.match(src, i)
         if m:
             out.append((STR, "'c'", line)); i = m.end(); continue
-        m = re.compile(r"[A-Za-z_][A-Za-z0-9_']*(?:\.[A-Za-z_][A-Za-z0-9_']*)*").match(src, i)
+        m = IDENT.match(src, i)
         if m:
-            out.append((ID, m.group(0), line)); i = m.end(); continue
+            text = ".".join(seg.strip("`") for seg in re.findall(SEG, m.group(0)))
+            out.append((ID, text, line)); i = m.end(); continue
         m = re.compile(r"\d[\w.]*").match(src, i)
         if m:
             out.append((ID, m.group(0), line)); i = m.end(); continue
         m = re.compile(r"\|>|<\||>>|<<|\|\|>|[-+*/%^&|<>=!?:.,;@~$#\\]+|.").match(src, i)
         out.append((OP, m.group(0), line)); i = m.end()
-    return out
+    # `Attr .create`, `Attr. create` and `Attr\n    .create` are the long identifier Attr.create.
+    merged = []
+    for tok in out:
+        if tok[0] == ID and len(merged) >= 2 and merged[-1][:2] == (OP, ".") and merged[-2][0] == ID and not merged[-2][1][0].isdigit():
+            merged.pop(); head = merged.pop()
+            merged.append((ID, head[1] + "." + tok[1], head[2]))
+        else:
+            merged.append(tok)
+    return merged
 
 
 def plain(tok):
     """A plain string literal: no interpolation."""
-    return tok[0] == STR and not tok[1].startswith(("$", "@$")) and tok[1] != "'c'"
+    return tok[0] == STR and "$" not in tok[1][:tok[1].find('"')] and tok[1] != "'c'"
 
 
 def literal(tok):
@@ -179,6 +252,29 @@ def lint_source(rel, src):
             found.append((line, "trusted-maker", f"{last_seg} outside its allowlisted file(s): {', '.join(sorted(TRUSTED[last_seg]))}"))
         if last_seg in HYBRID and len(segs) > 1 and rel not in HYBRID_FILES:
             found.append((line, "hybridcache", f"{last_seg} outside Core/Fragments.fs (call Fragments.fetch / Fragments.compressedPage)"))
+        if segs[-2:] in (["Html", "attr"], ["Html", "attrInt"]) and not literal(at(i + 1)):
+            found.append((line, "attr-name", f"{text}: the attribute name must be a plain string literal (a name from data is markup)"))
+        nxt = at(i + 1)
+        constructed = last_seg == "CachedFragment" and (
+            (prev[0] == ID and prev[1] == "new")
+            or nxt[:2] == (OP, "(")
+            or (nxt[0] in (ID, STR) and nxt[1] not in TYPE_SUFFIXES and not (prev[0] == OP and prev[1] in (":", "<", "*", ",", "->")) and not (prev[0] == ID and prev[1] in ("of", "type"))))
+        if (segs[-2:] in (["HtmlOutput", "text"], ["HtmlOutput", "ofBytes"]) or constructed) and rel not in RAW_MAKER_FILES:
+            found.append((line, "raw-maker", f"{text}: HTML from a string or bytes skips the encoder (render with Falco: HtmlOutput.ofNode, HtmlOutput.toFragment)"))
+        if rel not in RESPONSE_FILES:
+            if last_seg == "turboStream" and len(segs) > 1 and segs[-2] == "Pages":
+                found.append((line, "raw-response", "Pages.turboStream writes a string as a Turbo Stream (render with Falco: Pages.renderOutput)"))
+            elif last_seg == "html" and len(segs) > 1 and segs[-2] == "Pages" and not (literal(at(i + 2)) and not expr_continues(i + 3)):
+                found.append((line, "raw-response", "Pages.html takes a literal body (render data with Falco: Pages.renderOutput)"))
+            elif last_seg in ("renderText", "renderAs"):
+                ctype = at(i + 3)  # renderText http status contentType body
+                kind = ctype[1].split(".")[-1] if ctype[0] == ID else None
+                bad = (ctype[0] != STR or not plain(ctype)) and not (kind == "JsonUtf8")
+                if plain(ctype):
+                    t = text_of(ctype).lower()
+                    bad = "html" in t or "turbo-stream" in t or (("svg" in t or "xml" in t) and rel not in SVG_RESPONSE_FILES)
+                if bad or kind in RAW_CONTENT_TYPES:
+                    found.append((line, "raw-response", f"{last_seg}: a string body may not be served as HTML, a Turbo Stream or SVG (render with Falco: Pages.renderOutput)"))
     return found
 
 
@@ -191,10 +287,22 @@ def files_under(dirs):
                     yield os.path.relpath(os.path.join(dp, f), ROOT)
 
 
+def surface_findings(rel, src):
+    """Definitions in an exempt file beyond its pinned set (EXEMPT_SURFACE)."""
+    names = re.findall(r"^[ \t]*let[ \t]+(?:private[ \t]+|inline[ \t]+|rec[ \t]+|mutable[ \t]+)*(?:``)?([A-Za-z_][A-Za-z0-9_']*)", src, re.M)
+    names += re.findall(r"^[ \t]*(?:member|static member|override|and|type|module|exception)[ \t]+(?:private[ \t]+|inline[ \t]+)*(?:[a-z_]+\.)?([A-Za-z_][A-Za-z0-9_']*)", src, re.M)
+    return [n for n in names if n not in EXEMPT_SURFACE.get(rel, set()) | {"Html", "Trusted"}]
+
+
 def lint_files(rels, as_rel=None):
     total = 0
     for rel in rels:
         if rel in EXEMPT:
+            with open(os.path.join(ROOT, rel), encoding="utf-8") as f:
+                extra = surface_findings(rel, f.read())
+            for name in extra:
+                print(f"{rel}: [exempt-surface] {name} is not one of the encoder's pinned definitions (EXEMPT_SURFACE in bin/lint-markup)", file=sys.stderr)
+                total += 1
             continue
         with open(os.path.join(ROOT, rel), encoding="utf-8") as f:
             src = f.read()
@@ -234,6 +342,14 @@ def self_test():
         print("self-test: ofAccountStyles in Presenter.fs must be caught", file=sys.stderr); bad += 1
     if lint_source("src/Campfire.Views/Core/Fragments.fs", "let a = cache.GetOrCreateAsync(key, f)\n"):
         print("self-test: GetOrCreateAsync in Fragments.fs must pass", file=sys.stderr); bad += 1
+    # The exempt encoder file may not grow a definition: one more `let` there is caught.
+    html_rel = "src/Campfire.Views/Core/Html.fs"
+    with open(os.path.join(ROOT, html_rel), encoding="utf-8") as f:
+        html_src = f.read()
+    if surface_findings(html_rel, html_src):
+        print("self-test: Core/Html.fs as it is must match its pinned surface", file=sys.stderr); bad += 1
+    if surface_findings(html_rel, html_src + "\n    let raw (value: string) : XmlNode = Text.raw value\n") != ["raw"]:
+        print("self-test: a new definition in Core/Html.fs must be caught", file=sys.stderr); bad += 1
     count = sum(1 for n in planted if n.endswith(".fs"))
     if bad:
         print(f"lint-markup self-test: FAILED ({bad})", file=sys.stderr)

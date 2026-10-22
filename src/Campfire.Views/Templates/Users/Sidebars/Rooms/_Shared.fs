@@ -11,6 +11,6 @@ let render (room: SidebarRoom) : XmlNode =
     Markup.Rooms.linkToRoom
         room.Id
         [ Html.attr "id" (Campfire.Views.Helpers.Turbo.domId room.ParamKey room.Id (Some "list")) ]
-        [ "data-sorted-list-name", room.Name ]
+        [ Html.attr "data-sorted-list-name" room.Name ]
         [ Attr.create "style" "--column-gap: 0.5em"; Html.attr "class" room.ClassNames ]
         [ Elem.span [ Attr.class' "overflow-ellipsis" ] [ Html.text room.Name ] ]

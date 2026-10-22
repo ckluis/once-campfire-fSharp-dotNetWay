@@ -17,7 +17,7 @@ module Rooms =
     let linkToRoom
         (roomId: int64)
         (before: XmlAttribute list)
-        (data: (string * string) list)
+        (data: XmlAttribute list)
         (after: XmlAttribute list)
         (content: XmlNode list)
         : XmlNode =
@@ -27,7 +27,7 @@ module Rooms =
                  Html.attrInt "data-room-id" roomId
                  Attr.create "data-badge-dot-target" "unread"
                  Attr.create "data-sorted-list-target" "item" ]
-             @ [ for name, value in data -> Html.attr name value ]
+             @ data
              @ after
              @ [ Html.attr "href" (Routes.room roomId) ])
             content

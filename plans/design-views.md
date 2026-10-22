@@ -342,3 +342,52 @@ None. Falco.Markup (D2/D9), the encoding rule (V2: Falco's own encoder, class A 
 decisions file's idiom), keeping compressed pages and writing pages in parts (the 5x floor, unit 2.8's evidence and S4), dropping the
 Jbuilder caches (invisible, least code) and freezing the differential's answers as test data (the plan retires the live tool, not the
 evidence) are settled by D9, the floor and the plan.
+
+## 11. Security review (2026-10-22, Opus reviewer, after the Phase 4 gate `306f048`)
+
+**Scope and method.** Every file of `src/Campfire.Views` that writes markup was read: the 79 templates under `Templates/`, the 9 `Markup/`
+helpers, `Core/Html.fs`, `Core/HtmlOutput.fs`, `Core/Fragment.fs`, `Core/ViewContext.fs`, `Layouts.fs`, and the non-markup helpers the
+templates feed attributes from (`Helpers/Url.fs`, `Turbo.fs`, `Assets.fs`, `Application.fs`, `UsersHelper.fs`); the view-models, the cached
+fetchers and `Core/Fragments.fs` were scanned for string-built markup (none). In `Campfire.App`, nothing renders markup itself: the review
+read the three `Trusted` call sites (`Presenters/Presenter.fs:237`, `Presenters/ViewContext.fs:40-41`), every response writer that takes a
+string (`Web/Pages.fs` `html`/`renderText`/`renderAs`/`turboStream` and their 14 callers), the broadcasts (`Channels/Broadcasts.fs`, with
+`Campfire.Cable/Turbo.fs`'s tag builder) and the mentions endpoint. For each attribute value and text node carrying data the context was
+traced; then the lint was attacked with planted code compiled by `dotnet fsi` to confirm each spelling is valid F#.
+
+**What the templates do with data (all encoded on the way out; no runtime XSS found).**
+
+| Context | Data | How it is written |
+|---|---|---|
+| Text | user and bot names, first names, initials, room names, bios, filenames, boost content, search queries and recent searches, flash notices, account name, version, browser and OS names from the User-Agent, push subscription endpoints, emails | `Html.text` (`WebUtility.HtmlEncode`: `< > & " '`), including inside `title`, `textarea` (bio, custom CSS; `Forms.textArea`, T1) and the SVG avatar's `text` (initials are ASCII) |
+| Attribute | the same strings in `title`, `aria-label`, `value` (search box, room name, bot name and webhook URL, email, the editor's `value` HTML), `data-sorted-list-name`, `data-web-share-*`, `sgid`, `search`, `content` of `current-user-name` | `Html.attr` (same encoder; Falco always double-quotes) |
+| Ids and targets | `client_message_id` (chosen by the posting client) in `id`, `data-turbo-frame`, `form` and the Turbo Stream `target`s | `Html.attr` in templates; `Erb.htmlEscape` in `Campfire.Cable/Turbo.fs` for broadcasts. Rails accepts any string there too: no markup, only an odd id |
+| URL (`href`, `src`, `poster`, `action`, `data-*-url-value`, turbo-frame `src`) | routes (`Campfire.Routes`, ids and signed ids), asset paths, `ctx.Url` (base URL + route), attachment blob paths (fixed prefix), `searchPath` (`CGI.escape`d query), the next-page frame (`CGI.escape`d page), `mailto:` with a fixed scheme (help contact, `mail_to`), and **`link_back`'s `Referer`** | `Html.attr`. No user-typed URL reaches a URL attribute: the bot's webhook URL is only an input's `value`; rich-text links are the sanitizer's (Phase 5). `link_back` writes the `Referer` header as Rails does (`application_helper.rb:25`); a browser never sends a `javascript:` or `data:` referrer, so it is an off-site "Go Back" at worst, as in Rails. `Assets.assetPath` passes `data:` and scheme URLs through, but only route-built paths reach it (`AvatarPath`, `LogoUrl`, `AvatarAttachmentUrl`) |
+| Style | `style` attributes from data hold only integers (`view-transition-name: chat-bot-<id>`, `width: <n>px; aspect-ratio: <n>`) | `Html.attr` |
+| CSS (`style` element) | the account's custom CSS | `Trusted.ofAccountStyles`: as typed (CSS injection by an administrator is Rails' feature, `application_helper.rb:17`), except `</style` (any case) written `<\/style` so it cannot close the element and U+E000 as `\E000 `. HTML injection is therefore not possible; CSS is. This matches "CSS and nothing more" and is the README known difference (tests: `HtmlTests`, `LayoutsTests`) |
+| Script/template | `messages/_template` (`<script type="text/template">`, read by the client as HTML) | literals by `Text.raw`; the user's title, path, avatar URL and name by `Html.text`, right for a template the client parses as HTML, and `</script` cannot form since `<` is encoded |
+| JSON in data attributes | none (`data-*-value`s are strings and URLs) | - |
+| Raw HTML | rich text (`Trusted.ofSanitized`, one call site, from `ActionText.presentMessage`: the sanitizer's output, Phase 5's to replace), the asset tags (`ofAssetTags`, built from digests), cached fragments (Falco renders, `HtmlOutput.toFragment`) | slot markers cannot be forged (S6, O4) |
+| Not HTML | `pwa/manifest.json` (account name, relaxed JSON escaping, served `application/json`), the QR code SVG (numbers only), the service worker (constant) | - |
+
+**Findings.** All in the lint (`bin/lint-markup`), which is the mechanism V3 relies on; the templates as written today were clean of each.
+Every fix has a planted file in `tests/lint-markup/planted/` that the old lint passed (`--self-test` failed 11 of 39 before the fix) and
+the new one catches once.
+
+| # | Severity | Where | Finding | Status |
+|---|---|---|---|---|
+| X1 | High | `bin/lint-markup` `tokens` | A block comment holding a string literal hid the code after it: F# lexes strings inside `(* *)`, so `(* "*)" *)` is one comment, but the lint ended the comment at the first `*)` and read the rest as a string up to the next `"` (`let bad v = Text.raw v` on the next line passed) | fixed: comments skip string and char literals as F# does (`comment-holding-string.fs`) |
+| X2 | High | same | An interpolation hole holding a quote character desynchronised the string scan the same way: `$"{'"'}"` is valid F#, the lint ended the string at the `'"'` and swallowed the following lines | fixed: strings parse their holes (any number of `$`), skipping strings and chars inside (`interpolated-char-hole.fs`, `interpolated-hole-quotes.fs`) |
+| X3 | High | same | Double-backtick identifiers were not identifiers to the lint: ``Text.``raw`` v``, ``` ``Attr``.href url ```, ``Attr.``create`` "href" v`` | fixed: backticks unwrapped (`backtick-member.fs`, `backtick-module.fs`) |
+| X4 | High | same | Whitespace or a line break around a long identifier's dot split it: `Attr. href url`, `Text .raw v`, `Attr` / `.create "href" v` | fixed: `ID . ID` merged into one path (`spaced-dot.fs`, `newline-dot.fs`) |
+| X5 | Medium | `Html.attr` callers; `src/Campfire.Views/Markup/Rooms.fs:30` | The attribute *name* was never checked: `Html.attr name value` with a name from data writes markup (`onmouseover`, `x><script`). `linkToRoom` took its `data-*` names as strings (literal at both callers today, so not exploitable) | fixed: rule `attr-name` (literal names only, `attr-name-variable.fs`); `linkToRoom` takes `XmlAttribute`s, its two callers write `Html.attr "data-sorted-list-…"` |
+| X6 | Medium | `Core/HtmlOutput.fs`, `Core/Fragment.fs` | HTML made from a string skipped every rule: `HtmlOutput.text html`, `HtmlOutput.ofBytes`, and `CachedFragment(string|bytes)` placed with `Html.fragment` (written as it is). Unused outside the core today | fixed: rule `raw-maker`, allowed only in `Core/HtmlOutput.fs`, `Fragment.fs`, `Fragments.fs` (`raw-output-text.fs`, `raw-cached-fragment.fs`) |
+| X7 | Medium | `Web/Pages.fs` and callers | A string response body with an HTML, Turbo Stream or SVG content type skipped Falco: `Pages.html http s`, `Pages.renderText`/`renderAs` with `text/html`, `Pages.turboStream`. Today: `Rails.fs`'s four literal bodies, JSON, the service worker, and the two SVGs (QR code numbers, avatar via Falco) | fixed: rule `raw-response` (`Pages.html` literal only; `renderText`/`renderAs` content type a JSON constant or a literal with no `html`/`turbo-stream`, SVG/XML only in `Controllers/QrCode.fs` and `Controllers/Users/Avatars.fs`; `turboStream` only in `Pages.fs`) (`raw-response-html.fs`, `raw-response-pages-html.fs`) |
+| X8 | Low | `bin/lint-markup` `SCAN` | Only `src/Campfire.Views` and `src/Campfire.App` were read; a file linked from another folder or a project that takes Falco later was not | fixed: all of `src` (340 files, clean) |
+| X9 | Low | `Core/Html.fs` | The encoder is exempt from the rules, so a helper added there (`let raw v = Text.raw v`) would open every hole at once | fixed: rule `exempt-surface` pins its definitions; the self-test appends a `let raw` and requires it caught |
+| O1 | Info | `Markup/Application.fs` `linkBack` | `Referer` into `href` | open by design (Rails' behaviour, above) |
+| O2 | Info | message ids | `client_message_id` is free text in ids and stream targets | open by design (Rails' behaviour, encoded) |
+| O3 | Info | the lint itself | Still a token scan: reflection (`FSharpValue.MakeUnion` of an `XmlNode` case), `Unchecked`/`box`-and-cast tricks, or a type extension on Falco's types defined in an unscanned assembly are not seen; any of those in a diff is its own red flag. The compiler, not the lint, would be the next step (an analyzer), out of proportion here | open, accepted |
+
+**Lint result.** `bin/lint-markup --self-test`: 39 planted files each caught once (27 before, 12 added; the old lint missed 11 of the 12), the clean file (extended with
+the safe forms of the new rules: backticked `Html.attr`, a comment holding `"*)"`, `Attr` / `.create` with literals, JSON `renderText`,
+literal `Pages.html`) passes, the allowlist and surface checks pass. `bin/lint-markup`: 340 files under `src` clean.

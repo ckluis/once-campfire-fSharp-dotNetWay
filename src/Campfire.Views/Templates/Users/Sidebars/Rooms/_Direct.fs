@@ -29,7 +29,7 @@ let render (ctx: ViewContext) (membership: SidebarDirect) : XmlNode =
         membership.RoomId
         [ Html.attr "class" membership.ClassNames
           Html.attr "id" (Campfire.Views.Helpers.Turbo.domId "rooms_direct" membership.RoomId (Some "list")) ]
-        [ "data-sorted-list-number", membership.UpdatedAtEpoch ]
+        [ Html.attr "data-sorted-list-number" membership.UpdatedAtEpoch ]
         []
         (avatars
          @ [ Elem.span
