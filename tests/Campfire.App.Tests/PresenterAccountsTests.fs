@@ -348,7 +348,8 @@ let ``serves the account logo and avatars`` () =
         let! avatar = b.Get $"/users/{davidToken}/avatar"
         Assert.Equal(200, avatar.Status)
         Assert.Equal(Some "image/svg+xml; charset=utf-8", avatar.Header "content-type")
-        Assert.True(avatar.Text.Contains ">D</text>", avatar.Text)
+        // The ERB keeps its indentation around the initials (`users/avatars/show.svg.erb`, kept at the Phase 4 gate for WebKit).
+        Assert.Matches(">\\s*D\\s*</text>", avatar.Text)
         Assert.Equal(Some "max-age=1800, public, stale-while-revalidate=604800", avatar.Header "cache-control")
         let! jason = b.Get("/users/" + test.Label "avatar_tokens.jason" + "/avatar")
         Assert.Equal((200, Some "image/webp"), (jason.Status, jason.Header "content-type"))
