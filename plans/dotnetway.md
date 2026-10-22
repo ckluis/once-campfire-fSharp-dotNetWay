@@ -3012,4 +3012,18 @@ Adversarial review of `e58de72..9e31f63` (6.1-6.4) against `plans/design-assets.
   `CAMPFIRE_REVISION=$(git rev-parse HEAD) parity/bin/candidate build`; `bin/pixel-parity --fast --only 'rooms/show/designers'` PASSED (default equal in screenshots, aria and loose).
 - **KLOC** (`bin/kloc` after the commit): 29,802 by upstream's rules, 29,974 corrected (6.6: 30,231 / 30,403; -429 for `Campfire.Assets`, the rest of the phase already counted). Design projected
   about 29.9 corrected with 0.15 in the App; the App's asset layer is nearer 0.24 and the total is 30.0 corrected. Recorded, not chased. Rust's bar is 31.0.
-- **Differences recorded.** None new. The phase gates (every state on every seed, lean matrices, `bin/asset-check`, `bench/quick` against `p5ctl`, `bin/cookie-roundtrip`) are NOT yet run.
+- **Differences recorded.** None new.
+- **Phase gates run so far (image `campfire-dotnetway:app` at `184cae3`, label checked).**
+  - **Every state `--fast`, every seed**, with 6.5 and 6.6's slices: this unit ran `messages/**,search/**,autocompletable/**,welcome/**,rooms/**` (default 148/148, crowd 8/8, custom_styles 6/6,
+    first_run 0/0, restricted 2/2, screenshots, aria and loose all equal; 427 s on default) and the eleven other `realtime/**` states one at a time (each 2/2 equal). With 6.5 (`interactions/**`,
+    `rooms/show`, `auth`, `account`, `pwa`, `users/profile`, `realtime/message_sent`, `realtime/boosted`) and 6.6 (`errors`, `users`, `bot_api`, `pwa`) every state has had a `--fast` run since the
+    flip; `errors/users/bot_api` ran at `a0cb099`, before the deletion, which changes no served code (the App no longer referenced the deleted project from 6.6).
+  - **`bin/asset-check`** against the rebuilt image: 1,794 checks, 0 failed. **`bin/cookie-roundtrip`:** 20/20.
+  - **`bench/quick --reps 3 --apps fsharp,dotnetway --routes room_show,messages_page,sidebar,search,post_message,static_css`**, `FSHARP_IMAGE=campfire-dotnetway:p5ctl` as control, interleaved
+    (`bench/results/quick-67`). Host probe ratio 1.05-1.07, load before runs 1.3-3.0; 36 runs, all 2xx, 0 errors. Medians new / control (req/s): room_show c1 2,403 / 2,377, c16 6,979 / 7,105;
+    messages c1 2,213 / 2,201, c16 6,925 / 7,153; sidebar c1 2,338 / 2,312, c16 7,476 / 7,437; search c1 2,026 / 2,051, c16 6,687 / 6,855; post c1 1,067 / 1,077, c16 1,927 / 1,964;
+    static_css c1 16,616 / 17,192, c16 98,434 / 99,303 (reported, A10). No cell beyond the control's range except room_show c16 (-1.8%), messages c16 (-3.2%) and search c16 (-2.4%), with CPU per
+    request +4 to +5% at c16 (longer fingerprint URLs and the endpoint table; the same 0.25% byte growth as 6.5). **vs Rails** (stored medians): room page 29.2x (c16), 22.4x (c1); messages 18.2x,
+    10.2x; sidebar 12.5x, 8.2x; search 16.4x, 10.5x; post 5.84x (c16), 6.39x (c1); no five-workload cell under 5x. Idle anon memory 45 MB against the control's 25 MB (the staged table and endpoint
+    metadata; cold start equal at 516 vs 515 ms). The run's own byte check "FAILs" four routes by +0.2% (+480 to +948 bytes, the longer URLs), as in 6.5; the bench exits 1 for it, reports are written.
+- **Still to run (phase close):** the lean matrix on `default`, then the lean pixel matrix on all seeds. The unit itself (6.7) is complete and green.
