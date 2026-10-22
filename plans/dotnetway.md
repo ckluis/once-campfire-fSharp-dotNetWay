@@ -2675,3 +2675,40 @@ The App's rich text now runs on `Next`. **Built:** (1) `Presenter`, `Messages.ca
 - **Gates run.** `CAMPFIRE_REQUIRE_SEED=1 bin/verify` (lint and self-test, the Dapper and EF guards, Release warnings-as-errors build, every test): **clean on the last run: 1,008 total, 1,002 passed, 0 failed, 6 skipped** (the environmental six; the total is 78 lower than at 5.6b: the retired old-pipeline tests). Four earlier full runs on this code failed one load-sensitive test each, a different one each time (the linker's wide-bodies test at 536 ms against 400 under load 8, `FrontAcmeTests` cached certificates twice, Cable `TransportTests` P11 at 551 ms, Cable `ProtocolTests` L5), and every one passed alone (RichText 113/113 twice, Kit 66/66, Cable 80/80 three times).
   Image: `CAMPFIRE_REVISION=$(git rev-parse HEAD) parity/bin/candidate build` at 7c68ff9, label equal to HEAD, `bin/clean-docker` run. **Pixel parity**, the same `--fast --only 'rooms/show/**,messages/**,search/**,interactions/edit_form*'` slice on every seed: default **110/110** screenshots, aria and loose DOM equal, custom_styles **6/6**, crowd, first_run and restricted 0/0 (no cells in the slice); `realtime/message_sent` 2/2 and `realtime/message_edited` 2/2, one at a time. PASSED, 380 s. The first attempt hung with 3 of 112 cells outstanding for 46 minutes (the app was serving; the harness never finished the last cells): killed, `candidate down --all`, rerun in full and green; its two `interactions/edit_form` cells passed on their own run too. `bin/clean-parity` run after each. No bench: no change on the request path (only namespaces and the deleted code); the gate re-benches against a fresh control.
 - **Remaining for the phase gate / Phase 5 close.** (a) The 5.6 remaining list: the checkpoint's 151,087-output fuzz harness is out of repo (S7's 20,000 outputs stand in) and no Loofah comparison of the presentation was run in the reference image (`docker run` the reference with `bin/rails runner`, about 30 s for 4,600 inputs); (b) the bench control must be a fresh build of the base commit; (c) Q1 (upstream report to AngleSharp: the `NextSibling` cost and the raw-text lowercasing) is in the README, not filed; (d) fuzz 125, 177 and 325 descriptions untraced; (e) `filtered` is in the corpus and not compared.
+
+### Phase 5: gate (2026-10-22)
+
+Evidence: `bench/results/dotnetway-p5/` (slim: logs, `report.json` per pixel slice, bench JSON; 2.6 MB). Gate runner; no code change was needed. Image `campfire-dotnetway:app` built from `4e03f48` (label checked equal to HEAD); control `campfire-dotnetway:p4ctl` built from `b2322f3` (Phase 4's closing commit) in a scratch worktree with the submodule copied in, label `b2322f3`, removed afterwards (the first control attempt failed at the Dockerfile's `COPY reference/hooks` because the script lacked the submodule copy; rerun with it).
+- **`CAMPFIRE_REQUIRE_SEED=1 bin/verify`** on `4e03f48`: 1,008 total, 1,002 passed, 0 failed, 6 skipped (the environmental six); lint self-test (39 planted files) ok, lint 337 files clean; the Dapper and EF guards, H1 and the Release warnings-as-errors build green (`verify.log`). The Phase 5 oracle tests are part of that run: RichText 113 (the 1,479-input corpus through `known-differences.json`, the security assertions "same DOM after sanitizing, nothing Loofah strips survives", the hardening inputs, S7's 20,000 fuzzed bodies), App 318. No load-sensitive failure on this run (host load 3-10).
+- **Phase-specific pixel slice** (`--fast --only 'rooms/show/**,messages/**,search/**,interactions/edit_form*'`): default **110/110** screenshots, aria and loose equal, custom_styles 6/6, the other seeds 0 cells; PASSED. Then the same four globs inside the lean gate below.
+- **Lean pixel gate** (25 slices run with `--only`, `realtime/**` one state at a time, every engine of the lean matrix): **940 of 940 cells equal on screenshot, aria and loose DOM**, no cell NOT CAPTURED, every slice PASSED, so nothing to re-run.
+
+| seed | screenshots | aria | loose DOM |
+|---|---:|---:|---:|
+| default | 860/860 | 860/860 | 860/860 |
+| crowd | 24/24 | 24/24 | 24/24 |
+| custom_styles | 32/32 | 32/32 | 32/32 |
+| first_run | 16/16 | 16/16 | 16/16 |
+| restricted | 8/8 | 8/8 | 8/8 |
+
+  (The full matrix was not asked for at this gate; Phase 4's open items, the Firefox empty-404 pair and the WebKit WebP avatar flake, are untouched by this phase and unchanged.)
+- **`bin/cookie-roundtrip`** 20/20 both ways. **`bin/db-differential`** rc 0 (schemas agree, reference boots on the database we wrote, rollback ok).
+- **Speed** (`bench/quick`, 5 workloads, c=1 and c=16, 3 reps, interleaved new/ctl/ctl/new/new/ctl, each rep in two parts; new = `4e03f48`, control = `b2322f3`; host probe 1.044-1.081 at the start and end of every rep of both sides (one per-window probe of 1.127 after the new image's sidebar c=1 window, flagged by the report), Mac load average 1.3-2.8 at rep boundaries (3-4.5 at the driver's marks), 0 non-2xx and 0 connection errors in 30 runs per side, post rows equal to the 2xx answers, decoded bytes equal to the stored sizes):
+
+| workload | c | new req/s | control req/s | new vs control | x Rails (new) | x Rails (control) | CPU us/req new / control |
+|---|---:|---:|---:|---:|---:|---:|---|
+| room page | 16 | 7,299 | 7,472 | -2.3% | 30.50 | 31.22 | 448 / 440 |
+| room page | 1 | 2,383 | 2,453 | -2.9% | 22.25 | 22.90 | 515 / 505 |
+| messages page | 16 | 7,031 | 7,265 | -3.2% | 18.47 | 19.09 | 472 / 456 |
+| messages page | 1 | 2,206 | 2,264 | -2.6% | 10.12 | 10.39 | 550 / 539 |
+| sidebar | 16 | 7,500 | 7,554 | -0.7% | 12.53 | 12.62 | 436 / 434 |
+| sidebar | 1 | 2,217 | 2,393 | -7.4% | 7.74 | 8.35 | 547 / 513 |
+| search | 16 | 6,923 | 7,029 | -1.5% | 16.97 | 17.23 | 488 / 481 |
+| search | 1 | 2,125 | 2,162 | -1.7% | 11.03 | 11.22 | 569 / 557 |
+| post a message | 16 | 1,994 | 2,027 | -1.6% | 6.04 | 6.14 | 1,509 / 1,465 |
+| post a message | 1 | 1,082 | 1,144 | -5.4% | 6.49 | 6.85 | 1,691 / 1,639 |
+
+  **No cell under the 5x floor** (thinnest: post c=16 6.04x, post c=1 6.49x, sidebar c=1 7.74x); no speed fix made. Cost of Phase 5 against Phase 4's close: -0.7% to -3.2% at c=16 and -1.7% to -2.9% at c=1 on the pages, +1% to +7% CPU per request; the two larger drops are sidebar c=1 (-7.4%, the cell the 1.127 probe flagged, its CPU +7%) and post c=1 (-5.4%, CPU +3%, the AngleSharp parse in `canonicalBody`). The sidebar renders no rich text, so its c=1 drop is most likely noise (the control ranges 2,337-2,435 against the new 2,204-2,339).
+- **KLOC:** `bin/kloc` 30,044 by upstream's rules, **30,216 corrected (30.2 KLOC)**; `Campfire.RichText` 2,264, App 12,130, Views 5,219. Unchanged by this unit. Phase 4 closed at 33.7, so the phase is -3.5 (the design projected -4.8, about 28.9: RichText runs +0.5 over, as 5.7 recorded).
+- **Differences recorded:** none new. Still open from 5.7's remaining list (not gate items): the checkpoint's 151,087-output fuzz harness is out of the repo and no Loofah comparison of the presentation was run in the reference image; Q1 (upstream report to AngleSharp) is in the README, not filed; fuzz 125, 177 and 325 untraced; `filtered` is in the corpus and not compared. From Phase 4: the Firefox empty-404 pair, the 16 KB Cable bound and the two test packages.
+- Disk: 20-28 GB free throughout; `bin/clean-docker` and `bin/clean-parity` run; the control image is removed.
