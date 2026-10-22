@@ -1,5 +1,5 @@
 // What the view-models of users.rs, users/summary.rs and accounts.rs compute (Rust has no unit tests of
-// them; their bytes are compared by bin/views-differential where a template or helper prints them)
+// them; where a template or helper prints them, the frozen oracle and the goldens compare the output loosely)
 module Campfire.Views.Tests.UsersTests
 
 open Xunit
