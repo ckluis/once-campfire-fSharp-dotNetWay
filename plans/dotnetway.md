@@ -2935,3 +2935,35 @@ Adversarial review of `e58de72..9e31f63` (6.1-6.4) against `plans/design-assets.
   `.loose.norm.html` (must be 0 outside `url()`). (d) 6.6: plain `/assets/<logical>` URLs are already 200 since 6.3 (behind the old middleware); the
   README's Assets entry covers it (N3). Keep this checkpoint's probe list in `bin/asset-check` (encoded dots, `%5C`, dotfiles, the build output's
   files). (e) 6.7: KLOC lands near 30.2, not 29.9; record it, do not chase it in this phase.
+
+### Phase 6, unit 6.5: the flip (2026-10-22)
+
+- **Built.** Pages now read the asset table: `ViewContextBuilder.stylesheetTrusted`/`importmapTrusted` wrap `StaticAssets.stylesheetTags ()`/`importmapTags ()` in
+  `Html.Trusted.ofAssetTags` (lazy, first use), `Page.renderDetachedAt` and `Web.Pages` take `AssetPath = StaticAssets.path`, the page `Link` header is
+  `StaticAssets.preloadLinks ()`, `Presenter.fs` sound URL and image and `Controllers/Pwa.fs`'s manifest use `StaticAssets.path`. No page, presenter or
+  controller opens `Campfire.Assets` any more (`Boot` error pages and `Avatars` still do, until 6.6; the old middleware still serves public files and old URLs).
+  The compile order moved: `Importmap`, `Errors`, `Params`, `Formats`, `Flash`, `Respond`, `Edge` and `StaticAssets` now precede `AppState` and the presenters
+  (the table must be visible to them; `StaticAssets` needs `Edge`, which needs `Respond`).
+- **Check before the flip.** Nothing renders a page at boot: the tags are lazy, boot warm-ups render nothing, and jobs render only once enqueued. A job already
+  queued in the database at restart could in principle render before `map` runs (the pipeline is built as the host starts); not seen, not mitigated.
+- **Tests.** Two App tests changed for the URL form (J2's "flash is shown once" masks `/assets/flash.`, the Edge install test looks for `/assets/install-edge.`).
+  New H7 (the manifest's five asset URLs are all fingerprinted and are the table's route for exactly Rails' five logical paths) and H8 (a `/play yeah` message
+  renders `yeah.mp3` and `sounds/yeah.webp` at their fingerprinted routes, no plain URL). `CAMPFIRE_REQUIRE_SEED=1 bin/verify`: 1,027 total, 1,021 passed, 0
+  failed, 6 skipped (the environmental six); lint, Dapper guard, H1 green.
+- **Harness fix (`e2ca957`).** First `interactions/**` run: 79/79 pixel and aria equal but 73 loose DOM diffs, each one Lexxy's `lexxy-link-url-<id>`.
+  `parity/capture/determinism.js` seeds `Math.random` per call site and keys the site with asset digests stripped (`-<hex>.ext`); the SDK form `.<10>.ext` was
+  not stripped, so the candidate's sequence was keyed `lexxy.p8cxenlyvx.js` against Rails' `lexxy.js`. It now strips both. Re-run: 79/79 equal in all three layers.
+  (The three extra requests per page, `lexxy-content/-editor/-variables.css` fetched twice, are A12: the `@import` loads the plain endpoint.)
+- **Pixel (`--fast`, image at fab4bcf, `bin/clean-parity` after).** `interactions/**` (default is the only seed with them): 79/79 screenshots, aria, loose equal.
+  `rooms/show/**,auth/**,account/**,pwa/**,users/profile/**` on every seed: default 112/112, crowd 4/4, custom_styles 14/14, first_run 8/8, restricted 2/2, all
+  three layers equal. `realtime/message_sent` and `realtime/boosted`, one at a time: 2/2 each, equal. Live-layer grep over the `interactions/**` desktop
+  `.loose.norm.html`: `-«digest»` 2,925 in Rails and 2,925 in the candidate; plain `/assets/` URLs not masked: 0.
+- **Bench** (`bench/quick --reps 3 --apps fsharp,dotnetway --routes room_show,post_message,static_css`, `FSHARP_IMAGE=campfire-dotnetway:p5ctl` as control,
+  interleaved, detached and polled; `bench/results/quick-65`). Host probe ratio 1.03-1.07, load before runs 1.4-2.8 (`uptime.log`); 18 runs, all 2xx, 0 errors.
+  Medians new / control (req/s): room_show c1 2,466 / 2,495, c16 7,338 / 7,384; post c1 1,104 / 1,107, c16 2,015 / 2,029 (new 1,950-2,032 vs control
+  2,027-2,038); static_css c1 16,776 / 17,247, c16 94,999 / 101,258 (-6%, CPU 30.5 / 27.9 us per request; reported, A10, no gate). **vs Rails:** room page
+  30.7x (c16), 23.0x (c1); post 6.10x (c16), 6.61x (c1); no five-workload cell under 5x. The run's own byte check "FAILs" room_show decoded bytes 377,518 against the
+  control's 376,570 (+948, 0.25%): longer fingerprint URLs on the page, expected and not a regression; the bench exits 1 because of it, the reports are written.
+- **KLOC** `bin/kloc` after commit: 30,273 by upstream's rules, 30,445 corrected (+121 over 30,152 at 6.4's fix: tests H7/H8 and the unit's changes; 6.7 still
+  deletes `Campfire.Assets`).
+- **Differences recorded.** None new (fingerprint URL form A5, plain `@import` fetches A12, A15 masks).
