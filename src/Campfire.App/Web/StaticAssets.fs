@@ -87,8 +87,8 @@ module StaticAssets =
     let private maxLinkHeaderSize = 1_000
 
     /// `stylesheet_link_tag :all, "data-turbo-track": "reload"`: every `.css` logical path, sorted ordinally (Propshaft's
-    /// `all_stylesheets_paths`), and the preload `Link` header Rails adds while rendering it: a link that would pass 1,000 bytes is
-    /// left out, later (shorter) ones may still fit.
+    /// `all_stylesheets_paths`), and the preload `Link` header Rails adds while rendering it (`send_preload_links_header`: the first
+    /// link whose bytes with the header's so far pass 1,000 ends it, the joining comma not counted).
     let private stylesheets (routes: FrozenDictionary<string, string>) : string * string =
         let hrefs =
             routes.Keys |> Seq.filter (fun l -> l.EndsWith(".css", StringComparison.Ordinal)) |> Seq.sortWith (fun a b -> String.CompareOrdinal(a, b))
@@ -96,12 +96,18 @@ module StaticAssets =
         let tags =
             hrefs |> List.map (fun href -> $"<link rel=\"stylesheet\" href=\"{Campfire.Ruby.Erb.htmlEscape href}\" data-turbo-track=\"reload\" />")
         let header = System.Text.StringBuilder()
+        let mutable size = 0
+        let mutable full = false
         for href in hrefs do
             let link = $"<{href}>; rel=preload; as=style; nopush"
-            let size = header.Length + (if header.Length > 0 then 1 else 0) + System.Text.Encoding.UTF8.GetByteCount link
-            if size <= maxLinkHeaderSize then
-                (if header.Length > 0 then header.Append ',' |> ignore)
+            let linkSize = System.Text.Encoding.UTF8.GetByteCount link
+            if not full && size + linkSize > maxLinkHeaderSize then full <- true
+            if not full then
+                if size > 0 then
+                    header.Append ',' |> ignore
+                    size <- size + 1
                 header.Append link |> ignore
+                size <- size + linkSize
         String.concat "\n" tags, header.ToString()
 
     /// config/importmap.rb, the App's embedded resource (reference/config/importmap.rb).

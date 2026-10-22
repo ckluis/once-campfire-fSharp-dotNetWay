@@ -156,13 +156,16 @@
   </ReadLinesFromFile>
   <ItemGroup>
     <_CampfireLoadPathGlob Include="$([System.String]::Copy('%(_CampfireLoadPathLine.Identity)').Replace('reference:', '$(CampfireReferenceRoot)').Replace('vendor:', '$(CampfireAssetsDir)vendor/'))/**" />
+    <!-- Nothing hidden is served: a dotfile or a file under a dot-directory (.keep, .DS_Store, .git/) is never staged. -->
     <_CampfireOverride Include="$(CampfireAssetsDir)overrides/**" />
+    <_CampfireOverride Remove="@(_CampfireOverride)" Condition="$([System.String]::Copy('/%(_CampfireOverride.RecursiveDir)%(_CampfireOverride.Filename)%(_CampfireOverride.Extension)').Replace('\','/').Contains('/.'))" />
     <_CampfireOverride Link="wwwroot/assets/%(RecursiveDir)%(Filename)%(Extension)" />
     <_CampfireAsset Include="@(_CampfireLoadPathGlob)" />
-    <_CampfireAsset Remove="@(_CampfireAsset)" Condition="$([System.String]::Copy('%(Filename)%(Extension)').StartsWith('.')) Or '%(Extension)' == '.gz' Or '%(Extension)' == '.br'" />
+    <_CampfireAsset Remove="@(_CampfireAsset)" Condition="$([System.String]::Copy('/%(_CampfireAsset.RecursiveDir)%(_CampfireAsset.Filename)%(_CampfireAsset.Extension)').Replace('\','/').Contains('/.')) Or '%(_CampfireAsset.Extension)' == '.gz' Or '%(_CampfireAsset.Extension)' == '.br'" />
     <_CampfireAsset Link="wwwroot/assets/%(RecursiveDir)%(Filename)%(Extension)" />
     <_CampfireAsset Remove="@(_CampfireOverride)" MatchOnMetadata="Link" />
     <_CampfirePublic Include="$(CampfireReferenceRoot)public/**" />
+    <_CampfirePublic Remove="@(_CampfirePublic)" Condition="$([System.String]::Copy('/%(_CampfirePublic.RecursiveDir)%(_CampfirePublic.Filename)%(_CampfirePublic.Extension)').Replace('\','/').Contains('/.'))" />
     <_CampfirePublic Link="wwwroot/%(RecursiveDir)%(Filename)%(Extension)" />
     <_CampfireStage Include="@(_CampfireOverride);@(_CampfireAsset);@(_CampfirePublic)" />
   </ItemGroup>

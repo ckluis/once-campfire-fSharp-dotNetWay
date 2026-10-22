@@ -14,6 +14,7 @@
 !/reference/config
 !/reference/hooks
 
-# Build outputs inside what is let in.
+# Build outputs inside what is let in (the staged web root too: the image's build stages its own).
 **/bin
 **/obj
+/src/Campfire.App/wwwroot

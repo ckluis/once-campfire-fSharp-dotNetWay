@@ -143,6 +143,19 @@ let ``H4 an unknown asset is the app's 404 and POST to an asset URL is 405 (clas
     }
 
 [<Fact>]
+let ``nothing outside the asset table is served: encoded dots and backslashes, the build output, the web root by name`` () =
+    task {
+        use! test = Campfire.App.Tests.Support.bootSeeded "default"
+        for url in
+            [ "/assets/..%2Fcampfire.dll"; "/assets/%2e%2e/campfire.dll"; "/assets/%2e%2e%2fcampfire.dll"; "/assets/..%5Ccampfire.dll"
+              "/assets/..%5C..%5Cappsettings.json"; "/campfire.dll"; "/campfire.staticwebassets.endpoints.json"
+              "/campfire.staticwebassets.runtime.json"; "/wwwroot/robots.txt"; "/wwwroot/assets/composer.css"; "/assets/.keep"
+              "/assets/%2e%2e/%2e%2e/reference/config/importmap.rb" ] do
+            let! response = test.Send(Campfire.App.Tests.Support.get url)
+            Assert.True((response.Status = 404 || response.Status = 400), $"{url}: {response.Status}")
+    }
+
+[<Fact>]
 let ``a host built without configureHost fails at boot, naming the cause`` () =
     task {
         use! test = Campfire.App.Tests.Support.bootSeeded "default"
@@ -266,7 +279,7 @@ let ``T4 importmapTags have Rails' 89 pins and modulepreloads in Rails' order an
     }
 
 [<Fact>]
-let ``T5 preloadLinks name Rails' first stylesheets, fit 1,000 bytes and no omitted link would fit`` () =
+let ``T5 preloadLinks name Rails' first stylesheets, fit 1,000 bytes and stop at the first link that would not`` () =
     task {
         use! _test = booted ()
         let header = StaticAssets.preloadLinks ()
@@ -277,13 +290,13 @@ let ``T5 preloadLinks name Rails' first stylesheets, fit 1,000 bytes and no omit
         Assert.Equal<string list>(railsLinks |> List.map railsPathOf |> List.truncate ourLogical.Length, ourLogical)
         Assert.True(ourLogical.Length >= 15, $"{ourLogical.Length} links")
         let size = Text.Encoding.UTF8.GetByteCount header
-        Assert.True(size <= 1000, $"{size} bytes")
-        let omitted =
-            hrefs (StaticAssets.stylesheetTags ()) "stylesheet" |> List.filter (fun h -> not (List.contains h links))
-        Assert.NotEmpty omitted
-        for href in omitted do
-            let link = $"<{href}>; rel=preload; as=style; nopush"
-            Assert.True(size + 1 + Text.Encoding.UTF8.GetByteCount link > 1000, $"{href} would still fit")
+        // Rails' `send_preload_links_header`: `break if header.bytesize + link.bytesize > 1000` before the comma is added, so the
+        // header is a prefix of the stylesheets, at most 1,001 bytes, and the next stylesheet is the first that does not fit.
+        let all = hrefs (StaticAssets.stylesheetTags ()) "stylesheet"
+        Assert.Equal<string list>(all |> List.truncate links.Length, links)
+        Assert.True(size <= 1001, $"{size} bytes")
+        let next = all[links.Length]
+        Assert.True(size + Text.Encoding.UTF8.GetByteCount $"<{next}>; rel=preload; as=style; nopush" > 1000, $"{next} would still fit")
     }
 
 let private pinsFrom (rb: string) (paths: string list) =
@@ -295,10 +308,16 @@ let ``T6 Importmap.pins on small sources`` () =
     Assert.Equal<(string * string * bool) list>(
         [ "a", "b.js", true; "c", "c.js", true ],
         pinsFrom "pin \"a\"\npin \"c\"\npin \"a\", to: \"b.js\"  # again\n" [ "a.js"; "b.js"; "c.js" ])
-    // index.js gives the directory's name; modules sort by path component; .jsm counts; other files do not.
+    // index.js gives the directory's name; modules sort as Ruby's `Dir[...].sort` sorts strings (byte order: '-' and '.' before
+    // '/'); .jsm counts; other files do not.
     Assert.Equal<(string * string * bool) list>(
-        [ "ctl/a/b", "ctl/a/b.js", true; "ctl/a-b", "ctl/a-b.jsm", true; "ctl", "ctl/index.js", true; "ctl/z", "ctl/z.js", true ],
-        pinsFrom "pin_all_from \"app/javascript/ctl\", under: \"ctl\"" [ "ctl/z.js"; "ctl/a-b.jsm"; "ctl/a/b.js"; "ctl/index.js"; "ctl/x.css"; "other/q.js" ])
+        [ "ctl/a-b", "ctl/a-b.jsm", true; "ctl/a", "ctl/a.js", true; "ctl/a/b", "ctl/a/b.js", true; "ctl", "ctl/index.js", true; "ctl/z", "ctl/z.js", true ],
+        pinsFrom "pin_all_from \"app/javascript/ctl\", under: \"ctl\"" [ "ctl/z.js"; "ctl/a/b.js"; "ctl/a-b.jsm"; "ctl/a.js"; "ctl/index.js"; "ctl/x.css"; "other/q.js" ])
+    // `to:` without `under:` names the modules without a prefix (Ruby's `[nil, name].compact`); a second `pin_all_from` of one
+    // directory keeps the first one's place.
+    Assert.Equal<(string * string * bool) list>(
+        [ "x", "lib/x.js", true; "c/y", "c/y.js", false ],
+        pinsFrom "pin_all_from \"app/javascript/lib\", to: \"lib\", preload: false\npin_all_from \"app/javascript/c\", under: \"c\", preload: false\npin_all_from \"app/javascript/lib\", to: \"lib\"" [ "lib/x.js"; "c/y.js" ])
     // preload: false keeps a pin out of the modulepreloads.
     let pins = Importmap.pins "pin \"a\", preload: false\npin \"b\"" [ "a.js"; "b.js" ]
     let tags = Importmap.tags pins (fun l -> ValueSome $"/assets/{l}")

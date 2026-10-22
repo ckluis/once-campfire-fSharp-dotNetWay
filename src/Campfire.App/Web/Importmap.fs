@@ -42,21 +42,13 @@ module Importmap =
         | other -> failwith $"importmap.rb: unsupported statement {other}"
 
     /// `[under, filename.chomp(extname).remove(/(?:\/|^)index$/).presence].compact.join("/")`
-    let private moduleName (under: string) (filename: string) : string =
+    let private moduleName (under: string option) (filename: string) : string =
         let stem = filename.Substring(0, filename.Length - (if filename.EndsWith ".jsm" then 4 else 3))
         let stem = if stem = "index" then "" elif stem.EndsWith "/index" then stem.Substring(0, stem.Length - 6) else stem
-        if stem = "" then under else $"{under}/{stem}"
-
-    /// `PathBuf`'s order: component by component, so "a/b" sorts before "a-b" although '-' < '/'.
-    let private comparePaths (a: string) (b: string) : int =
-        let a, b = a.Split '/', b.Split '/'
-        let rec go i =
-            if i >= a.Length || i >= b.Length then compare a.Length b.Length
-            else
-                match String.CompareOrdinal(a[i], b[i]) with
-                | 0 -> go (i + 1)
-                | c -> c
-        go 0
+        match under, stem with
+        | Some under, "" -> under
+        | Some under, stem -> $"{under}/{stem}"
+        | None, stem -> stem
 
     /// Importmap::Map#expanded_packages_and_directories: pins in insertion order, then every directory expanded; a later entry for an
     /// existing name replaces it in place (a Ruby Hash). A pin whose file is not in `logicalPaths` is skipped (Propshaft's rescued
@@ -64,7 +56,7 @@ module Importmap =
     let pins (importmapRb: string) (logicalPaths: string seq) : Pin list =
         let table = HashSet<string>(logicalPaths, StringComparer.Ordinal)
         let packages = ResizeArray<Pin>()
-        let directories = ResizeArray<string * string * string option * bool>()
+        let directories = ResizeArray<string * string option * string * bool>()
         let insert (pin: Pin) =
             match packages.FindIndex(fun p -> p.Name = pin.Name) with
             | -1 -> packages.Add pin
@@ -84,11 +76,15 @@ module Importmap =
                     insert { Name = first; Path = defaultArg target $"{first}.js"; Preload = preload }
                 else
                     let prefix = target |> Option.orElse under |> Option.defaultWith (fun () -> failwith $"importmap.rb: pin_all_from {first} needs under: or to:")
-                    directories.RemoveAll(fun (d, _, _, _) -> d = first) |> ignore
-                    directories.Add((first, defaultArg under prefix, Some prefix, preload))
+                    // `@directories[dir] = ...`: a Ruby Hash, so a second `pin_all_from` of a directory keeps the first one's place.
+                    let entry = (first, under, prefix, preload)
+                    match directories.FindIndex(fun (d, _, _, _) -> d = first) with
+                    | -1 -> directories.Add entry
+                    | i -> directories[i] <- entry
         for _, under, prefix, preload in directories do
-            let prefix = prefix.Value + "/"
-            for logical in table |> Seq.filter (fun l -> l.StartsWith(prefix, StringComparison.Ordinal) && (l.EndsWith ".js" || l.EndsWith ".jsm")) |> Seq.sortWith comparePaths do
+            let prefix = prefix + "/"
+            // `Dir[...].sort`: Ruby sorts the file names as strings, byte by byte ("a-b.js" before "a/b.js", "a.js" before "a/b.js").
+            for logical in table |> Seq.filter (fun l -> l.StartsWith(prefix, StringComparison.Ordinal) && (l.EndsWith ".js" || l.EndsWith ".jsm")) |> Seq.sortWith (fun a b -> String.CompareOrdinal(a, b)) do
                 insert { Name = moduleName under (logical.Substring prefix.Length); Path = logical; Preload = preload }
         packages |> Seq.filter (fun p -> table.Contains p.Path) |> List.ofSeq
 
