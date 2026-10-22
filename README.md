@@ -120,11 +120,12 @@ specific to this port are listed below, each citing the reference file it depart
     framework does not (`q=abc`, `q=1e17`) leaves the item at 1.0, and `text/xml` is not folded into `application/xml`.
     Reference: `Mime::Type.parse`, `ActionDispatch::Http::MimeNegotiation`. Tested by `FormatsTests`.
   - Responses are compressed by the framework's `UseResponseCompression` (gzip and Brotli, HTTPS included), not `Rack::Deflater`:
-    only the types in its list (HTML, JSON, JavaScript, CSS, SVG, XML, plain text and Turbo's streams), nothing under 256 bytes,
-    nothing the public files already serve precompressed, and Brotli when the client asks for it; `Rack::Deflater` gzipped
+    only the types in its list (HTML, JSON, JavaScript, CSS, SVG, XML, plain text and Turbo's streams), nothing under 256 bytes
+    except an empty error (`head :not_found`), which goes out as a few compressed bytes as Rails sends it (Firefox shows its own
+    error page for an error document of zero bytes; `RespondTests` X4b), nothing the public files already serve precompressed, and Brotli when the client asks for it; `Rack::Deflater` gzipped
     every body whatever its type or size and answered 406 to a client that refused every encoding. A page of cached fragments
-    (a room page, a page of messages) is compressed once per encoding and kept, by the digest of its parts, in a 16 MiB
-    bounded map, with the framework's provider's bytes; it is no longer built from gzip pieces stored per fragment, so a
+    (a room page, a page of messages) is compressed once per encoding and kept, by the digest of its parts, in the HybridCache
+    that holds the fragments (one 32 MiB budget by default), with the framework's provider's bytes; it is no longer built from gzip pieces stored per fragment, so a
     changed page costs one compression of the whole page. Reference: `config.ru` (`Rack::Deflater`). Tested by `RespondTests`
     (X4) and `RoomsTests` ("pages of messages go out in parts"). `Vary: Accept-Encoding` is sent on every compressible response, also to a
     client that sent no `Accept-Encoding` (`Rack::Deflater` adds it only for one that did).

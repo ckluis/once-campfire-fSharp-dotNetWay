@@ -39,8 +39,23 @@ module Compression =
         options.Providers.Add<BrotliCompressionProvider>()
         options.Providers.Add<GzipCompressionProvider>()
 
+    /// An error status with no body (`head :not_found`, `head :forbidden`): Rails' `Rack::Deflater` gzips it into a few bytes of
+    /// gzip, and Firefox, given an error document of zero bytes, shows its own "empty response" error page instead of a blank one.
+    let private emptyError (response: HttpResponse) : bool =
+        response.StatusCode >= 400 && response.ContentLength.HasValue && response.ContentLength.Value = 0L
+
+    /// Starts an empty error response that the handlers left unstarted, so the compression middleware (it sits just outside
+    /// this) compresses it as Rails does when the client takes gzip or Brotli; without a write it would leave it alone.
+    let compressEmptyErrors: Func<HttpContext, RequestDelegate, System.Threading.Tasks.Task> =
+        Func<HttpContext, RequestDelegate, System.Threading.Tasks.Task>(fun http next ->
+            task {
+                do! next.Invoke http
+                if not http.Response.HasStarted && emptyError http.Response then do! http.Response.StartAsync()
+            }
+            :> System.Threading.Tasks.Task)
+
     /// The framework's provider, except that a response whose length the app already said is under `MinimumLength` is
-    /// left alone (every response `Pages` and `Respond` send carries its `Content-Length`).
+    /// left alone (every response `Pages` and `Respond` send carries its `Content-Length`), unless it is an empty error.
     type SkipSmall(inner: IResponseCompressionProvider) =
         interface IResponseCompressionProvider with
             member _.GetCompressionProvider http = inner.GetCompressionProvider http
@@ -48,7 +63,8 @@ module Compression =
 
             member _.ShouldCompressResponse http =
                 let length = http.Response.ContentLength
-                (not length.HasValue || length.Value >= MinimumLength) && inner.ShouldCompressResponse http
+                (not length.HasValue || length.Value >= MinimumLength || emptyError http.Response)
+                && inner.ShouldCompressResponse http
 
 module Services =
     /// Cookie name of ASP.NET Core's session, which holds the flash and `return_to_after_authenticating` (K6): not
@@ -156,6 +172,7 @@ module Services =
         // K11: public files are served precompressed (`.br`/`.gz` beside them), so only what the app renders pays for it.
         builder.Use(publicFiles) |> ignore
         builder.UseResponseCompression() |> ignore
+        builder.Use(Compression.compressEmptyErrors) |> ignore
         builder.Use(Edge.bodyLimit) |> ignore
         builder.Use(keepRawBody) |> ignore
         Edge.useMethodOverride builder

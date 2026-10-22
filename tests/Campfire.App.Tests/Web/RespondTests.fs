@@ -283,6 +283,38 @@ let ``X4 HTML and turbo-stream responses are gzipped or Brotli'd once, with Vary
         Assert.Equal(None, redirect.Header "content-encoding")
     }
 
+/// An empty error (`head :not_found` for a wrong join code) goes out compressed when the client takes gzip or Brotli, as
+/// `Rack::Deflater` sends it: Firefox shows its own "empty response" error page for an error document of zero bytes
+/// (NS_ERROR_NET_EMPTY_RESPONSE in the full pixel matrix), and a blank page for a few bytes of gzip that decode to nothing.
+[<Fact>]
+let ``X4b an empty error response is compressed when the client takes it`` () =
+    task {
+        use! test = bootSeeded "default"
+        let join (encoding: string option) =
+            let req = get "/join/not-a-code"
+            test.Send(match encoding with Some e -> req.With("accept-encoding", e) | None -> req)
+
+        let! firefox = join (Some "gzip, deflate, br, zstd")
+        Assert.Equal(404, firefox.Status)
+        Assert.Equal(1, firefox.HeaderValues("content-encoding").Length)
+        Assert.True(firefox.Body.Length > 0, "a compressed empty body has bytes on the wire")
+        Assert.Empty(match firefox.Header "content-encoding" with Some "br" -> unbrotli firefox.Body | _ -> gunzip firefox.Body)
+        let! gzipped = join (Some "gzip")
+        Assert.Equal((404, Some "gzip"), (gzipped.Status, gzipped.Header "content-encoding"))
+        Assert.Empty(gunzip gzipped.Body)
+        let! head = test.Send((request "HEAD" "/join/not-a-code").With("accept-encoding", "gzip"))
+        Assert.Equal(404, head.Status)
+        Assert.Empty(head.Body)
+        // No compression asked: as before, an empty body with its length.
+        for encoding in [ None; Some "identity" ] do
+            let! plain = join encoding
+            Assert.Equal((404, None, Some "0"), (plain.Status, plain.Header "content-encoding", plain.Header "content-length"))
+            Assert.Empty(plain.Body)
+        // A success with no body is still sent as it is.
+        let! up = test.Send((get "/up").With("accept-encoding", "gzip"))
+        Assert.Equal((200, None), (up.Status, up.Header "content-encoding"))
+    }
+
 [<Fact>]
 let ``X5 send_file answers ranges, with Rails' Content-Disposition`` () =
     task {
