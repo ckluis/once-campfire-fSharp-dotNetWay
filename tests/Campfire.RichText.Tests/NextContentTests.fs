@@ -282,3 +282,29 @@ let ``S6 cost per seed body: canonical load with toHtml and plain text, old agai
         report "render old" oldRender
         report "render new" newRender
         Assert.True(fst newLoad < 200.0 && fst newText < 200.0, "a load or a plain text of a seed body costs over 200 us")
+
+/// Checkpoint after 5.4: AngleSharp finds a node's siblings, and a child it removes or inserts before, by scanning its parent's list,
+/// so a walk by NextSibling/PreviousSibling, a removal from the back or an insertion per child is quadratic in a wide node. Before
+/// the fix these took 0.4-2.7 s (the old pipeline 5-350 ms); every one is a body under the parse caps.
+[<Fact>]
+let ``wide bodies cost linear time through load, plain text, render and filters`` () =
+    let ctx = render (NoRecords()) (Some "once.campfire.test")
+    let caption = Net.WebUtility.HtmlEncode(String.replicate 9_500 "<b>x</b>")
+    let content = Net.WebUtility.HtmlEncode(String.replicate 9_500 "x<br>")
+    let bodies =
+        [ "9,900 x<br>", String.replicate 9_900 "x<br>"
+          "19,000 comments", String.replicate 19_000 "x<!---->"
+          "an unknown element around 9,900 x<br>", "<foo>" + String.replicate 9_900 "x<br>" + "</foo>"
+          "a caption of 9,500 <b>", $"<action-text-attachment content-type=\"image/png\" url=\"https://x.test/y.png\" caption=\"{caption}\"></action-text-attachment>"
+          "a content attachment of 9,500 x<br>", $"<action-text-attachment content-type=\"text/html\" content=\"{content}\"></action-text-attachment>" ]
+    let steps: (string * (string -> unit)) list =
+        [ "plain text", (fun b -> Next.ActionText.toPlainText b ctx |> ignore)
+          "layout", (fun b -> Next.Content.load b ctx |> Result.bind (fun c -> Next.Content.toRenderedHtmlWithLayout c ctx) |> ignore)
+          "filters", (fun b -> Next.Content.load b ctx |> Result.bind (fun c -> Next.Filters.apply c ctx) |> Result.map Next.Content.toHtml |> ignore) ]
+    for (label, body) in bodies do
+        for (step, run) in steps do
+            run body
+            let started = CpuTimer()
+            run body
+            let elapsed = started.Elapsed
+            Assert.True(elapsed < bound (TimeSpan.FromSeconds 2.0) (TimeSpan.FromMilliseconds 400.0), $"{step} of {label} took {elapsed}")

@@ -364,16 +364,18 @@ let ``P4 element-context parses give the old ParseNodes' trees for the markup th
                 Assert.Null node.Parent
                 holder.AppendChild node |> ignore
             treeOf holder
-    // Set aside: foreign content (the next test) and `select` (P1's content-model difference)
-    let isForeign (html: string) =
-        [ "<svg"; "<math"; "<select" ] |> List.exists (fun tag -> html.Contains(tag, StringComparison.OrdinalIgnoreCase))
+    // Set aside: `select` (P1's content-model difference) everywhere, and foreign content in a table cell, the one context still parsed
+    // with AngleSharp's fragment algorithm (the next test); every other context parses as the body does (checkpoint after 5.4)
+    let isForeign (context: string) (html: string) =
+        [ "<select"; yield! (if context = "td" then [ "<svg"; "<math" ] else []) ]
+        |> List.exists (fun tag -> html.Contains(tag, StringComparison.OrdinalIgnoreCase))
     let differing = ResizeArray<string>()
     let firstDiffs = ResizeArray<string>()
     let mutable foreign = 0
     for context in contexts do
         for (label, html) in plainTexts @ [ for s in strings -> "string:" + s, s ] do
             // Foreign content and select in an element-context parse are differences recorded elsewhere
-            if isForeign html then
+            if isForeign context html then
                 foreign <- foreign + 1
             else
                 let o = oldNodes context html
@@ -390,15 +392,35 @@ let ``P4 element-context parses give the old ParseNodes' trees for the markup th
     Assert.True(differing.Count = 0, $"{differing.Count} differ: {listed}\n{String.Join('\n', firstDiffs)}")
 
 [<Fact>]
-let ``P4 an element-context parse keeps foreign content inside its element, as AngleSharp's fragment algorithm does`` () =
-    // Known difference from Gumbo (design note S2): <svg><p> does not break out of the svg in a fragment. Unit 5.4 must hand
-    // `parseIn` only markup the pipeline built, never a message's own markup; a body goes through `parseBody`.
+let ``P4 an element-context parse breaks HTML out of foreign content as Gumbo does, except in a table cell`` () =
+    // A context the fragment algorithm treats as the body is parsed as the body (linear, and <svg><p> breaks out as in Gumbo). A table
+    // cell still goes through AngleSharp's fragment algorithm, which keeps the pre-2017 rule (design note S2): the pipeline never hands
+    // it a message's own markup.
     let owner = nonNull (containerOf "").Owner
-    let nodes = okP (Html5.parseIn (owner.CreateElement "div") "<svg><p>y</p></svg>")
-    let holder = owner.CreateElement "div"
-    for node in nodes do holder.AppendChild node |> ignore
-    Assert.Equal("<http://www.w3.org/2000/svg svg >\n <http://www.w3.org/2000/svg p >\n  #text \"y\"\n", treeOf holder)
+    let parsedIn (context: string) =
+        let nodes = okP (Html5.parseIn (owner.CreateElement context) "<svg><p>y</p></svg>")
+        let holder = owner.CreateElement "div"
+        for node in nodes do
+            Assert.Null node.Parent
+            holder.AppendChild node |> ignore
+        treeOf holder
+    let brokenOut = "<http://www.w3.org/2000/svg svg >\n<http://www.w3.org/1999/xhtml p >\n #text \"y\"\n"
+    for context in [ "div"; "p"; "li"; "figure"; "action-text-attachment"; "span" ] do
+        Assert.Equal(brokenOut, parsedIn context)
+    Assert.Equal("<http://www.w3.org/2000/svg svg >\n <http://www.w3.org/2000/svg p >\n  #text \"y\"\n", parsedIn "td")
     Assert.Equal("<svg></svg><p>y</p>", roundtrip "<svg><p>y</p></svg>")
+
+[<Fact>]
+let ``P5 an element-context parse of many top-level nodes is linear`` () =
+    // ParseFragment moves its top-level nodes one at a time (a caption of 9,500 <b>s in plain text: 1.3 s before the checkpoint)
+    let owner = nonNull (containerOf "").Owner
+    let html = String.replicate 9_900 "x<br>"
+    Html5.parseIn (owner.CreateElement "div") html |> ignore
+    let started = CpuTimer()
+    let nodes = okP (Html5.parseIn (owner.CreateElement "div") html)
+    let elapsed = started.Elapsed
+    Assert.Equal(19_800, nodes.Length)
+    Assert.True(elapsed < TimeSpan.FromMilliseconds 150.0, $"9,900 x<br> in a div context took {elapsed}")
 
 // P5-L4 below measure CPU time with the process's own timer (Support.CpuTimer), after one parse to compile everything.
 

@@ -232,22 +232,40 @@ module Html5 =
     let private withoutBom (html: string) : string =
         if html.Length > 0 && html[0] = '\uFEFF' then html.Substring 1 else html
 
+    /// The node's children, by index. AngleSharp finds a node's `NextSibling`/`PreviousSibling` by searching its parent's children,
+    /// so walking siblings is quadratic in a wide node's width (19,000 top-level nodes: seconds); `ChildNodes[i]` is constant time.
+    let childrenOf (node: INode) : INode[] =
+        let children = node.ChildNodes
+        Array.init children.Length (fun i -> children[i])
+
+    /// Detaches the node's children and returns them in order. AngleSharp looks a child up from the front of its parent's list, so
+    /// they are taken first to last (each found at once); from the back, each removal is a scan of the rest.
+    let detachChildren (node: INode) : INode[] =
+        let children = childrenOf node
+        for child in children do
+            node.RemoveChild child |> ignore
+        children
+
+    /// Inserts detached nodes, in order, before `reference` (a child of `parent`): through one fragment, so the reference is looked up
+    /// once, not once per node.
+    let insertAllBefore (parent: INode) (nodes: INode[]) (reference: INode) =
+        if nodes.Length = 1 then
+            parent.InsertBefore(nodes[0], reference) |> ignore
+        elif nodes.Length > 1 then
+            let fragment = (nonNull reference.Owner).CreateDocumentFragment()
+            for node in nodes do
+                fragment.AppendChild node |> ignore
+            parent.InsertBefore(fragment, reference) |> ignore
+
     /// A template's content, which AngleSharp keeps in a fragment of its own, becomes the template's children (Gumbo, libxml2).
     let rec private flattenTemplates (node: INode) =
         match node with
         | :? IHtmlTemplateElement as template ->
-            let content = template.Content
-            let mutable child = content.FirstChild
-            while not (isNull child) do
-                let current = nonNull child
-                child <- current.NextSibling
-                template.AppendChild current |> ignore
+            for child in detachChildren template.Content do
+                template.AppendChild child |> ignore
         | _ -> ()
-        let mutable child = node.FirstChild
-        while not (isNull child) do
-            let current = nonNull child
-            flattenTemplates current
-            child <- current.NextSibling
+        for child in childrenOf node do
+            flattenTemplates child
 
     /// The body of a document parsed after "<body>", with the comments the document algorithm puts outside it brought back in: one
     /// after `</body>` goes to the `html` element, one after `</html>` to the document, where the fragment algorithm (and Gumbo)
@@ -326,6 +344,16 @@ module Html5 =
                           || String.Equals(encoding, "application/xhtml+xml", StringComparison.OrdinalIgnoreCase)))
             | _ -> true)
 
+    /// An HTML context in which the fragment algorithm parses as the body does: its insertion mode resets to "in body", the tokenizer
+    /// starts in the data state, and no `form` is on the way up (the form element pointer).
+    let private parsesAsBody (context: IElement) : bool =
+        isHtml context
+        && (match context.LocalName with
+            | "select" | "td" | "th" | "tr" | "tbody" | "thead" | "tfoot" | "caption" | "colgroup" | "table" | "template" | "html" | "head"
+            | "frameset" | "title" | "textarea" | "style" | "xmp" | "iframe" | "noembed" | "noframes" | "script" | "noscript" | "plaintext"
+            | "form" -> false
+            | _ -> isNull (context.Closest "form"))
+
     /// Nokogiri's `Node#fragment`: `html` parsed in `context`'s context; the nodes, detached, owned by a document of the parse.
     let parseIn (context: IElement) (html: string) : Result<INode[], ParseError> =
         let text = withoutBom html
@@ -333,18 +361,24 @@ module Html5 =
         // browsers do, pops to the HTML root. A context that is foreign and not an integration point is parsed as a `div` instead:
         // equal for the markup the pipeline builds (spans, images, divs: breakout tags), recorded for the rest (unit 5.4).
         let context = if isForeignContext context then (nonNull context.Owner).CreateElement "div" else context
-        guarded 1 0 0 (fun () ->
-            let nodes = parser.ParseFragment(text, context)
-            let result = Array.init nodes.Length (fun i -> nodes[i])
-            // From the back: removing the first of many is a copy of the rest
-            for i in result.Length - 1 .. -1 .. 0 do
-                match result[i].Parent with
-                | null -> ()
-                | parent -> parent.RemoveChild result[i] |> ignore
-            if ParseState.Current.SawTemplate then
+        // ParseFragment moves its top-level nodes into the context one at a time (quadratic: a caption of 9,500 <b>s in plain text took
+        // 1.3 s). Where the fragment algorithm parses as the body does (every context the pipeline hands it but a table cell), the
+        // document parse after <body> is the same tree in linear time (checkpoint after 5.4).
+        if parsesAsBody context then
+            parseBody text |> Result.map detachChildren
+        else
+            guarded 1 0 0 (fun () ->
+                let nodes = parser.ParseFragment(text, context)
+                let result = Array.init nodes.Length (fun i -> nodes[i])
+                // First to last (see detachChildren)
                 for node in result do
-                    flattenTemplates node
-            result)
+                    match node.Parent with
+                    | null -> ()
+                    | parent -> parent.RemoveChild node |> ignore
+                if ParseState.Current.SawTemplate then
+                    for node in result do
+                        flattenTemplates node
+                result)
 
     // --- Serialization ----------------------------------------------------------------------------
 
@@ -390,11 +424,9 @@ module Html5 =
         | _ -> writeChildren node out
 
     and private writeChildren (node: INode) (out: StringBuilder) =
-        let mutable child = node.FirstChild
-        while not (isNull child) do
-            let current = nonNull child
-            write current out
-            child <- current.NextSibling
+        let children = node.ChildNodes
+        for i in 0 .. children.Length - 1 do
+            write children[i] out
 
     /// Nokogiri's serialization (`html_standard_serialize`) of the node: the node itself, a document's or fragment's children.
     let toHtml (node: INode) : string =
@@ -414,19 +446,15 @@ module Html5 =
     let descendants (root: INode) : INode list =
         let out = ResizeArray<INode>()
         let stack = Stack<INode>()
-        let mutable child = root.LastChild
-        while not (isNull child) do
-            let current = nonNull child
-            stack.Push current
-            child <- current.PreviousSibling
+        let pushChildren (node: INode) =
+            let children = node.ChildNodes
+            for i in children.Length - 1 .. -1 .. 0 do
+                stack.Push children[i]
+        pushChildren root
         while stack.Count > 0 do
             let node = stack.Pop()
             out.Add node
-            let mutable child = node.LastChild
-            while not (isNull child) do
-                let current = nonNull child
-                stack.Push current
-                child <- current.PreviousSibling
+            pushChildren node
         List.ofSeq out
 
     /// The attribute named `name` as Nokogiri names it ("xlink:href", "href").
@@ -452,11 +480,7 @@ module Html5 =
     /// Deep, in the same document.
     let clone (root: IElement) : IElement = root.Clone true :?> IElement
 
-    let private clear (element: INode) =
-        let mutable last = element.LastChild
-        while not (isNull last) do
-            element.RemoveChild(nonNull last) |> ignore
-            last <- element.LastChild
+    let private clear (element: INode) = detachChildren element |> ignore
 
     /// Nokogiri's `node.inner_html = html`, parsed in the element's context.
     let setInnerHtml (element: IElement) (html: string) : Result<unit, ParseError> =
@@ -475,8 +499,7 @@ module Html5 =
             match parseIn parent html with
             | Error error -> Error error
             | Ok replacements ->
-                for replacement in replacements do
-                    parent.InsertBefore(replacement, node) |> ignore
+                insertAllBefore parent replacements node
                 parent.RemoveChild node |> ignore
                 Ok()
         | _ -> Ok()

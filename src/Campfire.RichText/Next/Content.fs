@@ -168,8 +168,7 @@ module Content =
                     match node.Parent with
                     | null -> ()
                     | parent ->
-                        for child in Seq.toArray fragment.ChildNodes do
-                            parent.InsertBefore(child, node) |> ignore
+                        Html5.insertAllBefore parent (Html5.detachChildren fragment) node
                         parent.RemoveChild node |> ignore
             return PlainText.nodeToPlainText root
         }

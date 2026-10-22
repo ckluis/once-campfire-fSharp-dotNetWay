@@ -62,25 +62,18 @@ module Sanitizer =
                 match node.Parent with
                 | null -> ()
                 | parent ->
-                    if not foreign then
-                        let mutable child = node.FirstChild
-                        while not (isNull child) do
-                            let current = nonNull child
-                            child <- current.NextSibling
-                            parent.InsertBefore(current, node) |> ignore
+                    if not foreign then Html5.insertAllBefore parent (Html5.detachChildren node) node
                     parent.RemoveChild node |> ignore
 
     /// `Loofah::Scrubber#traverse_conditionally_bottom_up`: children (as they were before any of them was scrubbed) first, then the node.
     let rec private scrubBottomUp (node: INode) (list: SafeList) =
-        let children = Array.init node.ChildNodes.Length (fun i -> node.ChildNodes[i])
-        for child in children do
+        for child in Html5.childrenOf node do
             scrubBottomUp child list
         scrubNode node list
 
     /// Scrubs the children of `root` in place (R4).
     let scrub (root: INode) (list: SafeList) : unit =
-        let children = Array.init root.ChildNodes.Length (fun i -> root.ChildNodes[i])
-        for child in children do
+        for child in Html5.childrenOf root do
             scrubBottomUp child list
 
     /// `SafeListSanitizer#sanitize(html, tags:, attributes:)`: parse as a body, scrub, serialize the container's markup.
