@@ -67,7 +67,7 @@ let ``the avatar SVG is well-formed XML for hostile initials`` () =
         let document = XmlDocument()
         document.LoadXml svg
         let text = nonNull (document.GetElementsByTagName("text").[0])
-        Assert.Equal(initials, text.InnerText)
+        Assert.Equal(initials, text.InnerText.Trim()) // the ERB's whitespace stays around the initials
         let attributes = nonNull text.Attributes
         let stretched = not (isNull (attributes.GetNamedItem "textLength"))
         Assert.Equal(Seq.length (initials.EnumerateRunes()) >= 3, stretched)
