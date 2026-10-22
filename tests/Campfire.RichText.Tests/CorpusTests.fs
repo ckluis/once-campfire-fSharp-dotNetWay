@@ -511,3 +511,48 @@ let ``N2 the security assertions hold for every new presentation and body.html``
         | Error _ -> ()
     Assert.True(checkedOutputs > 1000, $"{checkedOutputs} outputs")
     Assert.True(violations.Count = 0, String.Join("\n", violations))
+
+/// S7 (unit 5.6b): a seeded fuzz of the new presentation, including autolink. Hostile fragments are spliced into the corpus bodies and
+/// into each other; every output is parsed again (the old Dom as the browser model, then AngleSharp for comments) and must hold no
+/// disallowed element or attribute, no foreign element, no comment, no event attribute and no dangerous URL. The larger run of 151,087
+/// outputs belongs to the checkpoint's out-of-repo harness; this one keeps the oracle in the build.
+[<Fact>]
+let ``S7 fuzzed bodies present with no disallowed markup`` () =
+    use corpus = load ()
+    let json = corpus.RootElement
+    let resolver = resolverOf json
+    let bodies = [| for case in json.GetProperty("cases").EnumerateArray() -> str (case.GetProperty "body") |]
+    let fragments =
+        [| "<script>alert(1)</script>"; "<img src=x onerror=alert(1)>"; "<a href=\"javascript:alert(1)\">x</a>"; "<a href=\" jav&#x09;ascript:x\">x</a>"
+           "<svg><a xlink:href=\"javascript:x\"><text>x</text></a></svg>"; "<math><mtext><table><mglyph><style><img src=x onerror=x>"
+           "<!-- c --><!--[if x]>y<![endif]-->"; "<![CDATA[<img src=x onerror=x>]]>"; "<p title=\"a>b http://example.com/x\">t</p>"
+           "<p title='\"onmouseover=\"x'>http://example.com/\"onmouseover=\"x</p>"; "http://example.com/<b>"; "www.example.com/\"><script>x()</script>"
+           "me@example.com\"onclick=\"x"; "<a href=\"data:text/html,<script>x</script>\">d</a>"; "<iframe src=\"//evil\"></iframe>"
+           "<form action=x><button formaction=y>z</button></form>"; "<select><option><b>x</b></option></select>"; "<textarea></textarea><img src=x onerror=x>"
+           "<noscript><p title=\"</noscript><img src=x onerror=x>\">"; "<style>@import 'x'</style>"; "<table><caption><b>x</caption></table>"
+           "<isindex>"; "&lt;script&gt;"; "<div style=\"background:url(javascript:x)\">s</div>"; "<a href=\"vbscript:x\">v</a>"
+           "<action-text-attachment sgid=\"bad\" content-type=\"text/html\" content=\"<script>x</script>\"></action-text-attachment>"
+           "<action-text-attachment content-type=\"application/vnd.actiontext.opengraph-embed\" url=\"javascript:x\" href=\"javascript:x\" content=\"<img src=x onerror=x>\"></action-text-attachment>"
+           "https://example.com/(a)>"; "\u0000"; "<plaintext>"; "<xmp><img src=x onerror=x></xmp>"; "<template><script>x</script></template>" |]
+    let rng = Random(56)
+    let violations = ResizeArray<string>()
+    let mutable outputs = 0
+    for i in 0 .. 19999 do
+        let mutable body = bodies[rng.Next bodies.Length]
+        for _ in 0 .. rng.Next(1, 4) do
+            let at = rng.Next(body.Length + 1)
+            body <- body.Insert(at, fragments[rng.Next fragments.Length])
+        let ctx = render resolver None
+        match Next.ActionText.presentMessage body ctx with
+        | Presentation.Html html ->
+            outputs <- outputs + 1
+            for v in securityViolations html false do
+                violations.Add $"{i}: {v}"
+            match Next.Html5.parseBody html with
+            | Ok root ->
+                for node in Next.Html5.descendants root do
+                    if node :? AngleSharp.Dom.IComment then violations.Add $"{i}: comment"
+            | Error _ -> ()
+        | _ -> ()
+    Assert.True(outputs > 15000, $"{outputs} outputs")
+    Assert.True(violations.Count = 0, String.Join("\n", violations |> Seq.truncate 30))
