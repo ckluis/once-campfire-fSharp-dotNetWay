@@ -1,27 +1,34 @@
-// Port of rust/crates/richtext/src/plain_text.rs
-//
-// `ActionText::PlainTextConversion`
+// plans/design-richtext.md (Phase 5, unit 5.3): `ActionText::PlainTextConversion` over AngleSharp nodes. The reduction of
+// rust/crates/richtext/src/plain_text.rs, keyed on each node's Nokogiri name.
 module Campfire.RichText.PlainText
 
 open System
-open System.Text
+open AngleSharp.Dom
 open Campfire.RichText.RubyExt
 
 let private isList (name: string) = name = "ul" || name = "ol"
 
-let private listDepth (dom: Dom) (node: NodeId) : int =
-    dom.Ancestors node |> Seq.filter (fun a -> isList (dom.Name a)) |> Seq.length
+/// Nokogiri's `Node#name`: an element's local name, "text" and "comment" otherwise.
+let private nameOf (node: INode) : string =
+    match node with
+    | :? IElement as element -> element.LocalName
+    | :? IText -> "text"
+    | :? IComment -> "comment"
+    | _ -> "#other"
 
-let private bulletForLi (dom: Dom) (node: NodeId) : string =
-    let list = dom.Ancestors node |> Seq.map dom.Name |> Seq.tryFind isList
+let private ancestors (node: INode) : INode seq =
+    Seq.unfold (fun (n: INode) -> match n.Parent with null -> None | p -> Some(p, p)) node
+
+let private listDepth (node: INode) : int = ancestors node |> Seq.filter (fun a -> isList (nameOf a)) |> Seq.length
+
+let private bulletForLi (node: INode) : string =
+    let list = ancestors node |> Seq.map nameOf |> Seq.tryFind isList
     if list = Some "ol" then
         let index =
-            match dom.Parent node with
-            | ValueSome p ->
-                match dom.ElementChildren p |> List.tryFindIndex (fun c -> c = node) with
-                | Some i -> i
-                | None -> 0
-            | ValueNone -> 0
+            match node.Parent with
+            | :? IElement as parent ->
+                parent.Children |> Seq.tryFindIndex (fun c -> obj.ReferenceEquals(c, node)) |> Option.defaultValue 0
+            | _ -> 0
         string (index + 1) + "."
     else
         "•"
@@ -30,9 +37,9 @@ let private plainTextForBlock (childValues: string list) : string = chompNewline
 
 let private isSpace (c: char) = c = ' ' || c = '\t' || c = '\n' || c = '\u000b' || c = '\u000c' || c = '\r'
 
-let rec private plainTextFor (dom: Dom) (node: NodeId) : string =
-    let childValues () = dom.Children node |> Seq.toArray |> Array.map (plainTextFor dom) |> List.ofArray
-    match dom.Name node with
+let rec private plainTextFor (node: INode) : string =
+    let childValues () = [ for child in node.ChildNodes -> plainTextFor child ]
+    match nameOf node with
     | "script"
     | "style"
     | "unsupported" -> ""
@@ -41,10 +48,10 @@ let rec private plainTextFor (dom: Dom) (node: NodeId) : string =
     | "ul"
     | "ol" ->
         let text = plainTextForBlock (childValues ())
-        if listDepth dom node > 0 then "\n" + text else text
+        if listDepth node > 0 then "\n" + text else text
     | "br" -> "\n"
     // Text nodes, and elements that happen to be named "text" (SVG's), use `node.text`
-    | "text" -> chompNewlines (dom.TextContent node)
+    | "text" -> chompNewlines (Html5.textContent node)
     | "div" -> chompNewlines (String.Concat(childValues ())) + "\n"
     | "figcaption" -> "[" + chompNewlines (String.Concat(childValues ())) + "]"
     | "blockquote" ->
@@ -62,12 +69,12 @@ let rec private plainTextFor (dom: Dom) (node: NodeId) : string =
             let closed = if last >= 0 then text.Insert(last + 1, "”") else text
             if first < closed.Length then closed.Insert(first, "“") else closed
     | "li" ->
-        let bullet = bulletForLi dom node
+        let bullet = bulletForLi node
         let text = chompNewlines (String.Concat(childValues ()))
-        let depth = listDepth dom node
+        let depth = listDepth node
         let indentation = if depth > 1 then String.replicate (depth - 1) "  " else ""
         indentation + bullet + " " + text + "\n"
     | _ -> String.Concat(childValues ())
 
 /// `PlainTextConversion.node_to_plain_text`: a bottom-up reduction keyed on each node's name.
-let nodeToPlainText (dom: Dom) (node: NodeId) : string = chompNewlines (plainTextFor dom node)
+let nodeToPlainText (node: INode) : string = chompNewlines (plainTextFor node)

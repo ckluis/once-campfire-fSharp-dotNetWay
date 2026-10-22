@@ -1,360 +1,274 @@
-// Port of rust/crates/richtext/src/autolink.rs
+// plans/design-richtext.md R6 (Phase 5, unit 5.5): rails_autolink on AngleSharp nodes.
 //
-// rails_autolink 1.1.8's `auto_link(text, html: { target: "_blank" }, sanitize_options: ...)`, as
-// `MessagesHelper#message_presentation` calls it. It works on the serialized HTML with regular
-// expressions, so the exact serialization from the earlier steps matters.
+// rails_autolink scans the serialized HTML with regular expressions, and a match can never cross a tag, so the same scan runs on each
+// text node's form as Nokogiri would serialize it (`&amp;`, `&lt;`, `&gt;`, `&nbsp;`); the matchers (AutolinkMatch.fs) are rails_autolink's, ported by hand. The
+// pieces come back decoded and become text nodes and `<a target="_blank">` elements built with the DOM: no string is spliced into
+// markup, so the attribute-value breakout rails_autolink has cannot happen, and there is no tag index (a text node with an `a`
+// ancestor is skipped, which is what `auto_linked?` computed from the string). Linking adds no parse.
 //
-// One deliberate difference closes a stored XSS in rails_autolink: the sanitized HTML is
-// serialized with `<` and `>` escaped in attribute values. Nokogiri leaves them raw, so a URL after
-// a `>` in a `title` looked like text to `auto_linked?`, and the `<a href="...">` inserted there
-// closed the attribute and turned the rest of its value into markup. With them escaped, every `<`
-// and `>` in the text is a tag's, so auto_link only ever inserts links between tags.
-//
-// Rust's regular expressions are matched by hand here: .NET's differ in what `\w`, `\b` and
-// `(?i)` mean, and each one below is small enough to say exactly.
-module Campfire.RichText.Autolink
+// rails_autolink sanitizes each link text and href with the default list, a parse each. For the escaped form of text that is the
+// identity unless the parser would change a character (a NUL, a lone surrogate), so only a piece holding one takes that path.
+namespace Campfire.RichText
 
 open System
-open System.Collections.Generic
 open System.Text
+open AngleSharp.Dom
 open Campfire.Ruby
 open Campfire.RichText.RubyExt
 open Campfire.RichText.Unicode
 
-/// What Rust's `(?i)` folds an ASCII letter with: its other case, and for s and k the long s and the
-/// Kelvin sign, which Unicode case folding makes equal to them.
-let private fold (c: char) : char =
-    if c >= 'A' && c <= 'Z' then char (int c + 32)
-    elif c = 'ſ' then 's'
-    elif c = 'K' then 'k'
-    else c
+/// A text node cut into what stays text and what becomes a link, decoded.
+type Segment =
+    | Plain of string
+    | Linked of href: string * text: string
 
-let private schemes =
-    [| "ed2k"; "ftp"; "http"; "https"; "irc"; "mailto"; "news"; "gopher"; "nntp"; "telnet"; "webcal"; "xmpp"; "callto"; "feed"; "svn"
-       "urn"; "aim"; "rsync"; "tag"; "ssh"; "sftp"; "rtsp"; "afs"; "file" |]
-
-/// `[^ \t\r\n\x0B\x0C<\u{A0}"]`: what a URL is made of after its start.
-let private isUrlChar (c: char) : bool =
-    not (c = ' ' || c = '\t' || c = '\r' || c = '\n' || c = '\u000b' || c = '\u000c' || c = '<' || c = ' ' || c = '"')
-
-/// One match of `AUTO_LINK_RE`: where it starts and ends, and whether a scheme started it (the
-/// regular expression's capture group).
-[<Struct>]
-type internal UrlMatch = { Start: int; End: int; HasScheme: bool }
-
-let private isAsciiWordClass (c: char) = (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c = '_'
-
-/// The match of `AUTO_LINK_RE` that starts at `i`, if any:
-/// `(?:(?i:((?:ed2k|ftp|...|file):))//|(?i:www)\.[a-zA-Z0-9_])[^ \t\r\n\x0B\x0C<\u{A0}"]+`.
-let internal urlMatchAt (text: string) (i: int) : UrlMatch voption =
-    let n = text.Length
-    let tail (from: int) =
-        let mutable e = from
-        while e < n && isUrlChar text[e] do
-            e <- e + 1
-        e
-    let mutable result = ValueNone
-    // A scheme, then "://"
-    let mutable s = 0
-    while result.IsNone && s < schemes.Length do
-        let name = schemes[s]
-        if i + name.Length + 2 < n && text[i + name.Length] = ':' && text[i + name.Length + 1] = '/' && text[i + name.Length + 2] = '/' then
-            let mutable same = true
-            for k in 0 .. name.Length - 1 do
-                if fold text[i + k] <> name[k] then same <- false
-            if same then
-                let from = i + name.Length + 3
-                let e = tail from
-                // The tail needs at least one character
-                if e > from then result <- ValueSome { Start = i; End = e; HasScheme = true }
-        s <- s + 1
-    if result.IsNone && i + 5 < n && fold text[i] = 'w' && fold text[i + 1] = 'w' && fold text[i + 2] = 'w' && text[i + 3] = '.' && isAsciiWordClass text[i + 4] then
-        let e = tail (i + 5)
-        if e > i + 5 then result <- ValueSome { Start = i; End = e; HasScheme = false }
-    result
-
-/// `AUTO_EMAIL_RE` without its lookbehind, which is checked separately:
-/// `\A[a-zA-Z0-9_.!#$%+-]\.?[a-zA-Z0-9_.!#$%&'*/=?^`{|}~+-]*@[a-zA-Z0-9_-]+(?:\.[a-zA-Z0-9_-]+)+`.
-/// Returns where the match, anchored at `start`, ends.
-let internal emailMatchEnd (text: string) (start: int) : int voption =
-    let n = text.Length
-    let firstClass (c: char) = isAsciiWordClass c || ".!#$%+-".IndexOf c >= 0
-    let localClass (c: char) = isAsciiWordClass c || ".!#$%&'*/=?^`{|}~+-".IndexOf c >= 0
-    let labelClass (c: char) = isAsciiWordClass c || c = '-'
-    if start >= n || not (firstClass text[start]) then
-        ValueNone
-    else
-        let mutable i = start + 1
-        if i < n && text[i] = '.' then i <- i + 1
-        while i < n && localClass text[i] do
-            i <- i + 1
-        if i >= n || text[i] <> '@' then
-            ValueNone
+module Autolink =
+    /// The inverse of the text escaping plus `Erb.htmlEscape`'s two: every `&` of the escaped form starts one of these references.
+    let private decode (escaped: string) : string =
+        if escaped.IndexOf '&' < 0 then
+            escaped
         else
-            i <- i + 1
-            let labelStart = i
-            while i < n && labelClass text[i] do
-                i <- i + 1
-            if i = labelStart then
-                ValueNone
-            else
-                let mutable groups = 0
-                let mutable fin = false
-                while not fin do
-                    if i < n && text[i] = '.' then
-                        let mutable e = i + 1
-                        while e < n && labelClass text[e] do
-                            e <- e + 1
-                        if e > i + 1 then
-                            i <- e
-                            groups <- groups + 1
-                        else
-                            fin <- true
-                    else
-                        fin <- true
-                if groups > 0 then ValueSome i else ValueNone
-
-let internal isEmailLocalChar (c: char) : bool = Char.IsAsciiLetterOrDigit c || "_.!#$%&'*/=?^`{|}~+-".IndexOf c >= 0
-
-/// `AUTO_LINK_CRE[2]`: `/<a\b.*?>/i`, where `.` stops at newlines; anchored, as it is only tried
-/// at a `<`. Returns where the match ends.
-let private openAnchorEnd (text: string) (i: int) : int voption =
-    let n = text.Length
-    if i + 2 > n || text[i] <> '<' || fold text[i + 1] <> 'a' || text[i + 1] = 'ſ' then
-        ValueNone
-    else
-        // \b after the "a": the next character mustn't be a word character
-        let boundary =
-            if i + 2 >= n then
-                true
-            else
-                let cp =
-                    if Char.IsHighSurrogate text[i + 2] && i + 3 < n && Char.IsLowSurrogate text[i + 3] then
-                        Char.ConvertToUtf32(text[i + 2], text[i + 3])
-                    else
-                        int text[i + 2]
-                not (Chars.isWordCodePoint cp)
-        if not boundary then
-            ValueNone
-        else
-            let mutable j = i + 2
-            let mutable result = ValueNone
-            let mutable fin = false
-            while not fin && j < n do
-                if text[j] = '>' then
-                    result <- ValueSome(j + 1)
-                    fin <- true
-                elif text[j] = '\n' then
-                    fin <- true
+            let out = StringBuilder(escaped.Length)
+            let mutable i = 0
+            let startsAt (reference: string) = String.CompareOrdinal(escaped, i, reference, 0, reference.Length) = 0
+            while i < escaped.Length do
+                if escaped[i] <> '&' then
+                    out.Append escaped[i] |> ignore
+                    i <- i + 1
+                elif startsAt "&amp;" then
+                    out.Append '&' |> ignore
+                    i <- i + 5
+                elif startsAt "&lt;" then
+                    out.Append '<' |> ignore
+                    i <- i + 4
+                elif startsAt "&gt;" then
+                    out.Append '>' |> ignore
+                    i <- i + 4
+                elif startsAt "&nbsp;" then
+                    out.Append ' ' |> ignore
+                    i <- i + 6
+                elif startsAt "&quot;" then
+                    out.Append '"' |> ignore
+                    i <- i + 6
+                elif startsAt "&#39;" then
+                    out.Append '\'' |> ignore
+                    i <- i + 5
                 else
-                    j <- j + 1
-            result
+                    out.Append '&' |> ignore
+                    i <- i + 1
+            out.ToString()
 
-/// What `auto_linked?(left, right)` asks about the text around a match, where `left` is everything
-/// before it and `right` everything after. rails_autolink runs its regular expressions over the
-/// whole of `left` for every match, which is quadratic (cubic for `rindex`); this indexes the text
-/// once so that each question is a binary search. The answers are the same.
-[<Sealed>]
-type TagIndex(text: string) =
-    /// Positions of `<` and of `>`, ascending.
-    let lts = ResizeArray<int>()
-    let gts = ResizeArray<int>()
-    /// The first `\n` that ends a line inside an unclosed tag, after which `AUTO_LINK_CRE[0]`
-    /// (`/<[^>]+$/`, whose `$` also matches before a newline) matches every `left`.
-    let mutable firstDanglingNewline = -1
-    /// `(start, end)` of each `AUTO_LINK_CRE[2]` match: ascending and disjoint.
-    let openAnchors = ResizeArray<struct (int * int)>()
-    /// Positions of `</a>` (`AUTO_LINK_CRE[3]`, in any case), ascending.
-    let closeAnchors = ResizeArray<int>()
+    /// Whether parsing the piece as a body and serializing it could change it.
+    let private mayChange (piece: string) : bool = piece |> Seq.exists (fun c -> c = '\000' || Char.IsSurrogate c)
 
-    do
-        // The first `<` since the last `>`
-        let mutable unclosedLt = -1
-        for i in 0 .. text.Length - 1 do
-            match text[i] with
-            | '<' ->
-                lts.Add i
-                if unclosedLt < 0 then unclosedLt <- i
-                if i + 3 < text.Length && text[i + 1] = '/' && (text[i + 2] = 'a' || text[i + 2] = 'A') && text[i + 3] = '>' then
-                    closeAnchors.Add i
-                let afterPrevious = openAnchors.Count = 0 || (let struct (_, e) = openAnchors[openAnchors.Count - 1] in e <= i)
-                if afterPrevious then
-                    match openAnchorEnd text i with
-                    | ValueSome e -> openAnchors.Add(struct (i, e))
-                    | ValueNone -> ()
-            | '>' ->
-                gts.Add i
-                unclosedLt <- -1
-            | '\n' when firstDanglingNewline < 0 && unclosedLt >= 0 && unclosedLt + 2 <= i -> firstDanglingNewline <- i
-            | _ -> ()
+    /// `sanitize(piece)` of a piece of escaped text: itself, unless the parser would change a character of it.
+    let private sanitized (piece: string) : Result<string, ParseError> =
+        if mayChange piece then Sanitizer.sanitize piece SafeList.defaults else Ok piece
 
-    /// The number of items of `list` that are below `limit`.
-    static member private PartitionPoint(list: ResizeArray<int>, pred: int -> bool) : int =
-        let mutable lo = 0
-        let mutable hi = list.Count
-        while lo < hi do
-            let mid = (lo + hi) / 2
-            if pred list[mid] then lo <- mid + 1 else hi <- mid
-        lo
+    let private brackets = [| '['; ']'; '('; ')'; '{'; '}' |]
 
-    /// `left =~ /<[^>]+$/`
-    member private this.OpenTagAtLineEnd(start: int) : bool =
-        if firstDanglingNewline >= 0 && firstDanglingNewline < start then
-            true
-        else
-            // At the end of `left`: a `<` after the last `>`, with at least one character after it
-            let gtCount = TagIndex.PartitionPoint(gts, fun p -> p < start)
-            let lastGt = if gtCount = 0 then -1 else gts[gtCount - 1]
-            let ltIndex = TagIndex.PartitionPoint(lts, fun p -> gtCount > 0 && p <= lastGt)
-            ltIndex < lts.Count && lts[ltIndex] + 2 <= start
-
-    /// `right =~ /^[^>]*>/`, which matches whenever `right` has a `>` at all.
-    member private this.ClosesTag(finish: int) : bool = gts.Count > 0 && gts[gts.Count - 1] >= finish
-
-    /// `(i = left.rindex(/<a\b.*?>/i)) && left[i..] !~ /<\/a>/i`: the last `<a ...>` wholly in
-    /// `left` isn't closed before `left` ends.
-    member private this.InsideAnchor(start: int) : bool =
-        // The anchors that end at or before `start`
-        let mutable lo = 0
-        let mutable hi = openAnchors.Count
-        while lo < hi do
-            let mid = (lo + hi) / 2
-            let struct (_, e) = openAnchors[mid]
-            if e <= start then lo <- mid + 1 else hi <- mid
-        if lo = 0 then
-            false
-        else
-            let struct (_, anchorEnd) = openAnchors[lo - 1]
-            let closeIndex = TagIndex.PartitionPoint(closeAnchors, fun p -> p < anchorEnd)
-            not (closeIndex < closeAnchors.Count && closeAnchors[closeIndex] + 4 <= start)
-
-    /// `auto_linked?(text[..start], text[end..])`: inside a tag, or inside an unclosed `<a>`.
-    member this.AutoLinked(start: int, finish: int) : bool =
-        (this.OpenTagAtLineEnd start && this.ClosesTag finish) || this.InsideAnchor start
-
-/// How many of each bracket a URL has, kept up to date as trailing punctuation is stripped (rather
-/// than recounted for each character stripped, as rails_autolink does).
-[<Sealed>]
-type private BracketCounts(href: string) =
-    let counts = Array.zeroCreate<int> 6
-    static let brackets = [| '['; ']'; '('; ')'; '{'; '}' |]
-    do
-        for c in href do
-            let i = Array.IndexOf(brackets, c)
-            if i >= 0 then counts[i] <- counts[i] + 1
-    member _.Count(bracket: char) : int =
-        let i = Array.IndexOf(brackets, bracket)
-        if i >= 0 then counts[i] else 0
-    member _.Remove(c: char) =
-        let i = Array.IndexOf(brackets, c)
-        if i >= 0 then counts[i] <- counts[i] - 1
-
-/// Brackets whose closing half may end a URL when the URL opened it.
-let internal openingBracket (closing: char) : char voption =
-    match closing with
-    | ']' -> ValueSome '['
-    | ')' -> ValueSome '('
-    | '}' -> ValueSome '{'
-    | _ -> ValueNone
-
-let private autoLinkUrls (text: string) : Result<string, ParseError> =
-    let out = StringBuilder(text.Length)
-    let mutable last = 0
-    let tags = TagIndex text
-    let mutable error = ValueNone
-    let mutable i = 0
-    while error.IsNone && i < text.Length do
-        match urlMatchAt text i with
-        | ValueNone -> i <- i + 1
-        | ValueSome m ->
-            out.Append(text, last, m.Start - last) |> ignore
-            last <- m.End
-            i <- m.End
-            let mutable href = text.Substring(m.Start, m.End - m.Start)
-            if tags.AutoLinked(m.Start, m.End) then
-                out.Append href |> ignore
-            else
-                let punctuation = ResizeArray<string>()
-                let brackets = BracketCounts href
+    /// `auto_link_urls`: the escaped text as pieces; `Error` only when a piece took the parsing path and a limit refused it.
+    let private linkUrls (text: string) (pieces: ResizeArray<Choice<string, struct (string * string)>>) : Result<unit, ParseError> =
+        let acc = StringBuilder()
+        let mutable last = 0
+        let mutable error = ValueNone
+        let mutable i = 0
+        while error.IsNone && i < text.Length do
+            match AutolinkMatch.urlMatchAt text i with
+            | ValueNone -> i <- i + 1
+            | ValueSome m ->
+                acc.Append(text, last, m.Start - last) |> ignore
+                last <- m.End
+                i <- m.End
+                // Strip trailing punctuation, keeping a closing bracket its URL opened
+                let counts = Array.zeroCreate<int> 6
+                for k in m.Start .. m.End - 1 do
+                    let b = Array.IndexOf(brackets, text[k])
+                    if b >= 0 then counts[b] <- counts[b] + 1
+                let mutable hEnd = m.End
                 let mutable stripping = true
                 while stripping do
-                    let struct (cp, startIndex) = Chars.lastCodePoint href
-                    if cp < 0 || (Chars.isWordCodePoint cp || cp = int '/' || cp = int '-' || cp = int '=' || cp = int ';') then
+                    if hEnd <= m.Start then
                         stripping <- false
                     else
-                        let c = href.Substring startIndex
-                        href <- href.Substring(0, startIndex)
-                        punctuation.Add c
-                        if c.Length = 1 then
-                            brackets.Remove c[0]
-                            match openingBracket c[0] with
-                            | ValueSome opening when brackets.Count opening > brackets.Count c[0] ->
-                                href <- href + c
-                                punctuation.RemoveAt(punctuation.Count - 1)
-                                stripping <- false
-                            | _ -> ()
-                let mutable trailingGt = ""
-                if href.EndsWith("&gt;", StringComparison.Ordinal) then
-                    href <- href.Substring(0, href.Length - 4)
-                    trailingGt <- "&gt;"
-                let linkText = href
-                if not m.HasScheme then href <- "http://" + href
-                match Sanitizer.sanitize linkText SafeList.defaults, Sanitizer.sanitize href SafeList.defaults with
+                        let paired = hEnd - 2 >= m.Start && Char.IsLowSurrogate text[hEnd - 1] && Char.IsHighSurrogate text[hEnd - 2]
+                        let width = if paired then 2 else 1
+                        let cp = if paired then Char.ConvertToUtf32(text[hEnd - 2], text[hEnd - 1]) else int text[hEnd - 1]
+                        if Chars.isWordCodePoint cp || cp = int '/' || cp = int '-' || cp = int '=' || cp = int ';' then
+                            stripping <- false
+                        else
+                            hEnd <- hEnd - width
+                            if width = 1 then
+                                let c = text[hEnd]
+                                let b = Array.IndexOf(brackets, c)
+                                if b >= 0 then counts[b] <- counts[b] - 1
+                                match AutolinkMatch.openingBracket c with
+                                | ValueSome opening when counts[Array.IndexOf(brackets, opening)] > counts[Array.IndexOf(brackets, c)] ->
+                                    hEnd <- hEnd + 1
+                                    stripping <- false
+                                | _ -> ()
+                // The punctuation stripped from the end, then (as rails_autolink does, in this order) the `>` that ended the URL
+                let punctuationStart = hEnd
+                let mutable trailingGt = false
+                if hEnd - 4 >= m.Start && String.CompareOrdinal(text, hEnd - 4, "&gt;", 0, 4) = 0 then
+                    hEnd <- hEnd - 4
+                    trailingGt <- true
+                let linkText = text.Substring(m.Start, hEnd - m.Start)
+                let href = if m.HasScheme then linkText else "http://" + linkText
+                match sanitized linkText, sanitized href with
                 | Ok linkText, Ok href ->
-                    // content_tag(:a, link_text, attrs, false): nothing escaped but double quotes in attributes
-                    out.Append("<a target=\"_blank\" href=\"").Append(href.Replace("\"", "&quot;")).Append("\">").Append(linkText).Append("</a>") |> ignore
-                    // SafeBuffer#+ escapes the (unsafe) punctuation string
-                    let trailing = String.Join("", punctuation |> Seq.rev)
-                    out.Append(Erb.htmlEscape trailing).Append(trailingGt) |> ignore
+                    if acc.Length > 0 then
+                        pieces.Add(Choice1Of2(acc.ToString()))
+                        acc.Clear() |> ignore
+                    pieces.Add(Choice2Of2(struct (href, linkText)))
+                    // What was stripped is text again (SafeBuffer#+ escapes it), then the `>` that ended the URL
+                    acc.Append(Erb.htmlEscape (text.Substring(punctuationStart, m.End - punctuationStart))) |> ignore
+                    if trailingGt then acc.Append "&gt;" |> ignore
                 | Error e, _
                 | _, Error e -> error <- ValueSome e
-    match error with
-    | ValueSome e -> Error e
-    | ValueNone ->
-        out.Append(text, last, text.Length - last) |> ignore
-        Ok(out.ToString())
+        match error with
+        | ValueSome e -> Error e
+        | ValueNone ->
+            acc.Append(text, last, text.Length - last) |> ignore
+            if acc.Length > 0 then pieces.Add(Choice1Of2(acc.ToString()))
+            Ok()
 
-let private autoLinkEmailAddresses (text: string) : Result<string, ParseError> =
-    let out = StringBuilder(text.Length)
-    let mutable copied = 0
-    let mutable position = 0
-    let tags = TagIndex text
-    let mutable error = ValueNone
-    while error.IsNone && position < text.Length do
-        let precededByLocalChar = position > 0 && isEmailLocalChar text[position - 1]
-        let found = if precededByLocalChar then ValueNone else emailMatchEnd text position
-        match found with
-        | ValueNone -> position <- position + (if Char.IsHighSurrogate text[position] && position + 1 < text.Length then 2 else 1)
-        | ValueSome finish ->
-            let start = position
-            let email = text.Substring(start, finish - start)
-            out.Append(text, copied, start - copied) |> ignore
-            if tags.AutoLinked(start, finish) then
-                out.Append email |> ignore
-            else
-                match Sanitizer.sanitize email SafeList.defaults with
+    /// `auto_link_email_addresses` over one stretch of escaped text outside the links just made.
+    let private linkEmails (text: string) (out: ResizeArray<Segment>) : Result<unit, ParseError> =
+        let mutable copied = 0
+        let mutable position = 0
+        let mutable error = ValueNone
+        while error.IsNone && position < text.Length do
+            let precededByLocalChar = position > 0 && AutolinkMatch.isEmailLocalChar text[position - 1]
+            let found = if precededByLocalChar then ValueNone else AutolinkMatch.emailMatchEnd text position
+            match found with
+            | ValueNone -> position <- position + (if Char.IsHighSurrogate text[position] && position + 1 < text.Length then 2 else 1)
+            | ValueSome finish ->
+                let start = position
+                match sanitized (text.Substring(start, finish - start)) with
                 | Error e -> error <- ValueSome e
-                | Ok sanitized ->
-                    // display_text is only sanitized (and so marked safe) when sanitizing changed the address
-                    let display = if sanitized = email then Erb.htmlEscape email else sanitized
-                    let href = "mailto:" + (Campfire.Ruby.Uri.urlEncode sanitized).Replace("%40", "@")
-                    out.Append("<a target=\"_blank\" href=\"").Append(Erb.htmlEscape href).Append("\">").Append(display).Append("</a>") |> ignore
-            copied <- finish
-            position <- Math.Max(finish, position + 1)
-    match error with
-    | ValueSome e -> Error e
-    | ValueNone ->
-        out.Append(text, copied, text.Length - copied) |> ignore
-        Ok(out.ToString())
+                | Ok email ->
+                    if start > copied then out.Add(Plain(decode (text.Substring(copied, start - copied))))
+                    // An address holds no `&` (a reference ends in `;`), so the escaped form is the text
+                    let href = "mailto:" + (Campfire.Ruby.Uri.urlEncode email).Replace("%40", "@")
+                    out.Add(Linked(href, email))
+                    copied <- finish
+                    position <- Math.Max(finish, position + 1)
+        match error with
+        | ValueSome e -> Error e
+        | ValueNone ->
+            if copied < text.Length then out.Add(Plain(decode (text.Substring copied)))
+            Ok()
 
-/// `auto_link(html, html: { target: "_blank" }, sanitize_options: { tags:, attributes: })`
-let autoLink (text: string) (sanitizeOptions: SafeList) : Result<string, ParseError> =
-    if isBlank text then
-        Ok ""
-    else
-        match Sanitizer.sanitizeWithEscapedAttributeBrackets text sanitizeOptions with
+    /// rails_autolink over one text node's escaped form: text and links, decoded.
+    let linkText (escaped: string) : Result<Segment list, ParseError> =
+        let pieces = ResizeArray<Choice<string, struct (string * string)>>()
+        match linkUrls escaped pieces with
         | Error e -> Error e
-        | Ok sanitized ->
-            match autoLinkUrls sanitized with
+        | Ok() ->
+            let out = ResizeArray<Segment>()
+            let mutable error = ValueNone
+            for piece in pieces do
+                if error.IsNone then
+                    match piece with
+                    | Choice2Of2(struct (href, text)) -> out.Add(Linked(decode href, decode text))
+                    | Choice1Of2 text ->
+                        match linkEmails text out with
+                        | Error e -> error <- ValueSome e
+                        | Ok() -> ()
+            match error with
+            | ValueSome e -> Error e
+            | ValueNone -> Ok(List.ofSeq out)
+
+    /// A text node worth scanning: a URL needs `//` or `www.`, an address `@`.
+    let private mayHaveLinks (data: string) : bool =
+        data.IndexOf '@' >= 0 || data.IndexOf("//", StringComparison.Ordinal) >= 0 || data.IndexOf("w.", StringComparison.OrdinalIgnoreCase) >= 0
+
+    /// The nodes that replace the text child of `parent`, or none when nothing in it links.
+    let private replacementsFor (parent: IElement) (data: string) : Result<INode[] voption, ParseError> =
+        if not (mayHaveLinks data) then
+            Ok ValueNone
+        else
+            let escaped =
+                let out = StringBuilder(data.Length + 16)
+                Html5.escapeText data out
+                out.ToString()
+            match linkText escaped with
             | Error e -> Error e
-            | Ok linked -> autoLinkEmailAddresses linked
+            | Ok [ Plain _ ]
+            | Ok [] -> Ok ValueNone
+            | Ok segments ->
+                let owner = nonNull parent.Owner
+                let nodes =
+                    segments
+                    |> List.map (fun segment ->
+                        match segment with
+                        | Plain s -> owner.CreateTextNode s :> INode
+                        | Linked(href, text) ->
+                            let a = Html5.createElement owner "a" [ "target", "_blank"; "href", href ]
+                            a.AppendChild(owner.CreateTextNode text) |> ignore
+                            a :> INode)
+                    |> Array.ofList
+                Ok(ValueSome nodes)
+
+    /// Links every text node below `container` with no `a` ancestor. An element's children are replaced all at once, so the work
+    /// is linear in the node's width (AngleSharp finds a child by scanning its parent's list).
+    let rec private linkIn (container: IElement) : Result<unit, ParseError> =
+        let children = Html5.childrenOf container
+        let rebuilt = ResizeArray<INode>(children.Length)
+        let mutable changed = false
+        let mutable error = ValueNone
+        let mutable index = 0
+        while error.IsNone && index < children.Length do
+            let child = children[index]
+            match child with
+            | :? IText ->
+                // Adjacent text nodes are one text in the serialized form rails_autolink scans (the sanitizer leaves them side by
+                // side when it unwraps what was between them), so a URL runs across them
+                let mutable stop = index + 1
+                while stop < children.Length && (children[stop] :? IText) do
+                    stop <- stop + 1
+                let data =
+                    if stop = index + 1 then (child :?> IText).Data
+                    else String.Join("", seq { for k in index .. stop - 1 -> (children[k] :?> IText).Data })
+                match replacementsFor container data with
+                | Error e -> error <- ValueSome e
+                | Ok(ValueSome nodes) ->
+                    changed <- true
+                    rebuilt.AddRange nodes
+                | Ok ValueNone ->
+                    for k in index .. stop - 1 do
+                        rebuilt.Add children[k]
+                index <- stop
+            | :? IElement as element ->
+                rebuilt.Add child
+                if not (Html5.isNamed child "a") then
+                    match linkIn element with
+                    | Error e -> error <- ValueSome e
+                    | Ok() -> ()
+                index <- index + 1
+            | _ ->
+                rebuilt.Add child
+                index <- index + 1
+        match error with
+        | ValueSome e -> Error e
+        | ValueNone ->
+            if changed then
+                Html5.detachChildren container |> ignore
+                for node in rebuilt do
+                    container.AppendChild node |> ignore
+            Ok()
+
+    /// `auto_link(html, html: { target: "_blank" }, sanitize_options: { tags:, attributes: })`: the body is sanitized (the one parse),
+    /// then every text node outside an `a` is linked in place and the container's markup written.
+    let autoLink (html: string) (list: SafeList) : Result<string, ParseError> =
+        if isBlank html then
+            Ok ""
+        else
+            match Html5.parseBody html with
+            | Error e -> Error e
+            | Ok body ->
+                Sanitizer.scrub body list
+                match linkIn body with
+                | Error e -> Error e
+                | Ok() -> Ok(Html5.innerHtml body)

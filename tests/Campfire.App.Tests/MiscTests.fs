@@ -32,7 +32,7 @@ let ``a body whose plain text raises has none`` () =
     Assert.Equal("Hey there", richText.ToPlainText(db, "Hey <b>there</b>"))
 
 /// Rust parses every body for its mentions and logs `mentioned_users raised` where the parse fails (`rich_text.rs`). Skipping the
-/// parse for a body with no attachment (unit 7.4) lost that line for the bodies that fail, which are only those past `DomLimits`.
+/// parse for a body with no attachment (unit 7.4) lost that line for the bodies that fail, which are only those past the parse limits (`ParseError`).
 let private deepBody = String.replicate 500 "<div>" + "text"
 let private manyAttributesBody = "<p " + String.Join(" ", [ for i in 1..450 -> $"a{i}" ]) + ">text</p>"
 
@@ -77,8 +77,7 @@ let ``no body of the safe length fails to parse`` () =
           "<p " + String.Join("", [ for i in 1..400 -> $"{char (97 + i % 26)}{i} " ]) ]
     for shape in shapes do
         let body = shape.Substring(0, min limit shape.Length)
-        let dom = Campfire.RichText.Dom()
-        match dom.ParseFragment body with
+        match Campfire.RichText.Html5.parseBody body with
         | Ok _ -> ()
         | Error e -> failwith $"{e.Message}: {body.Substring(0, 40)}"
 

@@ -30,27 +30,24 @@ let private load () : JsonDocument =
     if not (File.Exists corpusPath) then failwith "run reference-tools/richtext/run.sh to generate the corpus"
     JsonDocument.Parse(File.ReadAllText corpusPath)
 
-/// A DOM normalization for reporting near misses: parse, drop whitespace-only text, sort attributes.
+/// A DOM normalization for comparing outputs: AngleSharp's tree, whitespace-only text dropped and the rest collapsed, attributes sorted.
 let private normalizedDom (html: string) : string =
-    let dom = Dom()
-    match dom.ParseFragment html with
+    match Html5.parseBody html with
     | Error _ -> $"unparseable: {html}"
     | Ok root ->
         let out = StringBuilder()
-        let rec walk (node: NodeId) =
-            for child in dom.Children node do
-                match dom.Text child with
-                | ValueSome text ->
-                    let collapsed = text.Split([| ' '; '\t'; '\n'; '\r'; '\u000c'; '\u000b' |], StringSplitOptions.RemoveEmptyEntries) |> String.concat " "
+        let rec walk (node: AngleSharp.Dom.INode) =
+            for child in Html5.childrenOf node do
+                match child with
+                | :? AngleSharp.Dom.IText as text ->
+                    let collapsed = text.Data.Split([| ' '; '\t'; '\n'; '\r'; '\u000c'; '\u000b' |], StringSplitOptions.RemoveEmptyEntries) |> String.concat " "
                     if collapsed.Length > 0 then out.Append collapsed |> ignore
-                | ValueNone ->
-                    match dom.LocalName child with
-                    | ValueSome name ->
-                        let attrs = dom.Attrs child |> List.sort
-                        out.Append($"<{name} {attrs}>") |> ignore
-                        walk child
-                        out.Append($"</{name}>") |> ignore
-                    | ValueNone -> ()
+                | :? AngleSharp.Dom.IElement as element ->
+                    let attrs = [ for a in element.Attributes -> $"{Html5.qualifiedName a}={a.Value}" ] |> List.sort
+                    out.Append($"<{element.LocalName} {attrs}>") |> ignore
+                    walk element
+                    out.Append($"</{element.LocalName}>") |> ignore
+                | _ -> ()
         walk root
         out.ToString()
 
@@ -136,19 +133,20 @@ let private dangerousUrl (value: string) : bool =
 
 /// Parses rendered output the way a browser would and returns the security violations in it.
 let private securityViolationsWith (allowed: SafeList) (html: string) (allowStyle: bool) : string list =
-    let dom = Dom()
-    match dom.ParseFragment html with
+    match Html5.parseBody html with
     | Error _ -> [ "unparseable output" ]
     | Ok root ->
         let violations = ResizeArray<string>()
-        for node in dom.Descendants root do
-            match dom.LocalName node with
-            | ValueNone -> ()
-            | ValueSome name ->
+        for node in Html5.descendants root do
+            match node with
+            | :? AngleSharp.Dom.IElement as element ->
+                let name = element.LocalName
                 if dangerousElements.Contains name then violations.Add $"<{name}> element"
                 // Nothing auto_link inserts may escape its own sanitizer's allowlist
                 if not (allowed.AllowsTag name) then violations.Add $"<{name}> not in the allowlist"
-                for (attr, value) in dom.Attrs node do
+                for a in element.Attributes do
+                    let attr = Html5.qualifiedName a
+                    let value = a.Value
                     if not (allowed.AllowsAttribute attr) && attr <> "target" && not (attr = "style" && allowStyle) then
                         violations.Add $"{attr} on <{name}> not in the allowlist"
                     let lower = Chars.toLowercase attr
@@ -156,6 +154,7 @@ let private securityViolationsWith (allowed: SafeList) (html: string) (allowStyl
                     if urlAttributes.Contains lower && dangerousUrl value then violations.Add $"{attr}=\"{value}\" on <{name}>"
                     if lower = "style" && not allowStyle then violations.Add $"style on <{name}>"
                     if lower.StartsWith("data-", StringComparison.Ordinal) && lower <> "data-language" then violations.Add $"{attr} on <{name}>"
+            | _ -> ()
         List.ofSeq violations
 
 let private securityViolations (html: string) (allowStyle: bool) : string list =
@@ -230,10 +229,10 @@ let ``corpus_matches_rails`` () =
                  | true, h when h.ValueKind = JsonValueKind.String -> Some(str h)
                  | _ -> None)
 
-        // presentation: C1 and N2 below, on the new pipeline, with the loose DOM of the new parser
+        // presentation: C1 and N2 below
 
         // plain text
-        let actual = Next.ActionText.toPlainText body ctx
+        let actual = ActionText.toPlainText body ctx
         let label = $"[plain_text] {name}"
         match outcome (case.GetProperty "plain_text"), actual with
         | Ok e, Ok a -> (tallyOf tallies "plain_text").Record(label, defaultArg e "", a)
@@ -241,7 +240,7 @@ let ``corpus_matches_rails`` () =
         | e, a -> (tallyOf tallies "plain_text").Record(label, $"{e}", $"{a}")
 
         // editable value
-        let actual = Next.ActionText.editableValue body ctx
+        let actual = ActionText.editableValue body ctx
         let label = $"[editable] {name}"
         // Deliberate: missing attachables leave the editor, where Rails raises.
         let missingInEditor =
@@ -255,7 +254,7 @@ let ``corpus_matches_rails`` () =
         | e, a -> (tallyOf tallies "editable").Record(label, $"{e}", $"{a}")
 
         // mentioned users
-        let actual = Next.ActionText.mentionedUsers body ctx |> Result.map (List.map (fun u -> u.Id))
+        let actual = ActionText.mentionedUsers body ctx |> Result.map (List.map (fun u -> u.Id))
         let expected =
             match (case.GetProperty "mentioned").TryGetProperty "ok" with
             | true, ids -> Ok [ for i in ids.EnumerateArray() -> i.GetInt64() ]
@@ -351,43 +350,21 @@ let ``security_assertions_catch_planted_defects`` () =
 
 // --- Unit 5.5: the new presentation (C1, N1, N2) ---------------------------------------------------------------------------------
 
-/// A DOM normalization for comparing the new pipeline's output with Rails': AngleSharp's tree, whitespace-only text dropped and the
-/// rest collapsed, attributes sorted.
-let private normalizedNextDom (html: string) : string =
-    match Next.Html5.parseBody html with
-    | Error _ -> $"unparseable: {html}"
-    | Ok root ->
-        let out = StringBuilder()
-        let rec walk (node: AngleSharp.Dom.INode) =
-            for child in Next.Html5.childrenOf node do
-                match child with
-                | :? AngleSharp.Dom.IText as text ->
-                    let collapsed = text.Data.Split([| ' '; '\t'; '\n'; '\r'; '\u000c'; '\u000b' |], StringSplitOptions.RemoveEmptyEntries) |> String.concat " "
-                    if collapsed.Length > 0 then out.Append collapsed |> ignore
-                | :? AngleSharp.Dom.IElement as element ->
-                    let attrs = [ for a in element.Attributes -> $"{Next.Html5.qualifiedName a}={a.Value}" ] |> List.sort
-                    out.Append($"<{element.LocalName} {attrs}>") |> ignore
-                    walk element
-                    out.Append($"</{element.LocalName}>") |> ignore
-                | _ -> ()
-        walk root
-        out.ToString()
-
 /// What Loofah strips must not survive: every element name, attribute name and URI attribute value of `ours` also occurs in `rails`.
 let private strippedSurvivors (ours: string) (rails: string) : string list =
     let facts (html: string) =
         let elements = HashSet<string>()
         let attributes = HashSet<string>()
         let uris = HashSet<string>()
-        match Next.Html5.parseBody html with
+        match Html5.parseBody html with
         | Error _ -> ()
         | Ok root ->
-            for node in Next.Html5.descendants root do
+            for node in Html5.descendants root do
                 match node with
                 | :? AngleSharp.Dom.IElement as element ->
                     elements.Add($"{element.NamespaceUri}|{element.LocalName}") |> ignore
                     for a in element.Attributes do
-                        let name = Next.Html5.qualifiedName a
+                        let name = Html5.qualifiedName a
                         attributes.Add name |> ignore
                         if urlAttributes.Contains(Chars.toLowercase name) then uris.Add $"{name}={a.Value}" |> ignore
                 | _ -> ()
@@ -425,15 +402,15 @@ let ``C1 the corpus's presentations equal Rails' through known-differences.json,
         let body = str (case.GetProperty "body")
         let host = match case.TryGetProperty "host" with | true, h when h.ValueKind = JsonValueKind.String -> Some(str h) | _ -> None
         let ctx = render resolver host
-        let actual = Next.ActionText.presentMessage body ctx
+        let actual = ActionText.presentMessage body ctx
         match railsPresentation case, actual with
         | Presentation.Html _, Presentation.Html a when isMissingPartial case ->
-            // Deliberate (the old pipeline too): a deleted user's mention renders as ☒ where Rails raises
+            // Deliberate: a deleted user's mention renders as ☒ where Rails raises
             Assert.True(a.Contains '☒', $"{name}: {a}")
             exact <- exact + 1
         | Presentation.Html e, Presentation.Html a ->
             if e = a then exact <- exact + 1
-            elif normalizedNextDom e = normalizedNextDom a then loose <- loose + 1
+            elif normalizedDom e = normalizedDom a then loose <- loose + 1
             else
                 differing[name] <- "differs"
                 report.AppendLine $"{name}\n  rails: {e}\n  ours:  {a}" |> ignore
@@ -462,7 +439,7 @@ let ``N1 nothing Loofah strips survives in the new presentations`` () =
         let name = str (case.GetProperty "name")
         let body = str (case.GetProperty "body")
         let host = match case.TryGetProperty "host" with | true, h when h.ValueKind = JsonValueKind.String -> Some(str h) | _ -> None
-        match railsPresentation case, Next.ActionText.presentMessage body (render resolver host) with
+        match railsPresentation case, ActionText.presentMessage body (render resolver host) with
         | Presentation.Html rails, Presentation.Html ours when not (isMissingPartial case) && not (known.ContainsKey name) ->
             checkedCases <- checkedCases + 1
             for v in strippedSurvivors ours rails do
@@ -495,17 +472,17 @@ let ``N2 the security assertions hold for every new presentation and body.html``
         let body = str (case.GetProperty "body")
         let host = match case.TryGetProperty "host" with | true, h when h.ValueKind = JsonValueKind.String -> Some(str h) | _ -> None
         let ctx = render resolver host
-        match Next.ActionText.presentMessage body ctx with
+        match ActionText.presentMessage body ctx with
         | Presentation.Html html ->
             checkedOutputs <- checkedOutputs + 1
             for v in securityViolations html false do
                 violations.Add $"{name}: {v}"
         | _ -> ()
         // The bot API's body.html: the content partial inside the layout, sanitized with Action Text's list
-        match Next.Content.load body ctx |> Result.bind (fun c -> Next.Content.toRenderedHtmlWithLayout c ctx) with
+        match Content.load body ctx |> Result.bind (fun c -> Content.toRenderedHtmlWithLayout c ctx) with
         | Ok html ->
             checkedOutputs <- checkedOutputs + 1
-            // Campfire's Action Text list allows `embed` (the unfurl's), and the old parser the oracle uses refuses the depth-limit cases
+            // Campfire's Action Text list allows `embed` (the unfurl's), and the depth-limit cases are refused
             for v in securityViolationsWith SafeList.actionText html true do
                 if v <> "<embed> element" && v <> "unparseable output" then violations.Add $"{name} (body.html): {v}"
         | Error _ -> ()
@@ -513,7 +490,7 @@ let ``N2 the security assertions hold for every new presentation and body.html``
     Assert.True(violations.Count = 0, String.Join("\n", violations))
 
 /// S7 (unit 5.6b): a seeded fuzz of the new presentation, including autolink. Hostile fragments are spliced into the corpus bodies and
-/// into each other; every output is parsed again (the old Dom as the browser model, then AngleSharp for comments) and must hold no
+/// into each other; every output is parsed again (AngleSharp as the browser model) and must hold no
 /// disallowed element or attribute, no foreign element, no comment, no event attribute and no dangerous URL. The larger run of 151,087
 /// outputs belongs to the checkpoint's out-of-repo harness; this one keeps the oracle in the build.
 [<Fact>]
@@ -543,14 +520,14 @@ let ``S7 fuzzed bodies present with no disallowed markup`` () =
             let at = rng.Next(body.Length + 1)
             body <- body.Insert(at, fragments[rng.Next fragments.Length])
         let ctx = render resolver None
-        match Next.ActionText.presentMessage body ctx with
+        match ActionText.presentMessage body ctx with
         | Presentation.Html html ->
             outputs <- outputs + 1
             for v in securityViolations html false do
                 violations.Add $"{i}: {v}"
-            match Next.Html5.parseBody html with
+            match Html5.parseBody html with
             | Ok root ->
-                for node in Next.Html5.descendants root do
+                for node in Html5.descendants root do
                     if node :? AngleSharp.Dom.IComment then violations.Add $"{i}: comment"
             | Error _ -> ()
         | _ -> ()

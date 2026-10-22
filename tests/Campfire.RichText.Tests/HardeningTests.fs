@@ -9,24 +9,6 @@ open Xunit
 open Campfire.RichText
 open Campfire.RichText.Tests.Support
 
-// --- Both pipelines (unit 5.5) -----------------------------------------------------------------------------------------------
-// Every test of this file runs twice, on the old pipeline and on `Next` (the tests do not run in parallel in this assembly).
-
-let mutable private usingNext = false
-
-/// `ActionText` for the pipeline under test.
-module private ActionText =
-    let messagePresentation body ctx =
-        if usingNext then Next.ActionText.messagePresentation body ctx else Campfire.RichText.ActionText.messagePresentation body ctx
-    let toPlainText body ctx =
-        if usingNext then Next.ActionText.toPlainText body ctx else Campfire.RichText.ActionText.toPlainText body ctx
-    let editableValue body ctx =
-        if usingNext then Next.ActionText.editableValue body ctx else Campfire.RichText.ActionText.editableValue body ctx
-    let mentionedUsers body ctx =
-        if usingNext then Next.ActionText.mentionedUsers body ctx else Campfire.RichText.ActionText.mentionedUsers body ctx
-    let withoutRecipientMentions plain name =
-        if usingNext then Next.ActionText.withoutRecipientMentions plain name else Campfire.RichText.ActionText.withoutRecipientMentions plain name
-
 let private ctx = render (NoRecords()) (Some "once.campfire.test")
 
 let private presentation (body: string) : string = okR (ActionText.messagePresentation body ctx)
@@ -48,9 +30,8 @@ let private countOf (haystack: string) (needle: string) : int =
 
 // --- Autolinking inside attribute values ---------------------------------------------------------
 
-[<Theory; InlineData(false); InlineData(true)>]
-let ``a_url_after_a_greater_than_sign_in_an_attribute_cannot_break_out_of_it`` (next: bool) =
-    usingNext <- next
+[<Fact>]
+let ``a_url_after_a_greater_than_sign_in_an_attribute_cannot_break_out_of_it`` () =
     // Rails serializes the title unescaped (`title="x> http://..."`), so auto_link's "inside a
     // tag" check misses, the inserted <a href="..."> closes the attribute, and the <img> after it
     // becomes live markup.
@@ -60,22 +41,19 @@ let ``a_url_after_a_greater_than_sign_in_an_attribute_cannot_break_out_of_it`` (
     Assert.False(markup |> List.exists (fun m -> m = "img" || m.Contains "onerror"), html)
     Assert.Equal<string list>([ "p"; "p[title]" ], markup)
 
-[<Theory; InlineData(false); InlineData(true)>]
-let ``an_email_address_after_a_greater_than_sign_in_an_attribute_cannot_break_out_of_it`` (next: bool) =
-    usingNext <- next
+[<Fact>]
+let ``an_email_address_after_a_greater_than_sign_in_an_attribute_cannot_break_out_of_it`` () =
     let body = "<p><abbr title=\"x> me@evil.test <img src=x onerror=alert(1)>\">hi</abbr></p>"
     let html = presentation body
     Assert.Equal<string list>([ "p"; "abbr"; "abbr[title]" ], parsedMarkup html)
 
-[<Theory; InlineData(false); InlineData(true)>]
-let ``name_attributes_cant_clobber_the_pages_globals`` (next: bool) =
-    usingNext <- next
+[<Fact>]
+let ``name_attributes_cant_clobber_the_pages_globals`` () =
     let html = presentation "<p><a name=\"body\" href=\"/x\">x</a><span name=\"cookie\">y</span></p>"
     Assert.Equal<string list>([ "p"; "a"; "a[href]"; "span" ], parsedMarkup html)
 
-[<Theory; InlineData(false); InlineData(true)>]
-let ``urls_in_text_are_still_linked`` (next: bool) =
-    usingNext <- next
+[<Fact>]
+let ``urls_in_text_are_still_linked`` () =
     let html = presentation "<p>see http://example.com/a?b=1&amp;c=2 and me@example.com</p>"
     Assert.True(
         contains
@@ -92,9 +70,8 @@ let private warmUp () =
     ActionText.toPlainText "<p>x</p>" ctx |> ignore
     ActionText.messagePresentation (String.replicate 401 "<div>") ctx |> ignore
 
-[<Theory; InlineData(false); InlineData(true)>]
-let ``many_bare_domains_autolink_in_linear_time`` (next: bool) =
-    usingNext <- next
+[<Fact>]
+let ``many_bare_domains_autolink_in_linear_time`` () =
     let body = String.replicate (64 * 1024 / 16) "<p>www.a.com</p>"
     warmUp ()
     let started = CpuTimer()
@@ -110,16 +87,14 @@ let private nestedContentAttachments (levels: int) (padding: string) : string =
         body <- $"<action-text-attachment content-type=\"text/html\" content=\"{content}\"></action-text-attachment>"
     body
 
-[<Theory; InlineData(false); InlineData(true)>]
-let ``content_attachments_render_eight_levels_deep`` (next: bool) =
-    usingNext <- next
+[<Fact>]
+let ``content_attachments_render_eight_levels_deep`` () =
     let html = presentation (nestedContentAttachments 12 "")
     for level in 1..12 do
         Assert.Equal(level <= 8, contains html $"level {level}<")
 
-[<Theory; InlineData(false); InlineData(true)>]
-let ``deeply_nested_content_attachments_render_quickly`` (next: bool) =
-    usingNext <- next
+[<Fact>]
+let ``deeply_nested_content_attachments_render_quickly`` () =
     let body = nestedContentAttachments 200 (String('x', 1000))
     Assert.True(body.Length > 200_000)
     warmUp ()
@@ -136,18 +111,16 @@ let private assertRefusedQuickly (body: string) (what: string) =
     Assert.True(isError (ActionText.toPlainText body ctx), $"{what} was indexed")
     assertQuick started what
 
-[<Theory; InlineData(false); InlineData(true)>]
-let ``deeply_nested_elements_are_refused_quickly`` (next: bool) =
-    usingNext <- next
+[<Fact>]
+let ``deeply_nested_elements_are_refused_quickly`` () =
     // Gumbo's depth limit is enforced as the tree is built. Checked on the finished tree, 400 KB
     // of nested <div>s took 16 seconds in Rust, since html5ever's scope checks walk every open element.
     assertRefusedQuickly (String.replicate 80_000 "<div>") "400 KB of nested <div>s"
     assertRefusedQuickly (String.replicate 80_000 "<a><b>") "480 KB of <a><b>"
     assertRefusedQuickly (String.replicate 30_000 "<a><div><div>") "390 KB of <a><div><div>"
 
-[<Theory; InlineData(false); InlineData(true)>]
-let ``the_rest_of_a_body_is_not_read_once_it_is_too_deep`` (next: bool) =
-    usingNext <- next
+[<Fact>]
+let ``the_rest_of_a_body_is_not_read_once_it_is_too_deep`` () =
     // Gumbo stops there. Tokenizing the rest of a 16 MB body (kit's request body limit) only to
     // throw it away took 200 ms a parse, and a message is parsed several times. Stopping once the
     // next token has been read isn't enough, as it can be all the rest: a comment took 130 ms.
@@ -162,47 +135,40 @@ let ``the_rest_of_a_body_is_not_read_once_it_is_too_deep`` (next: bool) =
         Assert.True(isError (ActionText.messagePresentation body ctx) && isError (ActionText.toPlainText body ctx))
         // Copying the body to parse it is all that's left
         // The new tokenizer reads a 16 MB tag name whole before it reports the token (twice here: 80-110 ms in all)
-        let limit = bound (TimeSpan.FromSeconds 1.0) (TimeSpan.FromMilliseconds(if usingNext then 300.0 else 100.0))
+        let limit = bound (TimeSpan.FromSeconds 1.0) (TimeSpan.FromMilliseconds 300.0)
         Assert.True(started.Elapsed < limit, $"refusing 16 MB of {what} took {started.Elapsed}")
 
-[<Theory; InlineData(false); InlineData(true)>]
-let ``a_tag_with_too_many_attributes_is_refused_quickly`` (next: bool) =
-    usingNext <- next
+[<Fact>]
+let ``a_tag_with_too_many_attributes_is_refused_quickly`` () =
     // Each attribute is checked against the tag's others for a duplicate, up to Gumbo's limit
     let attributes = [ for i in 1..64_000 -> $"a{i}=1" ]
     assertRefusedQuickly $"<b {String.Join(' ', attributes)}>x</b>" "a tag with 64,000 attributes"
 
-[<Theory; InlineData(false); InlineData(true)>]
-let ``html_tags_in_the_body_parse_in_linear_time`` (next: bool) =
-    usingNext <- next
+[<Fact>]
+let ``html_tags_in_the_body_parse_in_linear_time`` () =
     // Each one's attributes go to the fragment's root <html> element, unless it has them already.
     // Checking every one against all the root had collected made 800 KB of them take 1.5 seconds.
     let body =
         [ for tag in 0..199 ->
-              let names = [ for i in 1 .. DomLimits.MaxAttributes -> $"a{tag * DomLimits.MaxAttributes + i}" ]
+              let names = [ for i in 1 .. 400 -> $"a{tag * 400 + i}" ]
               $"<html {String.Join(' ', names)}>" ]
         |> String.concat ""
     Assert.True(body.Length > 500_000)
     warmUp ()
     let started = CpuTimer()
-    if usingNext then
-        // R3: the attributes of `html` and `body` tags are capped at 400 in all, which Gumbo does not do; refused, and quickly
-        Assert.True(isError (ActionText.toPlainText body ctx) && isError (ActionText.messagePresentation body ctx))
-    else
-        Assert.Equal("", okR (ActionText.toPlainText body ctx))
-        Assert.Equal(presentation "", presentation body)
+    // R3: the attributes of `html` and `body` tags are capped at 400 in all, which Gumbo does not do; refused, and quickly
+    Assert.True(isError (ActionText.toPlainText body ctx) && isError (ActionText.messagePresentation body ctx))
     assertQuick started "550 KB of <html> tags, each with 400 new attributes"
 
-[<Theory; InlineData(false); InlineData(true)>]
-let ``elements_misplaced_in_a_table_parse_in_linear_time`` (next: bool) =
-    usingNext <- next
+[<Fact>]
+let ``elements_misplaced_in_a_table_parse_in_linear_time`` () =
     // Foster parenting inserts each of them before the table. Finding the table from the front of
     // its parent's children made that quadratic: 480 KB of them took 1.5 seconds.
     let body = "<table>" + String.replicate 200_000 "<br>"
     warmUp ()
     let started = CpuTimer()
     // R3: the new pipeline refuses a body of more than 10,000 elements, which Gumbo does not
-    Assert.Equal(usingNext, isError (ActionText.toPlainText body ctx))
+    Assert.True(isError (ActionText.toPlainText body ctx))
     assertQuick started "800 KB of <br>s in a table"
 
 /// Every SGID names a user who has since been deleted.
@@ -214,16 +180,14 @@ type private DeletedUsers() =
 let private deletedMention =
     "<p>Hi <action-text-attachment sgid=\"eyJfcmFpbHMiOnsiZGF0YSI6ImdpZDovL2NhbXBmaXJlL1VzZXIvNj9leHBpcmVzX2luIiwicHVyIjoiYXR0YWNoYWJsZSJ9fQ==--fc4f83a239475557295b8e2f5ff55482bebc9bfe\" content-type=\"application/vnd.campfire.mention\"></action-text-attachment>, welcome</p>"
 
-[<Theory; InlineData(false); InlineData(true)>]
-let ``a_mention_of_a_deleted_user_leaves_the_rest_of_the_message`` (next: bool) =
-    usingNext <- next
+[<Fact>]
+let ``a_mention_of_a_deleted_user_leaves_the_rest_of_the_message`` () =
     let ctx = render (DeletedUsers()) None
     let html = okR (ActionText.messagePresentation deletedMention ctx)
     Assert.True(contains html "Hi" && contains html "☒" && contains html "welcome", html)
 
-[<Theory; InlineData(false); InlineData(true)>]
-let ``a_mention_of_a_deleted_user_leaves_the_editor`` (next: bool) =
-    usingNext <- next
+[<Fact>]
+let ``a_mention_of_a_deleted_user_leaves_the_editor`` () =
     let ctx = render (DeletedUsers()) None
     let value = (okR (ActionText.editableValue deletedMention ctx)).Value
     Assert.True(not (contains value "action-text-attachment") && contains value "welcome", value)

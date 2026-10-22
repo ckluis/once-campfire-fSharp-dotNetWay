@@ -1,29 +1,19 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
-    <Compile Include="Html5ever/Types.fs" />
-    <Compile Include="Html5ever/NamedEntities.fs" />
-    <Compile Include="Html5ever/Tokenizer.fs" />
-    <Compile Include="Html5ever/TreeBuilder.fs" />
     <Compile Include="Unicode/WordRanges.fs" />
     <Compile Include="Unicode/Chars.fs" />
-    <Compile Include="Dom.fs" />
     <Compile Include="RubyExt.fs" />
     <Compile Include="Loofah.fs" />
-    <Compile Include="Sanitizer.fs" />
     <Compile Include="Error.fs" />
-    <Compile Include="Next/Html5.fs" />
+    <Compile Include="Html5.fs" />
     <Compile Include="Attachables.fs" />
+    <Compile Include="Sanitizer.fs" />
     <Compile Include="PlainText.fs" />
     <Compile Include="Content.fs" />
     <Compile Include="Filters.fs" />
+    <Compile Include="AutolinkMatch.fs" />
     <Compile Include="Autolink.fs" />
     <Compile Include="ActionText.fs" />
-    <Compile Include="Next/Sanitizer.fs" />
-    <Compile Include="Next/PlainText.fs" />
-    <Compile Include="Next/Content.fs" />
-    <Compile Include="Next/Filters.fs" />
-    <Compile Include="Next/Autolink.fs" />
-    <Compile Include="Next/ActionText.fs" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="AngleSharp" />

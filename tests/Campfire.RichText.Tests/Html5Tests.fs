@@ -13,7 +13,6 @@ open AngleSharp.Dom
 open Microsoft.Data.Sqlite
 open Xunit
 open Campfire.RichText
-open Campfire.RichText.Next
 open Campfire.RichText.Tests.Support
 open Campfire.Tests
 

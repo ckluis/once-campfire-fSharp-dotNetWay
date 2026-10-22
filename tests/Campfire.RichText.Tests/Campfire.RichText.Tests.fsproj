@@ -6,20 +6,17 @@
   <ItemGroup>
     <Compile Include="../Shared/Repo.fs" Link="Repo.fs" />
     <Compile Include="Support.fs" />
-    <Compile Include="DomTests.fs" />
     <Compile Include="Html5Tests.fs" />
-    <Compile Include="TokenizerTests.fs" />
     <Compile Include="SanitizerTests.fs" />
-    <Compile Include="NextSanitizerTests.fs" />
+    <Compile Include="SanitizerVerdictTests.fs" />
     <Compile Include="RubyTests.fs" />
-    <Compile Include="AutolinkTests.fs" />
     <Compile Include="AttachablesTests.fs" />
     <Compile Include="FiltersTests.fs" />
     <Compile Include="ReferenceTests.fs" />
     <Compile Include="HardeningTests.fs" />
     <Compile Include="CorpusResolver.fs" />
-    <Compile Include="NextContentTests.fs" />
-    <Compile Include="NextAutolinkTests.fs" />
+    <Compile Include="ContentTests.fs" />
+    <Compile Include="AutolinkTests.fs" />
     <Compile Include="CorpusTests.fs" />
   </ItemGroup>
   <ItemGroup>

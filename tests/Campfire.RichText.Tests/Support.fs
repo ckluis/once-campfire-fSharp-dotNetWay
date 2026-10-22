@@ -36,16 +36,17 @@ let render (resolver: IAttachableResolver) (host: string option) : RenderContext
 
 /// Every element and attribute name in `html` as a browser would parse it.
 let parsedMarkup (html: string) : string list =
-    let dom = Dom()
-    let root = okP (dom.ParseFragment html)
-    [ for node in dom.Descendants root do
-          match dom.LocalName node with
-          | ValueSome name when name = "div" && dom.Attr(node, "class") = ValueSome "lexxy-content" -> () // the layout's wrapper
-          | ValueSome name ->
-              yield name
-              for (attr, _) in dom.Attrs node do
-                  yield $"{name}[{attr}]"
-          | ValueNone -> () ]
+    let root = okP (Html5.parseBody html)
+    [ for node in Html5.descendants root do
+          match node with
+          | :? AngleSharp.Dom.IElement as element ->
+              let name = element.LocalName
+              // the layout's wrapper
+              if not (name = "div" && Html5.attr element "class" = ValueSome "lexxy-content") then
+                  yield name
+                  for a in element.Attributes do
+                      yield $"{name}[{Html5.qualifiedName a}]"
+          | _ -> () ]
 
 let private isDebugBuild =
 #if DEBUG

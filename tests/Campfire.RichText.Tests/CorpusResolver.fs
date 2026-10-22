@@ -1,4 +1,4 @@
-/// The resolver the corpus tests (and reference-tools/richtext/differential) use, built from the
+/// The resolver the corpus tests use, built from the
 /// corpus file: users, rooms and the SGIDs Rails minted.
 module Campfire.RichText.Tests.CorpusResolver
 

@@ -1,6 +1,27 @@
 // Port of `Error` in rust/crates/richtext/src/lib.rs
 namespace Campfire.RichText
 
+/// Why a parse was refused. The first two are Gumbo's defaults, which Nokogiri raises `ArgumentError` for exceeding
+/// (`Nokogiri::Gumbo::DEFAULT_MAX_TREE_DEPTH` and `DEFAULT_MAX_ATTRIBUTES`: 400 deep, 400 attributes); the rest are Html5's caps
+/// (plans/design-richtext.md R3).
+type ParseError =
+    | TreeDepthExceeded
+    | TooManyAttributes
+    /// More than 10,000 elements.
+    | TooManyElements
+    /// More than 40,000 tokens.
+    | TooManyTokens
+    /// More than 400 attributes summed over the `<html>` and `<body>` start tags.
+    | TooManyRootAttributes
+
+    member this.Message =
+        match this with
+        | TreeDepthExceeded -> "Document tree depth limit exceeded"
+        | TooManyAttributes -> "Attributes per element limit exceeded"
+        | TooManyElements -> "Element count limit exceeded"
+        | TooManyTokens -> "Token count limit exceeded"
+        | TooManyRootAttributes -> "Attributes on html and body tags limit exceeded"
+
 /// Something Ruby would have raised while rendering. Callers mirror what the Rails code does with
 /// the exception (`message_presentation` rescues everything and renders "").
 type RenderError =

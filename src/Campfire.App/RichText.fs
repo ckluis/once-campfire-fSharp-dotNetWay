@@ -13,7 +13,6 @@ open Campfire.Db
 open Campfire.RailsCompat
 open Campfire.RailsCompat.Clock
 open Campfire.RichText
-open Campfire.RichText.Next
 
 type AppRichText(secrets: Secrets, clock: SharedClock, logger: ILogger) =
     /// The longest body that can't fail to parse (see `MentionedUserIds`).
@@ -37,7 +36,7 @@ type AppRichText(secrets: Secrets, clock: SharedClock, logger: ILogger) =
         member this.MentionedUserIds(db: Ef.CampfireDb, html: string) : int64 list =
             // A body that holds no attachment (an `<action-text-attachment>`, or the editor's `data-trix-attachment` that becomes one)
             // has no mentions: most messages, which are not parsed to find that out. Rust parses every body and logs
-            // `mentioned_users raised` where the parse fails, and the parse fails only past `DomLimits` (400 deep, 400 attributes on an
+            // `mentioned_users raised` where the parse fails, and the parse fails only past the parse limits (`ParseError`: 400 deep, 400 attributes on an
             // element). A body of at most `ParseSafeLength` UTF-16 units can't reach either (the shortest element, `<b>`, is 3 units,
             // so 266 of them at most, plus a few dozen elements the tree builder re-opens; 401 attributes take 802), so only those
             // skip the parse; a longer body is parsed and logs as before (`MentionedUsersTests`).

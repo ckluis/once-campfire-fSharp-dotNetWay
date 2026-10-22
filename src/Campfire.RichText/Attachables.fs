@@ -296,7 +296,7 @@ module Attachables =
     // --- Opengraph embeds --------------------------------------------------------------------
 
     let private hasClass (node: AngleSharp.Dom.INode) (cls: string) : bool =
-        match Next.Html5.attr node "class" with
+        match Html5.attr node "class" with
         | ValueSome c -> c.Split([| ' '; '\t'; '\n'; '\r' |]) |> Array.exists (fun token -> token = cls)
         | ValueNone -> false
 
@@ -409,26 +409,26 @@ module Attachables =
     /// `attributes_from_content`: the details Lexxy serializes as the embed's content markup.
     let private embedFromContent (content: string) (host: string) : Result<OpengraphEmbed, RenderError> =
         result {
-            let! root = Next.Html5.parseBody content |> Result.mapError Parse
-            let all = Next.Html5.descendants root
+            let! root = Html5.parseBody content |> Result.mapError Parse
+            let all = Html5.descendants root
             let withClass (cls: string) = all |> List.tryFind (fun n -> hasClass n cls)
             let title = withClass "og-embed__title"
             let link =
                 title
-                |> Option.bind (fun t -> Next.Html5.descendants t |> List.tryFind (fun n -> Next.Html5.isNamed n "a"))
+                |> Option.bind (fun t -> Html5.descendants t |> List.tryFind (fun n -> Html5.isNamed n "a"))
             let image =
                 all
                 |> List.tryFind (fun n ->
-                    Next.Html5.isNamed n "img"
+                    Html5.isNamed n "img"
                     && hasClassAncestor n "og-embed__image")
             let description = withClass "og-embed__description"
-            let! href = webUrl (link |> Option.map (fun l -> Next.Html5.attr l "href") |> Option.defaultValue ValueNone) host
-            let! url = webUrl (image |> Option.map (fun i -> Next.Html5.attr i "src") |> Option.defaultValue ValueNone) host
+            let! href = webUrl (link |> Option.map (fun l -> Html5.attr l "href") |> Option.defaultValue ValueNone) host
+            let! url = webUrl (image |> Option.map (fun i -> Html5.attr i "src") |> Option.defaultValue ValueNone) host
             return
                 { Href = href
                   Url = url
-                  Filename = (match link with Some l -> Some l | None -> title) |> Option.map (fun n -> RubyString.strip (Next.Html5.textContent n))
-                  Description = description |> Option.map (fun n -> RubyString.strip (Next.Html5.textContent n)) }
+                  Filename = (match link with Some l -> Some l | None -> title) |> Option.map (fun n -> RubyString.strip (Html5.textContent n))
+                  Description = description |> Option.map (fun n -> RubyString.strip (Html5.textContent n)) }
         }
 
     /// `ActionText::Attachment::OpengraphEmbed.from_node`

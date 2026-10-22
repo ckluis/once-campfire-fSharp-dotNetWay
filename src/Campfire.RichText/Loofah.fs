@@ -1,14 +1,12 @@
 // Port of rust/crates/richtext/src/sanitizer.rs (the string rules)
 //
 // Loofah's scrubbing rules (rails-html-sanitizer 1.7.1, loofah 2.25.2) that need no DOM: the safe lists, `allowed_uri?`, the
-// attribute escaping and Lexxy's style rule. Both sanitizers (the arena walker in Sanitizer.fs and the AngleSharp walker in
-// Next/Sanitizer.fs) call them, so a verdict is one piece of code.
+// attribute escaping and Lexxy's style rule. The walker in Sanitizer.fs calls them.
 namespace Campfire.RichText
 
 open System
 open System.Collections.Generic
 open System.Text
-open Campfire.RichText.Html5ever
 open Campfire.RichText.Unicode
 
 /// A tag and attribute allowlist, as passed to `sanitize(html, tags:, attributes:)`.

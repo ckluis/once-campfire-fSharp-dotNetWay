@@ -1,12 +1,11 @@
-// Port of the tests in rust/crates/richtext/src/sanitizer.rs
+// Port of the tests in rust/crates/richtext/src/sanitizer.rs, on the AngleSharp sanitizer
 module Campfire.RichText.Tests.SanitizerTests
 
 open Xunit
 open Campfire.RichText
 open Campfire.RichText.Tests.Support
 
-let private sanitizeOld (html: string) (list: SafeList) : string = okP (Sanitizer.sanitize html list)
-let private sanitizeNext (html: string) (list: SafeList) : string = okP (Next.Sanitizer.sanitize html list)
+let private sanitize (html: string) (list: SafeList) : string = okP (Sanitizer.sanitize html list)
 
 let private check_scrubs_like_rails (sanitize: string -> SafeList -> string) =
     let list = SafeList.contentFilter
@@ -55,20 +54,19 @@ let private check_keeps_only_lexxys_highlight_colors_in_style (sanitize: string 
 
 [<Fact>]
 let ``checks_uris_like_loofah`` () =
-    Assert.False(Sanitizer.allowedUri "javascript:alert(1)")
-    Assert.False(Sanitizer.allowedUri "java\nscript:alert(1)")
-    Assert.False(Sanitizer.allowedUri "javascript&#58;alert(1)")
-    Assert.False(Sanitizer.allowedUri "&#106;avascript:alert(1)")
-    Assert.False(Sanitizer.allowedUri "javascript&colon;alert(1)")
-    Assert.True(Sanitizer.allowedUri "/rooms/1")
-    Assert.True(Sanitizer.allowedUri "https://example.com")
-    Assert.True(Sanitizer.allowedUri "data:image/png;base64,xx")
-    Assert.False(Sanitizer.allowedUri "data:text/html,xx")
+    Assert.False(Loofah.allowedUri "javascript:alert(1)")
+    Assert.False(Loofah.allowedUri "java\nscript:alert(1)")
+    Assert.False(Loofah.allowedUri "javascript&#58;alert(1)")
+    Assert.False(Loofah.allowedUri "&#106;avascript:alert(1)")
+    Assert.False(Loofah.allowedUri "javascript&colon;alert(1)")
+    Assert.True(Loofah.allowedUri "/rooms/1")
+    Assert.True(Loofah.allowedUri "https://example.com")
+    Assert.True(Loofah.allowedUri "data:image/png;base64,xx")
+    Assert.False(Loofah.allowedUri "data:text/html,xx")
     // Rails' SafeListSanitizer drops this href: CGI.unescapeHTML turns the zero-padded `&` into
     // `&#106;`, which Loofah then decodes.
     let list = SafeList.contentFilter
-    Assert.Equal("<a>x</a>", sanitizeOld "<a href=\"&amp;#0000000000038;#106;avascript:alert(1)\">x</a>" list)
-    Assert.Equal("<a>x</a>", sanitizeNext "<a href=\"&amp;#0000000000038;#106;avascript:alert(1)\">x</a>" list)
+    Assert.Equal("<a>x</a>", sanitize "<a href=\"&amp;#0000000000038;#106;avascript:alert(1)\">x</a>" list)
 
 [<Fact>]
 let ``unescapes_html_like_cgi`` () =
@@ -95,24 +93,15 @@ let ``unescapes_html_like_cgi`` () =
           "&#65", "&#65"
           "&#0x41;", "&#0x41;"
           "&amp;#65;", "&#65;" ] do
-        Assert.True((Sanitizer.cgiUnescapeHtml escaped = unescaped), escaped)
+        Assert.True((Loofah.cgiUnescapeHtml escaped = unescaped), escaped)
 
-// S2 (plans/design-richtext.md): the Rails vectors above on both sanitizers.
-
-[<Fact>]
-let ``scrubs_like_rails`` () = check_scrubs_like_rails sanitizeOld
+// S2 (plans/design-richtext.md): the Rails vectors above.
 
 [<Fact>]
-let ``S2 next scrubs_like_rails`` () = check_scrubs_like_rails sanitizeNext
+let ``scrubs_like_rails`` () = check_scrubs_like_rails sanitize
 
 [<Fact>]
-let ``re_escapes_url_attributes_as_each_attribute_is_scrubbed`` () = check_re_escapes_url_attributes_as_each_attribute_is_scrubbed sanitizeOld
+let ``re_escapes_url_attributes_as_each_attribute_is_scrubbed`` () = check_re_escapes_url_attributes_as_each_attribute_is_scrubbed sanitize
 
 [<Fact>]
-let ``S2 next re_escapes_url_attributes_as_each_attribute_is_scrubbed`` () = check_re_escapes_url_attributes_as_each_attribute_is_scrubbed sanitizeNext
-
-[<Fact>]
-let ``keeps_only_lexxys_highlight_colors_in_style`` () = check_keeps_only_lexxys_highlight_colors_in_style sanitizeOld
-
-[<Fact>]
-let ``S2 next keeps_only_lexxys_highlight_colors_in_style`` () = check_keeps_only_lexxys_highlight_colors_in_style sanitizeNext
+let ``keeps_only_lexxys_highlight_colors_in_style`` () = check_keeps_only_lexxys_highlight_colors_in_style sanitize

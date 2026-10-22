@@ -1,117 +1,87 @@
-// Port of rust/crates/richtext/src/sanitizer.rs
+// plans/design-richtext.md R4 (Phase 5, unit 5.2): Loofah's `PermitScrubber` as a walker over AngleSharp nodes.
 //
-// `Rails::HTML5::SafeListSanitizer` with a `Rails::HTML::PermitScrubber`, over Loofah's HTML5
-// scrubbing helpers (rails-html-sanitizer 1.7.1, loofah 2.25.2).
-//
-// Every sanitization layer in the pipeline is this one scrubber with a different pair of tag and
-// attribute allowlists, so it is written once here rather than expressed through a sanitizer
-// library, whose URL, comment, foreign-content and attribute-escaping rules differ from Loofah's.
+// Children first, then the node (`traverse_conditionally_bottom_up`). An element outside the tag list is unwrapped (its children
+// move before it), a comment is removed, a foreign (SVG, MathML) element goes with its contents. An allowed element's attributes
+// are visited in order: one outside the list, or a URI attribute failing `allowed_uri?`, is removed, a blank `src` too; after each
+// kept attribute `force_correct_attribute_escaping!` runs over all the element's URI attributes, so a later URL is checked in its
+// re-escaped form. Lexxy's `style` rule comes last. Every string rule is `Loofah`'s.
 namespace Campfire.RichText
 
 open System
-open Campfire.RichText.Html5ever
+open AngleSharp.Dom
 
 module Sanitizer =
-    open Loofah
+    let private htmlNs = "http://www.w3.org/1999/xhtml"
 
-    /// `ContentFilters::SanitizeTags::ALLOWED_TAGS`
-    let sanitizeTagsAllowedTags = SafeListData.sanitizeTagsAllowedTags
+    let private isBlank (value: string) = value |> Seq.forall Loofah.isWhitespace
 
-    /// `ActionText::Attachment::ATTRIBUTES`
-    let attachmentAttributes = SafeListData.attachmentAttributes
+    let private remove (element: IElement) (attribute: IAttr) =
+        element.RemoveAttribute(attribute.NamespaceUri, attribute.LocalName) |> ignore
 
-    /// `Loofah::HTML5::Scrub.force_correct_attribute_escaping!` (libxml2 builds only, which CRuby is):
-    /// spaces and double quotes in `href`, `action`, `src` and an `a`'s `name` become `%20` and `%22`.
-    /// The value is written back through `Nokogiri::XML::Attr#value=`, where libxml2 drops the C0
-    /// controls XML 1.0 doesn't allow.
-    let private forceCorrectAttributeEscaping (attrs: ResizeArray<Attr>) (isA: bool) =
-        for attr in attrs do
-            if escapesAttribute attr.QualifiedName isA && needsEscaping attr.Value then attr.Value <- escapeAttributeValue attr.Value
-
-    let private scrubStyle (dom: Dom) (node: NodeId) =
-        match dom.Attr(node, "style") with
+    /// `PermitScrubber#scrub_attributes`, then Lexxy's `style` rule.
+    let private scrubAttributes (element: IElement) (list: SafeList) =
+        let isA = String.Equals(element.LocalName, "a", StringComparison.Ordinal)
+        let attributes = Array.init element.Attributes.Length (fun i -> nonNull element.Attributes[i])
+        let removed = Collections.Generic.HashSet<IAttr>(HashIdentity.Reference)
+        for attribute in attributes do
+            let name = Html5.qualifiedName attribute
+            let value = attribute.Value
+            let scrubbed = not (list.AllowsAttribute name) || (Loofah.attrValIsUri name && not (Loofah.allowedUri value))
+            if scrubbed || (name = "src" && isBlank value) then
+                remove element attribute
+                removed.Add attribute |> ignore
+            if not scrubbed then
+                for other in attributes do
+                    if not (removed.Contains other) && Loofah.escapesAttribute (Html5.qualifiedName other) isA && Loofah.needsEscaping other.Value then
+                        other.Value <- Loofah.escapeAttributeValue other.Value
+        match Html5.attr element "style" with
         | ValueNone -> ()
         | ValueSome style ->
             match Loofah.scrubStyle style with
-            | None -> dom.RemoveAttr(node, "style") |> ignore
-            | Some scrubbed -> if scrubbed <> style then dom.SetAttr(node, "style", scrubbed)
-
-    /// `PermitScrubber#scrub_attributes` with an attribute allowlist. Attributes are visited in order,
-    /// and each allowed one re-escapes every URL attribute on the node as it goes, so a later URL is
-    /// checked in its re-escaped form (" javascript:" has become "%20javascript:" and passes).
-    let private scrubAttributes (dom: Dom) (node: NodeId) (list: SafeList) =
-        match dom.Element node with
-        | ValueNone -> ()
-        | ValueSome element ->
-            let isA = element.Name.Local = "a"
-            let attrs = element.Attrs
-            let mutable i = 0
-            while i < attrs.Count do
-                let attr = attrs[i]
-                let name = attr.QualifiedName
-                let scrubbed = not (list.AllowsAttribute name) || (attrValIsUri name && not (allowedUri attr.Value))
-                let blankSrc = name = "src" && attr.Value |> Seq.forall isWhitespace
-                if scrubbed then
-                    attrs.RemoveAt i
-                else
-                    // A blank src goes, but the escaping still runs for the attributes after it
-                    if blankSrc then attrs.RemoveAt i else i <- i + 1
-                    forceCorrectAttributeEscaping attrs isA
-            scrubStyle dom node
+            | None ->
+                for attribute in attributes do
+                    if not (removed.Contains attribute) && Html5.qualifiedName attribute = "style" then remove element attribute
+            | Some scrubbed ->
+                if scrubbed <> style then
+                    for attribute in attributes do
+                        if not (removed.Contains attribute) && Html5.qualifiedName attribute = "style" then attribute.Value <- scrubbed
 
     /// `Rails::HTML::PermitScrubber#scrub`
-    let private scrub (dom: Dom) (node: NodeId) (list: SafeList) =
-        if not (dom.IsText node) then
-            let keep =
-                match dom.LocalName node with
-                | ValueSome name -> list.AllowsTag name
-                | ValueNone -> false
-            if not keep then
-                // Unwrap HTML elements (and comments, which have no children); drop foreign (SVG,
-                // MathML) elements together with their contents, since they carry a namespace.
-                let foreign = dom.IsElement node && not (dom.IsHtmlElement node)
-                if not foreign then
-                    for child in Seq.toArray (dom.Children node) do
-                        dom.InsertBefore(node, child)
-                dom.Detach node
-            else
-                scrubAttributes dom node list
+    let private scrubNode (node: INode) (list: SafeList) =
+        match node with
+        | :? IText -> ()
+        | _ ->
+            match node with
+            | :? IElement as element when list.AllowsTag element.LocalName -> scrubAttributes element list
+            | _ ->
+                let foreign =
+                    match node with
+                    | :? IElement as element -> not (String.Equals(element.NamespaceUri, htmlNs, StringComparison.Ordinal))
+                    | _ -> false
+                match node.Parent with
+                | null -> ()
+                | parent ->
+                    if not foreign then Html5.insertAllBefore parent (Html5.detachChildren node) node
+                    parent.RemoveChild node |> ignore
 
-    /// `Loofah::Scrubber#traverse_conditionally_bottom_up`: children (as they were before any of them
-    /// was scrubbed) first, then the node itself.
-    let rec private scrubBottomUp (dom: Dom) (node: NodeId) (list: SafeList) =
-        for child in Seq.toArray (dom.Children node) do
-            scrubBottomUp dom child list
-        scrub dom node list
+    /// `Loofah::Scrubber#traverse_conditionally_bottom_up`: children (as they were before any of them was scrubbed) first, then the node.
+    let rec private scrubBottomUp (node: INode) (list: SafeList) =
+        for child in Html5.childrenOf node do
+            scrubBottomUp child list
+        scrubNode node list
 
-    let private scrubbed (html: string) (list: SafeList) : Result<struct (Dom * NodeId), ParseError> =
-        let dom = Dom()
-        match dom.ParseFragment html with
-        | Error e -> Error e
-        | Ok fragment ->
-            for child in Seq.toArray (dom.Children fragment) do
-                scrubBottomUp dom child list
-            Ok(struct (dom, fragment))
+    /// Scrubs the children of `root` in place (R4).
+    let scrub (root: INode) (list: SafeList) : unit =
+        for child in Html5.childrenOf root do
+            scrubBottomUp child list
 
-    /// `SafeListSanitizer#sanitize(html, tags:, attributes:)`.
+    /// `SafeListSanitizer#sanitize(html, tags:, attributes:)`: parse as a body, scrub, serialize the container's markup.
     let sanitize (html: string) (list: SafeList) : Result<string, ParseError> =
         if html.Length = 0 then
             Ok ""
         else
-            scrubbed html list |> Result.map (fun (struct (dom, fragment)) -> dom.ToHtml fragment)
-
-    /// `sanitize`, serialized with `<` and `>` escaped in attribute values too, so that the result can
-    /// be scanned with regular expressions (auto_link) without mistaking an attribute for text.
-    /// Rails serializes them raw; the two are the same DOM.
-    let sanitizeWithEscapedAttributeBrackets (html: string) (list: SafeList) : Result<string, ParseError> =
-        if html.Length = 0 then
-            Ok ""
-        else
-            scrubbed html list
-            |> Result.map (fun (struct (dom, fragment)) -> dom.ToHtmlWithEscapedAttributeBrackets fragment)
-
-    /// `Loofah::HTML5::Scrub.allowed_uri?`
-    let allowedUri (uri: string) : bool = Loofah.allowedUri uri
-
-    /// `CGI.unescapeHTML`
-    let cgiUnescapeHtml (s: string) : string = Loofah.cgiUnescapeHtml s
+            match Html5.parseBody html with
+            | Error error -> Error error
+            | Ok body ->
+                scrub body list
+                Ok(Html5.innerHtml body)

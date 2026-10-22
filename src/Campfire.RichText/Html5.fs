@@ -4,7 +4,7 @@
 // and the body element is the container, used in place; markup built by the pipeline for an element (`inner_html=`, `replace`)
 // is parsed in that element's context. Gumbo's two limits and three caps of ours are enforced while parsing, through the
 // parser's callbacks; serialization is Nokogiri's HTML5 rules.
-namespace Campfire.RichText.Next
+namespace Campfire.RichText
 
 open System
 open System.Collections.Generic
@@ -14,7 +14,6 @@ open AngleSharp.Dom
 open AngleSharp.Html.Dom
 open AngleSharp.Html.Parser
 open AngleSharp.Html.Parser.Tokens.Struct
-open Campfire.RichText
 
 /// Raised by a parser callback to stop the parse; `Html5` turns it into the `ParseError`.
 exception internal LimitExceeded of ParseError
