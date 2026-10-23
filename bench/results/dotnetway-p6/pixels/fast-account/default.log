@@ -1,0 +1,20 @@
+candidate: reference :4111 vs candidate :4112 (seed default, clock frozen at 2026-03-02T16:00:00Z)
+16 cells (14 on shared servers, 2 on fresh servers in 3 slots) × 2 targets, 4 workers
+[1/16] account/edit/admin @ chromium-desktop-light fail
+[2/16] account/edit/admin @ chromium-phone-light fail
+[3/16] account/edit/member @ chromium-desktop-light fail
+[4/16] account/edit/member @ chromium-phone-light fail
+[5/16] account/edit/saved @ chromium-phone-light fail
+[6/16] account/edit/saved @ chromium-desktop-light fail
+[7/16] account/bots @ chromium-desktop-light fail
+[8/16] account/bots @ chromium-phone-light fail
+[9/16] account/bots/new @ chromium-desktop-light fail
+[10/16] account/bots/new @ chromium-phone-light fail
+[11/16] account/bots/edit/with_webhook @ chromium-desktop-light fail
+[12/16] account/bots/edit/with_avatar @ chromium-desktop-light fail
+[13/16] account/bots/edit/with_webhook @ chromium-phone-light fail
+[14/16] account/bots/edit/with_avatar @ chromium-phone-light fail
+[15/16] account/custom_styles/empty @ chromium-desktop-light fail
+[16/16] account/custom_styles/empty @ chromium-phone-light fail
+16 cells: 0 pass (0 flaky), 16 fail, 0 allowed, 0 error in 42.3s
+report: /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/parity/out/p6-fast-account/default/report.html

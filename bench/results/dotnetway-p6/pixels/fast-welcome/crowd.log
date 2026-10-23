@@ -1,0 +1,4 @@
+candidate: reference :4111 vs candidate :4112 (seed crowd, clock frozen at 2026-03-02T16:00:00Z)
+0 cells (0 on shared servers, 0 on fresh servers in 3 slots) × 2 targets, 4 workers
+0 captures, 0 errors in 0.0s
+report: /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/parity/out/p6-fast-welcome/crowd/report.html

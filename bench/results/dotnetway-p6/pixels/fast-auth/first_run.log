@@ -1,0 +1,12 @@
+candidate: reference :4111 vs candidate :4112 (seed first_run, clock frozen at 2026-03-02T16:00:00Z)
+8 cells (6 on shared servers, 2 on fresh servers in 3 slots) × 2 targets, 4 workers
+[1/8] auth/first_run @ chromium-desktop-light fail
+[2/8] auth/first_run @ chromium-phone-light fail
+[3/8] auth/first_run/from_sign_in @ chromium-desktop-light fail
+[4/8] auth/first_run/from_sign_in @ chromium-phone-light fail
+[5/8] auth/first_run/completed @ chromium-phone-light fail
+[6/8] auth/first_run/completed @ chromium-desktop-light fail
+[7/8] auth/first_run/filled @ chromium-desktop-light fail
+[8/8] auth/first_run/filled @ chromium-phone-light fail
+8 cells: 0 pass (0 flaky), 8 fail, 0 allowed, 0 error in 28.2s
+report: /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/parity/out/p6-fast-auth/first_run/report.html

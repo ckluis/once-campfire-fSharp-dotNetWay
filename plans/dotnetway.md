@@ -3029,3 +3029,39 @@ Adversarial review of `e58de72..9e31f63` (6.1-6.4) against `plans/design-assets.
 - **Still to run (phase close):** the lean matrix on `default`, then the lean pixel matrix on all seeds. The unit itself (6.7) is complete and green.
 
 **Phase 6 close: lean matrix (6.7 follow-up).** Image `campfire-dotnetway:app` at `184cae3`. `bin/pixel-parity` with no `--fast`, default seed by directory slices (realtime one state at a time; typing as `realtime/typing/one` and `/many`), then the other four seeds in one run, `bin/clean-parity` after each. Screenshots, aria and loose DOM all equal everywhere: default 860/860 (auth 62, errors 20, pwa 52, welcome 10, search 30, account 38, users 72, messages 120, interactions 182, rooms 170, eleven realtime states 8 each, typing one and many 8 each; autocompletable, bot_api have no screenshots), crowd 24/24, custom_styles 32/32, first_run 16/16, restricted 8/8. Logs: `bench/results/lean-67/`. This matches the Phase 0 cell counts. Phase 6 gates complete.
+
+### Phase 6: gate (2026-10-22)
+
+Evidence: `bench/results/dotnetway-p6/` (slim: logs, `report.json` per pixel slice, bench JSON; 4 MB). Gate runner; no code change was needed. Image `campfire-dotnetway:app` built from `c29e14e` (label checked equal to HEAD); control built from `853604f` (Phase 5's closing commit, per the Phase 5 verification entry) in a scratch worktree with the submodule copied in, tag `campfire-dotnetway:p5gate`, label `853604f`, removed afterwards with its worktree.
+- **`CAMPFIRE_REQUIRE_SEED=1 bin/verify`** on `c29e14e`: 1,011 total, 1,005 passed, 0 failed, 6 skipped (the environmental six); lint self-test (39 planted files) ok, lint 331 files clean; Dapper and EF guards, H1 and the Release warnings-as-errors build green. The first run (`verify-loaded-run.log`) overlapped the image build (host load 7-11) and failed one wall-clock test, `Html5Tests.L3 the caps` (160,000 ignored end tags 50.7 ms against its 50 ms limit); rerun on the quiet host (after the builds), green. Noted, not changed: that limit is load-sensitive.
+- **Every state `--fast`, every seed** (24 slices: the twelve directories and the thirteen realtime states one at a time, typing as `/one` and `/many`): every slice PASSED, screenshots, aria and loose equal (`pixels/fast-*.log`).
+- **Lean pixel gate** (same 24 slices, no `--fast`, every seed of each slice): **940 of 940 cells equal on screenshot, aria and loose DOM**; no cell NOT CAPTURED, no slice failed, so nothing to re-run.
+
+| seed | screenshots | aria | loose DOM |
+|---|---:|---:|---:|
+| default | 860/860 | 860/860 | 860/860 |
+| crowd | 24/24 | 24/24 | 24/24 |
+| custom_styles | 32/32 | 32/32 | 32/32 |
+| first_run | 16/16 | 16/16 | 16/16 |
+| restricted | 8/8 | 8/8 | 8/8 |
+
+- **`bin/asset-check`** (fingerprinted URLs, cache headers, precompressed variants): 1,794 checks, 0 failed. **`bin/cookie-roundtrip`** 20/20 both ways. **`bin/db-differential`** rc 0 (schemas agree, reference boots on the database we wrote, rollback ok).
+- **Speed** (`bench/quick`, 5 workloads, c=1 and c=16, 3 reps, interleaved new/ctl/ctl/new/new/ctl, each rep in two parts; new = `c29e14e`, control = `853604f`). Host probe 1.039-1.076 before runs, windows 1.037-1.095 after (0 of 10 windows above 1.10 in every new rep), Mac load average 2.2-4.2 at rep boundaries; 30 runs per side, all 2xx, 0 connection errors, post rows equal to the 2xx answers.
+
+| workload | c | new req/s | control req/s | new vs control | x Rails (new) | x Rails (control) | CPU us/req new / control |
+|---|---:|---:|---:|---:|---:|---:|---|
+| room page | 16 | 7,454 | 7,364 | +1.2% | 31.15 | 30.78 | 435 / 439 |
+| room page | 1 | 2,496 | 2,513 | -0.7% | 23.31 | 23.47 | 494 / 497 |
+| messages page | 16 | 7,398 | 7,292 | +1.5% | 19.44 | 19.16 | 451 / 455 |
+| messages page | 1 | 2,344 | 2,315 | +1.3% | 10.76 | 10.63 | 522 / 530 |
+| sidebar | 16 | 7,667 | 7,652 | +0.2% | 12.81 | 12.78 | 428 / 429 |
+| sidebar | 1 | 2,474 | 2,468 | +0.2% | 8.63 | 8.61 | 499 / 502 |
+| search | 16 | 7,004 | 7,049 | -0.6% | 17.17 | 17.28 | 480 / 480 |
+| search | 1 | 2,228 | 2,201 | +1.2% | 11.56 | 11.42 | 543 / 550 |
+| post a message | 16 | 1,997 | 2,012 | -0.7% | 6.05 | 6.10 | 1,497 / 1,491 |
+| post a message | 1 | 1,106 | 1,108 | -0.2% | 6.63 | 6.64 | 1,645 / 1,664 |
+
+  **No cell under the 5x floor** (thinnest: post c=16 6.05x, post c=1 6.63x, sidebar c=1 8.63x); no speed fix made. Cost of Phase 6 against Phase 5's close: within -0.7% to +1.5% on every cell, inside the control's own ranges; CPU per request equal (-1% to +0.4%). (6.7's run against the earlier `p5ctl` saw -1% to -3% at c=16 on three cells; this same-session control does not repeat it.) The bench exits 1 on four routes' decoded-bytes check (+0.2%, +434 to +948 bytes: the fingerprinted URLs are longer), as recorded in 6.5 and 6.7; the control passes it. The stored expected sizes are Phase 4's and would be refreshed at the next re-baseline.
+- **KLOC:** `bin/kloc` 29,802 by upstream's rules, **29,974 corrected (30.0 KLOC)**; App 12,309, Views 5,219, Kit 2,842, Db 2,460, RichText 2,268. Phase 5 closed at 30.2, so the phase is -0.2 (design projected about 29.9). Rust's bar is 31.0.
+- **Differences recorded:** none new. Open items unchanged from Phases 4 and 5 (Firefox empty-404 pair, WebKit WebP avatar flake, 16 KB Cable bound, the two test packages, the Phase 5 list).
+- Disk: 19-30 GB free throughout; `bin/clean-docker` and `bin/clean-parity` run; the control image and worktree are removed.
