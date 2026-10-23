@@ -3065,3 +3065,26 @@ Evidence: `bench/results/dotnetway-p6/` (slim: logs, `report.json` per pixel sli
 - **KLOC:** `bin/kloc` 29,802 by upstream's rules, **29,974 corrected (30.0 KLOC)**; App 12,309, Views 5,219, Kit 2,842, Db 2,460, RichText 2,268. Phase 5 closed at 30.2, so the phase is -0.2 (design projected about 29.9). Rust's bar is 31.0.
 - **Differences recorded:** none new. Open items unchanged from Phases 4 and 5 (Firefox empty-404 pair, WebKit WebP avatar flake, 16 KB Cable bound, the two test packages, the Phase 5 list).
 - Disk: 19-30 GB free throughout; `bin/clean-docker` and `bin/clean-parity` run; the control image and worktree are removed.
+
+### Phase 6: security review of the assets (2026-10-22)
+
+Opus reviewer, on `a0b19f2`. Findings and method in `plans/design-assets.md` section 11 ("Security review"); fix in `26c4ea1`.
+- **Read:** 17 files whole (`StaticAssets.fs`, `Importmap.fs`, the staging target, the pipeline, `Edge.fs`, the avatar, logo and PWA controllers, the presenters'
+  asset call sites, `Pages.fs`' `Link` header, `Front.fs`' host creation, `Respond.sendFile`/`Native.fs`, `AssetsTests.fs`, `bin/asset-check`,
+  `bin/check-assets-incremental`, the Dockerfile, `revendor`); inspected the endpoint and runtime manifests, the staged web root and every staged SVG/HTML.
+- **F1 (Low, fixed):** the staging target's `Copy` followed symbolic links, so a link among the inputs (file or directory) staged and served a file of the build
+  host (shown with two plants on `a0b19f2`). The target now fails the build on any link under the overrides, the `LOAD_PATH` roots and `reference/public`;
+  `bin/check-assets-incremental` plants both kinds and failed before the fix. None is tracked today (parity with Propshaft; defence in depth).
+- **F2 (info, holding):** no traversal or disclosure: exact manifest routes, files opened by the descriptor's path, dotfiles not staged, the build output's
+  fallback route neutralised; six more probes (double encoding, overlong UTF-8, `%00`, `.%2e`, `//..//`, `..;`) in the App test and `bin/asset-check`. A
+  trailing slash or another letter case reaches the same public file (recorded). **F3 (guard):** a test fails on script, handlers, `javascript:` or embeds in any
+  served SVG/HTML source (none today; a planted `onload` SVG fails it). **F4-F7 (info):** cache headers (public content only, no `Set-Cookie` possible ahead of the
+  session), content types (all explicit, equal to Rails'), no `nosniff` on static or `send_file` responses (Rails parity: `Static` and `ActiveStorage::Streaming`),
+  import map escaping, no CSP or SRI in the reference, `UseStaticWebAssets` inert in a publish. **F8:** `.dockerignore`'s stale comment.
+- **Gates:** `CAMPFIRE_REQUIRE_SEED=1 bin/verify` on `26c4ea1`: 1,012 total, 1,006 passed, 0 failed, 6 skipped (the environmental six; +1, F3); lint self-test
+  39/39, 331 files clean; Dapper and EF guards, H1. `bin/check-assets-incremental` ok. Image rebuilt at `26c4ea1` (label checked): `bin/asset-check` 1,806 checks,
+  0 failed; `bin/pixel-parity --fast --seeds default --only 'rooms/show/designers'` 2/2 equal (screenshots, aria, loose). `bin/clean-parity` and `bin/clean-docker`
+  run; disk 26-30 GB free. No bench: nothing on a request path changed (the check runs at build time).
+- **KLOC:** `bin/kloc` 29,802 by upstream's rules, 29,974 corrected (30.0), unchanged (MSBuild and tests are not counted).
+- **Differences recorded:** none new in the README. `nosniff` absence is Rails parity; a trailing slash or another letter case on an asset route answering the same
+  public file is recorded in design-assets.md section 11 only (beside the README's class B line that plain `/assets/` URLs are served).

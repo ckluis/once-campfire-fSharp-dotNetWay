@@ -58,7 +58,7 @@ let ``S1 the staged web root holds Rails' manifest minus the lexxy compressed fi
             File.ReadAllBytes(Path.Combine(webRoot, logical)) = File.ReadAllBytes sources[logical],
             $"{logical}: staged bytes differ from {sources[logical]}")
 
-/// Security review (design-assets.md section 10, F3): every SVG and HTML file the asset endpoints serve is opened in the app's own
+/// Security review (design-assets.md section 11, F3): every SVG and HTML file the asset endpoints serve is opened in the app's own
 /// origin when a browser navigates to it, with no CSP and no nosniff (Rails' `Static` sends neither), so none may carry script. Read
 /// from the sources (overrides first, then the load path), so a re-vendored or added file is caught before it is staged.
 [<Fact>]
@@ -163,7 +163,7 @@ let ``nothing outside the asset table is served: encoded dots and backslashes, t
               "/assets/..%5C..%5Cappsettings.json"; "/campfire.dll"; "/campfire.staticwebassets.endpoints.json"
               "/campfire.staticwebassets.runtime.json"; "/wwwroot/robots.txt"; "/wwwroot/assets/composer.css"; "/assets/.keep"
               "/assets/%2e%2e/%2e%2e/reference/config/importmap.rb"
-              // Security review (design-assets.md section 10): double encoding, overlong UTF-8, NUL, mixed dots, doubled slashes.
+              // Security review (design-assets.md section 11): double encoding, overlong UTF-8, NUL, mixed dots, doubled slashes.
               "/assets/%252e%252e/campfire.dll"; "/assets/%c0%ae%c0%ae/campfire.dll"; "/assets/composer.css%00"; "/assets/.%2e/campfire.dll"
               "/assets//..//campfire.dll"; "/assets/..;/campfire.dll"; "/ASSETS/NOPE.CSS"; "/.env"; "/.git/config" ] do
             let! response = test.Send(Campfire.App.Tests.Support.get url)
