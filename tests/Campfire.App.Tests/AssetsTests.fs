@@ -31,7 +31,7 @@ let private sources () : Map<string, string> =
         files dir
         |> List.filter (skip >> not)
         |> List.fold (fun (m: Map<string, string>) (rel: string) -> if m.ContainsKey rel then m else m.Add(rel, Path.Combine(dir, rel))) acc
-    // Overrides are not filtered for dotfiles or compressed files by the target either (it only filters the load path).
+    // The target leaves dotfiles out of the overrides too (none exist), but not compressed files.
     let overrides =
         files (Path.Combine(assetsDir, "overrides"))
         |> List.map (fun rel -> rel, Path.Combine(assetsDir, "overrides", rel))
@@ -57,6 +57,18 @@ let ``S1 the staged web root holds Rails' manifest minus the lexxy compressed fi
         Assert.True(
             File.ReadAllBytes(Path.Combine(webRoot, logical)) = File.ReadAllBytes sources[logical],
             $"{logical}: staged bytes differ from {sources[logical]}")
+
+/// Security review (design-assets.md section 10, F3): every SVG and HTML file the asset endpoints serve is opened in the app's own
+/// origin when a browser navigates to it, with no CSP and no nosniff (Rails' `Static` sends neither), so none may carry script. Read
+/// from the sources (overrides first, then the load path), so a re-vendored or added file is caught before it is staged.
+[<Fact>]
+let ``no SVG or HTML among the assets carries script`` () =
+    let active = System.Text.RegularExpressions.Regex(@"<script|<foreignObject|javascript:|<iframe|<embed|<object|\son[a-z]+\s*=", System.Text.RegularExpressions.RegexOptions.IgnoreCase)
+    let markup = sources () |> Map.filter (fun logical _ -> logical.EndsWith ".svg" || logical.EndsWith ".html" || logical.EndsWith ".htm" || logical.EndsWith ".xml")
+    Assert.True(markup.Count > 50, $"only {markup.Count} SVG/HTML assets found")
+    for KeyValue(logical, source) in markup do
+        let m = active.Match(File.ReadAllText source)
+        Assert.False(m.Success, $"{logical} ({source}) carries active content: {m.Value}")
 
 // --- Unit 6.3 (design section 5, H1-H4): the asset endpoints behind the old public files --------------------------------
 
@@ -150,7 +162,10 @@ let ``nothing outside the asset table is served: encoded dots and backslashes, t
             [ "/assets/..%2Fcampfire.dll"; "/assets/%2e%2e/campfire.dll"; "/assets/%2e%2e%2fcampfire.dll"; "/assets/..%5Ccampfire.dll"
               "/assets/..%5C..%5Cappsettings.json"; "/campfire.dll"; "/campfire.staticwebassets.endpoints.json"
               "/campfire.staticwebassets.runtime.json"; "/wwwroot/robots.txt"; "/wwwroot/assets/composer.css"; "/assets/.keep"
-              "/assets/%2e%2e/%2e%2e/reference/config/importmap.rb" ] do
+              "/assets/%2e%2e/%2e%2e/reference/config/importmap.rb"
+              // Security review (design-assets.md section 10): double encoding, overlong UTF-8, NUL, mixed dots, doubled slashes.
+              "/assets/%252e%252e/campfire.dll"; "/assets/%c0%ae%c0%ae/campfire.dll"; "/assets/composer.css%00"; "/assets/.%2e/campfire.dll"
+              "/assets//..//campfire.dll"; "/assets/..;/campfire.dll"; "/ASSETS/NOPE.CSS"; "/.env"; "/.git/config" ] do
             let! response = test.Send(Campfire.App.Tests.Support.get url)
             Assert.True((response.Status = 404 || response.Status = 400), $"{url}: {response.Status}")
     }

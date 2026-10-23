@@ -1,13 +1,18 @@
 #!/usr/bin/env bash
 # Checks the web root staging target (CampfireStageWebRoot in src/Campfire.App/Campfire.App.fsproj):
-# an added override is staged and is in the endpoint manifest; deleted, it is gone from both.
+# an added override is staged and is in the endpoint manifest; deleted, it is gone from both. A symbolic link among the
+# staged inputs (a file, or a directory) fails the build and stages nothing it points at: Copy follows links, so a link
+# would put whatever file of the build host it names into the web root (plans/design-assets.md, Security review, F1).
 set -euo pipefail
 cd "$(dirname "$0")/.."
 export PATH="$HOME/.dotnet:$PATH" DOTNET_NOLOGO=1 DOTNET_CLI_TELEMETRY_OPTOUT=1
 temp=src/Campfire.App/Assets/overrides/zz-incremental-check.svg
 staged=src/Campfire.App/wwwroot/assets/zz-incremental-check.svg
 manifest=src/Campfire.App/bin/Release/net11.0/campfire.staticwebassets.endpoints.json
-trap 'rm -f "$temp"' EXIT
+outside=$(mktemp -d)
+link=src/Campfire.App/Assets/overrides/zz-link-check.txt
+linkdir=src/Campfire.App/Assets/overrides/zz-linkdir-check
+trap 'rm -f "$temp" "$link" "$linkdir"; rm -rf "$outside"' EXIT
 build() { dotnet build src/Campfire.App -c Release -v quiet -nologo >/dev/null; }
 cp src/Campfire.App/Assets/overrides/install-edge.svg "$temp"
 build
@@ -19,5 +24,16 @@ rm "$temp"
 build
 [ ! -e "$staged" ] || { echo "FAIL: deleted override is still staged"; exit 1; }
 if grep -q zz-incremental-check "$manifest"; then echo "FAIL: deleted override is still in the endpoint manifest"; exit 1; fi
+# A symbolic link to a file outside the repository, then a symbolic link to a directory outside it.
+echo "secret-outside-the-repository" > "$outside/secret.txt"
+for planted in file directory; do
+  if [ $planted = file ]; then ln -s "$outside/secret.txt" "$link"; else ln -s "$outside" "$linkdir"; fi
+  if out=$(dotnet build src/Campfire.App -c Release -v quiet -nologo 2>&1); then
+    echo "FAIL: a symbolic link ($planted) among the staged inputs did not fail the build"; exit 1
+  fi
+  grep -q 'symbolic link' <<<"$out" || { echo "FAIL: the build failed for another reason than the symbolic link ($planted):"; echo "$out" | tail -5; exit 1; }
+  if grep -rqs secret-outside-the-repository src/Campfire.App/wwwroot; then echo "FAIL: the file a symbolic link ($planted) names was staged"; exit 1; fi
+  rm -f "$link" "$linkdir"
+done
 build
-echo "ok: an added override is staged and in the endpoint manifest; deleted, it is gone from both"
+echo "ok: an added override is staged and in the endpoint manifest; deleted, it is gone from both; a symbolic link fails the build"

@@ -167,7 +167,16 @@
     <_CampfirePublic Remove="@(_CampfirePublic)" Condition="$([System.String]::Copy('/%(_CampfirePublic.RecursiveDir)%(_CampfirePublic.Filename)%(_CampfirePublic.Extension)').Replace('\','/').Contains('/.'))" />
     <_CampfirePublic Link="wwwroot/%(RecursiveDir)%(Filename)%(Extension)" />
     <_CampfireStage Include="@(_CampfireOverride);@(_CampfireAsset);@(_CampfirePublic)" />
+    <_CampfireRoot Include="$(CampfireAssetsDir)overrides;$(CampfireReferenceRoot)public" />
+    <_CampfireRoot Include="$([System.String]::Copy('%(_CampfireLoadPathLine.Identity)').Replace('reference:', '$(CampfireReferenceRoot)').Replace('vendor:', '$(CampfireAssetsDir)vendor/'))" />
+    <_CampfireRoot Remove="@(_CampfireRoot)" Condition="!Exists('%(_CampfireRoot.Identity)')" />
   </ItemGroup>
+  <!-- No symbolic links: Copy follows them, so a link (to a file, or a directory the glob walks into) would stage whatever
+       file of the build host it names into the web root, and the image would serve it (design-assets.md, Security review, F1). -->
+  <Exec Condition="'$(OS)' != 'Windows_NT'" Command="find @(_CampfireRoot->'&quot;%(Identity)&quot;', ' ') -name '.*' -prune -o -type l -print" ConsoleToMSBuild="true" StandardOutputImportance="low" EchoOff="true">
+    <Output TaskParameter="ConsoleOutput" ItemName="_CampfireSymlink" />
+  </Exec>
+  <Error Condition="'@(_CampfireSymlink)' != ''" Text="the web root's inputs hold a symbolic link, which would stage the file it names into the web root (replace it with the file itself): @(_CampfireSymlink, '; ')" />
   <Copy SourceFiles="@(_CampfireStage)" DestinationFiles="@(_CampfireStage->'%(Link)')" SkipUnchangedFiles="true">
     <Output TaskParameter="DestinationFiles" ItemName="_CampfireStaged" />
   </Copy>

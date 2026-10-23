@@ -1,6 +1,6 @@
 # The app image (Dockerfile) builds from global.json, the Directory.*.props, src/ and the parts of the
-# reference/ submodule that src/Campfire.Assets.Build embeds (app/assets, app/javascript, vendor, public,
-# config) plus its hooks/. Everything else stays out of the build context.
+# reference/ submodule that the App's CampfireStageWebRoot target stages or embeds (app/assets, app/javascript,
+# vendor, public, config/importmap.rb) plus its hooks/. Everything else stays out of the build context.
 *
 
 !/global.json

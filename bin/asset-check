@@ -204,7 +204,10 @@ probes = ["/assets/..%2Fcampfire.dll", "/assets/%2e%2e/campfire.dll", "/assets/%
           "/assets/..%5C..%5Cappsettings.json", "/assets/..\\campfire.dll", "/assets/%2E%2E/%2E%2E/etc/passwd", "/..%2f..%2fetc/passwd",
           "/assets/.keep", "/assets/.DS_Store", "/.env", "/.git/config", "/campfire.dll", "/campfire.staticwebassets.endpoints.json",
           "/campfire.staticwebassets.runtime.json", "/campfire.deps.json", "/appsettings.json", "/wwwroot/robots.txt", "/wwwroot/assets/composer.css",
-          "/assets/.manifest.json", "/assets/%2e%2e/%2e%2e/reference/config/importmap.rb"]
+          "/assets/.manifest.json", "/assets/%2e%2e/%2e%2e/reference/config/importmap.rb",
+          # The Phase 6 security review's additions: double encoding, overlong UTF-8, NUL, mixed dots, doubled slashes, `..;`.
+          "/assets/%252e%252e/campfire.dll", "/assets/%c0%ae%c0%ae/campfire.dll", "/assets/composer.css%00", "/assets/.%2e/campfire.dll",
+          "/assets//..//campfire.dll", "/assets/..;/campfire.dll"]
 for p in probes:
     status, h, body = curl(p, as_is=True)
     check(status in (404, 400), "probe %s is the app's 404 or a 400 (got %s)" % (p, status))
