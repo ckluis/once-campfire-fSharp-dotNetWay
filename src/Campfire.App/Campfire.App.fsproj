@@ -9,6 +9,7 @@
     <Compile Include="Config.fs" />
     <Compile Include="Concerns/UserAgent.fs" />
     <Compile Include="Concerns/Platform.fs" />
+    <Compile Include="Platform/OpenFiles.fs" />
     <Compile Include="Channels/Identity.fs" />
     <Compile Include="Channels/Publish.fs" />
     <Compile Include="Channels/Revocation.fs" />
@@ -118,6 +119,7 @@
     <Compile Include="Controllers/ActiveStorage.fs" />
     <Compile Include="Controllers/Rails.fs" />
     <Compile Include="Controllers.fs" />
+    <Compile Include="Web/Host.fs" />
     <Compile Include="Boot.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>

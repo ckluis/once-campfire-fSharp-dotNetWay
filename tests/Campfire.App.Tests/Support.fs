@@ -179,7 +179,7 @@ type private CountingBody(inner: IHttpResponseBodyFeature, counter: BodyWrites) 
 type Host(host: WebApplication, port: int, writes: BodyWrites) =
     member _.Port = port
 
-    /// Stops the host as `Front.serve` does at shutdown: `ApplicationStopping` first, then the server drains.
+    /// Stops the host as `Boot.serve`'s ConsoleLifetime does at shutdown: `ApplicationStopping` first, then the server drains.
     member _.StopAsync() : Task = host.StopAsync()
 
     /// How many writes the app's handlers have made to response bodies.
@@ -230,7 +230,7 @@ let startPipelineOn
         configureHost builder
         configureServices builder.Services
         builder.WebHost.ConfigureKestrel(fun (options: KestrelServerOptions) ->
-            Campfire.Kit.Front.configureKestrel options
+            Campfire.App.Web.Host.configureKestrel options
             options.Listen(IPAddress.Loopback, 0))
         |> ignore
         builder.Logging.ClearProviders() |> ignore

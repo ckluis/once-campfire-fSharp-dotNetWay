@@ -125,7 +125,7 @@ module Services =
         services.Configure<Microsoft.AspNetCore.Builder.ForwardedHeadersOptions>(fun options ->
             Edge.configureForwardedHeaders edge options)
         |> ignore
-        services.Configure<FormOptions>(Edge.configureForms) |> ignore
+        services.Configure<FormOptions>(Edge.configureForms edge) |> ignore
         // K11: gzip and Brotli at their fastest, what Rails compresses plus Turbo's streams; a body already smaller than
         // `Compression.MinimumLength` is not worth the CPU.
         services.AddResponseCompression(Compression.configure) |> ignore
@@ -193,7 +193,7 @@ module Services =
         if edge.CacheSize > 0L then builder.UseOutputCache() |> ignore
         builder.UseResponseCompression() |> ignore
         builder.Use(Compression.compressEmptyErrors) |> ignore
-        builder.Use(Edge.bodyLimit) |> ignore
+        builder.Use(Edge.bodyLimit edge) |> ignore
         builder.Use(keepRawBody) |> ignore
         Edge.useMethodOverride builder
         builder.UseCookiePolicy() |> ignore

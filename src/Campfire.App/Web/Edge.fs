@@ -38,9 +38,12 @@ type EdgeConfig =
       TrustedProxies: System.Net.IPNetwork[]
       /// `config.assume_ssl`: treat every request as HTTPS (TLS terminates at the proxy).
       AssumeSsl: bool
-      /// `config.force_ssl`: redirect plain HTTP to HTTPS, send HSTS, flag cookies `secure`.
+      /// `config.force_ssl`: send HSTS and flag cookies `secure`. Production pairs it with `assume_ssl`, which makes every request HTTPS, so the redirect `force_ssl` also does
+      /// can never fire: the only HTTP-to-HTTPS redirect an install sends is the HTTP port's with TLS (F6).
       ForceSsl: bool
-      /// The HSTS header value sent with `ForceSsl` (`ssl_options = { hsts: { subdomains: true } }`).
+      /// The HSTS header value sent with `ForceSsl` (`ssl_options = { hsts: { subdomains: true } }`: 730 days, `HstsOptions`' values).
+      /// Written by `onStarting`, not by `UseHsts`: the framework's middleware sets its header before the next one runs, and
+      /// `UseExceptionHandler` clears the headers of a 500 (HS5), where Rails' outermost `ActionDispatch::SSL` still sends it.
       Hsts: string
       /// `action_dispatch.default_headers` (`load_defaults 7.1`).
       DefaultHeaders: (string * string)[]
@@ -50,7 +53,9 @@ type EdgeConfig =
       LogRequests: bool
       /// `CACHE_SIZE` (the output cache's capacity in bytes) and `MAX_CACHE_ITEM_SIZE`; a size of 0 leaves the cache out (the test hosts).
       CacheSize: int64
-      MaxCacheItemSize: int64 }
+      MaxCacheItemSize: int64
+      /// The cap on a request body: 16 MiB (`Edge.MaxRequestBody`), or `MAX_REQUEST_BODY` when that is set lower.
+      MaxRequestBody: int64 }
 
 module EdgeConfig =
     /// `ActionDispatch::RemoteIp::TRUSTED_PROXIES`.
@@ -74,7 +79,8 @@ module EdgeConfig =
           ErrorPages = errorPages
           LogRequests = false
           CacheSize = 0L
-          MaxCacheItemSize = 0L }
+          MaxCacheItemSize = 0L
+          MaxRequestBody = 16L * 1024L * 1024L }
 
 /// What the middleware learned about a request, kept in `HttpContext.Items`.
 [<Sealed>]
@@ -121,8 +127,7 @@ module Edge =
                            if secure then cookie else cookie + "; secure" |]
             headers.SetCookie <- StringValues flagged
 
-    /// Headers that go on every response, as the host starts sending it: `X-Request-Id`, `X-Runtime`,
-    /// HSTS and secure cookies.
+    /// Headers that go on every response, as the host starts sending it: `X-Request-Id`, `X-Runtime`, HSTS and secure cookies.
     let private onStarting (config: EdgeConfig) : Func<obj, Task> =
         Func<obj, Task>(fun o ->
             match o with
@@ -181,25 +186,8 @@ module Edge =
                 if ok then value else null
         | _ -> null
 
-    /// `ActionDispatch::SSL#redirect_to_https`: 301 for GET/HEAD, 308 otherwise.
-    let private redirectToHttps (http: HttpContext) : unit =
-        // `UseForwardedHeaders` has already folded a trusted proxy's `X-Forwarded-Host` into `Host`.
-        let host =
-            match visibleHeader http.Request.Headers "host" with
-            | null -> "localhost"
-            | h -> h.Substring(h.LastIndexOf ',' + 1).Trim()
-        let host =
-            match host.LastIndexOf ':' with
-            | -1 -> host
-            | colon -> if Seq.forall Char.IsAsciiDigit (host.Substring(colon + 1)) then host.Substring(0, colon) else host
-        let target = Respond.rawPath http + http.Request.QueryString.Value
-        http.Response.StatusCode <-
-            if HttpMethods.IsGet http.Request.Method || HttpMethods.IsHead http.Request.Method then 301 else 308
-        http.Response.ContentType <- "text/html"
-        http.Response.Headers.Location <- $"https://{host}{target}"
-
-    /// The request id, `X-Runtime`, HSTS and secure cookies (`onStarting`), and `force_ssl`'s redirect: what
-    /// `ActionDispatch::RequestId`, `Rack::Runtime` and `ActionDispatch::SSL` do before routing. It runs after
+    /// The request id, `X-Runtime`, HSTS and secure cookies (`onStarting`): what `ActionDispatch::RequestId`, `Rack::Runtime` and
+    /// `ActionDispatch::SSL` do before routing (`force_ssl`'s redirect is gone, F7). It runs after
     /// `UseForwardedHeaders` and the `assume_ssl` middleware, so `Request.IsHttps` is settled.
     let defaultHeaders (config: EdgeConfig) : Func<HttpContext, RequestDelegate, Task> =
         let starting = onStarting config
@@ -212,11 +200,7 @@ module Edge =
             | null -> ()
             | feature -> if not feature.IsReadOnly then feature.MaxRequestBodySize <- Nullable()
             http.Response.OnStarting(starting, (state :> obj))
-            if config.ForceSsl && not http.Request.IsHttps then
-                redirectToHttps http
-                Task.CompletedTask
-            else
-                next.Invoke http)
+            next.Invoke http)
 
     /// `ForwardedHeadersOptions` for the trusted proxies (K10): `X-Forwarded-For`, `-Proto` and `-Host`, honoured from
     /// `TRUSTED_PROXIES` ranges only and with no forward limit, which is how `ActionDispatch::RemoteIp` walks the list.
@@ -269,17 +253,18 @@ module Edge =
 
     /// Limits for the framework's form reader, which `_method` goes through: Rack's `params_limit` (4096 pairs) and the
     /// body cap.
-    let configureForms (options: Microsoft.AspNetCore.Http.Features.FormOptions) : unit =
+    let configureForms (config: EdgeConfig) (options: Microsoft.AspNetCore.Http.Features.FormOptions) : unit =
         options.ValueCountLimit <- 4096
         options.KeyLengthLimit <- 65536
-        options.ValueLengthLimit <- int MaxRequestBody
-        options.MultipartBodyLengthLimit <- MaxRequestBody
+        options.ValueLengthLimit <- int config.MaxRequestBody
+        options.MultipartBodyLengthLimit <- config.MaxRequestBody
 
-    /// Caps the body at `MaxRequestBody`; Kestrel answers a longer one with a 413 as it is read, whoever reads it: the form
-    /// the method override parses, `Web.Params`.
-    let bodyLimit: Func<HttpContext, RequestDelegate, Task> =
+    /// Caps the body at the config's `MaxRequestBody`; Kestrel answers a longer one with a 413 as it is read, whoever reads it:
+    /// the form the method override parses, `Web.Params`.
+    let bodyLimit (config: EdgeConfig) : Func<HttpContext, RequestDelegate, Task> =
+        let cap = Nullable config.MaxRequestBody
         Func<HttpContext, RequestDelegate, Task>(fun http next ->
             match http.Features.Get<IHttpMaxRequestBodySizeFeature>() with
             | null -> ()
-            | feature -> if not feature.IsReadOnly then feature.MaxRequestBodySize <- Nullable MaxRequestBody
+            | feature -> if not feature.IsReadOnly then feature.MaxRequestBodySize <- cap
             next.Invoke http)

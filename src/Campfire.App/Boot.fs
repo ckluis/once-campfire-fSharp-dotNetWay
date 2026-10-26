@@ -71,8 +71,7 @@ module Boot =
     /// effects, and builds the HTTP stack.
     /// `bootWith` on a given clock (tests hand in a frozen one instead of setting the process-wide environment variable).
     let bootEdge
-        (logRequests: bool)
-        (outputCache: (int64 * int64) option)
+        (tune: Web.EdgeConfig -> Web.EdgeConfig)
         (clockOverride: SharedClock option)
         (dbOptions: Microsoft.EntityFrameworkCore.DbContextOptionsBuilder<Campfire.Db.Ef.CampfireDb> -> unit)
         (config: AppConfig)
@@ -117,12 +116,7 @@ module Boot =
             | Ok() -> ()
             | Error error -> failwith (DbError.display error)
 
-            let edge =
-                let cacheSize, maxItem = defaultArg outputCache (0L, 0L)
-                { Web.EdgeConfig.production config.DisableSsl (errorPages ()) with
-                    LogRequests = logRequests
-                    CacheSize = cacheSize
-                    MaxCacheItemSize = maxItem }
+            let edge = tune (Web.EdgeConfig.production config.DisableSsl (errorPages ()))
 
             // The fragment cache is built here, before the host, because jobs and broadcasts render outside a request; the host
             // registers this instance as its `HybridCache` (`Web.Services.add`).
@@ -152,7 +146,7 @@ module Boot =
         }
 
     /// `bootEdge` with no request log: the test hosts' (the log is `LOG_REQUESTS`'s, read by `serve`).
-    let bootWithClock clockOverride dbOptions config loggers : Task<Booted> = bootEdge false None clockOverride dbOptions config loggers
+    let bootWithClock clockOverride dbOptions config loggers : Task<Booted> = bootEdge id clockOverride dbOptions config loggers
 
     /// Boots the app on the process clock (`CAMPFIRE_FROZEN_TIME` or the system clock).
     let bootWith dbOptions config loggers : Task<Booted> = bootWithClock None dbOptions config loggers
@@ -160,9 +154,17 @@ module Boot =
     /// `bootWith` with no extra context options (production).
     let boot (config: AppConfig) (loggers: ILoggerFactory) : Task<Booted> = bootWith ignore config loggers
 
-    /// Production's boot: the request log (`UseHttpLogging`, F8 of plans/design-front.md) is on unless `LOG_REQUESTS` says no.
-    let private bootServing (front: FrontConfig) (config: AppConfig) (loggers: ILoggerFactory) : Task<Booted> =
-        bootEdge front.LogRequests (Some(front.CacheSize, front.MaxCacheItemSize)) None ignore config loggers
+    let internal servingEdge (front: Web.FrontSettings) (edge: Web.EdgeConfig) : Web.EdgeConfig =
+        { edge with
+            LogRequests = front.LogRequests
+            CacheSize = front.CacheSize
+            MaxCacheItemSize = front.MaxCacheItemSize
+            MaxRequestBody = if front.MaxRequestBody > 0L then min front.MaxRequestBody edge.MaxRequestBody else edge.MaxRequestBody }
+
+    /// Production's boot: the request log (`UseHttpLogging`, F8 of plans/design-front.md) is on unless `LOG_REQUESTS` says no, the
+    /// output cache has `CACHE_SIZE` (F9), and `MAX_REQUEST_BODY` lowers the body cap below 16 MiB (F12).
+    let private bootServing (front: Web.FrontSettings) (config: AppConfig) (loggers: ILoggerFactory) : Task<Booted> =
+        bootEdge (servingEdge front) None ignore config loggers
 
     // --- Commands ----------------------------------------------------------------------------------------
 
@@ -180,17 +182,55 @@ module Boot =
     let Usage = "usage: campfire [server|backup]"
 
     /// How long in-flight requests and queued jobs get after SIGTERM/SIGINT.
-    let ShutdownGrace = TimeSpan.FromSeconds 10.0
+    let ShutdownGrace = Web.Host.ShutdownGrace
 
-    /// `bin/boot`'s `thrust bin/start-app`: the front server (kit's Thruster) on HTTP_PORT and, with
-    /// TLS_DOMAIN, HTTPS_PORT, and the app itself on TARGET_PORT.
-    let serve (config: AppConfig) (loggers: ILoggerFactory) : Task =
+    /// What follows the server's stop: jobs first (pushing a message queues its notifications on the Web Push pool), then the pool,
+    /// and the database last (fold the WAL into the file and close every pooled connection; Rust drops its writer with the app).
+    let private drain (booted: Booted) : Task =
+        task {
+            do! booted.Jobs.Shutdown ShutdownGrace
+            match booted.App.WebPush with
+            | Some pool -> do! pool.Shutdown()
+            | None -> ()
+            closeDatabase booted.App
+        }
+
+    /// `bin/boot` with no TLS (F1, F13): the app's own host (`Web.Host`) on `HTTP_PORT` and `TARGET_PORT`, run under ConsoleLifetime
+    /// (SIGTERM, SIGINT) with a 10 s stop.
+    let private serveHosted (settings: Web.FrontSettings) (config: AppConfig) (loggers: ILoggerFactory) : Task =
+        task {
+            let logger = loggers.CreateLogger "campfire"
+            let! booted = bootServing settings config loggers
+            let host = Web.Host.build settings loggers booted.ConfigureServices booted.Pipeline
+            // The cable server closes every WebSocket (`server_restart`) on `ApplicationStopping` (test P12 stops the app's own host).
+            host.Lifetime.ApplicationStarted.Register(fun () -> logger.LogInformation("Server started http=:{Http}", settings.HttpPort)) |> ignore
+            host.Lifetime.ApplicationStopping.Register(fun () -> logger.LogInformation "shutting down") |> ignore
+            // A failed start (a port in use) still drains what booted, then fails the command.
+            let! failure =
+                task {
+                    try
+                        do! host.RunAsync()
+                        return None
+                    with
+                    | :? OperationCanceledException ->
+                        logger.LogWarning "requests still running at shutdown were abandoned"
+                        return None
+                    | e -> return Some e
+                }
+            do! drain booted
+            match failure with
+            | Some e -> System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(e).Throw()
+            | None -> ()
+            logger.LogInformation "Server stopped"
+        }
+
+    /// `bin/boot`'s `thrust bin/start-app` with TLS_DOMAIN set: still the old front server (kit's Thruster) on HTTP_PORT and HTTPS_PORT,
+    /// and the app itself on TARGET_PORT, until unit 7.4b gives `Web.Host` the TLS listener.
+    let private serveBehindOldFront (settings: Web.FrontSettings) (config: AppConfig) (loggers: ILoggerFactory) : Task =
         task {
             let logger = loggers.CreateLogger "campfire"
             let front = FrontConfig.fromEnv ()
-            let! booted = bootServing front config loggers
-            let app = booted.App
-
+            let! booted = bootServing settings config loggers
             let stopping = TaskCompletionSource()
             let signal =
                 task {
@@ -214,14 +254,13 @@ module Boot =
                 do! server
             else
                 logger.LogWarning "requests still running at shutdown were abandoned"
-            // Jobs first: pushing a message queues its notifications on the Web Push pool.
-            do! booted.Jobs.Shutdown ShutdownGrace
-            match app.WebPush with
-            | Some pool -> do! pool.Shutdown()
-            | None -> ()
-            // The database goes last: fold the WAL into the file and close every pooled connection (Rust drops its writer with the app).
-            closeDatabase app
+            do! drain booted
         }
+
+    /// `bin/boot`: the app's own host, or with `TLS_DOMAIN` the old front until 7.4b.
+    let serve (config: AppConfig) (loggers: ILoggerFactory) : Task =
+        let settings = Web.FrontSettings.fromEnv ()
+        if settings.HasTls then serveBehindOldFront settings config loggers else serveHosted settings config loggers
 
     /// SQLite's online backup of the live database at `source` into a new file at `target`: `sqlite3_backup_step(-1)`
     /// (every page in one step), retried `attempts` times, `delay` apart, while the source is busy or locked
@@ -324,7 +363,7 @@ module Boot =
             match command with
             | None
             | Some "server" ->
-                match Server.raiseOpenFileLimit () with
+                match OpenFiles.raiseOpenFileLimit () with
                 | ValueSome limit -> (loggers.CreateLogger "campfire").LogInformation("open files limit={Limit}", limit)
                 | ValueNone -> ()
                 (serve config loggers).GetAwaiter().GetResult()
