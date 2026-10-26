@@ -27,6 +27,6 @@ module QrCode =
                     | None -> Result.Error(Status 422)
 
                 // `expires_in 1.year, public: true`
-                Respond.expiresIn http 31_556_952UL { ExpiresIn.Default with Public = true }
+                Respond.expiresIn http OutputCaching.QrCodeMaxAge { ExpiresIn.Default with Public = true }
                 return Pages.renderText http 200 "image/svg+xml; charset=utf-8" qrCode
             }

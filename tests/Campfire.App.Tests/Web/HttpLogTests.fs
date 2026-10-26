@@ -109,7 +109,7 @@ let ``LG4 the pipeline logs only with LogRequests (LOG_REQUESTS=false leaves the
             let lines (logRequests: bool) =
                 task {
                     let logs = new CapturingLoggers()
-                    let! booted = Boot.bootEdge logRequests None ignore (configFor dir []) logs
+                    let! booted = Boot.bootEdge logRequests None None ignore (configFor dir []) logs
                     let! host =
                         startPipelineWith (fun services -> booted.ConfigureServices services; services.AddSingleton<ILoggerFactory>(logs) |> ignore) booted.Pipeline
                     try

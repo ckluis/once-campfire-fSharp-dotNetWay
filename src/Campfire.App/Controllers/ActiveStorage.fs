@@ -30,7 +30,7 @@ module ActiveStorageControllers =
 
     /// `http_cache_forever`: `expires_in 100.years`.
     [<Literal>]
-    let private HundredYears = 3_155_695_200UL
+    let private HundredYears = OutputCaching.HundredYears
 
     let private storageToError (error: StorageError) : Web.Error = Internal(Exception(StorageError.message error))
 
@@ -253,7 +253,7 @@ module ActiveStorageControllers =
                 diskServe http
                 |> Result.map (fun handler ->
                     fun (http: HttpContext) ->
-                        http.Response.Headers.CacheControl <- "max-age=3600, public"
+                        http.Response.Headers.CacheControl <- $"max-age={OutputCaching.DiskMaxAge}, public"
                         handler http)
             )
 

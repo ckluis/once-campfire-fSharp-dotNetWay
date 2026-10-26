@@ -27,7 +27,7 @@ module Avatars =
 
     /// `expires_in 30.minutes, public: true, stale_while_revalidate: 1.week`
     [<Literal>]
-    let private MaxAge = 1800UL
+    let private MaxAge = OutputCaching.AvatarMaxAge
 
     [<Literal>]
     let private StaleWhileRevalidate = 604_800UL

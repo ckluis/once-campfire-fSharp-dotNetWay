@@ -19,7 +19,7 @@ open Campfire.App.Web
 module Logos =
     /// `expires_in 5.minutes, public: true, stale_while_revalidate: 1.week`
     [<Literal>]
-    let private MaxAge = 300UL
+    let private MaxAge = OutputCaching.LogoMaxAge
 
     [<Literal>]
     let private StaleWhileRevalidate = 604_800UL

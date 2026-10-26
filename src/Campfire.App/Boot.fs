@@ -72,6 +72,7 @@ module Boot =
     /// `bootWith` on a given clock (tests hand in a frozen one instead of setting the process-wide environment variable).
     let bootEdge
         (logRequests: bool)
+        (outputCache: (int64 * int64) option)
         (clockOverride: SharedClock option)
         (dbOptions: Microsoft.EntityFrameworkCore.DbContextOptionsBuilder<Campfire.Db.Ef.CampfireDb> -> unit)
         (config: AppConfig)
@@ -116,7 +117,12 @@ module Boot =
             | Ok() -> ()
             | Error error -> failwith (DbError.display error)
 
-            let edge = { Web.EdgeConfig.production config.DisableSsl (errorPages ()) with LogRequests = logRequests }
+            let edge =
+                let cacheSize, maxItem = defaultArg outputCache (0L, 0L)
+                { Web.EdgeConfig.production config.DisableSsl (errorPages ()) with
+                    LogRequests = logRequests
+                    CacheSize = cacheSize
+                    MaxCacheItemSize = maxItem }
 
             // The fragment cache is built here, before the host, because jobs and broadcasts render outside a request; the host
             // registers this instance as its `HybridCache` (`Web.Services.add`).
@@ -146,7 +152,7 @@ module Boot =
         }
 
     /// `bootEdge` with no request log: the test hosts' (the log is `LOG_REQUESTS`'s, read by `serve`).
-    let bootWithClock clockOverride dbOptions config loggers : Task<Booted> = bootEdge false clockOverride dbOptions config loggers
+    let bootWithClock clockOverride dbOptions config loggers : Task<Booted> = bootEdge false None clockOverride dbOptions config loggers
 
     /// Boots the app on the process clock (`CAMPFIRE_FROZEN_TIME` or the system clock).
     let bootWith dbOptions config loggers : Task<Booted> = bootWithClock None dbOptions config loggers
@@ -155,8 +161,8 @@ module Boot =
     let boot (config: AppConfig) (loggers: ILoggerFactory) : Task<Booted> = bootWith ignore config loggers
 
     /// Production's boot: the request log (`UseHttpLogging`, F8 of plans/design-front.md) is on unless `LOG_REQUESTS` says no.
-    let private bootServing (logRequests: bool) (config: AppConfig) (loggers: ILoggerFactory) : Task<Booted> =
-        bootEdge logRequests None ignore config loggers
+    let private bootServing (front: FrontConfig) (config: AppConfig) (loggers: ILoggerFactory) : Task<Booted> =
+        bootEdge front.LogRequests (Some(front.CacheSize, front.MaxCacheItemSize)) None ignore config loggers
 
     // --- Commands ----------------------------------------------------------------------------------------
 
@@ -182,7 +188,7 @@ module Boot =
         task {
             let logger = loggers.CreateLogger "campfire"
             let front = FrontConfig.fromEnv ()
-            let! booted = bootServing front.LogRequests config loggers
+            let! booted = bootServing front config loggers
             let app = booted.App
 
             let stopping = TaskCompletionSource()
@@ -196,7 +202,7 @@ module Boot =
                 }
             // The app's pipeline logs requests (`UseHttpLogging`) and compresses (`UseResponseCompression`), so the old front does neither
             // until the host swap (unit 7.4) removes it.
-            let front = { front with LogRequests = false; GzipCompressionEnabled = false }
+            let front = { front with LogRequests = false; GzipCompressionEnabled = false; CacheSize = 0L }
             let server = Front.serveHosted front booted.Pipeline ValueNone loggers booted.ConfigureServices (Web.StaticAssets.hostOptions Front.hostArgs) Web.StaticAssets.configureHost signal
             let deadline =
                 task {

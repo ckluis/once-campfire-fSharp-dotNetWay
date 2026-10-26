@@ -262,6 +262,18 @@ specific to this port are listed below, each citing the reference file it depart
       keeps `br`, a client that takes only zstd gets zstd (`HttpLogTests` CZ1-CZ3). `GZIP_COMPRESSION_ENABLED`,
       `GZIP_COMPRESSION_DISABLE_ON_AUTH` and `GZIP_COMPRESSION_JITTER` are not read and there is no BREACH jitter padding (Rails'
       `Rack::Deflater` has none either); `Vary: Accept-Encoding` is on compressed responses only, and an image is not compressed.
+  - Class B (Phase 7, unit 7.2; `plans/design-front.md` F9), the response cache, each with the test that pins it
+    (`OutputCachingTests` OC1-OC9):
+    - It is ASP.NET Core's OutputCache (`Web/OutputCaching.fs`), one base policy per route family that Rails marks `public`, matched
+      by the route's exact path shape: `/users/:id/avatar` 30 minutes, `/account/logo` 5 minutes, `/qr_code/:id` 1 year, the Active
+      Storage proxy routes 100 years, the disk service's `show` 1 hour (the controllers' own constants). Thruster cached any
+      response that said `public` with a positive max-age; nothing else is cached here, so a page is never looked up, stored or
+      locked. `CACHE_SIZE` is the cache's capacity and `MAX_CACHE_ITEM_SIZE` the largest body it stores; keys are case-sensitive and
+      include the query and the request's `Accept-Encoding` (the entry is the encoded response).
+    - A cache hit carries `Age` (seconds in the cache); there is no `X-Cache: hit/miss/bypass` header, which Thruster added to every
+      response.
+    - A response that sets a cookie is never stored (the hourly session resume on an avatar), and a request with an `Authorization`
+      header or a `Range` header bypasses the cache.
   - `HTTP_IDLE_TIMEOUT`, `HTTP_READ_TIMEOUT` and `HTTP_WRITE_TIMEOUT` above 49 days are clamped to 49 days,
     the longest .NET's timers can wait. Thruster and the Rust port accept any number of seconds; a value
     that large means "never" in all three. Tested by `FrontConfigTests`.

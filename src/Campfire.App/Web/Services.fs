@@ -130,6 +130,8 @@ module Services =
         // `Compression.MinimumLength` is not worth the CPU.
         services.AddResponseCompression(Compression.configure) |> ignore
         if edge.LogRequests then HttpLog.add services
+        if edge.CacheSize > 0L then
+            services.AddOutputCache(OutputCaching.configure edge.CacheSize edge.MaxCacheItemSize) |> ignore
         services.AddSingleton<IResponseCompressionProvider>(fun sp ->
             Compression.SkipSmall(ResponseCompressionProvider(sp, sp.GetRequiredService<IOptions<ResponseCompressionOptions>>()))
             :> IResponseCompressionProvider)
@@ -187,6 +189,8 @@ module Services =
                       use buffer = new System.IO.MemoryStream()
                       stream.CopyTo buffer
                       status, ReadOnlyMemory<byte>(buffer.ToArray()) ]
+        // F9: outside compression, so an entry is the encoded response for one `Accept-Encoding`.
+        if edge.CacheSize > 0L then builder.UseOutputCache() |> ignore
         builder.UseResponseCompression() |> ignore
         builder.Use(Compression.compressEmptyErrors) |> ignore
         builder.Use(Edge.bodyLimit) |> ignore
