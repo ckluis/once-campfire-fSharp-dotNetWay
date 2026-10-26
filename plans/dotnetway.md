@@ -3235,3 +3235,41 @@ Sonnet builder, commit `f050455` (code, tests, README); plus this entry.
   bypass); class A: none new.
 - **Open for 7.3:** `Boot.serve` still starts the old front (its cache off); the avatar hit cost is 7.4's to remove; recheck avatar and the c=1 cells against `p6ctl` after the host swap.
   Evidence: `bench/results/dotnetway-7-2/`.
+
+### Phase 7, unit 7.3: ACME on Certes (2026-10-26)
+
+Sonnet builder, commits `c19d90b` (code, tests, fixtures) and `2936a0c` (AGENTS.md recipe, `bin/linux-tests`); plus this entry.
+- **Built:** `Certes` 4.1.0 (`Directory.Packages.props`, the App; its one dependency is `BouncyCastle.Cryptography` 2.7.0). `Web/FrontSettings.fs` is the record only (F14; 7.4 adds
+  `fromLookup`/`fromEnv`). `Web/Acme.fs` (385 lines with comments): `DirCache` (`read` = `X509Certificate2.CreateFromPem` + `MatchesHostname(domain, true, false)` + the
+  currency check; `write` = SEC1 key then the chain's certificates in order, directory 0700, file 0600, temp file then rename; `accountKeyPem`), `Renewal.due`/`retryAfterFailure`,
+  `ServerNames.normalize`, `CertificateStore` (per-domain `SslServerAuthenticationOptions` with the chain context, a first-certificate `TaskCompletionSource` per `TLS_DOMAIN` name,
+  challenge tokens, `HandshakeOptions`), `AcmeService` (`LoadCached`, `RenewDueAsync(now, ct)` one pass, `ExecuteAsync`: load, wait for `ApplicationStarted`, loop in at most 7-day
+  steps; the account is registered lazily once, EAB when both variables are set, the HTTP client is the factory's `"acme"`), `AcmeEndpoints.challenge`. Not wired into `Boot.serve`.
+- **Found and fixed in AC11:** the issued file was first read back with the pass's start time; Pebble does not back-date `NotBefore`, so 2 of 6 Mac runs failed with "certificate is
+  not yet valid". The service now reads at issue time (`time.GetUtcNow()`), 8/8 Mac runs and 3/3 Linux runs after. Let's Encrypt back-dates by an hour, so production would not
+  have seen it.
+- **Tests** (`AcmeTests.fs`, 11; fixture `testdata/acme/`: a cache file written the way the deleted port wrote it, a 100-year certificate for `chat.example.com` over the SEC1 key
+  of the old `FrontAcmeTests` fixture): AC1-AC10 as the design, over a fixed clock value, with no timer, no wall-clock bound and no counter another thread changes (the only flags are
+  read after the awaited call returns). AC11 (Pebble) is skipped without `PEBBLE_DIRECTORY`/`PEBBLE_ROOT`. All green.
+- **Planted failure:** `Renewal.due` back to a fixed 30 days: **AC4 and AC9 fail** (the 6-day certificate is due before it existed); reverted.
+- **AC11, Pebble `ghcr.io/letsencrypt/pebble@sha256:ddf230642b1a584f519f32e347de1b05a6e4c1f6c35c1863b33effeab5f78199` in colima, host network, three runs in a row
+  (`bin/linux-tests App --filter-method "*AC11*"`, Linux, HTTP-01 on 5002):** order time (from `StartAsync` to the certificate in the store) **449 ms, 437 ms, 432 ms**. Each run: the
+  certificate issued and cached (`campfire.test`, 0600) with `acme_account+key`; an `SslStream` client with `CustomRootTrust` on the issuing root fetched from Pebble's management
+  API, `DisableCertificateDownloads`, no revocation check, got `SslPolicyErrors.None` with a 3-element chain (leaf, Pebble's intermediate sent by the server, root); a second
+  host on the same storage loaded the file at start, `RenewDueAsync` made no request (its CA client would have failed the test), and the handshake served the same thumbprint.
+  Mac, Pebble with `--add-host campfire.test:192.168.5.2`: 8 of 8 after the fix (about 720 ms for the first order).
+- **Toolchain fix:** `bin/linux-tests` hung after the tests finished (the test run completed, but `dotnet test` that builds under the container's PID 1 never returned; idle MSBuild
+  nodes outlive it). It now runs `dotnet build ... --disable-build-servers` then `dotnet test --no-build`, passes `LINUX_TESTS_DOCKER_ARGS` and `PEBBLE_*`. Cost me about 25 minutes
+  of 20-minute timeouts before I read the process table; the AGENTS.md recipe carries the working command.
+- **Gates:** `CAMPFIRE_REQUIRE_SEED=1 bin/verify`: **1,035 total, 1,028 passed, 0 failed, 7 skipped** (the environmental six plus AC11) on the second run. The first run had **1 failure,
+  `Campfire.Kit.Tests.FrontAcmeTests."cached certificates load and are forgotten by obtaining"`** (`ObtainingCount` expected 0, was 1: the flake this phase deletes in 7.6; it did not repeat). That
+  is the 7.2 entry's unidentified Kit flake, now named. `dotnet list package --vulnerable --include-transitive` on the App: **no vulnerable packages**. `bin/kloc`: **29,817
+  corrected (29.8 KLOC)**, 29,645 by upstream's rules (the App 12,409 corrected; 29,759 after 7.2). No pixel run (no response changes), no bench (nothing wired), no image rebuilt, so no
+  `bin/clean-docker`; 26 GB free after.
+- **Differences recorded:** none (nothing is wired). 7.4 records F5's dropped behaviour (cached names that left `TLS_DOMAIN` are no longer served).
+- **For the checkpoint:** AC1-AC10 contain no timers or shared counters (`Status.Asked` is a plain flag read after `await`, the clock is the `now` constant); the account on an existing
+  `acme_account+key` is AC7 (Certes `KeyFactory.FromPem` reads the SEC1 text) and the second host of AC11 (the same `DirCache` file, no new order). Pebble's default profile issued a
+  90-day leaf this run (7,776,000 s), not S2's six days; `lifetime / 3` is covered by AC4 and AC9 alone, not by Pebble. `SslStreamCertificateContext.Create(..., offline: false)` is
+  used as the old port did (online OCSP staple fetch on Linux); Pebble has no responder and nothing slowed. 7.4 needs: `FrontSettings.fromLookup`, the listener's
+  `TlsHandshakeCallbackOptions(store.HandshakeOptions)`, `MapWhen` for `AcmeEndpoints.challenge`, `AddHttpClient "acme"`; `Acme.fs`'s `LoadedCertificate` shares a name with
+  `Campfire.Kit.LoadedCertificate` until 7.6 (qualify if both namespaces are opened).
