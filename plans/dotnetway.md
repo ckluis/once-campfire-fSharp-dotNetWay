@@ -266,7 +266,11 @@ The kit stops existing as a project. Controllers become Falco `HttpHandler`s ove
   HTML, JSON and Turbo streams; static assets are precompressed at build time by `MapStaticAssets`. The hand-written gzip
   framing, CRC-32 and zstd (`ZstdSharp.Port`) go (class A/B: Thruster also offers zstd; clients that accept zstd also accept
   gzip).
-- **The front server (Thruster's job).** Kestrel only:
+- **The front server (Thruster's job).** **Phase 7's design note, `plans/design-front.md` (2026-10-26), wins where it and this
+  bullet or the "Response caching and compression" bullet disagree** (TLS through Kestrel's handshake callback, not
+  `ServerCertificateSelector`, which sends the leaf without its intermediate; OutputCache as one policy per Rails `public` route family,
+  outside compression, varying by `Accept-Encoding`, no tag eviction; certificates ordered at boot by the background service; the
+  HTTP logging line with `remote_addr` and `user_agent`; zstd through .NET 11's provider; units 7.1-7.6; about -2.35 KLOC). Kestrel only:
   - listeners from `HTTP_PORT`/`HTTPS_PORT`/`TARGET_PORT` with `HttpProtocols.Http1AndHttp2` (HTTP/3 off); TLS through
     `ServerCertificateSelector`; HTTP to HTTPS redirect with `UseHttpsRedirection` when `TLS_DOMAIN` is set (Thruster's behaviour);
   - `X-Sendfile`-like serving is `Results.File(path, contentType, enableRangeProcessing = true)` (Kestrel uses sendfile where
@@ -3136,3 +3140,22 @@ the evidence are the commit after it).
   keep the staging target's dotfile and link filters; an OutputCache or front-cache policy for `/assets` must keep `max-age=31536000, immutable` only on
   fingerprinted routes and must not cache plain `/assets/` or error-page responses as immutable (`bin/asset-check` N1/N3 after any change); keep H1, the markup lint
   and the Dapper guard green; refresh the bench's expected byte sizes when Phase 7 re-baselines.
+
+### Phase 7: design (2026-10-26)
+
+Opus designer. `plans/design-front.md` written (decisions F1-F16, spikes S1-S7, units 7.1-7.6 with the checkpoint after 7.3). No code change; `bin/kloc`
+29,802 / **29,974 corrected (30.0)** at `8df0b2b`, `Campfire.Kit` 2,842. Spikes in a scratch project under the session scratchpad and the toolchain image in
+colima, all removed after (the scratch project, its containers and the Pebble image); a stray `bench/front/fsharp/obj` from a build check was removed.
+- **Packages:** Certes 4.1.0 (2026-09-27, MIT, active) with BouncyCastle.Cryptography 2.7.0, no advisory or deprecation on NuGet; .NET 11 RC2 ships
+  `ZstandardCompressionProvider`. `bench/front/fsharp` does not build today (it calls the kit `Ctx`/`act` API deleted in 2.13): 7.6 rewrites it.
+- **Certes against Pebble** (HTTP-01, Pebble `sha256:ddf23064...`): account 115 ms, order ready after 2 polls, issued and cached in 383 ms; a second run reused
+  the account and read the SEC1 key autocert writes; Pebble's leaves now live 6 days (hence renewal at `min(30 days, lifetime / 3)`).
+- **TLS on Linux:** `ServerCertificateSelector` sends the leaf alone (with or without `ServerCertificateChain`): `openssl` verify 20, `curl` 60; the TLS handshake
+  callback with an `SslStreamCertificateContext` sends the chain (verify 0, HTTP/2 ok). So F3 uses the callback.
+- **OutputCache:** a response-driven policy cannot honour `max-age` (expiry and buffering are fixed at the first body write, before `ServeResponseAsync`; a 1 s
+  entry lived past 4 s) and default locking doubled the latency of 16 concurrent GETs of one private URL (413 against 207 ms); path-scoped builder policies with
+  `Expire`, outside compression with `SetVaryByHeader("Accept-Encoding")`, reproduce Thruster's cache (encodings per client correct, hits uncompressed).
+- **Cost on Linux** (15 us endpoint, CPU per request): HTTP logging to the console logger +3.5..+5.9 us at c=16 and +14..+38 us at c=1; path-scoped OutputCache
+  on other paths +0.1..+0.8 us. Projected on Phase 6's thinnest cells: post c=16 about 6.0x, post c=1 6.5-6.6x, sidebar c=1 8.0-8.4x; nothing near 5x.
+- **Operator step recorded** (design section 8): Let's Encrypt staging once on a real domain, then delete `storage/thruster/` before production.
+- **Questions for Chris:** none. Projection: 30.0 -> about 27.6 KLOC.
