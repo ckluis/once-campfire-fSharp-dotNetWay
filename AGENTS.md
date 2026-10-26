@@ -184,12 +184,34 @@ Project references follow the crate graph. Don't add an edge Rust doesn't have.
     and a branch in `Cases/`, and keep `required` in `DifferentialTests.fs` listing every kind. `Support/Facts.fs` and `Support/GoldenB.fs` read
     the Rails goldens; `ParityATests`, `MessagesViewsTests`, `RoomsViewsTests` and the others compare templates with them.
 - `Campfire.Kit`'s front server tests (`FrontTests`, `FrontAcmeIntegrationTests`) open real sockets on loopback and take
-  about 20 seconds; ACME is tested against a stub CA in the tests, and against a real Pebble CA when `PEBBLE_MINICA`
-  names its `pebble.minica.pem` (the recipe is at the top of `FrontAcmeIntegrationTests.fs`; in colima, give Pebble
-  `--add-host campfire.test:192.168.5.2`, the VM's name for the Mac, and `docker cp` the root into `target/`).
+  about 20 seconds; they go with `Campfire.Kit` in Phase 7 unit 7.6 (the old front's ACME is tested there against a stub CA, and against
+  Pebble when `PEBBLE_MINICA` names its root).
   `bench/front/run` measures the front server against Rust's; run it after changing `Front/` or `Web/Pages.fs`.
   The TLS session-resumption test needs Linux (Kestrel issues no session tickets through macOS's TLS stack, so it skips
   there) and `openssl`; `bin/linux-tests Kit` runs `Campfire.Kit.Tests` in `Dockerfile.toolchain` inside colima.
+- ACME on Certes (`Web/Acme.fs`, plans/design-front.md F4, Phase 7 unit 7.3): `tests/Campfire.App.Tests/Web/AcmeTests.fs` AC1-AC10 need no CA
+  and no timers (the clock is a value each call is given). **AC11 runs against Pebble** and is skipped unless `PEBBLE_DIRECTORY` and
+  `PEBBLE_ROOT` (a copy of Pebble's `pebble.minica.pem`) are set. It uses HTTP-01 on port 5002 (Pebble's `httpPort`; `PEBBLE_HTTP_PORT`
+  changes it), orders for `campfire.test`, and reads Pebble's issuing root from its management API (`PEBBLE_MANAGEMENT`, default
+  `https://localhost:15000`). `PEBBLE_TIMES` names a file the order time is appended to. On Linux in colima (the gate; Pebble and the test
+  share the VM's network and clock):
+
+  ```
+  colima ssh -- bash -c 'mkdir -p /var/tmp/pebble && docker rm -f pebble; \
+    docker run -d --name pebble --network host --add-host campfire.test:127.0.0.1 \
+      -e PEBBLE_VA_NOSLEEP=1 -e PEBBLE_WFE_NONCEREJECT=0 ghcr.io/letsencrypt/pebble:latest && \
+    docker cp pebble:/test/certs/pebble.minica.pem /var/tmp/pebble/pebble.minica.pem'
+  colima ssh -- bash -c 'cd <repo> && LINUX_TESTS_DOCKER_ARGS="--network host --volume /var/tmp/pebble:/pebble" \
+    PEBBLE_DIRECTORY=https://localhost:14000/dir PEBBLE_ROOT=/pebble/pebble.minica.pem PEBBLE_TIMES=/pebble/times \
+    bin/linux-tests App --filter-method "*AC11*"'
+  docker rm -f pebble   # after
+  ```
+
+  On the Mac instead (faster to debug): start Pebble with `--add-host campfire.test:192.168.5.2` (the VM's name for the Mac; the test's HTTP
+  listener binds every address), `docker cp pebble:/test/certs/pebble.minica.pem /tmp/`, then
+  `PEBBLE_DIRECTORY=https://localhost:14000/dir PEBBLE_ROOT=/tmp/pebble.minica.pem dotnet test --project tests/Campfire.App.Tests -c Release --filter-method "*AC11*"`.
+  Pebble's leaf is not back-dated (NotBefore is the issue second), which is why the service reads the issued file at issue time, not at the
+  pass's start. Pebble's root changes every start; do not cache it.
 - Phase 7 measuring (all inside colima, `SERVER_CPUS=0-3 LOADGEN_CPUS=4-7`): `bench/quick` is the before/after runner, **F# only by default**
   (`--remeasure-rust` adds Rust, for the re-baseline that closes a phase; otherwise `bench/quick compare DIR` prints F# against the stored Rust
   medians of `bench/results/phase7-start/`, "vs stored Rust baseline"): the five workloads at c=1 and c=16, 3 reps, `bench/run`'s validity checks and report, plus CPU per
