@@ -1,0 +1,5 @@
+sent 20000 requests (+1 answered readiness probe), logged 20001 lines
+2026-10-26T12:51:04.451827Z warn: Microsoft.AspNetCore.DataProtection.Repositories.EphemeralXmlRepository[50] Using an in-memory repository. Keys will not be persisted to storage.
+2026-10-26T12:51:04.452099Z warn: Microsoft.AspNetCore.DataProtection.KeyManagement.XmlKeyManager[59] Neither user profile nor HKLM registry available. Using an ephemeral key repository. Protected data will be unavailable when application exits.
+2026-10-26T12:51:04.457210Z warn: Microsoft.AspNetCore.DataProtection.KeyManagement.XmlKeyManager[35] No XML encryptor configured. Key {0b9d9119-2437-4288-96e1-0c8a3f8ce1b5} may be persisted to storage in unencrypted form.
+OK

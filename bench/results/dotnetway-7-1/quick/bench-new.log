@@ -1,0 +1,409 @@
+date: 2026-10-26T08:52:58-04:00
+host: 6.8.0-117-generic, , 8 threads, 5GB
+server cpus: 0-3 (nproc 4); loadgen cpus: 4-7; network: host
+env: WEB_CONCURRENCY=3 JOB_CONCURRENCY=3 RAILS_MAX_THREADS=5 
+rust extra env: 
+fsharp extra env: 
+dotnetway extra env: 
+user agent: (none)
+dotnetway image: campfire-dotnetway:app sha256:4db5e6b024eea89633f94e4be89e70dd4514ed4edd9f98668d55b5f20e0ff80b 2026-10-26T08:50:04.96688854-04:00 built from commit: eba17a2b7e17379934dfeb82f01ccbcc8d8cfed2
+repo HEAD: eba17a2 (dirty: 0 files under src/ and rust/)
+work dir (seed copies): /var/tmp/campfire-bench-work (ext4)
+loadgen: /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/target/rust/aarch64-unknown-linux-gnu/release/loadgen (2026-10-13 18:47:07), built with rust:1.98.1-trixie
+schedule: apps dotnetway, reps 3; suites: http; http secs 8, concs 1 16, routes room_show messages_page sidebar search post_message (in parts, --part 1/2 is one slice of them), warm-up 30s at each route and concentration, idle 5s
+log retention: 2 x 10m (json-file)
+[08:52:59] load before run: 0.36 0.53 0.43 (waited 0s)
+[08:53:01] host probe before run: {"spin_ms": 60.09, "spin_ms_max_cpu": 62.64, "cpus": "0-3,4-7", "baseline_ms": 55.57, "ratio": 1.081} (waited 0s)
+[08:53:01] dotnetway rep 1: starting (load: 0.36 0.53 0.43)
+[08:53:07] dotnetway rep 1: cold start 546ms, idle 70MB (anon 44MB)
+[08:53:48] dotnetway rep 1: room_show c=1 2263.0 rps p50 0.42 p99 0.626 {'200': 18104} err 0 cpu 554.5 us/req; warm-up 30.0 s settled tail 2253.0 host 1.078
+[08:54:29] dotnetway rep 1: room_show c=16 7295.2 rps p50 1.656 p99 6.647 {'200': 58372} err 0 cpu 452.1 us/req; warm-up 30.0 s settled tail 7240.1 host 1.046
+[08:55:09] dotnetway rep 1: messages_page c=1 2101.8 rps p50 0.445 p99 0.784 {'200': 16815} err 0 cpu 586.1 us/req; warm-up 30.0 s settled tail 2116.3 host 1.077
+[08:55:50] dotnetway rep 1: messages_page c=16 7165.6 rps p50 1.714 p99 7.107 {'200': 57356} err 0 cpu 467.1 us/req; warm-up 30.0 s settled tail 7131.9 host 1.07
+[08:56:31] dotnetway rep 1: sidebar c=1 2170.1 rps p50 0.431 p99 0.665 {'200': 17361} err 0 cpu 571.2 us/req; warm-up 30.0 s settled tail 2183.9 host 1.062
+[08:57:12] dotnetway rep 1: sidebar c=16 7380.9 rps p50 1.641 p99 7.059 {'200': 59057} err 0 cpu 449.1 us/req; warm-up 30.0 s settled tail 7355.6 host 1.067
+[08:57:15] dotnetway rep 1: done -> bench/results/dotnetway-7-1/quick/new/dotnetway-1.json
+theDotNetWay in bench/results/dotnetway-7-1/quick/new against the stored medians of bench/results/phase7-final (Rails, Rust and the F# port, 3 reps each, one session)
+
+| Workload | c | theDotNetWay req/s | F# port stored | vs port | Rust stored | **theDotNetWay / Rust (vs stored Rust baseline)** | Rails stored | **theDotNetWay / Rails** | CPU us/req | port | Rust stored |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| room page | 16 | 7,295 | 40,422 | 0.180x | 28,623 | **0.255x** | 239 | **30.486x** | 452.1 | 93.6 | 122.4 |
+| room page | 1 | 2,263 | 7,617 | 0.297x | 6,481 | **0.349x** | 107 | **21.130x** | 554.5 | 208.7 | 142.1 |
+| messages page | 16 | 7,166 | 37,836 | 0.189x | 30,063 | **0.238x** | 381 | **18.827x** | 467.1 | 102.2 | 114.2 |
+| messages page | 1 | 2,102 | 8,312 | 0.253x | 6,822 | **0.308x** | 218 | **9.646x** | 586.1 | 199.3 | 139.2 |
+| sidebar | 16 | 7,381 | 37,555 | 0.197x | 28,238 | **0.261x** | 599 | **12.330x** | 449.1 | 101.8 | 123.2 |
+| sidebar | 1 | 2,170 | 8,000 | 0.271x | 6,196 | **0.350x** | 287 | **7.572x** | 571.2 | 181.0 | 149.0 |
+
+Checks:
+  responses: every one 2xx with 0 connection errors in 6 runs
+  FAIL decoded bytes room_show: 377518 vs expected 376570
+  FAIL decoded bytes messages_page: 346364 vs expected 345884
+  FAIL decoded bytes sidebar: 30144 vs expected 29710
+time="2026-10-26T08:57:15-04:00" level=fatal msg="exit status 1"
+date: 2026-10-26T08:52:58-04:00
+host: 6.8.0-117-generic, , 8 threads, 5GB
+server cpus: 0-3 (nproc 4); loadgen cpus: 4-7; network: host
+env: WEB_CONCURRENCY=3 JOB_CONCURRENCY=3 RAILS_MAX_THREADS=5 
+rust extra env: 
+fsharp extra env: 
+dotnetway extra env: 
+user agent: (none)
+dotnetway image: campfire-dotnetway:app sha256:4db5e6b024eea89633f94e4be89e70dd4514ed4edd9f98668d55b5f20e0ff80b 2026-10-26T08:50:04.96688854-04:00 built from commit: eba17a2b7e17379934dfeb82f01ccbcc8d8cfed2
+repo HEAD: eba17a2 (dirty: 0 files under src/ and rust/)
+work dir (seed copies): /var/tmp/campfire-bench-work (ext4)
+loadgen: /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/target/rust/aarch64-unknown-linux-gnu/release/loadgen (2026-10-13 18:47:07), built with rust:1.98.1-trixie
+schedule: apps dotnetway, reps 3; suites: http; http secs 8, concs 1 16, routes room_show messages_page sidebar search post_message (in parts, --part 1/2 is one slice of them), warm-up 30s at each route and concentration, idle 5s
+log retention: 2 x 10m (json-file)
+[08:58:05] load before run: 1.38 1.52 0.92 (waited 50s)
+[08:58:08] host probe before run: {"spin_ms": 60.14, "spin_ms_max_cpu": 62.51, "cpus": "0-3,4-7", "baseline_ms": 55.57, "ratio": 1.082} (waited 50s)
+[08:58:08] dotnetway rep 1: starting (load: 1.35 1.51 0.92)
+[08:58:13] dotnetway rep 1: cold start 494ms, idle 71MB (anon 45MB)
+[08:58:55] dotnetway rep 1: search c=1 1870.7 rps p50 0.511 p99 0.879 {'200': 14966} err 0 cpu 645.4 us/req; warm-up 30.0 s settled tail 1880.4 host 1.072
+[08:59:54] dotnetway rep 1: search c=16 6175.8 rps p50 2.067 p99 7.375 {'200': 49444} err 0 cpu 542.1 us/req; warm-up 48.0 s settled tail 6246.5 host 1.046
+[09:00:34] dotnetway rep 1: post_message c=1 963.6 rps p50 0.876 p99 5.223 {'200': 7709} err 0 cpu 1808.5 us/req; warm-up 30.0 s settled tail 967.7 host 1.059
+[09:01:15] dotnetway rep 1: post_message c=16 1853.6 rps p50 7.843 p99 15.623 {'200': 14846} err 0 cpu 1628.4 us/req; warm-up 30.2 s settled tail 1845.7 host 1.07
+[09:01:18] dotnetway rep 1: done -> bench/results/dotnetway-7-1/quick/new/dotnetway-1.json
+theDotNetWay in bench/results/dotnetway-7-1/quick/new against the stored medians of bench/results/phase7-final (Rails, Rust and the F# port, 3 reps each, one session)
+
+| Workload | c | theDotNetWay req/s | F# port stored | vs port | Rust stored | **theDotNetWay / Rust (vs stored Rust baseline)** | Rails stored | **theDotNetWay / Rails** | CPU us/req | port | Rust stored |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| room page | 16 | 7,295 | 40,422 | 0.180x | 28,623 | **0.255x** | 239 | **30.486x** | 452.1 | 93.6 | 122.4 |
+| room page | 1 | 2,263 | 7,617 | 0.297x | 6,481 | **0.349x** | 107 | **21.130x** | 554.5 | 208.7 | 142.1 |
+| messages page | 16 | 7,166 | 37,836 | 0.189x | 30,063 | **0.238x** | 381 | **18.827x** | 467.1 | 102.2 | 114.2 |
+| messages page | 1 | 2,102 | 8,312 | 0.253x | 6,822 | **0.308x** | 218 | **9.646x** | 586.1 | 199.3 | 139.2 |
+| sidebar | 16 | 7,381 | 37,555 | 0.197x | 28,238 | **0.261x** | 599 | **12.330x** | 449.1 | 101.8 | 123.2 |
+| sidebar | 1 | 2,170 | 8,000 | 0.271x | 6,196 | **0.350x** | 287 | **7.572x** | 571.2 | 181.0 | 149.0 |
+| search | 16 | 6,176 | 34,070 | 0.181x | 26,606 | **0.232x** | 408 | **15.140x** | 542.1 | 107.3 | 123.9 |
+| search | 1 | 1,871 | 6,055 | 0.309x | 5,646 | **0.331x** | 193 | **9.708x** | 645.4 | 315.1 | 158.3 |
+| post a message | 16 | 1,854 | 8,905 | 0.208x | 7,174 | **0.258x** | 330 | **5.615x** | 1,628.4 | 353.0 | 385.6 |
+| post a message | 1 | 964 | 3,052 | 0.316x | 2,779 | **0.347x** | 167 | **5.774x** | 1,808.5 | 629.1 | 403.7 |
+
+Checks:
+  responses: every one 2xx with 0 connection errors in 10 runs
+  FAIL decoded bytes room_show: 377518 vs expected 376570
+  FAIL decoded bytes messages_page: 346364 vs expected 345884
+  FAIL decoded bytes sidebar: 30144 vs expected 29710
+  FAIL decoded bytes search: 137229 vs expected 136633
+time="2026-10-26T09:01:18-04:00" level=fatal msg="exit status 1"
+date: 2026-10-26T08:52:58-04:00
+host: 6.8.0-117-generic, , 8 threads, 5GB
+server cpus: 0-3 (nproc 4); loadgen cpus: 4-7; network: host
+env: WEB_CONCURRENCY=3 JOB_CONCURRENCY=3 RAILS_MAX_THREADS=5 
+rust extra env: 
+fsharp extra env: 
+dotnetway extra env: 
+user agent: (none)
+dotnetway image: campfire-dotnetway:app sha256:4db5e6b024eea89633f94e4be89e70dd4514ed4edd9f98668d55b5f20e0ff80b 2026-10-26T08:50:04.96688854-04:00 built from commit: eba17a2b7e17379934dfeb82f01ccbcc8d8cfed2
+repo HEAD: eba17a2 (dirty: 0 files under src/ and rust/)
+work dir (seed copies): /var/tmp/campfire-bench-work (ext4)
+loadgen: /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/target/rust/aarch64-unknown-linux-gnu/release/loadgen (2026-10-13 18:47:07), built with rust:1.98.1-trixie
+schedule: apps dotnetway, reps 3; suites: http; http secs 8, concs 1 16, routes room_show messages_page sidebar search post_message (in parts, --part 1/2 is one slice of them), warm-up 30s at each route and concentration, idle 5s
+log retention: 2 x 10m (json-file)
+[09:19:25] load before run: 1.42 2.01 1.75 (waited 40s)
+[09:19:28] host probe before run: {"spin_ms": 58.2, "spin_ms_max_cpu": 60.89, "cpus": "0-3,4-7", "baseline_ms": 55.57, "ratio": 1.047} (waited 40s)
+[09:19:28] dotnetway rep 2: starting (load: 1.42 2.01 1.75)
+[09:19:33] dotnetway rep 2: cold start 523ms, idle 70MB (anon 45MB)
+[09:20:14] dotnetway rep 2: room_show c=1 2203.2 rps p50 0.431 p99 0.608 {'200': 17627} err 0 cpu 567.7 us/req; warm-up 30.0 s settled tail 2161.7 host 1.077
+[09:20:55] dotnetway rep 2: room_show c=16 7133.2 rps p50 1.708 p99 6.799 {'200': 57074} err 0 cpu 458.8 us/req; warm-up 30.0 s settled tail 7087.8 host 1.068
+[09:21:36] dotnetway rep 2: messages_page c=1 2014.2 rps p50 0.47 p99 0.639 {'200': 16114} err 0 cpu 608.9 us/req; warm-up 30.0 s settled tail 1985.2 host 1.06
+[09:22:17] dotnetway rep 2: messages_page c=16 7031.8 rps p50 1.758 p99 7.235 {'200': 56267} err 0 cpu 477.8 us/req; warm-up 30.0 s settled tail 7019.8 host 1.067
+[09:22:57] dotnetway rep 2: sidebar c=1 2145.3 rps p50 0.439 p99 0.621 {'200': 17163} err 0 cpu 578.1 us/req; warm-up 30.0 s settled tail 2122.2 host 1.043
+[09:23:38] dotnetway rep 2: sidebar c=16 7354.5 rps p50 1.663 p99 6.987 {'200': 58848} err 0 cpu 451.2 us/req; warm-up 30.0 s settled tail 7263.9 host 1.067
+[09:23:41] dotnetway rep 2: done -> bench/results/dotnetway-7-1/quick/new/dotnetway-2.json
+theDotNetWay in bench/results/dotnetway-7-1/quick/new against the stored medians of bench/results/phase7-final (Rails, Rust and the F# port, 3 reps each, one session)
+
+| Workload | c | theDotNetWay req/s | F# port stored | vs port | Rust stored | **theDotNetWay / Rust (vs stored Rust baseline)** | Rails stored | **theDotNetWay / Rails** | CPU us/req | port | Rust stored |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| room page | 16 | 7,214 [7,133-7,295] | 40,422 | 0.178x | 28,623 | **0.252x** | 239 | **30.147x** | 455.5 [452-459] | 93.6 | 122.4 |
+| room page | 1 | 2,233 [2,203-2,263] | 7,617 | 0.293x | 6,481 | **0.345x** | 107 | **20.851x** | 561.1 [554-568] | 208.7 | 142.1 |
+| messages page | 16 | 7,099 [7,032-7,166] | 37,836 | 0.188x | 30,063 | **0.236x** | 381 | **18.651x** | 472.5 [467-478] | 102.2 | 114.2 |
+| messages page | 1 | 2,058 [2,014-2,102] | 8,312 | 0.248x | 6,822 | **0.302x** | 218 | **9.445x** | 597.5 [586-609] | 199.3 | 139.2 |
+| sidebar | 16 | 7,368 [7,354-7,381] | 37,555 | 0.196x | 28,238 | **0.261x** | 599 | **12.308x** | 450.1 [449-451] | 101.8 | 123.2 |
+| sidebar | 1 | 2,158 [2,145-2,170] | 8,000 | 0.270x | 6,196 | **0.348x** | 287 | **7.529x** | 574.7 [571-578] | 181.0 | 149.0 |
+| search | 16 | 6,176 | 34,070 | 0.181x | 26,606 | **0.232x** | 408 | **15.140x** | 542.1 | 107.3 | 123.9 |
+| search | 1 | 1,871 | 6,055 | 0.309x | 5,646 | **0.331x** | 193 | **9.708x** | 645.4 | 315.1 | 158.3 |
+| post a message | 16 | 1,854 | 8,905 | 0.208x | 7,174 | **0.258x** | 330 | **5.615x** | 1,628.4 | 353.0 | 385.6 |
+| post a message | 1 | 964 | 3,052 | 0.316x | 2,779 | **0.347x** | 167 | **5.774x** | 1,808.5 | 629.1 | 403.7 |
+
+Checks:
+  responses: every one 2xx with 0 connection errors in 16 runs
+  decoded bytes equal the stored expected size (Rust's where the page is unchanged) on every probed route; post rows written equal the 2xx answers in every phase
+date: 2026-10-26T08:52:58-04:00
+host: 6.8.0-117-generic, , 8 threads, 5GB
+server cpus: 0-3 (nproc 4); loadgen cpus: 4-7; network: host
+env: WEB_CONCURRENCY=3 JOB_CONCURRENCY=3 RAILS_MAX_THREADS=5 
+rust extra env: 
+fsharp extra env: 
+dotnetway extra env: 
+user agent: (none)
+dotnetway image: campfire-dotnetway:app sha256:4db5e6b024eea89633f94e4be89e70dd4514ed4edd9f98668d55b5f20e0ff80b 2026-10-26T08:50:04.96688854-04:00 built from commit: eba17a2b7e17379934dfeb82f01ccbcc8d8cfed2
+repo HEAD: eba17a2 (dirty: 0 files under src/ and rust/)
+work dir (seed copies): /var/tmp/campfire-bench-work (ext4)
+loadgen: /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/target/rust/aarch64-unknown-linux-gnu/release/loadgen (2026-10-13 18:47:07), built with rust:1.98.1-trixie
+schedule: apps dotnetway, reps 3; suites: http; http secs 8, concs 1 16, routes room_show messages_page sidebar search post_message (in parts, --part 1/2 is one slice of them), warm-up 30s at each route and concentration, idle 5s
+log retention: 2 x 10m (json-file)
+[09:24:42] load before run: 1.28 2.16 1.92 (waited 60s)
+[09:24:44] host probe before run: {"spin_ms": 57.32, "spin_ms_max_cpu": 60.68, "cpus": "0-3,4-7", "baseline_ms": 55.57, "ratio": 1.032} (waited 60s)
+[09:24:44] dotnetway rep 2: starting (load: 1.25 2.14 1.92)
+[09:24:50] dotnetway rep 2: cold start 503ms, idle 71MB (anon 45MB)
+[09:25:31] dotnetway rep 2: search c=1 1964.0 rps p50 0.488 p99 0.689 {'200': 15713} err 0 cpu 621.9 us/req; warm-up 30.0 s settled tail 1966.5 host 1.075
+[09:26:12] dotnetway rep 2: search c=16 7013.4 rps p50 1.806 p99 6.411 {'200': 56118} err 0 cpu 489.0 us/req; warm-up 30.0 s settled tail 7020.5 host 1.047
+[09:26:52] dotnetway rep 2: post_message c=1 1034.0 rps p50 0.822 p99 4.651 {'200': 8273} err 0 cpu 1717.6 us/req; warm-up 30.0 s settled tail 1034.5 host 1.071
+[09:27:33] dotnetway rep 2: post_message c=16 1996.9 rps p50 7.507 p99 14.535 {'200': 15989} err 0 cpu 1519.0 us/req; warm-up 30.1 s settled tail 1999.5 host 1.062
+[09:27:36] dotnetway rep 2: done -> bench/results/dotnetway-7-1/quick/new/dotnetway-2.json
+theDotNetWay in bench/results/dotnetway-7-1/quick/new against the stored medians of bench/results/phase7-final (Rails, Rust and the F# port, 3 reps each, one session)
+
+| Workload | c | theDotNetWay req/s | F# port stored | vs port | Rust stored | **theDotNetWay / Rust (vs stored Rust baseline)** | Rails stored | **theDotNetWay / Rails** | CPU us/req | port | Rust stored |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| room page | 16 | 7,214 [7,133-7,295] | 40,422 | 0.178x | 28,623 | **0.252x** | 239 | **30.147x** | 455.5 [452-459] | 93.6 | 122.4 |
+| room page | 1 | 2,233 [2,203-2,263] | 7,617 | 0.293x | 6,481 | **0.345x** | 107 | **20.851x** | 561.1 [554-568] | 208.7 | 142.1 |
+| messages page | 16 | 7,099 [7,032-7,166] | 37,836 | 0.188x | 30,063 | **0.236x** | 381 | **18.651x** | 472.5 [467-478] | 102.2 | 114.2 |
+| messages page | 1 | 2,058 [2,014-2,102] | 8,312 | 0.248x | 6,822 | **0.302x** | 218 | **9.445x** | 597.5 [586-609] | 199.3 | 139.2 |
+| sidebar | 16 | 7,368 [7,354-7,381] | 37,555 | 0.196x | 28,238 | **0.261x** | 599 | **12.308x** | 450.1 [449-451] | 101.8 | 123.2 |
+| sidebar | 1 | 2,158 [2,145-2,170] | 8,000 | 0.270x | 6,196 | **0.348x** | 287 | **7.529x** | 574.7 [571-578] | 181.0 | 149.0 |
+| search | 16 | 6,595 [6,176-7,013] | 34,070 | 0.194x | 26,606 | **0.248x** | 408 | **16.167x** | 515.5 [489-542] | 107.3 | 123.9 |
+| search | 1 | 1,917 [1,871-1,964] | 6,055 | 0.317x | 5,646 | **0.340x** | 193 | **9.950x** | 633.6 [622-645] | 315.1 | 158.3 |
+| post a message | 16 | 1,925 [1,854-1,997] | 8,905 | 0.216x | 7,174 | **0.268x** | 330 | **5.832x** | 1,573.7 [1,519-1,628] | 353.0 | 385.6 |
+| post a message | 1 | 999 [964-1,034] | 3,052 | 0.327x | 2,779 | **0.359x** | 167 | **5.984x** | 1,763.0 [1,718-1,808] | 629.1 | 403.7 |
+
+Checks:
+  responses: every one 2xx with 0 connection errors in 20 runs
+  decoded bytes equal the stored expected size (Rust's where the page is unchanged) on every probed route; post rows written equal the 2xx answers in every phase
+date: 2026-10-26T08:52:58-04:00
+host: 6.8.0-117-generic, , 8 threads, 5GB
+server cpus: 0-3 (nproc 4); loadgen cpus: 4-7; network: host
+env: WEB_CONCURRENCY=3 JOB_CONCURRENCY=3 RAILS_MAX_THREADS=5 
+rust extra env: 
+fsharp extra env: 
+dotnetway extra env: 
+user agent: (none)
+dotnetway image: campfire-dotnetway:app sha256:4db5e6b024eea89633f94e4be89e70dd4514ed4edd9f98668d55b5f20e0ff80b 2026-10-26T08:50:04.96688854-04:00 built from commit: eba17a2b7e17379934dfeb82f01ccbcc8d8cfed2
+repo HEAD: eba17a2 (dirty: 0 files under src/ and rust/)
+work dir (seed copies): /var/tmp/campfire-bench-work (ext4)
+loadgen: /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/target/rust/aarch64-unknown-linux-gnu/release/loadgen (2026-10-13 18:47:07), built with rust:1.98.1-trixie
+schedule: apps dotnetway, reps 3; suites: http; http secs 8, concs 1 16, routes room_show messages_page sidebar search post_message (in parts, --part 1/2 is one slice of them), warm-up 30s at each route and concentration, idle 5s
+log retention: 2 x 10m (json-file)
+[09:28:17] load before run: 1.27 2.11 1.97 (waited 40s)
+[09:28:19] host probe before run: {"spin_ms": 59.54, "spin_ms_max_cpu": 60.96, "cpus": "0-3,4-7", "baseline_ms": 55.57, "ratio": 1.071} (waited 40s)
+[09:28:19] dotnetway rep 3: starting (load: 1.25 2.09 1.97)
+[09:28:25] dotnetway rep 3: cold start 456ms, idle 71MB (anon 45MB)
+[09:29:06] dotnetway rep 3: room_show c=1 2224.4 rps p50 0.427 p99 0.639 {'200': 17796} err 0 cpu 561.0 us/req; warm-up 30.0 s settled tail 2246.0 host 1.059
+[09:29:47] dotnetway rep 3: room_show c=16 7281.2 rps p50 1.67 p99 6.603 {'200': 58273} err 0 cpu 452.9 us/req; warm-up 30.0 s settled tail 7275.4 host 1.07
+[09:30:27] dotnetway rep 3: messages_page c=1 2081.0 rps p50 0.454 p99 0.597 {'200': 16648} err 0 cpu 592.6 us/req; warm-up 30.0 s settled tail 2068.0 host 1.068
+[09:31:08] dotnetway rep 3: messages_page c=16 7180.8 rps p50 1.716 p99 7.031 {'200': 57457} err 0 cpu 466.7 us/req; warm-up 30.0 s settled tail 7169.0 host 1.076
+[09:31:49] dotnetway rep 3: sidebar c=1 2171.5 rps p50 0.434 p99 0.617 {'200': 17372} err 0 cpu 573.4 us/req; warm-up 30.0 s settled tail 2153.9 host 1.047
+[09:32:30] dotnetway rep 3: sidebar c=16 7382.5 rps p50 1.651 p99 7.011 {'200': 59066} err 0 cpu 447.6 us/req; warm-up 30.0 s settled tail 7489.6 host 1.055
+[09:32:33] dotnetway rep 3: done -> bench/results/dotnetway-7-1/quick/new/dotnetway-3.json
+theDotNetWay in bench/results/dotnetway-7-1/quick/new against the stored medians of bench/results/phase7-final (Rails, Rust and the F# port, 3 reps each, one session)
+
+| Workload | c | theDotNetWay req/s | F# port stored | vs port | Rust stored | **theDotNetWay / Rust (vs stored Rust baseline)** | Rails stored | **theDotNetWay / Rails** | CPU us/req | port | Rust stored |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| room page | 16 | 7,281 [7,133-7,295] | 40,422 | 0.180x | 28,623 | **0.254x** | 239 | **30.427x** | 452.9 [452-459] | 93.6 | 122.4 |
+| room page | 1 | 2,224 [2,203-2,263] | 7,617 | 0.292x | 6,481 | **0.343x** | 107 | **20.769x** | 561.0 [554-568] | 208.7 | 142.1 |
+| messages page | 16 | 7,166 [7,032-7,181] | 37,836 | 0.189x | 30,063 | **0.238x** | 381 | **18.827x** | 467.1 [467-478] | 102.2 | 114.2 |
+| messages page | 1 | 2,081 [2,014-2,102] | 8,312 | 0.250x | 6,822 | **0.305x** | 218 | **9.550x** | 592.6 [586-609] | 199.3 | 139.2 |
+| sidebar | 16 | 7,381 [7,354-7,382] | 37,555 | 0.197x | 28,238 | **0.261x** | 599 | **12.330x** | 449.1 [448-451] | 101.8 | 123.2 |
+| sidebar | 1 | 2,170 [2,145-2,172] | 8,000 | 0.271x | 6,196 | **0.350x** | 287 | **7.572x** | 573.4 [571-578] | 181.0 | 149.0 |
+| search | 16 | 6,595 [6,176-7,013] | 34,070 | 0.194x | 26,606 | **0.248x** | 408 | **16.167x** | 515.5 [489-542] | 107.3 | 123.9 |
+| search | 1 | 1,917 [1,871-1,964] | 6,055 | 0.317x | 5,646 | **0.340x** | 193 | **9.950x** | 633.6 [622-645] | 315.1 | 158.3 |
+| post a message | 16 | 1,925 [1,854-1,997] | 8,905 | 0.216x | 7,174 | **0.268x** | 330 | **5.832x** | 1,573.7 [1,519-1,628] | 353.0 | 385.6 |
+| post a message | 1 | 999 [964-1,034] | 3,052 | 0.327x | 2,779 | **0.359x** | 167 | **5.984x** | 1,763.0 [1,718-1,808] | 629.1 | 403.7 |
+
+Checks:
+  responses: every one 2xx with 0 connection errors in 26 runs
+  decoded bytes equal the stored expected size (Rust's where the page is unchanged) on every probed route; post rows written equal the 2xx answers in every phase
+date: 2026-10-26T08:52:58-04:00
+host: 6.8.0-117-generic, , 8 threads, 5GB
+server cpus: 0-3 (nproc 4); loadgen cpus: 4-7; network: host
+env: WEB_CONCURRENCY=3 JOB_CONCURRENCY=3 RAILS_MAX_THREADS=5 
+rust extra env: 
+fsharp extra env: 
+dotnetway extra env: 
+user agent: (none)
+dotnetway image: campfire-dotnetway:app sha256:4db5e6b024eea89633f94e4be89e70dd4514ed4edd9f98668d55b5f20e0ff80b 2026-10-26T08:50:04.96688854-04:00 built from commit: eba17a2b7e17379934dfeb82f01ccbcc8d8cfed2
+repo HEAD: eba17a2 (dirty: 0 files under src/ and rust/)
+work dir (seed copies): /var/tmp/campfire-bench-work (ext4)
+loadgen: /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/target/rust/aarch64-unknown-linux-gnu/release/loadgen (2026-10-13 18:47:07), built with rust:1.98.1-trixie
+schedule: apps dotnetway, reps 3; suites: http; http secs 8, concs 1 16, routes room_show messages_page sidebar search post_message (in parts, --part 1/2 is one slice of them), warm-up 30s at each route and concentration, idle 5s
+log retention: 2 x 10m (json-file)
+[09:33:13] load before run: 1.32 1.97 1.96 (waited 40s)
+[09:33:16] host probe before run: {"spin_ms": 58.86, "spin_ms_max_cpu": 62.86, "cpus": "0-3,4-7", "baseline_ms": 55.57, "ratio": 1.059} (waited 40s)
+[09:33:16] dotnetway rep 3: starting (load: 1.32 1.97 1.96)
+[09:33:21] dotnetway rep 3: cold start 473ms, idle 70MB (anon 45MB)
+[09:34:02] dotnetway rep 3: search c=1 1956.6 rps p50 0.491 p99 0.666 {'200': 15653} err 0 cpu 626.0 us/req; warm-up 30.0 s settled tail 1946.4 host 1.055
+[09:34:43] dotnetway rep 3: search c=16 6946.6 rps p50 1.824 p99 6.423 {'200': 55583} err 0 cpu 495.1 us/req; warm-up 30.0 s settled tail 6913.4 host 1.081
+[09:35:24] dotnetway rep 3: post_message c=1 1042.7 rps p50 0.837 p99 3.955 {'200': 8342} err 0 cpu 1732.4 us/req; warm-up 30.0 s settled tail 1039.7 host 1.085
+[09:36:05] dotnetway rep 3: post_message c=16 1970.7 rps p50 7.395 p99 14.815 {'200': 15782} err 0 cpu 1545.1 us/req; warm-up 30.1 s settled tail 1985.0 host 1.051
+[09:36:08] dotnetway rep 3: done -> bench/results/dotnetway-7-1/quick/new/dotnetway-3.json
+theDotNetWay in bench/results/dotnetway-7-1/quick/new against the stored medians of bench/results/phase7-final (Rails, Rust and the F# port, 3 reps each, one session)
+
+| Workload | c | theDotNetWay req/s | F# port stored | vs port | Rust stored | **theDotNetWay / Rust (vs stored Rust baseline)** | Rails stored | **theDotNetWay / Rails** | CPU us/req | port | Rust stored |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| room page | 16 | 7,281 [7,133-7,295] | 40,422 | 0.180x | 28,623 | **0.254x** | 239 | **30.427x** | 452.9 [452-459] | 93.6 | 122.4 |
+| room page | 1 | 2,224 [2,203-2,263] | 7,617 | 0.292x | 6,481 | **0.343x** | 107 | **20.769x** | 561.0 [554-568] | 208.7 | 142.1 |
+| messages page | 16 | 7,166 [7,032-7,181] | 37,836 | 0.189x | 30,063 | **0.238x** | 381 | **18.827x** | 467.1 [467-478] | 102.2 | 114.2 |
+| messages page | 1 | 2,081 [2,014-2,102] | 8,312 | 0.250x | 6,822 | **0.305x** | 218 | **9.550x** | 592.6 [586-609] | 199.3 | 139.2 |
+| sidebar | 16 | 7,381 [7,354-7,382] | 37,555 | 0.197x | 28,238 | **0.261x** | 599 | **12.330x** | 449.1 [448-451] | 101.8 | 123.2 |
+| sidebar | 1 | 2,170 [2,145-2,172] | 8,000 | 0.271x | 6,196 | **0.350x** | 287 | **7.572x** | 573.4 [571-578] | 181.0 | 149.0 |
+| search | 16 | 6,947 [6,176-7,013] | 34,070 | 0.204x | 26,606 | **0.261x** | 408 | **17.030x** | 495.1 [489-542] | 107.3 | 123.9 |
+| search | 1 | 1,957 [1,871-1,964] | 6,055 | 0.323x | 5,646 | **0.347x** | 193 | **10.154x** | 626.0 [622-645] | 315.1 | 158.3 |
+| post a message | 16 | 1,971 [1,854-1,997] | 8,905 | 0.221x | 7,174 | **0.275x** | 330 | **5.970x** | 1,545.1 [1,519-1,628] | 353.0 | 385.6 |
+| post a message | 1 | 1,034 [964-1,043] | 3,052 | 0.339x | 2,779 | **0.372x** | 167 | **6.195x** | 1,732.4 [1,718-1,808] | 629.1 | 403.7 |
+
+Checks:
+  responses: every one 2xx with 0 connection errors in 30 runs
+  decoded bytes equal the stored expected size (Rust's where the page is unchanged) on every probed route; post rows written equal the 2xx answers in every phase
+```
+date: 2026-10-26T08:52:58-04:00
+host: 6.8.0-117-generic, , 8 threads, 5GB
+server cpus: 0-3 (nproc 4); loadgen cpus: 4-7; network: host
+env: WEB_CONCURRENCY=3 JOB_CONCURRENCY=3 RAILS_MAX_THREADS=5 
+rust extra env: 
+fsharp extra env: 
+dotnetway extra env: 
+user agent: (none)
+dotnetway image: campfire-dotnetway:app sha256:4db5e6b024eea89633f94e4be89e70dd4514ed4edd9f98668d55b5f20e0ff80b 2026-10-26T08:50:04.96688854-04:00 built from commit: eba17a2b7e17379934dfeb82f01ccbcc8d8cfed2
+repo HEAD: eba17a2 (dirty: 0 files under src/ and rust/)
+work dir (seed copies): /var/tmp/campfire-bench-work (ext4)
+loadgen: /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/target/rust/aarch64-unknown-linux-gnu/release/loadgen (2026-10-13 18:47:07), built with rust:1.98.1-trixie
+schedule: apps dotnetway, reps 3; suites: http; http secs 8, concs 1 16, routes room_show messages_page sidebar search post_message (in parts, --part 1/2 is one slice of them), warm-up 30s at each route and concentration, idle 5s
+log retention: 2 x 10m (json-file)
+```
+
+Reps: dotnetway 3. Cells: median [min–max].
+
+### Startup and memory
+
+| Metric | theDotNetWay |
+|---|---|
+| cold start: docker run → /up 200 (ms) | 523 [456–546] |
+| idle memory.current (MB) | 70.0 [70.0–71.0] |
+| idle anon (MB) | 45.0 [44.0–45.0] |
+| peak memory.current under load (MB) | 288 [287–289] |
+| peak anon under load (MB) | 196 [195–196] |
+
+### HTTP (signed in as david; keep-alive; c = concurrent connections)
+
+`CPU µs/req` is the container's CPU (cgroup cpu.stat, user + system, unprofiled) over the run divided by its requests; for CPU a ratio below 1 means the first app spends more per request.
+
+| Metric | theDotNetWay |
+|---|---|
+| room_show c=1 req/s | 2,224 [2,203–2,263] |
+| room_show c=1 CPU µs/req | 561 [554–568] |
+| room_show c=1 p50 ms | 0.43 [0.42–0.43] |
+| room_show c=1 p99 ms | 0.63 [0.61–0.64] |
+| room_show c=16 req/s | 7,281 [7,133–7,295] |
+| room_show c=16 CPU µs/req | 453 [452–459] |
+| room_show c=16 p50 ms | 1.67 [1.66–1.71] |
+| room_show c=16 p99 ms | 6.65 [6.60–6.80] |
+| messages_page c=1 req/s | 2,081 [2,014–2,102] |
+| messages_page c=1 CPU µs/req | 593 [586–609] |
+| messages_page c=1 p50 ms | 0.45 [0.45–0.47] |
+| messages_page c=1 p99 ms | 0.64 [0.60–0.78] |
+| messages_page c=16 req/s | 7,166 [7,032–7,181] |
+| messages_page c=16 CPU µs/req | 467 [467–478] |
+| messages_page c=16 p50 ms | 1.72 [1.71–1.76] |
+| messages_page c=16 p99 ms | 7.11 [7.03–7.24] |
+| sidebar c=1 req/s | 2,170 [2,145–2,172] |
+| sidebar c=1 CPU µs/req | 573 [571–578] |
+| sidebar c=1 p50 ms | 0.43 [0.43–0.44] |
+| sidebar c=1 p99 ms | 0.62 [0.62–0.67] |
+| sidebar c=16 req/s | 7,381 [7,354–7,382] |
+| sidebar c=16 CPU µs/req | 449 [448–451] |
+| sidebar c=16 p50 ms | 1.65 [1.64–1.66] |
+| sidebar c=16 p99 ms | 7.01 [6.99–7.06] |
+| search c=1 req/s | 1,957 [1,871–1,964] |
+| search c=1 CPU µs/req | 626 [622–645] |
+| search c=1 p50 ms | 0.49 [0.49–0.51] |
+| search c=1 p99 ms | 0.69 [0.67–0.88] |
+| search c=16 req/s | 6,947 [6,176–7,013] |
+| search c=16 CPU µs/req | 495 [489–542] |
+| search c=16 p50 ms | 1.82 [1.81–2.07] |
+| search c=16 p99 ms | 6.42 [6.41–7.38] |
+| post_message c=1 req/s | 1,034 [964–1,043] |
+| post_message c=1 CPU µs/req | 1,732 [1,718–1,808] |
+| post_message c=1 p50 ms | 0.84 [0.82–0.88] |
+| post_message c=1 p99 ms | 4.65 [3.96–5.22] |
+| post_message c=16 req/s | 1,971 [1,854–1,997] |
+| post_message c=16 CPU µs/req | 1,545 [1,519–1,628] |
+| post_message c=16 p50 ms | 7.51 [7.39–7.84] |
+| post_message c=16 p99 ms | 14.8 [14.5–15.6] |
+
+## Validity
+
+### Load average before each run (1, 5, 15 minutes; the run waited for the 1-minute figure to fall below LOAD_MAX)
+
+| App | Rep | Before | After |
+|---|---|---|---|
+| theDotNetWay | 1 | 0.36 0.53 0.43 | 2.94 2.10 1.25 |
+| theDotNetWay | 2 | 1.42 2.01 1.75 | 2.47 2.41 2.06 |
+| theDotNetWay | 3 | 1.25 2.09 1.97 | 2.50 2.15 2.02 |
+
+### Host CPU probe (a fixed spin timed on every pinned CPU, against the quietest this VM has shown; bench/lib/hostprobe.py)
+
+The VM's load average cannot see another program on the Mac taking the cores its vCPUs run on; this can. A ratio of 1.00 is a quiet host, above 1.10 the pinned server and load generator were slowed by something outside the run. `After each window` probes the machine right after every measured run of the rep.
+
+| App | Rep | Before the run | After the run | Windows probed above 1.10 | Highest after a window |
+|---|---|---|---|---|---|
+| theDotNetWay | 1 | 1.08 | 1.06 | 0/10 | 1.08 |
+| theDotNetWay | 2 | 1.05 | 1.05 | 0/10 | 1.08 |
+| theDotNetWay | 3 | 1.07 | 1.06 | 0/10 | 1.08 |
+
+### Responses by status class, every HTTP run of every rep
+
+| App | Route | 2xx | 3xx | 4xx | 5xx | Errors (no response) |
+|---|---|---|---|---|---|---|
+| theDotNetWay | room_show | 227,246 | 0 | 0 | 0 | 0 |
+| theDotNetWay | messages_page | 220,657 | 0 | 0 | 0 | 0 |
+| theDotNetWay | sidebar | 228,867 | 0 | 0 | 0 | 0 |
+| theDotNetWay | search | 207,477 | 0 | 0 | 0 | 0 |
+| theDotNetWay | post_message | 70,941 | 0 | 0 | 0 | 0 |
+
+### Warm-up before each measured run (the app runs the route at the measured concurrency until its throughput is flat; bench/lib/warmup.py)
+
+`measured / warm-up tail` is the measured run's requests a second over the mean of the last three 2 s warm-up windows: well above 1 would mean the app was still speeding up when measurement began, well below 1 that it was slowing down.
+
+| App | Route | c | warm-up seconds | settled | measured / warm-up tail |
+|---|---|---|---|---|---|
+| theDotNetWay | room_show | 1 | 30.0 [30.0–30.0] | 3/3 | 1.00 |
+| theDotNetWay | room_show | 16 | 30.0 [30.0–30.0] | 3/3 | 1.01 |
+| theDotNetWay | messages_page | 1 | 30.0 [30.0–30.0] | 3/3 | 1.01 |
+| theDotNetWay | messages_page | 16 | 30.0 [30.0–30.0] | 3/3 | 1.00 |
+| theDotNetWay | sidebar | 1 | 30.0 [30.0–30.0] | 3/3 | 1.01 |
+| theDotNetWay | sidebar | 16 | 30.0 [30.0–30.0] | 3/3 | 1.00 |
+| theDotNetWay | search | 1 | 30.0 [30.0–30.0] | 3/3 | 1.00 |
+| theDotNetWay | search | 16 | 30.0 [30.0–48.0] | 3/3 | 1.00 |
+| theDotNetWay | post_message | 1 | 30.0 [30.0–30.0] | 3/3 | 1.00 |
+| theDotNetWay | post_message | 16 | 30.1 [30.1–30.2] | 3/3 | 1.00 |
+
+### Rows written by `post_message` (messages of the write room counted in the app's SQLite file around each run)
+
+| App | Rep | Phase | Posts answered below 400 | Rows written | Match |
+|---|---|---|---|---|---|
+| theDotNetWay | 1 | warm-up c=1 | 28,012 | 28,012 | yes |
+| theDotNetWay | 1 | run c=1 | 7,709 | 7,709 | yes |
+| theDotNetWay | 1 | warm-up c=16 | 53,989 | 53,989 | yes |
+| theDotNetWay | 1 | run c=16 | 14,846 | 14,846 | yes |
+| theDotNetWay | 1 | **all** | 104,556 | 104,556 | yes |
+| theDotNetWay | 2 | warm-up c=1 | 30,174 | 30,174 | yes |
+| theDotNetWay | 2 | run c=1 | 8,273 | 8,273 | yes |
+| theDotNetWay | 2 | warm-up c=16 | 59,278 | 59,278 | yes |
+| theDotNetWay | 2 | run c=16 | 15,989 | 15,989 | yes |
+| theDotNetWay | 2 | **all** | 113,714 | 113,714 | yes |
+| theDotNetWay | 3 | warm-up c=1 | 30,174 | 30,174 | yes |
+| theDotNetWay | 3 | run c=1 | 8,342 | 8,342 | yes |
+| theDotNetWay | 3 | warm-up c=16 | 59,594 | 59,594 | yes |
+| theDotNetWay | 3 | run c=16 | 15,782 | 15,782 | yes |
+| theDotNetWay | 3 | **all** | 113,892 | 113,892 | yes |
+
+### Response bytes, one request per route (gzip: wire / decoded; identity: bytes) and the average over the c=16 run
+
+The probe is a single request after sign-in, before any load. Bodies carry per-request tokens and the clock, so sizes of two apps agree to within a few bytes when they render the same page. "c=16 avg" is what the load generator received per request on the wire (gzip unless the column says otherwise).
+
+| Route | theDotNetWay gzip wire / decoded | theDotNetWay identity | theDotNetWay c=16 avg | F# vs Rust |
+|---|---|---|---|---|
+| room_show | 200 37,356 / 377,518 | 200 377,518 | 37,356 | – |
+| messages_page | 200 24,267 / 346,364 | 200 346,364 | 24,267 | – |
+| sidebar | 200 7,979 / 30,144 | 200 30,144 | 7,979 | – |
+| search | 200 15,053 / 137,229 | 200 137,229 | 15,053 | – |
+| post_message | – | – | 2,494 | – |

@@ -3159,3 +3159,43 @@ colima, all removed after (the scratch project, its containers and the Pebble im
   on other paths +0.1..+0.8 us. Projected on Phase 6's thinnest cells: post c=16 about 6.0x, post c=1 6.5-6.6x, sidebar c=1 8.0-8.4x; nothing near 5x.
 - **Operator step recorded** (design section 8): Let's Encrypt staging once on a real domain, then delete `storage/thruster/` before production.
 - **Questions for Chris:** none. Projection: 30.0 -> about 27.6 KLOC.
+
+### Phase 7, unit 7.1: request log and compression (2026-10-26)
+
+Sonnet builder, commits `eba17a2` (code, tests, README) and `c61a029` (asset-check, bench sizes); plus this entry.
+- **Built:** `Web/HttpLog.fs` (F8: `UseHttpLogging`, `CombineLogs`, Method/Path/Query/Protocol/Status/Duration, an `IHttpLoggingInterceptor` adding
+  `remote_addr` (IPv4-mapped written as IPv4, after the forwarded headers: the interceptor runs on the response) and `user_agent` (control characters
+  become a space, so a client cannot forge a line)); `EdgeConfig.LogRequests` (production default false; `Boot.bootEdge` takes it, `Boot.serve` passes
+  `LOG_REQUESTS`; `bootWithClock`, so every test host, leaves it off); `Services.add` registers it, `Services.pipeline` puts `UseHttpLogging` first;
+  `Compression.configure` adds `ZstandardCompressionProvider` after Gzip; `createLoggerFactory`'s `thruster` filter is `Microsoft.AspNetCore.HttpLogging`
+  at Information. `Boot.serve` hands the old front `LogRequests = false` and `GzipCompressionEnabled = false` and no line sink. Deleted:
+  `Front/RequestLog.fs` (`RequestLogCapture` moved into `Handler.fs`, the Kit keeps its `ILogger` request line until 7.6; `FrontServices`, `serveWithLines`
+  (now `serveHosted`) and the test harness lose the `lines` parameter), `RequestLogTests.fs`, the "line sink" Kit test, `CollectingStream`, `bench/log-micro`.
+  `bench/lib/logcount` counts `HttpLoggingMiddleware` lines. README Front-server class B entry (log format, zstd, no jitter, `GZIP_COMPRESSION_*` unread).
+- **Tests** (`tests/Campfire.App.Tests/Web/HttpLogTests.fs`, 7): LG1 one entry per request with method, path, query, protocol, status and duration; LG2
+  `remote_addr` and `user_agent`, a trusted proxy's `X-Forwarded-For` (an IPv4-mapped one written as IPv4, an IPv6 one as is); LG3 a planted `Cookie`,
+  `Authorization` and `Referer` are absent, a tab in the user agent is a space; LG4 the real `Services.pipeline` logs with `LogRequests` and not without;
+  CZ1 zstd decompresses (`ZstandardStream`) to the identity body; CZ2 `gzip, deflate, br, zstd` gets `br`, `gzip` gets gzip, none and `identity` get none; CZ3
+  a 100-byte response and an image are not compressed and carry no `Vary`. All green first run.
+- **Gates:** `CAMPFIRE_REQUIRE_SEED=1 bin/verify`: **1,015 total, 1,009 passed, 0 failed, 6 skipped** (the environmental six; 1,013 before), Release, warnings as errors,
+  lint, Dapper and EF guards, H1. `bin/kloc`: **29,587 by upstream's rules, 29,759 corrected (29.8)** (29,974 at the design; Kit 2,842 -> 2,585, App +42 lines for `HttpLog.fs` and the edge field). Image rebuilt (`campfire-dotnetway:app`, label `eba17a2`, equal to HEAD's `src`); `bench/lib/logcount` on it: **20,000 requests, 20,001 lines** (the
+  one answered readiness probe), SIGTERM, every line counted. `bin/asset-check`: first run **2 failed** (N1's `Vary: Accept-Encoding` on `56k.webp` and
+  `campfire-icon.png`: the front server added `Vary` to every response, the framework's endpoints send it on the precompressed text types only: class A, as the
+  design said); N1 now requires it on text types and its absence elsewhere; rerun **1,806 checks, 0 failed**. `bin/pixel-parity --fast --seeds default --only
+  'auth/sign_in*,rooms/show/designers,errors/**'`: **14/14 screenshots, aria and loose DOM equal**. `bin/clean-docker` and `bin/clean-parity` run; 33 GB free.
+- **Bench** (`bench/quick`, five workloads, c=1 and 16, 3 reps, new `eba17a2` against control `campfire-dotnetway:p6ctl` (`309ab42`, built from a scratch worktree
+  with the submodule copied, label checked, worktree removed; the image stays for 7.2-7.4), interleaved new/ctl/ctl/new/new/ctl, host probe ratio 1.066-1.085 on every
+  window of both sides, Mac load 2.4-4.1 (6.4 at one start); 30 runs a side, all 2xx, 0 errors; `bench/results/dotnetway-7-1/quick/`). **vs Rails** (stored
+  medians), new / control: room page 30.4x / 30.7x (c16), 20.8x / 23.2x (c1); messages 18.8x / 19.5x, 9.55x / 10.7x; sidebar 12.3x / 13.0x, **7.57x** / 8.52x; search
+  17.0x / 17.1x, 10.2x / 11.2x; post **5.97x** / 6.00x (c16), **6.20x** / 6.57x (c1). **No cell under 5x**; the thinnest is post c=16 at 5.97x (control 6.00x). req/s
+  against the control: c16 -0.9% room, -3.2% messages, -5.3% sidebar, -0.4% search, -0.6% post; c1 -10.4% room, -10.5% messages, -11.2% sidebar, -9.2% search, -5.7%
+  post. **CPU per request beside S5's projection** (S5: +3.5 to +5.9 us at c16, +14 to +38 us at c1): c16 +14.8 / +20.8 / +29.2 / +13.8 / +40.5 us (room, messages,
+  sidebar, search, post), c1 +61.4 / +67.8 / +70.5 / +67.3 / +61.5 us. So the real app pays **about 2-3x S5's c16 cost and about 2x its c1 cost** (the control's own
+  batched log was +1.2 us); the c1 loss is the console logger's per-line wake-up plus the interceptor, and it is 5.7-11.2% where the design projected 2.3-7%. Risk 1's
+  ladder (`ConsoleLoggerOptions` queue settings, then the interceptor dropped, before anything hand-written) is not triggered, since no cell is near 5x, but the c=1 cells
+  are the ones to watch at the 7.3 checkpoint; 7.2's OutputCache and 7.4's host swap (which removes the old front's per-request work) come after.
+- **Bench sizes:** `bench/lib/expected-sizes.json` refreshed to room 377,518, messages 346,364, sidebar 30,144, search 137,229 (Phase 6's fingerprinted URLs, 2 bytes
+  each; the decoded-bytes check passes on both images now).
+- **Differences recorded:** README class B (the HTTP logging line replaces Thruster's `Request path=...` line, no port in `remote_addr`; zstd offered after `br` and `gzip`;
+  `GZIP_COMPRESSION_*` unread, no jitter); class A (asset `Vary` on text types only, in the Phase 6 entry's list now by `bin/asset-check`).
+- **Open for 7.2:** `Boot.serve` still starts the old front; `bench/front` still does not build (7.6). Evidence: `bench/results/dotnetway-7-1/`.
