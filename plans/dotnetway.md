@@ -3317,3 +3317,65 @@ Opus checkpoint, adversarial review of `3696f18..d2d01d5` (7.1-7.3) against `pla
      hit (168 us at c=1) and the c=1 cells; if any cell nears 5x, apply risk 1's ladder (console queue settings, then the interceptor) before anything hand-written.
   7. Keep `StaticAssets.map`'s call site, the marker middleware and `appEndpointsOnly` where they are (Phase 6's condition); `bin/asset-check` after the swap.
   8. KLOC: run `bin/kloc` after committing (it reads `git ls-files`).
+
+### Phase 7, unit 7.4a: the app's own plain-HTTP host (2026-10-26)
+
+Sonnet builder, commits `414713f` (code, tests) and the README commit after it; plus this entry. The checkpoint's split applies: this is the plain-HTTP half of 7.4; 7.4b is the TLS half.
+- **Built:** `Web/FrontSettings.fs` gains `fromLookup`/`fromEnv` (Thruster's variables, the `THRUSTER_` prefix, Go's `ParseBool`/`Atoi`, defaults as Thruster's; a timeout of zero, a negative one or
+  49 days or more is `TimeSpan.MaxValue`, the value the old front used and Kestrel accepts as "disabled"; `H2C_ENABLED`, `GZIP_COMPRESSION_*`, `HTTP_WRITE_TIMEOUT`, `DEBUG` not read). `Web/Host.fs`
+  (after `Controllers.fs`): `configureKestrel` (the head limits, UTF-8 headers, no `Server` header), `listen` (`HTTP_PORT` any address HTTP/1.1; `TARGET_PORT` on `TARGET_BIND`, skipped with a
+  warning when it is the HTTP port; `KeepAliveTimeout` = `HTTP_IDLE_TIMEOUT`, `RequestHeadersTimeout` = `HTTP_READ_TIMEOUT`; Kestrel's default minimum data rates), `configureForwarding`
+  (`FORWARD_HEADERS` off turns `UseForwardedHeaders` off), `build` (`CreateSlimBuilder(StaticAssets.hostOptions ...)`, the app's services, `HostOptions.ShutdownTimeout` 10 s under ConsoleLifetime,
+  the app's pipeline on the host itself; it refuses `TLS_DOMAIN` with a message naming 7.4b). `Platform/OpenFiles.fs`: `Server.raiseOpenFileLimit`/`openFileLimits` moved unchanged. `Boot.serve`:
+  `FrontSettings.fromEnv`; without `TLS_DOMAIN` it is `Host.build` and `app.RunAsync()` (ApplicationStarted logs `Server started`, ApplicationStopping `shutting down`, then the drains and
+  `Server stopped`; an `OperationCanceledException` from the stop is the "requests still running at shutdown were abandoned" warning), with `TLS_DOMAIN` it is the old front exactly as before.
+  `Boot.bootEdge` takes an `EdgeConfig -> EdgeConfig` (`Boot.servingEdge` applies `LOG_REQUESTS`, the cache sizes and `MAX_REQUEST_BODY`). `Edge`: `force_ssl`'s redirect and `redirectToHttps`
+  deleted; `EdgeConfig.MaxRequestBody` (16 MiB, or `MAX_REQUEST_BODY` when lower) read by `bodyLimit` and `configureForms`. `Support.startPipelineOn` uses `Web.Host.configureKestrel`.
+- **Differences from the unit row (each argued):** (1) **HSTS stays in `Edge`'s `onStarting`, no `UseHsts`.** I built it as the note said (`AddHsts` 730 days, `IncludeSubDomains`, exclusions cleared,
+  `UseHsts` after `assumeSsl`); HS5's 500 case, an exception thrown outside an action so that it reaches `UseExceptionHandler`, **failed: the header was gone** (the framework's middleware sets it
+  before the next one runs and the handler clears the response's headers). Checkpoint note 3 says to keep the `onStarting` line in that case, so the unit-7.3 string
+  (`max-age=63072000; includeSubDomains`, which is 730 days) stays, and there is no class A line. (2) **`UseHttpLogging` stays first in `Web.Services.pipeline`**, not moved into the host: the host's
+  pipeline is that pipeline, so it is already outermost, and moving it would only take the log out of the test hosts (LG1-LG4 run on them). (3) `Host.build` takes `configureServices` and `pipeline`
+  rather than `Booted` (the type lives in `Boot.fs`, after `Host.fs`). (4) `Boot.serve` still calls `Front.serveHosted` for `TLS_DOMAIN` installs (the split); `Front.serveHosted` is not yet unused.
+  (5) F11's "empty `KnownIPNetworks`" is `ForwardedHeaders.None`: an empty list of known proxies makes the framework trust every peer, which is the trust-all the planted failure plants.
+- **Tests** (`tests/Campfire.App.Tests/Web/HostTests.fs`, 12, over `Host.build` on free loopback ports): HS1 `/up` on both ports, `TARGET_PORT` bound to `127.0.0.1` (`0.0.0.0` with `TARGET_BIND`),
+  `TARGET_PORT` = `HTTP_PORT` one listener; HS3 the HTTP port serves the app; HS5 (two) HSTS on a page, to `localhost` and another host, a public file, an action's 500, a middleware's 500 (via a
+  throwing `/cable`), a 404, and absent with `DISABLE_SSL`; HS6 the head limits through `Host.build` (R7 and R8 already run through `Host.configureKestrel` via `Support`); HS7 `FORWARD_HEADERS` on
+  (a forwarded banned address is a 429, also through a chain) and off (the forged header, `X-Forwarded-Proto` and `-Host` ignored); HS8 `HTTP_IDLE_TIMEOUT` closes an idle keep-alive connection after
+  1.5-7 s with a 2 s setting, `HTTP_READ_TIMEOUT` cuts unfinished headers (408 or close); HS9 `MAX_REQUEST_BODY` 1,024 gives 413 at 2,000 bytes and not at 100, a larger or zero value leaves 16 MiB;
+  HS10 `99999999999` and `0` seconds start the host with `MaxValue` limits; HS11 `StopAsync` sends `server_restart` to two Cable sockets, closes them, and finishes inside the 10 s grace, with
+  `ShutdownTimeout` = `Boot.ShutdownGrace`; HS12 `FrontSettings.fromLookup` (defaults, prefix, Go's booleans and integers, `TARGET_BIND`, timeouts, `TLS_DOMAIN`, EAB, ignored variables); and the
+  open-file limit test moved from `ServerTests`. All green on the first run except HS5's middleware 500 (the finding above). **P12 and the Cable restart tests green** (in `bin/verify`).
+- **Planted failure:** `configureForwarding` made a no-op (`if false && ...`, the equivalent of `KnownIPNetworks` left as Rails' with `FORWARD_HEADERS` off): **HS7 fails** ("a forged X-Forwarded-For was
+  honoured: 429"); reverted. HS4's planted `ServerCertificateSelector` belongs to 7.4b.
+- **Gates:** `CAMPFIRE_REQUIRE_SEED=1 bin/verify`: **1,047 total, 1,040 passed, 0 failed, 7 skipped** (1,035 / 1,028 / 7 before; +12), Release, warnings as errors, lint (336 files) and self-test, Dapper and EF
+  guards, H1. `bin/kloc` after committing: **29,885 by upstream's rules, 30,340 corrected (30.3)** (29,702 / 30,157 after 7.3: +183 corrected, all App: `Host.fs` 83, `OpenFiles.fs` 58, `FrontSettings.fs` +99 against
+  the Edge and Boot lines removed). Image rebuilt from `414713f` (label checked). In the image (colima): `/up`, `POST /session` (302 with the session cookie) and the room page (200, 377,512 bytes)
+  through `HTTP_PORT`, and `/up` and the room page through `TARGET_PORT` (from inside the container, loopback); `docker stop`: exit 0, `shutting down` then `Server stopped` 8 ms later;
+  `bench/lib/logcount`: **20,000 requests, 20,001 lines** (the readiness probe), SIGTERM, every line counted. `bin/asset-check`: **1,806 checks, 0 failed**; `git diff 0328698 HEAD` of `StaticAssets.fs` is
+  empty (`StaticAssets.map`'s call site, the marker middleware and `appEndpointsOnly` unchanged). `bin/cookie-roundtrip`: **20/20**. `bin/pixel-parity --fast --only 'auth/**,errors/**,bot_api/**,rooms/show/designers'`
+  on every seed: **PASSED** (default 38/38, crowd 0/0, custom_styles 2/2, first_run 8/8, restricted 0/0; pixels, aria and loose DOM equal). `bin/clean-parity` and `bin/clean-docker` run; 32 GB free.
+  The `errors/**` network layer is not part of this gate's report (reported only), so HSTS on a real exception page is covered by HS5's middleware case.
+- **Bench** (`bench/quick`, the five workloads plus avatar, c=1 and 16, 3 reps, interleaved, detached and polled; evidence `bench/results/dotnetway-7-4a/`). **Run A, the swap isolated:** new `414713f` against
+  `campfire-dotnetway:p7pre`, a same-session control of `0328698` (HEAD before the swap, built from `git archive` plus the submodule, label checked), host probe 1.04-1.08 before every window (a few
+  windows above 1.10 after: avatar c16, post c16, search c1), Mac load 1.3-3.9; 36 runs, all 2xx, 0 errors. req/s new / p7pre: room 7,481 / 7,152 (c16, +4.6%), 2,192 / 2,168 (c1, +1.1%); messages 7,331 /
+  6,888 (+6.4%), 2,036 / 2,020 (+0.8%); sidebar 7,583 / 7,276 (+4.2%), 2,133 / 2,095 (+1.8%); search 7,101 / 6,686 (+6.2%), 1,879 / 1,824 (+3.0%); post 2,118 / 2,021 (+4.8%), 1,025 / 1,006 (+1.9%); avatar
+  98,255 / 94,251 (c16), 12,907 / 12,468 (c1); CPU per request c1 569 / 603 / 580 / 644 / 1,770 / **157 (avatar)** us against 574 / 606 / 588 / 659 / 1,806 / 164: **the swap is a small gain on every cell**
+  (-1% to -7% CPU), as removing the old front's hop should be; idle memory 83 MB against 75 MB (+8 MB), peak 381 against 374. **vs Rails** (stored medians): room 31.3x (c16) / 20.5x (c1), messages 19.3x /
+  9.35x, sidebar 12.7x / **7.44x**, search 17.4x / 9.75x, post **6.42x** (c16) / **6.14x** (c1): **no cell under 5x; the thinnest is post c=1 at 6.14x**. **Run B, against `p6ctl`** (`309ab42`, batched log and the old
+  front): the session was noisy (another program loaded the Mac: load averages up to 31 at 15:22, probe 1.10-1.27 on several windows, wide rep ranges, warm-ups reaching their maximum), so its medians are
+  low and not a number to quote: new / p6ctl room 5,988 / 6,503 (c16), 1,838 / 2,298 (c1), messages 6,140 / 7,062, 1,964 / 2,115, sidebar 6,832 / 7,292, 2,051 / 2,308, search 6,463 / 6,829, 1,715 / 1,985, and vs
+  Rails the lowest cell was post at 5.62x (c16) and 5.79x (c1). The **thinnest cell was therefore re-run alone** (`--routes post_message,avatar`, 3 reps, host probe 1.04-1.07 before every window, load falling from
+  31 to 4): post c16 **2,139 [1,990-2,140] = 6.48x** (control 2,028), post c1 **1,059 [1,018-1,071] = 6.35x** (control 1,113), CPU 1,515 / 1,750 us (control 1,480 / 1,654). So against `p6ctl` post is +5% at c16 and
+  -5% at c1, the c=1 gap being 7.1's request log (measured then at -5.7% to -11.2%).
+  **Avatar** (the checkpoint's recheck): a hit costs **157-158 us at c=1** (168 at 7.2, 164 before the swap, 88-95 with `p6ctl`'s cache) and 24.9-26.7 us at c=16 (19.4-19.8 for `p6ctl`). The swap took 7-10 us off
+  the c=1 hit; the rest of the gap to `p6ctl` is the HTTP logging line (7.1 measured +61 us at c=1) and OutputCache, which no cell's floor needs; risk 1's ladder (console logger queue settings, then the
+  interceptor) is **not triggered** (no cell is near 5x) and is the first thing to try if a later unit needs the c=1 hit back.
+- **Differences recorded:** README class B (the host: listeners, no h2c, timeouts and minimum data rates, `FORWARD_HEADERS`, `MAX_REQUEST_BODY`, the 10 s stop, `force_ssl`'s unreachable redirect); no class A line (HSTS
+  survives the exception page).
+- **Open for 7.4b** (checkpoint notes 1-5, binding): the TLS listener (`UseHttps(TlsHandshakeCallbackOptions)` on `store.HandshakeOptions`, a finite handshake timeout even when `HTTP_READ_TIMEOUT` is none), F6's
+  branch on the HTTP port with the **421 for a Host outside `TLS_DOMAIN`**, the redirect to `https://<normalized host>[:HTTPS_PORT]<path>?<query>` and the challenge only for `TLS_DOMAIN` hosts (drop the README's
+  "redirects every host" line), `AcmeService` and the `"acme"` `HttpClient` wired into `Host.build`, `TLS_DOMAIN` validated at boot (names `ServerNames.normalize` refuses are logged or fail; test an underscore name
+  against `IdnMapping(UseStd3AsciiRules = true)`), HS2 (with the 421 case) and HS4 (also under `bin/linux-tests App`, the planted `ServerCertificateSelector` fails it), and `Boot.serve` on `Host.build` for TLS
+  installs too, after which `Front.serveHosted` has no caller. The `p7pre` control image stays for 7.4b's same-session bench (remove it with `p6ctl` at the phase's end). Evidence:
+  `bench/results/dotnetway-7-4a/` (`vs-p7pre`, `vs-p6ctl`, `vs-p6ctl-post`).
