@@ -45,7 +45,9 @@ type EdgeConfig =
       /// `action_dispatch.default_headers` (`load_defaults 7.1`).
       DefaultHeaders: (string * string)[]
       /// `public/404.html`, `422.html`, `500.html`, ... (`ActionDispatch::PublicExceptions`).
-      ErrorPages: ErrorPages }
+      ErrorPages: ErrorPages
+      /// `LOG_REQUESTS` (production, default on): one `UseHttpLogging` line per request. The test hosts leave it off.
+      LogRequests: bool }
 
 module EdgeConfig =
     /// `ActionDispatch::RemoteIp::TRUSTED_PROXIES`.
@@ -66,7 +68,8 @@ module EdgeConfig =
                "x-content-type-options", "nosniff"
                "x-permitted-cross-domain-policies", "none"
                "referrer-policy", "strict-origin-when-cross-origin" |]
-          ErrorPages = errorPages }
+          ErrorPages = errorPages
+          LogRequests = false }
 
 /// What the middleware learned about a request, kept in `HttpContext.Items`.
 [<Sealed>]

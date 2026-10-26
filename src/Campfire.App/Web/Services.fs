@@ -38,6 +38,8 @@ module Compression =
         options.MimeTypes <- mimeTypes
         options.Providers.Add<BrotliCompressionProvider>()
         options.Providers.Add<GzipCompressionProvider>()
+        // F10: after Brotli and Gzip, so a browser that offers `br` keeps it and a zstd-only client still gets zstd.
+        options.Providers.Add<ZstandardCompressionProvider>()
 
     /// An error status with no body (`head :not_found`, `head :forbidden`): Rails' `Rack::Deflater` gzips it into a few bytes of
     /// gzip, and Firefox, given an error document of zero bytes, shows its own "empty response" error page instead of a blank one.
@@ -97,7 +99,7 @@ module Services =
         |> ignore
 
 
-    /// Registers the app's services on the host (`Front.serveWithLines`'s `configureServices`, and the tests' hosts).
+    /// Registers the app's services on the host (`Front.serveHosted`'s `configureServices`, and the tests' hosts).
     let add (edge: EdgeConfig) (app: AppState) (services: IServiceCollection) : unit =
         AppContext.SetSwitch(SuppressAutoDefaultScheme, true)
         services.AddSingleton<EdgeConfig>(edge) |> ignore
@@ -127,6 +129,7 @@ module Services =
         // K11: gzip and Brotli at their fastest, what Rails compresses plus Turbo's streams; a body already smaller than
         // `Compression.MinimumLength` is not worth the CPU.
         services.AddResponseCompression(Compression.configure) |> ignore
+        if edge.LogRequests then HttpLog.add services
         services.AddSingleton<IResponseCompressionProvider>(fun sp ->
             Compression.SkipSmall(ResponseCompressionProvider(sp, sp.GetRequiredService<IOptions<ResponseCompressionOptions>>()))
             :> IResponseCompressionProvider)
@@ -165,6 +168,8 @@ module Services =
     /// The app's branch of the host: the pre-routing middleware (`Edge`), the asset endpoints (assets and public files), `/cable`, then the route table
     /// (`dispatch`) as Falco's not-found handler, so ASP.NET Core's own routing never rewrites a path.
     let pipeline (edge: EdgeConfig) (cable: HttpHandler) (dispatch: Campfire.App.Web.Action) (builder: IApplicationBuilder) : unit =
+        // F8: first, so the line's duration covers everything and an exception page's status is the one logged.
+        if edge.LogRequests then builder.UseHttpLogging() |> ignore
         builder.UseExceptionHandler(ExceptionHandlerOptions(ExceptionHandler = PublicExceptions.exceptionHandler)) |> ignore
         builder.UseForwardedHeaders() |> ignore
         builder.Use(Edge.assumeSsl edge) |> ignore

@@ -39,7 +39,7 @@ when the thread pool grows (about 1.33×). A last tuning unit then turned off th
 p99 on the room, messages and sidebar pages fell to Rust's level (about 1.0-1.1 ms at 16 clients) and F# ran 1.22-1.40×
 Rust. Where Rust still leads: CPU per request at a single connection, memory, cold start and Action Cable fan-out (see
 the results files). Part of the lead is how the request log is written: F# batches plain lines, the Rust port writes one
-coloured line per request.
+coloured line per request. (Since Phase 7's unit 7.1 the request log is the framework's HTTP logging line, below.)
 
 ## Running it
 
@@ -252,6 +252,16 @@ specific to this port are listed below, each citing the reference file it depart
   - Compressed responses carry the same decoded bytes as Rust's, not the same compressed bytes (.NET's
     deflate and ZstdSharp are not flate2 and libzstd); the app's own compression is the framework's, and the Rust test
     that pins the SHA-256 of a spliced gzip member is gone with the spliced gzip (unit 2.8).
+  - Class B (Phase 7, unit 7.1; `plans/design-front.md` F8, F10), each with the test that pins it:
+    - The request log is ASP.NET Core's HTTP logging line (`Web/HttpLog.fs`: `UseHttpLogging`, one combined entry per request with
+      the method, path, query, protocol, status and duration, plus `remote_addr` and `user_agent`) written by the console logger as
+      `Microsoft.AspNetCore.HttpLogging.HttpLoggingMiddleware`, not Thruster's `Request path=... status=...` line. It carries no other
+      header and no body; `LOG_REQUESTS=false` leaves the middleware out (`HttpLogTests` LG1-LG4). The client address is the connection's
+      after the forwarded headers, an IPv4-mapped address written as IPv4, with no port.
+    - Compression is the app's `UseResponseCompression` alone, which now offers zstd after Brotli and Gzip: a browser that offers `br`
+      keeps `br`, a client that takes only zstd gets zstd (`HttpLogTests` CZ1-CZ3). `GZIP_COMPRESSION_ENABLED`,
+      `GZIP_COMPRESSION_DISABLE_ON_AUTH` and `GZIP_COMPRESSION_JITTER` are not read and there is no BREACH jitter padding (Rails'
+      `Rack::Deflater` has none either); `Vary: Accept-Encoding` is on compressed responses only, and an image is not compressed.
   - `HTTP_IDLE_TIMEOUT`, `HTTP_READ_TIMEOUT` and `HTTP_WRITE_TIMEOUT` above 49 days are clamped to 49 days,
     the longest .NET's timers can wait. Thruster and the Rust port accept any number of seconds; a value
     that large means "never" in all three. Tested by `FrontConfigTests`.

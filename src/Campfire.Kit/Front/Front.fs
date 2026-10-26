@@ -71,9 +71,8 @@ module Front =
     /// Serves `app` (the pipeline of the kit, `Adapter.app` and what comes before it, built onto the
     /// builder it's given) the way Thruster served the reference until `shutdown` completes.
     /// `acme` replaces the configuration's ACME options (tests use a local CA), and `loggerFactory`
-    /// is where the server and Kestrel log (`options` and `configureHost` are the host's creation options and its builder callback, `StaticAssets.hostOptions` and `configureHost` in the app; `configureServices` registers the app's services, which `HttpContext.RequestServices` resolves; the requests, as `thruster`, unless `lines` is given: the host then
-    /// writes them itself, as bytes, see `RequestLog`).
-    let serveWithLines
+    /// is where the server and Kestrel log (`options` and `configureHost` are the host's creation options and its builder callback, `StaticAssets.hostOptions` and `configureHost` in the app; `configureServices` registers the app's services, which `HttpContext.RequestServices` resolves; the requests, as `thruster`).
+    let serveHosted
         (config: FrontConfig)
         (app: IApplicationBuilder -> unit)
         (acme: AcmeOptions voption)
@@ -81,12 +80,11 @@ module Front =
         (configureServices: IServiceCollection -> unit)
         (options: WebApplicationOptions)
         (configureHost: WebApplicationBuilder -> unit)
-        (lines: RequestLines | null)
         (shutdown: Task)
         : Task =
         task {
             let logger = loggerFactory.CreateLogger "thruster"
-            let services = FrontServices(config, logger, lines)
+            let services = FrontServices(config, logger)
             let timeouts =
                 { Idle = config.HttpIdleTimeout
                   Read = config.HttpReadTimeout
@@ -179,10 +177,10 @@ module Front =
             logger.LogInformation "Server stopped"
         }
 
-    /// The host's arguments: configuration is not watched (see `serveWithLines`).
+    /// The host's arguments: configuration is not watched (see `serveHosted`).
     let hostArgs: string[] = [| "--hostBuilder:reloadConfigOnChange=false" |]
 
-    /// `serveWithLines` with the requests logged through `loggerFactory`.
+    /// `serveHosted` with the requests logged through `loggerFactory`.
     let serveWith
         (config: FrontConfig)
         (app: IApplicationBuilder -> unit)
@@ -190,7 +188,7 @@ module Front =
         (loggerFactory: ILoggerFactory)
         (shutdown: Task)
         : Task =
-        serveWithLines config app acme loggerFactory ignore (WebApplicationOptions(Args = hostArgs)) ignore null shutdown
+        serveHosted config app acme loggerFactory ignore (WebApplicationOptions(Args = hostArgs)) ignore shutdown
 
     /// `serveWith`, with the configuration's ACME options and no logging but the requests'.
     let serve (config: FrontConfig) (app: IApplicationBuilder -> unit) (shutdown: Task) : Task =

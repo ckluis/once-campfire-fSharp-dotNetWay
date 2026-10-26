@@ -38,7 +38,7 @@ type Booted =
     { App: AppState
       /// What `Front.serve` builds the app's pipeline with (the app's `Web.Services.pipeline`).
       Pipeline: IApplicationBuilder -> unit
-      /// Registers `CampfireDb`, its factory, the `WriteGate` and the `TimeProvider` (`Front.serveWithLines`'s `configureServices`).
+      /// Registers `CampfireDb`, its factory, the `WriteGate` and the `TimeProvider` (`Front.serveHosted`'s `configureServices`).
       ConfigureServices: IServiceCollection -> unit
       Jobs: Runner }
 
@@ -70,7 +70,8 @@ module Boot =
     /// Boots the app from `config`: prepares the database, restores the reference's boot-time side
     /// effects, and builds the HTTP stack.
     /// `bootWith` on a given clock (tests hand in a frozen one instead of setting the process-wide environment variable).
-    let bootWithClock
+    let bootEdge
+        (logRequests: bool)
         (clockOverride: SharedClock option)
         (dbOptions: Microsoft.EntityFrameworkCore.DbContextOptionsBuilder<Campfire.Db.Ef.CampfireDb> -> unit)
         (config: AppConfig)
@@ -115,7 +116,7 @@ module Boot =
             | Ok() -> ()
             | Error error -> failwith (DbError.display error)
 
-            let edge = Web.EdgeConfig.production config.DisableSsl (errorPages ())
+            let edge = { Web.EdgeConfig.production config.DisableSsl (errorPages ()) with LogRequests = logRequests }
 
             // The fragment cache is built here, before the host, because jobs and broadcasts render outside a request; the host
             // registers this instance as its `HybridCache` (`Web.Services.add`).
@@ -144,11 +145,18 @@ module Boot =
                   Jobs = runner }
         }
 
+    /// `bootEdge` with no request log: the test hosts' (the log is `LOG_REQUESTS`'s, read by `serve`).
+    let bootWithClock clockOverride dbOptions config loggers : Task<Booted> = bootEdge false clockOverride dbOptions config loggers
+
     /// Boots the app on the process clock (`CAMPFIRE_FROZEN_TIME` or the system clock).
     let bootWith dbOptions config loggers : Task<Booted> = bootWithClock None dbOptions config loggers
 
     /// `bootWith` with no extra context options (production).
     let boot (config: AppConfig) (loggers: ILoggerFactory) : Task<Booted> = bootWith ignore config loggers
+
+    /// Production's boot: the request log (`UseHttpLogging`, F8 of plans/design-front.md) is on unless `LOG_REQUESTS` says no.
+    let private bootServing (logRequests: bool) (config: AppConfig) (loggers: ILoggerFactory) : Task<Booted> =
+        bootEdge logRequests None ignore config loggers
 
     // --- Commands ----------------------------------------------------------------------------------------
 
@@ -174,7 +182,7 @@ module Boot =
         task {
             let logger = loggers.CreateLogger "campfire"
             let front = FrontConfig.fromEnv ()
-            let! booted = boot config loggers
+            let! booted = bootServing front.LogRequests config loggers
             let app = booted.App
 
             let stopping = TaskCompletionSource()
@@ -186,9 +194,10 @@ module Boot =
                     // Front's `host.StopAsync` raises first (test P12 runs it against the app's own host).
                     stopping.TrySetResult() |> ignore
                 }
-            // The request log goes to stdout as batched bytes (the `thruster` lines the console logger would write), not through `ILogger`.
-            let requestLines = RequestLog.stdout ()
-            let server = Front.serveWithLines front booted.Pipeline ValueNone loggers booted.ConfigureServices (Web.StaticAssets.hostOptions Front.hostArgs) Web.StaticAssets.configureHost requestLines signal
+            // The app's pipeline logs requests (`UseHttpLogging`) and compresses (`UseResponseCompression`), so the old front does neither
+            // until the host swap (unit 7.4) removes it.
+            let front = { front with LogRequests = false; GzipCompressionEnabled = false }
+            let server = Front.serveHosted front booted.Pipeline ValueNone loggers booted.ConfigureServices (Web.StaticAssets.hostOptions Front.hostArgs) Web.StaticAssets.configureHost signal
             let deadline =
                 task {
                     do! stopping.Task
@@ -204,7 +213,6 @@ module Boot =
             match app.WebPush with
             | Some pool -> do! pool.Shutdown()
             | None -> ()
-            requestLines.Stop()
             // The database goes last: fold the WAL into the file and close every pooled connection (Rust drops its writer with the app).
             closeDatabase app
         }
@@ -271,15 +279,14 @@ module Boot =
             if File.Exists partial then File.Delete partial
 
     /// The console logger's options: one line, UTC microsecond timestamps, and no colour (a terminal would otherwise get ANSI
-    /// codes around the level, which the request log lines `RequestLog` writes as bytes never have).
+    /// codes around the level).
     let internal configureConsole (options: Microsoft.Extensions.Logging.Console.SimpleConsoleFormatterOptions) : unit =
         options.SingleLine <- true
         options.UseUtcTimestamp <- true
         options.TimestampFormat <- "yyyy-MM-ddTHH:mm:ss.ffffffZ "
         options.ColorBehavior <- Microsoft.Extensions.Logging.Console.LoggerColorBehavior.Disabled
 
-    /// A logger factory at the level `RAILS_LOG_LEVEL` names (or `CAMPFIRE_LOG`, which replaces it), with
-    /// the front server logging on its own terms, as Thruster did: requests at info, more with DEBUG.
+    /// A logger factory at the level `RAILS_LOG_LEVEL` names (or `CAMPFIRE_LOG`, which replaces it), 
     let createLoggerFactory (config: AppConfig) : ILoggerFactory =
         let level =
             match
@@ -296,14 +303,13 @@ module Boot =
             | "fatal"
             | "unknown" -> LogLevel.Error
             | _ -> LogLevel.Information
-        let front = if (FrontConfig.fromEnv ()).Debug then LogLevel.Debug else LogLevel.Information
         LoggerFactory.Create(fun builder ->
             builder
                 .AddSimpleConsole(configureConsole)
                 .SetMinimumLevel(level)
                 .AddFilter("Microsoft", LogLevel.Warning)
                 .AddFilter("System", LogLevel.Warning)
-                .AddFilter("thruster", front)
+                .AddFilter("Microsoft.AspNetCore.HttpLogging", LogLevel.Information)
             |> ignore)
 
     /// Run a command; a failure is `Error: <message>` on stderr and exit code 1, as `anyhow`'s `main` ends.

@@ -578,8 +578,8 @@ let ``a failed backup prints the error and exits 1 instead of throwing`` () =
     finally
         Directory.Delete(dir, true)
 
-/// The request log lines are written as bytes and never coloured, so the console logger must not colour the other lines on a terminal
-/// either (`ColorBehavior.Default` colours when stdout is a TTY, as under `docker run -t`).
+/// The console logger must not colour its lines on a terminal (`ColorBehavior.Default` colours when stdout is a TTY, as under
+/// `docker run -t`): the request log lines and the others stay plain text for a log pipeline.
 [<Fact>]
 let ``the console logger never colours its lines`` () =
     let options = Microsoft.Extensions.Logging.Console.SimpleConsoleFormatterOptions()

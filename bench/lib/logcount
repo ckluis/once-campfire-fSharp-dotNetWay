@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Phase 7 unit 7.3's check that batching the request log loses no line: runs the F# app (the image, or --mounted DIR) with an unbounded
+# Phase 7's check (unit 7.1: the framework's HTTP logging line) that the request log loses no line: runs the F# app (the image, or --mounted DIR) with an unbounded
 # log, sends N requests at 16 connections, stops the container with SIGTERM right after the last answer, and compares the number of
-# `Request path=` lines in `docker logs` with the number of requests sent (plus the readiness probes). Inside colima:
+# `HttpLoggingMiddleware` lines in `docker logs` with the number of requests sent (plus the readiness probes). Inside colima:
 #
 #   colima ssh -- bash -c "cd $PWD && bench/lib/logcount [--mounted DIR] [N]"
 set -euo pipefail
@@ -38,10 +38,10 @@ ts = [threading.Thread(target=worker) for _ in range(16)]
 PY
 sent=$((N / 16 * 16))
 docker stop -t 10 campfire-logcount >/dev/null
-logged=$(docker logs campfire-logcount 2>&1 | grep -c 'Request path=')
+logged=$(docker logs campfire-logcount 2>&1 | grep -c 'HttpLoggingMiddleware')
 # The probes that failed to connect are not requests; the one that answered is.
 echo "sent $sent requests (+1 answered readiness probe), logged $logged lines"
-docker logs campfire-logcount 2>&1 | grep -v 'Request path=' | tail -5
+docker logs campfire-logcount 2>&1 | grep -v 'HttpLoggingMiddleware' | tail -5
 docker rm -f campfire-logcount >/dev/null
 rm -rf "$WORK"
 [ "$logged" -eq $((sent + 1)) ] && echo OK || { echo "MISMATCH"; exit 1; }

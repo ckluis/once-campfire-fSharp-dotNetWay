@@ -23,6 +23,7 @@
     <Compile Include="Web/FormatsTests.fs" />
     <Compile Include="Web/RespondTests.fs" />
     <Compile Include="Web/PagesTests.fs" />
+    <Compile Include="Web/HttpLogTests.fs" />
     <Compile Include="Web/ControllersATests.fs" />
     <Compile Include="Web/ControllersBTests.fs" />
     <Compile Include="Web/ControllersCTests.fs" />
