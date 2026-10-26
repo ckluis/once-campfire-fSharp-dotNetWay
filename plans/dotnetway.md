@@ -3414,3 +3414,32 @@ Built on `dotnetway` from `eee2215`; one code commit (`0099ef0`) plus this entry
   No class A line.
 - **Open for 7.5:** nothing from 7.4. Remove `p7pre` and `p6ctl` at the phase's end. A real ACME order through the app's own host (rather than AC11's service-level run) was not exercised end to end; AC11 plus the
   smoke above cover its two halves.
+
+### Phase 7, unit 7.5: TLS end to end (2026-10-26)
+
+Built on `dotnetway` from `cc1e342`; one code commit plus this entry. Harness and scripts only: no `src/` change, so no bench (no response changed).
+
+- **Harness TLS mode (F16):** `PARITY_CANDIDATE_TLS=1` / `bin/pixel-parity --candidate-tls`. `parity/bin/candidate up` makes a self-signed P-256 certificate for `campfire.localhost` with the
+  image's own openssl 3.5 (the VM's 3.0 has no `-not_before`; the certificate is valid 2020-2049 because the server clock is frozen at the seed's instant, and one valid from today
+  would be "not yet valid" to the app), writes it as a `DirCache` file (`EC PRIVATE KEY` then the certificate, 0600 in a 0700 directory) into a mounted `storage/thruster`, and sets `TLS_DOMAIN`,
+  `HTTPS_PORT` = the port (published on 127.0.0.1:N), `HTTP_PORT=80` (published on N+100). `wait_until_up` curls the HTTPS name with `--resolve`. `parity/capture/cli.ts` gained
+  `--actual-origin` (the candidate is shown at `https://campfire.localhost:<CAND>`, the reference stays on `http://localhost:3999`; the capture's proxy tunnels the CONNECT to the server's port).
+- **Three harness changes that the origin difference forced (none touches a non-TLS run's meaning):** (1) `session.ts`'s sign-in context sets `ignoreHTTPSErrors` (the first run failed with
+  `ERR_CERT_AUTHORITY_INVALID` on `/session/new`); (2) `capture.ts` maps the target's own origin and host to the shared ones in every normalized layer (an absolute form `action` read
+  `https://campfire.localhost:4112/session` against `http://localhost:3999/session`); (3) `determinism.js` strips the origin from the call site that seeds `Math.random` (Lexxy's
+  link-input id differed because the script URL is part of the site). Without (2) and (3) the loose layer failed on both states.
+- **Gate:** `bin/pixel-parity --fast --candidate-tls --only 'auth/sign_in,rooms/show/designers'` on `default`: **4/4 screenshots pixel-equal, 4/4 aria equal, 4/4 loose equal**
+  (24 s). Non-TLS regression after the harness edits: `--fast --only 'auth/**,rooms/show/designers'` on `default`: 28/28, 28/28, 28/28 (132 s).
+- **curl over TLS** (candidate up in colima, `curl --cacert` its own certificate): `https://campfire.localhost:4300/session/new` HTTP/2 200; `Host: campfire.localhost` on the HTTP port
+  301 to `https://campfire.localhost:4300/rooms/1?a=b`; the log says `Loaded the cached certificate ... valid until 12/31/2049` (no order) and `Server started http=:80 https=:4300`.
+- **`reference-tools/front/pebble-image.sh`** (new; Pebble and the production image `campfire-dotnetway:app` on host networking, `TLS_DOMAIN=campfire.test`, `HTTP_PORT=5002`,
+  `HTTPS_PORT=8443`, `ACME_DIRECTORY`, `SSL_CERT_FILE` = Pebble's minica root): **PASSED**. Pebble issued exactly one certificate at boot; `storage/thruster/campfire.test` and `acme_account+key` 0600
+  in a 0700 directory; `openssl s_client -showcerts` shows 2 certificates (leaf and intermediate) and HTTP/2 `/up` 200; after `docker restart` the log says `Loaded the cached certificate`,
+  Pebble's issued count stays 1, the fingerprint is unchanged and the chain is still 2. (The script's first version checked the whole log for the cached load and passed or failed on
+  the earlier boot's lines; it now reads `docker logs --since`.) Containers, root and storage are removed by the script's trap.
+- **Operator step:** AGENTS.md has the TLS bullet (harness mode, Pebble script) and the Let's Encrypt staging steps (human-gated; not run).
+- **Gates:** `CAMPFIRE_REQUIRE_SEED=1 bin/verify`: **1,051 total, 1,044 passed, 0 failed, 7 skipped** (the environmental seven; AC11 needs `PEBBLE_DIRECTORY`, and `pebble-image.sh` is the end-to-end
+  check this unit). `bin/kloc` after committing: **29,965 by upstream's rules, 30,420 corrected (30.4 KLOC)**, unchanged from 7.4b (harness and scripts are not in the count). `bin/clean-docker`
+  run; Pebble image left (10.6 MB); disk 30 GB free.
+- **Differences recorded:** none (no class A or B line: the harness mode changes no response).
+- **Open for the phase:** 7.6 (delete Kit). `p7pre` and `p6ctl` images are still to be removed at the phase's end. The Pebble image can go with them.
