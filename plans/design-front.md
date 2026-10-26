@@ -331,7 +331,7 @@ The README's **Front server** entry is rewritten for Kestrel (7.6), keeping the 
 - Class B, each with the test that pins it: TLS-ALPN-01 is not answered, certificates come by HTTP-01 only, so port 80 must be reachable
   (Q2; `reference/docs/self-hosting.md` asks for 80 and 443) (AC11); certificates are ordered at boot and renewed in the background
   `min(30 days, lifetime / 3)` before expiry, a first handshake waits for the first order, and a cached certificate for a name no longer
-  in `TLS_DOMAIN` is not served (AC4, AC6); with TLS the HTTP port redirects every host (no 421), with an empty body, and names a non-443
+  in `TLS_DOMAIN` is not served (AC4, AC6); with TLS the HTTP port answers 421 to a Host outside `TLS_DOMAIN` and redirects the others to their normalized name, naming a non-443
   `HTTPS_PORT` (HS2); no cleartext HTTP/2 (`H2C_ENABLED` ignored); `HTTP_WRITE_TIMEOUT` is not read and slow bodies or readers are cut by
   Kestrel's minimum data rate (HS8); `GZIP_COMPRESSION_*` and `DEBUG` are not read, there is no BREACH jitter padding (CZ3); the request log
   is ASP.NET Core's HTTP logging line (LG1-LG3); `X-Cache` is gone and cache hits carry `Age`, a public response that sets a cookie is not

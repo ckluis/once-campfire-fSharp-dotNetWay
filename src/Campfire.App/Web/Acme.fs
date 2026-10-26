@@ -31,7 +31,7 @@ type LoadedCertificate =
       NotAfter: DateTimeOffset }
 
 module ServerNames =
-    /// `idna.Lookup.ToASCII`: a lowercased ASCII (punycode) name, no trailing dot; an IP address or a non-host is refused.
+    /// `idna.Lookup.ToASCII` (STD3 rules: an underscore or any other non-LDH ASCII character is refused): a lowercased ASCII (punycode) name, no trailing dot; an IP address or a non-host is refused.
     let private toAscii (host: string) : string voption =
         if host = "" || host.StartsWith '[' then
             ValueNone
@@ -40,7 +40,7 @@ module ServerNames =
             | true, _ -> ValueNone
             | _ ->
                 try
-                    let ascii = IdnMapping().GetAscii(host).ToLowerInvariant()
+                    let ascii = IdnMapping(UseStd3AsciiRules = true).GetAscii(host).ToLowerInvariant()
                     if ascii = "" || ascii.IndexOfAny [| ' '; '/'; '\\'; '@'; '#'; '?'; ':' |] >= 0 then ValueNone else ValueSome ascii
                 with :? ArgumentException ->
                     ValueNone

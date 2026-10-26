@@ -1,12 +1,14 @@
-// plans/design-front.md section 5, unit 7.4a: HS1, HS3 and HS5-HS12 (the plain-HTTP host). HS2 and HS4 (the TLS listener and F6's branch)
-// come with unit 7.4b. Hosts are `Web.Host.build` itself, on free loopback ports, over the app's own services and pipeline.
+// plans/design-front.md section 5, units 7.4a and 7.4b: HS1-HS12 (HS2 and HS4 are the TLS listener and F6's branch). Hosts are `Web.Host.build` itself, on free loopback ports, over the app's own services and pipeline.
 module Campfire.App.Tests.Web.HostTests
 
 open System
 open System.Diagnostics
 open System.IO
 open System.Net
+open System.Net.Security
 open System.Net.Sockets
+open System.Security.Cryptography
+open System.Security.Cryptography.X509Certificates
 open System.Net.WebSockets
 open System.Text
 open System.Threading
@@ -441,3 +443,161 @@ let ``the open-file limit is raised to the hard one`` () =
         Assert.True(soft >= softBefore)
         // macOS refuses a soft limit past `kern.maxfilesperproc`, and its hard limit is "unlimited".
         if OperatingSystem.IsLinux() then Assert.Equal(hard, soft)
+
+// --- HS2 and HS4: TLS_DOMAIN (unit 7.4b) -------------------------------------------------------------------------------------------
+
+/// A self-signed certificate for `name`, written to `storage` as the ACME cache file, valid for 90 days from now: loaded at start, never due.
+let private cachedCertificate (storage: string) (name: string) : string =
+    use key = ECDsa.Create ECCurve.NamedCurves.nistP256
+    let request = CertificateRequest("CN=" + name, key, HashAlgorithmName.SHA256)
+    let san = SubjectAlternativeNameBuilder()
+    san.AddDnsName name
+    request.CertificateExtensions.Add(san.Build false)
+    let now = DateTimeOffset.UtcNow
+    use certificate = request.CreateSelfSigned(now - TimeSpan.FromDays 1.0, now + TimeSpan.FromDays 89.0)
+    DirCache.write storage name key (certificate.ExportCertificatePem())
+    certificate.Thumbprint
+
+let private tempStorage () : string =
+    let path = Path.Combine(Path.GetTempPath(), "campfire-host-" + Guid.NewGuid().ToString("N"))
+    Directory.CreateDirectory path |> ignore
+    path
+
+/// A TLS install: `TLS_DOMAIN` names, the ACME cache in `storage` and a directory nothing listens on, so no order can succeed.
+let private tlsSettings (storage: string) (domains: string) (extra: (string * string) list) : FrontSettings =
+    settingsOf (
+        [ "TLS_DOMAIN", domains
+          "HTTPS_PORT", string (freePort ())
+          "STORAGE_PATH", storage
+          "ACME_DIRECTORY", "http://127.0.0.1:1/directory" ]
+        @ extra
+    )
+
+/// A TLS client to `port` offering `serverName` (null: no name) that trusts anything: the certificate's thumbprint, or the failure.
+let private handshake (port: int) (serverName: string | null) : Task<Result<string * string, string>> =
+    task {
+        use client = new TcpClient()
+        do! client.ConnectAsync(IPAddress.Loopback, port)
+        use ssl = new SslStream(client.GetStream(), false)
+        let options = SslClientAuthenticationOptions()
+        options.TargetHost <- (match serverName with null -> "127.0.0.1" | n -> n)
+        options.RemoteCertificateValidationCallback <- (fun _ _ _ _ -> true)
+        options.ApplicationProtocols <- Collections.Generic.List<SslApplicationProtocol>([ SslApplicationProtocol.Http11 ])
+        use cancel = new CancellationTokenSource(TimeSpan.FromSeconds 20.0)
+        try
+            do! ssl.AuthenticateAsClientAsync(options, cancel.Token)
+            let thumbprint = (new X509Certificate2(nonNull ssl.RemoteCertificate)).Thumbprint
+            // One request over the connection: the app answers HTTPS.
+            let request = Encoding.ASCII.GetBytes "GET /up HTTP/1.1\r\nHost: chat.example.test\r\nConnection: close\r\n\r\n"
+            do! ssl.WriteAsync(ReadOnlyMemory<byte> request, cancel.Token)
+            let buffer = Array.zeroCreate<byte> 256
+            let! n = ssl.ReadAsync(Memory<byte> buffer, cancel.Token)
+            return Ok(thumbprint, Encoding.ASCII.GetString(buffer, 0, n).Split('\r').[0])
+        with e ->
+            return Error e.Message
+    }
+
+[<Fact>]
+let ``HS2 with TLS_DOMAIN the HTTP port answers the ACME challenge for its names, 421s others, and 301s the rest to HTTPS`` () =
+    task {
+        use! test = bootSeeded "default"
+        let storage = tempStorage ()
+        cachedCertificate storage "chat.example.test" |> ignore
+        let settings = tlsSettings storage "chat.example.test" []
+        let! host, app = startHost test.Booted settings
+        use _host = host
+        let store = app.Services.GetRequiredService<CertificateStore>()
+        store.AddChallenge("tok-1", "tok-1.thumb")
+        let on (name: string) (path: string) = (get path).With("host", name)
+        // A TLS_DOMAIN host: a permanent redirect to the same target over HTTPS, the HTTPS port in it, and nothing of the app.
+        let! moved = host.Send(on "chat.example.test" "/rooms/1?a=b&c=%20d")
+        Assert.Equal(301, moved.Status)
+        Assert.Equal(Some("https://chat.example.test:" + string settings.HttpsPort + "/rooms/1?a=b&c=%20d"), moved.Header "location")
+        // The name is normalized (case, a port) before the check and in the Location.
+        let! mixed = host.Send(on "CHAT.Example.Test:8080" "/x")
+        Assert.Equal(301, mixed.Status)
+        Assert.Equal(Some $"https://chat.example.test:{settings.HttpsPort}/x", mixed.Header "location")
+        let! up = host.Send(on "chat.example.test" "/up")
+        Assert.Equal(301, up.Status)
+        // A POST gets the same redirect, without a body.
+        let! posted = host.Send(request "POST" "/session" |> fun r -> r.With("host", "chat.example.test"))
+        Assert.Equal(301, posted.Status)
+        // A Host outside TLS_DOMAIN, whatever its form, is a 421: never a cacheable redirect to a name the host cannot serve.
+        for other in [ "other.example.test"; "localhost"; "127.0.0.1"; "chat.example.test.evil.test"; "[::1]:80" ] do
+            let! reply = host.Send(on other "/rooms/1")
+            Assert.True((reply.Status = 421), $"{other}: {reply.Status}")
+            Assert.Equal(None, reply.Header "location")
+        // The challenge: the token's key authorization for a TLS_DOMAIN host, 404 for an unknown token, 403 for another host.
+        let! challenge = host.Send(on "chat.example.test" "/.well-known/acme-challenge/tok-1")
+        Assert.Equal(200, challenge.Status)
+        Assert.Equal("tok-1.thumb", challenge.Text)
+        let! unknown = host.Send(on "chat.example.test" "/.well-known/acme-challenge/nope")
+        Assert.Equal(404, unknown.Status)
+        let! foreign = host.Send(on "other.example.test" "/.well-known/acme-challenge/tok-1")
+        Assert.Equal(403, foreign.Status)
+        // TARGET_PORT is the app itself, plain.
+        let! target = (onPort app settings.TargetPort).Send(get "/up")
+        Assert.Equal(200, target.Status)
+    }
+
+[<Fact>]
+let ``HS4 the HTTPS port hands each TLS_DOMAIN name its own certificate, refuses every other name, and serves the app`` () =
+    task {
+        use! test = bootSeeded "default"
+        let storage = tempStorage ()
+        let chat = cachedCertificate storage "chat.example.test"
+        let other = cachedCertificate storage "other.example.test"
+        Assert.NotEqual<string>(chat, other)
+        let settings = tlsSettings storage "chat.example.test,other.example.test" []
+        let! host, _ = startHost test.Booted settings
+        use _host = host
+        let! first = handshake settings.HttpsPort "chat.example.test"
+        Assert.Equal(Ok(chat, "HTTP/1.1 200 OK"), first)
+        let! second = handshake settings.HttpsPort "OTHER.example.test."
+        Assert.Equal(Ok(other, "HTTP/1.1 200 OK"), second)
+        // A name outside TLS_DOMAIN, no name, an IP and a name `normalize` refuses get no certificate: the handshake fails.
+        for name in ([ "evil.example.test"; null; "chat.example.test.evil.test"; "localhost"; "a/b.example.test" ]: (string | null) list) do
+            let! refused = handshake settings.HttpsPort name
+            Assert.True(refused.IsError, $"{name}: {refused}")
+    }
+
+[<Fact>]
+let ``HS4 the first handshake of a name with no certificate yet fails within HTTP_READ_TIMEOUT, and is bounded when that is none`` () =
+    task {
+        use! test = bootSeeded "default"
+        let storage = tempStorage ()
+        // No cache file: the order fails (nothing listens on the directory), so the handshake waits for a certificate that never comes.
+        let settings = tlsSettings storage "chat.example.test" [ "HTTP_READ_TIMEOUT", "2" ]
+        let! host, _ = startHost test.Booted settings
+        use _host = host
+        let clock = Stopwatch.StartNew()
+        let! refused = handshake settings.HttpsPort "chat.example.test"
+        Assert.True(refused.IsError, $"{refused}")
+        Assert.True(clock.Elapsed < TimeSpan.FromSeconds 12.0, $"the handshake took {clock.Elapsed}")
+        // "No timeout" is a finite handshake budget all the same (checkpoint note 4).
+        let none = tlsSettings storage "chat.example.test" [ "HTTP_READ_TIMEOUT", "0" ]
+        Assert.Equal(TimeSpan.MaxValue, none.ReadTimeout)
+        let options = Web.Host.handshakeOptions none (CertificateStore none.TlsDomains)
+        Assert.True(options.HandshakeTimeout < TimeSpan.FromMinutes 5.0, $"{options.HandshakeTimeout}")
+        Assert.True(options.HandshakeTimeout > TimeSpan.Zero)
+    }
+
+[<Fact>]
+let ``TLS_DOMAIN names that normalize refuses are logged, and a list with none usable fails the boot`` () =
+    let logs = Collections.Generic.List<string>()
+    let logger =
+        { new Microsoft.Extensions.Logging.ILogger with
+            member _.BeginScope _ = null
+            member _.IsEnabled _ = true
+            member _.Log(level, _, state, e, formatter) = logs.Add(string level + ": " + formatter.Invoke(state, e)) }
+    let one = FrontSettings.fromLookup (lookupOf [ "TLS_DOMAIN", "chat.example.test,nodot,a/b.example.test" ])
+    Web.Host.validateDomains one logger
+    Assert.Equal(2, logs.Count)
+    Assert.Contains(logs, fun l -> l.Contains "nodot")
+    // Go's `idna.Lookup` uses STD3 rules: an underscore name is refused, and so is it here.
+    Assert.True((ServerNames.normalize "a_b.example.test").IsError)
+    Assert.Equal(Ok "xn--bcher-kva.example.test", ServerNames.normalize "Bücher.Example.Test")
+    let none = FrontSettings.fromLookup (lookupOf [ "TLS_DOMAIN", "nodot,localhost" ])
+    Assert.Throws<InvalidOperationException>(fun () -> Web.Host.validateDomains none logger) |> ignore
+    // Plain HTTP has nothing to validate.
+    Web.Host.validateDomains (FrontSettings.fromLookup (lookupOf [])) logger

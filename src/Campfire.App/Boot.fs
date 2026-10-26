@@ -195,15 +195,20 @@ module Boot =
             closeDatabase booted.App
         }
 
-    /// `bin/boot` with no TLS (F1, F13): the app's own host (`Web.Host`) on `HTTP_PORT` and `TARGET_PORT`, run under ConsoleLifetime
-    /// (SIGTERM, SIGINT) with a 10 s stop.
+    /// `bin/boot` (F1, F13): the app's own host (`Web.Host`) on `HTTP_PORT` and `TARGET_PORT`, and with `TLS_DOMAIN` on `HTTPS_PORT`, run
+    /// under ConsoleLifetime (SIGTERM, SIGINT) with a 10 s stop.
     let private serveHosted (settings: Web.FrontSettings) (config: AppConfig) (loggers: ILoggerFactory) : Task =
         task {
             let logger = loggers.CreateLogger "campfire"
             let! booted = bootServing settings config loggers
             let host = Web.Host.build settings loggers booted.ConfigureServices booted.Pipeline
             // The cable server closes every WebSocket (`server_restart`) on `ApplicationStopping` (test P12 stops the app's own host).
-            host.Lifetime.ApplicationStarted.Register(fun () -> logger.LogInformation("Server started http=:{Http}", settings.HttpPort)) |> ignore
+            host.Lifetime.ApplicationStarted.Register(fun () ->
+                if settings.HasTls then
+                    logger.LogInformation("Server started http=:{Http} https=:{Https} tls_domain={Domains}", settings.HttpPort, settings.HttpsPort, String.Join(",", settings.TlsDomains))
+                else
+                    logger.LogInformation("Server started http=:{Http}", settings.HttpPort))
+            |> ignore
             host.Lifetime.ApplicationStopping.Register(fun () -> logger.LogInformation "shutting down") |> ignore
             // A failed start (a port in use) still drains what booted, then fails the command.
             let! failure =
@@ -224,43 +229,9 @@ module Boot =
             logger.LogInformation "Server stopped"
         }
 
-    /// `bin/boot`'s `thrust bin/start-app` with TLS_DOMAIN set: still the old front server (kit's Thruster) on HTTP_PORT and HTTPS_PORT,
-    /// and the app itself on TARGET_PORT, until unit 7.4b gives `Web.Host` the TLS listener.
-    let private serveBehindOldFront (settings: Web.FrontSettings) (config: AppConfig) (loggers: ILoggerFactory) : Task =
-        task {
-            let logger = loggers.CreateLogger "campfire"
-            let front = FrontConfig.fromEnv ()
-            let! booted = bootServing settings config loggers
-            let stopping = TaskCompletionSource()
-            let signal =
-                task {
-                    do! Server.shutdownSignal ()
-                    logger.LogInformation "shutting down"
-                    // The cable server closes every WebSocket (`server_restart`) on `ApplicationStopping`, which
-                    // Front's `host.StopAsync` raises first (test P12 runs it against the app's own host).
-                    stopping.TrySetResult() |> ignore
-                }
-            // The app's pipeline logs requests (`UseHttpLogging`) and compresses (`UseResponseCompression`), so the old front does neither
-            // until the host swap (unit 7.4) removes it.
-            let front = { front with LogRequests = false; GzipCompressionEnabled = false; CacheSize = 0L }
-            let server = Front.serveHosted front booted.Pipeline ValueNone loggers booted.ConfigureServices (Web.StaticAssets.hostOptions Front.hostArgs) Web.StaticAssets.configureHost signal
-            let deadline =
-                task {
-                    do! stopping.Task
-                    do! Task.Delay ShutdownGrace
-                }
-            let! first = Task.WhenAny(server, deadline)
-            if obj.ReferenceEquals(first, server) then
-                do! server
-            else
-                logger.LogWarning "requests still running at shutdown were abandoned"
-            do! drain booted
-        }
-
-    /// `bin/boot`: the app's own host, or with `TLS_DOMAIN` the old front until 7.4b.
+    /// `bin/boot`: the app's own host.
     let serve (config: AppConfig) (loggers: ILoggerFactory) : Task =
-        let settings = Web.FrontSettings.fromEnv ()
-        if settings.HasTls then serveBehindOldFront settings config loggers else serveHosted settings config loggers
+        serveHosted (Web.FrontSettings.fromEnv ()) config loggers
 
     /// SQLite's online backup of the live database at `source` into a new file at `target`: `sqlite3_backup_step(-1)`
     /// (every page in one step), retried `attempts` times, `delay` apart, while the source is busy or locked

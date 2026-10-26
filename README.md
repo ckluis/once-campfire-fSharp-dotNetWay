@@ -274,10 +274,9 @@ specific to this port are listed below, each citing the reference file it depart
       response.
     - A response that sets a cookie is never stored (the hourly session resume on an avatar), and a request with an `Authorization`
       header or a `Range` header bypasses the cache.
-  - Class B (Phase 7, unit 7.4a; `plans/design-front.md` F1, F2, F11-F14): an install without `TLS_DOMAIN` is served by the app's own
-    host (`Web/Host.fs`: Kestrel's listeners and limits, ConsoleLifetime), not by the front server above (installs with `TLS_DOMAIN` keep
-    that front until unit 7.4b, and the bullets above that name it still describe them), each with the test that pins it
-    (`HostTests`):
+  - Class B (Phase 7, units 7.4a and 7.4b; `plans/design-front.md` F1-F6, F11-F14): every install is served by the app's own host
+    (`Web/Host.fs`: Kestrel's listeners and limits, ConsoleLifetime), not by the front server above (the bullets above that name it
+    describe what it did), each with the test that pins it (`HostTests`):
     - `HTTP_PORT` and `TARGET_PORT` (loopback, or `TARGET_BIND`) both serve the app over HTTP/1.1; cleartext HTTP/2 is not offered and
       `H2C_ENABLED` is not read (HS1, HS12). `HTTP_WRITE_TIMEOUT`, `GZIP_COMPRESSION_*` and `DEBUG` are not read either.
     - `HTTP_IDLE_TIMEOUT` is Kestrel's keep-alive timeout and `HTTP_READ_TIMEOUT` its request-header timeout; a body is no longer cut by a
@@ -291,6 +290,13 @@ specific to this port are listed below, each citing the reference file it depart
     - HSTS is still sent on every response that reaches the edge middleware, including a 500 page (`UseHsts` loses the header there, so it
       stays in `Edge`); `force_ssl`'s own HTTP-to-HTTPS redirect is gone, as production's `assume_ssl` made every request HTTPS before it
       could fire (HS5).
+    - With `TLS_DOMAIN`, `HTTPS_PORT` is Kestrel's own TLS listener (HTTP/1.1 and HTTP/2) choosing each handshake's certificate by server name
+      from the ACME store; a name outside `TLS_DOMAIN`, or none, fails the handshake, and the first handshake of a name waits for its first
+      certificate for at most `HTTP_READ_TIMEOUT` (30 seconds when that means none) (HS4). The HTTP port then serves only F6's branch: a
+      `Host` outside `TLS_DOMAIN` (normalized as the handshake normalizes names: IDNA with STD3 rules, so an underscore name is refused) is
+      a 421, `/.well-known/acme-challenge/` for such a host a 403, the challenge of a `TLS_DOMAIN` host its key authorization, and
+      everything else a 301 to `https://<normalized host>[:HTTPS_PORT]<same target>` (HS2). Names `TLS_DOMAIN` lists that are refused are
+      logged at boot, and a list with none usable stops the boot.
   - `HTTP_IDLE_TIMEOUT`, `HTTP_READ_TIMEOUT` and `HTTP_WRITE_TIMEOUT` above 49 days are clamped to 49 days,
     the longest .NET's timers can wait. Thruster and the Rust port accept any number of seconds; a value
     that large means "never" in all three. Tested by `FrontConfigTests`.
