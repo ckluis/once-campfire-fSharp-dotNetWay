@@ -3379,3 +3379,38 @@ Sonnet builder, commits `414713f` (code, tests) and the README commit after it; 
   against `IdnMapping(UseStd3AsciiRules = true)`), HS2 (with the 421 case) and HS4 (also under `bin/linux-tests App`, the planted `ServerCertificateSelector` fails it), and `Boot.serve` on `Host.build` for TLS
   installs too, after which `Front.serveHosted` has no caller. The `p7pre` control image stays for 7.4b's same-session bench (remove it with `p6ctl` at the phase's end). Evidence:
   `bench/results/dotnetway-7-4a/` (`vs-p7pre`, `vs-p6ctl`, `vs-p6ctl-post`).
+
+### Phase 7, unit 7.4b: TLS in the app's host (2026-10-26)
+
+Built on `dotnetway` from `eee2215`; one code commit (`0099ef0`) plus this entry. The unit row's TLS half, per checkpoint notes 1-5.
+
+- **Built:** `Web/Host.fs` gains the HTTPS listener (`ListenAnyIP(HTTPS_PORT)`, HTTP/1.1 and HTTP/2, `UseHttps(TlsHandshakeCallbackOptions)` whose `OnConnection` is `CertificateStore.HandshakeOptions`), `Host.handshakeOptions`
+  (`HandshakeTimeout` = `HTTP_READ_TIMEOUT`, **30 s when that means none**, note 4), `Host.httpPortHandler` (F6) behind a terminal `MapWhen` on the HTTP port (with `UseHttpLogging` first on that branch when
+  `LOG_REQUESTS` is on), `Host.validateDomains` (note 5), and the `CertificateStore`, `FrontSettings`, `AddHttpClient "acme"` and `AcmeService` registrations when `TLS_DOMAIN` is set. F6 as the note says: a Host outside
+  `TLS_DOMAIN` (normalized with `ServerNames.normalize`, port and case dropped) is a **421**, its ACME challenge path a 403 (as Thruster's and the old port's host check answered), a `TLS_DOMAIN` host's challenge is the store's
+  token (404 for an unknown one), and everything else is a 301 to `https://<normalized host>[:HTTPS_PORT]<raw target>` (`Connection: close`, Go's `<a href>` body for GET). I wrote the redirect by hand instead of
+  `UseHttpsRedirection`, which redirects any Host. `Boot.serve` is `serveHosted` for every install: `serveBehindOldFront` is deleted and `Front.serveHosted` has no caller in the App (the Kit's Front stays until its own unit).
+- **`TLS_DOMAIN` validation (note 5):** each name `normalize` refuses is logged at error level; a list with none usable stops the boot (`InvalidOperationException`). `ServerNames.toAscii` now uses
+  `IdnMapping(UseStd3AsciiRules = true)`: Go's `idna.Lookup` is an STD3 profile, so an underscore name is refused (it was accepted before; the test pins both that and a punycode name).
+- **Tests (`HostTests`, 4 new):** HS2 (redirect with port, normalization, POST, the 421 cases `other`, `localhost`, an IP, a suffix trick and `[::1]`, the challenge 200/404/403, TARGET_PORT plain), HS4 (own certificate per
+  SNI over a real `SslStream`, uppercase and trailing-dot names, the handshake refused for another name, no name, a refused name, and the app answering HTTP/1.1 over it), HS4's timeout case (a name with no certificate
+  fails within `HTTP_READ_TIMEOUT`, 2 s, in under 12 s; the finite budget when it is none) and the boot validation. **Planted failures:** a `ServerCertificateSelector` returning one fixed certificate fails both HS4 tests
+  (the unknown-name handshake succeeds); HS7's trust-all was planted in 7.4a. HS4 and HS2 also pass under `bin/linux-tests App` (colima, 3/3). The checkpoint's other conditions: HSTS stays in `Edge` (7.4a, HS5 covers a 500).
+- **Gates:** `CAMPFIRE_REQUIRE_SEED=1 bin/verify`: **1,051 total, 1,044 passed, 0 failed, 7 skipped** (the environmental seven, AC11 among them: Pebble was not started this unit; AC11 passed 3/3 in 7.3 and nothing in
+  `Acme.fs` but the STD3 name rule changed). Release with warnings as errors, lint, Dapper and EF guards, H1, P12 and the Cable restart tests green inside it. `bin/asset-check`: 1,806 checks, 0 failed
+  (`StaticAssets.fs` untouched). `bin/cookie-roundtrip`: 20/20. `bin/pixel-parity --fast --only 'auth/**,errors/**,bot_api/**,rooms/show/designers'` on every seed: **PASSED** (default 38/38, crowd 0/0, custom_styles 2/2,
+  first_run 8/8, restricted 0/0). `bin/kloc` after committing: **29,965 by upstream's rules, 30,420 corrected (30.4 KLOC)**, +80 corrected since 7.4a.
+- **Image smoke (rebuilt from `0099ef0`, label checked; colima, host network, a self-signed certificate in the ACME cache for `campfire.test`, `HTTP_PORT=8080 HTTPS_PORT=8443 TARGET_PORT=3999`):** the log says
+  `Loaded the cached certificate` then `Server started http=:8080 https=:8443 tls_domain=campfire.test`; `https://campfire.test:8443/up` 200 over HTTP/2; `/session/new` 302; `Host: campfire.test` on the HTTP port 301 to
+  `https://campfire.test:8443/rooms/1?a=b`; `Host: evil.test` 421; SNI `evil.test` refused; `TARGET_PORT` `/up` 200; `docker stop` logs `shutting down` then `Server stopped`. A real order against a CA is AC11's (Pebble).
+- **Bench** (`bench/quick`, five workloads plus avatar, c=1 and 16, 3 reps, interleaved, detached and polled; new `0099ef0` against `campfire-dotnetway:p7pre` (`0328698`, before the swap), host probe 1.06-1.09 before
+  every window, a few windows above 1.10 after (avatar c16, post c16, search c16); 36 runs, all 2xx, 0 errors; `bench/results/dotnetway-7-4b/vs-p7pre/`). The session was slower than 7.4a's (the control's room c=1 is
+  2,045 against 2,168 then), so compare the pair, not the days. req/s new / p7pre: room 6,896 / 6,768 (c16), 1,877 / 2,045 (c1, a wide control range 1,540-2,132); messages 6,813 / 6,467, 1,933 / 1,869; sidebar 6,433 / 6,954
+  (c16, new range 4,872-6,903: its warm-up never settled), 2,055 / 1,906; search 6,748 / 6,192, 1,819 / 1,699; post 1,837 / 1,578 (c16, new range 806-2,055: one rep fell to 806 with the host at 1.10), 1,001 / 866;
+  avatar c=1 12,057 / 12,006 (**163 us a hit against 167**), c=16 89,541 / 84,993. The 7.4b change touches only TLS installs, so a plain-HTTP cell moving more than noise would have been a defect: none did. **vs Rails** (stored
+  medians): room 28.8x / 17.5x, messages 17.9x / 8.87x, sidebar 10.7x / 7.17x, search 16.5x / 9.44x, post **5.57x** (c16) / **6.00x** (c1): **no cell under 5x; the thinnest is post c=16, whose median is dragged by the one
+  806 rep (the other two are 1,837 and 2,055: 5.6x and 6.2x)**. 7.4a measured the same cell at 6.42x on a quiet host; risk 1's ladder is not triggered. `p7pre` and `p6ctl` stay for 7.5.
+- **Differences recorded:** README class B (the TLS listener and its handshake budget, F6's 421/403/301 and the challenge, the boot validation, STD3 names); `plans/design-front.md`'s "redirects every host" line is replaced.
+  No class A line.
+- **Open for 7.5:** nothing from 7.4. Remove `p7pre` and `p6ctl` at the phase's end. A real ACME order through the app's own host (rather than AC11's service-level run) was not exercised end to end; AC11 plus the
+  smoke above cover its two halves.
