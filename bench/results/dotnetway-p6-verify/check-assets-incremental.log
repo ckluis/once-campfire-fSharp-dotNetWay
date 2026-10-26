@@ -1,0 +1,1 @@
+ok: an added override is staged and in the endpoint manifest; deleted, it is gone from both; a symbolic link fails the build

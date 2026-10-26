@@ -1,0 +1,400 @@
+    at Campfire.App.Tests.AttachmentTests.uploads and removes an avatar@18.MoveNext() in /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/AttachmentTests.fs:43
+    --- End of stack trace from previous location ---
+failed Campfire.App.Tests.Web.ControllersBTests.J1 the administrator-only writes answer 403 to a member, and run for an administrator (526ms)
+  sign in as jz@37signals.com: 
+  from /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/bin/Release/net11.0/Campfire.App.Tests.dll (net11.0|arm64)
+  sign in as jz@37signals.com: 
+    at Campfire.App.Tests.Support.SignIn@595.MoveNext() in /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/Support.fs:599
+    at Campfire.App.Tests.Web.ControllersBTests.signedIn@21.MoveNext() in /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/Web/ControllersBTests.fs:23
+    at Campfire.App.Tests.Web.ControllersBTests.J1 the administrator-only writes answer 403 to a member\, and run for an administrator@29.MoveNext() in /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/Web/ControllersBTests.fs:31
+    at Campfire.App.Tests.Web.ControllersBTests.J1 the administrator-only writes answer 403 to a member\, and run for an administrator@29.MoveNext() in /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/Web/ControllersBTests.fs:47
+    --- End of stack trace from previous location ---
+failed Campfire.App.Tests.CableAuthTests.A1 the Rails minted session cookie opens the cable; no cookie, a forged one and a flipped digit get the unauthorized frame and a close (464ms)
+  System.Net.WebSockets.WebSocketException : The server returned status code '404' when status code '101' was expected.
+  from /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/bin/Release/net11.0/Campfire.App.Tests.dll (net11.0|arm64)
+  Xunit.MicrosoftTestingPlatform.XunitException: System.Net.WebSockets.WebSocketException : The server returned status code '404' when status code '101' was expected.
+    at System.Net.WebSockets.WebSocketHandle.ValidateResponse(HttpResponseMessage response, String secValue)
+    at System.Net.WebSockets.WebSocketHandle.ConnectAsync(Uri uri, HttpMessageInvoker invoker, CancellationToken cancellationToken, ClientWebSocketOptions options)
+    at System.Net.WebSockets.ClientWebSocket.ConnectAsyncCore(Uri uri, HttpMessageInvoker invoker, CancellationToken cancellationToken)
+    at Campfire.App.Tests.CableAuthTests.connect@24.MoveNext() in /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/CableAuthTests.fs:32
+    at Campfire.App.Tests.CableAuthTests.A1 the Rails minted session cookie opens the cable; no cookie\, a forged one and a flipped digit get the unauthorized frame and a close@87.MoveNext() in /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/CableAuthTests.fs:89
+    at Campfire.App.Tests.CableAuthTests.A1 the Rails minted session cookie opens the cable; no cookie\, a forged one and a flipped digit get the unauthorized frame and a close@87.MoveNext() in /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/CableAuthTests.fs:105
+    --- End of stack trace from previous location ---
+failed Campfire.App.Tests.Web.ControllersATests.N5 the conductor checks the request's origin before it refuses (411ms)
+  Assert.Equal() Failure: Values differ
+Expected: 403
+Actual:   405
+  from /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/bin/Release/net11.0/Campfire.App.Tests.dll (net11.0|arm64)
+  Assert.Equal() Failure: Values differ
+  Expected: 403
+  Actual:   405
+    at Campfire.App.Tests.Web.ControllersATests.N5 the conductor checks the request's origin before it refuses@89.MoveNext() in /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/Web/ControllersATests.fs:92
+    at Campfire.App.Tests.Web.ControllersATests.N5 the conductor checks the request's origin before it refuses@89.MoveNext() in /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/Web/ControllersATests.fs:97
+    --- End of stack trace from previous location ---
+failed Campfire.App.Tests.Web.ControllersDTests.D1 a bot's raw body survives the form reader and the method override (360ms)
+  from /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/bin/Release/net11.0/Campfire.App.Tests.dll (net11.0|arm64)
+    at Campfire.App.Tests.Web.ControllersDTests.D1 a bot's raw body survives the form reader and the method override@13.MoveNext() in /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/Web/ControllersDTests.fs:19
+    at Campfire.App.Tests.Web.ControllersDTests.D1 a bot's raw body survives the form reader and the method override@13.MoveNext() in /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/Web/ControllersDTests.fs:31
+    --- End of stack trace from previous location ---
+failed Campfire.App.Tests.MessagesTests.boosts are listed created and removed (647ms)
+  Assert.Equal() Failure: Values differ
+Expected: Some(http://campfire.test/messages/136976342/boosts)
+Actual:   null
+  from /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/bin/Release/net11.0/Campfire.App.Tests.dll (net11.0|arm64)
+  Assert.Equal() Failure: Values differ
+  Expected: Some(http://campfire.test/messages/136976342/boosts)
+  Actual:   null
+    at Campfire.App.Tests.MessagesTests.boosts are listed created and removed@342.MoveNext() in /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/MessagesTests.fs:355
+    at Campfire.App.Tests.MessagesTests.boosts are listed created and removed@342.MoveNext() in /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/MessagesTests.fs:364
+    --- End of stack trace from previous location ---
+failed Campfire.App.Tests.CableAuthTests.A3 a session deleted between the first lookup and the registration is heard by the re-check (369ms)
+  System.Net.WebSockets.WebSocketException : The server returned status code '404' when status code '101' was expected.
+  from /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/bin/Release/net11.0/Campfire.App.Tests.dll (net11.0|arm64)
+  Xunit.MicrosoftTestingPlatform.XunitException: System.Net.WebSockets.WebSocketException : The server returned status code '404' when status code '101' was expected.
+    at System.Net.WebSockets.WebSocketHandle.ValidateResponse(HttpResponseMessage response, String secValue)
+    at System.Net.WebSockets.WebSocketHandle.ConnectAsync(Uri uri, HttpMessageInvoker invoker, CancellationToken cancellationToken, ClientWebSocketOptions options)
+    at System.Net.WebSockets.ClientWebSocket.ConnectAsyncCore(Uri uri, HttpMessageInvoker invoker, CancellationToken cancellationToken)
+    at Campfire.App.Tests.CableAuthTests.connect@24.MoveNext() in /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/CableAuthTests.fs:32
+    at Campfire.App.Tests.CableAuthTests.A3 a session deleted between the first lookup and the registration is heard by the re-check@168.MoveNext() in /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/CableAuthTests.fs:171
+    at Campfire.App.Tests.CableAuthTests.A3 a session deleted between the first lookup and the registration is heard by the re-check@168.MoveNext() in /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/CableAuthTests.fs:185
+    --- End of stack trace from previous location ---
+failed Campfire.App.Tests.RoomsTests.involvement is shown and changed (548ms)
+  Assert.Equal() Failure: Values differ
+Expected: Some(http://campfire.test/rooms/486777696/involvement)
+Actual:   null
+  from /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/bin/Release/net11.0/Campfire.App.Tests.dll (net11.0|arm64)
+  Assert.Equal() Failure: Values differ
+  Expected: Some(http://campfire.test/rooms/486777696/involvement)
+  Actual:   null
+    at Campfire.App.Tests.RoomsTests.involvement is shown and changed@242.MoveNext() in /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/RoomsTests.fs:249
+    at Campfire.App.Tests.RoomsTests.involvement is shown and changed@242.MoveNext() in /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/RoomsTests.fs:259
+    --- End of stack trace from previous location ---
+failed Campfire.App.Tests.MessagesTests.F3 a text message is answered and broadcast as it was stored (340ms)
+  from /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/bin/Release/net11.0/Campfire.App.Tests.dll (net11.0|arm64)
+    at Campfire.App.Tests.MessagesTests.F3 a text message is answered and broadcast as it was stored@142.MoveNext() in /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/MessagesTests.fs:164
+    at Campfire.App.Tests.MessagesTests.F3 a text message is answered and broadcast as it was stored@142.MoveNext() in /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/MessagesTests.fs:193
+    --- End of stack trace from previous location ---
+failed Campfire.App.Tests.CableAuthTests.A5 publishing inside a write throws; a posted message reaches the room's subscriber only after its row is committed (401ms)
+  System.Net.WebSockets.WebSocketException : The server returned status code '404' when status code '101' was expected.
+  from /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/bin/Release/net11.0/Campfire.App.Tests.dll (net11.0|arm64)
+  Xunit.MicrosoftTestingPlatform.XunitException: System.Net.WebSockets.WebSocketException : The server returned status code '404' when status code '101' was expected.
+    at System.Net.WebSockets.WebSocketHandle.ValidateResponse(HttpResponseMessage response, String secValue)
+    at System.Net.WebSockets.WebSocketHandle.ConnectAsync(Uri uri, HttpMessageInvoker invoker, CancellationToken cancellationToken, ClientWebSocketOptions options)
+    at System.Net.WebSockets.ClientWebSocket.ConnectAsyncCore(Uri uri, HttpMessageInvoker invoker, CancellationToken cancellationToken)
+    at Campfire.App.Tests.CableAuthTests.connect@24.MoveNext() in /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/CableAuthTests.fs:32
+    at Campfire.App.Tests.CableAuthTests.A5 publishing inside a write throws; a posted message reaches the room's subscriber only after its row is committed@190.MoveNext() in /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/CableAuthTests.fs:217
+    at Campfire.App.Tests.CableAuthTests.A5 publishing inside a write throws; a posted message reaches the room's subscriber only after its row is committed@190.MoveNext() in /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/CableAuthTests.fs:248
+    at Campfire.App.Tests.CableAuthTests.A5 publishing inside a write throws; a posted message reaches the room's subscriber only after its row is committed@190.MoveNext() in /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/CableAuthTests.fs:248
+    --- End of stack trace from previous location ---
+failed Campfire.App.Tests.Web.BotKeyTests.B1 a valid key creates a message as the bot (446ms)
+  from /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/bin/Release/net11.0/Campfire.App.Tests.dll (net11.0|arm64)
+    at Campfire.App.Tests.Web.BotKeyTests.B1 a valid key creates a message as the bot@12.MoveNext() in /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/Web/BotKeyTests.fs:16
+    at Campfire.App.Tests.Web.BotKeyTests.B1 a valid key creates a message as the bot@12.MoveNext() in /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/Web/BotKeyTests.fs:21
+    --- End of stack trace from previous location ---
+failed Campfire.App.Tests.MessagesTests.create appends the message as a turbo stream (453ms)
+  from /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/bin/Release/net11.0/Campfire.App.Tests.dll (net11.0|arm64)
+    at Campfire.App.Tests.MessagesTests.create appends the message as a turbo stream@84.MoveNext() in /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/MessagesTests.fs:92
+    at Campfire.App.Tests.MessagesTests.create appends the message as a turbo stream@84.MoveNext() in /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/MessagesTests.fs:99
+    --- End of stack trace from previous location ---
+failed Campfire.App.Tests.RoomsTests.direct rooms are found or created (645ms)
+  Assert.Equal() Failure: Values differ
+Expected: Some(http://campfire.test/rooms/186869642)
+Actual:   null
+  from /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/bin/Release/net11.0/Campfire.App.Tests.dll (net11.0|arm64)
+  Assert.Equal() Failure: Values differ
+  Expected: Some(http://campfire.test/rooms/186869642)
+  Actual:   null
+    at Campfire.App.Tests.RoomsTests.direct rooms are found or created@203.MoveNext() in /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/RoomsTests.fs:209
+    at Campfire.App.Tests.RoomsTests.direct rooms are found or created@203.MoveNext() in /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/RoomsTests.fs:220
+    --- End of stack trace from previous location ---
+failed Campfire.App.Tests.Web.ControllersBTests.J5 bots: list, create, change, new key and remove (699ms)
+  Assert.Equal() Failure: Values differ
+Expected: 302
+Actual:   405
+  from /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/bin/Release/net11.0/Campfire.App.Tests.dll (net11.0|arm64)
+  Assert.Equal() Failure: Values differ
+  Expected: 302
+  Actual:   405
+    at Campfire.App.Tests.Web.ControllersBTests.J5 bots: list\, create\, change\, new key and remove@127.MoveNext() in /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/Web/ControllersBTests.fs:137
+    at Campfire.App.Tests.Web.ControllersBTests.J5 bots: list\, create\, change\, new key and remove@127.MoveNext() in /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/Web/ControllersBTests.fs:158
+    --- End of stack trace from previous location ---
+failed Campfire.App.Tests.PresenterAccountsTests.direct uploads are refused past the body limit (569ms)
+  sign in as david@37signals.com: 
+  from /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/bin/Release/net11.0/Campfire.App.Tests.dll (net11.0|arm64)
+  sign in as david@37signals.com: 
+    at Campfire.App.Tests.Support.SignIn@595.MoveNext() in /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/Support.fs:599
+    at Campfire.App.Tests.PresenterAccountsTests.direct uploads are refused past the body limit@126.MoveNext() in /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/PresenterAccountsTests.fs:129
+    at Campfire.App.Tests.PresenterAccountsTests.direct uploads are refused past the body limit@126.MoveNext() in /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/PresenterAccountsTests.fs:138
+    --- End of stack trace from previous location ---
+failed Campfire.App.Tests.MessagesTests.uploads attach and process the file (353ms)
+  from /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/bin/Release/net11.0/Campfire.App.Tests.dll (net11.0|arm64)
+    at Campfire.App.Tests.MessagesTests.uploads attach and process the file@215.MoveNext() in /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/MessagesTests.fs:225
+    at Campfire.App.Tests.MessagesTests.uploads attach and process the file@215.MoveNext() in /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/MessagesTests.fs:234
+    --- End of stack trace from previous location ---
+failed Campfire.App.Tests.Web.ControllersBTests.J2 the account form reads its name and its settings hash (313ms)
+  Assert.Equal() Failure: Values differ
+Expected: 302
+Actual:   405
+  from /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/bin/Release/net11.0/Campfire.App.Tests.dll (net11.0|arm64)
+  Assert.Equal() Failure: Values differ
+  Expected: 302
+  Actual:   405
+    at Campfire.App.Tests.Web.ControllersBTests.J2 the account form reads its name and its settings hash@52.MoveNext() in /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/Web/ControllersBTests.fs:63
+    at Campfire.App.Tests.Web.ControllersBTests.J2 the account form reads its name and its settings hash@52.MoveNext() in /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/Web/ControllersBTests.fs:81
+    --- End of stack trace from previous location ---
+failed Campfire.App.Tests.PresenterAccountsTests.first run sets up the account (427ms)
+  405 : 
+  from /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/bin/Release/net11.0/Campfire.App.Tests.dll (net11.0|arm64)
+  405 : 
+    at Campfire.App.Tests.PresenterAccountsTests.assertRedirect(Reply reply, String location) in /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/PresenterAccountsTests.fs:43
+    at Campfire.App.Tests.PresenterAccountsTests.first run sets up the account@217.MoveNext() in /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/PresenterAccountsTests.fs:227
+    at Campfire.App.Tests.PresenterAccountsTests.first run sets up the account@217.MoveNext() in /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/PresenterAccountsTests.fs:231
+    --- End of stack trace from previous location ---
+failed Campfire.App.Tests.Web.BotKeyTests.B4 a cross-site bot request is not a forgery (301ms)
+  from /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/bin/Release/net11.0/Campfire.App.Tests.dll (net11.0|arm64)
+    at Campfire.App.Tests.Web.BotKeyTests.B4 a cross-site bot request is not a forgery@53.MoveNext() in /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/Web/BotKeyTests.fs:58
+    at Campfire.App.Tests.Web.BotKeyTests.B4 a cross-site bot request is not a forgery@53.MoveNext() in /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/Web/BotKeyTests.fs:62
+    --- End of stack trace from previous location ---
+failed Campfire.App.Tests.Web.ControllersBTests.J9 push subscriptions: list, params, removal and test notifications (536ms)
+  Assert.Equal() Failure: Values differ
+Expected: 422
+Actual:   405
+  from /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/bin/Release/net11.0/Campfire.App.Tests.dll (net11.0|arm64)
+  Assert.Equal() Failure: Values differ
+  Expected: 422
+  Actual:   405
+    at Campfire.App.Tests.Web.ControllersBTests.J9 push subscriptions: list\, params\, removal and test notifications@271.MoveNext() in /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/Web/ControllersBTests.fs:282
+    at Campfire.App.Tests.Web.ControllersBTests.J9 push subscriptions: list\, params\, removal and test notifications@271.MoveNext() in /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/Web/ControllersBTests.fs:296
+    --- End of stack trace from previous location ---
+failed Campfire.App.Tests.Web.RespondTests.X4 HTML and turbo-stream responses are gzipped or Brotli'd once, with Vary, and small ones are not (4s 202ms)
+  Assert.Equal() Failure: Values differ
+Expected: 200
+Actual:   405
+  from /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/bin/Release/net11.0/Campfire.App.Tests.dll (net11.0|arm64)
+  Assert.Equal() Failure: Values differ
+  Expected: 200
+  Actual:   405
+    at Campfire.App.Tests.Web.RespondTests.X4 HTML and turbo-stream responses are gzipped or Brotli'd once\, with Vary\, and small ones are not@227.MoveNext() in /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/Web/RespondTests.fs:272
+    at Campfire.App.Tests.Web.RespondTests.X4 HTML and turbo-stream responses are gzipped or Brotli'd once\, with Vary\, and small ones are not@227.MoveNext() in /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/Web/RespondTests.fs:283
+    --- End of stack trace from previous location ---
+failed Campfire.App.Tests.Web.ControllersBTests.J8 profile: the page, a name change, and the sidebar frame (505ms)
+  Assert.Equal() Failure: Values differ
+Expected: 302
+Actual:   405
+  from /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/bin/Release/net11.0/Campfire.App.Tests.dll (net11.0|arm64)
+  Assert.Equal() Failure: Values differ
+  Expected: 302
+  Actual:   405
+    at Campfire.App.Tests.Web.ControllersBTests.J8 profile: the page\, a name change\, and the sidebar frame@242.MoveNext() in /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/Web/ControllersBTests.fs:249
+    at Campfire.App.Tests.Web.ControllersBTests.J8 profile: the page\, a name change\, and the sidebar frame@242.MoveNext() in /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/Web/ControllersBTests.fs:266
+    --- End of stack trace from previous location ---
+failed Campfire.App.Tests.RoomsTests.open rooms are created edited and updated (445ms)
+  from /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/bin/Release/net11.0/Campfire.App.Tests.dll (net11.0|arm64)
+    at Campfire.App.Tests.RoomsTests.open rooms are created edited and updated@134.MoveNext() in /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/RoomsTests.fs:142
+    at Campfire.App.Tests.RoomsTests.open rooms are created edited and updated@134.MoveNext() in /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/RoomsTests.fs:167
+    --- End of stack trace from previous location ---
+failed Campfire.App.Tests.PresenterAccountsTests.signs in with a password and out again (511ms)
+  405 : 
+  from /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/bin/Release/net11.0/Campfire.App.Tests.dll (net11.0|arm64)
+  405 : 
+    at Campfire.App.Tests.PresenterAccountsTests.assertRedirect(Reply reply, String location) in /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/PresenterAccountsTests.fs:43
+    at Campfire.App.Tests.PresenterAccountsTests.signs in with a password and out again@51.MoveNext() in /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/PresenterAccountsTests.fs:65
+    at Campfire.App.Tests.PresenterAccountsTests.signs in with a password and out again@51.MoveNext() in /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/PresenterAccountsTests.fs:87
+    --- End of stack trace from previous location ---
+failed Campfire.App.Tests.AssetsTests.H8 a message with a sound renders the fingerprinted mp3 and image URLs (469ms)
+  Assert.Equal() Failure: Values differ
+Expected: 201
+Actual:   405
+  from /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/bin/Release/net11.0/Campfire.App.Tests.dll (net11.0|arm64)
+  Assert.Equal() Failure: Values differ
+  Expected: 201
+  Actual:   405
+    at Campfire.App.Tests.AssetsTests.H8 a message with a sound renders the fingerprinted mp3 and image URLs@377.MoveNext() in /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/AssetsTests.fs:381
+    at Campfire.App.Tests.AssetsTests.H8 a message with a sound renders the fingerprinted mp3 and image URLs@377.MoveNext() in /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/AssetsTests.fs:390
+    --- End of stack trace from previous location ---
+failed Campfire.App.Tests.MessagesTests.a message whose plain text raises goes out without one (698ms)
+  from /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/bin/Release/net11.0/Campfire.App.Tests.dll (net11.0|arm64)
+    at Campfire.App.Tests.MessagesTests.a message whose plain text raises goes out without one@258.MoveNext() in /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/MessagesTests.fs:270
+    at Campfire.App.Tests.MessagesTests.a message whose plain text raises goes out without one@258.MoveNext() in /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/MessagesTests.fs:295
+    --- End of stack trace from previous location ---
+failed Campfire.App.Tests.Web.ControllersBTests.J6 joining with the account's code (506ms)
+  Assert.Equal() Failure: Values differ
+Expected: 302
+Actual:   405
+  from /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/bin/Release/net11.0/Campfire.App.Tests.dll (net11.0|arm64)
+  Assert.Equal() Failure: Values differ
+  Expected: 302
+  Actual:   405
+    at Campfire.App.Tests.Web.ControllersBTests.J6 joining with the account's code@163.MoveNext() in /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/Web/ControllersBTests.fs:184
+    at Campfire.App.Tests.Web.ControllersBTests.J6 joining with the account's code@163.MoveNext() in /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/Web/ControllersBTests.fs:203
+    --- End of stack trace from previous location ---
+failed Campfire.App.Tests.RoomsTests.undeclared actions (379ms)
+  Assert.Equal() Failure: Values differ
+Expected: 500
+Actual:   405
+  from /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/bin/Release/net11.0/Campfire.App.Tests.dll (net11.0|arm64)
+  Assert.Equal() Failure: Values differ
+  Expected: 500
+  Actual:   405
+    at Campfire.App.Tests.RoomsTests.undeclared actions@118.MoveNext() in /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/RoomsTests.fs:129
+    at Campfire.App.Tests.RoomsTests.undeclared actions@118.MoveNext() in /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/RoomsTests.fs:129
+    --- End of stack trace from previous location ---
+failed Campfire.App.Tests.PresenterAccountsTests.bans and unbans (397ms)
+  sign in as david@37signals.com: 
+  from /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/bin/Release/net11.0/Campfire.App.Tests.dll (net11.0|arm64)
+  sign in as david@37signals.com: 
+    at Campfire.App.Tests.Support.SignIn@595.MoveNext() in /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/Support.fs:599
+    at Campfire.App.Tests.PresenterAccountsTests.bans and unbans@398.MoveNext() in /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/PresenterAccountsTests.fs:401
+    at Campfire.App.Tests.PresenterAccountsTests.bans and unbans@398.MoveNext() in /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/PresenterAccountsTests.fs:411
+    --- End of stack trace from previous location ---
+failed Campfire.App.Tests.MessagesTests.the bot api (359ms)
+  from /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/bin/Release/net11.0/Campfire.App.Tests.dll (net11.0|arm64)
+    at Campfire.App.Tests.MessagesTests.the bot api@395.MoveNext() in /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/MessagesTests.fs:413
+    at Campfire.App.Tests.MessagesTests.the bot api@395.MoveNext() in /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/MessagesTests.fs:474
+    --- End of stack trace from previous location ---
+failed Campfire.App.Tests.Web.ControllersBTests.J4 a role change and a removal (267ms)
+  Assert.Equal() Failure: Values differ
+Expected: 302
+Actual:   405
+  from /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/bin/Release/net11.0/Campfire.App.Tests.dll (net11.0|arm64)
+  Assert.Equal() Failure: Values differ
+  Expected: 302
+  Actual:   405
+    at Campfire.App.Tests.Web.ControllersBTests.J4 a role change and a removal@100.MoveNext() in /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/Web/ControllersBTests.fs:108
+    at Campfire.App.Tests.Web.ControllersBTests.J4 a role change and a removal@100.MoveNext() in /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/Web/ControllersBTests.fs:122
+    --- End of stack trace from previous location ---
+failed Campfire.App.Tests.PresenterAccountsTests.manages bots (293ms)
+  sign in as david@37signals.com: 
+  from /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/bin/Release/net11.0/Campfire.App.Tests.dll (net11.0|arm64)
+  sign in as david@37signals.com: 
+    at Campfire.App.Tests.Support.SignIn@595.MoveNext() in /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/Support.fs:599
+    at Campfire.App.Tests.PresenterAccountsTests.manages bots@291.MoveNext() in /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/PresenterAccountsTests.fs:294
+    at Campfire.App.Tests.PresenterAccountsTests.manages bots@291.MoveNext() in /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/PresenterAccountsTests.fs:327
+    --- End of stack trace from previous location ---
+failed Campfire.App.Tests.MessagesTests.V4 cached fragments show a change on the next render and nothing of another viewer (407ms)
+  sign in as jason@37signals.com: 
+  from /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/bin/Release/net11.0/Campfire.App.Tests.dll (net11.0|arm64)
+  sign in as jason@37signals.com: 
+    at Campfire.App.Tests.Support.SignIn@595.MoveNext() in /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/Support.fs:599
+    at Campfire.App.Tests.MessagesTests.V4 cached fragments show a change on the next render and nothing of another viewer@497.MoveNext() in /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/MessagesTests.fs:501
+    at Campfire.App.Tests.MessagesTests.V4 cached fragments show a change on the next render and nothing of another viewer@497.MoveNext() in /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/MessagesTests.fs:547
+    --- End of stack trace from previous location ---
+failed Campfire.App.Tests.PresenterAccountsTests.autocompletes users (282ms)
+  sign in as david@37signals.com: 
+  from /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/bin/Release/net11.0/Campfire.App.Tests.dll (net11.0|arm64)
+  sign in as david@37signals.com: 
+    at Campfire.App.Tests.Support.SignIn@595.MoveNext() in /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/Support.fs:599
+    at Campfire.App.Tests.PresenterAccountsTests.autocompletes users@443.MoveNext() in /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/PresenterAccountsTests.fs:446
+    at Campfire.App.Tests.PresenterAccountsTests.autocompletes users@443.MoveNext() in /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/PresenterAccountsTests.fs:457
+    --- End of stack trace from previous location ---
+failed Campfire.App.Tests.MessagesTests.a body the parser throws on fails neither the post nor the pages that show it (159ms)
+  from /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/bin/Release/net11.0/Campfire.App.Tests.dll (net11.0|arm64)
+    at Campfire.App.Tests.MessagesTests.a body the parser throws on fails neither the post nor the pages that show it@107.MoveNext() in /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/MessagesTests.fs:116
+    at Campfire.App.Tests.MessagesTests.a body the parser throws on fails neither the post nor the pages that show it@107.MoveNext() in /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/MessagesTests.fs:126
+    --- End of stack trace from previous location ---
+failed Campfire.App.Tests.PresenterAccountsTests.serves the account logo and avatars (242ms)
+  sign in as kevin@37signals.com: 
+  from /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/bin/Release/net11.0/Campfire.App.Tests.dll (net11.0|arm64)
+  sign in as kevin@37signals.com: 
+    at Campfire.App.Tests.Support.SignIn@595.MoveNext() in /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/Support.fs:599
+    at Campfire.App.Tests.PresenterAccountsTests.serves the account logo and avatars@332.MoveNext() in /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/PresenterAccountsTests.fs:347
+    at Campfire.App.Tests.PresenterAccountsTests.serves the account logo and avatars@332.MoveNext() in /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/PresenterAccountsTests.fs:357
+    --- End of stack trace from previous location ---
+failed Campfire.App.Tests.MessagesTests.show edit update and destroy (273ms)
+  from /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/bin/Release/net11.0/Campfire.App.Tests.dll (net11.0|arm64)
+    at Campfire.App.Tests.MessagesTests.show edit update and destroy@300.MoveNext() in /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/MessagesTests.fs:320
+    at Campfire.App.Tests.MessagesTests.show edit update and destroy@300.MoveNext() in /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/MessagesTests.fs:337
+    --- End of stack trace from previous location ---
+failed Campfire.App.Tests.PresenterAccountsTests.administers the account (261ms)
+  sign in as david@37signals.com: 
+  from /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/bin/Release/net11.0/Campfire.App.Tests.dll (net11.0|arm64)
+  sign in as david@37signals.com: 
+    at Campfire.App.Tests.Support.SignIn@595.MoveNext() in /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/Support.fs:599
+    at Campfire.App.Tests.PresenterAccountsTests.administers the account@238.MoveNext() in /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/PresenterAccountsTests.fs:241
+    at Campfire.App.Tests.PresenterAccountsTests.administers the account@238.MoveNext() in /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/PresenterAccountsTests.fs:286
+    --- End of stack trace from previous location ---
+failed Campfire.App.Tests.RoomsTests.closed rooms are created with the selected users (252ms)
+  from /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/bin/Release/net11.0/Campfire.App.Tests.dll (net11.0|arm64)
+    at Campfire.App.Tests.RoomsTests.closed rooms are created with the selected users@172.MoveNext() in /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/RoomsTests.fs:182
+    at Campfire.App.Tests.RoomsTests.closed rooms are created with the selected users@172.MoveNext() in /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/RoomsTests.fs:187
+    --- End of stack trace from previous location ---
+failed Campfire.App.Tests.MessagesTests.create in a room you left renders room not found (197ms)
+  Assert.Equal() Failure: Values differ
+Expected: 200
+Actual:   405
+  from /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/bin/Release/net11.0/Campfire.App.Tests.dll (net11.0|arm64)
+  Assert.Equal() Failure: Values differ
+  Expected: 200
+  Actual:   405
+    at Campfire.App.Tests.MessagesTests.create in a room you left renders room not found@198.MoveNext() in /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/MessagesTests.fs:203
+    at Campfire.App.Tests.MessagesTests.create in a room you left renders room not found@198.MoveNext() in /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/MessagesTests.fs:210
+    --- End of stack trace from previous location ---
+failed Campfire.App.Tests.PresenterAccountsTests.edge gets its install instructions (273ms)
+  sign in as david@37signals.com: 
+  from /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/bin/Release/net11.0/Campfire.App.Tests.dll (net11.0|arm64)
+  sign in as david@37signals.com: 
+    at Campfire.App.Tests.Support.SignIn@595.MoveNext() in /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/Support.fs:599
+    at Campfire.App.Tests.PresenterAccountsTests.edge gets its install instructions@143.MoveNext() in /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/PresenterAccountsTests.fs:149
+    at Campfire.App.Tests.PresenterAccountsTests.edge gets its install instructions@143.MoveNext() in /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/PresenterAccountsTests.fs:152
+    --- End of stack trace from previous location ---
+failed Campfire.App.Tests.RoomsTests.rooms are destroyed by administrators (155ms)
+  Assert.Equal() Failure: Values differ
+Expected: Some(http://campfire.test/)
+Actual:   null
+  from /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/bin/Release/net11.0/Campfire.App.Tests.dll (net11.0|arm64)
+  Assert.Equal() Failure: Values differ
+  Expected: Some(http://campfire.test/)
+  Actual:   null
+    at Campfire.App.Tests.RoomsTests.rooms are destroyed by administrators@264.MoveNext() in /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/RoomsTests.fs:267
+    at Campfire.App.Tests.RoomsTests.rooms are destroyed by administrators@264.MoveNext() in /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/RoomsTests.fs:269
+    --- End of stack trace from previous location ---
+failed Campfire.App.Tests.PresenterAccountsTests.transfers sign in on another device (204ms)
+  sign in as david@37signals.com: 
+  from /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/bin/Release/net11.0/Campfire.App.Tests.dll (net11.0|arm64)
+  sign in as david@37signals.com: 
+    at Campfire.App.Tests.Support.SignIn@595.MoveNext() in /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/Support.fs:599
+    at Campfire.App.Tests.PresenterAccountsTests.transfers sign in on another device@157.MoveNext() in /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/PresenterAccountsTests.fs:160
+    at Campfire.App.Tests.PresenterAccountsTests.transfers sign in on another device@157.MoveNext() in /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/PresenterAccountsTests.fs:184
+    --- End of stack trace from previous location ---
+failed Campfire.App.Tests.PresenterAccountsTests.profile sidebar and user pages (189ms)
+  sign in as kevin@37signals.com: 
+  from /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/bin/Release/net11.0/Campfire.App.Tests.dll (net11.0|arm64)
+  sign in as kevin@37signals.com: 
+    at Campfire.App.Tests.Support.SignIn@595.MoveNext() in /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/Support.fs:599
+    at Campfire.App.Tests.PresenterAccountsTests.profile sidebar and user pages@364.MoveNext() in /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/PresenterAccountsTests.fs:367
+    at Campfire.App.Tests.PresenterAccountsTests.profile sidebar and user pages@364.MoveNext() in /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/PresenterAccountsTests.fs:393
+    --- End of stack trace from previous location ---
+failed Campfire.App.Tests.PresenterAccountsTests.joins with the join code (144ms)
+  405 : 
+  from /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/bin/Release/net11.0/Campfire.App.Tests.dll (net11.0|arm64)
+  405 : 
+    at Campfire.App.Tests.PresenterAccountsTests.assertRedirect(Reply reply, String location) in /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/PresenterAccountsTests.fs:43
+    at Campfire.App.Tests.PresenterAccountsTests.joins with the join code@191.MoveNext() in /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/PresenterAccountsTests.fs:202
+    at Campfire.App.Tests.PresenterAccountsTests.joins with the join code@191.MoveNext() in /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/PresenterAccountsTests.fs:212
+    --- End of stack trace from previous location ---
+failed Campfire.App.Tests.PresenterAccountsTests.rejects bad passwords and rate limits sign ins (122ms)
+  attempt 1
+  from /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/bin/Release/net11.0/Campfire.App.Tests.dll (net11.0|arm64)
+  attempt 1
+    at Campfire.App.Tests.PresenterAccountsTests.rejects bad passwords and rate limits sign ins@92.MoveNext() in /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/PresenterAccountsTests.fs:100
+    at Campfire.App.Tests.PresenterAccountsTests.rejects bad passwords and rate limits sign ins@92.MoveNext() in /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/PresenterAccountsTests.fs:109
+    --- End of stack trace from previous location ---
+failed Campfire.App.Tests.PresenterAccountsTests.a ban from a private address is unprocessable (125ms)
+  sign in as david@37signals.com: 
+  from /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/bin/Release/net11.0/Campfire.App.Tests.dll (net11.0|arm64)
+  sign in as david@37signals.com: 
+    at Campfire.App.Tests.Support.SignIn@595.MoveNext() in /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/Support.fs:599
+    at Campfire.App.Tests.PresenterAccountsTests.a ban from a private address is unprocessable@418.MoveNext() in /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/PresenterAccountsTests.fs:430
+    at Campfire.App.Tests.PresenterAccountsTests.a ban from a private address is unprocessable@418.MoveNext() in /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/PresenterAccountsTests.fs:438
+    --- End of stack trace from previous location ---
+/Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/bin/Release/net11.0/Campfire.App.Tests.dll (net11.0|arm64) failed with 104 error(s) [+228/x104/?1] (15s 860ms)
+Exit code: 2
+  Standard output: H3: 0 posts in 3.0 s = 0 posts/s (11681 not 2xx)
+
+Test run summary: Failed!
+  total: 333
+  failed: 104
+  succeeded: 228
+  skipped: 1
+  duration: 15s 982ms
+Test run completed with non-success exit code: 2. At least one test failed. See: https://aka.ms/testingplatform/exitcodes

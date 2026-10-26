@@ -3088,3 +3088,51 @@ Opus reviewer, on `a0b19f2`. Findings and method in `plans/design-assets.md` sec
 - **KLOC:** `bin/kloc` 29,802 by upstream's rules, 29,974 corrected (30.0), unchanged (MSBuild and tests are not counted).
 - **Differences recorded:** none new in the README. `nosniff` absence is Rails parity; a trailing slash or another letter case on an asset route answering the same
   public file is recorded in design-assets.md section 11 only (beside the README's class B line that plain `/assets/` URLs are served).
+
+### Phase 6: independent verification (2026-10-22/26) - PHASE 6 DONE; Phase 7 GO
+
+Opus verifier, adversarial review of `e58de72..d1f9ecf` (design, 6.1-6.7, the checkpoint, the gate, the security review) against `plans/design-assets.md` and
+D1-D9, cheap checks re-run. A first verifier session was cut off by a usage limit after its runs; its evidence in `bench/results/dotnetway-p6-verify/` was checked
+and kept, and this session finished the rest. Fix in `309ab42` (README, one test, the design note; no app change). **Phase 6 closes at `309ab42`** (this entry and
+the evidence are the commit after it).
+- **Deleted, checked:** `src/Campfire.Assets/`, `src/Campfire.Assets.Build/`, `tests/Campfire.Assets.Tests/` are gone; `git grep` for `Campfire.Assets`, `Assets.Build`,
+  `assets.bin`, `EmbeddedData`, `staticResponse`, `publicFiles`, `assetDirectory`, `assetLock` over `src tests bin parity bench/quick bench/run Dockerfile AGENTS.md
+  README.md CampfireFs.slnx .dockerignore` finds nothing. (`StylesheetTags` remains as the Views layout's `Html.Trusted` field, filled from `StaticAssets`, as designed.)
+  No package added (Falco 5.2.0, Falco.Markup 1.4.0, AngleSharp 1.8.4 unchanged).
+- **Pixel evidence, checked:** the gate's `report.json`s hold **940 distinct lean cells** (default 860, crowd 24, custom_styles 32, first_run 16, restricted 8) and
+  401 distinct `--fast` cells, every one equal on screenshots, aria and loose DOM; no cell missing. **Re-run on the closing image** (`campfire-dotnetway:app` and the
+  candidate labelled `26c4ea1`; `src` is unchanged since, `d1f9ecf` and `309ab42` touch tests and docs only): `--fast` every seed `interactions/**` (default 79/79),
+  `pwa/**,errors/**,auth/**` (default 62/62, custom_styles 2/2, first_run 8/8), `realtime/message_sent` 2/2 and `realtime/attachment_sent` 2/2 one at a time; and
+  **lean** (three browsers, both themes, breakpoints) `rooms/show/designers,auth/sign_in*` on default **28/28**. All PASSED; `bin/clean-parity` after each.
+- **Ungated layers, looked at.** The network layer differs on 926 of 938 cells shared with Phase 5's gate (Phase 5: 910 already unequal, at smaller counts:
+  welcome/no_rooms 63/63 then, 283/265 now). Diffed one cell by request (`network/*.diff`): 129 asset responses differ only in `Cache-Control`, `ETag`,
+  `Accept-Ranges` and (one PNG) `Content-Encoding`; three extra requests are the plain `lexxy-*.css` URLs of A12; the page and avatar rows are earlier phases'.
+  No asset request is missing or fails. The README's class A line now names `Accept-Ranges` and the uncompressed `campfire-icon.png`.
+- **Phase gates re-run.** `CAMPFIRE_REQUIRE_SEED=1 bin/verify` on `d1f9ecf` (first session): 1,012 total, 1,006 passed, 0 failed, 6 skipped; on `309ab42`'s tree:
+  **1,013 total, 1,007 passed, 0 failed, 6 skipped** (the environmental six; +1 is H9), 0 warnings, lint self-test 39/39 and 331 files clean, Dapper and EF guards,
+  H1. `bin/check-assets-incremental` ok (an added override staged and in the manifest, gone when deleted; a planted file link and directory link pointing outside
+  the repo fail the build). `bin/asset-check` on the image: **1,806 checks, 0 failed**.
+- **Planted failures (6.4's and the checkpoint's, not re-run before):** a wrong pin with the stylesheets reversed fails T3, T4 and T5; a dropped `pin_all_from`
+  fails T4; the marker middleware's filter removed (the build output's `{**path:file}` fallback left in) fails 104 App tests (sign-in, Cable 404, 405s). Each
+  restored; `git status` clean after (`sabotage-*.txt`).
+- **Security, re-checked.** Read `StaticAssets.fs`, the staging target and the link check: only manifest routes are served, the file comes from the descriptor, the
+  link check covers every root (a root that is itself a link is reported too). Probed the image and the reference side by side: a trailing slash
+  (`/robots.txt/`, `/assets/composer.<fp>.css/`) answers the file in **both** (parity: the security review called it a difference; corrected in design-assets.md
+  F2); **letter case** (`/ROBOTS.TXT`, `/ASSETS/COMPOSER.<FP>.CSS`, `/Assets/Composer.css`) answers the file in ours and 404 in Rails: a class B difference the
+  README lacked. **Fixed (`309ab42`):** README Assets class B line and App test H9 (case variants and trailing slash answer 200 from the asset endpoint).
+- **Speed.** The gate's table stands (`c29e14e` against a same-session `853604f` control; host probe 1.037-1.095, load 2.2-4.2; 30 runs a side, all 2xx): **no cell
+  under 5x**, thinnest post c=16 **6.05x**, post c=1 6.63x, sidebar c=1 8.63x; Phase 6 costs -0.7% to +1.5% per cell, CPU per request equal. Since then only a
+  build-time check and tests changed, so no re-bench. The bench's decoded-bytes "FAIL" is exactly the fingerprint length: the candidate's sidebar is 30,144 bytes
+  with 217 `/assets/` URLs, search 137,229 with 298, so +434 and +596 bytes are 2 per URL (`asset-url-count.txt`). `static_css` (A10, reported): 16,616 / 98,434
+  req/s at c=1 / c=16 (6.7) against Rails' stored 15,167 / 98,776: level with Rails at c=16; Phase 7's front-cache design owns it.
+- **KLOC.** `bin/kloc` **29,802 by upstream's rules, 29,974 corrected (30.0)**, unchanged by the fix. Phase 5 closed at 30.2, so the phase is -0.2 against the
+  design's -0.3 (29.9, range 29.85-29.95): 0.02 over the range's top, the App's asset layer being about 0.24 KLOC against 0.15. Under Rust's 31.0.
+- **Differences recorded:** README Assets gains the letter-case line (class B, H9) and the `Accept-Ranges`/uncompressed-image detail (class A).
+- **Open, none blocking:** the bench's stored byte sizes (refresh at Phase 7's re-baseline); `Html5Tests` L3's 50 ms limit is load-sensitive (failed once under
+  load 7-11 in the gate); front cache for `/assets` (Phase 7); carried from Phases 4-5: Firefox empty-404 pair, WebKit WebP avatar flake, the 16 KB Cable bound,
+  the two test packages (Phase 8), Q1 and F6 of Phase 5.
+- **Phase 7 GO.** Conditions: keep the startup validation and "nothing renders before `StaticAssets.map`"; keep `StaticAssets.map`'s marker middleware and
+  `appEndpointsOnly` in place whenever the pipeline order changes (the planted removal broke 104 tests: watch it if Phase 7 reworks the front server or routing);
+  keep the staging target's dotfile and link filters; an OutputCache or front-cache policy for `/assets` must keep `max-age=31536000, immutable` only on
+  fingerprinted routes and must not cache plain `/assets/` or error-page responses as immutable (`bin/asset-check` N1/N3 after any change); keep H1, the markup lint
+  and the Dapper guard green; refresh the bench's expected byte sizes when Phase 7 re-baselines.

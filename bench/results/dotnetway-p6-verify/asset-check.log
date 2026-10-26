@@ -1,0 +1,6 @@
+asset-check: image revision 26c4ea1dc7de6b78cb0abf76c5f5753a11f6690f
+http://127.0.0.1:4290  (seed: default, candidate)
+asset-check: 144 asset URLs on the room page, 142 of text types
+asset-check: Link header names 15 stylesheets
+asset-check: /assets/lexxy.js.gz -> 200 content-encoding='gzip' (the SDK's own precompressed route)
+asset-check: 1806 checks, 0 failed

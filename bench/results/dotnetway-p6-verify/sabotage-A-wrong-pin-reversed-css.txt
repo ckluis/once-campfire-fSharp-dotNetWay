@@ -1,0 +1,40 @@
+Actual:   [Tuple ("application", "application.js"), Tuple ("@hotwired/stimulus", "stimulus.min.js"), Tuple ("@hotwired/stimulus-loading", "stimulus-loading.js"), Tuple ("@hotwired/turbo-rails", "turbo.js"), Tuple ("@rails/actioncable", "actioncable.esm.js"), ···]
+  from /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/bin/Release/net11.0/Campfire.App.Tests.dll (net11.0|arm64)
+  Assert.Equal() Failure: Collections differ
+  Expected: [Tuple ("application", "application.js"), Tuple ("@hotwired/stimulus", "stimulus.min.js"), Tuple ("@hotwired/stimulus-loading", "stimulus-loading.js"), Tuple ("@hotwired/turbo-rails", "turbo.js"), Tuple ("@rails/actioncable", "actioncable.esm.js"), ···]
+  Actual:   [Tuple ("application", "application.js"), Tuple ("@hotwired/stimulus", "stimulus.min.js"), Tuple ("@hotwired/stimulus-loading", "stimulus-loading.js"), Tuple ("@hotwired/turbo-rails", "turbo.js"), Tuple ("@rails/actioncable", "actioncable.esm.js"), ···]
+    at Campfire.App.Tests.AssetsTests.T4 importmapTags have Rails' 89 pins and modulepreloads in Rails' order and targets\, the same text after the mask@276.MoveNext() in /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/AssetsTests.fs:286
+    at Campfire.App.Tests.AssetsTests.T4 importmapTags have Rails' 89 pins and modulepreloads in Rails' order and targets\, the same text after the mask@276.MoveNext() in /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/AssetsTests.fs:293
+    --- End of stack trace from previous location ---
+failed Campfire.App.Tests.AssetsTests.T3 stylesheetTags are Rails' 31 stylesheets in Rails' order, equal line for line after the mask (69ms)
+  Assert.Equal() Failure: Collections differ
+Expected: ["_reset.css", "actiontext.css", "animation.css", "autocomplete.css", "avatars.css", ···]
+Actual:   ["utilities.css", "trix.css", "spinner.css", "signup.css", "sidebar.css", ···]
+  from /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/bin/Release/net11.0/Campfire.App.Tests.dll (net11.0|arm64)
+  Assert.Equal() Failure: Collections differ
+  Expected: ["_reset.css", "actiontext.css", "animation.css", "autocomplete.css", "avatars.css", ···]
+  Actual:   ["utilities.css", "trix.css", "spinner.css", "signup.css", "sidebar.css", ···]
+    at Campfire.App.Tests.AssetsTests.T3 stylesheetTags are Rails' 31 stylesheets in Rails' order\, equal line for line after the mask@262.MoveNext() in /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/AssetsTests.fs:269
+    at Campfire.App.Tests.AssetsTests.T3 stylesheetTags are Rails' 31 stylesheets in Rails' order\, equal line for line after the mask@262.MoveNext() in /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/AssetsTests.fs:271
+    --- End of stack trace from previous location ---
+failed Campfire.App.Tests.AssetsTests.T5 preloadLinks name Rails' first stylesheets, fit 1,000 bytes and stop at the first link that would not (68ms)
+  Assert.Equal() Failure: Collections differ
+Expected: ["_reset.css", "actiontext.css", "animation.css", "autocomplete.css", "avatars.css", ···]
+Actual:   ["utilities.css", "trix.css", "spinner.css", "signup.css", "sidebar.css", ···]
+  from /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/bin/Release/net11.0/Campfire.App.Tests.dll (net11.0|arm64)
+  Assert.Equal() Failure: Collections differ
+  Expected: ["_reset.css", "actiontext.css", "animation.css", "autocomplete.css", "avatars.css", ···]
+  Actual:   ["utilities.css", "trix.css", "spinner.css", "signup.css", "sidebar.css", ···]
+    at Campfire.App.Tests.AssetsTests.T5 preloadLinks name Rails' first stylesheets\, fit 1\,000 bytes and stop at the first link that would not@298.MoveNext() in /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/AssetsTests.fs:305
+    at Campfire.App.Tests.AssetsTests.T5 preloadLinks name Rails' first stylesheets\, fit 1\,000 bytes and stop at the first link that would not@298.MoveNext() in /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/AssetsTests.fs:314
+    --- End of stack trace from previous location ---
+/Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/bin/Release/net11.0/Campfire.App.Tests.dll (net11.0|arm64) failed with 3 error(s) [+0/x3/?0] (919ms)
+Exit code: 2
+
+Test run summary: Failed!
+  total: 3
+  failed: 3
+  succeeded: 0
+  skipped: 0
+  duration: 1s 005ms
+Test run completed with non-success exit code: 2. At least one test failed. See: https://aka.ms/testingplatform/exitcodes

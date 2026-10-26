@@ -1,0 +1,7 @@
+candidate
+/users/me/sidebar bytes=30144 asset-urls=217
+/searches?q=coffee bytes=137229 asset-urls=298
+reference
+/users/me/sidebar bytes=31426 asset-urls=217
+/searches?q=coffee bytes=165518 asset-urls=298
+down
