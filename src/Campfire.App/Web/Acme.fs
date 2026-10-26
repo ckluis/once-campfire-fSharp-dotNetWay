@@ -74,12 +74,16 @@ module DirCache =
         let temporary = Path.Combine(storage, $"{name}.tmp{Guid.NewGuid():N}")
         let options = FileStreamOptions(Mode = FileMode.CreateNew, Access = FileAccess.Write, Share = FileShare.None)
         if not (OperatingSystem.IsWindows()) then options.UnixCreateMode <- privateMode
-        (
-            use file = new FileStream(temporary, options)
-            file.Write(Encoding.ASCII.GetBytes text)
-            file.Flush true
-        )
-        File.Move(temporary, Path.Combine(storage, name), true)
+        try
+            (
+                use file = new FileStream(temporary, options)
+                file.Write(Encoding.ASCII.GetBytes text)
+                file.Flush true
+            )
+            File.Move(temporary, Path.Combine(storage, name), true)
+        finally
+            // A failed write or rename leaves no stray copy of a private key behind (a no-op once the rename succeeded).
+            if File.Exists temporary then File.Delete temporary
 
     /// The key as autocert writes it (`x509.MarshalECPrivateKey`): SEC1 "EC PRIVATE KEY" with the curve named, which Go needs to read it back.
     let private keyPem (key: ECDsa) : string = (key.ExportECPrivateKeyPem()).Replace("\r\n", "\n") + "\n"

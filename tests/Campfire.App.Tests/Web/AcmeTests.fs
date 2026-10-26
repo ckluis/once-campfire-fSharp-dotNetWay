@@ -263,6 +263,22 @@ let ``AC7 accountKeyPem creates a SEC1 key once and returns the same text after`
         Assert.True(isPrivate (Path.Combine(storage, "acme_account+key")) (UnixFileMode.UserRead ||| UnixFileMode.UserWrite))
     // Certes reads it as the account key (what Thruster's account file looks like to it).
     Assert.NotNull(Certes.KeyFactory.FromPem first)
+    // An install that ran Thruster already has the file, written by Go (`x509.MarshalECPrivateKey`, as openssl writes it): it is
+    // returned unchanged, never replaced, and Certes reads it, so the existing account is reused and no new one is registered.
+    let existing = Path.Combine(tempDir (), "thruster")
+    Directory.CreateDirectory existing |> ignore
+    let goKey = File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "testdata", "acme", "key.pem"))
+    File.WriteAllText(Path.Combine(existing, "acme_account+key"), goKey)
+    Assert.Equal(goKey, DirCache.accountKeyPem existing)
+    Assert.Equal(goKey, File.ReadAllText(Path.Combine(existing, "acme_account+key")))
+    let account = Certes.KeyFactory.FromPem goKey
+    Assert.Equal(Certes.KeyAlgorithm.ES256, account.Algorithm)
+    use reference = ECDsa.Create()
+    reference.ImportFromPem goKey
+    // The same key: Certes' PEM export and .NET's import agree on the public point.
+    use roundTrip = ECDsa.Create()
+    roundTrip.ImportFromPem(account.ToPem())
+    Assert.Equal<byte[]>(reference.ExportSubjectPublicKeyInfo(), roundTrip.ExportSubjectPublicKeyInfo())
 
 // --- AC8: the challenge endpoint ---------------------------------------------------------------------------------------------------
 
