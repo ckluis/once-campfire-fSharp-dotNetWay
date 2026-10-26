@@ -3273,3 +3273,47 @@ Sonnet builder, commits `c19d90b` (code, tests, fixtures) and `2936a0c` (AGENTS.
   used as the old port did (online OCSP staple fetch on Linux); Pebble has no responder and nothing slowed. 7.4 needs: `FrontSettings.fromLookup`, the listener's
   `TlsHandshakeCallbackOptions(store.HandshakeOptions)`, `MapWhen` for `AcmeEndpoints.challenge`, `AddHttpClient "acme"`; `Acme.fs`'s `LoadedCertificate` shares a name with
   `Campfire.Kit.LoadedCertificate` until 7.6 (qualify if both namespaces are opened).
+
+### Phase 7, checkpoint after 7.3: Opus review (2026-10-26) - GO for 7.4, with notes
+
+Opus checkpoint, adversarial review of `3696f18..d2d01d5` (7.1-7.3) against `plans/design-front.md` and D1-D9. Fixes in `b89974c` and the commit after it (with this entry).
+- **Read, against the note.** HTTP logging (`HttpLog.fs`): the six fields, `CombineLogs`, no header or body field; the interceptor adds only `remote_addr` and `user_agent`
+  (control characters to spaces). Path and query are logged as Thruster logged them, so a bot key or transfer id in a path reaches the log, as it did (class B, already
+  recorded). OutputCache (`OutputCaching.fs`): the five families are exactly Rails' `expires_in ... public` routes (`Users::Avatars`, `Accounts::Logos`, `QrCode`) plus Active
+  Storage's `http_cache_forever` proxies and the disk `show`; the shapes are anchored, case-sensitive and disjoint, no page path matches (OC9, the planted widening);
+  every policy keeps the builder's default (GET/HEAD, no `Authorization`, 200 only, no `Set-Cookie`), and the session, the cookie jar and the actions are all inside
+  `UseOutputCache`, so a hit carries no cookie and a signed-in page is never looked up. None of the cached responses depends on the viewer (the avatar is keyed by its
+  signed token); Rails requires a session for the avatar and Thruster served cached ones to anyone with the URL, which the README records. OC6's 2 s bound is loose
+  (locking costs about 2x, not 16x), but its real check is the empty `Gets`/`Sets`. ACME (`Acme.fs`): the challenge endpoint answers only a token present in the store
+  during an order (a dictionary lookup, no file access, no `/` in the token); keys and certificates go 0700/0600 through a temporary file; names are normalized before
+  any lookup or path; TLS options leave protocols and cipher suites at the platform's defaults. AC1-AC10 have no timer and no cross-thread counter (AC6 awaits after `Set`).
+- **Fixed:** AC7 now pins an existing `acme_account+key` written as Go and openssl write it (returned unchanged, read by Certes as the same key: Thruster's account is
+  reused); `DirCache.put` deletes its temporary file if the write or rename fails (no stray private key); the handshake options set `AllowRenegotiation = false`.
+- **Gates re-run:** `CAMPFIRE_REQUIRE_SEED=1 bin/verify` twice (after each fix): **1,035 total, 1,028 passed, 0 failed, 7 skipped**, 0 warnings, lint 334 files and
+  self-test, Dapper and EF guards, H1. AC11 on the Mac against Pebble (`sha256:ddf23064...`, after the renegotiation change): **3 of 3**, order 723, 670, 667 ms. Image
+  rebuilt from `b89974c` (label checked); `bin/pixel-parity --fast --seeds default --only 'auth/sign_in*,rooms/show/designers,users/**'`: **34/34 pixels, aria and loose
+  DOM equal**. `bin/clean-parity`, `bin/clean-docker`; 32 GB free. No bench (nothing on a request path changed).
+- **KLOC correction:** 7.3's entry repeated 7.2's count: `bin/kloc` reads `git ls-files`, and it ran before `Acme.fs` was committed. Now **29,702 by upstream's rules,
+  30,157 corrected (30.2)**, App 12,749 corrected; 7.3 itself was about +340 corrected (`Acme.fs` is about 390 lines against the note's 190). The phase lands nearer 27.8
+  than 27.6.
+- **Gate readings:** 7.2's "room page and post not below the control's range" failed on three cells against `p6ctl`, and the cause is 7.1's log, not the cache: accepted
+  on the cross-session comparison with 7.1's numbers and the equal CPU per request. 7.1's log costs about 2-3x S5's projection (c=1 cells -5.7% to -11.2%); thinnest now
+  post c=16 5.97x and post c=1 6.18-6.20x, sidebar c=1 7.57x.
+- **Notes for 7.4-7.6 (binding unless the builder records why not):**
+  1. **Split 7.4** by the note's rule: it does not fit 90 minutes. 7.4a: `FrontSettings.fromLookup`/`fromEnv`, `Host.fs` on plain HTTP, `Platform/OpenFiles.fs`, the swap in
+     `Boot.serve` when `TLS_DOMAIN` is unset (a TLS install stays on the old front), HSTS, `MaxRequestBody`, HS1, HS3, HS5-HS12, image, asset-check, cookie, pixels, bench.
+     7.4b: the TLS listener, F6's branch, `AcmeService` and the `"acme"` client wired, HS2 and HS4 (Linux), and the swap for TLS installs. Then 7.5.
+  2. **F6, the HTTP port with TLS: keep Thruster's host check.** Answer 421 to a `Host` outside `TLS_DOMAIN` (normalized with `ServerNames.normalize`) and redirect the
+     others to `https://<normalized host>[:HTTPS_PORT]<path>?<query>`; answer the challenge only for a `TLS_DOMAIN` host. `UseHttpsRedirection` alone reflects any `Host`
+     into a cacheable 301; the old port and Thruster did not. HS2 gains the 421 case; drop the README's "redirects every host" line.
+  3. **HSTS on exception pages.** Rails' `ActionDispatch::SSL` is outermost, and Edge's `onStarting` line survived `UseExceptionHandler`'s header clear. `UseHsts` inside
+     `UseExceptionHandler` will lose it on a 500. HS5 must include a 500 page; if it loses the header, keep HSTS in Edge's `onStarting` (or run `assumeSsl`/`UseHsts` before
+     the exception handler) rather than recording a class A line.
+  4. **The first-handshake wait must be bounded** even when `HTTP_READ_TIMEOUT` means none: give the TLS handshake its own finite timeout (Kestrel's 10 s default, or the
+     read timeout when finite), so a failing order cannot hold connections open forever.
+  5. **Validate `TLS_DOMAIN` at boot:** `CertificateStore` silently drops a name `ServerNames.normalize` refuses; `FrontSettings.fromLookup` (or the host) should log or
+     fail on it. Consider `IdnMapping(UseStd3AsciiRules = true)` to match Go's `idna.Lookup`, with a test for an underscore name first.
+  6. **Bench:** run 7.4a's bench against `p6ctl` and a same-session control of HEAD before the swap (`b89974c` or later), so the swap's effect is isolated. Recheck the avatar
+     hit (168 us at c=1) and the c=1 cells; if any cell nears 5x, apply risk 1's ladder (console queue settings, then the interceptor) before anything hand-written.
+  7. Keep `StaticAssets.map`'s call site, the marker middleware and `appEndpointsOnly` where they are (Phase 6's condition); `bin/asset-check` after the swap.
+  8. KLOC: run `bin/kloc` after committing (it reads `git ls-files`).

@@ -125,6 +125,9 @@ module DirCache =
                     let context = SslStreamCertificateContext.Create(leaf, intermediates, false)
                     let options = SslServerAuthenticationOptions()
                     options.ServerCertificateContext <- context
+                    // Protocols and cipher suites stay the platform's defaults (Kestrel's); no client certificates, so never renegotiate
+                    // (HTTP/2 forbids it, RFC 9113 9.2.1).
+                    options.AllowRenegotiation <- false
                     options.ApplicationProtocols <- List<SslApplicationProtocol>([ SslApplicationProtocol.Http2; SslApplicationProtocol.Http11 ])
                     Ok { Options = options; NotBefore = notBefore; NotAfter = notAfter }
             with e ->
