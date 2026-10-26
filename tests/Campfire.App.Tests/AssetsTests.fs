@@ -171,6 +171,17 @@ let ``nothing outside the asset table is served: encoded dots and backslashes, t
     }
 
 [<Fact>]
+let ``H9 asset and public routes ignore letter case (class B); a trailing slash answers the file, as in Rails`` () =
+    task {
+        use! test = Campfire.App.Tests.Support.bootSeeded "default"
+        let css = route "composer.css"
+        for url in [ css.ToUpperInvariant(); css + "/"; "/Assets/Composer.css"; "/ROBOTS.TXT"; "/robots.txt/" ] do
+            let! response = test.Send(Campfire.App.Tests.Support.get url)
+            Assert.True((response.Status = 200), $"{url}: {response.Status}")
+            Assert.True(response.Header("x-request-id").IsNone, $"{url}: served by the asset endpoint, not the app")
+    }
+
+[<Fact>]
 let ``a host built without configureHost fails at boot, naming the cause`` () =
     task {
         use! test = Campfire.App.Tests.Support.bootSeeded "default"

@@ -202,8 +202,9 @@ specific to this port are listed below, each citing the reference file it depart
   - Asset URLs are `name.<fingerprint>.ext` (the SDK's ten-character form) where Propshaft writes `name-<digest>.ext`.
   - A CSS `url()` or `@import` and a JavaScript `sourceMappingURL` are not rewritten: they fetch the plain URL of the same file
     (pinned by T2's list of 11 files; the three `lexxy-*.css` files are fetched twice per page for it).
-  - Assets carry an ETag and a per-file `Last-Modified`, and text assets are precompressed (Brotli or gzip by `Accept-Encoding`)
-    where Rails' front server compressed them on the fly.
+  - Assets carry an ETag, a per-file `Last-Modified` and `Accept-Ranges: bytes`, and text assets are precompressed (Brotli or gzip
+    by `Accept-Encoding`) where Rails' front server compressed them on the fly; images (`campfire-icon.png` on every page) go
+    uncompressed, where Rails' front server compressed them too (the parity harness's network layer shows each of these).
   - The import map's JSON is written by `ImportMapDefinition` (the same text after the digest mask), and the preload `Link` header
     holds 15 stylesheets where Rails' holds 16 (Rails' 1,000-byte rule, the same rule, a different byte count per link).
   Class B (the behaviour differs), each with the test or check that pins it:
@@ -215,6 +216,9 @@ specific to this port are listed below, each citing the reference file it depart
     the web root by name (`/wwwroot/...`); encoded dots and backslashes are the app's 404 (an App test, and `bin/asset-check`).
   - A request with several byte ranges gets the whole file with 200, where Rails answers `multipart/byteranges`.
   - A method other than GET or HEAD on an asset URL is 405, where Rails' router answers 404 (H4).
+  - Asset and public-file routes ignore letter case: `/ASSETS/COMPOSER.<FINGERPRINT>.CSS`, `/Assets/Composer.css` and `/ROBOTS.TXT`
+    answer the file, where Rails' `Static` (a case-sensitive file system) leaves them to the router's 404. A trailing slash
+    (`/robots.txt/`) answers the file in both (H9).
   - The vendored `lexxy.js.gz` and `lexxy.js.br` are not served under their own names: `/assets/lexxy.js.gz` is the SDK's own
     precompressed route of `lexxy.js` (it answers `Content-Encoding: gzip`), and `/assets/lexxy.js.br` is the app's 404.
   - Asset responses carry neither `x-request-id` nor `x-runtime`, which Rails' `Static` also answers ahead of (H3).
