@@ -60,7 +60,9 @@
     <Compile Include="Web/Pages.fs" />
     <Compile Include="Web/Before.fs" />
     <Compile Include="Web/LoginThrottle.fs" />
+    <Compile Include="Web/FrontSettings.fs" />
     <Compile Include="Web/HttpLog.fs" />
+    <Compile Include="Web/Acme.fs" />
     <Compile Include="Web/OutputCaching.fs" />
     <Compile Include="Web/Services.fs" />
     <Compile Include="Channels/Auth.fs" />
@@ -135,6 +137,7 @@
     <RuntimeHostConfigurationOption Include="Microsoft.AspNetCore.Authentication.SuppressAutoDefaultScheme" Value="true" />
   </ItemGroup>
   <ItemGroup>
+    <PackageReference Include="Certes" />
     <PackageReference Include="Falco" />
     <PackageReference Include="FsToolkit.ErrorHandling" />
   </ItemGroup>
