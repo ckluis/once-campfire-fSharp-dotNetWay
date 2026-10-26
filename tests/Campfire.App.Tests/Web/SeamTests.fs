@@ -14,7 +14,6 @@ open Xunit
 open Campfire.App
 open Campfire.App.Tests.Support
 open Campfire.App.Web
-open Campfire.Kit
 
 let private run (handler: HttpContext -> Task) : IApplicationBuilder -> unit =
     fun app -> Microsoft.AspNetCore.Builder.RunExtensions.Run(app, RequestDelegate handler)

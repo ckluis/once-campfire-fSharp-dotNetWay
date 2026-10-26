@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# The front server in front of the kit's request layer: Campfire.Kit's (Kestrel) against campfire_kit's
-# (hyper), serving bench/kit's endpoints and a cacheable asset on loopback, driven by wrk. Per scenario:
+# The front server: the app's (Web.Host on Kestrel, OutputCache, response compression) against campfire_kit's
+# (hyper), serving the bench endpoints and a cacheable asset on loopback, driven by wrk. Per scenario:
 # requests per second, and the server process's CPU time per request (user and system, from ps), which
 # stays meaningful when wrk is the bottleneck. It needs wrk, the .NET SDK and (for the Rust side) cargo
 # via mise.
@@ -56,15 +56,16 @@ run_server() {
   "$@" "$port" "$((port + 100))" > "$OUT/$label.log" 2>&1 &
   local pid=$!
   sleep 3
-  if [ "$label" = fsharp ]; then COOKIE=$(grep COOKIE= "$OUT/fsharp.log" | head -1 | sed 's/COOKIE=//'); fi
   local base=http://127.0.0.1:$port
   wrk -t2 -c16 -d3s $base/page > /dev/null 2>&1
   scenario "$pid" "hello (tiny)" $base/hello
   scenario "$pid" "page 100KB, identity" $base/page
-  scenario "$pid" "page 100KB, gzip (cached)" -H "Accept-Encoding: gzip" $base/page
-  scenario "$pid" "asset (front cache hit)" $base/asset
-  scenario "$pid" "asset, zstd (cache hit)" -H "Accept-Encoding: zstd" $base/asset
-  scenario "$pid" "signed cookie + page" -H "Cookie: $COOKIE" $base/session
+  scenario "$pid" "page 100KB, gzip" -H "Accept-Encoding: gzip" $base/page
+  local asset=/asset
+  [ "$label" = fsharp ] && asset=/users/1/avatar
+  scenario "$pid" "asset (front cache hit)" $base$asset
+  scenario "$pid" "asset, zstd (cache hit)" -H "Accept-Encoding: zstd" $base$asset
+  if [ -n "$COOKIE" ]; then scenario "$pid" "signed cookie + page" -H "Cookie: $COOKIE" $base/session; fi
   local lua
   lua=$(mktemp)
   cat > "$lua" <<'LUA'
@@ -87,8 +88,6 @@ case $which in
 esac
 case $which in
   rust|both)
-    # The Rust server needs a cookie signed with the same secret; the F# server prints one.
-    [ -n "$COOKIE" ] || { build_fsharp; "$OUT/fsharp/FrontBench" 3003 3103 > "$OUT/cookie.log" 2>&1 & p=$!; sleep 3; COOKIE=$(grep COOKIE= "$OUT/cookie.log" | head -1 | sed 's/COOKIE=//'); kill $p; wait $p 2>/dev/null || true; }
     build_rust
     run_server rust 3002 "$ROOT/target/rust/release/frontbench"
     ;;

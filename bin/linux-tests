@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # Runs a test project on Linux, in Dockerfile.toolchain (the .NET SDK on Debian, in colima), for the
-# tests that skip on macOS because the platform's TLS stack differs: front TLS session resumption by
-# ticket, for one (`FrontAcmeIntegrationTests`).
+# tests that skip on macOS because the platform's TLS stack differs: the TLS listener's SNI selection (HS4) and
+# the ACME test against Pebble (AC11), for two.
 #
-#   bin/linux-tests Kit                                   all of Campfire.Kit.Tests
-#   bin/linux-tests Kit --filter-method "*resume*"        extra arguments go to dotnet test
+#   bin/linux-tests App                                   all of Campfire.App.Tests
+#   bin/linux-tests App --filter-method "*HS4*"           extra arguments go to dotnet test
 #
 # Build, then test --no-build, with the build servers off: `dotnet test` that builds under a container's PID 1 does not return after the tests
 # are done (idle MSBuild nodes outlive it).

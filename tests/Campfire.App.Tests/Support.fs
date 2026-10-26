@@ -30,7 +30,6 @@ open Microsoft.Extensions.Logging
 open Microsoft.Extensions.Logging.Abstractions
 open Xunit
 open Campfire.App
-open Campfire.Kit
 open Campfire.Tests
 
 /// The pinned values of the parity environment (`parity/.env.reference`).

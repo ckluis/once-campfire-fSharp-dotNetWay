@@ -18,7 +18,7 @@
 // - `JOB_CONCURRENCY`: Resque worker count (`config/puma.rb`), used for job concurrency.
 // - `RAILS_LOG_LEVEL`: `config/environments/production.rb` log level.
 // - Thruster's (`TLS_DOMAIN`, `HTTP_PORT`, `HTTP_*_TIMEOUT`, `TARGET_PORT`, ...): read by
-//   `Campfire.Kit.FrontConfig`, which does Thruster's job in this binary.
+//   `Web/FrontSettings.fs`, which does Thruster's job in this binary.
 // - Not applicable: `REDIS_URL` and `WEB_CONCURRENCY` (no Redis, one process), `PORT` (Puma's;
 //   the app listens on Thruster's `TARGET_PORT`), and `SENTRY_DSN` and `SKIP_TELEMETRY` (the app
 //   sends no telemetry).

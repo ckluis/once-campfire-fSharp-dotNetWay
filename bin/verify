@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Build with warnings as errors, then run every test. Must pass before work is reported done.
 #   bin/verify            build + all tests
-#   bin/verify Db Kit     build + only those projects' tests
+#   bin/verify Db Cable    build + only those projects' tests
 set -euo pipefail
 cd "$(dirname "$0")/.."
 export PATH="$HOME/.dotnet:$PATH" DOTNET_NOLOGO=1 DOTNET_CLI_TELEMETRY_OPTOUT=1

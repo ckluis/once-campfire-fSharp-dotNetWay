@@ -28,7 +28,6 @@ open Campfire.App.Integrations
 open Campfire.Db
 open Campfire.RailsCompat
 open Campfire.RailsCompat.Clock
-open Campfire.Kit
 open Campfire.Storage
 open Campfire.Views
 
@@ -36,9 +35,9 @@ open Campfire.Views
 [<NoComparison; NoEquality>]
 type Booted =
     { App: AppState
-      /// What `Front.serve` builds the app's pipeline with (the app's `Web.Services.pipeline`).
+      /// What `Host.build` builds the app's pipeline with (the app's `Web.Services.pipeline`).
       Pipeline: IApplicationBuilder -> unit
-      /// Registers `CampfireDb`, its factory, the `WriteGate` and the `TimeProvider` (`Front.serveHosted`'s `configureServices`).
+      /// Registers `CampfireDb`, its factory, the `WriteGate` and the `TimeProvider` (`Host.build`'s `configureServices`).
       ConfigureServices: IServiceCollection -> unit
       Jobs: Runner }
 
@@ -352,7 +351,7 @@ module Boot =
     /// The binary's entry point.
     ///
     /// - `campfire` / `campfire server`: serve the app behind the front server, as `bin/boot` did with
-    ///   Thruster in front of `bin/start-app` (see `Campfire.Kit.Front`).
+    ///   Thruster in front of `bin/start-app` (see `Web/Host.fs`).
     /// - `campfire backup`: the ONCE `pre-backup` hook (`script/admin/prepare-backup`): snapshot the live
     ///   database into `storage/backups/` with SQLite's online backup API.
     ///

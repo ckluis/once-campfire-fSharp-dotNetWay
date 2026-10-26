@@ -3,7 +3,7 @@
 # Production image for theDotNetWay (campfire-dotnetway:app; the F# port's campfire-fsharp:app is built from this file at its commit). A drop-in for the reference image (reference/Dockerfile), exactly as
 # rust/Dockerfile is: same user (uid 1000), working directory, storage layout
 # (/rails/storage/{db,files,backups}), env vars, ports and ONCE hooks. The binary does Thruster's job itself
-# (src/Campfire.Kit/Front): HTTP on 80, and with TLS_DOMAIN, HTTPS on 443 with Let's Encrypt certificates
+# (src/Campfire.App/Web/Host.fs, Acme.fs): HTTP on 80, and with TLS_DOMAIN, HTTPS on 443 with Let's Encrypt certificates
 # cached in /rails/storage/thruster, where the reference's Thruster keeps them.
 #
 #   docker build -t campfire-dotnetway:app --build-arg APP_VERSION=... --build-arg GIT_REVISION=... .

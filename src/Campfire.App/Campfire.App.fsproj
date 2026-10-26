@@ -126,7 +126,6 @@
   <ItemGroup>
     <ProjectReference Include="../Campfire.RailsCompat/Campfire.RailsCompat.fsproj" />
     <ProjectReference Include="../Campfire.Ruby/Campfire.Ruby.fsproj" />
-    <ProjectReference Include="../Campfire.Kit/Campfire.Kit.fsproj" />
     <ProjectReference Include="../Campfire.Routes/Campfire.Routes.fsproj" />
     <ProjectReference Include="../Campfire.Db/Campfire.Db.fsproj" />
     <ProjectReference Include="../Campfire.RichText/Campfire.RichText.fsproj" />

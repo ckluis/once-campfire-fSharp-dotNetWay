@@ -99,7 +99,7 @@ module Services =
         |> ignore
 
 
-    /// Registers the app's services on the host (`Front.serveHosted`'s `configureServices`, and the tests' hosts).
+    /// Registers the app's services on the host (`Host.build`'s `configureServices`, and the tests' hosts).
     let add (edge: EdgeConfig) (app: AppState) (services: IServiceCollection) : unit =
         AppContext.SetSwitch(SuppressAutoDefaultScheme, true)
         services.AddSingleton<EdgeConfig>(edge) |> ignore

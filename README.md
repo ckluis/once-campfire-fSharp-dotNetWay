@@ -56,7 +56,7 @@ docker run -d -p 80:80 -p 443:443 \
 ```
 
 `TLS_DOMAIN` enables automatic Let's Encrypt certificates; `DISABLE_SSL` enables plain HTTP. The settings are in
-[`Config.fs`](src/Campfire.App/Config.fs) (the app's) and [`Front/Config.fs`](src/Campfire.Kit/Front/Config.fs) (Thruster's).
+[`Config.fs`](src/Campfire.App/Config.fs) (the app's) and [`Web/FrontSettings.fs`](src/Campfire.App/Web/FrontSettings.fs) (Thruster's).
 For local development, `dotnet run --project src/Campfire.App -- server` with `SECRET_KEY_BASE` (or
 `SECRET_KEY_BASE_DUMMY=1`) set and libvips installed (`HTTP_PORT=3000` avoids port 80).
 
@@ -228,29 +228,21 @@ specific to this port are listed below, each citing the reference file it depart
   line; Puma writes them all (puma 7.2.1, `Puma::Request#str_headers`, the reference's server). Tested by `AppTests`
   ("proxied blobs write odd dispositions as puma does").
 
-- **Front server** (`Campfire.Kit`, Thruster's job; Thruster 0.1.23 is the reference, `rust/crates/kit/src/front`
-  the port it follows):
-  - Idle HTTP/1 connections close at `HTTP_IDLE_TIMEOUT`, as Go's `http.Server` (Thruster) closed them. The
-    Rust port closes them at the shorter of that and `HTTP_READ_TIMEOUT`, because hyper's header timer also
-    runs while a connection waits; Kestrel's keep-alive timer doesn't. Tested by `FrontTests`
-    ("closes idle and slow connections").
+- **Front server** (`Campfire.App`'s `Web/Host.fs`, `Acme.fs`, `OutputCaching.fs` and `HttpLog.fs`, Thruster's job on Kestrel and
+  ASP.NET Core's own middleware; Thruster 0.1.23 is the reference, `rust/crates/kit/src/front` the port it follows):
   - Kestrel always sends `Date`, so the app's own listener on `TARGET_PORT` sends one, where Puma (and the
     Rust port) send none.
   - Request head limits are hyper's, not Puma's: up to 417,792 bytes of headers (431 past that) and a 65,534-byte
     URI (414 past that; Kestrel limits the whole request line, so the edge moves by the method's length). Kestrel's
     own 8 KB line and 32 KB headers refused cookies and URLs Rails serves. Puma stops at
     112 KB of headers and answers 400 above 12 KB of URI (10 KB of query), where this port and the Rust port serve
-    them. Tested by `RequestsTests` (R7).
+    them. Tested by `RequestsTests` (R7) and `HostTests` (HS6).
   - Three request-line rules are fixed in Kestrel's parser and can't be configured, so they differ from Puma's and
     hyper's: a `%00` in the path is 400 (Rails and Rust redirect or route it as any path); an absolute-form target
     whose authority differs from `Host` is 400 (both serve it); an HTTP/1.0 request is answered with an
     `HTTP/1.1` status line (both answer `HTTP/1.0`). Tested by `RequestsTests` (R8).
-  - Cleartext HTTP/2 (`H2C_ENABLED`) on a port that also serves HTTP/1.1 reads each connection's first
-    bytes for HTTP/2's preface and tells Kestrel which protocol to speak through an internal Kestrel
-    feature (`Campfire.Kit/Front/Conn.fs`, `FrontH2c`); if a Kestrel release changes it, the port serves
-    HTTP/1.1 only and logs a warning. Tested by `FrontTests` ("speaks h2c only when enabled").
   - Compressed responses carry the same decoded bytes as Rust's, not the same compressed bytes (.NET's
-    deflate and ZstdSharp are not flate2 and libzstd); the app's own compression is the framework's, and the Rust test
+    deflate, Brotli and zstd are not flate2 and libzstd); the app's own compression is the framework's, and the Rust test
     that pins the SHA-256 of a spliced gzip member is gone with the spliced gzip (unit 2.8).
   - Class B (Phase 7, unit 7.1; `plans/design-front.md` F8, F10), each with the test that pins it:
     - The request log is ASP.NET Core's HTTP logging line (`Web/HttpLog.fs`: `UseHttpLogging`, one combined entry per request with
@@ -297,14 +289,14 @@ specific to this port are listed below, each citing the reference file it depart
       a 421, `/.well-known/acme-challenge/` for such a host a 403, the challenge of a `TLS_DOMAIN` host its key authorization, and
       everything else a 301 to `https://<normalized host>[:HTTPS_PORT]<same target>` (HS2). Names `TLS_DOMAIN` lists that are refused are
       logged at boot, and a list with none usable stops the boot.
-  - `HTTP_IDLE_TIMEOUT`, `HTTP_READ_TIMEOUT` and `HTTP_WRITE_TIMEOUT` above 49 days are clamped to 49 days,
-    the longest .NET's timers can wait. Thruster and the Rust port accept any number of seconds; a value
-    that large means "never" in all three. Tested by `FrontConfigTests`.
-  - Certificates are ordered by a small RFC 8555 client of our own (`Front/Acme.fs`) in place of
-    instant-acme, in autocert's cache layout as Rust writes it. It sends `User-Agent`, which RFC 8555
-    requires (Pebble refuses requests without it), and renews at most once an hour for CAs whose
-    certificates live less than 30 days.
-
+  - Certificates are ordered by Certes (`Web/Acme.fs`) in autocert's cache layout as Rust writes it; TLS-ALPN-01 is not answered, only
+    HTTP-01, so port 80 must be reachable (`reference/docs/self-hosting.md` asks for 80 and 443). They are ordered at boot and renewed in
+    the background `min(30 days, lifetime / 3)` before expiry; a cached certificate for a name no longer in `TLS_DOMAIN` is not served
+    (`AcmeTests` AC4, AC6, AC11 against Pebble).
+  - Class A, once: `Vary: Accept-Encoding` only on compressed responses; images are no longer compressed by a front; `X-Request-Start`
+    and the front's `X-Forwarded-*` no longer reach the app (the remote IP is unchanged, HS7); on a cache hit `X-Request-Id` and
+    `X-Runtime` are the hit's own, and a cached avatar, logo or QR code is served to anyone who has its URL, as Thruster served it
+    (OC1).
 - **Request and response handling** (`Campfire.App`'s `Web/` folder, which unit 2.13 of the .NET way made the whole request
   layer; `rust/crates/kit/src/{adapter,ctx,params,request}.rs` is what it replaced, the reference is Rails 8.1 on Puma 7.2.1):
   - A request for a method a route doesn't have is Rails' 404 page (`ActionController::RoutingError`, as in
