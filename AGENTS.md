@@ -212,6 +212,24 @@ Project references follow the crate graph. Don't add an edge Rust doesn't have.
   `PEBBLE_DIRECTORY=https://localhost:14000/dir PEBBLE_ROOT=/tmp/pebble.minica.pem dotnet test --project tests/Campfire.App.Tests -c Release --filter-method "*AC11*"`.
   Pebble's leaf is not back-dated (NotBefore is the issue second), which is why the service reads the issued file at issue time, not at the
   pass's start. Pebble's root changes every start; do not cache it.
+- TLS end to end (Phase 7 unit 7.5, plans/design-front.md F16). **The gate's TLS states**: `bin/pixel-parity --candidate-tls` (or `PARITY_CANDIDATE_TLS=1` with
+  `parity/bin/candidate`) starts the candidate with `TLS_DOMAIN=campfire.localhost`, `HTTPS_PORT` = its port, `HTTP_PORT=80` (published on port + 100) and a
+  self-signed P-256 certificate (valid from 2020, because the clock is frozen at the seed's instant) written into its `storage/thruster` as a `DirCache`
+  file before boot, so no order is made; the browser sees it at `https://campfire.localhost:<port>` (`--actual-origin`; the normalized layers read that origin
+  as the shared `http://localhost:3999`, and the harness's seeded `Math.random` ignores the origin). The reference stays on HTTP. Use it for
+  `--only 'auth/sign_in,rooms/show/designers'`. **The image against Pebble**: `reference-tools/front/pebble-image.sh [IMAGE]` (colima; the image needs a
+  `parity/bin/candidate build`) runs Pebble and the image on host networking (`TLS_DOMAIN=campfire.test`, `HTTP_PORT=5002`, `ACME_DIRECTORY`, `SSL_CERT_FILE`
+  = Pebble's root), and checks the order at boot, the cache files and their modes, the 2-certificate chain and that a restart loads the cache without a
+  second order.
+  **Operator step, Let's Encrypt staging (human-gated; not run by any agent)**: before a release that touches `Web/Acme.fs` or `Web/Host.fs`, on a host whose
+  DNS name points at it with ports 80 and 443 reachable, run the image with `TLS_DOMAIN=<name>`, `ACME_DIRECTORY=https://acme-staging-v02.api.letsencrypt.org/directory`,
+  a persistent `/rails/storage`, and `SSL_CERT_FILE` unset (the app trusts the system roots). Expect `Loaded` or `ordered` in the log within about a minute,
+  `storage/thruster/<name>` and `acme_account+key` at 0600, `curl -vI https://<name>/up` to say HTTP/2 and a "(STAGING)" issuer (the staging root is not
+  trusted, so `-k` or the staging root with `--cacert`), `curl -I http://<name>/` a 301 to `https://<name>/`, then a restart that logs the cached load and makes no
+  new order (Let's Encrypt staging limits are generous but not infinite: one order per name per run). Then remove the staging certificate from the cache
+  (delete `storage/thruster/<name>`) and start again with the production directory, which is the default. Failures to report: a 421 on the HTTP port for the
+  right name (check `TLS_DOMAIN` spelling and the Host the client sends), or an order that logs a CA error (the log names the problem; the app retries in
+  30-60 minutes).
 - Phase 7 measuring (all inside colima, `SERVER_CPUS=0-3 LOADGEN_CPUS=4-7`): `bench/quick` is the before/after runner, **F# only by default**
   (`--remeasure-rust` adds Rust, for the re-baseline that closes a phase; otherwise `bench/quick compare DIR` prints F# against the stored Rust
   medians of `bench/results/phase7-start/`, "vs stored Rust baseline"): the five workloads at c=1 and c=16, 3 reps, `bench/run`'s validity checks and report, plus CPU per

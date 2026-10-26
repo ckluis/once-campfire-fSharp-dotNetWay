@@ -44,6 +44,13 @@
 # CLAUDE_CODE_SESSION_ID, else the user), and `down --all` and `ps` only touch the caller's own;
 # --everyone takes them all. `down --port N` stops that port's instance whoever started it.
 #
+# TLS mode (PARITY_CANDIDATE_TLS=1, bin/pixel-parity --candidate-tls; plans/design-front.md F16): the candidate gets TLS_DOMAIN=campfire.localhost,
+# HTTPS_PORT = its port (published on 127.0.0.1:N) and HTTP_PORT=80 (published on 127.0.0.1:N+100, for the redirect), and a self-signed P-256
+# certificate for that name is written into its ACME cache (storage/thruster, a DirCache file) before boot, so no order is made. The certificate
+# is valid from 2020 because the server clock is frozen at the seed's instant. `compare` then shows the browser the candidate at
+# https://campfire.localhost:CAND (--actual-origin); Chromium resolves *.localhost to loopback and the capture's proxy tunnels it to the
+# server's port. The reference stays on HTTP.
+#
 # Docker only: neither app has a native runtime here.
 set -euo pipefail
 
@@ -109,10 +116,28 @@ container() { echo "campfire-candidate-$1"; }
 instance_dir() { echo "$INSTANCES/$1"; }
 alive() { [ "$(docker inspect -f '{{.State.Running}}' "$(container "$1")" 2>/dev/null)" = "true" ]; }
 
+TLS_NAME=campfire.localhost
+tls_mode() { [ "${PARITY_CANDIDATE_TLS:-}" = 1 ]; }
+
+# The ACME cache file for TLS_NAME (autocert's DirCache layout: the EC private key, then the certificate chain), 0600 in a 0700 directory.
+# Made with the image's own openssl (3.5; the VM's 3.0 has no -not_before).
+make_tls_cache() {
+  local dir=$1
+  mkdir -p "$dir"; chmod 700 "$dir"
+  docker run --rm --user "$(id -u):$(id -g)" --entrypoint sh -v "$dir:/out" "$IMAGE" -c '
+    set -e; cd /out
+    openssl ecparam -genkey -name prime256v1 -noout -out k.pem
+    openssl req -x509 -new -key k.pem -subj "/CN='$TLS_NAME'" -addext "subjectAltName=DNS:'$TLS_NAME'" \
+      -not_before 20200101000000Z -not_after 20491231235959Z -out c.pem
+    cat k.pem c.pem > '$TLS_NAME'; rm k.pem c.pem; chmod 600 '$TLS_NAME'
+  ' || die "could not make the TLS cache file"
+}
+
 wait_until_up() {
-  local port=$1
+  local port=$1 url="http://127.0.0.1:$1/up" resolve=()
+  if tls_mode; then url="https://$TLS_NAME:$port/up"; resolve=(--resolve "$TLS_NAME:$port:127.0.0.1" -k); fi
   for _ in $(seq 1 240); do
-    curl -fsS -o /dev/null "http://127.0.0.1:$port/up" 2>/dev/null && return 0
+    curl -fsS -o /dev/null "${resolve[@]+"${resolve[@]}"}" "$url" 2>/dev/null && return 0
     alive "$port" || { docker logs "$(container "$port")" 2>&1 | tail -n 40 >&2; die "instance on port $port exited during boot"; }
     sleep 0.25
   done
@@ -135,6 +160,12 @@ up() {
   docker rm -f "$(container "$port")" >/dev/null 2>&1 || true
   rm -rf "$dir"; copy_seed_into "$seed" "$dir"
   local args=(); mapfile -t args < <(env_args)
+  local publish=(-p "127.0.0.1:$port:80") tls=()
+  if tls_mode; then
+    make_tls_cache "$dir/thruster"
+    publish=(-p "127.0.0.1:$port:$port" -p "127.0.0.1:$((port + 100)):80")
+    tls=(-e "TLS_DOMAIN=$TLS_NAME" -e "HTTPS_PORT=$port" -e "HTTP_PORT=80" -v "$dir/thruster:/rails/storage/thruster")
+  fi
   # Labelled parity.candidate.port (not parity.port) so `reference down --all` leaves it alone.
   # Request logging stays on; only its retention is capped (one unbounded json log of a Rust bench run was 9 GB).
   docker run -d --name "$(container "$port")" \
@@ -142,8 +173,8 @@ up() {
     --cpus "${PARITY_CPUS:-2}" \
     --log-driver json-file --log-opt "max-size=${LOG_MAX_SIZE:-10m}" --log-opt "max-file=${LOG_MAX_FILE:-2}" \
     --user "$(id -u):$(id -g)" \
-    -p "127.0.0.1:$port:80" \
-    "${args[@]}" \
+    "${publish[@]}" \
+    "${args[@]}" "${tls[@]+"${tls[@]}"}" \
     -v "$dir/db:/rails/storage/db" -v "$dir/storage:/rails/storage/files" \
     "$IMAGE" >/dev/null
   wait_until_up "$port"
@@ -246,6 +277,7 @@ compare() {
   done
   [ -n "$time" ] || time=$(seed_clock "$seed")
   local ref_port cand_port; IFS=, read -r ref_port cand_port <<<"$ports"
+  local actual_origin=(); ! tls_mode || actual_origin=(--actual-origin "https://$TLS_NAME:$cand_port")
   # Mutating states run on isolated slots k = 1..N at P + 1000 * k (parity/capture/run.ts).
   COMPARE_REF_PORTS=("$ref_port") COMPARE_CAND_PORTS=("$cand_port")
   local k; for k in $(seq 1 "$isolated"); do
@@ -262,6 +294,7 @@ compare() {
     --expected "http://127.0.0.1:$ref_port" --actual "http://127.0.0.1:$cand_port" \
     --expected-name reference --actual-name candidate --isolated "$isolated" \
     --reset-host "'$PARITY/bin/candidate' reset --app {target} --port {port} --seed '$seed' --time '$time'" \
+    ${actual_origin[@]+"${actual_origin[@]}"} \
     "${rest[@]+"${rest[@]}"}" &
   # In the background so an interrupt runs compare_teardown at once (which stops it first).
   COMPARE_PID=$!
@@ -301,7 +334,8 @@ case "$cmd" in
   up)
     port=${PORT:-$DEFAULT_PORT} seed=${SEED:-default}
     up "$port" "$seed"
-    echo "http://127.0.0.1:$port  (seed: $seed, candidate${TIME:+, time: $(faketime_spec)})" ;;
+    if tls_mode; then url="https://$TLS_NAME:$port"; else url="http://127.0.0.1:$port"; fi
+    echo "$url  (seed: $seed, candidate${TIME:+, time: $(faketime_spec)}${PARITY_CANDIDATE_TLS:+, TLS})" ;;
   down)
     if [ -n "$ALL" ]; then
       for p in $(ports); do down "$p"; done

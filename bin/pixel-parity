@@ -6,7 +6,7 @@
 # server HTML, strict live DOM, network and cable layers are captured as always but not reported here: byte-level differences are
 # class A of the plan's known-differences policy (section 4), and the network and Cable layers have their own phase gates.
 #
-#   bin/pixel-parity [--fast] [--pixels-only] [--seeds default,crowd,custom_styles,first_run,restricted] [--only GLOB[,GLOB]] [--out DIR] [-- OPTIONS]
+#   bin/pixel-parity [--fast] [--pixels-only] [--seeds default,crowd,custom_styles,first_run,restricted] [--candidate-tls] [--only GLOB[,GLOB]] [--out DIR] [-- OPTIONS]
 #
 # Exit status 0 only if every cell that has a screenshot is pixel-for-pixel equal to Rails' in every seed asked for, and its aria tree
 # and loose DOM are equal too (class C of the policy: never acceptable, so parity/allowlist.yml does not excuse them here): a different
@@ -45,6 +45,7 @@ while [ $# -gt 0 ]; do
     --only)  ONLY=$2; shift 2 ;;
     --out)   OUT=$2; shift 2 ;;
     --fast)  FAST=1; shift ;;
+    --candidate-tls) export PARITY_CANDIDATE_TLS=1; shift ;;
     --pixels-only) LAYERS=pixels; shift ;;
     --)      shift; PASS=("$@"); break ;;
     -h|--help) sed -n '2,/^set -euo/p' "$0" | sed '$d; s/^# \{0,1\}//'; exit 0 ;;

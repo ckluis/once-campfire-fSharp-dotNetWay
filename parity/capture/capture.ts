@@ -12,6 +12,7 @@ import { cellId, interpolate, interpolateStep, isFragment, loadLabels } from "./
 import type { Job, Labels, Masks, State } from "./inventory.ts"
 import { maskText, normalizeResponse, normalizeDocument } from "./normalize.ts"
 import { looseDom } from "./loose.ts"
+import { DEFAULT_ORIGIN } from "./proxy.ts"
 import { CableLog, NetworkLog } from "./network.ts"
 import { DETERMINISM_SCRIPT, PageTracker, READINESS_SCRIPT, waitForReady } from "./readiness.ts"
 import type { SessionCache } from "./session.ts"
@@ -167,7 +168,13 @@ async function capturePage(
   meta.status = response?.status()
   meta.finalUrl = capturePage.url()
   const seedTime = Date.parse(env.time)
-  const mask = await valueMasks(capturePage, state.masks, meta)
+  const valueMask = await valueMasks(capturePage, state.masks, meta)
+  // The candidate's TLS mode shows the browser another origin (cli.ts --actual-origin): it reads as the shared one in every normalized layer,
+  // as it would had both servers been shown the same origin (an absolute form action, a link, a host in a sentence).
+  const mask =
+    target.origin === DEFAULT_ORIGIN
+      ? valueMask
+      : (text: string) => valueMask(text.replaceAll(new URL(target.origin).origin, new URL(DEFAULT_ORIGIN).origin).replaceAll(new URL(target.origin).host, new URL(DEFAULT_ORIGIN).host))
   if (response) {
     const html = await response.text().catch(() => "")
     fs.writeFileSync(base + ".server.html", html)

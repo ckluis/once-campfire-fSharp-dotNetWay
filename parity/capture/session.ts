@@ -47,7 +47,7 @@ export class SessionCache {
 }
 
 async function signIn(browser: Browser, baseUrl: string, proxy: BrowserContextOptions["proxy"], credentials: Credentials): Promise<StorageState> {
-  const context = await browser.newContext({ timezoneId: "UTC", locale: "en-US", proxy })
+  const context = await browser.newContext({ timezoneId: "UTC", locale: "en-US", proxy, ignoreHTTPSErrors: true })
   try {
     const page = await context.newPage()
     await page.goto(new URL("/session/new", baseUrl).href)

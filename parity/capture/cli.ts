@@ -21,6 +21,7 @@
 //   --workers N            --timeout MS        --inventory FILE
 //   --allowlist FILE | --no-allowlist           --report NAME (report NAME.html, NAME.json)
 //   --origin URL           the origin the browser sees for every server (default http://localhost:3999)
+//   --actual-origin URL    the origin the browser sees for the actual server instead (the candidate's TLS mode: https://campfire.localhost:PORT)
 //   --reset CMD            start a fresh server from the seed at {port} ({url} {port} {target} {seed}); with it,
 //                          each capture of a `mutates: true` state gets fresh servers of its own
 //   --isolated N           how many such captures run at once (default 3); slot k of a server on
@@ -75,6 +76,7 @@ const { values: opts, positionals } = parseArgs({
     isolated: { type: "string" },
     "isolated-port-offset": { type: "string" },
     origin: { type: "string", default: DEFAULT_ORIGIN },
+    "actual-origin": { type: "string" },
     "no-allowlist": { type: "boolean", default: false },
     report: { type: "string", default: "report" },
   },
@@ -172,7 +174,7 @@ async function main() {
         ...common(),
         targets: [
           { name: opts["expected-name"]!, url: opts.expected!, origin: opts.origin! },
-          { name: opts["actual-name"]!, url: opts.actual!, origin: opts.origin! },
+          { name: opts["actual-name"]!, url: opts.actual!, origin: opts["actual-origin"] ?? opts.origin! },
         ],
         outDir: outDir("compare"),
         allowlist: loadAllowlist(),
