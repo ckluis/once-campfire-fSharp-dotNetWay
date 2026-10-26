@@ -3199,3 +3199,39 @@ Sonnet builder, commits `eba17a2` (code, tests, README) and `c61a029` (asset-che
 - **Differences recorded:** README class B (the HTTP logging line replaces Thruster's `Request path=...` line, no port in `remote_addr`; zstd offered after `br` and `gzip`;
   `GZIP_COMPRESSION_*` unread, no jitter); class A (asset `Vary` on text types only, in the Phase 6 entry's list now by `bin/asset-check`).
 - **Open for 7.2:** `Boot.serve` still starts the old front; `bench/front` still does not build (7.6). Evidence: `bench/results/dotnetway-7-1/`.
+
+### Phase 7, unit 7.2: OutputCache (2026-10-26)
+
+Sonnet builder, commit `f050455` (code, tests, README); plus this entry.
+- **Built:** `Web/OutputCaching.fs` (F9): five families (avatar, account logo, QR code, Active Storage proxy, disk show), each a path-shape regex
+  (case-sensitive, `NonBacktracking`, a prefix guard first) and the controller's lifetime; `configure cacheSize maxItem` sets `UseCaseSensitivePaths`,
+  `SizeLimit`, `MaximumBodySize` and one `AddBasePolicy` per family (`With(shape && no Range).Expire(maxAge).SetVaryByHeader("Accept-Encoding")` on the
+  builder's default policy). The lifetimes are literals in `OutputCaching`, which `Avatars`, `Logos`, `QrCode` and `ActiveStorageControllers` now read (they are
+  compiled after `Services.fs`, so the constants live in the earlier file). `EdgeConfig` gains `CacheSize` and `MaxCacheItemSize` (0 = no cache, the test hosts);
+  `Services.add` calls `AddOutputCache` and `Services.pipeline` `UseOutputCache` right before `UseResponseCompression`, both only with a size; `Boot.bootEdge`
+  takes the sizes, `Boot.serve` passes `CACHE_SIZE`/`MAX_CACHE_ITEM_SIZE` to the app and `CacheSize = 0` to the old front. README class B entry (no `X-Cache`,
+  `Age` on hits, cookies never stored, `Authorization` and `Range` bypass).
+- **Tests** (`OutputCachingTests.fs`, 9, over a recording store and a stub app behind the real `Compression.configure`): OC1-OC9 as the design; all green after one
+  fix to the test store (it ignored `validFor`, so OC2's expiry failed until the store honoured it).
+- **Planted failure:** the avatar predicate widened to `StartsWithSegments "/users"`: **OC3 and OC9 fail** (a `/USERS/...` and `/users/1/profile` match); reverted.
+- **Gates:** `CAMPFIRE_REQUIRE_SEED=1 bin/verify`: **1,024 total, 1,018 passed, 0 failed, 6 skipped** on the second run. The first run had **1 failure in
+  `Campfire.Kit.Tests`** that did not repeat (three isolated reruns of the project and a second full verify were green); the test name was not captured, so it is
+  recorded as an unidentified Kit flake under full-suite load. `bin/kloc`: **29,645 by upstream's rules, 29,817 corrected (29.8)** (29,587 / 29,759 after 7.1).
+  Image rebuilt (label `f050455`). `bin/asset-check`: **1,806 checks, 0 failed** (no asset route is cached). `bin/pixel-parity --fast --only
+  'users/**,account/**,rooms/show/designers'` on all five seeds: **PASSED** (default, crowd, custom_styles 8/8, first_run 0/0, restricted 2/2 equal on pixels, aria and
+  loose DOM). `bin/clean-docker` and `bin/clean-parity` run; 32 GB free.
+- **Bench** (`bench/quick --routes avatar,room_show,post_message`, 3 reps, new `f050455` against `campfire-dotnetway:p6ctl`, interleaved new/ctl/ctl/new/new/ctl, host probe
+  1.05-1.09, Mac load 3.9-5.5; 18 runs a side, all 2xx, 0 errors; `bench/results/dotnetway-7-2/quick/`). **vs Rails:** room page **30.96x** (c16) / 20.45x (c1)
+  (control 32.46x / 23.71x), post **6.44x** / 6.18x (control 6.17x / 6.76x): **no cell under 5x**. **Honest reading of "not below the control's range":** room c16
+  7,409 [7,292-7,501] against 7,768 [7,753-7,783], room c1 2,190 [2,056-2,211] against 2,539, post c1 1,032 [1,002-1,043] against 1,128 [1,127-1,136] are below the
+  p6ctl range; post c16 2,127 [2,107-2,167] against 2,036 is above. That gap is 7.1's request log (p6ctl has the batched log, 7.1's entry measured -9% to -11% at c=1),
+  not the cache: against 7.1's own numbers (room 7,281 / 2,224, post 1,971 / 1,034, `dotnetway-7-1/quick`, a different session) 7.2 is level (+1.8%, -1.5%, +7.9%,
+  -0.2%), and CPU per request 456.7 / 570.4 / 1,529.6 / 1,753.3 us against 452.9 / 561.0 / 1,545.1 / 1,732.4 us. No same-session control of `eba17a2` was built, so this is a
+  cross-session comparison. **Avatar row** (a hit; reported, no stored Rails median): new **12,202 req/s [11,529-12,629] at c=1 (CPU 168 us), 96,936 [93,868-97,238] at
+  c=16 (27.4 us)**; control 24,930 [24,650-24,940] (90.5 us) and 127,487 [124,184-129,268] (19.4 us). A hit is about 2x the CPU at c=1 and 1.4x at c=16 until 7.4: the old front still
+  sees every request (its cache is off, but its per-request work and the extra hop stay) and the app's hit now crosses `UseHttpLogging` and OutputCache as well as the front.
+  The c=16 avatar warm-up reached its maximum in two reps (flat within 1%).
+- **Differences recorded:** README class B (OutputCache families by exact path shape, `Age` on hits and no `X-Cache`, cookie responses never stored, `Authorization` and `Range`
+  bypass); class A: none new.
+- **Open for 7.3:** `Boot.serve` still starts the old front (its cache off); the avatar hit cost is 7.4's to remove; recheck avatar and the c=1 cells against `p6ctl` after the host swap.
+  Evidence: `bench/results/dotnetway-7-2/`.
