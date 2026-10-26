@@ -9,7 +9,7 @@
 # token (as cookie-roundtrip does), reads the room page, and checks every `/assets/` URL the page carries (stylesheets, modulepreloads,
 # the import map's values, `img`):
 #   N1  fingerprint form `name.<10 chars>.ext`; 200 with `cache-control: max-age=31536000, immutable`, an ETag (304 on `If-None-Match`),
-#       `vary: Accept-Encoding`
+#       `vary: Accept-Encoding` on the text types (none on an image or a sound: no front server adds it since Phase 7's 7.1)
 #   N2  text types: `content-encoding: br` for `Accept-Encoding: br`, `gzip` for `gzip`, none for none, and the three decode to equal bytes
 #   N3  the plain `/assets/composer.css` is 200 `no-cache`; an unknown asset is 404; `/robots.txt` is 200; a sound with `Range` is 206
 #   N4  the page's `Link` header names fingerprinted stylesheets only
@@ -141,7 +141,12 @@ for u in urls:
     check(status == 200, "N1 %s answers 200 (got %s)" % (u, status))
     check(h.get("cache-control") == "max-age=31536000, immutable", "N1 %s cache-control is %r" % (u, h.get("cache-control")))
     check("etag" in h, "N1 %s has an ETag" % u)
-    check("accept-encoding" in h.get("vary", "").lower(), "N1 %s has Vary: Accept-Encoding (got %r)" % (u, h.get("vary")))
+    # Only a text asset has encodings to vary on. Until Phase 7's unit 7.1 the front server added the header to every response
+    # (images and sounds too); the framework's endpoints send it on the precompressed text types alone.
+    if u in text_urls:
+        check("accept-encoding" in h.get("vary", "").lower(), "N1 %s has Vary: Accept-Encoding (got %r)" % (u, h.get("vary")))
+    else:
+        check("accept-encoding" not in h.get("vary", "").lower(), "N1 %s (not a text type) has no Vary: Accept-Encoding (got %r)" % (u, h.get("vary")))
     if "etag" in h:
         status, _, _ = curl(u, headers=["If-None-Match: " + h["etag"]])
         check(status == 304, "N1 %s answers 304 on If-None-Match (got %s)" % (u, status))

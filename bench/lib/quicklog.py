@@ -102,7 +102,7 @@ def compare(directory):
                 print(f"  note {w} c={c}: host probe {ratio} after the window (noisy host)")
     print(f"  responses: every one 2xx with 0 connection errors in {sum(len(m['runs']) for m in mine.values())} runs" if not bad else f"  {bad} run(s) with errors")
     # Rust's decoded size per route, except where the Falco.Markup pages differ on purpose (unit 4.11): those routes have a stored expected
-    # size (bench/lib/expected-sizes.json, the size after the views moved to Falco.Markup; update it when a template changes on purpose).
+    # size (bench/lib/expected-sizes.json, the size after the views moved to Falco.Markup; update it when a template changes on purpose; refreshed in Phase 7 unit 7.1 for Phase 6's fingerprinted `/assets/` URLs, 2 bytes longer each).
     rust_probe = {p["route"]: p["gzip"]["decoded_bytes"] for p in (load(FINAL, "rust") or [{"probe": []}])[0]["probe"]}
     with open(os.path.join(ROOT, "bench/lib/expected-sizes.json")) as f:
         rust_probe.update(json.load(f))
