@@ -274,6 +274,23 @@ specific to this port are listed below, each citing the reference file it depart
       response.
     - A response that sets a cookie is never stored (the hourly session resume on an avatar), and a request with an `Authorization`
       header or a `Range` header bypasses the cache.
+  - Class B (Phase 7, unit 7.4a; `plans/design-front.md` F1, F2, F11-F14): an install without `TLS_DOMAIN` is served by the app's own
+    host (`Web/Host.fs`: Kestrel's listeners and limits, ConsoleLifetime), not by the front server above (installs with `TLS_DOMAIN` keep
+    that front until unit 7.4b, and the bullets above that name it still describe them), each with the test that pins it
+    (`HostTests`):
+    - `HTTP_PORT` and `TARGET_PORT` (loopback, or `TARGET_BIND`) both serve the app over HTTP/1.1; cleartext HTTP/2 is not offered and
+      `H2C_ENABLED` is not read (HS1, HS12). `HTTP_WRITE_TIMEOUT`, `GZIP_COMPRESSION_*` and `DEBUG` are not read either.
+    - `HTTP_IDLE_TIMEOUT` is Kestrel's keep-alive timeout and `HTTP_READ_TIMEOUT` its request-header timeout; a body is no longer cut by a
+      deadline from the request's start but by Kestrel's minimum data rate (240 bytes a second after 5 seconds), for requests and
+      responses alike. A timeout of zero, a negative one or one of 49 days or more means none (HS8, HS10, HS12).
+    - `FORWARD_HEADERS` (default on without TLS) decides whether a client's `X-Forwarded-For`, `-Proto` and `-Host` count: on, only from
+      Rails' `TRUSTED_PROXIES`; off, never. The client address the ban check and the sign-in throttle see is unchanged (HS7). The front's
+      own `X-Forwarded-*`, `Forwarded` and `X-Request-Start` rewriting is gone; the app reads none of them.
+    - `MAX_REQUEST_BODY` (0 = none) lowers the app's 16 MiB cap, so the 413 is the app's whichever limit hit (HS9). Stopping is one 10 second
+      budget (SIGTERM or SIGINT: Cable sockets get `server_restart`, then connections drain; HS11), not Thruster's 5 seconds inside the app's 10.
+    - HSTS is still sent on every response that reaches the edge middleware, including a 500 page (`UseHsts` loses the header there, so it
+      stays in `Edge`); `force_ssl`'s own HTTP-to-HTTPS redirect is gone, as production's `assume_ssl` made every request HTTPS before it
+      could fire (HS5).
   - `HTTP_IDLE_TIMEOUT`, `HTTP_READ_TIMEOUT` and `HTTP_WRITE_TIMEOUT` above 49 days are clamped to 49 days,
     the longest .NET's timers can wait. Thruster and the Rust port accept any number of seconds; a value
     that large means "never" in all three. Tested by `FrontConfigTests`.
