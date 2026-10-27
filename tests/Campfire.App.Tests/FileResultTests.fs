@@ -107,6 +107,23 @@ let ``FR1 byte ranges answer as rack does except the listed cases`` () =
         Assert.Equal(95, listed.Count)
     }
 
+/// The storage path is relative to the working directory in the image (`storage/files`); the framework's file result wants a rooted one.
+[<Fact>]
+let ``a relative path is served`` () =
+    task {
+        let directory = Directory.CreateTempSubdirectory("fr-relative").FullName
+        let path = Path.Combine(directory, "file")
+        File.WriteAllText(path, "relative")
+        use! host =
+            startPipeline (fun app ->
+                Microsoft.AspNetCore.Builder.RunExtensions.Run(
+                    app,
+                    RequestDelegate(fun http -> ActiveStorage.fileResult (Path.GetRelativePath(Directory.GetCurrentDirectory(), path)) "text/plain" None http)
+                ))
+        let! reply = host.Send(get "/")
+        Assert.Equal((200, "relative"), (reply.Status, reply.Text))
+    }
+
 /// A seeded app's proxy path and disk path for blob 5, and the file behind it.
 let private blobPaths (test: Test) : Task<string * string * string> =
     task {

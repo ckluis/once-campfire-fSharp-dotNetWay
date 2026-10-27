@@ -40,14 +40,15 @@ module ActiveStorage =
 
     /// A file as the framework serves it: `TypedResults.PhysicalFile` with range processing (single ranges, 416, HEAD,
     /// `If-Modified-Since`, `If-Range`, `Accept-Ranges`, `Content-Length`). The caller puts the headers the file result does not
-    /// write (`Content-Disposition`, `Content-Transfer-Encoding`, `Cache-Control`) on the response first. A client that went away
-    /// has nothing more to be told.
+    /// write (`Content-Disposition`, `Content-Transfer-Encoding`, `Cache-Control`) on the response first. The framework wants a rooted
+    /// path and the storage path may be relative to the working directory (`storage/files`). A client that went away has nothing more
+    /// to be told.
     let fileResult (path: string) (contentType: string) (lastModified: DateTimeOffset option) : Falco.HttpHandler =
         fun http ->
             task {
                 let result =
                     Microsoft.AspNetCore.Http.TypedResults.PhysicalFile(
-                        path,
+                        Path.GetFullPath path,
                         contentType,
                         lastModified = (match lastModified with Some time -> Nullable time | None -> Nullable()),
                         enableRangeProcessing = true
