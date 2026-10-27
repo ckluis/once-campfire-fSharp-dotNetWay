@@ -244,6 +244,7 @@ specific to this port are listed below, each citing the reference file it depart
   - Assets carry an ETag, a per-file `Last-Modified` and `Accept-Ranges: bytes`, and text assets are precompressed (Brotli or gzip
     by `Accept-Encoding`) where Rails' front server compressed them on the fly; images (`campfire-icon.png` on every page) go
     uncompressed, where Rails' front server compressed them too (the parity harness's network layer shows each of these).
+  - The disk service's answers carry `Accept-Ranges: bytes` (the file result writes it; `FileResultTests` FR2).
   - The import map's JSON is written by `ImportMapDefinition` (the same text after the digest mask), and the preload `Link` header
     holds 15 stylesheets where Rails' holds 16 (Rails' 1,000-byte rule, the same rule, a different byte count per link).
   Class B (the behaviour differs), each with the test or check that pins it:
@@ -254,6 +255,15 @@ specific to this port are listed below, each citing the reference file it depart
   - `/assets/.manifest.json` is not served, and neither is any dotfile, the build output (`/campfire.dll`, the endpoint manifest) or
     the web root by name (`/wwwroot/...`); encoded dots and backslashes are the app's 404 (an App test, and `bin/asset-check`).
   - A request with several byte ranges gets the whole file with 200, where Rails answers `multipart/byteranges`.
+  - Active Storage serves a file with the framework's file result (`ActiveStorage.fileResult`, range processing on), not Rack's `Files`
+    (Phase 9, unit 9.1; `plans/design-close.md` C3). Five kinds of `Range` request answer differently from Rails: several ranges get the
+    whole file with 200, where Rack sent `multipart/byteranges`; a range on an empty file is 416, where Rack served it whole; a header
+    Rack's lenient parsing reads (`bytes=1_0-2_0`, `bytes=+1-2`, `bytes= 1-2`, `bytes=a-b`, two `bytes=` parts) gets the whole file, and
+    on the proxy that replaces Rails' 416; a position past 64 bits gets the whole file; `Bytes=` and other units are honoured. Single,
+    well-formed ranges (`bytes=0-`, `bytes=N-M`, `bytes=-N`) answer as Rack does, 105 of the 200 recorded cases in all. A disk 416 has
+    an empty body, where Rack wrote "Byte range unsatisfiable", and `If-Modified-Since` compares dates, where Rack compared the
+    strings. The 95 differing cases are listed, with their group, in `tests/Campfire.App.Tests/testdata/byte-ranges-known-differences.json`;
+    `FileResultTests` (FR1) fails if a listed case stops differing or another starts. The proxy and the disk service are pinned by FR2-FR4.
   - A method other than GET or HEAD on an asset URL is 405, where Rails' router answers 404 (H4).
   - Asset and public-file routes ignore letter case: `/ASSETS/COMPOSER.<FINGERPRINT>.CSS`, `/Assets/Composer.css` and `/ROBOTS.TXT`
     answer the file, where Rails' `Static` (a case-sensitive file system) leaves them to the router's 404. A trailing slash

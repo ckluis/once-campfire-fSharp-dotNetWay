@@ -2,7 +2,6 @@
   <ItemGroup>
     <Compile Include="Error.fs" />
     <Compile Include="TempFile.fs" />
-    <Compile Include="JsonValue.fs" />
     <Compile Include="Key.fs" />
     <Compile Include="Filename.fs" />
     <Compile Include="ContentTypes.fs" />
@@ -17,7 +16,6 @@
     <Compile Include="Disk.fs" />
     <Compile Include="Blob.fs" />
     <Compile Include="Paths.fs" />
-    <Compile Include="FileServer.fs" />
     <Compile Include="Storage.fs" />
   </ItemGroup>
   <ItemGroup>
@@ -27,6 +25,7 @@
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="NetVips" />
+    <PackageReference Include="FsToolkit.ErrorHandling" />
   </ItemGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="Campfire.Storage.Tests" />

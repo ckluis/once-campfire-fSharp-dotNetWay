@@ -110,59 +110,6 @@ let ``casts like active record`` () =
     for (value, id) in cases do
         Assert.True((integerCast value = id), $"{value}")
 
-// rack.rs
-
-/// `Rack::Utils.get_byte_ranges(header, size)` in the reference (rack 3.2.6); None is the whole file.
-let private rackRanges: (string * uint64 * (uint64 * uint64) list option) list =
-    [ "bytes=0-4", 10UL, Some [ (0UL, 4UL) ]
-      "bytes=5-", 10UL, Some [ (5UL, 9UL) ]
-      "bytes=-3", 10UL, Some [ (7UL, 9UL) ]
-      "bytes=-30", 10UL, Some [ (0UL, 9UL) ]
-      "bytes=0-99999999999999999999", 10UL, Some [ (0UL, 9UL) ]
-      "bytes=99999999999999999999-", 10UL, Some []
-      "bytes=-99999999999999999999", 10UL, Some [ (0UL, 9UL) ]
-      "bytes=0-1,", 10UL, Some [ (0UL, 1UL) ]
-      "bytes= -5", 10UL, Some [ (0UL, 5UL) ]
-      "bytes=0-1, 3-4", 10UL, Some [ (0UL, 1UL); (3UL, 4UL) ]
-      "bytes=0-1,\t 3-4", 10UL, Some [ (0UL, 1UL); (3UL, 4UL) ]
-      "bytes=3-5,1-2", 10UL, Some [ (3UL, 5UL); (1UL, 2UL) ]
-      "bytes=+1-2", 10UL, Some [ (1UL, 2UL) ]
-      "bytes=1-+2", 10UL, Some [ (1UL, 2UL) ]
-      "bytes=1_0-2_0", 100UL, Some [ (10UL, 20UL) ]
-      "bytes=0d5-0d9", 100UL, Some [ (5UL, 9UL) ]
-      "bytes=\u00a01-2", 10UL, Some [ (0UL, 2UL) ]
-      "bytes=a-b", 10UL, Some [ (0UL, 0UL) ]
-      "bytes=0-0x5", 10UL, Some [ (0UL, 0UL) ]
-      "bytes=0-1 ", 10UL, Some [ (0UL, 1UL) ]
-      "bytes=0 -1", 10UL, Some [ (0UL, 1UL) ]
-      "bytes=1-2-3", 10UL, Some [ (1UL, 2UL) ]
-      "bytes=9-9", 10UL, Some [ (9UL, 9UL) ]
-      "bytes=10-", 10UL, Some []
-      "bytes=10-12", 10UL, Some []
-      "bytes=-0", 10UL, Some []
-      "bytes=--5", 10UL, Some []
-      "bytes=0-4,5-9,0-0", 10UL, Some []
-      "bytes=;bytes=2-3", 10UL, Some [ (2UL, 3UL) ]
-      "bytes=0-1;bytes=2-3", 10UL, Some [ (0UL, 1UL) ]
-      "xbytes=0-1", 10UL, Some [ (0UL, 1UL) ]
-      "bytes=;0-1", 10UL, None
-      "bytes=", 10UL, None
-      "bytes=-", 10UL, None
-      "bytes=5", 10UL, None
-      "bytes=1-0", 10UL, None
-      "bytes=0-1,,2-3", 10UL, None
-      "items=0-1", 10UL, None
-      "bytes=0-4", 0UL, None ]
-
-[<Fact>]
-let ``byte ranges match rack`` () =
-    for (header, size, expected) in rackRanges do
-        Assert.True((Rack.byteRanges (Some header) size = expected), $"{header} of {size}")
-    Assert.Equal(None, Rack.byteRanges None 10UL)
-    // 99 commas are read, and 100 aren't (`max_ranges`).
-    Assert.Equal(Some [], Rack.byteRanges (Some("bytes=0-1," + String.replicate 98 "0-0,")) 10UL)
-    Assert.Equal(None, Rack.byteRanges (Some("bytes=0-1," + String.replicate 99 "0-0,")) 10UL)
-
 // float.rs
 
 let private bits (f: float) = BitConverter.DoubleToInt64Bits f

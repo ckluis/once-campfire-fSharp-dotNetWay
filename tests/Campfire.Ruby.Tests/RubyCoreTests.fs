@@ -20,9 +20,6 @@ let StringCases = 427
 [<Literal>]
 let FloatCases = 555
 
-[<Literal>]
-let ByteRangeCases = 200
-
 let private vectors = lazy (Repo.vector "ruby_core")
 
 /// The string a JSON element holds.
@@ -115,22 +112,3 @@ let ``float_to_s`` () =
     |> assertMatchesRuby "float_to_s" FloatCases
     Assert.Equal(FloatCases, all.Length)
 
-[<Fact>]
-let ``byte_ranges`` () =
-    let all = cases "byte_ranges"
-    all
-    |> Array.toList
-    |> List.map (fun case ->
-        let header =
-            match case.GetProperty "header" with
-            | h when h.ValueKind = JsonValueKind.String -> Some(str h)
-            | _ -> None
-        let size = case.GetProperty("size").GetUInt64()
-        let ruby =
-            match case.GetProperty "ranges" with
-            | r when r.ValueKind = JsonValueKind.Array ->
-                Some [ for range in r.EnumerateArray() -> (range[0].GetUInt64(), range[1].GetUInt64()) ]
-            | _ -> None
-        ($"{header}, {size}", Rack.byteRanges header size, ruby))
-    |> assertMatchesRuby "byte_ranges" ByteRangeCases
-    Assert.Equal(ByteRangeCases, all.Length)

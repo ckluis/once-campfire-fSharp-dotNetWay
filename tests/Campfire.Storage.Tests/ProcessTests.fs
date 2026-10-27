@@ -98,7 +98,7 @@ let ``output_within returns soon after the child exits`` () =
 [<Fact>]
 let ``output_within kills a child that overruns`` () =
     let started = Stopwatch.GetTimestamp()
-    use pidFile = TempFile.Create()
+    use pidFile = TempFile.Create(".tmp", "")
     let info = sh $"echo $$ > {pidFile.Path}; exec sleep 30"
     match outputWithin info (TimeSpan.FromMilliseconds 300.0) with
     | Error(ProcessError.TimedOut _) -> ()

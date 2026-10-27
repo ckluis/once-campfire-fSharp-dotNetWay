@@ -6,6 +6,7 @@
 /// stamped by `RailsTimestamps`. LINQ with every captured value in `EF.Parameter`; no raw SQL.
 namespace Campfire.Storage
 
+open FsToolkit.ErrorHandling
 open System
 open System.IO
 open System.Linq
@@ -42,7 +43,7 @@ module Blob =
           Key = b.Key
           Filename = Filename.create b.Filename
           ContentType = Option.ofObj b.ContentType
-          Metadata = Option.ofObj b.Metadata |> Option.bind JsonValue.parse |> Option.defaultValue JsonValue.object
+          Metadata = Option.ofObj b.Metadata |> Option.bind Json.parseInt64Only |> Option.defaultValue (Value.Object [])
           ServiceName = b.ServiceName
           ByteSize = b.ByteSize
           Checksum = Option.ofObj b.Checksum
@@ -50,9 +51,6 @@ module Blob =
 
     let find (db: Ef.CampfireDb) (id: int64) : Blob option =
         db.Blobs.Where(fun b -> b.Id = EF.Parameter id) |> Ef.Data.tryFirst |> Option.map ofEntity
-
-    let findByKey (db: Ef.CampfireDb) (key: string) : Blob option =
-        db.Blobs.Where(fun b -> b.Key = EF.Parameter key) |> Ef.Data.tryFirst |> Option.map ofEntity
 
     /// The blob attached to `record` under `name` (`has_one_attached`): the first attachment's, by id.
     let attached (db: Ef.CampfireDb) (recordType: string) (recordId: int64) (name: string) : Blob option =
@@ -63,8 +61,6 @@ module Blob =
     let isImage (blob: Blob) : bool = (contentType blob).StartsWith("image", StringComparison.Ordinal)
 
     let isVideo (blob: Blob) : bool = (contentType blob).StartsWith("video", StringComparison.Ordinal)
-
-    let isAudio (blob: Blob) : bool = (contentType blob).StartsWith("audio", StringComparison.Ordinal)
 
     /// `variable?`
     let isVariable (blob: Blob) : bool = ContentTypes.isVariable (contentType blob)
@@ -92,7 +88,7 @@ module Blob =
 
     /// `update!(metadata:)`: the blob as saved.
     let updateMetadata (db: Ef.CampfireDb) (metadata: Value) (blob: Blob) : Blob =
-        let json: string | null = JsonValue.encode metadata
+        let json: string | null = Json.encode metadata
         let id = blob.Id
         db.Blobs.Where(fun b -> b.Id = EF.Parameter id).ExecuteUpdate(fun u -> u.SetProperty((fun b -> b.Metadata), json) |> ignore)
         |> ignore
@@ -209,7 +205,7 @@ module NewBlob =
                   Key = blob.Key
                   Filename = Filename.raw blob.Filename
                   ContentType = Option.toObj blob.ContentType
-                  Metadata = JsonValue.encode blob.Metadata
+                  Metadata = Json.encode blob.Metadata
                   ServiceName = blob.ServiceName
                   ByteSize = blob.ByteSize
                   Checksum = blob.Checksum

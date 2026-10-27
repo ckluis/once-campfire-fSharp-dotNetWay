@@ -31,6 +31,7 @@
     <Compile Include="Web/ControllersCTests.fs" />
     <Compile Include="Web/ControllersDTests.fs" />
     <Compile Include="AppTests.fs" />
+    <Compile Include="FileResultTests.fs" />
     <Compile Include="JobsTests.fs" />
     <Compile Include="MiscTests.fs" />
     <Compile Include="PresentersTests.fs" />

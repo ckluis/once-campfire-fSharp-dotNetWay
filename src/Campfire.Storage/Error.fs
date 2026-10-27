@@ -47,48 +47,6 @@ module StorageError =
 
 type StorageResult<'a> = Result<'a, StorageError>
 
-/// Rust's `?` for a function that returns `Result`.
-type ResultBuilder() =
-    member _.Bind(r: Result<'a, 'e>, f: 'a -> Result<'b, 'e>) : Result<'b, 'e> = Result.bind f r
-    member _.Return(x: 'a) : Result<'a, 'e> = Ok x
-    member _.ReturnFrom(r: Result<'a, 'e>) : Result<'a, 'e> = r
-    member _.Zero() : Result<unit, 'e> = Ok()
-    member _.Delay(f: unit -> Result<'a, 'e>) : unit -> Result<'a, 'e> = f
-    member _.Run(f: unit -> Result<'a, 'e>) : Result<'a, 'e> = f ()
-
-    member _.Combine(r: Result<unit, 'e>, f: unit -> Result<'a, 'e>) : Result<'a, 'e> =
-        match r with
-        | Ok() -> f ()
-        | Error e -> Error e
-
-    member _.TryFinally(f: unit -> Result<'a, 'e>, finalizer: unit -> unit) : Result<'a, 'e> =
-        try
-            f ()
-        finally
-            finalizer ()
-
-    member _.Using(resource: 'd when 'd :> IDisposable, f: 'd -> Result<'a, 'e>) : Result<'a, 'e> =
-        try
-            f resource
-        finally
-            resource.Dispose()
-
-    member this.While(guard: unit -> bool, f: unit -> Result<unit, 'e>) : Result<unit, 'e> =
-        if guard () then
-            match f () with
-            | Ok() -> this.While(guard, f)
-            | Error e -> Error e
-        else
-            Ok()
-
-    member this.For(items: seq<'a>, f: 'a -> Result<unit, 'e>) : Result<unit, 'e> =
-        use e = items.GetEnumerator()
-        this.While((fun () -> e.MoveNext()), (fun () -> f e.Current))
-
-[<AutoOpen>]
-module ResultExpression =
-    let result = ResultBuilder()
-
 module internal Io =
     /// The I/O failures Rust's `io::Result` carries, as `Error::Io`.
     let attempt (f: unit -> 'a) : StorageResult<'a> =

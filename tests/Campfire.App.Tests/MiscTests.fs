@@ -83,34 +83,6 @@ let ``no body of the safe length fails to parse`` () =
 // --- active_storage.rs ---------------------------------------------------------------------------------------------
 
 [<Fact>]
-let ``byte ranges are not read into memory`` () =
-    task {
-        let path = Path.GetTempFileName()
-        try
-            File.WriteAllBytes(path, Array.init 200_000 (fun i -> byte (i % 256)))
-            let range start stop = FileServer.File(path, start, stop)
-
-            match ActiveStorage.partsBody [ range 10UL 199_999UL ] with
-            | Campfire.App.Web.OutgoingBody.OnDisk body -> Assert.Equal((10L, 199_990L), (body.Offset, body.Len))
-            | other -> failwith $"a single range should be a file body, got {other}"
-
-            let parts = [ FileServer.Bytes "<"B; range 0UL 2UL; FileServer.Bytes ">"B; range 100_000UL 170_000UL ]
-            let length = ActiveStorage.partsLen parts
-            match ActiveStorage.partsBody parts with
-            | Campfire.App.Web.OutgoingBody.Streamed stream ->
-                use stream = stream
-                use streamed = new MemoryStream()
-                do! stream.CopyToAsync streamed
-                let contents = File.ReadAllBytes path
-                let expected = Array.concat [ "<"B; contents[0..2]; ">"B; contents[100_000..170_000] ]
-                Assert.Equal<byte[]>(expected, streamed.ToArray())
-                Assert.Equal(length, uint64 streamed.Length)
-            | other -> failwith $"several ranges should stream, got {other}"
-        finally
-            File.Delete path
-    }
-
-[<Fact>]
 let ``json times have milliseconds`` () =
     Assert.Equal("2026-03-02T16:00:00.123Z", ActiveStorage.jsonTime "2026-03-02 16:00:00.123456")
     Assert.Equal("2026-03-02T16:00:00.000Z", ActiveStorage.jsonTime "2026-03-02 16:00:00")

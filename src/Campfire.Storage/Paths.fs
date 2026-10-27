@@ -20,7 +20,7 @@ let signedBlobId (verifier: MessageVerifier) (blobId: int64) (expiresAt: Timesta
 /// `ActiveStorage::Blob.find_signed(id)`'s verification half.
 let verifySignedBlobId (verifier: MessageVerifier) (signedId: string) (now: Timestamp) : int64 option =
     match MessageVerifier.verifyRaw verifier signedId (Some "blob_id") now with
-    | Ok data -> JsonValue.parse data |> Option.bind (fun json -> json.AsInt64)
+    | Ok data -> Json.parseInt64Only data |> Option.bind (fun json -> json.AsInt64)
     | Error _ -> None
 
 let private blobPath (kind: string) (verifier: MessageVerifier) (blobId: int64) (filename: Filename) (disposition: string option) : string =

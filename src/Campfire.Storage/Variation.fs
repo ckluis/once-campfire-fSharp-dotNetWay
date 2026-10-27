@@ -1,6 +1,7 @@
 // Port of rust/crates/storage/src/variation.rs
 namespace Campfire.Storage
 
+open FsToolkit.ErrorHandling
 open System
 open System.Security.Cryptography
 open Campfire.RailsCompat
@@ -126,6 +127,6 @@ module Variation =
         match MessageVerifier.verifyRaw verifier key (Some "variation") now with
         | Error _ -> Error StorageError.InvalidSignature
         | Ok data ->
-            match JsonValue.parse data with
+            match Json.parseInt64Only data with
             | None -> Error StorageError.InvalidSignature
             | Some json -> fromJson json

@@ -1,6 +1,7 @@
 // Port of rust/crates/storage/src/disk.rs
 namespace Campfire.Storage
 
+open FsToolkit.ErrorHandling
 open System
 open System.IO
 open System.Text
@@ -146,7 +147,7 @@ module DiskService =
                   "disposition", Value.String(contentDispositionWith disposition sanitized)
                   "content_type", (match contentType with Some t -> Value.String t | None -> Value.Null)
                   "service_name", Value.String service.Name ]
-        let encodedKey = MessageVerifier.generateRaw verifier (JsonValue.encode payload) (Some "blob_key") expiresAt
+        let encodedKey = MessageVerifier.generateRaw verifier (Json.encode payload) (Some "blob_key") expiresAt
         $"/rails/active_storage/disk/{escapeSegment encodedKey}/{escapePath sanitized}"
 
     /// The path of `url_for_direct_upload`.
@@ -166,14 +167,14 @@ module DiskService =
                   "content_length", Value.Int contentLength
                   "checksum", Value.String checksum
                   "service_name", Value.String service.Name ]
-        let token = MessageVerifier.generateRaw verifier (JsonValue.encode payload) (Some "blob_token") (Some expiresAt)
+        let token = MessageVerifier.generateRaw verifier (Json.encode payload) (Some "blob_token") (Some expiresAt)
         $"/rails/active_storage/disk/{escapeSegment token}"
 
 /// Verifies a signed payload and reads it as JSON (`Json::parse(&verifier.verify_raw(..).ok()?).ok()?`).
 module private Signed =
     let verified (verifier: MessageVerifier) (message: string) (purpose: string) (now: Timestamp) : Value option =
         match MessageVerifier.verifyRaw verifier message (Some purpose) now with
-        | Ok data -> JsonValue.parse data
+        | Ok data -> Json.parseInt64Only data
         | Error _ -> None
 
 module Disk =

@@ -3,6 +3,7 @@
 /// 1.14) and `ActiveStorage::Previewer::VideoPreviewer`.
 module Campfire.Storage.Process
 
+open FsToolkit.ErrorHandling
 open System
 open System.ComponentModel
 open System.Diagnostics

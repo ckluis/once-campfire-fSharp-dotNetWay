@@ -21,6 +21,19 @@ module Support =
             | Ok value -> value
             | Error error -> failwith $"{error}"
 
+    /// A directory under the temp path (mode 0700) that goes with everything in it when disposed.
+    [<Sealed>]
+    type TempDir private (directory: DirectoryInfo) =
+        member _.Path : string = directory.FullName
+        static member Create() : TempDir = new TempDir(Directory.CreateTempSubdirectory ".tmp")
+
+        interface IDisposable with
+            member _.Dispose() =
+                try
+                    directory.Delete true
+                with :? IOException | :? UnauthorizedAccessException ->
+                    ()
+
     /// The three Active Storage tables, as the reference's schema.rb makes them.
     let schema =
         """

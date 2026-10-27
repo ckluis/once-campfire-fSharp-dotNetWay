@@ -390,17 +390,11 @@ let ``blob byte ranges are served from the file`` () =
         Assert.Equal(Some(string (file.Length - 100)), single.Header "content-length")
         Assert.Equal<byte[]>(file[100..], single.Body)
 
+        // C3 (a): several ranges are the whole file with 200 (RFC 9110 allows it), where Rack sent multipart/byteranges.
         let! multiple = test.Send(ranged "bytes=0-9,20-29")
-        Assert.Equal(206, multiple.Status)
-        let contentType = (multiple.Header "content-type").Value
-        let boundary = contentType.Substring "multipart/byteranges; boundary=".Length
-        let part (start: int) (stop: int) =
-            Array.concat
-                [ Encoding.UTF8.GetBytes $"\r\n--{boundary}\r\nContent-Type: image/jpeg\r\nContent-Range: bytes {start}-{stop}/{file.Length}\r\n\r\n"
-                  file[start..stop] ]
-        let expected = Array.concat [ part 0 9; part 20 29; Encoding.UTF8.GetBytes $"\r\n--{boundary}--\r\n" ]
-        Assert.Equal(Some(string expected.Length), multiple.Header "content-length")
-        Assert.Equal<byte[]>(expected, multiple.Body)
+        Assert.Equal(200, multiple.Status)
+        Assert.Equal(Some "image/jpeg", multiple.Header "content-type")
+        Assert.Equal<byte[]>(file, multiple.Body)
 
         let! unsatisfiable = test.Send(ranged $"bytes={file.Length + 10}-")
         Assert.Equal(416, unsatisfiable.Status)

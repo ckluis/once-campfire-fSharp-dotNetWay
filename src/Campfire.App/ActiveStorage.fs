@@ -27,86 +27,6 @@ open Campfire.App.Web
 open Campfire.App.Presenters
 open Campfire.Db
 open Campfire.Storage
-open Campfire.Storage.FileServer
-
-/// A read-only stream over parts of files and the bytes between them, read a chunk at a time, so that
-/// several byte ranges are never read into memory up front.
-[<Sealed>]
-type PartsStream(parts: BodyPart list) =
-    inherit Stream()
-    let mutable remaining = parts
-    let mutable file: FileStream | null = null
-    let mutable fileLeft = 0L
-    let mutable pending = ReadOnlyMemory<byte>.Empty
-
-    let closeFile () =
-        match file with
-        | null -> ()
-        | open' ->
-            open'.Dispose()
-            file <- null
-
-    override _.CanRead = true
-    override _.CanSeek = false
-    override _.CanWrite = false
-    override _.Length = raise (NotSupportedException())
-
-    override _.Position
-        with get () = raise (NotSupportedException())
-        and set _ = raise (NotSupportedException())
-
-    override _.Flush() = ()
-    override _.Seek(_, _) = raise (NotSupportedException())
-    override _.SetLength _ = raise (NotSupportedException())
-    override _.Write(_: byte[], _: int, _: int) = raise (NotSupportedException())
-
-    override this.Read(buffer: byte[], offset: int, count: int) : int =
-        this.ReadAsync(Memory<byte>(buffer, offset, count), CancellationToken.None).AsTask().GetAwaiter().GetResult()
-
-    override _.ReadAsync(buffer: Memory<byte>, cancellationToken: CancellationToken) : ValueTask<int> =
-        let read =
-            task {
-                let mutable produced = -1
-                while produced < 0 do
-                    if buffer.Length = 0 then
-                        produced <- 0
-                    elif pending.Length > 0 then
-                        let n = min pending.Length buffer.Length
-                        pending.Slice(0, n).CopyTo buffer
-                        pending <- pending.Slice n
-                        produced <- n
-                    else
-                        match file with
-                        | null ->
-                            match remaining with
-                            | [] -> produced <- 0
-                            | Bytes bytes :: rest ->
-                                pending <- ReadOnlyMemory<byte> bytes
-                                remaining <- rest
-                            | File(path, start, stop) :: rest ->
-                                let opened =
-                                    new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite ||| FileShare.Delete, 64 * 1024, FileOptions.Asynchronous ||| FileOptions.SequentialScan)
-                                opened.Seek(int64 start, SeekOrigin.Begin) |> ignore
-                                file <- opened
-                                fileLeft <- int64 (stop - start + 1UL)
-                                remaining <- rest
-                        | open' ->
-                            if fileLeft <= 0L then
-                                closeFile ()
-                            else
-                                let! n = open'.ReadAsync(buffer.Slice(0, int (min (int64 buffer.Length) fileLeft)), cancellationToken)
-                                if n = 0 then
-                                    closeFile ()
-                                else
-                                    fileLeft <- fileLeft - int64 n
-                                    produced <- n
-                return produced
-            }
-        ValueTask<int> read
-
-    override _.Dispose(disposing: bool) =
-        if disposing then closeFile ()
-        base.Dispose disposing
 
 module ActiveStorage =
     /// The most image and video jobs (variants, previews, analysis) that run at once.
@@ -118,21 +38,26 @@ module ActiveStorage =
 
     let private storageToError (error: StorageError) : Error = Internal(Exception(StorageError.message error))
 
-    /// The body for byte ranges of files and the bytes between them: a single range is sent as a
-    /// file body and several are streamed, so neither is read into memory up front.
-    let partsBody (parts: BodyPart list) : OutgoingBody =
-        match parts with
-        | [ File(path, start, stop) ] -> OutgoingBody.OnDisk { Path = path; Offset = int64 start; Len = int64 (stop - start + 1UL) }
-        | [ Bytes bytes ] -> OutgoingBody.InMemory(ReadOnlyMemory<byte> bytes)
-        | [] -> OutgoingBody.NoBody
-        | parts -> OutgoingBody.Streamed(new PartsStream(parts))
-
-    let partsLen (parts: BodyPart list) : uint64 =
-        parts
-        |> List.sumBy (fun part ->
-            match part with
-            | Bytes bytes -> uint64 bytes.Length
-            | File(_, start, stop) -> stop - start + 1UL)
+    /// A file as the framework serves it: `TypedResults.PhysicalFile` with range processing (single ranges, 416, HEAD,
+    /// `If-Modified-Since`, `If-Range`, `Accept-Ranges`, `Content-Length`). The caller puts the headers the file result does not
+    /// write (`Content-Disposition`, `Content-Transfer-Encoding`, `Cache-Control`) on the response first. A client that went away
+    /// has nothing more to be told.
+    let fileResult (path: string) (contentType: string) (lastModified: DateTimeOffset option) : Falco.HttpHandler =
+        fun http ->
+            task {
+                let result =
+                    Microsoft.AspNetCore.Http.TypedResults.PhysicalFile(
+                        path,
+                        contentType,
+                        lastModified = (match lastModified with Some time -> Nullable time | None -> Nullable()),
+                        enableRangeProcessing = true
+                    )
+                try
+                    do! result.ExecuteAsync http
+                with
+                | :? OperationCanceledException
+                | :? IOException -> ()
+            }
 
     // --- Media work ------------------------------------------------------------------------------------
 

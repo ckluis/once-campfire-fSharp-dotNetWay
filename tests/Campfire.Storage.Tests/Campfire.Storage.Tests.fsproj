@@ -9,7 +9,6 @@
     <Compile Include="UnitTests.fs" />
     <Compile Include="ProcessTests.fs" />
     <Compile Include="VectorTests.fs" />
-    <Compile Include="FileServerTests.fs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="../../src/Campfire.Storage/Campfire.Storage.fsproj" />

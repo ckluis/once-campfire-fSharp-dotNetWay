@@ -59,40 +59,79 @@ let ``an upload with a checksum is verified`` () =
     Assert.Equal(Ok(), upload "unchecked" "bytes" None)
     Assert.Equal<byte[]>("bytes"B, (DiskService.download service "unchecked").Value)
 
+// --- TempFile (FR5) -------------------------------------------------------------------------------
+
+[<Fact>]
+let ``FR5 a temp file lives in a directory of its own and goes with it`` () =
+    let file = TempFile.Create("ActiveStorage-5-", ".jpg")
+    let directory = Path.GetDirectoryName file.Path |> nonNull
+    Assert.StartsWith("ActiveStorage-5-", Path.GetFileName directory)
+    Assert.EndsWith(".jpg", file.Path)
+    if not (OperatingSystem.IsWindows()) then
+        Assert.Equal(UnixFileMode.UserRead ||| UnixFileMode.UserWrite ||| UnixFileMode.UserExecute, File.GetUnixFileMode directory)
+        Assert.Equal(UnixFileMode.UserRead ||| UnixFileMode.UserWrite, File.GetUnixFileMode file.Path)
+    // ffmpeg and libvips write to the path, replacing the file (and may add siblings).
+    File.Delete file.Path
+    File.WriteAllText(file.Path, "replaced")
+    File.WriteAllText(Path.Combine(directory, "sibling"), "x")
+    (file :> IDisposable).Dispose()
+    Assert.False(Directory.Exists directory)
+    Assert.False(File.Exists file.Path)
+    // Disposing twice is harmless.
+    (file :> IDisposable).Dispose()
+
+// --- Value.Set and Value.Merge (FR6) ---------------------------------------------------------------
+
+[<Fact>]
+let ``FR6 set and merge keep Ruby's hash order`` () =
+    let hash = Value.Object [ "identified", Value.Bool true; "width", Value.Int 320L; "height", Value.Int 240L ]
+    // `Hash#[]=`: an existing key keeps its place, a new key goes last.
+    Assert.Equal("""{"identified":true,"width":640,"height":240}""", Json.encode (hash.Set("width", Value.Int 640L)))
+    Assert.Equal("""{"identified":true,"width":320,"height":240,"analyzed":true}""", Json.encode (hash.Set("analyzed", Value.Bool true)))
+    // `Hash#merge`: the other hash's keys overwrite in place, new ones append in its order.
+    let other = Value.Object [ "height", Value.Int 1L; "zebra", Value.Null; "apple", Value.Null ]
+    Assert.Equal("""{"identified":true,"width":320,"height":1,"zebra":null,"apple":null}""", Json.encode (hash.Merge other))
+    // Anything that is not a hash is left alone.
+    Assert.Equal(Value.Int 1L, (Value.Int 1L).Set("a", Value.Null))
+    Assert.Equal(hash, hash.Merge(Value.Int 1L))
+    // `Json::parse` of the storage crate refuses an integer past i64::MAX.
+    Assert.Equal(None, Json.parseInt64Only """{"a":18446744073709551615}""")
+    Assert.Equal(Some(Value.Object [ "a", Value.Int 1L ]), Json.parseInt64Only """{"a":1}""")
+
 // --- json.rs -------------------------------------------------------------------------------------
 
 [<Fact>]
 let ``json leaves js line separators raw`` () =
     // ActiveSupport::JSON.encode and ActiveRecord::Coders::JSON in the reference.
-    Assert.Equal("\"a\u2028b\u2029c\\u003c\\u003e\\u0026\"", JsonValue.encode (Value.String "a\u2028b\u2029c<>&"))
+    Assert.Equal("\"a\u2028b\u2029c\\u003c\\u003e\\u0026\"", Json.encode (Value.String "a\u2028b\u2029c<>&"))
 
 [<Fact>]
 let ``json preserves order and escapes like active support`` () =
-    let json = (JsonValue.parse """{"z":1,"a":[true,null,2.0,1e16,1e-5],"s":"<a & b>"}""").Value
-    Assert.Equal("""{"z":1,"a":[true,null,2.0,1e+16,0.00001],"s":"\u003ca \u0026 b\u003e"}""", JsonValue.encode json)
+    let json = (Json.parseInt64Only """{"z":1,"a":[true,null,2.0,1e16,1e-5],"s":"<a & b>"}""").Value
+    Assert.Equal("""{"z":1,"a":[true,null,2.0,1e+16,0.00001],"s":"\u003ca \u0026 b\u003e"}""", Json.encode json)
 
 // --- analyze.rs ----------------------------------------------------------------------------------
 
 [<Fact>]
 let ``video metadata matches the analyzer`` () =
     let probe =
-        (JsonValue.parse
+        (Json.parseInt64Only
             """{"streams":[{"codec_type":"video","width":320,"height":180,"display_aspect_ratio":"16:9","duration":"65.840000"}],"format":{"duration":"65.9"}}""")
             .Value
     Assert.Equal(
         """{"width":320.0,"height":180.0,"duration":65.84,"display_aspect_ratio":[16,9],"audio":false,"video":true}""",
-        JsonValue.encode (Analyze.videoMetadata probe).Value
+        Json.encode (Analyze.videoMetadata probe).Value
     )
 
 [<Fact>]
 let ``rotated video swaps dimensions`` () =
     let probe =
-        (JsonValue.parse
+        (Json.parseInt64Only
             """{"streams":[{"codec_type":"video","width":1920,"height":1080,"side_data_list":[{"side_data_type":"Display Matrix","rotation":-90}]},{"codec_type":"audio"}],"format":{"duration":"3.5"}}""")
             .Value
     Assert.Equal(
         """{"width":1080.0,"height":1920.0,"duration":3.5,"angle":-90,"audio":true,"video":true}""",
-        JsonValue.encode (Analyze.videoMetadata probe).Value
+        Json.encode (Analyze.videoMetadata probe).Value
     )
 
 // --- storage.rs ----------------------------------------------------------------------------------
@@ -170,8 +209,9 @@ let ``an opened blob is a copy named for its id and extension`` () =
     let blob = (Storage.createAndUpload storage db "bytes"B (Filename.create "a.txt") None).Value
     let copy = (Storage.openBlob storage blob).Value
     let path = copy.Path
-    let name = Path.GetFileName path
-    Assert.True(name.StartsWith $"ActiveStorage-{blob.Id}-" && name.EndsWith ".txt", name)
+    // The prefix names the directory the copy lives in (FR5), and the extension names the file.
+    let directory = Path.GetFileName(Path.GetDirectoryName path |> nonNull)
+    Assert.True(directory.StartsWith $"ActiveStorage-{blob.Id}-" && path.EndsWith ".txt", path)
     Assert.Equal<byte[]>("bytes"B, File.ReadAllBytes path)
     (copy :> IDisposable).Dispose()
     Assert.False(File.Exists path)
@@ -186,9 +226,8 @@ let ``a blob is stored by its key and described by its row`` () =
     Assert.Equal("2026-09-26 12:00:00", blob.CreatedAt)
     Assert.Equal(Some "XUFAKrxLKna5cZ2REBfFkg==", blob.Checksum)
     Assert.Equal(Path.Combine(root.Path, blob.Key.Substring(0, 2), blob.Key.Substring(2, 2), blob.Key), Storage.pathFor storage blob)
-    Assert.Equal(Some blob, Blob.findByKey db blob.Key)
     Assert.Equal(Some blob, Blob.find db blob.Id)
-    Assert.Equal("{\"identified\":true}", JsonValue.encode blob.Metadata)
+    Assert.Equal("{\"identified\":true}", Json.encode blob.Metadata)
 
 [<Fact>]
 let ``a variant record is inserted once`` () =
@@ -253,7 +292,7 @@ let ``updating a blob's metadata saves it and keeps the rest`` () =
     let updated = Blob.updateMetadata db metadata blob
     Assert.True(Blob.isAnalyzed updated)
     let stored = (Blob.find db blob.Id).Value
-    Assert.Equal<string>("{\"identified\":true,\"analyzed\":true}", JsonValue.encode stored.Metadata)
+    Assert.Equal<string>("{\"identified\":true,\"analyzed\":true}", Json.encode stored.Metadata)
     Assert.Equal(blob.Key, stored.Key)
     Assert.Equal(blob.CreatedAt, stored.CreatedAt)
 

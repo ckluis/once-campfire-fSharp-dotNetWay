@@ -71,6 +71,22 @@ type Value =
     /// `as_object`
     member this.AsObject : (string * Value) list option = (match this with Object entries -> Some entries | _ -> None)
 
+    /// `Hash#[]=`: replaces an existing key in place, or appends a new one. Any other value is left as it is.
+    member this.Set(key: string, value: Value) : Value =
+        match this with
+        | Object entries ->
+            if entries |> List.exists (fun (k, _) -> k = key) then
+                Object(entries |> List.map (fun (k, v) -> if k = key then (k, value) else (k, v)))
+            else
+                Object(entries @ [ key, value ])
+        | other -> other
+
+    /// `Hash#merge`: keys of `other` overwrite in place, new keys are appended in order.
+    member this.Merge(other: Value) : Value =
+        match other with
+        | Object entries -> entries |> List.fold (fun (acc: Value) (key, value) -> acc.Set(key, value)) this
+        | _ -> this
+
 exception internal JsonNumberOutOfRange
 
 module Json =
@@ -308,3 +324,17 @@ module Json =
             | :? OverflowException
             | :? ArgumentException
             | JsonNumberOutOfRange -> None
+
+    let rec private fitsInt64 (value: Value) : bool =
+        match value with
+        | Value.UInt _ -> false
+        | Value.Array items -> List.forall fitsInt64 items
+        | Value.Object entries -> entries |> List.forall (snd >> fitsInt64)
+        | _ -> true
+
+    /// `Json::parse` of the storage crate, from text. As Rust's `visit_u64`, an integer past i64::MAX is an error rather than a
+    /// number of its own; a repeated key keeps its last value at its first position, as Ruby's `JSON.parse` does.
+    let parseInt64Only (text: string) : Value option =
+        match parse (Encoding.UTF8.GetBytes text) with
+        | Some value when fitsInt64 value -> Some value
+        | _ -> None

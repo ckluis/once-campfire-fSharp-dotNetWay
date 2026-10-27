@@ -4,6 +4,7 @@
 /// because the variant processor is `:vips`), falling back to `NullAnalyzer`.
 module Campfire.Storage.Analyze
 
+open FsToolkit.ErrorHandling
 open System
 open System.Diagnostics
 open System.Globalization
@@ -26,7 +27,7 @@ let private analyzeError (message: string) : StorageError = StorageError.Analyze
 /// Files libvips can't read yield `{}`.
 let private imageMetadata (path: string) : Value =
     match Vips.Image.OpenSequential path with
-    | Error _ -> JsonValue.object
+    | Error _ -> (Value.Object [])
     | Ok image ->
         use image = image
         let rotated =
@@ -42,11 +43,11 @@ let private probe (path: string) : StorageResult<Value> =
     for argument in [ "-print_format"; "json"; "-show_streams"; "-show_format"; "-v"; "error"; path ] do
         info.ArgumentList.Add argument
     match outputWithin info ffprobeTimeout with
-    | Error(ProcessError.NotFound _) -> Ok JsonValue.object
+    | Error(ProcessError.NotFound _) -> Ok (Value.Object [])
     | Error(ProcessError.TimedOut message) -> Error(analyzeError $"ffprobe {message}")
     | Error error -> Error(ProcessError.toStorageError error)
     | Ok output ->
-        match JsonValue.parse (Encoding.UTF8.GetString output.Stdout) with
+        match Json.parseInt64Only (Encoding.UTF8.GetString output.Stdout) with
         | Some json -> Ok json
         | None -> Error(analyzeError "ffprobe output: invalid JSON")
 
@@ -205,4 +206,4 @@ module Analyzer =
         | Image -> Ok(imageMetadata path)
         | Video -> probe path |> Result.bind videoMetadata
         | Audio -> probe path |> Result.bind audioMetadata
-        | Null -> Ok JsonValue.object
+        | Null -> Ok (Value.Object [])

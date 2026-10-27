@@ -301,7 +301,7 @@ module Params =
             match jsonProperty root outer with
             | ValueSome obj ->
                 match jsonProperty obj inner with
-                | ValueSome members when members.ValueKind = JsonValueKind.Object -> Campfire.Storage.JsonValue.parse (members.GetRawText())
+                | ValueSome members when members.ValueKind = JsonValueKind.Object -> Campfire.RailsCompat.Json.parseInt64Only (members.GetRawText())
                 | _ -> None
             | ValueNone -> None
         | _ ->

@@ -10,6 +10,7 @@
 /// functions that do both at once are for tests and tools.
 namespace Campfire.Storage
 
+open FsToolkit.ErrorHandling
 open System
 open System.IO
 open Campfire.Db
@@ -111,7 +112,7 @@ module Storage =
 
     /// `metadata.merge(extracted.merge(analyzed: true))`
     let private analyzed (metadata: Value) (extracted: Value) : Value =
-        JsonValue.merge (JsonValue.set "analyzed" (Value.Bool true) extracted) metadata
+        metadata.Merge(extracted.Set("analyzed", Value.Bool true))
 
     /// What `blob.analyze` saves: `metadata.merge(analyzer.metadata.merge(analyzed: true))`.
     let analyzedMetadata (storage: Storage) (blob: Blob) : StorageResult<Value> =
@@ -119,7 +120,7 @@ module Storage =
             let analyzer = Analyzer.forContentType (Blob.contentType blob)
             let! extracted =
                 match analyzer with
-                | Null -> Ok JsonValue.object
+                | Null -> Ok (Value.Object [])
                 | _ ->
                     result {
                         let! file = openBlob storage blob
@@ -288,19 +289,6 @@ module Storage =
                 let! variation = variationFor image transformations
                 return! processVariant storage db image variation
         }
-
-    /// `blob.representation(transformations).processed`: a preview for previewable blobs, a
-    /// variant for variable ones.
-    let processRepresentation (storage: Storage) (db: Ef.CampfireDb) (blob: Blob) (transformations: Variation) : StorageResult<Blob> =
-        if Blob.isPreviewable blob then
-            processPreview storage db blob transformations
-        elif Blob.isVariable blob then
-            result {
-                let! variation = variationFor blob transformations
-                return! processVariant storage db blob variation
-            }
-        else
-            Error(StorageError.Unrepresentable(Blob.contentType blob))
 
     let pathFor (storage: Storage) (blob: Blob) : string = DiskService.pathFor storage.Service blob.Key
 

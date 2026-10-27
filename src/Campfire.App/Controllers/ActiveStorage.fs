@@ -20,7 +20,6 @@ open Campfire.Ruby
 open Campfire.App
 open Campfire.Db
 open Campfire.Storage
-open Campfire.Storage.FileServer
 open Campfire.App.Web
 
 module ActiveStorageControllers =
@@ -95,64 +94,28 @@ module ActiveStorageControllers =
         let lastModified = (Timestamps.tryParse "2011-01-01T00:00:00Z").Value
         Respond.freshWhen http { Freshness.Default with Etag = fullpath http; LastModified = ValueSome lastModified; Public = true }
 
-    /// `send_blob_stream(blob, disposition:)`: the whole file, inline unless the type is forced to download.
-    let private sendBlobStream (http: HttpContext) (blob: Campfire.Storage.Blob) (disposition: string option) : Result<HttpHandler, Web.Error> =
+    /// `send_blob_stream(blob, disposition:)` and `send_blob_byte_range_data`: the blob's file as the framework's file result, which
+    /// answers the request's `Range` (C3). A ranged answer ignores the query's disposition, as Rails' proxy controller does. The headers it does not write are set first, as Puma writes them: the disposition comes from
+    /// the query and may hold a line break.
+    let private sendBlob (http: HttpContext) (blob: Campfire.Storage.Blob) (disposition: string option) (ranged: bool) : Result<HttpHandler, Web.Error> =
         let path = Storage.pathFor (Data.app http).Storage blob
         if not (File.Exists path) then
-            // `rescue ActiveStorage::FileNotFoundError`: expires_now, head :not_found.
-            http.Response.Headers.CacheControl <- "no-cache"
-            Ok(Respond.head http 404)
+            if ranged then
+                Result.Error(storageToError StorageError.FileNotFound)
+            else
+                // `rescue ActiveStorage::FileNotFoundError`: expires_now, head :not_found.
+                http.Response.Headers.CacheControl <- "no-cache"
+                Ok(Respond.head http 404)
         else
             let disposition =
                 ContentTypes.forcedDisposition (Campfire.Storage.Blob.contentType blob)
                 |> Option.orElse disposition
                 |> Option.defaultValue "inline"
-            // `send_file`'s headers on an `Outgoing` response: the writer puts a header value that holds a line break on the wire as Puma does,
-            // which the framework's own file result would refuse (the disposition comes from the query).
-            let response = Outgoing(200).ContentType(ContentTypes.forServing (Campfire.Storage.Blob.contentType blob))
-            response.Header("content-disposition", ContentDisposition.format disposition (Filename.sanitized blob.Filename)) |> ignore
-            response.Header("content-transfer-encoding", "binary") |> ignore
-            response.Body <- OutgoingBody.OnDisk { Path = path; Offset = 0L; Len = FileInfo(path).Length }
-            Ok(Outgoing.handler (response.Header("accept-ranges", "bytes")))
-
-    /// `send_blob_byte_range_data(blob, range_header)`
-    let private sendBlobByteRangeData (http: HttpContext) (blob: Campfire.Storage.Blob) (range: string) : Result<HttpHandler, Web.Error> =
-        let size = uint64 (max blob.ByteSize 0L)
-        match Rack.byteRanges (Some range) size with
-        | Some ranges when not ranges.IsEmpty ->
-            let path = Storage.pathFor (Data.app http).Storage blob
-            if not (File.Exists path) then
-                Result.Error(storageToError StorageError.FileNotFound)
-            else
-                let contentTypeForServing = ContentTypes.forServing (Campfire.Storage.Blob.contentType blob)
-                let contentType, parts, contentRange =
-                    match ranges with
-                    | [ (start, stop) ] -> contentTypeForServing, [ BodyPart.File(path, start, stop) ], Some $"bytes {start}-{stop}/{size}"
-                    | _ ->
-                        // `SecureRandom.hex`: 16 random bytes.
-                        let boundary = Convert.ToHexStringLower(Security.Cryptography.RandomNumberGenerator.GetBytes 16)
-                        let parts =
-                            [ for (start, stop) in ranges do
-                                  let heading =
-                                      $"\r\n--{boundary}\r\nContent-Type: {contentTypeForServing}\r\nContent-Range: bytes {start}-{stop}/{size}\r\n\r\n"
-                                  BodyPart.Bytes(Text.Encoding.UTF8.GetBytes heading)
-                                  BodyPart.File(path, start, stop)
-                              BodyPart.Bytes(Text.Encoding.UTF8.GetBytes $"\r\n--{boundary}--\r\n") ]
-                        $"multipart/byteranges; boundary={boundary}", parts, None
-                let disposition = ContentTypes.forcedDisposition (Campfire.Storage.Blob.contentType blob) |> Option.defaultValue "inline"
-                let response = Outgoing(206).ContentType contentType
-                response.Header("content-transfer-encoding", "binary") |> ignore
-                response.Header("content-disposition", ContentDisposition.format disposition (Filename.sanitized blob.Filename)) |> ignore
-                let length = ActiveStorage.partsLen parts
-                response.Body <- ActiveStorage.partsBody parts
-                match response.Body with
-                | OutgoingBody.Streamed _ -> response.Header("content-length", string length) |> ignore
-                | _ -> ()
-                match contentRange with
-                | Some contentRange -> response.Header("content-range", contentRange) |> ignore
-                | None -> ()
-                Ok(Outgoing.handler (response.Header("accept-ranges", "bytes")))
-        | _ -> Ok(Respond.head http 416)
+            let headers = HeaderMap()
+            headers.SetPumaValue("content-disposition", ContentDisposition.format disposition (Filename.sanitized blob.Filename))
+            headers.SetPumaValue("content-transfer-encoding", "binary")
+            Outgoing.applyHeaders http headers
+            Ok(ActiveStorage.fileResult path (ContentTypes.forServing (Campfire.Storage.Blob.contentType blob)) None)
 
     /// `ActiveStorage::Blobs::RedirectController#show`
     let blobsRedirect: Web.Action =
@@ -174,11 +137,11 @@ module ActiveStorageControllers =
                 let! blob = setBlob http
                 let disposition = disposition http
                 match header http "range" with
-                | Some range when not (String.IsNullOrWhiteSpace range) -> return! sendBlobByteRangeData http blob range
+                | Some range when not (String.IsNullOrWhiteSpace range) -> return! sendBlob http blob None true
                 | _ ->
                     match httpCacheForever http with
                     | ValueSome notModified -> return notModified
-                    | ValueNone -> return! sendBlobStream http blob disposition
+                    | ValueNone -> return! sendBlob http blob disposition false
             }
 
     // --- Representations -------------------------------------------------------------------------------
@@ -219,7 +182,10 @@ module ActiveStorageControllers =
                 let! image = setRepresentation http blob
                 match httpCacheForever http with
                 | ValueSome notModified -> return notModified
-                | ValueNone -> return! sendBlobStream http image (disposition http)
+                | ValueNone ->
+                    // Rails streams a representation whole: it never answers a `Range`.
+                    http.Request.Headers.Remove "Range" |> ignore
+                    return! sendBlob http image (disposition http) false
             }
 
     // --- Disk service ----------------------------------------------------------------------------------
@@ -230,21 +196,16 @@ module ActiveStorageControllers =
         match Disk.decodeVerifiedKey storage.Verifier encodedKey (Data.now http) with
         | None -> Ok(Respond.head http 404)
         | Some key ->
-            let request: FileServer.Request =
-                { Method = http.Request.Method
-                  Range = header http "range"
-                  IfModifiedSince = header http "if-modified-since" }
-            match FileServer.serveFile request (DiskService.pathFor storage.Service key.Key) key.ContentType (Some key.Disposition) with
-            | Result.Error(StorageError.Io(:? FileNotFoundException))
-            | Result.Error(StorageError.Io(:? DirectoryNotFoundException)) -> Ok(Respond.head http 404)
-            | Result.Error error -> Result.Error(storageToError error)
-            | Ok served ->
-                let response = Outgoing(served.Status)
-                for (name, value) in served.Headers do
-                    response.Header(name, value) |> ignore
-                // `served.Headers` carries the Content-Length of every part together.
-                response.Body <- ActiveStorage.partsBody served.Body
-                Ok(Outgoing.handler response)
+            let path = DiskService.pathFor storage.Service key.Key
+            if not (File.Exists path) then
+                Ok(Respond.head http 404)
+            else
+                // `serve_file(path, content_type:, disposition:)`: the key's own values, the type `application/octet-stream`
+                // and `attachment` when it has none. Disk keys have no extension, so the file result takes the type as it is.
+                let headers = HeaderMap()
+                headers.SetPumaValue("content-disposition", key.Disposition)
+                Outgoing.applyHeaders http headers
+                Ok(ActiveStorage.fileResult path (defaultArg key.ContentType "application/octet-stream") (Some(DateTimeOffset(File.GetLastWriteTimeUtc path))))
 
     /// `ActiveStorage::DiskController#show`, plus the initializer's `after_action` cache header.
     let diskShow: Web.Action =
@@ -315,7 +276,7 @@ module ActiveStorageControllers =
     /// `blob.as_json(root: false, methods: :signed_id).merge(direct_upload: { url:, headers: })`
     let private directUploadJson (blob: Campfire.Storage.Blob) (signedId: string) (url: string) (contentType: string option) : string =
         let text (value: string option) = match value with Some value -> Value.String value | None -> Value.Null
-        JsonValue.encode (
+        Json.encode (
             Value.Object
                 [ "id", Value.Int blob.Id
                   "key", Value.String blob.Key
@@ -357,7 +318,7 @@ module ActiveStorageControllers =
                     | Some byteSize ->
                         let storage = (Data.app http).Storage
                         let contentType = text "content_type"
-                        let metadata = Params.hashJson http "blob" "metadata" |> Option.defaultValue JsonValue.object
+                        let metadata = Params.hashJson http "blob" "metadata" |> Option.defaultValue (Value.Object [])
                         let now = Data.now http
                         let newBlob: NewBlob =
                             { Key = Key.generateKey ()

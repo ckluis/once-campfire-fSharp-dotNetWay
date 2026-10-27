@@ -207,10 +207,9 @@ let ``K6 a direct upload read back: disk PUT, redirect, proxy, ranges and the di
         Assert.Equal("el", one.Text)
         Assert.Equal(Some "bytes 1-2/5", one.Header "content-range")
         let! many = (anonymous test).Send((get proxy).With("range", "bytes=0-1,3-4"))
-        Assert.Equal(206, many.Status)
-        Assert.StartsWith("multipart/byteranges; boundary=", (many.Header "content-type").Value)
-        Assert.Contains("he", many.Text)
-        Assert.Contains("lo", many.Text)
+        // C3 (a): several ranges are the whole file with 200, where Rack sent multipart/byteranges.
+        Assert.Equal(200, many.Status)
+        Assert.Equal("hello", many.Text)
         let! unsatisfiable = (anonymous test).Send((get proxy).With("range", "bytes=50-60"))
         Assert.Equal(416, unsatisfiable.Status)
         // A forged id is a 404 whatever the format; a download disposition is honoured.

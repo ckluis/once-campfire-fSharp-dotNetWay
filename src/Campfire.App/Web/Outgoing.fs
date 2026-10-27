@@ -125,8 +125,6 @@ type OutgoingBody =
     | NoBody
     | InMemory of ReadOnlyMemory<byte>
     | OnDisk of FileBody
-    /// A streaming body (e.g. several byte ranges of a blob).
-    | Streamed of Stream
 
 [<Sealed; AllowNullLiteral>]
 type Outgoing(status: int) =
@@ -146,10 +144,11 @@ type Outgoing(status: int) =
         this
 
 module Outgoing =
-    let private copyHeaders (http: HttpContext) (response: Outgoing) : unit =
-        http.Response.StatusCode <- response.Status
+    /// Puts `map` on the response the way Puma writes it: a header line with nothing after its colon is one Puma writes (the first line
+    /// of a `Content-Disposition` that begins with a line break), which `Append` would drop, so the values of a name that has one go
+    /// out together, as a list.
+    let applyHeaders (http: HttpContext) (map: HeaderMap) : unit =
         let headers = http.Response.Headers
-        let map = response.Headers
         let mutable empty = false
         for i in 0 .. map.Count - 1 do
             if map.ValueAt i = "" then empty <- true
@@ -157,13 +156,14 @@ module Outgoing =
             for i in 0 .. map.Count - 1 do
                 headers.Append(map.NameAt i, StringValues(map.ValueAt i))
         else
-            // `Append` drops a lone empty value, but a header line with nothing after its colon is one Puma
-            // writes (the first line of a `Content-Disposition` that begins with a line break), so the
-            // values of a name that has one go out together, as a list.
             let written = Collections.Generic.HashSet<string>(StringComparer.OrdinalIgnoreCase)
             for i in 0 .. map.Count - 1 do
                 let name = map.NameAt i
                 if written.Add name then headers.Append(name, StringValues(Array.ofList (map.GetAll name)))
+
+    let private copyHeaders (http: HttpContext) (response: Outgoing) : unit =
+        http.Response.StatusCode <- response.Status
+        applyHeaders http response.Headers
 
     /// Hand a finished response to the host, streaming files and dropping HEAD bodies (`Rack::Head`) while keeping their
     /// `Content-Length`. A file that can't be opened is a bare 500, before any header goes out.
@@ -185,28 +185,19 @@ module Outgoing =
                 match response.Body with
                 | InMemory bytes -> response.Headers.Insert("content-length", string bytes.Length)
                 | OnDisk file -> response.Headers.Insert("content-length", string file.Len)
-                | NoBody
-                | Streamed _ -> ()
+                | NoBody -> ()
                 if head && Edge.headFromPost http then response.Headers.Remove "content-length"
                 copyHeaders http response
                 try
-                    try
-                        if not head then
-                            match response.Body with
-                            | NoBody -> ()
-                            | InMemory bytes -> do! http.Response.Body.WriteAsync bytes
-                            | OnDisk file -> do! http.Response.SendFileAsync(file.Path, file.Offset, Nullable file.Len)
-                            | Streamed stream ->
-                                use stream = stream
-                                do! stream.CopyToAsync http.Response.Body
-                    with
-                    // The client went away; the host has nothing more to say about it.
-                    | :? OperationCanceledException
-                    | :? IOException -> ()
-                finally
-                    match response.Body with
-                    | Streamed stream -> stream.Dispose()
-                    | _ -> ()
+                    if not head then
+                        match response.Body with
+                        | NoBody -> ()
+                        | InMemory bytes -> do! http.Response.Body.WriteAsync bytes
+                        | OnDisk file -> do! http.Response.SendFileAsync(file.Path, file.Offset, Nullable file.Len)
+                with
+                // The client went away; the host has nothing more to say about it.
+                | :? OperationCanceledException
+                | :? IOException -> ()
         }
 
     /// The handler that writes `response`.

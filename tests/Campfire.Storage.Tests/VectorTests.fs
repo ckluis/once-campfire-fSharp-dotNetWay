@@ -175,7 +175,7 @@ let private blobFrom (row: JsonElement) : Blob =
       Key = str (prop "key" row)
       Filename = Filename.create (str (prop "filename" row))
       ContentType = optProp "content_type" row
-      Metadata = (JsonValue.parse (str (prop "metadata" row))).Value
+      Metadata = (Json.parseInt64Only (str (prop "metadata" row))).Value
       ServiceName = str (prop "service_name" row)
       ByteSize = (prop "byte_size" row).GetInt64()
       Checksum = optStr (prop "checksum" row)
@@ -274,7 +274,7 @@ type private Comparison(versions: JsonElement) =
         Assert.True((actual.ServiceName = str (prop "service_name" expected)), $"{label} service_name")
         let compare = not processed || (if video then compareVideo else compareImages)
         if compare then
-            Assert.True((JsonValue.encode actual.Metadata = str (prop "metadata" expected)), $"{label} metadata")
+            Assert.True((Json.encode actual.Metadata = str (prop "metadata" expected)), $"{label} metadata")
             if actual.Checksum = optStr (prop "checksum" expected) && actual.ByteSize = (prop "byte_size" expected).GetInt64() then
                 identical.Add label
                 if processed then processedIdentical.Add label
