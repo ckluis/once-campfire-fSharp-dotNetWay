@@ -4137,3 +4137,38 @@ CPU split with the bench's `loadgen`; the container and the scratch copies are r
   Cable bound and the two test packages were closed on 2026-10-21 and in 8.1. The older control tags are already gone from colima; only
   `p8ctl` is left, and 9.4 removes it.
 - **Questions for Chris:** one, carried from Phase 5 and not blocking: whether to report AngleSharp's defects upstream (Q1).
+
+### Phase 9, unit 9.1: storage trims and framework file results (2026-10-27)
+
+Sonnet builder. Commits `9dc8f2c` (the unit) and `5b534b3` (the rooted path, found by the pixel slice). `plans/design-close.md` C3, C4.
+- **Done:** `ActiveStorage.fileResult path contentType lastModified` is `TypedResults.PhysicalFile(Path.GetFullPath path, ..., enableRangeProcessing = true)`
+  run as a Falco handler (a client that went away is swallowed). The disk `show` and the proxy (`sendBlob`, whole and ranged) call it; the headers the
+  result does not write (`Content-Disposition`, `Content-Transfer-Encoding`) are put on the response first through `Outgoing.applyHeaders` (the old
+  `copyHeaders` split out), so Puma's line-break splitting of an odd `?disposition=` is unchanged. Kept as before: a ranged proxy request ignores the
+  query's disposition and skips `http_cache_forever`; a missing file is 404 (500 for a ranged proxy request, as it was); the representation proxy
+  drops the `Range` header, so it answers whole as Rails does. Gone: `Storage/FileServer.fs`, `Ruby/Rack.fs`, `PartsStream`, `partsBody`, `partsLen`,
+  the multipart branch, `OutgoingBody.Streamed`, `Storage/JsonValue.fs` (now `Value.Set`/`Value.Merge` and `Json.parseInt64Only`; the unused
+  `get`/`asStr`/`asInt64` wrappers dropped), `TempDir` and `TempFile`'s name generator (`Directory.CreateTempSubdirectory`, the file inside it named
+  `file<suffix>`, mode 0600), Storage's `ResultBuilder` (FsToolkit's `result { }`), and the dead `Blob.isAudio`, `Blob.findByKey`,
+  `Storage.processRepresentation`. Tests: `FileServerTests`, the Rack facts (`rackRanges`, `byte_ranges`) and the parts-stream fact deleted; the
+  Storage tests keep a test-side `TempDir`. New: FR1 (the 200 vectors against `testdata/byte-ranges-known-differences.json`: exactly 95 differ, as
+  S3 said, 105 equal; groups: a 18 several ranges, b 16 empty file, c 44 lenient parsing, d 9 past 64 bits, e 8 other units; fails both ways),
+  FR2-FR4, a relative-path fact, FR5 (`TempFile`), FR6 (`Value.Set`/`Merge`). `AppTests` "blob byte ranges..." and `ControllersCTests` K6 updated for
+  several ranges = 200 whole. README: class B bullet (Active Storage ranges) and class A (`Accept-Ranges` on the disk service).
+- **Found by the image gate:** in the image the storage path is relative (`storage/files/...`) and `PhysicalFile` throws `NotSupportedException: Path ... was
+  not rooted`: every blob answered 500 (18 pixel cells different, one lightbox cell not captured). The macOS tests use absolute paths and passed.
+  Fixed with `Path.GetFullPath` and a test that serves a relative path.
+- **Gates:** `CAMPFIRE_REQUIRE_SEED=1 bin/verify` green (1,032 passed, 6 skipped: the Linux-only THP test, Pebble AC11, ffmpeg-dependent and similar, none new);
+  `bin/storage-media-vectors` rc 0 (Campfire.Storage.Tests 35/35 in the toolchain image, every variant, preview and poster identical); `bin/db-differential`
+  rc 0; image rebuilt at `5b534b3`, label checked; `bin/pixel-parity --fast --only 'interactions/composer/attachment*,interactions/lightbox*,users/avatar*,account/edit*,messages/**,rooms/show/designers'`:
+  default 68/68 screenshots, aria and loose equal (the other seeds have no cell in the slice: 0/0), `realtime/attachment_sent` alone 2/2 equal; `bin/clean-docker`
+  and `bin/clean-parity` run. HS2/HS4, AC11 and pebble not re-run: `Web/Host.fs`, `Acme.fs` and `OutputCaching.fs` are untouched.
+- **Bench** (`FSHARP_IMAGE=campfire-dotnetway:p9ctl bench/quick --reps 3 --apps fsharp,dotnetway --routes avatar,room_show`, `bench/results/quick-91`; interleaved, host probe
+  1.067-1.093, load 1.4-2.2 before each run; 12 app-runs, all 2xx, 0 errors). Medians new / control req/s: room_show c=1 2,236 / 2,266, c=16 7,501 / 7,570;
+  avatar c=1 12,654 / 12,799, c=16 104,500 / 106,033; every new range overlaps the control's, differences -0.9% to -1.4%, CPU per request equal (560 / 555,
+  451 / 447, 160 / 162, 25 / 25 us). Nothing moved. **vs Rails** (stored medians): room_show 20.9x and 31.4x; avatar c=16 1.50x; avatar c=1 0.99x. The two
+  avatar rows are the static rows that 9.3 (C5) targets, equal to the control and to Phase 8's; the five-workload floor cells (post, search, ...) are not touched by this unit.
+- **KLOC** (`bin/kloc`): 27,114 corrected (26,667 cloc) before, **26,736 corrected (26,289 cloc, 26.3 KLOC)** after: App 12,216 (-113), RailsCompat 1,455 (+22), Ruby 538 (-93),
+  Storage 1,452 (-194; the `FsToolkit` reference is in the fsproj). The ContentDisposition static-data move (C2) is not part of 9.1.
+- **Differences recorded:** class B, the five `Range` kinds and the disk 416 body (README; FR1's list); class A, `Accept-Ranges` on the disk service.
+- **Not done / left:** nothing in the 9.1 row. `p9ctl` (label `7d58f54`) stays for the gate.
