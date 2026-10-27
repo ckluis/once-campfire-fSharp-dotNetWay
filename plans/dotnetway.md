@@ -356,6 +356,10 @@ interaction states catches).
 
 ### 2.7 Jobs, integrations, push (in `Campfire.App`)
 
+**Phase 8's design note, `plans/design-jobs.md` (2026-10-27), wins where it and sections 2.7 and 2.8 disagree** (`Lib.Net.Http.WebPush` instead of
+WebPush 1.0.13, which speaks only the `aesgcm` draft; the useragent-gem and rqrcode ports stay, MyCSharp and QRCoder failing parity; Rails' redirect loop
+kept beside the `ConnectCallback` guard; retry-free resilience pipelines; AngleSharp opengraph with depth and element caps; about -1.7 KLOC).
+
 - **Jobs.** One `BackgroundService` per job kind (`Room::PushMessageJob`, `Bot::WebhookJob`, media analysis) reading a bounded
   `Channel<'Job>`, `JOB_CONCURRENCY` readers each. Same in-process model as Rust's known difference (lost on a crash).
 - **HTTP clients.** `IHttpClientFactory` (`Microsoft.Extensions.Http`, shared framework) with three named clients (opengraph,
@@ -389,6 +393,9 @@ interaction states catches).
 **Risk: medium.** Webhook double delivery (retries off for POST, tested), the guard's completeness (port its tests one for one).
 
 ### 2.8 Config, time, logging, DI (in `Campfire.App`)
+
+See `plans/design-jobs.md` (J10, J13, J14): the harness clock is a `GetUtcNow`-only `TimeProvider` subclass, not `FakeTimeProvider` (which stops
+timers); Boot becomes one `WebApplication` builder in this phase.
 
 - `IOptions<CampfireOptions>` bound from the environment variables Rails reads (`SECRET_KEY_BASE`, `TLS_DOMAIN`,
   `VAPID_*`, `JOB_CONCURRENCY`, ...), with `ValidateDataAnnotations`-free validation delegates and `ValidateOnStart()`: a bad
@@ -3581,3 +3588,33 @@ change). **Phase 7 closes at `2fae069`** (this entry and the evidence are the co
   Thruster's names, prefix and Go parsing (HS12) and the boot validation of `TLS_DOMAIN`; any change to `Web/Host.fs`, `Acme.fs` or `OutputCaching.fs` re-runs HS2/HS4
   under `bin/linux-tests App`, AC11 and `pebble-image.sh`; the operator's staging run before a release that touches them. Remove the stale control images when the
   orchestrator allows.
+
+### Phase 8: design (2026-10-27)
+
+Opus designer. `plans/design-jobs.md` written: decisions J1-J15, spikes S1-S9, units 8.1-8.9 with the checkpoint after 8.4. No code change. `bin/kloc`
+27,406 / **27,861 corrected (27.9)** at `14a334a` (as at `2fae069`). The spikes ran in a scratch project under the session scratchpad on the Mac (.NET 11
+RC2), with copies of the repo's opengraph scanner and `RubyUri.fs`. It was removed after. Nothing ran in colima.
+- **Packages (NuGet, 2026-10-27):** the dotnet/extensions 10.11.0 line (Http.Resilience with Polly 8.4.2, Compliance.Redaction, TimeProvider.Testing,
+  Diagnostics.Testing); `Lib.Net.Http.WebPush` 3.3.1 (MIT, 2.6 M downloads, repo active January 2026). No vulnerability or deprecation reported by
+  `dotnet list package --vulnerable/--deprecated --include-transitive`.
+- **Web Push:** `WebPush` 1.0.13 (the plan's pick) speaks only the pre-RFC `aesgcm` draft (`Encryption`/`Crypto-Key`/`WebPush` headers), not RFC 8291.
+  `Lib.Net.Http.WebPush` 3.3.1 sends `aes128gcm` with `vapid t=,k=`. Its body, decrypted with the gem vector's receiver key, is the message. It takes the
+  factory's `HttpClient`. Chosen (J7).
+- **User agent:** MyCSharp.HttpUserAgentParser 3.1.6 agrees with the gem on 146 of 385 Rails vectors. It differs on Playwright's Chromium
+  (`HeadlessChrome`, Safari to the gem) and on `apple_messages` (blocked to the gem). Both are class C on gate states, so the gem port stays (J9).
+- **QR:** QRCoder 1.8.1 matches rqrcode's version on 38 of 39 vectors and its modules on 10 of 39 (other masks). The rqrcode port stays (J8).
+- **Resilience:** `AddStandardResilienceHandler` POSTed 4 times to a 500. `DisableForUnsafeHttpMethods` makes that once, but GETs still retry 3 times.
+  So: custom pipelines with timeouts only, plus the unfurl limiter; no retry, no breaker (J2).
+- **Opengraph on AngleSharp:** the same attributes as the libxml2 scanner on 55 of 55 recorded bodies. 13 malformed-page probes differ (class B).
+  Uncapped, a 5 MB nested-`div` page ran over 150 s of CPU, which is class C. Capped at depth 256 and 100,000 elements, every hostile page took
+  0.05-0.35 s. A typical page costs 8 ms against 0.8 ms (J5).
+- **URIs:** `System.Uri` behind Phase 5's RFC 3986 check gives the same outcome as `RubyUri` on all 172 recorded URLs except `mailto:foo` (Rails 500,
+  ours 204: class B) (J6).
+- **Clocks:** `FakeTimeProvider` stops `PeriodicTimer` (0 ticks in 300 ms against 15), so the harness clock is a `GetUtcNow`-only subclass and
+  `FakeTimeProvider` stays in tests (J10).
+- **Redaction:** the HMAC redactor costs 0.33 us. It covers the bot key in request-log paths and webhook URLs in job failures (J11).
+- **Carried from Phase 7:** the request log's c=1 cost and the static rows are unit 8.6's ladder (J12). Phase 7 condition (b) is in J11/J13. The
+  Host/ACME re-runs (HS2/HS4 on Linux, AC11, `pebble-image.sh`) are in 8.7's acceptance.
+- **Projection:** 27.9 -> about 26.2 KLOC (range 26.0-26.5). The plan's -3.0 loses the 1.27 KLOC of the user-agent and QR ports, which stay.
+  Five workloads: no per-request change on reads. Posting keeps the same channels. 8.2, 8.5 and 8.7 bench against `p8ctl` (Phase 7's close, `2fae069`).
+- **Questions for Chris:** none.
