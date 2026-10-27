@@ -3680,3 +3680,51 @@ the design's -70 for this unit did not materialise, the net is made up in 8.7/8.
   medians): post c=1 **6.70x**, c=16 **6.51x**; no cell under 5x, no speed fix made. The c=1 CPU gap is the one thing to watch in the phase gate's bench.
 - **Differences recorded:** none for users. Internally, a delivery that the old pool would have held in its 10,050 slots is now held in 10,000 plus the 50 the
   readers have in hand, the same count in total once the readers are busy; before they have started, 10,000.
+
+### Phase 8, unit 8.3 Clients, guard, webhook (2026-10-27)
+
+Sonnet builder, `plans/design-jobs.md` J2-J4, J6. `bin/kloc` 27,577 / **28,031 corrected (28.0)**, from 27,854 after 8.2 (+177: `Clients.fs` is 188 lines and the
+guard's `connect` adds about 30, while `Http.fs`, `Net.fs` and `RubyUri.fs` (1,160 lines) stay until opengraph and push leave them in 8.4 and 8.5; the webhook itself
+is 234 -> 207 lines and `Guard.fs`'s `UInt128` arithmetic (about 60) is gone).
+
+- **Code:** `Integrations/Clients.fs` (after `Http.fs`, before `Webhook.fs`) registers the three named clients: `"opengraph"` (guarded, connect timeout and pipeline
+  timeout 5 s, one connection per request, concurrency limiter 16 with a 1,024 queue), `"push"` (guarded, 10 s, pooled) and `"webhook"` (unguarded, 7 s, one connection
+  per request). Each is a `SocketsHttpHandler` with `AllowAutoRedirect = false`, `UseProxy = false`, `UseCookies = false`, gzip and deflate on, `ConnectTimeout`, and
+  the client's own timeout infinite; `AddResilienceHandler(name, ...)` holds a timeout (and the opengraph limiter) and nothing else (no retry, breaker or hedging).
+  `opengraph` and `webhook` carry `Accept: */*` and `User-Agent: Ruby`. `Microsoft.Extensions.Http.Resilience` 10.11.0 (Polly 8.4.2) is in
+  `Directory.Packages.props`. Also in `Clients`: `Pinned` (the `campfire.pinned` request option, defined in `Guard.fs`), `pin`, `readLimited` (the body after
+  decompression, `ValueNone` just past the limit), `contentType` (the raw header under the port's rule) and `TransportError`/`classify` (J4: Polly's
+  `TimeoutRejectedException` is `ReadTimeout`, a connect timeout `OpenTimeout`, `ConnectionError` over a refused socket `Refused`, name resolution `Unresolvable`,
+  TLS `Tls`, the rest `Io`). `Guard.fs`: the four address lists are `IPNetwork` values tested with `IPNetwork.Contains`, the embedded IPv4 of NAT64 and
+  IPv4-translatable answers is read from the last four bytes; `Guard.connect resolver dial` is the `ConnectCallback` (a pinned address is checked by `blockedAddress`
+  again, an unpinned host goes through `resolve`, a refusal is an `HttpRequestException` with the guard's message). `Webhook.fs`: `deliver factory time url payload`
+  on the webhook client with `ByteArrayContent` (`Content-Type: application/json`, no charset), `System.Uri` behind `Attachables.tryAbsoluteUri` (Rails' wording
+  for a bad URL kept; `invalid port` is gone, `System.Uri` refuses such a URL as a bad one), `WebhookError.Http` is `Transport of TransportError`. `AppState.Http`
+  is the factory, built in `Boot` from a provider of its own (`TimeProvider`, logging, `Clients.add`) as the fragment cache is until 8.7. The resolver and the dial are
+  DI singletons registered with `TryAdd`, so a test registers its own first; `IDialer` stays an interface for `Http.fs`'s users until 8.4/8.5. Opengraph and push
+  still use `Http.fs` and `Network` (unit 8.4 and 8.5); no request of theirs goes through the new clients yet, so the guarded clients are exercised by GD1-GD4 and CL2-CL4.
+- **Tests:** `ClientsTests.fs`: CL1 (a webhook POST reaches the server once on a 500, on a reset (`accepted = 1` after 500 ms) and on a timeout (real 7 s, the reply
+  "Failed to respond within 7 seconds")); CL2 (a 302 is returned as is by all three clients) and CL3; CL4; CL5 (`readLimited` stops a gigabyte gzip bomb in under 10 s
+  and inflates a 3 MB body); a `contentType` fact; GD1 (a host resolving to 127.0.0.1 is refused at connect, the dial never called, the server sees nothing); GD2 (pinned
+  10.0.0.1 refused, a pinned public address connects there); GD3 (the lists have 16, 11, 36 and 2 networks; for every network the first and last address by the old
+  `UInt128` arithmetic are inside, their neighbours outside, and every disallowed network's ends are blocked); GD4 (see below). `GuardTests` is unchanged and green, one for
+  one. `WebhookTests`: the 19 recorded cases (`webhook_cases.json`/`webhook_expected.json`) compare status and reply, and the request on method, target, `Content-Type`,
+  `Accept`, `User-Agent` and body (all equal); the other facts moved onto the factory. **CL3 is weak by construction**: .NET never proxies loopback, and a test that
+  set the proxy variables and flipped `UseProxy` to true still passed, so CL3 also has a fact on the handlers' settings (`UseProxy`, `AllowAutoRedirect`, `UseCookies`,
+  decompression and connect timeout of every handler), which is what pins it.
+- **GD4 as written conflicts with the guard tests**: "an IPv4-mapped IPv6 answer is classified as its IPv4 address" cannot hold for `::ffff:8.8.8.8`, which surfguard
+  (and the existing `GuardTests`) block outright as the whole of `::ffff:0:0/96`. GD4 asserts what both statements share: a mapped private address is blocked, a mapped
+  public one is too (the existing behaviour), and the resolver drops it from an answer list. Record this if the design note is revised.
+- **Gates:** `bin/verify` builds with warnings as errors and 0 warnings; the guards, lint, H1 and the clock guard passed in every run. **The tests are green serially,
+  not in `bin/verify`'s parallel run on this machine today**: with a second project running on the host (load 6-50) one wall-time test in `Campfire.RichText.Tests`
+  failed in each of four `bin/verify` runs, a different one each time (`ContentTests` "wide bodies cost linear time", `Html5Tests` L3 "160,000 ignored end tags took
+  64 ms, limit 50 ms", `AutolinkTests` "wide bodies..."), none of them touching code this unit changed (the project does not reference the App); RichText alone passes
+  (115 of 115), and `dotnet test --solution CampfireFs.slnx -c Release --no-build --max-parallel-test-modules 1` with `CAMPFIRE_REQUIRE_SEED=1` passed: **1,015 tests,
+  1,009 passed, 6 skipped (the environmental six), 0 failed**, 1m 49s. Image rebuilt at `6fb2608` (label checked), `bin/clean-docker`. `bin/pixel-parity --fast --only
+  'bot_api/**'`: the default seed's four fragment states (`messages/index`, `index/before`, `update`, `boosts/create`) pass on the server layer, the other four seeds have
+  no such state, PASSED (the report counts 0/0 screenshots, as in 8.2); `bin/clean-parity` run. Free disk 20-25 GB throughout.
+- **Bench:** none. The webhook and the guard are on no benchmarked path (no workload posts to a bot with a webhook; the push subscriptions the bench uses are refused
+  before any request), and the client factory is built once at boot. The post rows of 8.2 stand as the latest numbers; 8.5 and 8.7 bench against `p8ctl`.
+- **Differences recorded** (README, Known differences, the webhook bullet; the full Integrations entry is written by 8.9): the request's header order, `Host`,
+  `Connection` and `Accept-Encoding` are .NET's (class B); the target is `System.Uri`'s normalization (class A); a trickling reply is cut at the 60 s deadline, the 7 s
+  timeout stands to the response head (class B); a relative URL says "not an HTTP URI" as Ruby does, one `System.Uri` refuses says "bad URI".
