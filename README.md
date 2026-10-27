@@ -258,12 +258,13 @@ specific to this port are listed below, each citing the reference file it depart
   - Active Storage serves a file with the framework's file result (`ActiveStorage.fileResult`, range processing on), not Rack's `Files`
     (Phase 9, unit 9.1; `plans/design-close.md` C3). Five kinds of `Range` request answer differently from Rails: several ranges get the
     whole file with 200, where Rack sent `multipart/byteranges`; a range on an empty file is 416, where Rack served it whole; a header
-    Rack's lenient parsing reads (`bytes=1_0-2_0`, `bytes=+1-2`, `bytes= 1-2`, `bytes=a-b`, two `bytes=` parts) gets the whole file, and
-    on the proxy that replaces Rails' 416; a position past 64 bits gets the whole file; `Bytes=` and other units are honoured. Single,
+    Rack's lenient parsing reads (`bytes=1_0-2_0`, `bytes=+1-2`, `bytes=1-2-3`, `bytes=a-b`, two `bytes=` parts) gets the whole file, and
+    on the proxy that replaces Rails' 416; `bytes= -5` (a space after the `=`) is the last five bytes, where Rack read bytes 0-5; a
+    position past 64 bits gets the whole file; `Bytes=` and other units are honoured. Single,
     well-formed ranges (`bytes=0-`, `bytes=N-M`, `bytes=-N`) answer as Rack does, 105 of the 200 recorded cases in all. A disk 416 has
     an empty body, where Rack wrote "Byte range unsatisfiable", and `If-Modified-Since` compares dates, where Rack compared the
     strings. The 95 differing cases are listed, with their group, in `tests/Campfire.App.Tests/testdata/byte-ranges-known-differences.json`;
-    `FileResultTests` (FR1) fails if a listed case stops differing or another starts. The proxy and the disk service are pinned by FR2-FR4.
+    `FileResultTests` (FR1) fails if a listed case stops differing, answers otherwise than listed, or another starts. The proxy and the disk service are pinned by FR2-FR4.
   - A method other than GET or HEAD on an asset URL is 405, where Rails' router answers 404 (H4).
   - Asset and public-file routes ignore letter case: `/ASSETS/COMPOSER.<FINGERPRINT>.CSS`, `/Assets/Composer.css` and `/ROBOTS.TXT`
     answer the file, where Rails' `Static` (a case-sensitive file system) leaves them to the router's 404. A trailing slash

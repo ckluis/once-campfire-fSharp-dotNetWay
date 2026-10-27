@@ -42,7 +42,7 @@ module ActiveStorage =
     /// `If-Modified-Since`, `If-Range`, `Accept-Ranges`, `Content-Length`). The caller puts the headers the file result does not
     /// write (`Content-Disposition`, `Content-Transfer-Encoding`, `Cache-Control`) on the response first. The framework wants a rooted
     /// path and the storage path may be relative to the working directory (`storage/files`). A client that went away has nothing more
-    /// to be told.
+    /// to be told; a file that went missing before the answer began is an error (500), not an empty 200.
     let fileResult (path: string) (contentType: string) (lastModified: DateTimeOffset option) : Falco.HttpHandler =
         fun http ->
             task {
@@ -56,8 +56,8 @@ module ActiveStorage =
                 try
                     do! result.ExecuteAsync http
                 with
-                | :? OperationCanceledException
-                | :? IOException -> ()
+                | :? OperationCanceledException -> ()
+                | :? IOException when http.Response.HasStarted || http.RequestAborted.IsCancellationRequested -> ()
             }
 
     // --- Media work ------------------------------------------------------------------------------------

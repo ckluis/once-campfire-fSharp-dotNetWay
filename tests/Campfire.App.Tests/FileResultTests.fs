@@ -56,11 +56,12 @@ let private fileHost (directory: string) : Task<Host> =
 
 let private caseKey (header: string) (size: int) : string = header + "|" + string size
 
+/// Each listed case and the framework's answer it lists (the `framework` field, written as the dump writes it).
 let private knownDifferences () : Collections.Generic.Dictionary<string, string> =
     let document = JsonDocument.Parse(File.ReadAllText(Repo.path "tests/Campfire.App.Tests/testdata/byte-ranges-known-differences.json"))
     let table = Collections.Generic.Dictionary<string, string>()
     for case in document.RootElement.EnumerateArray() do
-        table[caseKey (str (case.GetProperty "header")) ((case.GetProperty "size").GetInt32())] <- str (case.GetProperty "group")
+        table[caseKey (str (case.GetProperty "header")) ((case.GetProperty "size").GetInt32())] <- str (case.GetProperty "framework")
     table
 
 /// FR1: the 200 `byte_ranges` vectors of `ruby_core.json` (what Rack answers, written by Ruby) against the file result's answer. The cases
@@ -75,6 +76,7 @@ let ``FR1 byte ranges answer as rack does except the listed cases`` () =
         Assert.Equal(200, cases.Length)
         let dump = Environment.GetEnvironmentVariable "CAMPFIRE_DUMP_BYTE_RANGES"
         let differing = ResizeArray<string>()
+        let changed = ResizeArray<string>()
         let dumped = ResizeArray<string>()
         for case in cases do
             let size = case.GetProperty("size").GetInt32()
@@ -93,6 +95,9 @@ let ``FR1 byte ranges answer as rack does except the listed cases`` () =
             let key = caseKey (defaultArg header "") size
             if actual <> expected then
                 differing.Add key
+                match listed.TryGetValue key with
+                | true, answer when answer <> $"{actual}" -> changed.Add $"{key}: listed {answer}, now {actual}"
+                | _ -> ()
                 dumped.Add(JsonSerializer.Serialize({| header = defaultArg header ""; size = size; rack = $"{expected}"; framework = $"{actual}" |}))
             // A header of nothing is no header: nobody sends it.
             if header.IsNone then Assert.Equal(expected, actual)
@@ -104,6 +109,7 @@ let ``FR1 byte ranges answer as rack does except the listed cases`` () =
         let stale = listed.Keys |> Seq.filter (fun key -> not (differing.Contains key)) |> Seq.toList
         Assert.True(unexpected.IsEmpty, $"differ and are not listed: {unexpected}")
         Assert.True(stale.IsEmpty, $"listed and no longer differ: {stale}")
+        Assert.True(changed.Count = 0, $"differ, but not as listed: {List.ofSeq changed}")
         Assert.Equal(95, listed.Count)
     }
 
@@ -122,6 +128,21 @@ let ``a relative path is served`` () =
                 ))
         let! reply = host.Send(get "/")
         Assert.Equal((200, "relative"), (reply.Status, reply.Text))
+    }
+
+/// A file gone before the answer began is an error, not an empty 200 (the file result throws; only a client that went away is swallowed).
+[<Fact>]
+let ``a missing file is not answered as an empty 200`` () =
+    task {
+        let directory = Directory.CreateTempSubdirectory("fr-missing").FullName
+        use! host =
+            startPipeline (fun app ->
+                Microsoft.AspNetCore.Builder.RunExtensions.Run(
+                    app,
+                    RequestDelegate(fun http -> ActiveStorage.fileResult (Path.Combine(directory, "gone")) "text/plain" None http)
+                ))
+        let! reply = host.Send(get "/")
+        Assert.Equal(500, reply.Status)
     }
 
 /// A seeded app's proxy path and disk path for blob 5, and the file behind it.
