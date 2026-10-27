@@ -3969,4 +3969,5 @@ Sonnet builder. `bin/kloc` 26,626 / **27,069 corrected (27.1)**, from 28,135 aft
 - **Docs:** AGENTS.md (App row; an Integrations bullet), README (class B tweet-host entry, the replica's removal), the design note's probe count (14, not 13).
 - **Flake item (checkpoint 4):** already in place: `CpuTimer` reads the calling thread's CPU clock (process time only where there is none) and Cable's L7 runs in a non-parallel collection; no change made here.
 - **Gates:** `CAMPFIRE_REQUIRE_SEED=1 bin/verify` 1,038 tests, 1,032 passed, 6 skipped, 0 failed (guards, lint-markup, H1 green). The acceptance `git grep` over `src tests bin AGENTS.md README.md` finds nothing.
+- **Image:** rebuilt (`CAMPFIRE_REVISION=326c2b0 parity/bin/candidate build`), `bin/clean-docker` run; `bin/pixel-parity --fast --only 'rooms/show/designers'`: default 2/2 screenshots, aria and loose equal, PASSED in 37 s; `bin/clean-parity` run. Free disk 19 GB. No benchmark (nothing on the request path changed).
 - **Differences recorded:** class B, a tweet URL's host case (above). Nothing for users otherwise.
