@@ -4236,3 +4236,35 @@ Sonnet builder. Commits `b50edf4` (trims) and `bb84c82` (the merge). `plans/desi
 - **KLOC** (`bin/kloc`): 26,195 corrected before, **26,214 corrected (25.8 KLOC total by cloc rules 25,767)** after: App +19 net (the predicate, the seam and the lookup).
 - **Differences recorded:** the README class B line (no request line for assets, public files, avatars and `/up`); no other behaviour change.
 - **Not done / left:** nothing in the 9.3 row. The checkpoint (Opus) follows. `p9ctl` stays.
+
+### Phase 9, checkpoint after 9.3: Opus review (2026-10-27) - GO for 9.4, with notes
+
+Opus checkpoint, adversarial review of `8f72e40..944e95a` (9.1-9.3) against `plans/design-close.md` C1-C10, its checkpoint list (section 4)
+and D1-D9. Fix in `c8f739f`.
+- **Fixed (`c8f739f`):** `ActiveStorage.fileResult` swallowed every `IOException`, so a file deleted between the controller's `File.Exists` and the
+  file result (`PhysicalFile` throws `FileNotFoundException`, an `IOException`) answered an empty 200 carrying the blob's headers, where the old writer
+  answered 500. Only a client that went away is swallowed now (response started or request aborted); new fact "a missing file is not answered as an
+  empty 200". FR1 checked only that a listed case differs; it now also checks the answer the list records (`framework`). README's lenient-range
+  examples named `bytes= 1-2`, which is no vector case; they name vector cases now and say `bytes= -5` is a suffix range here (Rack read 0-5).
+- **C3's list:** 95 cases, 95 distinct keys, groups a 18 / b 16 / c 44 / d 9 / e 8; fails both ways (and now as listed). No well-formed single range
+  differs except on the empty file (group b, by design). `xbytes=` equals Rack (Rack's `bytes=` match is unanchored; the framework takes any unit).
+- **CR/LF:** every header the controllers build goes through `HeaderMap.SetPumaValue` + `Outgoing.applyHeaders`; the odd-disposition fact runs the
+  new path and still shows Puma's split lines and drops the control-character lines. The `Content-Type` is the one value now written by the file
+  result itself; a blob content type with a control character would be Kestrel's refusal (500), not a split line; not reachable through the
+  direct-upload PUT (its type must equal a request header's). Recorded, not changed.
+- **Merge behaviour-free:** `git diff -M b50edf4 bb84c82` outside the namespace lines is project files and one doc comment.
+- **C5:** the predicate is exactly `/up`, the `"avatar"` family and the loaded asset routes; LS1 (404 under `/assets/` logged), LS3 (avatar 500 via
+  `PublicExceptions`), LS4 (interceptor sees no asset call) read and green. **Static rows met:** `static_css` 1.19x / 1.06x, avatar 1.67x / 1.69x Rails
+  (9.3's `quick-93`, evidence files checked: 30 runs, labels `dabac38` / `7d58f54`); `static_css` c=16 is the thin one.
+- **Gates re-run on `c8f739f`:** `CAMPFIRE_REQUIRE_SEED=1 bin/verify` **1,041 total, 1,035 passed, 0 failed, 6 skipped** (the same six), 0 warnings,
+  lint self-test 39/39 and 320 files clean, guards silent. Image rebuilt (label `c8f739f` checked). `bin/pixel-parity --fast --only
+  'interactions/lightbox*,interactions/composer/attachment*,users/avatar*,auth/**,rooms/show/designers'`: **PASSED**, default 34/34, custom_styles 2/2,
+  first_run 8/8 (crowd, restricted 0/0), screenshots, aria and loose equal (lightbox and attachment previews included). `bin/clean-parity`,
+  `bin/clean-docker` run; 24 GB free. Every Phase 8 listed ID (CL1, GD1-4, OG1-4, SR-J1/J2/J5, WP1-8, RD1-7, OP1-8, BB1-3) still in `tests`.
+  No bench: the fix is off the measured paths (an exception filter). HS2/HS4, AC11, pebble not needed (`Host.fs`, `Acme.fs`, `OutputCaching.fs` untouched).
+- **KLOC:** 26,214 corrected (25,767 cloc), unchanged.
+- **Notes for 9.4-9.7:** (1) **`p8ctl` is gone** (9.3 removed it; the note keeps it for 9.4): 9.4 rebuilds it from `6da5ef7` in a scratch worktree
+  under `/private/tmp` with the submodule copied in, label checked, then removes it with the worktree. (2) 9.4's buckets: the merged assembly is
+  `Campfire.Rails`; `[Campfire.Ruby]`/`[Campfire.Routes]` frames become `Campfire.Rails.Ruby`/`Campfire.Rails.Routes` namespaces inside it.
+  (3) 9.7's `WaitToReadAsync` grep will find Cable's `Connection.fs` writer and the push invalidation reader: single readers C6 keeps.
+  (4) Design note section 8 still says `bytes= 1-2`; 9.6 takes README's wording.
