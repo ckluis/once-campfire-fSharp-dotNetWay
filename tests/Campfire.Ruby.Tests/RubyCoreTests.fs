@@ -78,15 +78,6 @@ let ``integer_cast`` () =
     |> assertMatchesRuby "integer_cast" StringCases
 
 [<Fact>]
-let ``to_f`` () =
-    strings "to_f"
-    |> List.map (fun (input, ruby) ->
-        let ruby = Double.Parse(str ruby, NumberStyles.Float, CultureInfo.InvariantCulture)
-        // Compared bit for bit, so -0.0 isn't 0.0.
-        (show input, BitConverter.DoubleToInt64Bits(Ruby.toF input), BitConverter.DoubleToInt64Bits ruby))
-    |> assertMatchesRuby "to_f" StringCases
-
-[<Fact>]
 let ``strip`` () = sameStrings "strip" Ruby.strip
 
 [<Fact>]

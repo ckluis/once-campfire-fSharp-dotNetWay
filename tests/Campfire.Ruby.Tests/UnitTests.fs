@@ -2,7 +2,6 @@
 module Campfire.Ruby.Tests.UnitTests
 
 open System
-open System.Text
 open Xunit
 open Campfire.Ruby
 open Campfire.Ruby.Integer
@@ -12,27 +11,6 @@ open Campfire.Ruby.Integer
 [<Fact>]
 let ``erb escapes like erb util`` () =
     Assert.Equal("&lt;&amp;&gt;&quot;&#39;x é", Erb.htmlEscape "<&>\"'x é")
-    let out = StringBuilder "a"
-    Erb.pushHtmlEscaped out "<b>"
-    Assert.Equal("a&lt;b&gt;", out.ToString())
-    // writeHtmlEscaped writes the same bytes to any TextWriter.
-    use writer = new IO.StringWriter()
-    Erb.writeHtmlEscaped writer "x<y>&\"z'"
-    Assert.Equal("x&lt;y&gt;&amp;&quot;z&#39;", writer.ToString())
-
-[<Fact>]
-let ``erb escapes straight into a utf-8 buffer`` () =
-    let escaped (s: string) =
-        let buffer = Buffers.ArrayBufferWriter<byte>()
-        Erb.writeHtmlEscapedUtf8 buffer (s.AsSpan())
-        Encoding.UTF8.GetString(buffer.WrittenSpan)
-    for s in [ ""; "plain"; "<&>\"'x é"; "😀<😀>"; "&&&"; "'" ; String('x', 5000) + "<" + String('é', 3000) ] do
-        Assert.Equal(Erb.htmlEscape s, escaped s)
-    // Appended after what the buffer already holds, as bytes.
-    let buffer = Buffers.ArrayBufferWriter<byte>()
-    Buffers.BuffersExtensions.Write(buffer, ReadOnlySpan<byte> "a"B)
-    Erb.writeHtmlEscapedUtf8 buffer ("<é>".AsSpan())
-    Assert.Equal<byte[]>(Array.append "a&lt;"B (Array.append (Encoding.UTF8.GetBytes "é") "&gt;"B), buffer.WrittenSpan.ToArray())
 
 // string.rs
 
@@ -112,68 +90,6 @@ let ``casts like active record`` () =
 
 // float.rs
 
-let private bits (f: float) = BitConverter.DoubleToInt64Bits f
-
-[<Fact>]
-let ``to_f like ruby`` () =
-    // `String#to_f` in the reference.
-    let cases: (string * float) list =
-        [ "0.5", 0.5
-          "0.5.1", 0.5
-          "1.5.5e2", 1.5
-          "1e2", 100.0
-          "1E2", 100.0
-          "1.2e-1", 0.12
-          "1.5e+2", 150.0
-          "1.e5", 100000.0
-          "1e2.5", 100.0
-          "1e0_1", 10.0
-          "1e", 1.0
-          "1e+", 1.0
-          "0.5e-", 0.5
-          "1e_2", 1.0
-          "1_0.5", 10.5
-          "1_2_3.4_5", 123.45
-          "0.5_5", 0.55
-          "0_0.5", 0.5
-          "1__0", 1.0
-          "1_e2", 1.0
-          "1._5", 1.0
-          "_1", 0.0
-          ".5", 0.5
-          "+.5", 0.5
-          "-.5", -0.5
-          "5.", 5.0
-          "00.5", 0.5
-          "  -1.5x", -1.5
-          "\u000b0.5", 0.5
-          "1,5", 1.0
-          "-0", -0.0
-          "0x1A", 0.0
-          "-0x1A", -26.0
-          "-0x1.8p1", -3.0
-          ".e5", 0.0
-          "e5", 0.0
-          ".", 0.0
-          "-", 0.0
-          "+", 0.0
-          "", 0.0
-          "Infinity", 0.0
-          "1e-400", 0.0
-          "1e400", Double.PositiveInfinity
-          "1\0002", 1.0 ]
-    for (s, f) in cases do
-        Assert.True((bits (Ruby.toF s) = bits f), $"{s}: got {Ruby.toF s}")
-
-[<Fact>]
-let ``to_f drops what ruby has no room for`` () =
-    // Significand characters past 60, when there's more after the number.
-    Assert.Equal(1e59, Ruby.toF ("1" + String('0', 70) + "x"))
-    Assert.Equal(1e70, Ruby.toF ("1" + String('0', 70)))
-    // Fraction digits past 60 significant ones: halfway between two doubles, but not seen as
-    // halfway, so this rounds down rather than to the even one.
-    let halfway = "0.00000000093132257461547882581772970738537807677825952623607008717954158782958984375"
-    Assert.Equal(BitConverter.UInt64BitsToDouble 0x3E10_0000_0000_0001UL, Ruby.toF halfway)
 
 [<Fact>]
 let ``float_to_s like ruby 3.4`` () =

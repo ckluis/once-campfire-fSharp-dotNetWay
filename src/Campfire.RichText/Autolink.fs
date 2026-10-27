@@ -150,7 +150,7 @@ module Autolink =
                 | Ok email ->
                     if start > copied then out.Add(Plain(decode (text.Substring(copied, start - copied))))
                     // An address holds no `&` (a reference ends in `;`), so the escaped form is the text
-                    let href = "mailto:" + (Campfire.Ruby.Uri.urlEncode email).Replace("%40", "@")
+                    let href = "mailto:" + (System.Uri.EscapeDataString email).Replace("%40", "@")
                     out.Add(Linked(href, email))
                     copied <- finish
                     position <- Math.Max(finish, position + 1)
