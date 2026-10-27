@@ -4108,3 +4108,32 @@ J1-J15, plan sections 2.7, 2.8 and 3-5 and D1-D9; cheap checks re-run and an ima
   keep `Boot.build` the one way the app and the tests boot; re-project Phase 9's KLOC from 27.1, not the plan's 18.5; the final bench re-measures Rails,
   so re-check post a message against the floor there (5.98x-6.5x at c=16 in this phase's runs, the thinnest cell); remove the stale images before the
   full pixel gate when the orchestrator allows (the gate dipped to 12 GB free).
+
+### Phase 9: design (2026-10-27)
+
+Opus designer. `plans/design-close.md` written: decisions C1-C10, spikes S1-S7, units 9.1-9.7 with the checkpoint after 9.3, the open-items ledger
+(section 9). No code change. `bin/kloc` 26,667 / **27,114 corrected (27.1)** at `8f72e40` (as at `c8cce8f`). The spikes ran in scratch projects
+under the session scratchpad in `/private/tmp` (removed after). The colima runs ran the spike app inside `campfire-dotnetway:app`, on the bench's
+CPU split with the bench's `loadgen`; the container and the scratch copies are removed.
+- **The static rows (S2):** the request log's c=1 cost is the `HttpLoggingMiddleware` entering its logging path, not the line. In colima, static
+  file c=1: line on 13.9-14.1k req/s; line dropped by the interceptor, Docker's log driver off, or fewer fields: all 13.3-14.7k; fields None,
+  no middleware, or `UseWhen` around it: 25.1-26.6k. That is why 8.6's ladder found nothing. Decision C5: `UseWhen` keeps the middleware off the
+  static asset routes, the avatar family and `/up` (Rails silences `/up` too). Class B: those requests get no request line; their errors are
+  still logged, and the framework's meters count every request.
+- **The post c=1 CPU gap (S1):** a `BoundedChannel` wakes every `WaitToReadAsync` waiter per item, so each push delivery woke all 50
+  `PushDeliveries` readers. CPU per item, one a millisecond: 267-348 us against 129-144 us with `ReadAsync`. Decision C6: the `ReadAsync`
+  readers; 9.4 measures against `p8ctl` (from before 8.2).
+- **Ranges (S3):** the framework's file results answer 105 of Rack's 200 `byte_ranges` vectors the same. Every well-formed single range is
+  equal. The 95 others are several ranges, empty files, Rack's lenient parsing, past-64-bit positions and other units: class B, kept as an
+  HTTP-level test that fails both ways (C3).
+- **JSON (S4):** `Utf8JsonWriter` writes 470 of 3,655 vector values differently: emoji, U+2028, floats, stored metadata's `320.0`. The json
+  gem writer stays (C1). `Content-Disposition` stays too, because the vectors and the signed disk keys pin it. Its generated I18n table goes to
+  `bin/kloc`'s static-data list, beside `Tables.fs`, which the same script writes (C2).
+- **The merge (S7):** done in a scratch copy of HEAD. The solution builds and the merged `Campfire.Rails.Tests` passes 88/88 with
+  `Campfire.Routes` -> `Campfire.Rails.Routes`. Mapping `open Campfire.Routes` to `open Campfire.Rails` instead shadowed the App's `Error`
+  type in dozens of controllers (C7).
+- **Projection:** 27.1 -> about 26.2 KLOC (range 26.0-26.4; 26.4 without C2's move). The plan's 18.5 -> 17.0 is out of reach from this base.
+- **Ledger corrections:** the Firefox empty-404 pair was fixed in Phase 4's verification (`49e1e09`) and carried since by mistake. The 16 KB
+  Cable bound and the two test packages were closed on 2026-10-21 and in 8.1. The older control tags are already gone from colima; only
+  `p8ctl` is left, and 9.4 removes it.
+- **Questions for Chris:** one, carried from Phase 5 and not blocking: whether to report AngleSharp's defects upstream (Q1).
