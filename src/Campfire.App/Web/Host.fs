@@ -42,9 +42,6 @@ module Host =
         options.Limits.MaxRequestLineSize <- maxRequestLine
         options.ResponseHeaderEncodingSelector <- (fun _ -> System.Text.Encoding.UTF8)
 
-    /// The listeners (F2) and the timeouts (F12): `HTTP_PORT` on every address, HTTP/1.1; `TARGET_PORT` on `TARGET_BIND`
-    /// (skipped with a warning when it is the HTTP port); `HTTP_IDLE_TIMEOUT` is `KeepAliveTimeout` and `HTTP_READ_TIMEOUT` is
-    /// `RequestHeadersTimeout`. Bodies fall under Kestrel's default minimum data rates.
     /// The longest a TLS handshake may take when `HTTP_READ_TIMEOUT` means none (F3, checkpoint note 4): a name whose order keeps
     /// failing must not hold connections open for ever.
     let private fallbackHandshakeTimeout = TimeSpan.FromSeconds 30.0
@@ -57,6 +54,10 @@ module Host =
         options.OnConnection <- Func<_, _>(store.HandshakeOptions)
         options
 
+    /// The listeners (F2) and the timeouts (F12): `HTTP_PORT` on every address, HTTP/1.1; `TARGET_PORT` on `TARGET_BIND`
+    /// (skipped with a warning when it is the HTTP port, or the HTTPS port with TLS); with a certificate store, `HTTPS_PORT` on
+    /// every address, HTTP/1.1 and HTTP/2 over TLS (F3). `HTTP_IDLE_TIMEOUT` is `KeepAliveTimeout` and `HTTP_READ_TIMEOUT` is
+    /// `RequestHeadersTimeout`. Bodies fall under Kestrel's default minimum data rates.
     let listen (settings: FrontSettings) (store: CertificateStore voption) (logger: ILogger) (options: KestrelServerOptions) : unit =
         options.Limits.KeepAliveTimeout <- settings.IdleTimeout
         options.Limits.RequestHeadersTimeout <- settings.ReadTimeout

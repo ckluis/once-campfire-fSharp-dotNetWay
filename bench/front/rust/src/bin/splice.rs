@@ -1,5 +1,5 @@
 //! What a page of cached fragments costs the Rust kit per request once its pieces are stored: splice the
-//! parts, the ETag, and the gzip member (bench/front/fsharp's `micro` is the same on Campfire.Kit).
+//! parts, the ETag, and the gzip member (the F# side had a `micro` for this on the deleted Campfire.Kit; it has no counterpart now).
 //!
 //!   splice [iterations]
 

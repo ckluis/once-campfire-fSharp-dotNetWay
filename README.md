@@ -169,7 +169,7 @@ specific to this port are listed below, each citing the reference file it depart
     (Rust: the end of jiff's), which only matters to what `created_at >` is compared with: no row is newer than either end,
     and every row is newer than the low one. Reference: `app/controllers/rooms/refreshes_controller.rb`.
   - Logs are `Microsoft.Extensions.Logging`'s console lines (`RAILS_LOG_LEVEL` or `CAMPFIRE_LOG` set the level), not
-    `tracing`'s; the request lines come from the front server as Thruster's did.
+    `tracing`'s; the request lines are ASP.NET Core's HTTP logging (see **Front server** below), where Thruster wrote them.
   - The outbound HTTP clients (opengraph, Web Push, bot webhooks; `Integrations/Http.fs`) write the HTTP/1.1 exchange
     themselves over a stream, as Rust does over hyper's client connection, and verify TLS peers with .NET's `SslStream`
     (the operating system's CA store, no revocation checks) where Rust uses rustls with the system's certificates. The

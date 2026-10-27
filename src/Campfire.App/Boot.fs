@@ -301,7 +301,8 @@ module Boot =
         options.TimestampFormat <- "yyyy-MM-ddTHH:mm:ss.ffffffZ "
         options.ColorBehavior <- Microsoft.Extensions.Logging.Console.LoggerColorBehavior.Disabled
 
-    /// A logger factory at the level `RAILS_LOG_LEVEL` names (or `CAMPFIRE_LOG`, which replaces it), 
+    /// A logger factory at the level `RAILS_LOG_LEVEL` names (or `CAMPFIRE_LOG`, which replaces it); the framework's own categories
+    /// at Warning, except the request log (`Microsoft.AspNetCore.HttpLogging`, F8), which is at Information whatever the level.
     let createLoggerFactory (config: AppConfig) : ILoggerFactory =
         let level =
             match
@@ -350,8 +351,8 @@ module Boot =
 
     /// The binary's entry point.
     ///
-    /// - `campfire` / `campfire server`: serve the app behind the front server, as `bin/boot` did with
-    ///   Thruster in front of `bin/start-app` (see `Web/Host.fs`).
+    /// - `campfire` / `campfire server`: serve the app on its own host (`Web/Host.fs`: Kestrel's listeners, TLS and
+    ///   ACME), which does what Thruster in front of `bin/start-app` did for the reference's `bin/boot`.
     /// - `campfire backup`: the ONCE `pre-backup` hook (`script/admin/prepare-backup`): snapshot the live
     ///   database into `storage/backups/` with SQLite's online backup API.
     ///

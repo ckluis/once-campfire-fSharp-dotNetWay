@@ -20,7 +20,6 @@
     <PackageVersion Include="BCrypt.Net-Next" Version="4.0.3" />
     <!-- The managed binding only: libvips comes from the system (NetVips.Native is not used). -->
     <PackageVersion Include="NetVips" Version="3.2.0" />
-    <!-- zstd for the front server's compression (Rust uses the zstd crate; .NET 10 has no zstd): a managed port, no native library. -->
     <!-- ACME client for the front server (plans/design-front.md F4): HTTP-01 only; pulls BouncyCastle.Cryptography >= 2.7.0. -->
     <PackageVersion Include="Certes" Version="4.1.0" />
     <PackageVersion Include="xunit.v3" Version="3.2.0" />

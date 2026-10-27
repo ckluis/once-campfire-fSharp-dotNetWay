@@ -1,7 +1,7 @@
 // plans/design-front.md F3-F6 (unit 7.3): ACME on Certes. The certificate cache stays autocert's `DirCache` layout (so an install that
 // ran Thruster keeps its certificates and account), the schedule is a pure function, one renewal pass is one testable call, and the
-// order happens after `ApplicationStarted` (the HTTP listener must answer the CA) instead of on the first handshake. Not yet wired into
-// the production host (7.4).
+// order happens after `ApplicationStarted` (the HTTP listener must answer the CA) instead of on the first handshake. `Web.Host` wires it
+// into the host when `TLS_DOMAIN` is set (7.4b).
 namespace Campfire.App.Web
 
 open System

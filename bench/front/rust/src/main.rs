@@ -1,5 +1,5 @@
 //! The endpoints bench/front measures: bench/kit's, behind the front server (`campfire_kit::front`) as the
-//! app runs it. bench/front/fsharp/Program.fs is the same on Campfire.Kit's front server.
+//! app runs it. bench/front/fsharp/Program.fs serves the same on the App's `Web.Host`.
 //!
 //!   frontbench HTTP_PORT TARGET_PORT
 
