@@ -7,6 +7,7 @@ open System.IO
 open System.IO.Compression
 open System.Threading.Tasks
 open Microsoft.AspNetCore.Builder
+open Microsoft.AspNetCore.Diagnostics
 open Microsoft.AspNetCore.Http
 open Microsoft.AspNetCore.HttpOverrides
 open Microsoft.AspNetCore.ResponseCompression
@@ -107,17 +108,147 @@ let ``LG4 the pipeline logs only with LogRequests (LOG_REQUESTS=false leaves the
         let lines (logRequests: bool) =
             task {
                 use! test = bootEmptyWith [ "LOG_REQUESTS", (if logRequests then "true" else "false") ]
-                let! reply = test.Send(get "/up")
-                Assert.Equal(200, reply.Status)
+                let! reply = test.Send(get "/session/new")
+                Assert.True(reply.Status < 400, $"{reply.Status}")
                 return test.Captured
             }
         let! on = lines true
         Assert.Equal(1, (entries on).Length)
-        Assert.Contains("Path: /up", (entries on).Head)
+        Assert.Contains("Path: /session/new", (entries on).Head)
         // The test hosts' boot leaves it off.
         let! off = lines false
         Assert.Empty(httpLines off)
     }
+
+// --- Request log scope (plans/design-close.md C5, unit 9.3): LS1-LS5 -------------------------------------------
+
+let private scopedEntries (test: Test) : string list = entries test.Captured
+
+/// What the request log wrote for the paths so far, one string per entry.
+let private loggedPaths (test: Test) : string list =
+    scopedEntries test
+    |> List.choose (fun e ->
+        e.Split('\n') |> Array.tryFind (fun l -> l.StartsWith "Path:") |> Option.map (fun l -> l.Substring(5).Trim()))
+
+[<Fact>]
+let ``LS1 a page, a post, a 404 under /assets that is not a table route and a bot call each log one line`` () =
+    task {
+        use! test = bootSeededRequestLog "default"
+        let d = david test
+        let! page = d.Get $"/rooms/{ALL_TALK}"
+        Assert.Equal(200, page.Status)
+        let! post = d.Write((request "POST" $"/rooms/{ALL_TALK}/messages").With("accept", "text/vnd.turbo-stream.html, text/html").Form(formBody [ "message[body]", "hello" ]))
+        Assert.True(post.Status < 400, $"{post.Status} {post.Text}")
+        let! missing = d.Get "/assets/not-in-the-table-0000.css"
+        Assert.Equal(404, missing.Status)
+        let! bot = (anonymous test).Send((request "POST" $"/rooms/{ALL_TALK}/{BENDER_KEY}/messages").WithBody "Beep")
+        Assert.Equal(201, bot.Status)
+        let paths = loggedPaths test
+        Assert.Equal(4, paths.Length)
+        Assert.Contains($"/rooms/{ALL_TALK}", paths)
+        Assert.Contains($"/rooms/{ALL_TALK}/messages", paths)
+        Assert.Contains("/assets/not-in-the-table-0000.css", paths)
+        Assert.Equal(4, scopedEntries test |> List.filter (fun e -> e.Contains "StatusCode:") |> List.length)
+    }
+
+[<Fact>]
+let ``LS2 a fingerprinted asset, a public file, an avatar hit and miss and /up log none`` () =
+    task {
+        use! test = bootSeededRequestLog "default"
+        let d = david test
+        let! asset = d.Get(StaticAssets.path "composer.css")
+        Assert.Equal(200, asset.Status)
+        let! robots = d.Get "/robots.txt"
+        Assert.Equal(200, robots.Status)
+        let token = test.Label "avatar_tokens.david"
+        let! hit = d.Get $"/users/{token}/avatar"
+        Assert.Equal(200, hit.Status)
+        let! miss = (anonymous test).Get $"/users/{token}/avatar"
+        Assert.Equal(302, miss.Status)
+        let! up = d.Get "/up"
+        Assert.Equal(200, up.Status)
+        Assert.Empty(scopedEntries test)
+        // One page afterwards is the only line.
+        let! _ = d.Get $"/rooms/{ALL_TALK}"
+        Assert.Equal(1, (scopedEntries test).Length)
+    }
+
+[<Fact>]
+let ``LS3 an avatar request whose handler throws logs PublicExceptions' line with status 500`` () =
+    task {
+        use! test = bootSeededRequestLog "default"
+        let logs = test.Captured
+        use! host =
+            startPipelineOn
+                (WebApplicationOptions())
+                StaticAssets.configureHost
+                (fun services ->
+                    services.AddSingleton<ILoggerFactory>(logs) |> ignore
+                    services.AddSingleton<EdgeConfig>(edgeOn) |> ignore
+                    services.AddSingleton<AppState>(test.App) |> ignore
+                    Logging.add services test.App.Secrets
+                    HttpLog.add services)
+                (fun app ->
+                    HttpLog.useLogging app
+                    app.UseExceptionHandler(ExceptionHandlerOptions(ExceptionHandler = PublicExceptions.exceptionHandler)) |> ignore
+                    app.Run(RequestDelegate(fun _ -> failwith "boom")))
+        let before = (entries logs).Length
+        let! reply = host.Send(get "/users/abc123/avatar")
+        Assert.Equal(500, reply.Status)
+        Assert.Equal(before, (entries logs).Length)
+        Assert.Contains("request failed", logs.Text)
+        Assert.Contains("path=\"/users/abc123/avatar\"", logs.Text)
+        // A page that throws is in both.
+        let! page = host.Send(get "/rooms/1")
+        Assert.Equal(500, page.Status)
+        Assert.Equal(before + 1, (entries logs).Length)
+        Assert.Contains("StatusCode: 500", List.last (entries logs))
+    }
+
+type private CountingInterceptor() =
+    member val Paths = System.Collections.Concurrent.ConcurrentQueue<string>()
+    interface Microsoft.AspNetCore.HttpLogging.IHttpLoggingInterceptor with
+        member this.OnRequestAsync(context) =
+            this.Paths.Enqueue(nonNull context.HttpContext.Request.Path.Value)
+            ValueTask.CompletedTask
+        member _.OnResponseAsync(_) = ValueTask.CompletedTask
+
+[<Fact>]
+let ``LS4 the HTTP logging middleware does not run for an asset request`` () =
+    task {
+        let counter = CountingInterceptor()
+        use! test =
+            bootSeededServices None ignore (fun services -> services.AddSingleton<Microsoft.AspNetCore.HttpLogging.IHttpLoggingInterceptor>(counter) |> ignore) [ "LOG_REQUESTS", "true" ] "default"
+        let! asset = (david test).Get(StaticAssets.path "composer.css")
+        Assert.Equal(200, asset.Status)
+        let! robots = (david test).Get "/robots.txt"
+        Assert.Equal(200, robots.Status)
+        Assert.Empty(counter.Paths)
+        let! page = (david test).Get $"/rooms/{ALL_TALK}"
+        Assert.Equal(200, page.Status)
+        Assert.Equal<string list>([ $"/rooms/{ALL_TALK}" ], List.ofSeq counter.Paths)
+    }
+
+[<Fact>]
+let ``LS5 before the asset table is loaded logged answers false only for /up and avatars, and nothing throws`` () =
+    let ctx (path: string) =
+        let http = DefaultHttpContext()
+        http.Request.Path <- PathString path
+        http
+    let beforeLoad = HttpLog.loggedWith (fun _ -> false)
+    Assert.False(beforeLoad (ctx "/up"))
+    Assert.False(beforeLoad (ctx "/users/abc/avatar"))
+    Assert.False(beforeLoad (ctx "/users/abc/avatar.png"))
+    for path in [ "/"; "/session/new"; "/rooms/1"; "/assets/composer.css"; "/robots.txt"; "/users/abc"; "/up/x"; "" ] do
+        Assert.True(beforeLoad (ctx path), path)
+    // The real lookup, loaded or not, answers for any path without throwing (the empty path included).
+    for path in [ ""; "/"; "/assets/composer.css"; "/ROBOTS.TXT" ] do
+        StaticAssets.isAssetRoute (PathString path) |> ignore
+        HttpLog.logged (ctx path) |> ignore
+    let assetPath = try Some(StaticAssets.path "composer.css") with _ -> None
+    match assetPath with
+    | Some route -> Assert.True(StaticAssets.isAssetRoute (PathString route)) ; Assert.False(HttpLog.logged (ctx route))
+    | None -> ()
 
 // --- Compression ----------------------------------------------------------------------------------------------
 

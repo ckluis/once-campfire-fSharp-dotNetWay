@@ -170,7 +170,7 @@ module Services =
     /// (`dispatch`) as Falco's not-found handler, so ASP.NET Core's own routing never rewrites a path.
     let pipeline (edge: EdgeConfig) (cable: HttpHandler) (dispatch: Campfire.App.Web.Action) (builder: IApplicationBuilder) : unit =
         // F8: first, so the line's duration covers everything and an exception page's status is the one logged.
-        if edge.LogRequests then builder.UseHttpLogging() |> ignore
+        if edge.LogRequests then HttpLog.useLogging builder
         builder.UseExceptionHandler(ExceptionHandlerOptions(ExceptionHandler = PublicExceptions.exceptionHandler)) |> ignore
         builder.UseForwardedHeaders() |> ignore
         builder.Use(Edge.assumeSsl edge) |> ignore

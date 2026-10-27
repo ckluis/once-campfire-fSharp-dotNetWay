@@ -302,6 +302,12 @@ specific to this port are listed below, each citing the reference file it depart
       whose key Rails' `filter_parameters` names (`passw`, `email`, `token`, `_key`, `secret`, ...) is `[FILTERED]`, as in Rails' own
       `Started GET` line (`filtered_query_string`; security review R1, `HttpLogTests` SR2). Paths are logged as sent, as Rails and Thruster
       log them, so a bot key, a join code or a session transfer id in a path reaches the log (SR1: percent-encoded, no control character).
+    - The request log skips three route families (unit 9.3; `plans/design-close.md` C5; `HttpLogTests` LS1-LS5): the static asset
+      endpoints (every fingerprinted asset and public file, matched against the loaded `MapStaticAssets` table), the avatar family
+      (`OutputCaching.families`) and `/up` (Rails silences its health check too). Thruster logged each of them with `cache=hit`; here a
+      request for one writes no line, which is what keeps the middleware off the hot static path. Everything else is still logged
+      (pages, posts, bot calls, redirects, 404s), and a 500 on a skipped path still writes `PublicExceptions`' `request failed` line. The
+      framework's meters (`http.server.request.duration`, `kestrel.*`) count every request. `HttpLog.logged` is the one predicate to change.
     - Compression is the app's `UseResponseCompression` alone, which now offers zstd after Brotli and Gzip: a browser that offers `br`
       keeps `br`, a client that takes only zstd gets zstd (`HttpLogTests` CZ1-CZ3). `GZIP_COMPRESSION_ENABLED`,
       `GZIP_COMPRESSION_DISABLE_ON_AUTH` and `GZIP_COMPRESSION_JITTER` are not read and there is no BREACH jitter padding (Rails'

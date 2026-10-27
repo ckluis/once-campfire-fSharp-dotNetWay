@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Phase 7's check (unit 7.1: the framework's HTTP logging line) that the request log loses no line: runs the F# app (the image, or --mounted DIR) with an unbounded
 # log, sends N requests at 16 connections, stops the container with SIGTERM right after the last answer, and compares the number of
-# `HttpLoggingMiddleware` lines in `docker logs` with the number of requests sent (plus the readiness probes). Inside colima:
+# `HttpLoggingMiddleware` lines in `docker logs` with the number of requests sent (plus the readiness probe). Requests and probes go to
+# /session/new: `/up`, assets and avatars are not logged (unit 9.3). Inside colima:
 #
 #   colima ssh -- bash -c "cd $PWD && bench/lib/logcount [--mounted DIR] [N]"
 set -euo pipefail
@@ -21,7 +22,7 @@ docker run -d --name campfire-logcount --cpuset-cpus 0-3 --user "$(id -u):$(id -
 probes=0
 for _ in $(seq 1 3000); do
   probes=$((probes + 1))
-  if curl -fsS -o /dev/null "http://127.0.0.1:$PORT/up" 2>/dev/null; then break; fi
+  if curl -fsS -o /dev/null "http://127.0.0.1:$PORT/session/new" 2>/dev/null; then break; fi
   sleep 0.02
 done
 python3 - "$PORT" "$N" <<'PY'
@@ -31,7 +32,7 @@ per = n // 16
 def worker():
     c = http.client.HTTPConnection("127.0.0.1", port)
     for i in range(per):
-        c.request("GET", f"/up?i={i}")
+        c.request("GET", f"/session/new?i={i}")
         c.getresponse().read()
 ts = [threading.Thread(target=worker) for _ in range(16)]
 [t.start() for t in ts]; [t.join() for t in ts]

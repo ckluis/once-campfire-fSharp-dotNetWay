@@ -42,6 +42,8 @@ module StaticAssets =
     /// What one load of the manifest makes: the table and the three head strings (A5, A6), all computed once.
     type private Loaded =
         { Routes: FrozenDictionary<string, string>
+          /// Every route an asset endpoint owns (precompressed variants and public files too), matched without regard to case as routing does.
+          AssetRoutes: HashSet<string>
           Stylesheets: string
           Preload: string
           Importmap: string }
@@ -116,11 +118,15 @@ module StaticAssets =
         use reader = new StreamReader(stream)
         reader.ReadToEnd()
 
+    let private routeSet (descriptors: StaticAssetDescriptor list) : HashSet<string> =
+        HashSet<string>((descriptors |> List.map (fun d -> "/" + d.Route.TrimStart '/')), StringComparer.OrdinalIgnoreCase)
+
     let private load (descriptors: StaticAssetDescriptor list) : Loaded =
         let routes = tableOf descriptors
         let stylesheetTags, preload = stylesheets routes
         let pins = Importmap.pins (importmapRb ()) routes.Keys
         { Routes = routes
+          AssetRoutes = routeSet descriptors
           Stylesheets = stylesheetTags
           Preload = preload
           Importmap = Importmap.tags pins (fun l -> match routes.TryGetValue l with | true, r -> ValueSome r | _ -> ValueNone) }
@@ -164,8 +170,9 @@ the host must be created with StaticAssets.hostOptions and StaticAssets.configur
             endpoints.MapStaticAssets ManifestPath |> ignore
             let descriptors = descriptorsOf endpoints
             validate env descriptors
-            routes <- HashSet<string>((descriptors |> List.map (fun d -> "/" + d.Route.TrimStart '/')), StringComparer.OrdinalIgnoreCase)
-            Volatile.Write(&loaded, load descriptors))
+            let state = load descriptors
+            routes <- state.AssetRoutes
+            Volatile.Write(&loaded, state))
         |> ignore
 
     /// For the app's own routing pass (after its `UseRouting`): both passes share one set of endpoints, so the asset endpoints and, in
@@ -181,6 +188,13 @@ the host must be created with StaticAssets.hostOptions and StaticAssets.configur
                 next.Invoke http)
         )
         |> ignore
+
+    /// Whether the path is one of the asset endpoints' routes (a fingerprinted asset or a public file): a lookup in the loaded table.
+    /// False before `map` has run, when no route is known yet.
+    let isAssetRoute (path: PathString) : bool =
+        match Volatile.Read(&loaded), path.Value with
+        | null, _ | _, null -> false
+        | state, value -> state.AssetRoutes.Contains value
 
     let private current () : Loaded =
         match Volatile.Read(&loaded) with

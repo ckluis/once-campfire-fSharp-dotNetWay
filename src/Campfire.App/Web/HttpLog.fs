@@ -6,12 +6,29 @@ namespace Campfire.App.Web
 open System
 open System.Text.RegularExpressions
 open System.Threading.Tasks
+open Microsoft.AspNetCore.Builder
+open Microsoft.AspNetCore.Http
 open Microsoft.AspNetCore.HttpLogging
 open Microsoft.Extensions.Compliance.Redaction
 open Microsoft.Extensions.DependencyInjection
 open Campfire.App
 
 module HttpLog =
+    let private isAvatar: PathString -> bool =
+        OutputCaching.families |> List.pick (fun (name, matches, _) -> if name = "avatar" then Some matches else None)
+
+    /// plans/design-close.md C5: the requests the line is for. The static asset endpoints, the avatar family and `/up` carry nothing an
+    /// operator acts on (Rails silences `/up` too); everything else is logged. One reversible predicate.
+    let internal loggedWith (assetRoute: PathString -> bool) (http: HttpContext) : bool =
+        let path = http.Request.Path
+        not (path.Equals("/up", StringComparison.Ordinal) || isAvatar path || assetRoute path)
+
+    let logged (http: HttpContext) : bool = loggedWith StaticAssets.isAssetRoute http
+
+    /// `UseHttpLogging` for the requests `logged` names, as a branch that rejoins the pipeline (`UseWhen`).
+    let useLogging (builder: IApplicationBuilder) : unit =
+        builder.UseWhen(Func<HttpContext, bool>(logged), fun branch -> branch.UseHttpLogging() |> ignore) |> ignore
+
     /// The six fields of the line (`CombineLogs`: request and response in one entry).
     let configure (options: HttpLoggingOptions) : unit =
         options.LoggingFields <-
