@@ -3895,3 +3895,48 @@ Sonnet builder, `plans/design-jobs.md` J11 and J12. `bin/kloc` 27,503 / **27,946
 - **Left for later units:** 8.7a/b (production Boot, `IResolver` from DI in `UnfurlLinks`, the `StopAsync`-versus-`ExecuteAsync` check of `Heartbeat.fs` and `Acme.fs`), 8.8, 8.9 (delete `Http.fs`, `Net.fs`'s `Network`,
   `RubyUri.fs`, `WebPushEncryption.fs`; the class B tweet-host note, with the probe count 14). The checkpoint's test-flake item (RichText `CpuTimer`, Cable L7) is still open for before the phase gate and fired twice in this
   unit's first `bin/verify` (L3 and the "wide bodies" timing test): fix it (non-parallel collection or thread CPU time) before 8.9. The Moved-to-Logging console options (`Boot.configureConsole`) stay in `Boot.fs` until 8.7a.
+
+### Phase 8, unit 8.7a Builder, production path (2026-10-27)
+
+Sonnet builder, `plans/design-jobs.md` J14, split per the checkpoint: 8.7a is the production path, 8.7b moves `Support` and deletes `Booted`. `bin/kloc` 27,664 / **28,107 corrected (28.1)**, from
+27,860 after 8.5 (the 8.6 entry has no figure; +247 over 8.5 is `Boot.fs` 378 -> about 520 with the shim kept, `BootInputs`, `DatabaseStartup` and `Host.configure`/`mapHttpPort`, which 8.7b and 8.9 take back).
+
+- **Code:** `Boot.build loggers configure overrides` is one `WebApplication.CreateSlimBuilder`: `configure` runs first (an in-memory provider goes here), then `AppConfig`, `FrontSettings` and
+  `CAMPFIRE_FROZEN_TIME` are read from `builder.Configuration` (`AppConfig.fromLookup`, `FrontSettings.fromLookup`, `HarnessClock.fromValue`; a bad value throws before any listener exists and
+  `Boot.execute` prints `Error: <message>`, exit 1, as before), then `DatabaseStartup` is registered first and `addServices` and `addWorkers` after it, then `overrides`, then `Host.configure`
+  (shutdown, ACME, forwarded headers, static assets, Kestrel) and `Host.mapHttpPort`. `addServices` registers `AppConfig`, `Secrets`, `TimeProvider`, the pooled `IDbContextFactory`, the scoped
+  `CampfireDb`, `WriteGate`, `Jobs`, `Ef.Env`, `Storage`, `Registry<AppState>`, the one `HybridCache` (`Fragments.add`, on the host's collection: no side `ServiceCollection`; its default entry options
+  carry `DisableDistributedCache`, so the session's `IDistributedCache` never becomes an L2), the clients (`Clients.add`: in the host's provider now, disposed with it, where `Boot`'s side provider never
+  was), `PushDeliveries` (only with a valid VAPID pair; `IntegrationJobs.vapidOrOff` logs the off case once at build), `AppState` (a singleton whose factory resolves the others), `Web.Services.add` (no longer
+  takes `AppState`) and `CableServices.add` (`CableLink` takes the handle from the provider). `DatabaseStartup : IHostedLifecycleService` runs `StartingAsync` = `StoragePaths.createDirs`, `db:prepare`
+  through EF and `Membership.disconnectAll`: every hosted service's `StartingAsync` runs before any `StartAsync`, and Kestrel's `GenericWebHostService` is added last, so the database is ready before
+  anything starts and before a port binds. `Boot.serve loggers` is `build`, `RunAsync`, then `closeDatabaseAt` (a checkpoint on a connection of its own, since the host and its pooled contexts are
+  disposed when `RunAsync` returns), also after a failed start. `Host.build` stays for the HS tests and `bench/front` and is `configure` and `mapHttpPort` around the caller's registrations.
+  `UnfurlLinks` takes `IResolver` from the request's services. **`StopAsync` against `ExecuteAsync` (the checkpoint's thread-pool note): checked, nothing to change.** `CableHeartbeat` and `AcmeService` have
+  no `StopAsync` override and read no state `ExecuteAsync` assigns (`Acme`'s `context` is used only inside it); `JobRunner` and `PushDeliveries` already use a completion source.
+- **The shim (the split rule):** `Booted`, `bootEdge`/`bootWith*` stay for `Support`, now over the same registrations: a private provider over `addServices` (plus `AddLogging`), `DatabaseStartup.Prepare`
+  run by hand, and `ConfigureServices` = `addServices` on the test host followed by the root's `AppState`, `CableHandle`, `Jobs`, `WriteGate`, factory, `Storage`, `Env`, `Registry`, `HybridCache` and
+  `PushDeliveries` registered as instances (last wins), so `test.App` and the host serve one app. `Booted.Services` is the private provider; `Test` disposes it after `closeDatabase`. 8.7b deletes all of
+  it and moves `Support` (609 lines, with `bootSeeded*`, `startPipelineWith` and the dozens of tests that take `test.Booted.ConfigureServices`) onto `Boot.build`'s `configure` and `overrides`.
+- **Tests:** `BuildTests.fs` BB1-BB3 build the real host over an in-memory configuration on free ports. BB1: a probe hosted service registered after `DatabaseStartup` sees the database file when it
+  starts and nothing listening on `HTTP_PORT`; after the start `/up` answers 200 on `HTTP_PORT` and on `TARGET_PORT`. BB2: `AppState`, the client factory, `HybridCache`, the cable server, the gate and `Jobs`
+  are the host's singletons (`Assert.Same`), and Web Push is off without keys. BB3: a missing secret, `JOB_CONCURRENCY=two` and `CAMPFIRE_FROZEN_TIME=yesterday` each fail the build with Rails' and
+  the port's messages. HS1-HS12 are unchanged (they run `Host.build`).
+- **Test flakes (checkpoint item 4):** `Campfire.RichText.Tests`' `CpuTimer` now reads the calling thread's CPU clock (`clock_gettime(CLOCK_THREAD_CPUTIME_ID)`: 16 on macOS, 3 on Linux; the process's CPU
+  time where neither exists), so tiered compilation, the collector's background threads and anything else in the process cannot spend a bound; the assembly was already non-parallel, which is why that
+  was not the cause. A new fact proves it (a sleeping thread shows under 100 ms while another burns CPU, a busy loop shows its own). Cable's L7 already sits in a `DisableParallelization` collection
+  (`Memory`); it did not fail in this unit, and nothing was changed there: if it fires again under load it is the GC heap measurement, not parallelism.
+- **Gates:** `CAMPFIRE_REQUIRE_SEED=1 bin/verify` green: **1,030 tests, 1,024 passed, 6 skipped (the environmental six), 0 failed**, 0 warnings, lint-markup (327 files), the guards, H1.
+  **`bin/linux-tests App`: 418 tests, 417 passed, 1 skipped (AC11 without Pebble), including HS2, HS4 and the THP test; AC11 with the Pebble recipe: 1 of 1 passed.** Image rebuilt at `7477bfa` (label
+  checked by `asset-check`), `bin/clean-docker` run. `reference-tools/front/pebble-image.sh`: PASSED (one order at boot, cache files 0600/0700, a 2-certificate chain, the restart loads the cache and
+  makes no second order). On the image (`campfire-candidate-dotnetway`, seed default): `/up` 200 on `HTTP_PORT` and, from inside the container, on `TARGET_PORT` 3000; `POST /session` 302 to `/`; the room page 200;
+  `docker stop` logs `shutting down` then `Server stopped`. `bin/asset-check`: 1,806 checks, 0 failed. `bin/cookie-roundtrip`: 20/20. `bin/pixel-parity --fast --only 'auth/**,errors/**,rooms/show/designers'`:
+  default 38/38, first_run 8/8, custom_styles 2/2 screenshots, aria and loose equal on every seed, PASSED; `bin/clean-parity` run. Free disk 21 GB before the bench.
+- **Bench** (`bench/quick --reps 3 --apps fsharp,dotnetway`, `FSHARP_IMAGE=campfire-dotnetway:p8ctl` as the control, interleaved, host probe 1.04-1.08 on the measured runs (two control reps started at 1.42-1.48 and
+  are the wide ranges in its rows), `bench/results/quick-87`; 30 runs, all 2xx, 0 errors, post rows equal the 2xx answers): medians new / control req/s: room page c=1 2,235 / 2,219, c=16 7,241 / 7,213; messages page 2,046
+  / 2,093 and 7,121 / 7,070; sidebar 2,169 / 2,139 and 7,353 / 7,176; search and the post rows in the report. CPU per request equal inside the ranges (room page 559 / 564 us at c=1, post c=1 1,795 us). **vs Rails**
+  (stored medians): room page 20.9x (c=1) / 30.3x (c=16), messages 9.4x / 18.7x, sidebar 7.6x / 12.3x, search 9.9x / 16.9x, post **6.39x** (c=1) / **6.48x** (c=16): no cell under 5x, no speed fix made.
+- **Differences recorded:** none for users. Internally the database now prepares inside the host (`StartingAsync`) rather than before it is built, so a failed `db:prepare` surfaces as the start's exception
+  (`Error: <message>`, exit 1, the same text) and no longer before the TLS-domain check; and `closeDatabaseAt` opens a plain connection for the shutdown checkpoint instead of leasing a pooled context.
+- **Left for 8.7b:** `Support` onto `Boot.build` (in-memory configuration, provider and logger overrides, loopback Kestrel), then delete `Booted`, `bootEdge`, `bootWith*`, `Booted.Services` and the share
+  list; `Boot.addServices`/`addWorkers` stay public only as long as the shim needs them.
