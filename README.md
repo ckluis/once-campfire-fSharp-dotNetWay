@@ -249,7 +249,10 @@ specific to this port are listed below, each citing the reference file it depart
       the method, path, query, protocol, status and duration, plus `remote_addr` and `user_agent`) written by the console logger as
       `Microsoft.AspNetCore.HttpLogging.HttpLoggingMiddleware`, not Thruster's `Request path=... status=...` line. It carries no other
       header and no body; `LOG_REQUESTS=false` leaves the middleware out (`HttpLogTests` LG1-LG4). The client address is the connection's
-      after the forwarded headers, an IPv4-mapped address written as IPv4, with no port.
+      after the forwarded headers, an IPv4-mapped address written as IPv4, with no port. Thruster logged the query as sent; here a value
+      whose key Rails' `filter_parameters` names (`passw`, `email`, `token`, `_key`, `secret`, ...) is `[FILTERED]`, as in Rails' own
+      `Started GET` line (`filtered_query_string`; security review R1, `HttpLogTests` SR2). Paths are logged as sent, as Rails and Thruster
+      log them, so a bot key, a join code or a session transfer id in a path reaches the log (SR1: percent-encoded, no control character).
     - Compression is the app's `UseResponseCompression` alone, which now offers zstd after Brotli and Gzip: a browser that offers `br`
       keeps `br`, a client that takes only zstd gets zstd (`HttpLogTests` CZ1-CZ3). `GZIP_COMPRESSION_ENABLED`,
       `GZIP_COMPRESSION_DISABLE_ON_AUTH` and `GZIP_COMPRESSION_JITTER` are not read and there is no BREACH jitter padding (Rails'

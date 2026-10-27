@@ -601,3 +601,104 @@ let ``TLS_DOMAIN names that normalize refuses are logged, and a list with none u
     Assert.Throws<InvalidOperationException>(fun () -> Web.Host.validateDomains none logger) |> ignore
     // Plain HTTP has nothing to validate.
     Web.Host.validateDomains (FrontSettings.fromLookup (lookupOf [])) logger
+
+// --- Security review (plans/design-front.md section 11) --------------------------------------------------------------------------
+
+/// A raw HTTP/1.1 request (the target exactly as written, which HttpClient would normalize): the status line and the Location.
+let private rawRequest (port: int) (requestLine: string) (host: string) : Task<string * string option> =
+    task {
+        use client = new TcpClient()
+        do! client.ConnectAsync(IPAddress.Loopback, port)
+        use stream = client.GetStream()
+        let bytes = Encoding.ASCII.GetBytes $"{requestLine}\r\nHost: {host}\r\nConnection: close\r\n\r\n"
+        do! stream.WriteAsync(ReadOnlyMemory<byte> bytes)
+        use reader = new StreamReader(stream, Encoding.Latin1)
+        let! text = reader.ReadToEndAsync()
+        let lines = text.Split("\r\n")
+        let location =
+            lines |> Array.tryPick (fun l -> if l.StartsWith("location:", StringComparison.OrdinalIgnoreCase) then Some(l.Substring(9).Trim()) else None)
+        return lines[0], location
+    }
+
+[<Fact>]
+let ``SR4 the HTTP port's redirect never leaves the TLS_DOMAIN name, whatever the target or the Host`` () =
+    task {
+        use! test = bootSeeded "default"
+        let storage = tempStorage ()
+        cachedCertificate storage "chat.example.test" |> ignore
+        let settings = tlsSettings storage "chat.example.test" []
+        let! host, _ = startHost test.Booted settings
+        use _host = host
+        let origin = $"https://chat.example.test:{settings.HttpsPort}/"
+        // Targets that a browser could read as another authority if they were put after a Host of the client's choosing.
+        for target in [ "//evil.example/x"; "/\\evil.example/x"; "/%2F%2Fevil.example"; "/@evil.example"; "/x?next=https://evil.example" ] do
+            let! status, location = rawRequest settings.HttpPort $"GET {target} HTTP/1.1" "chat.example.test"
+            Assert.StartsWith("HTTP/1.1 301", status)
+            Assert.True(location.IsSome && location.Value.StartsWith(origin, StringComparison.Ordinal), $"{target}: {location}")
+            Assert.True(Uri(location.Value).Host = "chat.example.test", $"{target}: {location}")
+        // The absolute form: the authority in the target is the Host, and an outside one is a 421 like any other.
+        let! status, location = rawRequest settings.HttpPort "GET http://chat.example.test/rooms/1?a=b HTTP/1.1" "chat.example.test"
+        Assert.StartsWith("HTTP/1.1 301", status)
+        Assert.Equal(Some(origin + "rooms/1?a=b"), location)
+        let! status, location = rawRequest settings.HttpPort "GET http://evil.example/x HTTP/1.1" "evil.example"
+        Assert.StartsWith("HTTP/1.1 421", status)
+        Assert.Equal(None, location)
+        // A Host with userinfo, a second port or a trailing junk character is no TLS_DOMAIN name.
+        for odd in [ "evil.example@chat.example.test"; "chat.example.test:80:80"; "chat.example.test%00" ] do
+            let! status, location = rawRequest settings.HttpPort "GET /x HTTP/1.1" odd
+            Assert.False(status.StartsWith "HTTP/1.1 301", $"{odd}: {status} {location}")
+            Assert.Equal(None, location)
+    }
+
+[<Fact>]
+let ``SR5 the ACME challenge answers only a pending token, by exact name, on the HTTP port of a TLS install`` () =
+    task {
+        use! test = bootSeeded "default"
+        let storage = tempStorage ()
+        cachedCertificate storage "chat.example.test" |> ignore
+        let settings = tlsSettings storage "chat.example.test" []
+        let! host, app = startHost test.Booted settings
+        use _host = host
+        let store = app.Services.GetRequiredService<CertificateStore>()
+        store.AddChallenge("tok-1", "tok-1.thumb")
+        let on (path: string) = (get path).With("host", "chat.example.test")
+        // Nothing but the token itself: a trailing slash, an encoded slash, a suffix, a prefix of it, a file's name, traversal.
+        for path in
+            [ "/.well-known/acme-challenge/tok-1/"
+              "/.well-known/acme-challenge/tok-1%2F..%2F..%2Fetc%2Fpasswd"
+              "/.well-known/acme-challenge/tok-1x"
+              "/.well-known/acme-challenge/tok-"
+              "/.well-known/acme-challenge/acme_account+key"
+              "/.well-known/acme-challenge/chat.example.test"
+              "/.well-known/acme-challenge/..%2F..%2Facme_account+key" ] do
+            let! reply = host.Send(on path)
+            Assert.True((reply.Status = 404), $"{path}: {reply.Status}")
+            Assert.DoesNotContain("tok-1.thumb", reply.Text)
+            Assert.DoesNotContain("PRIVATE KEY", reply.Text)
+        // Once the order is done the token is gone.
+        store.RemoveChallenge "tok-1"
+        let! gone = host.Send(on "/.well-known/acme-challenge/tok-1")
+        Assert.Equal(404, gone.Status)
+        // The HTTPS port and TARGET_PORT are the app, which has no challenge route (Rails' 404 page).
+        store.AddChallenge("tok-2", "tok-2.thumb")
+        let! target = (onPort app settings.TargetPort).Send(get "/.well-known/acme-challenge/tok-2")
+        Assert.Equal(404, target.Status)
+        Assert.DoesNotContain("tok-2.thumb", target.Text)
+    }
+
+[<Fact>]
+let ``SR7 the TLS options leave protocols and cipher suites to the platform, ask for no client certificate and never renegotiate`` () =
+    let storage = tempStorage ()
+    cachedCertificate storage "chat.example.test" |> ignore
+    match DirCache.read storage "chat.example.test" DateTimeOffset.UtcNow with
+    | Error reason -> failwith reason
+    | Ok certificate ->
+        let options = certificate.Options
+        // `None` is the platform's default set (OpenSSL's system policy in the image: TLS 1.2 and 1.3); nothing older is forced on.
+        Assert.Equal(System.Security.Authentication.SslProtocols.None, options.EnabledSslProtocols)
+        Assert.Null(options.CipherSuitesPolicy)
+        Assert.False(options.ClientCertificateRequired)
+        Assert.False(options.AllowRenegotiation)
+        Assert.Equal<SslApplicationProtocol list>([ SslApplicationProtocol.Http2; SslApplicationProtocol.Http11 ], List.ofSeq (nonNull options.ApplicationProtocols))
+        Assert.NotNull(options.ServerCertificateContext)
+        Assert.Null(options.ServerCertificate)

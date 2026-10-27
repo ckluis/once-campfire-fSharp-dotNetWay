@@ -206,3 +206,83 @@ let ``CZ3 a response under 256 bytes and an image are not compressed and carry n
         Assert.Equal(None, image.Header "vary")
         Assert.Equal(big.Length, image.Body.Length)
     }
+
+// --- Security review (plans/design-front.md section 11) ------------------------------------------------------
+
+/// A raw request line, so that the target reaches Kestrel exactly as written (HttpClient would re-encode it).
+let private sendRawWith (host: Host) (target: string) (extraHeader: byte[]) : Task<string> =
+    task {
+        use client = new Net.Sockets.TcpClient()
+        do! client.ConnectAsync(Net.IPAddress.Loopback, host.Port)
+        use stream = client.GetStream()
+        let bytes =
+            Array.concat
+                [ Text.Encoding.ASCII.GetBytes $"GET {target} HTTP/1.1\r\nHost: localhost\r\n"
+                  extraHeader
+                  Text.Encoding.ASCII.GetBytes "Connection: close\r\n\r\n" ]
+        do! stream.WriteAsync(ReadOnlyMemory<byte> bytes)
+        use reader = new StreamReader(stream)
+        let! head = reader.ReadLineAsync()
+        return nonNull head
+    }
+
+let private sendRaw (host: Host) (target: string) : Task<string> = sendRawWith host target [||]
+
+/// No control character (C0, DEL, C1) and no Unicode line or paragraph separator.
+let private printable (text: string) : bool =
+    not (text |> Seq.exists (fun c -> Char.IsControl c || c = '\u2028' || c = '\u2029'))
+
+[<Fact>]
+let ``SR1 a client's control characters in the path, query or user agent never reach the log line raw`` () =
+    task {
+        let logs = new CapturingLoggers()
+        use! host = startLogging logs
+        // Percent-encoded line breaks, an escape (a terminal sequence), NEL and LINE SEPARATOR, in the path and the query.
+        let! status = sendRaw host "/a%0D%0Ab%1B%5B31m%C2%85%E2%80%A8c?x=%0D%0Ay%1B"
+        Assert.StartsWith("HTTP/1.1 200", status)
+        let entry = (entries logs) |> List.exactlyOne
+        // The entry's own layout is several lines (the console formatter's SingleLine folds them); what the client sent is not.
+        let fields = entry.Split('\n') |> Array.filter (fun line -> line.StartsWith "Path:" || line.StartsWith "QueryString:")
+        Assert.Equal(2, fields.Length)
+        for field in fields do
+            Assert.True(printable field, $"control character in {field}")
+        // A user agent of raw bytes (UTF-8 NEL, an escape sequence): Kestrel refuses it, or it is logged with no control character.
+        let agent = Array.concat [ Text.Encoding.ASCII.GetBytes "User-Agent: ua"; [| 0xC2uy; 0x85uy |]; Text.Encoding.ASCII.GetBytes "x\u001b[2Jy\r\n" ]
+        let! status = sendRawWith host "/ua" agent
+        if status.StartsWith "HTTP/1.1 200" then
+            let line =
+                entries logs |> List.find (fun e -> e.Contains "Path: /ua") |> fun e -> e.Split('\n') |> Array.find (fun l -> l.StartsWith "user_agent:")
+            Assert.True(printable line, $"control character in {line}")
+        else
+            Assert.StartsWith("HTTP/1.1 400", status)
+    }
+
+[<Fact>]
+let ``SR2 query values Rails' filter_parameters names are logged as [FILTERED], as Rails' request line logs them`` () =
+    task {
+        let logs = new CapturingLoggers()
+        use! host = startLogging logs
+        let! reply = host.Send(get "/x?q=hello&token=tok-secret&user%5Bpassword%5D=pw-secret&Email_Address=mail-secret&before=12;otp=otp-secret&message.body=body-secret")
+        Assert.Equal(200, reply.Status)
+        // The entry alone: the capture also holds the hosting diagnostics' own lines (Information, filtered out in production by
+        // `Boot.createLoggerFactory`'s `Microsoft` = Warning).
+        let entry = (entries logs) |> List.exactlyOne |> fun e -> e.Substring(0, e.IndexOf "Duration:")
+        for secret in [ "tok-secret"; "pw-secret"; "mail-secret"; "body-secret" ] do
+            Assert.DoesNotContain(secret, entry)
+        Assert.Contains("QueryString: ?q=hello&token=[FILTERED]&user%5Bpassword%5D=[FILTERED]&Email_Address=[FILTERED]&before=12;otp=[FILTERED]&message.body=[FILTERED]", entry)
+        // A query with nothing to filter is logged as sent.
+        let! _ = host.Send(get "/y?before=42&q=tokens")
+        Assert.Contains("QueryString: ?before=42&q=tokens", (entries logs)[1])
+    }
+
+[<Fact>]
+let ``SR3 the production loggers write the HTTP logging line but not the framework's own request lines, which carry the unfiltered URL`` () =
+    let dir = Directory.CreateTempSubdirectory("campfire-app-test").FullName
+    try
+        // Even at debug (`RAILS_LOG_LEVEL`), `Microsoft.*` stays at Warning: `Hosting.Diagnostics`' "Request starting ... <URL>" is never written.
+        use loggers = Boot.createLoggerFactory (configFor dir [ "RAILS_LOG_LEVEL", "debug" ])
+        Assert.True((loggers.CreateLogger "Microsoft.AspNetCore.HttpLogging.HttpLoggingMiddleware").IsEnabled LogLevel.Information)
+        for category in [ "Microsoft.AspNetCore.Hosting.Diagnostics"; "Microsoft.AspNetCore.Server.Kestrel"; "System.Net.Http.HttpClient.acme.LogicalHandler" ] do
+            Assert.False((loggers.CreateLogger category).IsEnabled LogLevel.Information, category)
+    finally
+        try Directory.Delete(dir, true) with _ -> ()

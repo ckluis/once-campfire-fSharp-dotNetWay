@@ -56,6 +56,22 @@ type App() =
             // The hourly session resume: a response that sets a cookie.
             http.Response.Headers.Append("Set-Cookie", "session_token=abc; path=/")
             write http svg
+        | "/users/7/avatar" when not (http.Request.Headers.ContainsKey "Cookie") ->
+            // Rails' answer to a client with no session: the sign-in redirect, never a cacheable 200.
+            http.Response.StatusCode <- 302
+            http.Response.Headers.Location <- "/session/new"
+            Task.CompletedTask
+        | "/users/8/avatar" ->
+            // The way the session middleware and cookie authentication add theirs: as the response starts, after the action.
+            http.Response.OnStarting(fun () ->
+                http.Response.Headers.Append("Set-Cookie", "session_token=user-8-secret; path=/")
+                Task.CompletedTask)
+            // A HEAD answered without a body write: the response starts only after the middleware has returned.
+            if HttpMethods.IsHead http.Request.Method then
+                http.Response.ContentLength <- int64 svg.Length
+                Task.CompletedTask
+            else
+                write http svg
         | _ when http.Request.Headers.ContainsKey "Range" ->
             http.Response.StatusCode <- 206
             write http "<circle"
@@ -235,3 +251,57 @@ let ``OC9 each family's predicate matches Rails' route shapes and not a page tha
           "/rails/active_storage/blobs/redirect/SIGNED/photo.jpg"; "/rails/active_storage/blobs/SIGNED/photo.jpg"
           "/rails/active_storage/blobs/proxy/SIGNED"; "/rooms/1"; "/rooms/1/@123"; "/"; "/assets/app-123.js" ] do
         Assert.False(anywhere path, path)
+
+// --- Security review (plans/design-front.md section 11) ------------------------------------------------------
+
+[<Fact>]
+let ``SR6 a cookie added as the response starts is never stored or replayed to another client, for GET or HEAD`` () =
+    task {
+        let app = App()
+        let store = RecordingStore()
+        use! host = startCache production store app
+        let accept = "gzip, deflate, br, zstd"
+        // The signed-in client's GET (compressed, so the body reaches the cache's stream only after the action) gets its cookie...
+        let! mine = host.Send((get "/users/8/avatar").With("accept-encoding", accept).With("cookie", "session_token=old"))
+        Assert.Contains(mine.SetCookies, fun c -> c.Contains "user-8-secret")
+        // ...and the entry is not stored: the next client, with no cookie, reaches the app and is not handed the first one's.
+        Assert.Empty(store.Sets)
+        let! other = host.Send((get "/users/8/avatar").With("accept-encoding", accept))
+        Assert.Equal(2, app.Count "/users/8/avatar")
+        Assert.Contains(other.SetCookies, fun c -> c.Contains "user-8-secret")
+        // HEAD: the response has not started when the action returns (no body), so the cookie comes after the cache's check. The
+        // entry is stored (without the cookie), and a hit from it hands the next client none.
+        let! firstHead = host.Send((request "HEAD" "/users/8/avatar").With("cookie", "session_token=old"))
+        Assert.Contains(firstHead.SetCookies, fun c -> c.Contains "user-8-secret")
+        let runs = app.Count "/users/8/avatar"
+        let! secondHead = host.Send(request "HEAD" "/users/8/avatar")
+        Assert.Equal(runs, app.Count "/users/8/avatar")
+        Assert.Empty(secondHead.SetCookies)
+        Assert.All(store.Sets, fun key -> Assert.StartsWith("HEAD", key))
+    }
+
+[<Fact>]
+let ``SR8 a request with Authorization neither reads nor fills the cache, and only a 200 is ever stored`` () =
+    task {
+        let app = App()
+        let store = RecordingStore()
+        use! host = startCache production store app
+        let! filled = host.Send(get "/users/1/avatar")
+        Assert.Equal(200, filled.Status)
+        Assert.Equal(1, store.Sets.Count)
+        let gets = store.Gets.Count
+        // An Authorization header (a bot or an API client): the app answers, the entry is neither read nor replaced.
+        let! authorized = host.Send((get "/users/1/avatar").With("authorization", "Bearer secret"))
+        Assert.Equal(200, authorized.Status)
+        Assert.Equal(None, authorized.Header "age")
+        Assert.Equal(2, app.Count "/users/1/avatar")
+        Assert.Equal(gets, store.Gets.Count)
+        Assert.Equal(1, store.Sets.Count)
+        // A redirect (the anonymous answer of a signed-in route) is not stored, so it can never be replayed to a signed-in client.
+        let! anonymous = host.Send(get "/users/7/avatar")
+        Assert.Equal(302, anonymous.Status)
+        Assert.Equal(1, store.Sets.Count)
+        let! signedIn = host.Send((get "/users/7/avatar").With("cookie", "session_token=x"))
+        Assert.Equal(200, signedIn.Status)
+        Assert.Equal(2, app.Count "/users/7/avatar")
+    }
