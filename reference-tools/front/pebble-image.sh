@@ -66,10 +66,10 @@ if wait_for "the certificate file" test -s "$cache/$DOMAIN"; then
   # 4: a restart loads the cache.
   thumb() { echo | openssl s_client -connect 127.0.0.1:$HTTPS_PORT -servername $DOMAIN 2>/dev/null | openssl x509 -noout -fingerprint -sha256; }
   before=$(thumb)
-  since=$(date +%s)
+  since=$(date -u +%Y-%m-%dT%H:%M:%S.%NZ)   # sub-second: a whole-second --since also matched the first boot's "Server started" (a race)
   docker restart "$APP" >/dev/null
   wait_for "the restarted host" bash -c "docker logs --since $since '$APP' 2>&1 | grep -q 'Server started'" || true
-  docker logs --since "$since" "$APP" 2>&1 | grep -q 'Loaded the cached certificate' && ok "the restart loaded the cached certificate" || bad "the restart did not log a cached load"
+  docker logs --since "$since" "$APP" 2>&1 | grep -q 'Loaded the cached certificate' && ok "the restart loaded the cached certificate" || { bad "the restart did not log a cached load"; docker logs "$APP" 2>&1 | tail -n 25; }
   sleep 3
   [ "$(issued)" = 1 ] && ok "still 1 order after the restart" || bad "Pebble issued $(issued) certificates after the restart"
   [ "$(thumb)" = "$before" ] && ok "same certificate after the restart" || bad "another certificate after the restart"

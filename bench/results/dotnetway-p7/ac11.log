@@ -1,0 +1,3153 @@
+#0 building with "default" instance using docker driver
+
+#1 [internal] load build definition from Dockerfile
+#1 transferring dockerfile: 5.67kB done
+#1 DONE 0.0s
+
+#2 resolve image config for docker-image://docker.io/docker/dockerfile:1
+#2 DONE 0.2s
+
+#3 docker-image://docker.io/docker/dockerfile:1@sha256:4edf897a3ffa55b89f906fc8cc78afdb3f1834cc9c7083565e611a8a7d5fe99e
+#3 resolve docker.io/docker/dockerfile:1@sha256:4edf897a3ffa55b89f906fc8cc78afdb3f1834cc9c7083565e611a8a7d5fe99e done
+#3 CACHED
+
+#4 [internal] load metadata for docker.io/library/buildpack-deps:trixie
+#4 DONE 0.2s
+
+#5 [internal] load .dockerignore
+#5 transferring context: 2B done
+#5 DONE 0.0s
+
+#6 [media-base 1/3] FROM docker.io/library/buildpack-deps:trixie@sha256:4a40a9b7f5b25cced5d5367108754eeb825a3e64c05c94e1ab7b462a96de5434
+#6 resolve docker.io/library/buildpack-deps:trixie@sha256:4a40a9b7f5b25cced5d5367108754eeb825a3e64c05c94e1ab7b462a96de5434 done
+#6 DONE 0.0s
+
+#7 [media-base 2/3] RUN sed -i 's/^Types: deb$/Types: deb deb-src/' /etc/apt/sources.list.d/debian.sources &&     apt-get update -qq &&     apt-get install --no-install-recommends -y       dpkg-dev meson ninja-build nasm       libglib2.0-dev libexpat1-dev zlib1g-dev libjpeg62-turbo-dev libspng-dev libpng-dev       libwebp-dev libtiff-dev libheif-dev libexif-dev liblcms2-dev libcgif-dev libimagequant-dev       libhwy-dev libdav1d-dev libbz2-dev liblzma-dev
+#7 CACHED
+
+#8 [media-base 3/3] WORKDIR /usr/src
+#8 CACHED
+
+#9 [ffmpeg 1/1] RUN apt-get source -qq ffmpeg=7:7.1.5-0+deb13u1 &&     upstream=7.1.5-0+deb13u1 && upstream=${upstream%-*} && revision=0+deb13u1 &&     echo "9ed2ed34cbe7f056eeebbe9045c5e2d15e41b5b053fe7c8ba6979a0b6fb081ce  ffmpeg_7.1.5-0+deb13u1.dsc" | sha256sum -c - &&     cd ffmpeg-${upstream} &&     ./configure --prefix=/opt/ffmpeg --extra-version="${revision}" --toolchain=hardened       --enable-shared --disable-static --disable-doc --disable-ffplay --disable-avdevice       --disable-autodetect --disable-network --disable-hwaccels --disable-devices       --enable-libdav1d --enable-zlib --enable-bzlib --enable-lzma       --disable-encoders --enable-encoder=mjpeg       --disable-muxers --enable-muxer=image2       --disable-protocols --enable-protocol=file,pipe       --disable-filters       --enable-filter=buffer,buffersink,abuffer,abuffersink,format,aformat,null,anull,scale,aresample       --enable-filter=select,loop,trim,transpose,hflip,vflip,rotate,crop &&     make -j"$(nproc)" &&     make install &&     strip --strip-unneeded /opt/ffmpeg/lib/*.so.* /opt/ffmpeg/bin/*
+#9 2.782 dpkg-source: info: extracting ffmpeg in ffmpeg-7.1.5
+#9 2.782 dpkg-source: info: unpacking ffmpeg_7.1.5.orig.tar.xz
+#9 3.281 dpkg-source: info: unpacking ffmpeg_7.1.5-0+deb13u1.debian.tar.xz
+#9 3.290 W: Download is performed unsandboxed as root as file 'ffmpeg_7.1.5-0+deb13u1.dsc' couldn't be accessed by user '_apt'. - pkgAcquire::Run (13: Permission denied)
+#9 3.293 ffmpeg_7.1.5-0+deb13u1.dsc: OK
+#9 ...
+
+#10 [vips 1/1] RUN apt-get source -qq vips=8.16.1-1+deb13u1 &&     echo "60205e00d061b9d8072938e04899f2ca2fdac0513068e561d33f7c87fae1ae2e  vips_8.16.1-1+deb13u1.dsc" | sha256sum -c - &&     cd vips-8.16.1 &&     eval "$(DEB_BUILD_MAINT_OPTIONS=hardening=+all dpkg-buildflags --export=sh)" &&     meson setup build --buildtype=plain --wrap-mode=nodownload --prefix=/opt/vips --libdir=lib       --auto-features=disabled -Dmodules=disabled -Dintrospection=disabled -Dcplusplus=false       -Ddeprecated=false -Dexamples=false       -Djpeg=enabled -Dspng=enabled -Dpng=enabled -Dwebp=enabled -Dtiff=enabled -Dheif=enabled       -Dexif=enabled -Dlcms=enabled -Dcgif=enabled -Dimagequant=enabled -Dhighway=enabled       -Dzlib=enabled &&     meson install -C build --strip
+#10 3.321 dpkg-source: info: extracting vips in vips-8.16.1
+#10 3.321 dpkg-source: info: unpacking vips_8.16.1.orig.tar.gz
+#10 3.575 dpkg-source: info: unpacking vips_8.16.1-1+deb13u1.debian.tar.xz
+#10 3.579 dpkg-source: info: using patch list from debian/patches/series
+#10 3.579 dpkg-source: info: applying CVE-2026-3283_CVE-2026-3284.patch
+#10 3.580 dpkg-source: info: applying CVE-2026-3282.patch
+#10 3.581 dpkg-source: info: applying CVE-2026-3281.patch
+#10 3.582 dpkg-source: info: applying CVE-2026-3147.patch
+#10 3.583 dpkg-source: info: applying CVE-2026-3145_CVE-2026-3146.patch
+#10 3.583 dpkg-source: info: applying CVE-2026-2913.patch
+#10 3.587 W: Download is performed unsandboxed as root as file 'vips_8.16.1-1+deb13u1.dsc' couldn't be accessed by user '_apt'. - pkgAcquire::Run (13: Permission denied)
+#10 3.588 vips_8.16.1-1+deb13u1.dsc: OK
+#10 4.403 The Meson build system
+#10 4.403 Version: 1.7.0
+#10 4.403 Source dir: /usr/src/vips-8.16.1
+#10 4.403 Build dir: /usr/src/vips-8.16.1/build
+#10 4.403 Build type: native build
+#10 4.403 Project name: vips
+#10 4.403 Project version: 8.16.1
+#10 4.403 C compiler for the host machine: cc (gcc 14.2.0 "cc (Debian 14.2.0-19) 14.2.0")
+#10 4.403 C linker for the host machine: cc ld.bfd 2.44
+#10 4.403 C++ compiler for the host machine: c++ (gcc 14.2.0 "c++ (Debian 14.2.0-19) 14.2.0")
+#10 4.403 C++ linker for the host machine: c++ ld.bfd 2.44
+#10 4.403 Host machine cpu family: aarch64
+#10 4.403 Host machine cpu: aarch64
+#10 4.403 Compiler for C supports arguments -Werror=pointer-arith: YES 
+#10 4.403 Found pkg-config: YES (/usr/bin/pkg-config) 1.8.1
+#10 4.403 Run-time dependency glib-2.0 found: YES 2.84.4
+#10 4.403 Run-time dependency gio-2.0 found: YES 2.84.4
+#10 4.403 Run-time dependency gobject-2.0 found: YES 2.84.4
+#10 4.403 Dependency gmodule-no-export-2.0 skipped: feature modules disabled
+#10 4.403 Run-time dependency expat found: YES 2.9.0
+#10 4.403 Run-time dependency threads found: YES
+#10 4.403 Library m found: YES
+#10 4.403 Compiler for C supports link arguments -Wl,-z,nodelete: YES 
+#10 4.403 Compiler for C supports function attribute visibility:hidden: YES 
+#10 4.403 Checking if "Has vector arithmetic" with dependency -lm compiles: YES 
+#10 4.403 Checking if "Has signed constants in vector templates" with dependency -lm compiles: YES 
+#10 4.403 Checking if "Has target_clones attribute" runs: DID NOT COMPILE
+#10 4.403 Checking for function "_aligned_malloc" : NO 
+#10 4.403 Checking for function "posix_memalign" : YES 
+#10 4.403 Checking for function "memalign" : YES 
+#10 4.403 Checking for function "pthread_setattr_default_np" with dependency threads: YES 
+#10 4.403 Run-time dependency zlib found: YES 1.3.1
+#10 4.403 Dependency libarchive skipped: feature archive disabled
+#10 4.403 Dependency fftw3 skipped: feature fftw disabled
+#10 4.403 Run-time dependency magickcore found: YES 7.1.1
+#10 4.403 Dependency cfitsio skipped: feature cfitsio disabled
+#10 4.403 Run-time dependency imagequant found: YES 2.18.0
+#10 4.403 Run-time dependency cgif found: YES 0.5.0
+#10 4.403 Checking if "Has CGIF_ATTR_NO_LOOP" with dependency cgif compiles: YES 
+#10 4.403 Checking if "Has CGIF_FRAME_ATTR_INTERLACED" with dependency cgif compiles: YES 
+#10 4.403 Run-time dependency libexif found: YES 0.6.25
+#10 4.403 Has header "exif-data.h" with dependency libexif: NO 
+#10 4.403 Run-time dependency libjpeg found: YES 2.1.5
+#10 4.403 Checking for function "jpeg_c_bool_param_supported" with dependency libjpeg: NO 
+#10 4.403 Run-time dependency spng found: YES 0.7.4
+#10 4.403 Run-time dependency libwebp found: YES 1.5.0
+#10 4.403 Run-time dependency libwebpmux found: YES 1.5.0
+#10 4.403 Run-time dependency libwebpdemux found: YES 1.5.0
+#10 4.403 Dependency pangocairo skipped: feature pangocairo disabled
+#10 4.403 Dependency pangoft2 skipped: feature fontconfig disabled
+#10 4.403 Dependency fontconfig skipped: feature fontconfig disabled
+#10 4.403 Run-time dependency libtiff-4 found: YES 4.7.0
+#10 4.403 Fetching value of define "COMPRESSION_WEBP" with dependency libtiff-4: 50001 
+#10 4.403 Dependency librsvg-2.0 skipped: feature rsvg disabled
+#10 4.403 Dependency cairo skipped: feature rsvg disabled
+#10 4.403 Dependency openslide skipped: feature openslide disabled
+#10 4.403 Dependency matio skipped: feature matio disabled
+#10 4.403 Run-time dependency lcms2 found: YES 2.16
+#10 4.403 Dependency OpenEXR skipped: feature openexr disabled
+#10 4.403 Dependency libopenjp2 skipped: feature openjpeg disabled
+#10 4.403 Run-time dependency libhwy found: YES 1.2.0
+#10 4.403 Dependency pdfium skipped: feature pdfium disabled
+#10 4.403 Run-time dependency libheif found: YES 1.23.6
+#10 4.403 Checking for function "heif_image_handle_get_raw_color_profile" with dependency libheif: YES 
+#10 4.403 Checking for function "heif_context_set_maximum_image_size_limit" with dependency libheif: YES 
+#10 4.403 Checking whether type "struct heif_decoding_options" has member "convert_hdr_to_8bit" with dependency libheif: YES 
+#10 4.403 Checking for function "heif_encoder_parameter_get_valid_integer_values" with dependency libheif: YES 
+#10 4.403 Checking whether type "struct heif_encoding_options" has member "output_nclx_profile" with dependency libheif: YES 
+#10 4.403 Checking whether type "struct heif_encoding_options" has member "image_orientation" with dependency libheif: YES 
+#10 4.403 Dependency libjxl skipped: feature jpeg-xl disabled
+#10 4.403 Dependency libjxl_threads skipped: feature jpeg-xl disabled
+#10 4.403 Dependency poppler-glib skipped: feature poppler disabled
+#10 4.403 Dependency cairo skipped: feature poppler disabled
+#10 4.403 Run-time dependency niftiio found: NO (tried pkgconfig)
+#10 4.403 Did not find CMake 'cmake'
+#10 4.403 Found CMake: NO
+#10 4.403 Run-time dependency nifti found: NO (tried cmake)
+#10 4.403 Has header "sys/file.h" : YES 
+#10 4.403 Has header "sys/param.h" : YES 
+#10 4.403 Has header "sys/mman.h" : YES 
+#10 4.403 Has header "unistd.h" : YES 
+#10 4.403 Has header "io.h" : NO 
+#10 4.403 Has header "direct.h" : NO 
+#10 4.403 Checking for function "ngettext" : YES 
+#10 4.403 Checking for function "bind_textdomain_codeset" : YES 
+#10 4.403 Configuring config.h using configuration
+#10 4.403 Program g-ir-scanner skipped: feature introspection disabled
+#10 4.403 Dependency glib-2.0 found: YES 2.84.4 (cached)
+#10 4.403 Program /usr/bin/glib-mkenums found: YES (/usr/bin/glib-mkenums)
+#10 4.403 Dependency glib-2.0 found: YES 2.84.4 (cached)
+#10 4.403 Program /usr/bin/glib-mkenums found: YES (/usr/bin/glib-mkenums)
+#10 4.403 Configuring version.h using configuration
+#10 4.403 Dependency glib-2.0 found: YES 2.84.4 (cached)
+#10 4.403 Program /usr/bin/glib-genmarshal found: YES (/usr/bin/glib-genmarshal)
+#10 4.403 Program msgfmt found: NO
+#10 4.403 po/meson.build:1: WARNING: Gettext not found, all translation (po) targets will be ignored.
+#10 4.403 Program python3 found: YES (/usr/bin/python3)
+#10 4.403 Configuring variables.sh using configuration
+#10 4.403 Build targets in project: 46
+#10 4.403 
+#10 4.403 vips 8.16.1
+#10 4.403 
+#10 4.403   Dependencies
+#10 4.403     glib-2.0                          : 2.84.4
+#10 4.403     gio-2.0                           : 2.84.4
+#10 4.403     gobject-2.0                       : 2.84.4
+#10 4.403     gmodule-no-export-2.0             : unknown
+#10 4.403     expat                             : 2.9.0
+#10 4.403     zlib                              : 1.3.1
+#10 4.403     imagequant                        : 2.18.0
+#10 4.403     cgif                              : 0.5.0
+#10 4.403     libexif                           : 0.6.25
+#10 4.403     libjpeg                           : 2.1.5
+#10 4.403     spng                              : 0.7.4
+#10 4.403     libwebp                           : 1.5.0
+#10 4.403     libwebpmux                        : 1.5.0
+#10 4.403     libwebpdemux                      : 1.5.0
+#10 4.403     libtiff-4                         : 4.7.0
+#10 4.403     lcms2                             : 2.16
+#10 4.403     libhwy                            : 1.2.0
+#10 4.403     libheif                           : 1.23.6
+#10 4.403 
+#10 4.403   Build options
+#10 4.403     enable debug                      : NO
+#10 4.403     enable deprecated                 : NO
+#10 4.403     enable modules                    : NO
+#10 4.403     enable gtk-doc                    : NO
+#10 4.403     enable doxygen                    : NO
+#10 4.403     enable introspection              : NO
+#10 4.403     enable examples                   : NO
+#10 4.403     enable cplusplus                  : NO
+#10 4.403     enable RAD load/save              : YES
+#10 4.403     enable Analyze7 load              : YES
+#10 4.403     enable PPM load/save              : YES
+#10 4.403     enable GIF load                   : YES
+#10 4.403 
+#10 4.403   Optional external packages
+#10 4.403     FFTs with fftw                    : NO
+#10 4.403     SIMD support with libhwy          : YES
+#10 4.403     ICC profile support with lcms2    : YES
+#10 4.403     deflate compression with zlib     : YES
+#10 4.403     text rendering with pangocairo    : NO
+#10 4.403     font file support with fontconfig : NO
+#10 4.403     EXIF metadata support with libexif: YES
+#10 4.403 
+#10 4.403   External image format libraries
+#10 4.403     JPEG load/save with libjpeg       : YES
+#10 4.403     JXL load/save with libjxl         : NO (dynamic module: NO)
+#10 4.403     JPEG2000 load/save with OpenJPEG  : NO
+#10 4.403     PNG load/save with spng           : YES
+#10 4.403     image quantisation with imagequant: YES
+#10 4.403     TIFF load/save with libtiff-4     : YES
+#10 4.403     image pyramid save with libarchive: NO
+#10 4.403     HEIC/AVIF load/save with libheif  : YES (dynamic module: NO)
+#10 4.403     WebP load/save with libwebp       : YES
+#10 4.403     PDF load with PDFium or Poppler   : NO (dynamic module: NO)
+#10 4.403     SVG load with librsvg             : NO
+#10 4.403     EXR load with OpenEXR             : NO
+#10 4.403     WSI load with OpenSlide           : NO (dynamic module: NO)
+#10 4.403     Matlab load with Matio            : NO
+#10 4.403     NIfTI load/save with libnifti     : NO
+#10 4.403     FITS load/save with cfitsio       : NO
+#10 4.403     GIF save with cgif                : YES
+#10 4.403     Magick load/save with MagickCore  : NO (dynamic module: NO)
+#10 4.403 
+#10 4.403   User defined options
+#10 4.403     auto_features                     : disabled
+#10 4.403     buildtype                         : plain
+#10 4.403     cgif                              : enabled
+#10 4.403     cplusplus                         : false
+#10 4.403     deprecated                        : false
+#10 4.403     examples                          : false
+#10 4.403     exif                              : enabled
+#10 4.474     heif                              : enabled
+#10 4.474     highway                           : enabled
+#10 4.474     imagequant                        : enabled
+#10 4.474     introspection                     : disabled
+#10 4.474     jpeg                              : enabled
+#10 4.474     lcms                              : enabled
+#10 4.474     libdir                            : lib
+#10 4.474     modules                           : disabled
+#10 4.474     png                               : enabled
+#10 4.474     prefix                            : /opt/vips
+#10 4.474     spng                              : enabled
+#10 4.474     tiff                              : enabled
+#10 4.474     webp                              : enabled
+#10 4.474     wrap_mode                         : nodownload
+#10 4.474     zlib                              : enabled
+#10 4.474 
+#10 4.474 Found ninja-1.12.1 at /usr/bin/ninja
+#10 4.597 ninja: Entering directory `/usr/src/vips-8.16.1/build'
+#10 4.617 [1/424] Generating glib marshaller header libvips/iofuncs/vipsmarshal_h
+#10 4.624 [2/424] Compiling C object fuzz/libstandalone_engine.a.p/StandaloneFuzzTargetMain.c.o
+#10 4.630 [3/424] Linking static target fuzz/libstandalone_engine.a
+#10 4.636 [4/424] Generating glib marshaller source libvips/iofuncs/vipsmarshal_c
+#10 4.653 [5/424] Generating GObject enum file libvips/include/vips/enumtypes.h (wrapped by meson to capture output)
+#10 4.717 [6/424] Compiling C object libvips/foreign/libnsgif/libnsgif.a.p/lzw.c.o
+#10 4.724 [7/424] Generating GObject enum file libvips/include/vips/enumtypes.c (wrapped by meson to capture output)
+#10 4.793 [8/424] Compiling C object libvips/foreign/libnsgif/libnsgif.a.p/gif.c.o
+#10 4.842 [9/424] Compiling C object libvips/foreign/libforeign.a.p/fits.c.o
+#10 4.870 [10/424] Compiling C object libvips/foreign/libforeign.a.p/analyzeload.c.o
+#10 4.880 [11/424] Compiling C object libvips/foreign/libforeign.a.p/archive.c.o
+#10 4.883 [12/424] Compiling C object libvips/foreign/libforeign.a.p/cairo.c.o
+#10 4.906 [13/424] Compiling C object libvips/foreign/libforeign.a.p/dzsave.c.o
+#10 4.940 [14/424] Compiling C object libvips/foreign/libforeign.a.p/csvload.c.o
+#10 4.940 [15/424] Compiling C object libvips/foreign/libforeign.a.p/fitsload.c.o
+#10 4.941 [16/424] Compiling C object libvips/foreign/libforeign.a.p/csvsave.c.o
+#10 4.947 [17/424] Compiling C object libvips/foreign/libforeign.a.p/analyze2vips.c.o
+#10 5.016 [18/424] Compiling C object libvips/foreign/libforeign.a.p/jp2ksave.c.o
+#10 5.017 [19/424] Compiling C object libvips/foreign/libforeign.a.p/jp2kload.c.o
+#10 5.037 [20/424] Compiling C object libvips/foreign/libforeign.a.p/cgifsave.c.o
+#10 5.049 [21/424] Compiling C object libvips/foreign/libforeign.a.p/exif.c.o
+#10 5.058 [22/424] Compiling C object libvips/foreign/libforeign.a.p/fitssave.c.o
+#10 5.059 [23/424] Compiling C object libvips/foreign/libforeign.a.p/matlab.c.o
+#10 5.077 [24/424] Compiling C object libvips/foreign/libforeign.a.p/magickload.c.o
+#10 5.102 [25/424] Compiling C object libvips/foreign/libforeign.a.p/magicksave.c.o
+#10 5.124 [26/424] Compiling C object libvips/foreign/libforeign.a.p/jpeg2vips.c.o
+#10 5.144 [27/424] Compiling C object libvips/foreign/libforeign.a.p/matload.c.o
+#10 5.163 [28/424] Compiling C object libvips/foreign/libforeign.a.p/openexr2vips.c.o
+#10 5.215 [29/424] Compiling C object libvips/foreign/libforeign.a.p/niftisave.c.o
+#10 5.252 [30/424] Compiling C object libvips/foreign/libforeign.a.p/matrixload.c.o
+#10 5.255 [31/424] Compiling C object libvips/foreign/libforeign.a.p/openexrload.c.o
+#10 5.255 [32/424] Compiling C object libvips/foreign/libforeign.a.p/jpegload.c.o
+#10 5.257 [33/424] Compiling C object libvips/foreign/libforeign.a.p/niftiload.c.o
+#10 5.275 [34/424] Compiling C object libvips/foreign/libforeign.a.p/jpegsave.c.o
+#10 5.296 [35/424] Compiling C object libvips/foreign/libforeign.a.p/pdf.c.o
+#10 5.297 [36/424] Compiling C object libvips/foreign/libforeign.a.p/nsgifload.c.o
+#10 5.322 [37/424] Compiling C object libvips/foreign/libforeign.a.p/pdfiumload.c.o
+#10 5.355 [38/424] Compiling C object libvips/foreign/libforeign.a.p/matrixsave.c.o
+#10 5.380 [39/424] Compiling C object libvips/foreign/libforeign.a.p/foreign.c.o
+#10 5.385 [40/424] Compiling C object libvips/foreign/libforeign.a.p/pngload.c.o
+#10 5.392 [41/424] Compiling C object libvips/foreign/libforeign.a.p/pngsave.c.o
+#10 5.402 [42/424] Compiling C object libvips/foreign/libforeign.a.p/quantise.c.o
+#10 5.462 [43/424] Compiling C object libvips/foreign/libforeign.a.p/radload.c.o
+#10 5.521 [44/424] Compiling C object libvips/foreign/libforeign.a.p/svgload.c.o
+#10 5.534 [45/424] Compiling C object libvips/foreign/libforeign.a.p/rawsave.c.o
+#10 5.646 [46/424] Compiling C object libvips/foreign/libforeign.a.p/rawload.c.o
+#10 5.649 [47/424] Compiling C object libvips/foreign/libforeign.a.p/radsave.c.o
+#10 5.653 [48/424] Compiling C object libvips/foreign/libforeign.a.p/tiff.c.o
+#10 5.685 [49/424] Compiling C object libvips/foreign/libforeign.a.p/ppmload.c.o
+#10 5.690 [50/424] Compiling C object libvips/foreign/libforeign.a.p/spngload.c.o
+#10 5.691 [51/424] Compiling C object libvips/foreign/libforeign.a.p/ppmsave.c.o
+#10 5.709 [52/424] Compiling C object libvips/foreign/libforeign.a.p/tiffload.c.o
+#10 5.726 [53/424] Compiling C object libvips/foreign/libforeign.a.p/radiance.c.o
+#10 5.809 [54/424] Compiling C object libvips/foreign/libforeign.a.p/spngsave.c.o
+#10 5.855 [55/424] Compiling C object libvips/foreign/libforeign.a.p/vips2jpeg.c.o
+#10 5.861 [56/424] Compiling C object libvips/foreign/libforeign.a.p/vipspng.c.o
+#10 5.908 [57/424] Compiling C object libvips/foreign/libforeign.a.p/magick2vips.c.o
+#10 5.927 [58/424] Compiling C object libvips/foreign/libforeign.a.p/webp2vips.c.o
+#10 5.948 [59/424] Compiling C object libvips/foreign/libforeign.a.p/tiffsave.c.o
+#10 5.963 [60/424] Compiling C object libvips/foreign/libforeign.a.p/vipsload.c.o
+#10 5.969 [61/424] Compiling C object libvips/foreign/libforeign.a.p/vipssave.c.o
+#10 6.008 [62/424] Compiling C object libvips/foreign/libforeign.a.p/webpload.c.o
+#10 6.011 [63/424] Compiling C object libvips/foreign/libforeign.a.p/magick.c.o
+#10 6.012 [64/424] Compiling C object libvips/foreign/libforeign.a.p/magick7load.c.o
+#10 6.012 [65/424] Compiling C object libvips/foreign/libforeign.a.p/jxlsave.c.o
+#10 6.022 [66/424] Compiling C object libvips/foreign/libforeign.a.p/tiff2vips.c.o
+#10 6.052 [67/424] Compiling C object libvips/foreign/libforeign.a.p/vips2tiff.c.o
+#10 6.061 [68/424] Compiling C object libvips/foreign/libforeign.a.p/magick6load.c.o
+#10 6.071 [69/424] Compiling C object libvips/foreign/libforeign.a.p/vips2magick.c.o
+#10 6.076 [70/424] Compiling C object libvips/foreign/libforeign.a.p/webpsave.c.o
+#10 6.096 [71/424] Compiling C object libvips/foreign/libforeign.a.p/openslideload.c.o
+#10 6.101 [72/424] Compiling C object libvips/foreign/libforeign.a.p/jxlload.c.o
+#10 6.166 [73/424] Compiling C object libvips/arithmetic/libarithmetic.a.p/add.c.o
+#10 6.185 [74/424] Compiling C object libvips/foreign/libforeign.a.p/popplerload.c.o
+#10 6.226 [75/424] Compiling C object libvips/arithmetic/libarithmetic.a.p/avg.c.o
+#10 6.232 [76/424] Compiling C object libvips/arithmetic/libarithmetic.a.p/abs.c.o
+#10 6.266 [77/424] Compiling C object libvips/arithmetic/libarithmetic.a.p/clamp.c.o
+#10 6.284 [78/424] Compiling C object libvips/arithmetic/libarithmetic.a.p/arithmetic.c.o
+#10 6.288 [79/424] Compiling C object libvips/arithmetic/libarithmetic.a.p/binary.c.o
+#10 6.295 [80/424] Compiling C object libvips/foreign/libforeign.a.p/heifload.c.o
+#10 6.366 [81/424] Compiling C object libvips/arithmetic/libarithmetic.a.p/deviate.c.o
+#10 6.384 [82/424] Compiling C object libvips/arithmetic/libarithmetic.a.p/find_trim.c.o
+#10 6.401 [83/424] Compiling C object libvips/arithmetic/libarithmetic.a.p/divide.c.o
+#10 6.411 [84/424] Compiling C object libvips/foreign/libforeign.a.p/heifsave.c.o
+#10 6.449 [85/424] Compiling C object libvips/arithmetic/libarithmetic.a.p/getpoint.c.o
+#10 6.488 [86/424] Compiling C object libvips/arithmetic/libarithmetic.a.p/hist_find_ndim.c.o
+#10 6.495 [87/424] Compiling C object libvips/arithmetic/libarithmetic.a.p/boolean.c.o
+#10 6.507 [88/424] Compiling C object libvips/arithmetic/libarithmetic.a.p/hough.c.o
+#10 6.521 [89/424] Compiling C object libvips/arithmetic/libarithmetic.a.p/complex.c.o
+#10 6.549 [90/424] Compiling C object libvips/arithmetic/libarithmetic.a.p/hough_circle.c.o
+#10 6.585 [91/424] Compiling C object libvips/arithmetic/libarithmetic.a.p/hough_line.c.o
+#10 6.604 [92/424] Compiling C object libvips/arithmetic/libarithmetic.a.p/hist_find_indexed.c.o
+#10 6.656 [93/424] Compiling C object libvips/arithmetic/libarithmetic.a.p/invert.c.o
+#10 6.672 [94/424] Compiling C object libvips/arithmetic/libarithmetic.a.p/maxpair.c.o
+#10 6.703 [95/424] Compiling C object libvips/arithmetic/libarithmetic.a.p/measure.c.o
+#10 6.709 [96/424] Compiling C object libvips/arithmetic/libarithmetic.a.p/linear.c.o
+#10 6.713 [97/424] Compiling C object libvips/arithmetic/libarithmetic.a.p/max.c.o
+#10 6.778 [98/424] Compiling C object libvips/arithmetic/libarithmetic.a.p/minpair.c.o
+#10 6.782 [99/424] Compiling C object libvips/arithmetic/libarithmetic.a.p/min.c.o
+#10 6.802 [100/424] Compiling C object libvips/arithmetic/libarithmetic.a.p/nary.c.o
+#10 6.849 [101/424] Compiling C object libvips/arithmetic/libarithmetic.a.p/multiply.c.o
+#10 6.886 [102/424] Compiling C object libvips/arithmetic/libarithmetic.a.p/project.c.o
+#10 6.897 [103/424] Compiling C object libvips/arithmetic/libarithmetic.a.p/hist_find.c.o
+#10 6.948 [104/424] Compiling C object libvips/arithmetic/libarithmetic.a.p/sign.c.o
+#10 6.977 [105/424] Compiling C object libvips/arithmetic/libarithmetic.a.p/statistic.c.o
+#10 6.979 [106/424] Compiling C object libvips/arithmetic/libarithmetic.a.p/remainder.c.o
+#10 7.013 [107/424] Compiling C object libvips/arithmetic/libarithmetic.a.p/profile.c.o
+#10 7.014 [108/424] Compiling C object libvips/arithmetic/libarithmetic.a.p/round.c.o
+#10 7.026 [109/424] Compiling C object libvips/arithmetic/libarithmetic.a.p/math2.c.o
+#10 7.042 [110/424] Compiling C object libvips/arithmetic/libarithmetic.a.p/math.c.o
+#10 7.044 [111/424] Compiling C object libvips/arithmetic/libarithmetic.a.p/subtract.c.o
+#10 7.081 [112/424] Compiling C object libvips/arithmetic/libarithmetic.a.p/unary.c.o
+#10 7.104 [113/424] Compiling C object libvips/arithmetic/libarithmetic.a.p/stats.c.o
+#10 7.148 [114/424] Compiling C object libvips/arithmetic/libarithmetic.a.p/sum.c.o
+#10 7.160 [115/424] Compiling C object libvips/resample/libresample.a.p/resample.c.o
+#10 7.172 [116/424] Compiling C object libvips/resample/libresample.a.p/quadratic.c.o
+#10 7.186 [117/424] Compiling C object libvips/arithmetic/libarithmetic.a.p/unaryconst.c.o
+#10 7.215 [118/424] Compiling C object libvips/resample/libresample.a.p/similarity.c.o
+#10 7.232 [119/424] Compiling C object libvips/resample/libresample.a.p/resize.c.o
+#10 7.264 [120/424] Compiling C object libvips/resample/libresample.a.p/shrink.c.o
+#10 7.299 [121/424] Compiling C object libvips/resample/libresample.a.p/affine.c.o
+#10 7.339 [122/424] Compiling C object libvips/resample/libresample.a.p/mapim.c.o
+#10 7.364 [123/424] Compiling C object libvips/resample/libresample.a.p/reduce.c.o
+#10 7.438 [124/424] Compiling C object libvips/resample/libresample.a.p/thumbnail.c.o
+#10 7.459 [125/424] Compiling C object libvips/resample/libresample.a.p/shrinkv.c.o
+#10 7.491 [126/424] Compiling C object libvips/resample/libresample.a.p/transform.c.o
+#10 ...
+
+#9 [ffmpeg 1/1] RUN apt-get source -qq ffmpeg=7:7.1.5-0+deb13u1 &&     upstream=7.1.5-0+deb13u1 && upstream=${upstream%-*} && revision=0+deb13u1 &&     echo "9ed2ed34cbe7f056eeebbe9045c5e2d15e41b5b053fe7c8ba6979a0b6fb081ce  ffmpeg_7.1.5-0+deb13u1.dsc" | sha256sum -c - &&     cd ffmpeg-${upstream} &&     ./configure --prefix=/opt/ffmpeg --extra-version="${revision}" --toolchain=hardened       --enable-shared --disable-static --disable-doc --disable-ffplay --disable-avdevice       --disable-autodetect --disable-network --disable-hwaccels --disable-devices       --enable-libdav1d --enable-zlib --enable-bzlib --enable-lzma       --disable-encoders --enable-encoder=mjpeg       --disable-muxers --enable-muxer=image2       --disable-protocols --enable-protocol=file,pipe       --disable-filters       --enable-filter=buffer,buffersink,abuffer,abuffersink,format,aformat,null,anull,scale,aresample       --enable-filter=select,loop,trim,transpose,hflip,vflip,rotate,crop &&     make -j"$(nproc)" &&     make install &&     strip --strip-unneeded /opt/ffmpeg/lib/*.so.* /opt/ffmpeg/bin/*
+#9 7.532 install prefix            /opt/ffmpeg
+#9 7.532 source path               .
+#9 7.532 C compiler                gcc
+#9 7.532 C library                 glibc
+#9 7.532 ARCH                      aarch64 (generic)
+#9 7.533 version string suffix     0+deb13u1
+#9 7.533 big-endian                no
+#9 7.533 runtime cpu detection     yes
+#9 7.533 NEON enabled              yes
+#9 7.533 DOTPROD enabled           yes
+#9 7.533 I8MM enabled              yes
+#9 7.533 debug symbols             yes
+#9 7.533 strip symbols             yes
+#9 7.533 optimize for size         no
+#9 7.533 optimizations             yes
+#9 7.533 static                    no
+#9 7.533 shared                    yes
+#9 7.534 postprocessing support    no
+#9 7.534 network support           no
+#9 7.534 threading support         pthreads
+#9 7.534 safe bitstream reader     yes
+#9 7.534 texi2html enabled         no
+#9 7.534 perl enabled              yes
+#9 7.534 pod2man enabled           yes
+#9 7.534 makeinfo enabled          no
+#9 7.534 makeinfo supports HTML    no
+#9 7.534 xmllint enabled           no
+#9 7.534 
+#9 7.534 External libraries:
+#9 7.538 bzlib                   libdav1d                zlib
+#9 7.538 iconv                   lzma
+#9 7.538 
+#9 7.539 External libraries providing hardware acceleration:
+#9 7.544 
+#9 7.544 Libraries:
+#9 7.547 avcodec                 avformat                swresample
+#9 7.547 avfilter                avutil                  swscale
+#9 7.550 
+#9 7.550 Programs:
+#9 7.553 ffmpeg                  ffprobe
+#9 7.553 
+#9 7.553 Enabled decoders:
+#9 7.562 aac                     flac                    pgx
+#9 7.562 aac_fixed               flashsv                 phm
+#9 7.562 aac_latm                flashsv2                photocd
+#9 7.562 aasc                    flic                    pictor
+#9 7.562 ac3                     flv                     pixlet
+#9 7.562 ac3_fixed               fmvc                    pjs
+#9 7.562 acelp_kelvin            fourxm                  png
+#9 7.562 adpcm_4xm               fraps                   ppm
+#9 7.562 adpcm_adx               frwu                    prores
+#9 7.562 adpcm_afc               ftr                     prosumer
+#9 7.562 adpcm_agm               g2m                     psd
+#9 7.562 adpcm_aica              g723_1                  ptx
+#9 7.562 adpcm_argo              g729                    qcelp
+#9 7.562 adpcm_ct                gdv                     qdm2
+#9 7.562 adpcm_dtk               gem                     qdmc
+#9 7.562 adpcm_ea                gif                     qdraw
+#9 7.562 adpcm_ea_maxis_xa       gremlin_dpcm            qoa
+#9 7.562 adpcm_ea_r1             gsm                     qoi
+#9 7.562 adpcm_ea_r2             gsm_ms                  qpeg
+#9 7.562 adpcm_ea_r3             h261                    qtrle
+#9 7.562 adpcm_ea_xas            h263                    r10k
+#9 7.562 adpcm_g722              h263i                   r210
+#9 7.562 adpcm_g726              h263p                   ra_144
+#9 7.562 adpcm_g726le            h264                    ra_288
+#9 7.562 adpcm_ima_acorn         hap                     ralf
+#9 7.562 adpcm_ima_alp           hca                     rasc
+#9 7.562 adpcm_ima_amv           hcom                    rawvideo
+#9 7.562 adpcm_ima_apc           hdr                     realtext
+#9 7.562 adpcm_ima_apm           hevc                    rka
+#9 7.562 adpcm_ima_cunning       hnm4_video              rl2
+#9 7.562 adpcm_ima_dat4          hq_hqa                  roq
+#9 7.562 adpcm_ima_dk3           hqx                     roq_dpcm
+#9 7.562 adpcm_ima_dk4           huffyuv                 rpza
+#9 7.562 adpcm_ima_ea_eacs       hymt                    rscc
+#9 7.562 adpcm_ima_ea_sead       iac                     rtv1
+#9 7.562 adpcm_ima_iss           idcin                   rv10
+#9 7.562 adpcm_ima_moflex        idf                     rv20
+#9 7.562 adpcm_ima_mtf           iff_ilbm                rv30
+#9 7.562 adpcm_ima_oki           ilbc                    rv40
+#9 7.562 adpcm_ima_qt            imc                     s302m
+#9 7.562 adpcm_ima_rad           imm4                    sami
+#9 7.562 adpcm_ima_smjpeg        imm5                    sanm
+#9 7.562 adpcm_ima_ssi           indeo2                  sbc
+#9 7.562 adpcm_ima_wav           indeo3                  scpr
+#9 7.562 adpcm_ima_ws            indeo4                  screenpresso
+#9 7.562 adpcm_ms                indeo5                  sdx2_dpcm
+#9 7.562 adpcm_mtaf              interplay_acm           sga
+#9 7.562 adpcm_psx               interplay_dpcm          sgi
+#9 7.562 adpcm_sbpro_2           interplay_video         sgirle
+#9 7.562 adpcm_sbpro_3           ipu                     sheervideo
+#9 7.562 adpcm_sbpro_4           jacosub                 shorten
+#9 7.562 adpcm_swf               jpeg2000                simbiosis_imx
+#9 7.562 adpcm_thp               jpegls                  sipr
+#9 7.562 adpcm_thp_le            jv                      siren
+#9 7.562 adpcm_vima              kgv1                    smackaud
+#9 7.562 adpcm_xa                kmvc                    smacker
+#9 7.562 adpcm_xmd               lagarith                smc
+#9 7.562 adpcm_yamaha            lead                    smvjpeg
+#9 7.562 adpcm_zork              libdav1d                snow
+#9 7.562 agm                     loco                    sol_dpcm
+#9 7.562 aic                     lscr                    sonic
+#9 7.562 alac                    m101                    sp5x
+#9 7.562 alias_pix               mace3                   speedhq
+#9 7.562 als                     mace6                   speex
+#9 7.562 amrnb                   magicyuv                srgc
+#9 7.562 amrwb                   mdec                    srt
+#9 7.562 amv                     media100                ssa
+#9 7.562 anm                     metasound               stl
+#9 7.562 ansi                    microdvd                subrip
+#9 7.562 anull                   mimic                   subviewer
+#9 7.562 apac                    misc4                   subviewer1
+#9 7.562 ape                     mjpeg                   sunrast
+#9 7.562 apng                    mjpegb                  svq1
+#9 7.562 aptx                    mlp                     svq3
+#9 7.562 aptx_hd                 mmvideo                 tak
+#9 7.562 arbc                    mobiclip                targa
+#9 7.564 argo                    motionpixels            targa_y216
+#9 7.564 ass                     movtext                 tdsc
+#9 7.564 asv1                    mp1                     text
+#9 7.564 asv2                    mp1float                theora
+#9 7.564 atrac1                  mp2                     thp
+#9 7.564 atrac3                  mp2float                tiertexseqvideo
+#9 7.564 atrac3al                mp3                     tiff
+#9 7.564 atrac3p                 mp3adu                  tmv
+#9 7.564 atrac3pal               mp3adufloat             truehd
+#9 7.564 atrac9                  mp3float                truemotion1
+#9 7.564 aura                    mp3on4                  truemotion2
+#9 7.564 aura2                   mp3on4float             truemotion2rt
+#9 7.564 av1                     mpc7                    truespeech
+#9 7.564 avrn                    mpc8                    tscc
+#9 7.564 avrp                    mpeg1video              tscc2
+#9 7.564 avs                     mpeg2video              tta
+#9 7.564 avui                    mpeg4                   twinvq
+#9 7.564 bethsoftvid             mpegvideo               txd
+#9 7.564 bfi                     mpl2                    ulti
+#9 7.564 bink                    msa1                    utvideo
+#9 7.564 binkaudio_dct           mscc                    v210
+#9 7.564 binkaudio_rdft          msmpeg4v1               v210x
+#9 7.564 bintext                 msmpeg4v2               v308
+#9 7.564 bitpacked               msmpeg4v3               v408
+#9 7.564 bmp                     msnsiren                v410
+#9 7.564 bmv_audio               msp2                    vb
+#9 7.564 bmv_video               msrle                   vble
+#9 7.564 bonk                    mss1                    vbn
+#9 7.564 brender_pix             mss2                    vc1
+#9 7.564 c93                     msvideo1                vc1image
+#9 7.564 cavs                    mszh                    vcr1
+#9 7.564 cbd2_dpcm               mts2                    vmdaudio
+#9 7.564 ccaption                mv30                    vmdvideo
+#9 7.564 cdgraphics              mvc1                    vmix
+#9 7.564 cdtoons                 mvc2                    vmnc
+#9 7.564 cdxl                    mvdv                    vnull
+#9 7.564 cfhd                    mvha                    vorbis
+#9 7.564 cinepak                 mwsc                    vp3
+#9 7.564 clearvideo              mxpeg                   vp4
+#9 7.564 cljr                    nellymoser              vp5
+#9 7.564 cllc                    notchlc                 vp6
+#9 7.564 comfortnoise            nuv                     vp6a
+#9 7.564 cook                    on2avc                  vp6f
+#9 7.564 cpia                    opus                    vp7
+#9 7.564 cri                     osq                     vp8
+#9 7.564 cscd                    paf_audio               vp9
+#9 7.564 cyuv                    paf_video               vplayer
+#9 7.564 dca                     pam                     vqa
+#9 7.564 dds                     pbm                     vqc
+#9 7.564 derf_dpcm               pcm_alaw                vvc
+#9 7.564 dfa                     pcm_bluray              wady_dpcm
+#9 7.564 dfpwm                   pcm_dvd                 wavarc
+#9 7.564 dirac                   pcm_f16le               wavpack
+#9 7.564 dnxhd                   pcm_f24le               wbmp
+#9 7.564 dolby_e                 pcm_f32be               wcmv
+#9 7.564 dpx                     pcm_f32le               webp
+#9 7.564 dsd_lsbf                pcm_f64be               webvtt
+#9 7.564 dsd_lsbf_planar         pcm_f64le               wmalossless
+#9 7.564 dsd_msbf                pcm_lxf                 wmapro
+#9 7.564 dsd_msbf_planar         pcm_mulaw               wmav1
+#9 7.564 dsicinaudio             pcm_s16be               wmav2
+#9 7.564 dsicinvideo             pcm_s16be_planar        wmavoice
+#9 7.564 dss_sp                  pcm_s16le               wmv1
+#9 7.564 dst                     pcm_s16le_planar        wmv2
+#9 7.564 dvaudio                 pcm_s24be               wmv3
+#9 7.564 dvbsub                  pcm_s24daud             wmv3image
+#9 7.564 dvdsub                  pcm_s24le               wnv1
+#9 7.564 dvvideo                 pcm_s24le_planar        wrapped_avframe
+#9 7.564 dxa                     pcm_s32be               ws_snd1
+#9 7.564 dxtory                  pcm_s32le               xan_dpcm
+#9 7.564 dxv                     pcm_s32le_planar        xan_wc3
+#9 7.564 eac3                    pcm_s64be               xan_wc4
+#9 7.564 eacmv                   pcm_s64le               xbin
+#9 7.564 eamad                   pcm_s8                  xbm
+#9 7.564 eatgq                   pcm_s8_planar           xface
+#9 7.564 eatgv                   pcm_sga                 xl
+#9 7.564 eatqi                   pcm_u16be               xma1
+#9 7.564 eightbps                pcm_u16le               xma2
+#9 7.564 eightsvx_exp            pcm_u24be               xpm
+#9 7.564 eightsvx_fib            pcm_u24le               xsub
+#9 7.564 escape124               pcm_u32be               xwd
+#9 7.564 escape130               pcm_u32le               y41p
+#9 7.564 evrc                    pcm_u8                  ylc
+#9 7.564 exr                     pcm_vidc                yop
+#9 7.564 fastaudio               pcx                     yuv4
+#9 7.564 ffv1                    pdv                     zero12v
+#9 7.564 ffvhuff                 pfm                     zerocodec
+#9 7.564 ffwavesynth             pgm                     zlib
+#9 7.564 fic                     pgmyuv                  zmbv
+#9 7.564 fits                    pgssub
+#9 7.565 
+#9 7.565 Enabled encoders:
+#9 7.568 mjpeg
+#9 7.569 
+#9 7.569 Enabled hwaccels:
+#9 7.577 
+#9 7.577 Enabled parsers:
+#9 7.582 aac                     dvdsub                  mpegaudio
+#9 7.582 aac_latm                evc                     mpegvideo
+#9 7.582 ac3                     flac                    opus
+#9 7.582 adx                     ftr                     png
+#9 7.582 amr                     g723_1                  pnm
+#9 7.582 av1                     g729                    qoi
+#9 7.582 avs2                    gif                     rv34
+#9 7.582 avs3                    gsm                     sbc
+#9 7.582 bmp                     h261                    sipr
+#9 7.582 cavsvideo               h263                    tak
+#9 7.582 cook                    h264                    vc1
+#9 7.582 cri                     hdr                     vorbis
+#9 7.582 dca                     hevc                    vp3
+#9 7.582 dirac                   ipu                     vp8
+#9 7.582 dnxhd                   jpeg2000                vp9
+#9 7.582 dolby_e                 jpegxl                  vvc
+#9 7.582 dpx                     misc4                   webp
+#9 7.582 dvaudio                 mjpeg                   xbm
+#9 7.582 dvbsub                  mlp                     xma
+#9 7.582 dvd_nav                 mpeg4video              xwd
+#9 7.583 
+#9 7.583 Enabled demuxers:
+#9 7.592 aa                      idcin                   pcm_f64le
+#9 7.592 aac                     idf                     pcm_mulaw
+#9 7.592 aax                     iff                     pcm_s16be
+#9 7.592 ac3                     ifv                     pcm_s16le
+#9 7.592 ac4                     ilbc                    pcm_s24be
+#9 7.592 ace                     image2                  pcm_s24le
+#9 7.592 acm                     image2_alias_pix        pcm_s32be
+#9 7.592 act                     image2_brender_pix      pcm_s32le
+#9 7.592 adf                     image2pipe              pcm_s8
+#9 7.592 adp                     image_bmp_pipe          pcm_u16be
+#9 7.592 ads                     image_cri_pipe          pcm_u16le
+#9 7.592 adx                     image_dds_pipe          pcm_u24be
+#9 7.592 aea                     image_dpx_pipe          pcm_u24le
+#9 7.592 afc                     image_exr_pipe          pcm_u32be
+#9 7.592 aiff                    image_gem_pipe          pcm_u32le
+#9 7.592 aix                     image_gif_pipe          pcm_u8
+#9 7.592 alp                     image_hdr_pipe          pcm_vidc
+#9 7.592 amr                     image_j2k_pipe          pdv
+#9 7.592 amrnb                   image_jpeg_pipe         pjs
+#9 7.592 amrwb                   image_jpegls_pipe       pmp
+#9 7.592 anm                     image_jpegxl_pipe       pp_bnk
+#9 7.592 apac                    image_pam_pipe          pva
+#9 7.592 apc                     image_pbm_pipe          pvf
+#9 7.592 ape                     image_pcx_pipe          qcp
+#9 7.592 apm                     image_pfm_pipe          qoa
+#9 7.592 apng                    image_pgm_pipe          r3d
+#9 7.592 aptx                    image_pgmyuv_pipe       rawvideo
+#9 7.592 aptx_hd                 image_pgx_pipe          rcwt
+#9 7.592 aqtitle                 image_phm_pipe          realtext
+#9 7.592 argo_asf                image_photocd_pipe      redspark
+#9 7.592 argo_brp                image_pictor_pipe       rka
+#9 7.592 argo_cvg                image_png_pipe          rl2
+#9 7.592 asf                     image_ppm_pipe          rm
+#9 7.592 asf_o                   image_psd_pipe          roq
+#9 7.592 ass                     image_qdraw_pipe        rpl
+#9 7.592 ast                     image_qoi_pipe          rsd
+#9 7.592 au                      image_sgi_pipe          rso
+#9 7.592 av1                     image_sunrast_pipe      s337m
+#9 7.592 avi                     image_svg_pipe          sami
+#9 7.592 avr                     image_tiff_pipe         sbc
+#9 7.592 avs                     image_vbn_pipe          sbg
+#9 7.592 avs2                    image_webp_pipe         scc
+#9 7.592 avs3                    image_xbm_pipe          scd
+#9 7.592 bethsoftvid             image_xpm_pipe          sdns
+#9 7.592 bfi                     image_xwd_pipe          sdr2
+#9 7.592 bfstm                   ingenient               sds
+#9 7.592 bink                    ipmovie                 sdx
+#9 7.592 binka                   ipu                     segafilm
+#9 7.592 bintext                 ircam                   ser
+#9 7.592 bit                     iss                     sga
+#9 7.592 bitpacked               iv8                     shorten
+#9 7.592 bmv                     ivf                     siff
+#9 7.592 boa                     ivr                     simbiosis_imx
+#9 7.592 bonk                    jacosub                 sln
+#9 7.592 brstm                   jpegxl_anim             smacker
+#9 7.592 c93                     jv                      smjpeg
+#9 7.592 caf                     kux                     smush
+#9 7.592 cavsvideo               kvag                    sol
+#9 7.592 cdg                     laf                     sox
+#9 7.592 cdxl                    lc3                     spdif
+#9 7.592 cine                    live_flv                srt
+#9 7.592 codec2                  lmlm4                   stl
+#9 7.592 codec2raw               loas                    str
+#9 7.592 concat                  lrc                     subviewer
+#9 7.592 data                    luodat                  subviewer1
+#9 7.592 daud                    lvf                     sup
+#9 7.592 dcstr                   lxf                     svag
+#9 7.592 derf                    m4v                     svs
+#9 7.592 dfa                     matroska                swf
+#9 7.592 dfpwm                   mca                     tak
+#9 7.592 dhav                    mcc                     tedcaptions
+#9 7.592 dirac                   mgsts                   thp
+#9 7.592 dnxhd                   microdvd                threedostr
+#9 7.592 dsf                     mjpeg                   tiertexseq
+#9 7.592 dsicin                  mjpeg_2000              tmv
+#9 7.592 dss                     mlp                     truehd
+#9 7.592 dts                     mlv                     tta
+#9 7.592 dtshd                   mm                      tty
+#9 7.592 dv                      mmf                     txd
+#9 7.592 dvbsub                  mods                    ty
+#9 7.592 dvbtxt                  moflex                  usm
+#9 7.592 dxa                     mov                     v210
+#9 7.592 ea                      mp3                     v210x
+#9 7.592 ea_cdata                mpc                     vag
+#9 7.592 eac3                    mpc8                    vc1
+#9 7.592 epaf                    mpegps                  vc1t
+#9 7.592 evc                     mpegts                  vividas
+#9 7.592 ffmetadata              mpegtsraw               vivo
+#9 7.592 filmstrip               mpegvideo               vmd
+#9 7.592 fits                    mpjpeg                  vobsub
+#9 7.592 flac                    mpl2                    voc
+#9 7.592 flic                    mpsub                   vpk
+#9 7.592 flv                     msf                     vplayer
+#9 7.592 fourxm                  msnwc_tcp               vqf
+#9 7.592 frm                     msp                     vvc
+#9 7.592 fsb                     mtaf                    w64
+#9 7.592 fwse                    mtv                     wady
+#9 7.592 g722                    musx                    wav
+#9 7.592 g723_1                  mv                      wavarc
+#9 7.592 g726                    mvi                     wc3
+#9 7.592 g726le                  mxf                     webm_dash_manifest
+#9 7.592 g729                    mxg                     webvtt
+#9 7.592 gdv                     nc                      wsaud
+#9 7.592 genh                    nistsphere              wsd
+#9 7.592 gif                     nsp                     wsvqa
+#9 7.592 gsm                     nsv                     wtv
+#9 7.592 gxf                     nut                     wv
+#9 7.592 h261                    nuv                     wve
+#9 7.592 h263                    obu                     xa
+#9 7.592 h264                    ogg                     xbin
+#9 7.592 hca                     oma                     xmd
+#9 7.592 hcom                    osq                     xmv
+#9 7.592 hevc                    paf                     xvag
+#9 7.592 hls                     pcm_alaw                xwma
+#9 7.592 hnm                     pcm_f32be               yop
+#9 7.592 iamf                    pcm_f32le               yuv4mpegpipe
+#9 7.592 ico                     pcm_f64be
+#9 7.593 
+#9 7.593 Enabled muxers:
+#9 7.599 image2
+#9 7.600 
+#9 7.600 Enabled protocols:
+#9 7.604 file                    pipe
+#9 7.604 
+#9 7.604 Enabled filters:
+#9 7.620 aformat                 format                  scale
+#9 7.620 anull                   hflip                   select
+#9 7.620 aresample               loop                    transpose
+#9 7.620 atrim                   null                    trim
+#9 7.620 crop                    rotate                  vflip
+#9 7.620 
+#9 7.620 Enabled bsfs:
+#9 7.623 aac_adtstoasc           h264_mp4toannexb        pcm_rechunk
+#9 7.623 av1_frame_merge         h264_redundant_pps      pgs_frame_merge
+#9 7.623 av1_frame_split         hapqa_extract           prores_metadata
+#9 7.623 av1_metadata            hevc_metadata           remove_extradata
+#9 7.623 chomp                   hevc_mp4toannexb        setts
+#9 7.623 dca_core                imx_dump_header         showinfo
+#9 7.623 dovi_rpu                media100_to_mjpegb      text2movsub
+#9 7.623 dts2pts                 mjpeg2jpeg              trace_headers
+#9 7.623 dump_extradata          mjpega_dump_header      truehd_core
+#9 7.623 dv_error_marker         mov2textsub             vp9_metadata
+#9 7.623 eac3_core               mpeg2_metadata          vp9_raw_reorder
+#9 7.623 evc_frame_merge         mpeg4_unpack_bframes    vp9_superframe
+#9 7.623 extract_extradata       noise                   vp9_superframe_split
+#9 7.623 filter_units            null                    vvc_metadata
+#9 7.623 h264_metadata           opus_metadata           vvc_mp4toannexb
+#9 7.626 
+#9 7.626 Enabled indevs:
+#9 7.634 
+#9 7.634 Enabled outdevs:
+#9 7.639 
+#9 7.640 License: LGPL version 2.1 or later
+#9 7.889 GEN	libavfilter/libavfilter.version
+#9 7.895 GEN	libavformat/libavformat.version
+#9 7.899 GEN	libavcodec/libavcodec.version
+#9 7.902 GEN	libswresample/libswresample.version
+#9 7.903 GEN	libswscale/libswscale.version
+#9 7.908 GEN	libavutil/libavutil.version
+#9 8.022 CC	libavfilter/af_aformat.o
+#9 8.023 CC	libavfilter/af_anull.o
+#9 8.027 CC	libavfilter/af_aresample.o
+#9 8.031 CC	libavfilter/allfilters.o
+#9 8.032 CC	libavfilter/audio.o
+#9 8.033 CC	libavfilter/avfilter.o
+#9 8.036 CC	libavfilter/avfiltergraph.o
+#9 8.040 CC	libavfilter/buffersink.o
+#9 8.083 CC	libavfilter/buffersrc.o
+#9 8.085 CC	libavfilter/ccfifo.o
+#9 8.110 CC	libavfilter/colorspace.o
+#9 8.148 CC	libavfilter/drawutils.o
+#9 8.213 CC	libavfilter/f_loop.o
+#9 8.219 CC	libavfilter/f_select.o
+#9 8.235 CC	libavfilter/formats.o
+#9 8.309 CC	libavfilter/framepool.o
+#9 8.335 CC	libavfilter/framequeue.o
+#9 8.361 CC	libavfilter/framesync.o
+#9 8.398 CC	libavfilter/graphdump.o
+#9 8.430 CC	libavfilter/graphparser.o
+#9 8.458 CC	libavfilter/pthread.o
+#9 8.565 CC	libavfilter/scale_eval.o
+#9 8.578 CC	libavfilter/scene_sad.o
+#9 8.579 CC	libavfilter/trim.o
+#9 8.649 CC	libavfilter/version.o
+#9 8.669 CC	libavfilter/vf_crop.o
+#9 8.741 CC	libavfilter/vf_format.o
+#9 8.795 CC	libavfilter/vf_hflip.o
+#9 8.817 CC	libavfilter/vf_null.o
+#9 8.820 CC	libavfilter/vf_rotate.o
+#9 8.856 CC	libavfilter/vf_scale.o
+#9 8.890 CC	libavfilter/vf_transpose.o
+#9 8.947 CC	libavfilter/vf_vflip.o
+#9 8.954 CC	libavfilter/video.o
+#9 8.959 CC	libavfilter/log2_tab.o
+#9 8.998 AS	libswscale/aarch64/hscale.o
+#9 9.022 AS	libswscale/aarch64/input.o
+#9 9.027 AS	libswscale/aarch64/output.o
+#9 9.028 AS	libswscale/aarch64/range_convert_neon.o
+#9 9.036 CC	libswscale/aarch64/rgb2rgb.o
+#9 9.043 AS	libswscale/aarch64/rgb2rgb_neon.o
+#9 9.047 CC	libswscale/aarch64/swscale.o
+#9 9.060 CC	libswscale/aarch64/swscale_unscaled.o
+#9 9.067 AS	libswscale/aarch64/swscale_unscaled_neon.o
+#9 9.085 AS	libswscale/aarch64/yuv2rgb_neon.o
+#9 9.118 CC	libswscale/alphablend.o
+#9 9.223 CC	libswscale/gamma.o
+#9 9.235 CC	libswscale/half2float.o
+#9 9.255 CC	libswscale/hscale.o
+#9 9.371 CC	libswscale/hscale_fast_bilinear.o
+#9 9.515 CC	libswscale/input.o
+#9 9.551 CC	libswscale/options.o
+#9 9.597 CC	libswscale/output.o
+#9 9.739 CC	libswscale/rgb2rgb.o
+#9 9.780 CC	libswscale/slice.o
+#9 9.811 CC	libswscale/swscale.o
+#9 9.934 CC	libswscale/swscale_unscaled.o
+#9 9.952 CC	libswscale/utils.o
+#9 10.06 CC	libswscale/version.o
+#9 10.11 CC	libswscale/vscale.o
+#9 10.39 libswscale/utils.c: In function 'sws_init_single_context':
+#9 10.39 CC	libswscale/yuv2rgb.o
+#9 10.39 libswscale/utils.c:1422:5: warning: ISO C90 forbids mixed declarations and code [-Wdeclaration-after-statement]
+#9 10.39  1422 |     int64_t lumXInc      = (((int64_t)srcW << 16) + (dstW >> 1)) / dstW;
+#9 10.39       |     ^~~~~~~
+#9 10.40 libswscale/utils.c:1594:5: warning: ISO C90 forbids mixed declarations and code [-Wdeclaration-after-statement]
+#9 10.40  1594 |     int64_t chrXInc = (((int64_t)c->chrSrcW << 16) + (c->chrDstW >> 1)) / c->chrDstW;
+#9 10.40       |     ^~~~~~~
+#9 10.40 libswscale/utils.c:1916:9: warning: ISO C90 forbids mixed declarations and code [-Wdeclaration-after-statement]
+#9 10.40  1916 |         int usecascade = (ret == RETCODE_USE_CASCADE);
+#9 10.40       |         ^~~
+#9 10.60 CC	libswscale/log2_tab.o
+#9 10.62 CC	libavutil/aarch64/cpu.o
+#9 10.66 CC	libavutil/aarch64/float_dsp_init.o
+#9 10.69 AS	libavutil/aarch64/float_dsp_neon.o
+#9 10.69 CC	libavutil/aarch64/tx_float_init.o
+#9 10.72 AS	libavutil/aarch64/tx_float_neon.o
+#9 10.74 CC	libavutil/adler32.o
+#9 10.80 CC	libavutil/aes.o
+#9 11.06 CC	libavutil/aes_ctr.o
+#9 11.10 CC	libavutil/ambient_viewing_environment.o
+#9 11.14 CC	libavutil/audio_fifo.o
+#9 11.26 CC	libavutil/avsscanf.o
+#9 11.27 CC	libavutil/avstring.o
+#9 11.34 CC	libavutil/base64.o
+#9 11.47 CC	libavutil/blowfish.o
+#9 11.71 CC	libavutil/bprint.o
+#9 11.76 CC	libavutil/buffer.o
+#9 11.92 CC	libavutil/camellia.o
+#9 11.92 CC	libavutil/cast5.o
+#9 11.94 CC	libavutil/channel_layout.o
+#9 11.95 CC	libavutil/cpu.o
+#9 12.02 CC	libavutil/crc.o
+#9 12.15 CC	libavutil/csp.o
+#9 12.22 CC	libavutil/des.o
+#9 12.24 CC	libavutil/detection_bbox.o
+#9 12.28 CC	libavutil/dict.o
+#9 12.37 CC	libavutil/display.o
+#9 12.42 CC	libavutil/dovi_meta.o
+#9 12.44 CC	libavutil/downmix_info.o
+#9 12.46 CC	libavutil/encryption_info.o
+#9 12.47 CC	libavutil/error.o
+#9 12.50 CC	libavutil/eval.o
+#9 12.50 CC	libavutil/executor.o
+#9 12.52 CC	libavutil/fifo.o
+#9 12.53 libavutil/eval.c: In function 'make_eval_expr':
+#9 12.54 libavutil/eval.c:546:5: warning: ISO C90 forbids mixed declarations and code [-Wdeclaration-after-statement]
+#9 12.54   546 |     AVExpr *e = av_mallocz(sizeof(AVExpr));
+#9 12.54       |     ^~~~~~
+#9 12.60 CC	libavutil/file.o
+#9 12.65 CC	libavutil/file_open.o
+#9 12.70 CC	libavutil/film_grain_params.o
+#9 12.72 CC	libavutil/fixed_dsp.o
+#9 12.79 CC	libavutil/float_dsp.o
+#9 12.80 CC	libavutil/frame.o
+#9 12.86 CC	libavutil/hash.o
+#9 12.88 CC	libavutil/hdr_dynamic_metadata.o
+#9 13.08 CC	libavutil/hdr_dynamic_vivid_metadata.o
+#9 13.14 CC	libavutil/hmac.o
+#9 13.15 CC	libavutil/hwcontext.o
+#9 13.17 CC	libavutil/hwcontext_stub.o
+#9 13.19 CC	libavutil/iamf.o
+#9 13.23 CC	libavutil/imgutils.o
+#9 13.34 CC	libavutil/integer.o
+#9 13.37 CC	libavutil/intmath.o
+#9 13.39 CC	libavutil/lfg.o
+#9 13.42 CC	libavutil/lls.o
+#9 13.44 CC	libavutil/log.o
+#9 13.56 CC	libavutil/log2_tab.o
+#9 13.59 CC	libavutil/lzo.o
+#9 13.76 CC	libavutil/mastering_display_metadata.o
+#9 13.82 CC	libavutil/mathematics.o
+#9 13.85 CC	libavutil/md5.o
+#9 13.99 CC	libavutil/mem.o
+#9 14.03 CC	libavutil/murmur3.o
+#9 14.06 CC	libavutil/opt.o
+#9 14.13 CC	libavutil/parseutils.o
+#9 14.18 CC	libavutil/pixdesc.o
+#9 14.29 CC	libavutil/pixelutils.o
+#9 14.31 CC	libavutil/random_seed.o
+#9 14.31 CC	libavutil/rational.o
+#9 14.44 CC	libavutil/rc4.o
+#9 14.50 CC	libavutil/reverse.o
+#9 14.51 CC	libavutil/ripemd.o
+#9 14.52 CC	libavutil/samplefmt.o
+#9 14.52 CC	libavutil/sha.o
+#9 14.71 CC	libavutil/sha512.o
+#9 14.77 CC	libavutil/slicethread.o
+#9 14.90 CC	libavutil/spherical.o
+#9 14.95 CC	libavutil/stereo3d.o
+#9 15.04 CC	libavutil/tea.o
+#9 15.15 CC	libavutil/threadmessage.o
+#9 15.23 CC	libavutil/time.o
+#9 15.24 CC	libavutil/timecode.o
+#9 15.30 CC	libavutil/timestamp.o
+#9 15.31 CC	libavutil/tree.o
+#9 15.38 CC	libavutil/twofish.o
+#9 15.41 CC	libavutil/tx_double.o
+#9 15.41 CC	libavutil/tx.o
+#9 15.45 CC	libavutil/tx_float.o
+#9 15.46 CC	libavutil/tx_int32.o
+#9 15.61 CC	libavutil/utils.o
+#9 15.68 CC	libavutil/uuid.o
+#9 15.73 CC	libavutil/version.o
+#9 15.76 CC	libavutil/video_enc_params.o
+#9 15.79 CC	libavutil/video_hint.o
+#9 15.83 CC	libavutil/xga_font_data.o
+#9 15.85 CC	libavutil/xtea.o
+#9 16.06 CC	libswresample/aarch64/audio_convert_init.o
+#9 16.11 AS	libswresample/aarch64/audio_convert_neon.o
+#9 16.12 AS	libswresample/aarch64/resample.o
+#9 16.13 CC	libswresample/aarch64/resample_init.o
+#9 16.14 CC	libswresample/audioconvert.o
+#9 16.16 CC	libswresample/dither.o
+#9 16.22 CC	libswresample/options.o
+#9 16.28 CC	libswresample/rematrix.o
+#9 16.28 CC	libswresample/resample.o
+#9 16.44 CC	libswresample/resample_dsp.o
+#9 16.64 CC	libswresample/swresample.o
+#9 16.70 CC	libswresample/swresample_frame.o
+#9 16.76 CC	libswresample/version.o
+#9 16.82 CC	libswresample/log2_tab.o
+#9 16.84 GEN	libavfilter/libavfilter.pc
+#9 16.89 CC	libavformat/3dostr.o
+#9 17.02 CC	libavformat/4xm.o
+#9 17.14 CC	libavformat/aacdec.o
+#9 17.15 CC	libavformat/aadec.o
+#9 17.16 CC	libavformat/aaxdec.o
+#9 17.29 CC	libavformat/ac3dec.o
+#9 17.39 CC	libavformat/ac4dec.o
+#9 17.41 CC	libavformat/acedec.o
+#9 17.47 CC	libavformat/acm.o
+#9 17.56 CC	libavformat/act.o
+#9 17.64 CC	libavformat/ads.o
+#9 17.65 CC	libavformat/adp.o
+#9 17.65 CC	libavformat/adxdec.o
+#9 ...
+
+#10 [vips 1/1] RUN apt-get source -qq vips=8.16.1-1+deb13u1 &&     echo "60205e00d061b9d8072938e04899f2ca2fdac0513068e561d33f7c87fae1ae2e  vips_8.16.1-1+deb13u1.dsc" | sha256sum -c - &&     cd vips-8.16.1 &&     eval "$(DEB_BUILD_MAINT_OPTIONS=hardening=+all dpkg-buildflags --export=sh)" &&     meson setup build --buildtype=plain --wrap-mode=nodownload --prefix=/opt/vips --libdir=lib       --auto-features=disabled -Dmodules=disabled -Dintrospection=disabled -Dcplusplus=false       -Ddeprecated=false -Dexamples=false       -Djpeg=enabled -Dspng=enabled -Dpng=enabled -Dwebp=enabled -Dtiff=enabled -Dheif=enabled       -Dexif=enabled -Dlcms=enabled -Dcgif=enabled -Dimagequant=enabled -Dhighway=enabled       -Dzlib=enabled &&     meson install -C build --strip
+#10 7.664 [127/424] Compiling C object libvips/resample/libresample.a.p/shrinkh.c.o
+#10 7.757 [128/424] Compiling C++ object libvips/resample/libresample.a.p/reduceh.cpp.o
+#10 7.773 [129/424] Compiling C++ object libvips/resample/libresample.a.p/reducev.cpp.o
+#10 7.774 [130/424] Compiling C++ object libvips/resample/libresample.a.p/bicubic.cpp.o
+#10 7.894 [131/424] Compiling C++ object libvips/resample/libresample.a.p/lbb.cpp.o
+#10 7.895 [132/424] Compiling C object libvips/arithmetic/libarithmetic.a.p/relational.c.o
+#10 7.963 [133/424] Compiling C object libvips/colour/libcolour.a.p/profile_load.c.o
+#10 7.979 [134/424] Compiling C++ object libvips/resample/libresample.a.p/nohalo.cpp.o
+#10 8.021 [135/424] Compiling C object libvips/colour/libcolour.a.p/CMYK2XYZ.c.o
+#10 8.077 [136/424] Compiling C object libvips/colour/libcolour.a.p/profiles.c.o
+#10 8.217 [137/424] Compiling C object libvips/colour/libcolour.a.p/XYZ2CMYK.c.o
+#10 8.226 [138/424] Compiling C object libvips/colour/libcolour.a.p/dE76.c.o
+#10 8.232 [139/424] Compiling C object libvips/colour/libcolour.a.p/colour.c.o
+#10 8.256 [140/424] Compiling C object libvips/colour/libcolour.a.p/colourspace.c.o
+#10 8.296 [141/424] Compiling C++ object libvips/resample/libresample.a.p/vsqbs.cpp.o
+#10 8.355 [142/424] Compiling C object libvips/colour/libcolour.a.p/dECMC.c.o
+#10 8.391 [143/424] Compiling C object libvips/colour/libcolour.a.p/dE00.c.o
+#10 8.408 [144/424] Compiling C object libvips/colour/libcolour.a.p/Lab2LCh.c.o
+#10 8.604 [145/424] Compiling C object libvips/resample/libresample.a.p/interpolate.c.o
+#10 8.607 [146/424] Compiling C object libvips/colour/libcolour.a.p/LCh2UCS.c.o
+#10 8.645 [147/424] Compiling C object libvips/colour/libcolour.a.p/Lab2XYZ.c.o
+#10 8.677 [148/424] Compiling C object libvips/colour/libcolour.a.p/LCh2Lab.c.o
+#10 8.704 [149/424] Compiling C object libvips/colour/libcolour.a.p/UCS2LCh.c.o
+#10 8.735 [150/424] Compiling C object libvips/colour/libcolour.a.p/icc_transform.c.o
+#10 8.750 [151/424] Compiling C object libvips/colour/libcolour.a.p/XYZ2Yxy.c.o
+#10 8.806 [152/424] Compiling C object libvips/colour/libcolour.a.p/XYZ2Lab.c.o
+#10 8.827 [153/424] Compiling C object libvips/colour/libcolour.a.p/Yxy2XYZ.c.o
+#10 8.855 [154/424] Compiling C object libvips/colour/libcolour.a.p/float2rad.c.o
+#10 8.948 [155/424] Compiling C object libvips/colour/libcolour.a.p/rad2float.c.o
+#10 9.014 [156/424] Compiling C object libvips/colour/libcolour.a.p/LabS2Lab.c.o
+#10 9.028 [157/424] Compiling C object libvips/colour/libcolour.a.p/Lab2LabQ.c.o
+#10 9.033 [158/424] Compiling C object libvips/colour/libcolour.a.p/LabQ2Lab.c.o
+#10 9.036 [159/424] Compiling C object libvips/colour/libcolour.a.p/LabQ2LabS.c.o
+#10 9.044 [160/424] Compiling C object libvips/colour/libcolour.a.p/Lab2LabS.c.o
+#10 9.096 [161/424] Compiling C object libvips/colour/libcolour.a.p/LabS2LabQ.c.o
+#10 9.235 [162/424] Compiling C object libvips/colour/libcolour.a.p/HSV2sRGB.c.o
+#10 9.253 [163/424] Compiling C object libvips/colour/libcolour.a.p/sRGB2HSV.c.o
+#10 9.276 [164/424] Compiling C object libvips/colour/libcolour.a.p/LabQ2sRGB.c.o
+#10 9.288 [165/424] Compiling C object libvips/colour/libcolour.a.p/sRGB2scRGB.c.o
+#10 9.313 [166/424] Compiling C object libvips/colour/libcolour.a.p/scRGB2BW.c.o
+#10 9.365 [167/424] Compiling C object libvips/colour/libcolour.a.p/scRGB2XYZ.c.o
+#10 9.383 [168/424] Compiling C object libvips/colour/libcolour.a.p/scRGB2sRGB.c.o
+#10 9.482 [169/424] Compiling C object libvips/conversion/libconversion.a.p/switch.c.o
+#10 9.548 [170/424] Compiling C object libvips/colour/libcolour.a.p/XYZ2scRGB.c.o
+#10 9.557 [171/424] Compiling C object libvips/conversion/libconversion.a.p/transpose3d.c.o
+#10 9.600 [172/424] Compiling C object libvips/conversion/libconversion.a.p/conversion.c.o
+#10 9.628 [173/424] Compiling C object libvips/conversion/libconversion.a.p/gamma.c.o
+#10 9.653 [174/424] Compiling C object libvips/conversion/libconversion.a.p/smartcrop.c.o
+#10 9.767 [175/424] Compiling C object libvips/conversion/libconversion.a.p/sequential.c.o
+#10 9.851 [176/424] Compiling C object libvips/conversion/libconversion.a.p/cache.c.o
+#10 9.925 [177/424] Compiling C object libvips/conversion/libconversion.a.p/tilecache.c.o
+#10 10.04 [178/424] Compiling C object libvips/conversion/libconversion.a.p/flatten.c.o
+#10 10.07 [179/424] Compiling C object libvips/conversion/libconversion.a.p/byteswap.c.o
+#10 10.17 [180/424] Compiling C object libvips/conversion/libconversion.a.p/copy.c.o
+#10 10.18 [181/424] Compiling C object libvips/conversion/libconversion.a.p/premultiply.c.o
+#10 10.33 [182/424] Compiling C object libvips/conversion/libconversion.a.p/flip.c.o
+#10 10.42 [183/424] Compiling C object libvips/conversion/libconversion.a.p/join.c.o
+#10 10.48 [184/424] Compiling C object libvips/conversion/libconversion.a.p/embed.c.o
+#10 10.53 [185/424] Compiling C object libvips/conversion/libconversion.a.p/unpremultiply.c.o
+#10 10.62 [186/424] Compiling C object libvips/conversion/libconversion.a.p/arrayjoin.c.o
+#10 10.64 [187/424] Compiling C object libvips/conversion/libconversion.a.p/replicate.c.o
+#10 10.69 [188/424] Compiling C object libvips/conversion/libconversion.a.p/insert.c.o
+#10 10.80 [189/424] Compiling C object libvips/conversion/libconversion.a.p/extract.c.o
+#10 10.81 [190/424] Compiling C object libvips/conversion/libconversion.a.p/bandjoin.c.o
+#10 10.98 [191/424] Compiling C object libvips/conversion/libconversion.a.p/bandmean.c.o
+#10 11.02 [192/424] Compiling C object libvips/conversion/libconversion.a.p/bandfold.c.o
+#10 11.11 [193/424] Compiling C object libvips/conversion/libconversion.a.p/bandbool.c.o
+#10 11.11 [194/424] Compiling C object libvips/conversion/libconversion.a.p/bandrank.c.o
+#10 11.14 [195/424] Compiling C object libvips/conversion/libconversion.a.p/recomb.c.o
+#10 11.18 [196/424] Compiling C object libvips/conversion/libconversion.a.p/bandunfold.c.o
+#10 11.29 [197/424] Compiling C object libvips/conversion/libconversion.a.p/autorot.c.o
+#10 11.41 [198/424] Compiling C object libvips/conversion/libconversion.a.p/bandary.c.o
+#10 11.41 [199/424] Compiling C object libvips/conversion/libconversion.a.p/rot45.c.o
+#10 11.43 [200/424] Compiling C object libvips/conversion/libconversion.a.p/falsecolour.c.o
+#10 11.53 [201/424] Compiling C object libvips/conversion/libconversion.a.p/rot.c.o
+#10 11.60 [202/424] Compiling C object libvips/conversion/libconversion.a.p/msb.c.o
+#10 11.63 [203/424] Compiling C object libvips/conversion/libconversion.a.p/ifthenelse.c.o
+#10 11.66 [204/424] Compiling C object libvips/conversion/libconversion.a.p/wrap.c.o
+#10 11.70 [205/424] Compiling C object libvips/conversion/libconversion.a.p/cast.c.o
+#10 11.70 [206/424] Compiling C object libvips/conversion/libconversion.a.p/grid.c.o
+#10 11.71 [207/424] Compiling C object libvips/conversion/libconversion.a.p/scale.c.o
+#10 11.82 [208/424] Compiling C object libvips/conversion/libconversion.a.p/subsample.c.o
+#10 11.85 [209/424] Compiling C object libvips/conversion/libconversion.a.p/addalpha.c.o
+#10 12.01 [210/424] Compiling C object libvips/convolution/libconvolution.a.p/convolution.c.o
+#10 12.05 [211/424] Compiling C object libvips/convolution/libconvolution.a.p/edge.c.o
+#10 12.09 [212/424] Compiling C object libvips/convolution/libconvolution.a.p/correlation.c.o
+#10 12.09 [213/424] Compiling C object libvips/conversion/libconversion.a.p/zoom.c.o
+#10 12.09 [214/424] Compiling C object libvips/convolution/libconvolution.a.p/conv.c.o
+#10 12.29 [215/424] Compiling C object libvips/convolution/libconvolution.a.p/canny.c.o
+#10 12.31 [216/424] Compiling C object libvips/convolution/libconvolution.a.p/convf.c.o
+#10 12.33 [217/424] Compiling C object libvips/convolution/libconvolution.a.p/convsep.c.o
+#10 12.42 [218/424] Compiling C++ object libvips/conversion/libconversion.a.p/composite.cpp.o
+#10 12.57 [219/424] Compiling C object libvips/convolution/libconvolution.a.p/convi.c.o
+#10 12.57 [220/424] Compiling C object libvips/convolution/libconvolution.a.p/compass.c.o
+#10 12.70 [221/424] Compiling C object libvips/convolution/libconvolution.a.p/spcor.c.o
+#10 12.72 [222/424] Compiling C object libvips/convolution/libconvolution.a.p/sharpen.c.o
+#10 12.73 [223/424] Compiling C object libvips/convolution/libconvolution.a.p/fastcor.c.o
+#10 12.78 [224/424] Compiling C object libvips/freqfilt/libfreqfilt.a.p/freqfilt.c.o
+#10 12.82 [225/424] Compiling C object libvips/convolution/libconvolution.a.p/gaussblur.c.o
+#10 12.92 [226/424] Compiling C object libvips/freqfilt/libfreqfilt.a.p/fwfft.c.o
+#10 12.97 [227/424] Compiling C object libvips/freqfilt/libfreqfilt.a.p/invfft.c.o
+#10 12.97 [228/424] Compiling C object libvips/freqfilt/libfreqfilt.a.p/freqmult.c.o
+#10 13.03 [229/424] Compiling C object libvips/freqfilt/libfreqfilt.a.p/phasecor.c.o
+#10 13.04 [230/424] Compiling C++ object libvips/resample/libresample.a.p/reduceh_hwy.cpp.o
+#10 13.08 [231/424] Compiling C object libvips/freqfilt/libfreqfilt.a.p/spectrum.c.o
+#10 13.19 [232/424] Compiling C object libvips/histogram/libhistogram.a.p/histogram.c.o
+#10 13.23 [233/424] Compiling C object libvips/convolution/libconvolution.a.p/conva.c.o
+#10 13.26 [234/424] Compiling C object libvips/histogram/libhistogram.a.p/case.c.o
+#10 13.27 [235/424] Compiling C object libvips/histogram/libhistogram.a.p/hist_unary.c.o
+#10 13.29 [236/424] Compiling C++ object libvips/resample/libresample.a.p/reducev_hwy.cpp.o
+#10 13.35 [237/424] Compiling C object libvips/histogram/libhistogram.a.p/hist_cum.c.o
+#10 13.36 [238/424] Compiling C object libvips/histogram/libhistogram.a.p/hist_norm.c.o
+#10 13.45 [239/424] Compiling C object libvips/histogram/libhistogram.a.p/hist_equal.c.o
+#10 13.53 [240/424] Compiling C object libvips/histogram/libhistogram.a.p/hist_match.c.o
+#10 13.59 [241/424] Compiling C object libvips/histogram/libhistogram.a.p/percent.c.o
+#10 13.59 [242/424] Compiling C object libvips/histogram/libhistogram.a.p/hist_plot.c.o
+#10 13.59 [243/424] Compiling C object libvips/histogram/libhistogram.a.p/hist_ismonotonic.c.o
+#10 13.60 [244/424] Compiling C object libvips/histogram/libhistogram.a.p/hist_local.c.o
+#10 13.61 [245/424] Compiling C object libvips/histogram/libhistogram.a.p/hist_entropy.c.o
+#10 13.63 [246/424] Compiling C object libvips/convolution/libconvolution.a.p/convasep.c.o
+#10 13.69 [247/424] Compiling C object libvips/histogram/libhistogram.a.p/stdif.c.o
+#10 13.75 [248/424] Compiling C object libvips/draw/libdraw.a.p/draw.c.o
+#10 13.88 [249/424] Compiling C object libvips/draw/libdraw.a.p/draw_rect.c.o
+#10 13.90 [250/424] Compiling C object libvips/draw/libdraw.a.p/drawink.c.o
+#10 13.94 [251/424] Compiling C object libvips/draw/libdraw.a.p/draw_circle.c.o
+#10 13.94 [252/424] Compiling C object libvips/draw/libdraw.a.p/draw_image.c.o
+#10 13.99 [253/424] Compiling C object libvips/iofuncs/libiofuncs.a.p/meson-generated_.._vipsmarshal.c.o
+#10 14.04 [254/424] Compiling C object libvips/draw/libdraw.a.p/draw_line.c.o
+#10 14.06 [255/424] Compiling C object libvips/draw/libdraw.a.p/draw_mask.c.o
+#10 14.07 [256/424] Compiling C object libvips/draw/libdraw.a.p/draw_flood.c.o
+#10 14.11 [257/424] Compiling C object libvips/iofuncs/libiofuncs.a.p/threadset.c.o
+#10 14.25 [258/424] Compiling C object libvips/draw/libdraw.a.p/draw_smudge.c.o
+#10 14.26 [259/424] Compiling C object libvips/iofuncs/libiofuncs.a.p/thread.c.o
+#10 14.31 [260/424] Compiling C object libvips/iofuncs/libiofuncs.a.p/sourceginput.c.o
+#10 14.32 [261/424] Compiling C object libvips/iofuncs/libiofuncs.a.p/ginputsource.c.o
+#10 14.32 [262/424] Compiling C object libvips/iofuncs/libiofuncs.a.p/threadpool.c.o
+#10 14.33 [263/424] Compiling C object libvips/iofuncs/libiofuncs.a.p/sourcecustom.c.o
+#10 14.35 [264/424] Compiling C object libvips/iofuncs/libiofuncs.a.p/connection.c.o
+#10 14.56 [265/424] Compiling C object libvips/iofuncs/libiofuncs.a.p/targetcustom.c.o
+#10 14.57 [266/424] Compiling C object libvips/iofuncs/libiofuncs.a.p/dbuf.c.o
+#10 14.59 [267/424] Compiling C object libvips/iofuncs/libiofuncs.a.p/reorder.c.o
+#10 14.60 [268/424] Compiling C object libvips/iofuncs/libiofuncs.a.p/target.c.o
+#10 14.61 [269/424] Compiling C object libvips/iofuncs/libiofuncs.a.p/sbuf.c.o
+#10 14.67 [270/424] Compiling C object libvips/iofuncs/libiofuncs.a.p/gate.c.o
+#10 14.73 [271/424] Compiling C object libvips/iofuncs/libiofuncs.a.p/source.c.o
+#10 14.88 [272/424] Compiling C object libvips/iofuncs/libiofuncs.a.p/generate.c.o
+#10 14.90 [273/424] Compiling C object libvips/iofuncs/libiofuncs.a.p/error.c.o
+#10 14.95 [274/424] Compiling C object libvips/iofuncs/libiofuncs.a.p/mapfile.c.o
+#10 15.00 [275/424] Compiling C object libvips/iofuncs/libiofuncs.a.p/type.c.o
+#10 15.13 [276/424] Compiling C object libvips/iofuncs/libiofuncs.a.p/sinkdisc.c.o
+#10 15.14 [277/424] Compiling C object libvips/iofuncs/libiofuncs.a.p/cache.c.o
+#10 15.16 [278/424] Compiling C object libvips/iofuncs/libiofuncs.a.p/vips.c.o
+#10 15.16 [279/424] Compiling C object libvips/iofuncs/libiofuncs.a.p/sinkmemory.c.o
+#10 15.17 [280/424] Compiling C object libvips/iofuncs/libiofuncs.a.p/sink.c.o
+#10 15.41 [281/424] Compiling C object libvips/iofuncs/libiofuncs.a.p/memory.c.o
+#10 15.50 [282/424] Compiling C object libvips/iofuncs/libiofuncs.a.p/sinkscreen.c.o
+#10 15.50 [283/424] Compiling C object libvips/iofuncs/libiofuncs.a.p/rect.c.o
+#10 15.53 [284/424] Compiling C object libvips/histogram/libhistogram.a.p/maplut.c.o
+#10 15.61 [285/424] Compiling C object libvips/iofuncs/libiofuncs.a.p/semaphore.c.o
+#10 15.64 [286/424] Compiling C object libvips/iofuncs/libiofuncs.a.p/image.c.o
+#10 15.69 [287/424] Compiling C object libvips/iofuncs/libiofuncs.a.p/object.c.o
+#10 15.78 [288/424] Compiling C object libvips/iofuncs/libiofuncs.a.p/buf.c.o
+#10 15.84 [289/424] Compiling C object libvips/iofuncs/libiofuncs.a.p/header.c.o
+#10 15.86 [290/424] Compiling C object libvips/iofuncs/libiofuncs.a.p/window.c.o
+#10 15.92 [291/424] Compiling C object libvips/iofuncs/libiofuncs.a.p/operation.c.o
+#10 15.95 [292/424] Compiling C object libvips/iofuncs/libiofuncs.a.p/init.c.o
+#10 16.02 [293/424] Compiling C object libvips/iofuncs/libiofuncs.a.p/buffer.c.o
+#10 16.11 [294/424] Compiling C object libvips/iofuncs/libiofuncs.a.p/system.c.o
+#10 16.18 [295/424] Compiling C object libvips/morphology/libmorphology.a.p/morphology.c.o
+#10 16.18 [296/424] Compiling C object libvips/morphology/libmorphology.a.p/countlines.c.o
+#10 16.18 [297/424] Compiling C object libvips/morphology/libmorphology.a.p/nearest.c.o
+#10 16.23 [298/424] Compiling C object libvips/iofuncs/libiofuncs.a.p/util.c.o
+#10 16.39 [299/424] Compiling C object libvips/morphology/libmorphology.a.p/labelregions.c.o
+#10 16.43 [300/424] Compiling C object libvips/mosaicing/libmosaicing.a.p/mosaicing.c.o
+#10 16.54 [301/424] Compiling C object libvips/mosaicing/libmosaicing.a.p/mosaic.c.o
+#10 16.58 [302/424] Compiling C object libvips/mosaicing/libmosaicing.a.p/merge.c.o
+#10 16.63 [303/424] Compiling C object libvips/morphology/libmorphology.a.p/morph.c.o
+#10 16.73 [304/424] Compiling C object libvips/iofuncs/libiofuncs.a.p/region.c.o
+#10 16.77 [305/424] Compiling C object libvips/mosaicing/libmosaicing.a.p/match.c.o
+#10 16.87 [306/424] Compiling C object libvips/mosaicing/libmosaicing.a.p/mosaic1.c.o
+#10 16.88 [307/424] Compiling C object libvips/mosaicing/libmosaicing.a.p/chkpair.c.o
+#10 16.96 [308/424] Compiling C++ object libvips/iofuncs/libiofuncs.a.p/vector.cpp.o
+#10 16.99 [309/424] Compiling C object libvips/morphology/libmorphology.a.p/rank.c.o
+#10 17.11 [310/424] Compiling C object libvips/mosaicing/libmosaicing.a.p/matrixinvert.c.o
+#10 17.20 [311/424] Compiling C object libvips/mosaicing/libmosaicing.a.p/tbmosaic.c.o
+#10 17.21 [312/424] Compiling C object libvips/mosaicing/libmosaicing.a.p/im_avgdxdy.c.o
+#10 17.24 [313/424] Compiling C object libvips/mosaicing/libmosaicing.a.p/lrmosaic.c.o
+#10 17.29 [314/424] Compiling C object libvips/mosaicing/libmosaicing.a.p/remosaic.c.o
+#10 17.30 [315/424] Compiling C object libvips/mosaicing/libmosaicing.a.p/global_balance.c.o
+#10 17.38 [316/424] Compiling C object libvips/mosaicing/libmosaicing.a.p/im_improve.c.o
+#10 17.45 [317/424] Compiling C object libvips/mosaicing/libmosaicing.a.p/im_clinear.c.o
+#10 17.50 [318/424] Compiling C object libvips/mosaicing/libmosaicing.a.p/im_initialize.c.o
+#10 17.60 [319/424] Compiling C object libvips/mosaicing/libmosaicing.a.p/im_lrcalcon.c.o
+#10 17.60 [320/424] Compiling C object libvips/mosaicing/libmosaicing.a.p/im_tbcalcon.c.o
+#10 17.65 [321/424] Compiling C object libvips/create/libcreate.a.p/create.c.o
+#10 17.68 [322/424] Compiling C object libvips/create/libcreate.a.p/buildlut.c.o
+#10 17.72 [323/424] Compiling C object libvips/create/libcreate.a.p/black.c.o
+#10 17.73 [324/424] Compiling C object libvips/create/libcreate.a.p/eye.c.o
+#10 17.80 [325/424] Compiling C object libvips/create/libcreate.a.p/gaussmat.c.o
+#10 ...
+
+#9 [ffmpeg 1/1] RUN apt-get source -qq ffmpeg=7:7.1.5-0+deb13u1 &&     upstream=7.1.5-0+deb13u1 && upstream=${upstream%-*} && revision=0+deb13u1 &&     echo "9ed2ed34cbe7f056eeebbe9045c5e2d15e41b5b053fe7c8ba6979a0b6fb081ce  ffmpeg_7.1.5-0+deb13u1.dsc" | sha256sum -c - &&     cd ffmpeg-${upstream} &&     ./configure --prefix=/opt/ffmpeg --extra-version="${revision}" --toolchain=hardened       --enable-shared --disable-static --disable-doc --disable-ffplay --disable-avdevice       --disable-autodetect --disable-network --disable-hwaccels --disable-devices       --enable-libdav1d --enable-zlib --enable-bzlib --enable-lzma       --disable-encoders --enable-encoder=mjpeg       --disable-muxers --enable-muxer=image2       --disable-protocols --enable-protocol=file,pipe       --disable-filters       --enable-filter=buffer,buffersink,abuffer,abuffersink,format,aformat,null,anull,scale,aresample       --enable-filter=select,loop,trim,transpose,hflip,vflip,rotate,crop &&     make -j"$(nproc)" &&     make install &&     strip --strip-unneeded /opt/ffmpeg/lib/*.so.* /opt/ffmpeg/bin/*
+#9 17.73 CC	libavformat/aeadec.o
+#9 17.75 CC	libavformat/afc.o
+#9 17.75 CC	libavformat/aiff.o
+#9 17.80 CC	libavformat/aiffdec.o
+#9 17.82 CC	libavformat/aixdec.o
+#9 17.84 CC	libavformat/allformats.o
+#9 17.89 CC	libavformat/alp.o
+#9 18.02 CC	libavformat/amr.o
+#9 18.08 CC	libavformat/anm.o
+#9 18.09 CC	libavformat/apac.o
+#9 18.17 CC	libavformat/apc.o
+#9 18.18 CC	libavformat/ape.o
+#9 18.25 CC	libavformat/apetag.o
+#9 18.27 CC	libavformat/apm.o
+#9 18.29 CC	libavformat/apngdec.o
+#9 18.38 CC	libavformat/aptxdec.o
+#9 18.46 CC	libavformat/aqtitledec.o
+#9 18.47 CC	libavformat/argo_asf.o
+#9 18.47 CC	libavformat/argo_brp.o
+#9 18.54 CC	libavformat/argo_cvg.o
+#9 18.58 CC	libavformat/asf.o
+#9 18.60 CC	libavformat/asf_tags.o
+#9 18.65 CC	libavformat/asfcrypt.o
+#9 18.66 CC	libavformat/asfdec_f.o
+#9 18.70 CC	libavformat/asfdec_o.o
+#9 18.71 CC	libavformat/assdec.o
+#9 18.73 libavformat/asfdec_f.c: In function 'get_tag':
+#9 18.73 libavformat/asfdec_f.c:244:9: warning: ISO C90 forbids mixed declarations and code [-Wdeclaration-after-statement]
+#9 18.73   244 |         int ret = ffio_read_size(s->pb, value, len);
+#9 18.73       |         ^~~
+#9 18.76 CC	libavformat/ast.o
+#9 18.79 CC	libavformat/astdec.o
+#9 18.82 CC	libavformat/au.o
+#9 18.83 CC	libavformat/av1dec.o
+#9 19.01 CC	libavformat/avformat.o
+#9 19.06 CC	libavformat/avidec.o
+#9 19.08 CC	libavformat/avio.o
+#9 19.17 CC	libavformat/aviobuf.o
+#9 19.29 CC	libavformat/avlanguage.o
+#9 19.34 CC	libavformat/avr.o
+#9 19.39 CC	libavformat/avs.o
+#9 19.39 libavformat/avidec.c: In function 'read_gab2_sub':
+#9 19.39 libavformat/avidec.c:1131:9: warning: ISO C90 forbids mixed declarations and code [-Wdeclaration-after-statement]
+#9 19.39  1131 |         AVIOContext *pb = avio_alloc_context(pkt->data + 7,
+#9 19.39       |         ^~~~~~~~~~~
+#9 19.40 libavformat/avidec.c: In function 'avi_load_index':
+#9 19.40 libavformat/avidec.c:1837:13: warning: ISO C90 forbids mixed declarations and code [-Wdeclaration-after-statement]
+#9 19.40  1837 |             uint32_t tag1 = avio_rl32(pb);
+#9 19.40       |             ^~~~~~~~
+#9 19.43 CC	libavformat/avs2dec.o
+#9 19.49 CC	libavformat/avs3dec.o
+#9 19.50 CC	libavformat/bethsoftvid.o
+#9 19.57 CC	libavformat/bfi.o
+#9 19.57 CC	libavformat/bink.o
+#9 19.67 CC	libavformat/binka.o
+#9 19.76 CC	libavformat/bintext.o
+#9 19.86 CC	libavformat/bit.o
+#9 19.86 CC	libavformat/bmv.o
+#9 19.90 CC	libavformat/boadec.o
+#9 19.90 CC	libavformat/bonk.o
+#9 19.92 CC	libavformat/brstm.o
+#9 19.99 CC	libavformat/c93.o
+#9 20.00 CC	libavformat/caf.o
+#9 20.06 CC	libavformat/cafdec.o
+#9 20.07 CC	libavformat/cavsvideodec.o
+#9 20.08 CC	libavformat/cdg.o
+#9 20.08 CC	libavformat/cdxl.o
+#9 20.09 CC	libavformat/cinedec.o
+#9 20.11 CC	libavformat/codec2.o
+#9 20.12 CC	libavformat/concatdec.o
+#9 20.13 CC	libavformat/dauddec.o
+#9 20.18 CC	libavformat/demux.o
+#9 20.18 CC	libavformat/dcstr.o
+#9 20.22 CC	libavformat/demux_utils.o
+#9 20.24 CC	libavformat/derf.o
+#9 20.29 CC	libavformat/dfa.o
+#9 20.33 CC	libavformat/dfpwmdec.o
+#9 20.35 libavformat/demux.c: In function 'read_frame_internal':
+#9 20.35 libavformat/demux.c:1389:9: warning: ISO C90 forbids mixed declarations and code [-Wdeclaration-after-statement]
+#9 20.35  1389 |         int new_extradata = !!av_packet_side_data_get(pkt->side_data, pkt->side_data_elems,
+#9 20.35       |         ^~~
+#9 20.36 libavformat/codec2.c:215:12: warning: 'codec2_write_header' defined but not used [-Wunused-function]
+#9 20.36   215 | static int codec2_write_header(AVFormatContext *s)
+#9 20.36       |            ^~~~~~~~~~~~~~~~~~~
+#9 20.36 CC	libavformat/dhav.o
+#9 20.37 CC	libavformat/diracdec.o
+#9 20.39 libavformat/dhav.c: In function 'dhav_read_header':
+#9 20.39 libavformat/dhav.c:300:17: warning: ISO C90 forbids mixed declarations and code [-Wdeclaration-after-statement]
+#9 20.39   300 |                 int64_t ret64 = avio_seek(s->pb, -seek_back, SEEK_CUR);
+#9 20.39       |                 ^~~~~~~
+#9 20.39 CC	libavformat/dnxhddec.o
+#9 20.42 CC	libavformat/dovi_isom.o
+#9 20.47 CC	libavformat/dsfdec.o
+#9 20.47 CC	libavformat/dsicin.o
+#9 20.48 CC	libavformat/dss.o
+#9 20.48 CC	libavformat/dtsdec.o
+#9 20.56 CC	libavformat/dtshddec.o
+#9 20.58 CC	libavformat/dump.o
+#9 20.66 CC	libavformat/dv.o
+#9 20.71 CC	libavformat/dvbsub.o
+#9 20.73 CC	libavformat/dvbtxt.o
+#9 20.80 CC	libavformat/dxa.o
+#9 20.82 CC	libavformat/eacdata.o
+#9 20.85 CC	libavformat/electronicarts.o
+#9 20.91 CC	libavformat/epafdec.o
+#9 20.94 CC	libavformat/evcdec.o
+#9 20.99 CC	libavformat/ffmetadec.o
+#9 21.06 CC	libavformat/file.o
+#9 21.17 CC	libavformat/filmstripdec.o
+#9 ...
+
+#10 [vips 1/1] RUN apt-get source -qq vips=8.16.1-1+deb13u1 &&     echo "60205e00d061b9d8072938e04899f2ca2fdac0513068e561d33f7c87fae1ae2e  vips_8.16.1-1+deb13u1.dsc" | sha256sum -c - &&     cd vips-8.16.1 &&     eval "$(DEB_BUILD_MAINT_OPTIONS=hardening=+all dpkg-buildflags --export=sh)" &&     meson setup build --buildtype=plain --wrap-mode=nodownload --prefix=/opt/vips --libdir=lib       --auto-features=disabled -Dmodules=disabled -Dintrospection=disabled -Dcplusplus=false       -Ddeprecated=false -Dexamples=false       -Djpeg=enabled -Dspng=enabled -Dpng=enabled -Dwebp=enabled -Dtiff=enabled -Dheif=enabled       -Dexif=enabled -Dlcms=enabled -Dcgif=enabled -Dimagequant=enabled -Dhighway=enabled       -Dzlib=enabled &&     meson install -C build --strip
+#10 17.89 [326/424] Compiling C object libvips/create/libcreate.a.p/fractsurf.c.o
+#10 17.92 [327/424] Compiling C object libvips/create/libcreate.a.p/gaussnoise.c.o
+#10 17.96 [328/424] Compiling C object libvips/create/libcreate.a.p/identity.c.o
+#10 18.02 [329/424] Compiling C object libvips/create/libcreate.a.p/grey.c.o
+#10 18.06 [330/424] Compiling C object libvips/create/libcreate.a.p/invertlut.c.o
+#10 18.12 [331/424] Compiling C object libvips/create/libcreate.a.p/mask_butterworth.c.o
+#10 18.13 [332/424] Compiling C object libvips/create/libcreate.a.p/mask_butterworth_band.c.o
+#10 18.14 [333/424] Compiling C object libvips/create/libcreate.a.p/logmat.c.o
+#10 18.18 [334/424] Compiling C object libvips/create/libcreate.a.p/mask_butterworth_ring.c.o
+#10 18.18 [335/424] Compiling C++ object libvips/convolution/libconvolution.a.p/convi_hwy.cpp.o
+#10 18.26 [336/424] Compiling C object libvips/mosaicing/libmosaicing.a.p/tbmerge.c.o
+#10 18.35 [337/424] Compiling C object libvips/create/libcreate.a.p/mask_fractal.c.o
+#10 18.35 [338/424] Compiling C object libvips/create/libcreate.a.p/mask.c.o
+#10 18.38 [339/424] Compiling C object libvips/create/libcreate.a.p/mask_gaussian_ring.c.o
+#10 18.38 [340/424] Compiling C object libvips/create/libcreate.a.p/mask_gaussian_band.c.o
+#10 18.39 [341/424] Compiling C object libvips/create/libcreate.a.p/mask_ideal.c.o
+#10 18.44 [342/424] Compiling C object libvips/create/libcreate.a.p/mask_gaussian.c.o
+#10 18.46 [343/424] Compiling C object libvips/create/libcreate.a.p/mask_ideal_band.c.o
+#10 18.47 [344/424] Compiling C object libvips/create/libcreate.a.p/mask_ideal_ring.c.o
+#10 18.48 [345/424] Compiling C object libvips/mosaicing/libmosaicing.a.p/lrmerge.c.o
+#10 18.63 [346/424] Compiling C object libvips/create/libcreate.a.p/sines.c.o
+#10 18.64 [347/424] Compiling C object libvips/create/libcreate.a.p/text.c.o
+#10 18.64 [348/424] Linking static target libvips/foreign/libnsgif/libnsgif.a
+#10 18.65 [349/424] Compiling C object libvips/create/libcreate.a.p/point.c.o
+#10 18.66 [350/424] Linking static target libvips/arithmetic/libarithmetic.a
+#10 18.66 [351/424] Linking static target libvips/resample/libresample.a
+#10 18.66 [352/424] Linking static target libvips/foreign/libforeign.a
+#10 18.67 [353/424] Linking static target libvips/conversion/libconversion.a
+#10 18.67 [354/424] Linking static target libvips/convolution/libconvolution.a
+#10 18.68 [355/424] Compiling C object libvips/create/libcreate.a.p/perlin.c.o
+#10 18.68 [356/424] Linking static target libvips/colour/libcolour.a
+#10 18.68 [357/424] Linking static target libvips/freqfilt/libfreqfilt.a
+#10 18.69 [358/424] Linking static target libvips/histogram/libhistogram.a
+#10 18.69 [359/424] Linking static target libvips/draw/libdraw.a
+#10 18.69 [360/424] Linking static target libvips/mosaicing/libmosaicing.a
+#10 18.70 [361/424] Compiling C object libvips/create/libcreate.a.p/sdf.c.o
+#10 18.70 [362/424] Linking static target libvips/iofuncs/libiofuncs.a
+#10 18.71 [363/424] Compiling C object libvips/create/libcreate.a.p/zone.c.o
+#10 18.72 [364/424] Compiling C object libvips/create/libcreate.a.p/tonelut.c.o
+#10 18.75 [365/424] Compiling C object libvips/create/libcreate.a.p/xyz.c.o
+#10 18.88 [366/424] Compiling C object libvips/create/libcreate.a.p/worley.c.o
+#10 18.91 [367/424] Linking static target libvips/create/libcreate.a
+#10 18.97 [368/424] Compiling C object tools/vipsedit.p/vipsedit.c.o
+#10 18.97 [369/424] Compiling C object tools/vipsheader.p/vipsheader.c.o
+#10 19.00 [370/424] Compiling C object tools/vips.p/vips.c.o
+#10 19.01 [371/424] Compiling C object test/test_descriptors.p/test_descriptors.c.o
+#10 19.02 [372/424] Compiling C object test/test_connections.p/test_connections.c.o
+#10 19.06 [373/424] Compiling C object tools/vipsthumbnail.p/vipsthumbnail.c.o
+#10 19.07 [374/424] Compiling C object test/test_token.p/test_token.c.o
+#10 19.12 [375/424] Compiling C object test/test_timeout_webpsave.p/test_timeout_webpsave.c.o
+#10 19.14 [376/424] Compiling C object libvips/libvips.so.42.18.1.p/meson-generated_.._include_vips_enumtypes.c.o
+#10 19.27 [377/424] Compiling C object test/test_timeout_gifsave.p/test_timeout_gifsave.c.o
+#10 19.32 [378/424] Compiling C++ object fuzz/smartcrop_fuzzer.p/smartcrop_fuzzer.cc.o
+#10 19.36 [379/424] Compiling C++ object fuzz/jpegsave_file_fuzzer.p/jpegsave_file_fuzzer.cc.o
+#10 19.36 [380/424] Compiling C++ object fuzz/csvsave_buffer_fuzzer.p/generic_buffer_fuzzer.cc.o
+#10 19.38 [381/424] Compiling C++ object fuzz/sharpen_fuzzer.p/sharpen_fuzzer.cc.o
+#10 19.44 [382/424] Compiling C++ object fuzz/thumbnail_fuzzer.p/thumbnail_fuzzer.cc.o
+#10 19.47 [383/424] Compiling C++ object fuzz/matrixsave_buffer_fuzzer.p/generic_buffer_fuzzer.cc.o
+#10 19.49 [384/424] Compiling C++ object fuzz/rawsave_buffer_fuzzer.p/generic_buffer_fuzzer.cc.o
+#10 19.52 [385/424] Compiling C++ object fuzz/mosaic_fuzzer.p/mosaic_fuzzer.cc.o
+#10 19.61 [386/424] Compiling C++ object fuzz/radsave_buffer_fuzzer.p/generic_buffer_fuzzer.cc.o
+#10 19.70 [387/424] Compiling C++ object fuzz/tiffsave_buffer_fuzzer.p/generic_buffer_fuzzer.cc.o
+#10 19.73 [388/424] Compiling C++ object fuzz/ppmsave_buffer_fuzzer.p/generic_buffer_fuzzer.cc.o
+#10 19.76 [389/424] Compiling C++ object fuzz/jpegsave_buffer_fuzzer.p/generic_buffer_fuzzer.cc.o
+#10 19.83 [390/424] Compiling C++ object fuzz/gifsave_buffer_fuzzer.p/generic_buffer_fuzzer.cc.o
+#10 19.84 [391/424] Compiling C++ object fuzz/pngsave_buffer_fuzzer.p/generic_buffer_fuzzer.cc.o
+#10 19.84 [392/424] Compiling C++ object fuzz/generic_buffer_with_args_fuzzer.p/generic_buffer_with_args_fuzzer.cc.o
+#10 19.87 [393/424] Compiling C++ object fuzz/heifsave_buffer_fuzzer.p/generic_buffer_fuzzer.cc.o
+#10 19.88 [394/424] Compiling C++ object fuzz/webpsave_buffer_fuzzer.p/generic_buffer_fuzzer.cc.o
+#10 20.35 [395/424] Compiling C++ object libvips/morphology/libmorphology.a.p/morph_hwy.cpp.o
+#10 20.36 [396/424] Linking static target libvips/morphology/libmorphology.a
+#10 20.53 [397/424] Linking target libvips/libvips.so.42.18.1
+#10 20.59 [398/424] Generating symbol file libvips/libvips.so.42.18.1.p/libvips.so.42.18.1.symbols
+#10 20.69 [399/424] Linking target fuzz/sharpen_fuzzer
+#10 20.72 [400/424] Linking target test/test_descriptors
+#10 20.73 [401/424] Linking target tools/vipsthumbnail
+#10 20.73 [402/424] Linking target tools/vipsheader
+#10 20.75 [403/424] Linking target test/test_timeout_gifsave
+#10 20.75 [404/424] Linking target tools/vipsedit
+#10 20.80 [405/424] Linking target fuzz/csvsave_buffer_fuzzer
+#10 20.82 [406/424] Linking target tools/vips
+#10 20.83 [407/424] Linking target test/test_token
+#10 20.83 [408/424] Linking target test/test_timeout_webpsave
+#10 20.83 [409/424] Linking target test/test_connections
+#10 20.84 [410/424] Linking target fuzz/smartcrop_fuzzer
+#10 20.85 [411/424] Linking target fuzz/thumbnail_fuzzer
+#10 20.86 [412/424] Linking target fuzz/mosaic_fuzzer
+#10 20.89 [413/424] Linking target fuzz/jpegsave_file_fuzzer
+#10 20.91 [414/424] Linking target fuzz/matrixsave_buffer_fuzzer
+#10 20.97 [415/424] Linking target fuzz/ppmsave_buffer_fuzzer
+#10 20.98 [416/424] Linking target fuzz/radsave_buffer_fuzzer
+#10 20.98 [417/424] Linking target fuzz/webpsave_buffer_fuzzer
+#10 20.99 [418/424] Linking target fuzz/tiffsave_buffer_fuzzer
+#10 20.99 [419/424] Linking target fuzz/pngsave_buffer_fuzzer
+#10 20.99 [420/424] Linking target fuzz/jpegsave_buffer_fuzzer
+#10 21.00 [421/424] Linking target fuzz/heifsave_buffer_fuzzer
+#10 21.00 [422/424] Linking target fuzz/gifsave_buffer_fuzzer
+#10 21.02 [423/424] Linking target fuzz/generic_buffer_with_args_fuzzer
+#10 21.02 [424/424] Linking target fuzz/rawsave_buffer_fuzzer
+#10 21.06 Installing libvips/include/vips/enumtypes.h to /opt/vips/include/vips
+#10 21.06 Installing libvips/libvips.so.42.18.1 to /opt/vips/lib
+#10 21.06 Stripping target 'libvips/libvips.so.42.18.1'.
+#10 21.06 Installing tools/vips to /opt/vips/bin
+#10 21.06 Stripping target 'tools/vips'.
+#10 21.06 Installing tools/vipsedit to /opt/vips/bin
+#10 21.06 Stripping target 'tools/vipsedit'.
+#10 21.06 Installing tools/vipsthumbnail to /opt/vips/bin
+#10 21.06 Stripping target 'tools/vipsthumbnail'.
+#10 21.06 Installing tools/vipsheader to /opt/vips/bin
+#10 21.06 Stripping target 'tools/vipsheader'.
+#10 21.06 Installing /usr/src/vips-8.16.1/libvips/include/vips/buf.h to /opt/vips/include/vips
+#10 21.06 Installing /usr/src/vips-8.16.1/libvips/include/vips/connection.h to /opt/vips/include/vips
+#10 21.06 Installing /usr/src/vips-8.16.1/libvips/include/vips/dbuf.h to /opt/vips/include/vips
+#10 21.06 Installing /usr/src/vips-8.16.1/libvips/include/vips/debug.h to /opt/vips/include/vips
+#10 21.06 Installing /usr/src/vips-8.16.1/libvips/include/vips/format.h to /opt/vips/include/vips
+#10 21.06 Installing /usr/src/vips-8.16.1/libvips/include/vips/gate.h to /opt/vips/include/vips
+#10 21.06 Installing /usr/src/vips-8.16.1/libvips/include/vips/generate.h to /opt/vips/include/vips
+#10 21.06 Installing /usr/src/vips-8.16.1/libvips/include/vips/private.h to /opt/vips/include/vips
+#10 21.06 Installing /usr/src/vips-8.16.1/libvips/include/vips/sbuf.h to /opt/vips/include/vips
+#10 21.06 Installing /usr/src/vips-8.16.1/libvips/include/vips/semaphore.h to /opt/vips/include/vips
+#10 21.06 Installing /usr/src/vips-8.16.1/libvips/include/vips/thread.h to /opt/vips/include/vips
+#10 21.06 Installing /usr/src/vips-8.16.1/libvips/include/vips/threadpool.h to /opt/vips/include/vips
+#10 21.06 Installing /usr/src/vips-8.16.1/libvips/include/vips/transform.h to /opt/vips/include/vips
+#10 21.06 Installing /usr/src/vips-8.16.1/libvips/include/vips/util.h to /opt/vips/include/vips
+#10 21.06 Installing /usr/src/vips-8.16.1/libvips/include/vips/vector.h to /opt/vips/include/vips
+#10 21.06 Installing /usr/src/vips-8.16.1/libvips/include/vips/arithmetic.h to /opt/vips/include/vips
+#10 21.06 Installing /usr/src/vips-8.16.1/libvips/include/vips/basic.h to /opt/vips/include/vips
+#10 21.06 Installing /usr/src/vips-8.16.1/libvips/include/vips/colour.h to /opt/vips/include/vips
+#10 21.06 Installing /usr/src/vips-8.16.1/libvips/include/vips/conversion.h to /opt/vips/include/vips
+#10 21.06 Installing /usr/src/vips-8.16.1/libvips/include/vips/convolution.h to /opt/vips/include/vips
+#10 21.06 Installing /usr/src/vips-8.16.1/libvips/include/vips/create.h to /opt/vips/include/vips
+#10 21.06 Installing /usr/src/vips-8.16.1/libvips/include/vips/draw.h to /opt/vips/include/vips
+#10 21.06 Installing /usr/src/vips-8.16.1/libvips/include/vips/error.h to /opt/vips/include/vips
+#10 21.06 Installing /usr/src/vips-8.16.1/libvips/include/vips/foreign.h to /opt/vips/include/vips
+#10 21.06 Installing /usr/src/vips-8.16.1/libvips/include/vips/freqfilt.h to /opt/vips/include/vips
+#10 21.06 Installing /usr/src/vips-8.16.1/libvips/include/vips/header.h to /opt/vips/include/vips
+#10 21.06 Installing /usr/src/vips-8.16.1/libvips/include/vips/histogram.h to /opt/vips/include/vips
+#10 21.06 Installing /usr/src/vips-8.16.1/libvips/include/vips/image.h to /opt/vips/include/vips
+#10 21.06 Installing /usr/src/vips-8.16.1/libvips/include/vips/interpolate.h to /opt/vips/include/vips
+#10 21.06 Installing /usr/src/vips-8.16.1/libvips/include/vips/memory.h to /opt/vips/include/vips
+#10 21.06 Installing /usr/src/vips-8.16.1/libvips/include/vips/morphology.h to /opt/vips/include/vips
+#10 21.06 Installing /usr/src/vips-8.16.1/libvips/include/vips/mosaicing.h to /opt/vips/include/vips
+#10 21.06 Installing /usr/src/vips-8.16.1/libvips/include/vips/object.h to /opt/vips/include/vips
+#10 21.06 Installing /usr/src/vips-8.16.1/libvips/include/vips/operation.h to /opt/vips/include/vips
+#10 21.06 Installing /usr/src/vips-8.16.1/libvips/include/vips/rect.h to /opt/vips/include/vips
+#10 21.06 Installing /usr/src/vips-8.16.1/libvips/include/vips/region.h to /opt/vips/include/vips
+#10 21.06 Installing /usr/src/vips-8.16.1/libvips/include/vips/resample.h to /opt/vips/include/vips
+#10 21.06 Installing /usr/src/vips-8.16.1/libvips/include/vips/type.h to /opt/vips/include/vips
+#10 21.06 Installing /usr/src/vips-8.16.1/libvips/include/vips/vips.h to /opt/vips/include/vips
+#10 21.06 Installing /usr/src/vips-8.16.1/man/vipsedit.1 to /opt/vips/share/man/man1
+#10 21.06 Installing /usr/src/vips-8.16.1/man/vipsheader.1 to /opt/vips/share/man/man1
+#10 21.06 Installing /usr/src/vips-8.16.1/man/vips.1 to /opt/vips/share/man/man1
+#10 21.06 Installing /usr/src/vips-8.16.1/man/vipsprofile.1 to /opt/vips/share/man/man1
+#10 21.06 Installing /usr/src/vips-8.16.1/man/vipsthumbnail.1 to /opt/vips/share/man/man1
+#10 21.06 Installing /usr/src/vips-8.16.1/build/libvips/include/vips/version.h to /opt/vips/include/vips
+#10 21.06 Installing /usr/src/vips-8.16.1/build/meson-private/vips.pc to /opt/vips/lib/pkgconfig
+#10 21.06 Installing /usr/src/vips-8.16.1/tools/vipsprofile to /opt/vips/bin
+#10 21.06 Installing symlink pointing to libvips.so.42.18.1 to /opt/vips/lib/libvips.so.42
+#10 21.06 Installing symlink pointing to libvips.so.42 to /opt/vips/lib/libvips.so
+#10 DONE 21.2s
+
+#11 [toolchain 1/4] COPY --from=vips /opt/vips /opt/vips
+#11 DONE 0.0s
+
+#12 [dotnet 1/1] RUN curl -fsSL https://dot.net/v1/dotnet-install.sh -o /tmp/dotnet-install.sh &&     bash /tmp/dotnet-install.sh --version 11.0.100-rc.2.26504.105 --install-dir /opt/dotnet &&     rm /tmp/dotnet-install.sh
+#12 CACHED
+
+#9 [ffmpeg 1/1] RUN apt-get source -qq ffmpeg=7:7.1.5-0+deb13u1 &&     upstream=7.1.5-0+deb13u1 && upstream=${upstream%-*} && revision=0+deb13u1 &&     echo "9ed2ed34cbe7f056eeebbe9045c5e2d15e41b5b053fe7c8ba6979a0b6fb081ce  ffmpeg_7.1.5-0+deb13u1.dsc" | sha256sum -c - &&     cd ffmpeg-${upstream} &&     ./configure --prefix=/opt/ffmpeg --extra-version="${revision}" --toolchain=hardened       --enable-shared --disable-static --disable-doc --disable-ffplay --disable-avdevice       --disable-autodetect --disable-network --disable-hwaccels --disable-devices       --enable-libdav1d --enable-zlib --enable-bzlib --enable-lzma       --disable-encoders --enable-encoder=mjpeg       --disable-muxers --enable-muxer=image2       --disable-protocols --enable-protocol=file,pipe       --disable-filters       --enable-filter=buffer,buffersink,abuffer,abuffersink,format,aformat,null,anull,scale,aresample       --enable-filter=select,loop,trim,transpose,hflip,vflip,rotate,crop &&     make -j"$(nproc)" &&     make install &&     strip --strip-unneeded /opt/ffmpeg/lib/*.so.* /opt/ffmpeg/bin/*
+#9 21.17 CC	libavformat/fitsdec.o
+#9 21.17 CC	libavformat/flac_picture.o
+#9 21.17 CC	libavformat/flacdec.o
+#9 21.18 CC	libavformat/flic.o
+#9 21.24 CC	libavformat/flvdec.o
+#9 21.25 CC	libavformat/format.o
+#9 21.27 CC	libavformat/frmdec.o
+#9 21.35 CC	libavformat/fsb.o
+#9 21.36 CC	libavformat/fwse.o
+#9 21.37 CC	libavformat/g722.o
+#9 21.38 CC	libavformat/g723_1.o
+#9 21.40 libavformat/flvdec.c: In function 'flv_read_packet':
+#9 21.40 libavformat/flvdec.c:1473:13: warning: ISO C90 forbids mixed declarations and code [-Wdeclaration-after-statement]
+#9 21.40  1473 |             int32_t cts = (avio_rb24(s->pb) + 0xff800000) ^ 0xff800000;
+#9 21.40       |             ^~~~~~~
+#9 21.40 CC	libavformat/g726.o
+#9 21.40 CC	libavformat/g729dec.o
+#9 21.42 CC	libavformat/gdv.o
+#9 21.43 CC	libavformat/genh.o
+#9 21.44 CC	libavformat/gifdec.o
+#9 21.44 CC	libavformat/gsmdec.o
+#9 21.44 CC	libavformat/gxf.o
+#9 21.47 CC	libavformat/h261dec.o
+#9 21.53 CC	libavformat/h263dec.o
+#9 21.54 CC	libavformat/h264dec.o
+#9 21.57 CC	libavformat/hca.o
+#9 21.57 CC	libavformat/hcom.o
+#9 21.61 CC	libavformat/hevcdec.o
+#9 21.63 CC	libavformat/hls.o
+#9 21.63 CC	libavformat/hls_sample_encryption.o
+#9 21.65 CC	libavformat/hnm.o
+#9 21.65 CC	libavformat/iamf.o
+#9 21.70 CC	libavformat/iamf_parse.o
+#9 21.73 CC	libavformat/iamf_reader.o
+#9 21.75 CC	libavformat/iamfdec.o
+#9 21.75 CC	libavformat/icodec.o
+#9 21.82 CC	libavformat/id3v1.o
+#9 21.86 CC	libavformat/id3v2.o
+#9 21.88 CC	libavformat/idcin.o
+#9 21.93 CC	libavformat/idroqdec.o
+#9 21.94 CC	libavformat/iff.o
+#9 21.95 CC	libavformat/ifv.o
+#9 21.97 CC	libavformat/ilbc.o
+#9 21.99 libavformat/ilbc.c:33:12: warning: 'ilbc_write_header' defined but not used [-Wunused-function]
+#9 21.99    33 | static int ilbc_write_header(AVFormatContext *s)
+#9 21.99       |            ^~~~~~~~~~~~~~~~~
+#9 22.01 CC	libavformat/img2.o
+#9 22.02 CC	libavformat/img2_alias_pix.o
+#9 22.04 CC	libavformat/img2_brender_pix.o
+#9 22.08 CC	libavformat/img2dec.o
+#9 22.11 CC	libavformat/img2enc.o
+#9 22.16 CC	libavformat/imx.o
+#9 22.19 CC	libavformat/ingenientdec.o
+#9 22.21 CC	libavformat/ipmovie.o
+#9 22.23 CC	libavformat/ipudec.o
+#9 22.23 libavformat/img2dec.c: In function 'ff_img_read_packet':
+#9 22.23 libavformat/img2dec.c:501:5: warning: ISO C90 forbids mixed declarations and code [-Wdeclaration-after-statement]
+#9 22.23   501 |     int total_size = 0;
+#9 22.23       |     ^~~
+#9 22.25 CC	libavformat/ircam.o
+#9 22.27 libavformat/img2enc.c:119:12: warning: 'write_packet_pipe' defined but not used [-Wunused-function]
+#9 22.27   119 | static int write_packet_pipe(AVFormatContext *s, AVPacket *pkt)
+#9 22.27       |            ^~~~~~~~~~~~~~~~~
+#9 22.27 CC	libavformat/ircamdec.o
+#9 22.27 CC	libavformat/isom.o
+#9 22.29 libavformat/img2enc.c: In function 'write_packet':
+#9 22.29 libavformat/img2enc.c:183:55: warning: '.tmp' directive output may be truncated writing 4 bytes into a region of size between 1 and 1024 [-Wformat-truncation=]
+#9 22.29   183 |         snprintf(img->tmp[i], sizeof(img->tmp[i]), "%s.tmp", filename);
+#9 22.29       |                                                       ^~~~
+#9 22.29 In file included from /usr/include/stdio.h:970,
+#9 22.29                  from ./libavutil/common.h:38,
+#9 22.29                  from ./libavutil/avutil.h:301,
+#9 22.29                  from ./libavutil/opt.h:31,
+#9 22.29                  from libavformat/img2enc.c:31:
+#9 22.29 In function 'snprintf',
+#9 22.29     inlined from 'write_packet' at libavformat/img2enc.c:183:9:
+#9 22.29 /usr/include/aarch64-linux-gnu/bits/stdio2.h:68:10: note: '__builtin___snprintf_chk' output between 5 and 1028 bytes into a destination of size 1024
+#9 22.29    68 |   return __builtin___snprintf_chk (__s, __n, __USE_FORTIFY_LEVEL - 1,
+#9 22.29       |          ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#9 22.29    69 |                                    __glibc_objsize (__s), __fmt,
+#9 22.29       |                                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#9 22.29    70 |                                    __va_arg_pack ());
+#9 22.29       |                                    ~~~~~~~~~~~~~~~~~
+#9 22.32 CC	libavformat/isom_tags.o
+#9 22.34 CC	libavformat/iss.o
+#9 22.35 CC	libavformat/iv8.o
+#9 22.36 CC	libavformat/ivfdec.o
+#9 22.39 CC	libavformat/jacosubdec.o
+#9 22.39 CC	libavformat/jpegxl_anim_dec.o
+#9 22.40 CC	libavformat/jvdec.o
+#9 22.45 CC	libavformat/kvag.o
+#9 22.45 CC	libavformat/lafdec.o
+#9 22.46 CC	libavformat/lc3.o
+#9 22.47 CC	libavformat/lmlm4.o
+#9 22.52 CC	libavformat/loasdec.o
+#9 22.57 CC	libavformat/lrc.o
+#9 22.59 CC	libavformat/lrcdec.o
+#9 22.60 CC	libavformat/luodatdec.o
+#9 22.60 CC	libavformat/lvfdec.o
+#9 22.62 libavformat/lrcdec.c: In function 'read_ts':
+#9 22.62 libavformat/lrcdec.c:91:5: warning: ISO C90 forbids mixed declarations and code [-Wdeclaration-after-statement]
+#9 22.62    91 |     int ret = sscanf(p, "%2[[-]%"SCNu32":%lf]", prefix, &mm, &ss);
+#9 22.62       |     ^~~
+#9 22.63 CC	libavformat/lxfdec.o
+#9 22.65 CC	libavformat/m4vdec.o
+#9 22.65 CC	libavformat/matroska.o
+#9 22.67 CC	libavformat/matroskadec.o
+#9 22.68 CC	libavformat/mca.o
+#9 22.68 CC	libavformat/mccdec.o
+#9 22.69 CC	libavformat/metadata.o
+#9 22.69 CC	libavformat/mgsts.o
+#9 22.73 CC	libavformat/microdvddec.o
+#9 22.76 CC	libavformat/mj2kdec.o
+#9 22.78 CC	libavformat/mlpdec.o
+#9 22.82 CC	libavformat/mlvdec.o
+#9 22.86 libavformat/matroskadec.c: In function 'webm_dash_manifest_compute_bandwidth':
+#9 22.86 libavformat/matroskadec.c:4665:17: warning: ISO C90 forbids mixed declarations and code [-Wdeclaration-after-statement]
+#9 22.86  4665 |                 int64_t desc_ns = desc_end.end_time_ns - desc_beg.start_time_ns;
+#9 22.86       |                 ^~~~~~~
+#9 22.86 CC	libavformat/mm.o
+#9 22.87 CC	libavformat/mmf.o
+#9 22.88 CC	libavformat/mods.o
+#9 22.92 CC	libavformat/mov.o
+#9 22.92 CC	libavformat/moflex.o
+#9 22.93 CC	libavformat/mov_chan.o
+#9 22.97 CC	libavformat/mov_esds.o
+#9 23.00 CC	libavformat/mp3dec.o
+#9 23.04 CC	libavformat/mpc.o
+#9 23.04 CC	libavformat/mpc8.o
+#9 23.05 CC	libavformat/mpeg.o
+#9 23.08 CC	libavformat/mpegts.o
+#9 23.10 CC	libavformat/mpegvideodec.o
+#9 23.16 CC	libavformat/mpjpegdec.o
+#9 23.25 CC	libavformat/mpl2dec.o
+#9 23.27 CC	libavformat/mpsubdec.o
+#9 23.27 CC	libavformat/msf.o
+#9 23.32 CC	libavformat/msnwc_tcp.o
+#9 23.33 CC	libavformat/mspdec.o
+#9 23.42 CC	libavformat/mtaf.o
+#9 23.43 CC	libavformat/mtv.o
+#9 23.45 CC	libavformat/musx.o
+#9 23.50 CC	libavformat/mux.o
+#9 23.51 CC	libavformat/mux_utils.o
+#9 23.57 CC	libavformat/mvdec.o
+#9 23.59 CC	libavformat/mvi.o
+#9 23.61 CC	libavformat/mxf.o
+#9 23.63 CC	libavformat/mxfdec.o
+#9 23.63 CC	libavformat/mxg.o
+#9 23.66 CC	libavformat/ncdec.o
+#9 23.71 CC	libavformat/nistspheredec.o
+#9 23.81 CC	libavformat/nspdec.o
+#9 23.82 CC	libavformat/nsvdec.o
+#9 23.84 CC	libavformat/nut.o
+#9 23.87 CC	libavformat/nutdec.o
+#9 23.89 CC	libavformat/nuv.o
+#9 23.90 CC	libavformat/oggdec.o
+#9 23.93 CC	libavformat/oggparsecelt.o
+#9 23.99 CC	libavformat/oggparsedirac.o
+#9 24.08 CC	libavformat/oggparseflac.o
+#9 24.10 CC	libavformat/oggparseogm.o
+#9 24.10 CC	libavformat/oggparseopus.o
+#9 24.17 CC	libavformat/oggparseskeleton.o
+#9 24.22 CC	libavformat/oggparsespeex.o
+#9 24.26 CC	libavformat/oggparsetheora.o
+#9 24.30 CC	libavformat/oggparsevorbis.o
+#9 24.30 CC	libavformat/oggparsevp8.o
+#9 24.35 CC	libavformat/oma.o
+#9 24.37 CC	libavformat/omadec.o
+#9 24.38 CC	libavformat/options.o
+#9 24.41 CC	libavformat/os_support.o
+#9 24.44 CC	libavformat/osq.o
+#9 24.48 CC	libavformat/paf.o
+#9 24.48 CC	libavformat/pcm.o
+#9 24.49 CC	libavformat/pcmdec.o
+#9 24.53 CC	libavformat/pdvdec.o
+#9 24.54 CC	libavformat/pjsdec.o
+#9 24.54 CC	libavformat/pmpdec.o
+#9 24.54 CC	libavformat/pp_bnk.o
+#9 24.58 CC	libavformat/protocols.o
+#9 24.59 CC	libavformat/psxstr.o
+#9 24.61 CC	libavformat/pva.o
+#9 24.61 CC	libavformat/pvfdec.o
+#9 24.63 CC	libavformat/qcp.o
+#9 24.66 CC	libavformat/qoadec.o
+#9 24.72 CC	libavformat/qtpalette.o
+#9 24.74 CC	libavformat/r3d.o
+#9 24.77 CC	libavformat/rawdec.o
+#9 24.78 CC	libavformat/rawvideodec.o
+#9 24.82 CC	libavformat/rcwtdec.o
+#9 24.82 CC	libavformat/realtextdec.o
+#9 24.83 CC	libavformat/redspark.o
+#9 24.83 CC	libavformat/replaygain.o
+#9 24.83 CC	libavformat/riff.o
+#9 24.87 CC	libavformat/riffdec.o
+#9 24.88 CC	libavformat/rka.o
+#9 24.88 CC	libavformat/rl2.o
+#9 24.95 CC	libavformat/rm.o
+#9 24.98 CC	libavformat/rmdec.o
+#9 24.99 CC	libavformat/rmsipr.o
+#9 25.01 CC	libavformat/rpl.o
+#9 25.02 CC	libavformat/rso.o
+#9 25.02 CC	libavformat/rsd.o
+#9 25.05 CC	libavformat/rsodec.o
+#9 25.07 CC	libavformat/s337m.o
+#9 25.08 CC	libavformat/samidec.o
+#9 25.08 CC	libavformat/sauce.o
+#9 25.12 CC	libavformat/sbcdec.o
+#9 25.13 CC	libavformat/sbgdec.o
+#9 25.15 CC	libavformat/sccdec.o
+#9 25.15 CC	libavformat/scd.o
+#9 25.21 CC	libavformat/sdns.o
+#9 25.22 CC	libavformat/sdp.o
+#9 25.26 CC	libavformat/sdr2.o
+#9 25.34 CC	libavformat/sdsdec.o
+#9 25.37 CC	libavformat/sdxdec.o
+#9 25.38 CC	libavformat/seek.o
+#9 25.39 CC	libavformat/segafilm.o
+#9 25.39 CC	libavformat/serdec.o
+#9 25.40 CC	libavformat/sga.o
+#9 25.43 CC	libavformat/shortendec.o
+#9 25.44 CC	libavformat/sierravmd.o
+#9 25.53 CC	libavformat/siff.o
+#9 25.54 CC	libavformat/smacker.o
+#9 25.56 CC	libavformat/smjpeg.o
+#9 25.59 CC	libavformat/smjpegdec.o
+#9 25.59 CC	libavformat/smush.o
+#9 25.60 CC	libavformat/sol.o
+#9 25.64 CC	libavformat/soxdec.o
+#9 25.65 CC	libavformat/spdif.o
+#9 25.65 CC	libavformat/spdifdec.o
+#9 25.68 CC	libavformat/srtdec.o
+#9 25.68 CC	libavformat/stldec.o
+#9 25.71 CC	libavformat/subtitles.o
+#9 25.72 CC	libavformat/subviewer1dec.o
+#9 25.77 CC	libavformat/subviewerdec.o
+#9 25.77 CC	libavformat/supdec.o
+#9 25.78 CC	libavformat/svag.o
+#9 25.78 CC	libavformat/svs.o
+#9 25.81 CC	libavformat/swf.o
+#9 25.82 CC	libavformat/swfdec.o
+#9 25.84 CC	libavformat/takdec.o
+#9 25.84 CC	libavformat/tedcaptionsdec.o
+#9 25.86 CC	libavformat/thp.o
+#9 25.87 CC	libavformat/tiertexseq.o
+#9 25.93 CC	libavformat/tmv.o
+#9 25.94 CC	libavformat/tta.o
+#9 25.95 CC	libavformat/tty.o
+#9 25.95 CC	libavformat/txd.o
+#9 25.97 CC	libavformat/ty.o
+#9 26.03 CC	libavformat/url.o
+#9 26.04 CC	libavformat/usmdec.o
+#9 26.08 CC	libavformat/utils.o
+#9 26.12 CC	libavformat/vag.o
+#9 26.12 CC	libavformat/vc1dec.o
+#9 26.12 CC	libavformat/vc1test.o
+#9 26.13 CC	libavformat/version.o
+#9 26.14 CC	libavformat/vividas.o
+#9 26.15 CC	libavformat/vivo.o
+#9 26.16 CC	libavformat/voc.o
+#9 26.19 CC	libavformat/voc_packet.o
+#9 26.21 CC	libavformat/vocdec.o
+#9 26.26 CC	libavformat/vorbiscomment.o
+#9 26.26 CC	libavformat/vpk.o
+#9 26.29 libavformat/vorbiscomment.c: In function 'ff_vorbiscomment_write':
+#9 26.29 libavformat/vorbiscomment.c:104:69: warning: '%02d' directive output may be truncated writing between 2 and 3 bytes into a region of size between 1 and 7 [-Wformat-truncation=]
+#9 26.29   104 |             snprintf(chapter_time, sizeof(chapter_time), "%02d:%02d:%02d.%03d", h, m, s, ms);
+#9 26.29       |                                                                     ^~~~
+#9 26.29 libavformat/vorbiscomment.c:104:58: note: directive argument in the range [-59, 59]
+#9 26.29   104 |             snprintf(chapter_time, sizeof(chapter_time), "%02d:%02d:%02d.%03d", h, m, s, ms);
+#9 26.29       |                                                          ^~~~~~~~~~~~~~~~~~~~~
+#9 26.29 libavformat/vorbiscomment.c:104:58: note: directive argument in the range [-999, 999]
+#9 26.29 In file included from /usr/include/stdio.h:970,
+#9 26.29                  from libavformat/avio.h:30,
+#9 26.29                  from libavformat/vorbiscomment.c:22:
+#9 26.29 In function 'snprintf',
+#9 26.29     inlined from 'ff_vorbiscomment_write' at libavformat/vorbiscomment.c:104:13:
+#9 26.29 /usr/include/aarch64-linux-gnu/bits/stdio2.h:68:10: note: '__builtin___snprintf_chk' output between 13 and 21 bytes into a destination of size 13
+#9 26.29    68 |   return __builtin___snprintf_chk (__s, __n, __USE_FORTIFY_LEVEL - 1,
+#9 26.29       |          ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#9 26.29    69 |                                    __glibc_objsize (__s), __fmt,
+#9 26.29       |                                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#9 26.29    70 |                                    __va_arg_pack ());
+#9 26.29       |                                    ~~~~~~~~~~~~~~~~~
+#9 26.30 CC	libavformat/vplayerdec.o
+#9 26.30 CC	libavformat/vqf.o
+#9 26.30 CC	libavformat/vvcdec.o
+#9 26.31 CC	libavformat/w64.o
+#9 26.33 CC	libavformat/wady.o
+#9 26.34 CC	libavformat/wavarc.o
+#9 26.35 CC	libavformat/wavdec.o
+#9 26.38 CC	libavformat/wc3movie.o
+#9 26.39 CC	libavformat/webvttdec.o
+#9 26.43 CC	libavformat/westwood_aud.o
+#9 26.43 CC	libavformat/westwood_vqa.o
+#9 26.50 CC	libavformat/wsddec.o
+#9 26.51 CC	libavformat/wtv_common.o
+#9 26.51 CC	libavformat/wtvdec.o
+#9 26.54 CC	libavformat/wv.o
+#9 26.58 CC	libavformat/wvdec.o
+#9 26.58 CC	libavformat/wvedec.o
+#9 26.60 CC	libavformat/xa.o
+#9 26.62 CC	libavformat/xmd.o
+#9 26.63 CC	libavformat/xmv.o
+#9 26.69 CC	libavformat/xvag.o
+#9 26.70 CC	libavformat/xwma.o
+#9 26.71 CC	libavformat/yop.o
+#9 26.75 CC	libavformat/yuv4mpegdec.o
+#9 26.77 CC	libavformat/ac3_channel_layout_tab.o
+#9 26.78 CC	libavformat/jpegxl_parse.o
+#9 26.78 CC	libavformat/log2_tab.o
+#9 26.78 CC	libavformat/mpeg4audio_sample_rates.o
+#9 26.79 CC	libavformat/mpegaudiotabs.o
+#9 26.80 CC	libavformat/to_upper4.o
+#9 26.80 CC	libavcodec/012v.o
+#9 26.81 CC	libavcodec/4xm.o
+#9 26.82 CC	libavcodec/8bps.o
+#9 26.83 CC	libavcodec/8svx.o
+#9 26.85 CC	libavcodec/aac/aacdec.o
+#9 26.88 CC	libavcodec/aac/aacdec_ac.o
+#9 26.88 CC	libavcodec/aac/aacdec_fixed.o
+#9 26.94 CC	libavcodec/aac/aacdec_float.o
+#9 27.00 CC	libavcodec/aac/aacdec_lpd.o
+#9 27.00 CC	libavcodec/aac/aacdec_tab.o
+#9 27.01 libavcodec/aac/aacdec.c: In function 'decode_close':
+#9 27.01 libavcodec/aac/aacdec.c:1138:9: warning: ISO C90 forbids mixed declarations and code [-Wdeclaration-after-statement]
+#9 27.01  1138 |         AACUSACConfig *usac = &oc->usac;
+#9 27.01       |         ^~~~~~~~~~~~~
+#9 27.07 CC	libavcodec/aac/aacdec_usac.o
+#9 27.18 CC	libavcodec/aac_ac3_parser.o
+#9 27.21 CC	libavcodec/aac_parser.o
+#9 27.21 CC	libavcodec/aacps_common.o
+#9 27.22 CC	libavcodec/aacps_fixed.o
+#9 27.22 libavcodec/aac/aacdec_usac.c: In function 'decode_usac_element_pair':
+#9 27.22 libavcodec/aac/aacdec_usac.c:218:9: warning: ISO C90 forbids mixed declarations and code [-Wdeclaration-after-statement]
+#9 27.22   218 |         int numBands = ((int[]){0,28,20,14,10,7,5,4})[e->mps.freq_res]; // ISO/IEC 23003-1:2007, 5.2, Table 39
+#9 27.22       |         ^~~
+#9 27.22 libavcodec/aac/aacdec_usac.c:226:9: warning: ISO C90 forbids mixed declarations and code [-Wdeclaration-after-statement]
+#9 27.22   226 |         int otts_bands_phase = ((int[]){0,10,10,7,5,3,2,2})[e->mps.freq_res]; // Table 109 — Default value of bsOttBandsPhase
+#9 27.22       |         ^~~
+#9 27.34 libavcodec/aac_ac3_parser.c: In function 'ff_aac_ac3_parse':
+#9 27.34 libavcodec/aac_ac3_parser.c:151:17: warning: unused variable 'profile' [-Wunused-variable]
+#9 27.34   151 |             int profile;
+#9 27.34       |                 ^~~~~~~
+#9 27.38 CC	libavcodec/aacps_float.o
+#9 27.38 CC	libavcodec/aacpsdsp_fixed.o
+#9 27.47 CC	libavcodec/aacpsdsp_float.o
+#9 27.48 CC	libavcodec/aacsbr.o
+#9 27.51 CC	libavcodec/aacsbr_fixed.o
+#9 27.54 CC	libavcodec/aactab.o
+#9 27.59 CC	libavcodec/aandcttab.o
+#9 27.60 CC	libavcodec/aarch64/aacpsdsp_init_aarch64.o
+#9 27.62 AS	libavcodec/aarch64/aacpsdsp_neon.o
+#9 27.63 CC	libavcodec/aarch64/ac3dsp_init_aarch64.o
+#9 27.64 AS	libavcodec/aarch64/ac3dsp_neon.o
+#9 27.66 CC	libavcodec/aarch64/fdctdsp_init_aarch64.o
+#9 27.68 AS	libavcodec/aarch64/fdctdsp_neon.o
+#9 27.69 CC	libavcodec/aarch64/fmtconvert_init.o
+#9 27.70 AS	libavcodec/aarch64/fmtconvert_neon.o
+#9 27.71 CC	libavcodec/aarch64/h264chroma_init_aarch64.o
+#9 27.72 AS	libavcodec/aarch64/h264cmc_neon.o
+#9 27.73 CC	libavcodec/aarch64/h264dsp_init_aarch64.o
+#9 27.73 AS	libavcodec/aarch64/h264dsp_neon.o
+#9 27.75 AS	libavcodec/aarch64/h264idct_neon.o
+#9 27.76 CC	libavcodec/aarch64/h264pred_init.o
+#9 27.76 AS	libavcodec/aarch64/h264pred_neon.o
+#9 27.76 CC	libavcodec/aarch64/h264qpel_init_aarch64.o
+#9 27.77 AS	libavcodec/aarch64/h264qpel_neon.o
+#9 27.78 AS	libavcodec/aarch64/h26x/epel_neon.o
+#9 27.79 AS	libavcodec/aarch64/h26x/qpel_neon.o
+#9 27.79 AS	libavcodec/aarch64/h26x/sao_neon.o
+#9 27.81 AS	libavcodec/aarch64/hevcdsp_deblock_neon.o
+#9 27.81 AS	libavcodec/aarch64/hevcdsp_idct_neon.o
+#9 27.82 CC	libavcodec/aarch64/hevcdsp_init_aarch64.o
+#9 27.82 CC	libavcodec/aarch64/hpeldsp_init_aarch64.o
+#9 27.83 AS	libavcodec/aarch64/hpeldsp_neon.o
+#9 27.83 CC	libavcodec/aarch64/idctdsp_init_aarch64.o
+#9 27.83 AS	libavcodec/aarch64/idctdsp_neon.o
+#9 27.84 CC	libavcodec/aarch64/me_cmp_init_aarch64.o
+#9 27.85 AS	libavcodec/aarch64/me_cmp_neon.o
+#9 27.86 CC	libavcodec/aarch64/mpegaudiodsp_init.o
+#9 27.87 AS	libavcodec/aarch64/mpegaudiodsp_neon.o
+#9 27.87 CC	libavcodec/aarch64/mpegvideoencdsp_init.o
+#9 27.87 AS	libavcodec/aarch64/mpegvideoencdsp_neon.o
+#9 27.88 CC	libavcodec/aarch64/opusdsp_init.o
+#9 27.90 AS	libavcodec/aarch64/opusdsp_neon.o
+#9 27.91 CC	libavcodec/aarch64/pixblockdsp_init_aarch64.o
+#9 27.92 AS	libavcodec/aarch64/pixblockdsp_neon.o
+#9 27.92 CC	libavcodec/aarch64/rv40dsp_init_aarch64.o
+#9 27.93 CC	libavcodec/aarch64/sbrdsp_init_aarch64.o
+#9 27.94 AS	libavcodec/aarch64/sbrdsp_neon.o
+#9 27.94 AS	libavcodec/aarch64/simple_idct_neon.o
+#9 27.94 CC	libavcodec/aarch64/synth_filter_init.o
+#9 27.95 AS	libavcodec/aarch64/synth_filter_neon.o
+#9 27.95 CC	libavcodec/aarch64/vc1dsp_init_aarch64.o
+#9 27.96 AS	libavcodec/aarch64/vc1dsp_neon.o
+#9 27.97 AS	libavcodec/aarch64/videodsp.o
+#9 27.97 CC	libavcodec/aarch64/videodsp_init.o
+#9 27.98 CC	libavcodec/aarch64/vorbisdsp_init.o
+#9 27.99 AS	libavcodec/aarch64/vorbisdsp_neon.o
+#9 27.99 CC	libavcodec/aarch64/vp8dsp_init_aarch64.o
+#9 27.99 AS	libavcodec/aarch64/vp8dsp_neon.o
+#9 27.99 CC	libavcodec/aarch64/vp9dsp_init_10bpp_aarch64.o
+#9 28.01 CC	libavcodec/aarch64/vp9dsp_init_12bpp_aarch64.o
+#9 28.02 CC	libavcodec/aarch64/vp9dsp_init_aarch64.o
+#9 28.04 AS	libavcodec/aarch64/vp9itxfm_16bpp_neon.o
+#9 28.06 AS	libavcodec/aarch64/vp9itxfm_neon.o
+#9 28.08 AS	libavcodec/aarch64/vp9lpf_16bpp_neon.o
+#9 28.09 AS	libavcodec/aarch64/vp9lpf_neon.o
+#9 28.10 AS	libavcodec/aarch64/vp9mc_16bpp_neon.o
+#9 28.11 AS	libavcodec/aarch64/vp9mc_aarch64.o
+#9 28.11 AS	libavcodec/aarch64/vp9mc_neon.o
+#9 28.12 AS	libavcodec/aarch64/vvc/alf.o
+#9 28.13 CC	libavcodec/aarch64/vvc/dsp_init.o
+#9 28.13 AS	libavcodec/aarch64/vvc/inter.o
+#9 28.13 AS	libavcodec/aarch64/vvc/sad.o
+#9 28.14 CC	libavcodec/aasc.o
+#9 28.14 CC	libavcodec/ac3.o
+#9 28.14 CC	libavcodec/ac3_channel_layout_tab.o
+#9 28.15 CC	libavcodec/ac3_parser.o
+#9 28.15 CC	libavcodec/ac3dec_data.o
+#9 28.16 CC	libavcodec/ac3dec_fixed.o
+#9 28.16 CC	libavcodec/ac3dec_float.o
+#9 28.22 CC	libavcodec/ac3dsp.o
+#9 28.32 CC	libavcodec/ac3tab.o
+#9 28.33 CC	libavcodec/acelp_filters.o
+#9 28.36 CC	libavcodec/acelp_pitch_delay.o
+#9 28.40 CC	libavcodec/acelp_vectors.o
+#9 28.41 CC	libavcodec/adpcm.o
+#9 28.41 CC	libavcodec/adpcm_data.o
+#9 28.42 CC	libavcodec/adts_header.o
+#9 28.47 CC	libavcodec/adts_parser.o
+#9 28.47 CC	libavcodec/adx.o
+#9 28.50 CC	libavcodec/adx_parser.o
+#9 28.51 CC	libavcodec/adxdec.o
+#9 28.61 CC	libavcodec/agm.o
+#9 28.64 CC	libavcodec/aic.o
+#9 28.66 In file included from libavcodec/ac3dec_float.c:38:
+#9 28.66 In function 'spx_strategy',
+#9 28.66     inlined from 'decode_audio_block' at libavcodec/ac3dec.c:1142:24:
+#9 28.66 libavcodec/ac3dec.c:854:37: warning: writing 1 byte into a region of size 0 [-Wstringop-overflow=]
+#9 28.66   854 |             s->channel_uses_spx[ch] = get_bits1(bc);
+#9 28.66       |             ~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~
+#9 28.66 In file included from libavcodec/ac3dec_float.c:34:
+#9 28.66 libavcodec/ac3dec.h: In function 'decode_audio_block':
+#9 28.66 libavcodec/ac3dec.h:144:13: note: at offset 7 into destination object 'channel_uses_spx' of size 7
+#9 28.66   144 |     uint8_t channel_uses_spx[AC3_MAX_CHANNELS]; ///< channel uses spectral extension        (chinspx)
+#9 28.66       |             ^~~~~~~~~~~~~~~~
+#9 28.67 CC	libavcodec/alac.o
+#9 28.70 In file included from libavcodec/ac3dec_fixed.c:156:
+#9 28.70 In function 'spx_strategy',
+#9 28.70     inlined from 'decode_audio_block' at libavcodec/ac3dec.c:1142:24:
+#9 28.70 libavcodec/ac3dec.c:854:37: warning: writing 1 byte into a region of size 0 [-Wstringop-overflow=]
+#9 28.70   854 |             s->channel_uses_spx[ch] = get_bits1(bc);
+#9 28.70       |             ~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~
+#9 28.70 In file included from libavcodec/ac3dec_fixed.c:51:
+#9 28.70 libavcodec/ac3dec.h: In function 'decode_audio_block':
+#9 28.70 libavcodec/ac3dec.h:144:13: note: at offset 7 into destination object 'channel_uses_spx' of size 7
+#9 28.70   144 |     uint8_t channel_uses_spx[AC3_MAX_CHANNELS]; ///< channel uses spectral extension        (chinspx)
+#9 28.70       |             ^~~~~~~~~~~~~~~~
+#9 28.71 CC	libavcodec/alac_data.o
+#9 28.73 CC	libavcodec/alacdsp.o
+#9 28.76 CC	libavcodec/aliaspixdec.o
+#9 28.96 CC	libavcodec/allcodecs.o
+#9 28.97 CC	libavcodec/alsdec.o
+#9 29.01 CC	libavcodec/amr_parser.o
+#9 29.10 CC	libavcodec/amrnbdec.o
+#9 29.19 CC	libavcodec/amrwbdec.o
+#9 29.22 CC	libavcodec/anm.o
+#9 29.41 CC	libavcodec/ansi.o
+#9 29.43 CC	libavcodec/aom_film_grain.o
+#9 29.45 CC	libavcodec/apac.o
+#9 29.58 CC	libavcodec/apedec.o
+#9 29.67 CC	libavcodec/aptx.o
+#9 29.76 CC	libavcodec/aptxdec.o
+#9 29.86 CC	libavcodec/arbc.o
+#9 29.86 CC	libavcodec/argo.o
+#9 29.89 CC	libavcodec/ass.o
+#9 29.92 CC	libavcodec/assdec.o
+#9 29.95 CC	libavcodec/asv.o
+#9 29.96 CC	libavcodec/asvdec.o
+#9 29.99 CC	libavcodec/atrac.o
+#9 30.01 CC	libavcodec/atrac1.o
+#9 30.05 CC	libavcodec/atrac3.o
+#9 30.15 CC	libavcodec/atrac3plus.o
+#9 30.16 CC	libavcodec/atrac3plusdec.o
+#9 30.24 CC	libavcodec/atrac3plusdsp.o
+#9 30.26 CC	libavcodec/atrac9dec.o
+#9 30.38 CC	libavcodec/atsc_a53.o
+#9 30.42 CC	libavcodec/audiodsp.o
+#9 30.43 CC	libavcodec/aura.o
+#9 30.47 CC	libavcodec/av1_parse.o
+#9 30.47 CC	libavcodec/av1_parser.o
+#9 30.49 CC	libavcodec/av1dec.o
+#9 30.51 CC	libavcodec/avcodec.o
+#9 30.56 CC	libavcodec/avdct.o
+#9 30.61 CC	libavcodec/avfft.o
+#9 30.66 CC	libavcodec/avrndec.o
+#9 30.66 CC	libavcodec/avs.o
+#9 30.67 CC	libavcodec/avs2.o
+#9 30.68 CC	libavcodec/avs2_parser.o
+#9 30.69 CC	libavcodec/avs3_parser.o
+#9 30.71 CC	libavcodec/avuidec.o
+#9 30.74 CC	libavcodec/bethsoftvideo.o
+#9 30.87 CC	libavcodec/bfi.o
+#9 30.88 CC	libavcodec/bgmc.o
+#9 30.89 CC	libavcodec/bink.o
+#9 30.89 CC	libavcodec/binkaudio.o
+#9 30.94 CC	libavcodec/binkdsp.o
+#9 31.05 CC	libavcodec/bintext.o
+#9 31.06 CC	libavcodec/bitpacked_dec.o
+#9 31.07 CC	libavcodec/bitstream.o
+#9 31.07 CC	libavcodec/bitstream_filters.o
+#9 31.08 CC	libavcodec/blockdsp.o
+#9 31.10 CC	libavcodec/bmp.o
+#9 31.11 CC	libavcodec/bmp_parser.o
+#9 31.11 CC	libavcodec/bmvaudio.o
+#9 31.13 CC	libavcodec/bmvvideo.o
+#9 31.15 CC	libavcodec/bonk.o
+#9 31.16 CC	libavcodec/brenderpix.o
+#9 31.25 CC	libavcodec/bsf.o
+#9 31.28 CC	libavcodec/bsf/aac_adtstoasc.o
+#9 31.34 CC	libavcodec/bsf/av1_frame_merge.o
+#9 31.36 CC	libavcodec/bsf/av1_frame_split.o
+#9 31.36 CC	libavcodec/bsf/av1_metadata.o
+#9 31.36 CC	libavcodec/bsf/chomp.o
+#9 31.38 CC	libavcodec/bsf/dca_core.o
+#9 31.39 CC	libavcodec/bsf/dovi_rpu.o
+#9 31.39 CC	libavcodec/bsf/dts2pts.o
+#9 31.41 CC	libavcodec/bsf/dump_extradata.o
+#9 31.42 CC	libavcodec/bsf/dv_error_marker.o
+#9 31.44 CC	libavcodec/bsf/eac3_core.o
+#9 31.46 CC	libavcodec/bsf/evc_frame_merge.o
+#9 31.52 CC	libavcodec/bsf/extract_extradata.o
+#9 31.54 CC	libavcodec/bsf/filter_units.o
+#9 31.60 CC	libavcodec/bsf/h264_metadata.o
+#9 31.60 CC	libavcodec/bsf/h264_mp4toannexb.o
+#9 31.60 CC	libavcodec/bsf/h264_redundant_pps.o
+#9 31.60 CC	libavcodec/bsf/h265_metadata.o
+#9 31.62 CC	libavcodec/bsf/h266_metadata.o
+#9 31.64 CC	libavcodec/bsf/hapqa_extract.o
+#9 31.65 CC	libavcodec/bsf/hevc_mp4toannexb.o
+#9 31.76 CC	libavcodec/bsf/imx_dump_header.o
+#9 31.77 CC	libavcodec/bsf/media100_to_mjpegb.o
+#9 31.79 CC	libavcodec/bsf/mjpeg2jpeg.o
+#9 31.81 CC	libavcodec/bsf/mjpega_dump_header.o
+#9 31.85 CC	libavcodec/bsf/movsub.o
+#9 31.85 CC	libavcodec/bsf/mpeg2_metadata.o
+#9 31.85 CC	libavcodec/bsf/mpeg4_unpack_bframes.o
+#9 31.86 CC	libavcodec/bsf/noise.o
+#9 31.90 CC	libavcodec/bsf/null.o
+#9 31.90 CC	libavcodec/bsf/opus_metadata.o
+#9 31.92 CC	libavcodec/bsf/pcm_rechunk.o
+#9 31.92 CC	libavcodec/bsf/pgs_frame_merge.o
+#9 31.93 CC	libavcodec/bsf/prores_metadata.o
+#9 31.96 CC	libavcodec/bsf/remove_extradata.o
+#9 31.97 CC	libavcodec/bsf/setts.o
+#9 31.99 CC	libavcodec/bsf/showinfo.o
+#9 32.02 CC	libavcodec/bsf/trace_headers.o
+#9 32.02 CC	libavcodec/bsf/truehd_core.o
+#9 32.02 CC	libavcodec/bsf/vp9_metadata.o
+#9 32.03 CC	libavcodec/bsf/vp9_raw_reorder.o
+#9 32.05 CC	libavcodec/bsf/vp9_superframe.o
+#9 32.06 CC	libavcodec/bsf/vp9_superframe_split.o
+#9 32.08 CC	libavcodec/bsf/vvc_mp4toannexb.o
+#9 32.09 CC	libavcodec/bswapdsp.o
+#9 32.10 CC	libavcodec/c93.o
+#9 32.13 CC	libavcodec/cabac.o
+#9 32.15 CC	libavcodec/canopus.o
+#9 32.16 CC	libavcodec/cavs.o
+#9 32.22 CC	libavcodec/cavs_parser.o
+#9 32.25 CC	libavcodec/cavsdata.o
+#9 32.26 CC	libavcodec/cavsdec.o
+#9 32.27 CC	libavcodec/cavsdsp.o
+#9 32.31 CC	libavcodec/cbrt_data.o
+#9 32.32 CC	libavcodec/cbrt_data_fixed.o
+#9 32.34 CC	libavcodec/cbs.o
+#9 32.36 CC	libavcodec/cbs_av1.o
+#9 32.38 CC	libavcodec/cbs_bsf.o
+#9 32.40 CC	libavcodec/cbs_h2645.o
+#9 32.41 CC	libavcodec/cbs_mpeg2.o
+#9 32.42 CC	libavcodec/cbs_sei.o
+#9 32.64 CC	libavcodec/cbs_vp8.o
+#9 32.69 CC	libavcodec/cbs_vp9.o
+#9 32.72 CC	libavcodec/ccaption_dec.o
+#9 32.84 CC	libavcodec/cdgraphics.o
+#9 32.84 CC	libavcodec/cdtoons.o
+#9 32.93 CC	libavcodec/cdxl.o
+#9 32.96 CC	libavcodec/celp_filters.o
+#9 32.97 CC	libavcodec/celp_math.o
+#9 33.00 CC	libavcodec/cfhd.o
+#9 33.03 CC	libavcodec/cfhddata.o
+#9 33.07 CC	libavcodec/cfhddsp.o
+#9 33.11 CC	libavcodec/cga_data.o
+#9 33.13 CC	libavcodec/cinepak.o
+#9 33.17 CC	libavcodec/clearvideo.o
+#9 33.18 CC	libavcodec/cljrdec.o
+#9 33.19 CC	libavcodec/cllc.o
+#9 33.21 CC	libavcodec/cngdec.o
+#9 33.28 CC	libavcodec/codec_desc.o
+#9 33.32 CC	libavcodec/codec_par.o
+#9 33.37 CC	libavcodec/container_fifo.o
+#9 33.40 CC	libavcodec/cook.o
+#9 33.42 CC	libavcodec/cook_parser.o
+#9 33.42 CC	libavcodec/cpia.o
+#9 33.45 CC	libavcodec/cri.o
+#9 33.58 CC	libavcodec/cri_parser.o
+#9 33.58 CC	libavcodec/cscd.o
+#9 33.61 libavcodec/cri.c: In function 'cri_decode_frame':
+#9 33.61 libavcodec/cri.c:225:13: warning: ISO C90 forbids mixed declarations and code [-Wdeclaration-after-statement]
+#9 33.61   225 |             int read_len = FFMIN(length, sizeof(codec_name) - 1);
+#9 33.61       |             ^~~
+#9 33.62 CC	libavcodec/cyuv.o
+#9 33.62 CC	libavcodec/d3d11va.o
+#9 33.62 CC	libavcodec/dca.o
+#9 33.63 CC	libavcodec/dca_core.o
+#9 33.64 CC	libavcodec/dca_exss.o
+#9 33.68 CC	libavcodec/dca_lbr.o
+#9 33.72 CC	libavcodec/dca_parser.o
+#9 33.84 CC	libavcodec/dca_sample_rate_tab.o
+#9 33.86 CC	libavcodec/dca_xll.o
+#9 33.86 CC	libavcodec/dcadata.o
+#9 33.94 CC	libavcodec/dcadct.o
+#9 34.02 CC	libavcodec/dcadec.o
+#9 34.07 CC	libavcodec/dcadsp.o
+#9 34.25 CC	libavcodec/dcahuff.o
+#9 34.28 CC	libavcodec/dct32_fixed.o
+#9 34.30 CC	libavcodec/dct32_float.o
+#9 34.34 CC	libavcodec/dds.o
+#9 34.36 CC	libavcodec/decode.o
+#9 34.37 CC	libavcodec/dfa.o
+#9 34.38 CC	libavcodec/dfpwmdec.o
+#9 34.43 CC	libavcodec/dirac.o
+#9 34.67 CC	libavcodec/dirac_arith.o
+#9 34.68 CC	libavcodec/dirac_dwt.o
+#9 34.79 CC	libavcodec/dirac_parser.o
+#9 34.80 CC	libavcodec/dirac_vlc.o
+#9 34.86 CC	libavcodec/diracdec.o
+#9 34.87 CC	libavcodec/diracdsp.o
+#9 34.87 CC	libavcodec/diractab.o
+#9 34.90 CC	libavcodec/dnxhd_parser.o
+#9 34.90 CC	libavcodec/dnxhddata.o
+#9 35.02 CC	libavcodec/dnxhddec.o
+#9 35.08 CC	libavcodec/dolby_e.o
+#9 35.09 CC	libavcodec/dolby_e_parse.o
+#9 35.12 CC	libavcodec/dolby_e_parser.o
+#9 35.15 CC	libavcodec/dovi_rpu.o
+#9 35.20 CC	libavcodec/dovi_rpudec.o
+#9 35.26 CC	libavcodec/dovi_rpuenc.o
+#9 35.29 CC	libavcodec/dpcm.o
+#9 35.33 CC	libavcodec/dpx.o
+#9 35.46 CC	libavcodec/dpx_parser.o
+#9 35.51 CC	libavcodec/dsd.o
+#9 35.52 CC	libavcodec/dsddec.o
+#9 35.55 CC	libavcodec/dsicinaudio.o
+#9 35.56 CC	libavcodec/dsicinvideo.o
+#9 35.56 CC	libavcodec/dss_sp.o
+#9 35.69 CC	libavcodec/dstdec.o
+#9 35.71 CC	libavcodec/dv.o
+#9 35.78 CC	libavcodec/dv_profile.o
+#9 35.81 CC	libavcodec/dvaudio_parser.o
+#9 35.85 CC	libavcodec/dvaudiodec.o
+#9 35.90 CC	libavcodec/dvbsub_parser.o
+#9 35.94 CC	libavcodec/dvbsubdec.o
+#9 35.99 CC	libavcodec/dvd_nav_parser.o
+#9 36.00 CC	libavcodec/dvdata.o
+#9 36.01 CC	libavcodec/dvdec.o
+#9 36.03 CC	libavcodec/dvdsub.o
+#9 36.06 CC	libavcodec/dvdsub_parser.o
+#9 36.07 CC	libavcodec/dvdsubdec.o
+#9 36.10 CC	libavcodec/dxa.o
+#9 36.16 CC	libavcodec/dxtory.o
+#9 36.23 CC	libavcodec/dxv.o
+#9 36.39 CC	libavcodec/dynamic_hdr_vivid.o
+#9 36.40 libavcodec/dxv.c: In function 'dxv_decompress_opcodes':
+#9 36.40 libavcodec/dxv.c:280:9: warning: ISO C90 forbids mixed declarations and code [-Wdeclaration-after-statement]
+#9 36.40   280 |         int read_size = bytestream2_get_buffer(gb, dstp, op_size);
+#9 36.40       |         ^~~
+#9 36.41 libavcodec/dxv.c: In function 'dxv_decode':
+#9 36.41 libavcodec/dxv.c:984:5: warning: ISO C90 forbids mixed declarations and code [-Wdeclaration-after-statement]
+#9 36.41   984 |     unsigned old_size = ctx->tex_data_size;
+#9 36.41       |     ^~~~~~~~
+#9 36.42 CC	libavcodec/eac3_data.o
+#9 36.44 CC	libavcodec/eacmv.o
+#9 36.44 CC	libavcodec/eaidct.o
+#9 36.50 CC	libavcodec/eamad.o
+#9 36.58 CC	libavcodec/eatgq.o
+#9 36.62 CC	libavcodec/eatgv.o
+#9 36.69 CC	libavcodec/eatqi.o
+#9 36.69 CC	libavcodec/elsdec.o
+#9 36.72 CC	libavcodec/encode.o
+#9 36.78 CC	libavcodec/error_resilience.o
+#9 36.85 CC	libavcodec/escape124.o
+#9 36.88 CC	libavcodec/escape130.o
+#9 36.88 CC	libavcodec/evc_parse.o
+#9 36.89 CC	libavcodec/evc_parser.o
+#9 36.90 CC	libavcodec/evc_ps.o
+#9 37.10 CC	libavcodec/evrcdec.o
+#9 37.11 CC	libavcodec/exif.o
+#9 37.12 CC	libavcodec/exr.o
+#9 37.17 CC	libavcodec/exrdsp.o
+#9 37.21 CC	libavcodec/faandct.o
+#9 37.27 CC	libavcodec/faanidct.o
+#9 37.28 libavcodec/exr.c: In function 'decode_header':
+#9 37.28 libavcodec/exr.c:1788:17: warning: ISO C90 forbids mixed declarations and code [-Wdeclaration-after-statement]
+#9 37.28  1788 |                 EXRChannel *new_channels = av_realloc_array(s->channels,
+#9 37.28       |                 ^~~~~~~~~~
+#9 37.29 CC	libavcodec/fastaudio.o
+#9 37.36 CC	libavcodec/faxcompr.o
+#9 37.38 CC	libavcodec/fdctdsp.o
+#9 37.42 CC	libavcodec/ffv1.o
+#9 37.52 CC	libavcodec/ffv1dec.o
+#9 37.59 CC	libavcodec/ffwavesynth.o
+#9 37.63 CC	libavcodec/fic.o
+#9 37.64 CC	libavcodec/fits.o
+#9 37.67 CC	libavcodec/fitsdec.o
+#9 37.70 CC	libavcodec/flac.o
+#9 37.73 CC	libavcodec/flac_parser.o
+#9 37.84 CC	libavcodec/flacdata.o
+#9 37.86 CC	libavcodec/flacdec.o
+#9 37.92 CC	libavcodec/flacdsp.o
+#9 37.95 CC	libavcodec/flashsv.o
+#9 37.95 CC	libavcodec/flicvideo.o
+#9 37.98 CC	libavcodec/flvdec.o
+#9 38.03 CC	libavcodec/fmtconvert.o
+#9 38.06 CC	libavcodec/fmvc.o
+#9 38.06 CC	libavcodec/frame_thread_encoder.o
+#9 38.14 CC	libavcodec/fraps.o
+#9 38.19 CC	libavcodec/frwu.o
+#9 38.24 CC	libavcodec/ftr.o
+#9 38.34 CC	libavcodec/ftr_parser.o
+#9 38.37 CC	libavcodec/g2meet.o
+#9 38.41 CC	libavcodec/g722.o
+#9 38.44 CC	libavcodec/g722dec.o
+#9 38.46 CC	libavcodec/g722dsp.o
+#9 38.50 CC	libavcodec/g723_1.o
+#9 38.51 CC	libavcodec/g723_1_parser.o
+#9 38.53 CC	libavcodec/g723_1dec.o
+#9 38.55 CC	libavcodec/g726.o
+#9 38.63 CC	libavcodec/g729_parser.o
+#9 38.64 CC	libavcodec/g729dec.o
+#9 38.66 CC	libavcodec/g729postfilter.o
+#9 38.67 CC	libavcodec/gdv.o
+#9 38.79 CC	libavcodec/gemdec.o
+#9 38.88 CC	libavcodec/get_buffer.o
+#9 38.92 CC	libavcodec/gif_parser.o
+#9 38.93 CC	libavcodec/gifdec.o
+#9 38.96 CC	libavcodec/golomb.o
+#9 38.97 CC	libavcodec/gsm_parser.o
+#9 38.98 CC	libavcodec/gsmdec.o
+#9 39.01 CC	libavcodec/gsmdec_data.o
+#9 39.03 CC	libavcodec/h261.o
+#9 39.06 CC	libavcodec/h261_parser.o
+#9 39.07 CC	libavcodec/h261data.o
+#9 39.09 CC	libavcodec/h261dec.o
+#9 39.11 CC	libavcodec/h263.o
+#9 39.13 CC	libavcodec/h263_parser.o
+#9 39.14 CC	libavcodec/h263data.o
+#9 39.16 CC	libavcodec/h263dec.o
+#9 39.17 CC	libavcodec/h263dsp.o
+#9 39.19 CC	libavcodec/h2645_parse.o
+#9 39.21 CC	libavcodec/h2645_sei.o
+#9 39.22 CC	libavcodec/h2645_vui.o
+#9 39.23 CC	libavcodec/h2645data.o
+#9 39.25 CC	libavcodec/h264_cabac.o
+#9 39.26 CC	libavcodec/h264_cavlc.o
+#9 39.33 CC	libavcodec/h264_direct.o
+#9 39.38 CC	libavcodec/h264_levels.o
+#9 39.41 CC	libavcodec/h264_loopfilter.o
+#9 39.41 CC	libavcodec/h264_mb.o
+#9 39.45 CC	libavcodec/h264_parse.o
+#9 39.46 CC	libavcodec/h264_parser.o
+#9 39.57 CC	libavcodec/h264_picture.o
+#9 39.61 libavcodec/h264_parser.c: In function 'scan_mmco_reset':
+#9 39.61 libavcodec/h264_parser.c:229:13: warning: ISO C90 forbids mixed declarations and code [-Wdeclaration-after-statement]
+#9 39.61   229 |             MMCOOpcode opcode = get_ue_golomb_31(gb);
+#9 39.61       |             ^~~~~~~~~~
+#9 39.78 CC	libavcodec/h264_ps.o
+#9 39.80 CC	libavcodec/h264_refs.o
+#9 39.83 CC	libavcodec/h264_sei.o
+#9 39.83 CC	libavcodec/h264_slice.o
+#9 40.11 CC	libavcodec/h264chroma.o
+#9 40.28 CC	libavcodec/h264data.o
+#9 40.34 CC	libavcodec/h264dec.o
+#9 40.45 CC	libavcodec/h264dsp.o
+#9 40.45 CC	libavcodec/h264idct.o
+#9 40.52 CC	libavcodec/h264pred.o
+#9 40.52 CC	libavcodec/h264qpel.o
+#9 40.75 CC	libavcodec/h265_profile_level.o
+#9 40.77 CC	libavcodec/h274.o
+#9 40.93 CC	libavcodec/half2float.o
+#9 40.95 CC	libavcodec/hap.o
+#9 40.95 CC	libavcodec/hapdec.o
+#9 40.97 CC	libavcodec/hcadec.o
+#9 41.12 CC	libavcodec/hcom.o
+#9 41.19 CC	libavcodec/hdr_parser.o
+#9 41.25 CC	libavcodec/hdrdec.o
+#9 41.31 CC	libavcodec/hevc/cabac.o
+#9 41.32 CC	libavcodec/hevc/data.o
+#9 41.34 CC	libavcodec/hevc/dsp.o
+#9 41.36 CC	libavcodec/hevc/filter.o
+#9 41.48 CC	libavcodec/hevc/hevcdec.o
+#9 41.49 CC	libavcodec/hevc/mvs.o
+#9 41.89 CC	libavcodec/hevc/parse.o
+#9 42.07 CC	libavcodec/hevc/parser.o
+#9 42.09 CC	libavcodec/hevc/pred.o
+#9 42.10 CC	libavcodec/hevc/ps.o
+#9 42.31 CC	libavcodec/hevc/refs.o
+#9 42.31 CC	libavcodec/hevc/sei.o
+#9 42.42 libavcodec/hevc/hevcdec.c: In function 'pred_weight_table':
+#9 42.42 libavcodec/hevc/hevcdec.c:199:32: warning: writing 1 byte into a region of size 0 [-Wstringop-overflow=]
+#9 42.42   199 |         luma_weight_l0_flag[i] = get_bits1(gb);
+#9 42.42       |         ~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~
+#9 42.42 libavcodec/hevc/hevcdec.c:177:13: note: at offset 16 into destination object 'luma_weight_l0_flag' of size 16
+#9 42.42   177 |     uint8_t luma_weight_l0_flag[16];
+#9 42.42       |             ^~~~~~~~~~~~~~~~~~~
+#9 42.42 libavcodec/hevc/hevcdec.c:207:38: warning: writing 1 byte into a region of size 0 [-Wstringop-overflow=]
+#9 42.42   207 |             chroma_weight_l0_flag[i] = get_bits1(gb);
+#9 42.42       |             ~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~
+#9 42.42 libavcodec/hevc/hevcdec.c:178:13: note: at offset 16 into destination object 'chroma_weight_l0_flag' of size 16
+#9 42.42   178 |     uint8_t chroma_weight_l0_flag[16];
+#9 42.42       |             ^~~~~~~~~~~~~~~~~~~~~
+#9 42.42 libavcodec/hevc/hevcdec.c:243:36: warning: writing 1 byte into a region of size 0 [-Wstringop-overflow=]
+#9 42.42   243 |             luma_weight_l1_flag[i] = get_bits1(gb);
+#9 42.42       |             ~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~
+#9 42.42 libavcodec/hevc/hevcdec.c:179:13: note: at offset 16 into destination object 'luma_weight_l1_flag' of size 16
+#9 42.42   179 |     uint8_t luma_weight_l1_flag[16];
+#9 42.42       |             ^~~~~~~~~~~~~~~~~~~
+#9 42.42 libavcodec/hevc/hevcdec.c:251:42: warning: writing 1 byte into a region of size 0 [-Wstringop-overflow=]
+#9 42.42   251 |                 chroma_weight_l1_flag[i] = get_bits1(gb);
+#9 42.42       |                 ~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~
+#9 42.42 libavcodec/hevc/hevcdec.c:180:13: note: at offset 16 into destination object 'chroma_weight_l1_flag' of size 16
+#9 42.42   180 |     uint8_t chroma_weight_l1_flag[16];
+#9 42.42       |             ^~~~~~~~~~~~~~~~~~~~~
+#9 42.48 libavcodec/hevc/refs.c: In function 'alloc_frame':
+#9 42.48 libavcodec/hevc/refs.c:138:9: warning: ISO C90 forbids mixed declarations and code [-Wdeclaration-after-statement]
+#9 42.48   138 |         size_t rpl_bytes;
+#9 42.48       |         ^~~~~~
+#9 42.64 CC	libavcodec/hnm4video.o
+#9 42.67 CC	libavcodec/hpeldsp.o
+#9 42.96 CC	libavcodec/hq_hqa.o
+#9 43.04 CC	libavcodec/hq_hqadsp.o
+#9 43.09 CC	libavcodec/hqx.o
+#9 43.09 CC	libavcodec/hqxdsp.o
+#9 43.15 CC	libavcodec/hqxvlc.o
+#9 43.34 CC	libavcodec/htmlsubtitles.o
+#9 43.43 CC	libavcodec/huffman.o
+#9 43.43 CC	libavcodec/huffyuv.o
+#9 43.45 CC	libavcodec/huffyuvdec.o
+#9 43.46 CC	libavcodec/huffyuvdsp.o
+#9 43.49 CC	libavcodec/idcinvideo.o
+#9 43.51 CC	libavcodec/idctdsp.o
+#9 43.56 CC	libavcodec/iff.o
+#9 43.56 CC	libavcodec/ilbcdec.o
+#9 43.59 CC	libavcodec/imc.o
+#9 43.62 CC	libavcodec/imgconvert.o
+#9 43.65 CC	libavcodec/imm4.o
+#9 44.01 CC	libavcodec/imm5.o
+#9 44.10 CC	libavcodec/imx.o
+#9 44.19 CC	libavcodec/indeo2.o
+#9 44.20 CC	libavcodec/indeo3.o
+#9 44.25 CC	libavcodec/indeo4.o
+#9 44.31 CC	libavcodec/indeo5.o
+#9 44.41 CC	libavcodec/intelh263dec.o
+#9 44.62 CC	libavcodec/interplayacm.o
+#9 44.64 CC	libavcodec/interplayvideo.o
+#9 44.65 CC	libavcodec/intrax8.o
+#9 44.69 CC	libavcodec/intrax8dsp.o
+#9 44.77 CC	libavcodec/ipu_parser.o
+#9 44.82 CC	libavcodec/ituh263dec.o
+#9 44.92 CC	libavcodec/ivi.o
+#9 44.97 CC	libavcodec/ivi_dsp.o
+#9 45.01 CC	libavcodec/jacosubdec.o
+#9 45.08 CC	libavcodec/jfdctfst.o
+#9 45.13 CC	libavcodec/jfdctint.o
+#9 45.35 CC	libavcodec/jni.o
+#9 45.36 CC	libavcodec/jpeg2000.o
+#9 45.37 CC	libavcodec/jpeg2000_parser.o
+#9 45.38 CC	libavcodec/jpeg2000dec.o
+#9 45.40 CC	libavcodec/jpeg2000dsp.o
+#9 45.42 CC	libavcodec/jpeg2000dwt.o
+#9 45.43 CC	libavcodec/jpeg2000htdec.o
+#9 45.53 CC	libavcodec/jpegls.o
+#9 45.53 libavcodec/jpeg2000dec.c: In function 'get_siz':
+#9 45.53 libavcodec/jpeg2000dec.c:285:5: warning: ISO C90 forbids mixed declarations and code [-Wdeclaration-after-statement]
+#9 45.53   285 |     int cdef_used = 0;
+#9 45.53       |     ^~~
+#9 45.53 libavcodec/jpeg2000dec.c:305:9: warning: ISO C90 forbids mixed declarations and code [-Wdeclaration-after-statement]
+#9 45.53   305 |         int i_remapped = s->cdef[i] ? s->cdef[i]-1 : (s->ncomponents-1);
+#9 45.53       |         ^~~
+#9 45.58 CC	libavcodec/jpeglsdec.o
+#9 45.61 CC	libavcodec/jpegquanttables.o
+#9 45.62 CC	libavcodec/jpegtables.o
+#9 45.64 CC	libavcodec/jpegxl_parse.o
+#9 45.69 CC	libavcodec/jpegxl_parser.o
+#9 46.02 CC	libavcodec/jrevdct.o
+#9 46.03 CC	libavcodec/jvdec.o
+#9 46.04 CC	libavcodec/kbdwin.o
+#9 46.07 CC	libavcodec/kgv1dec.o
+#9 46.08 CC	libavcodec/kmvc.o
+#9 46.16 libavcodec/jrevdct.c:215:28: warning: argument 1 of type 'int16_t[64]' {aka 'short int[64]'} with mismatched bound [-Warray-parameter=]
+#9 46.16   215 | void ff_j_rev_dct(DCTBLOCK data)
+#9 46.16       |                   ~~~~~~~~~^~~~
+#9 46.16 In file included from libavcodec/jrevdct.c:70:
+#9 46.16 libavcodec/dct.h:30:28: note: previously declared as 'int16_t *' {aka 'short int *'}
+#9 46.16    30 | void ff_j_rev_dct(int16_t *data);
+#9 46.16       |                   ~~~~~~~~~^~~~
+#9 46.16 libavcodec/jrevdct.c:953:29: warning: argument 1 of type 'int16_t[64]' {aka 'short int[64]'} with mismatched bound [-Warray-parameter=]
+#9 46.16   953 | void ff_j_rev_dct4(DCTBLOCK data)
+#9 46.16       |                    ~~~~~~~~~^~~~
+#9 46.16 libavcodec/dct.h:31:29: note: previously declared as 'int16_t *' {aka 'short int *'}
+#9 46.16    31 | void ff_j_rev_dct4(int16_t *data);
+#9 46.16       |                    ~~~~~~~~~^~~~
+#9 46.16 libavcodec/jrevdct.c:1140:29: warning: argument 1 of type 'int16_t[64]' {aka 'short int[64]'} with mismatched bound [-Warray-parameter=]
+#9 46.16  1140 | void ff_j_rev_dct2(DCTBLOCK data){
+#9 46.16       |                    ~~~~~~~~~^~~~
+#9 46.16 libavcodec/dct.h:32:29: note: previously declared as 'int16_t *' {aka 'short int *'}
+#9 46.16    32 | void ff_j_rev_dct2(int16_t *data);
+#9 46.16       |                    ~~~~~~~~~^~~~
+#9 46.16 libavcodec/jrevdct.c:1155:29: warning: argument 1 of type 'int16_t[64]' {aka 'short int[64]'} with mismatched bound [-Warray-parameter=]
+#9 46.16  1155 | void ff_j_rev_dct1(DCTBLOCK data){
+#9 46.16       |                    ~~~~~~~~~^~~~
+#9 46.16 libavcodec/dct.h:33:29: note: previously declared as 'int16_t *' {aka 'short int *'}
+#9 46.16    33 | void ff_j_rev_dct1(int16_t *data);
+#9 46.16       |                    ~~~~~~~~~^~~~
+#9 46.27 CC	libavcodec/lagarith.o
+#9 46.28 CC	libavcodec/lagarithrac.o
+#9 46.33 CC	libavcodec/latm_parser.o
+#9 46.34 CC	libavcodec/lcldec.o
+#9 46.37 CC	libavcodec/leaddec.o
+#9 46.45 CC	libavcodec/libdav1d.o
+#9 46.47 CC	libavcodec/loco.o
+#9 46.49 CC	libavcodec/lossless_audiodsp.o
+#9 46.51 libavcodec/lcldec.c: In function 'decode_frame':
+#9 46.51 libavcodec/lcldec.c:309:17: warning: ISO C90 forbids mixed declarations and code [-Wdeclaration-after-statement]
+#9 46.51   309 |                 unsigned uqvq = AV_RL16(encoded+pixel_ptr);
+#9 46.51       |                 ^~~~~~~~
+#9 46.51 CC	libavcodec/lossless_videodsp.o
+#9 46.57 CC	libavcodec/lscrdec.o
+#9 46.60 CC	libavcodec/lsp.o
+#9 46.64 CC	libavcodec/lzf.o
+#9 46.65 CC	libavcodec/lzw.o
+#9 46.71 CC	libavcodec/m101.o
+#9 46.71 CC	libavcodec/mace.o
+#9 46.79 CC	libavcodec/mathtables.o
+#9 46.79 CC	libavcodec/magicyuv.o
+#9 46.80 libavcodec/lzf.c: In function 'ff_lzf_uncompress':
+#9 46.80 libavcodec/lzf.c:72:13: warning: ISO C90 forbids mixed declarations and code [-Wdeclaration-after-statement]
+#9 46.80    72 |             int s2 = bytestream2_get_buffer(gb, p, s);
+#9 46.80       |             ^~~
+#9 46.81 CC	libavcodec/mdec.o
+#9 46.82 CC	libavcodec/me_cmp.o
+#9 46.83 CC	libavcodec/mediacodec.o
+#9 46.84 CC	libavcodec/metasound.o
+#9 46.85 CC	libavcodec/microdvddec.o
+#9 46.86 CC	libavcodec/midivid.o
+#9 46.89 CC	libavcodec/mimic.o
+#9 46.96 CC	libavcodec/misc4.o
+#9 47.05 CC	libavcodec/misc4_parser.o
+#9 47.08 CC	libavcodec/mjpeg_parser.o
+#9 47.12 CC	libavcodec/mjpegbdec.o
+#9 47.13 CC	libavcodec/mjpegdec.o
+#9 47.13 CC	libavcodec/mjpegdec_common.o
+#9 47.16 CC	libavcodec/mjpegenc.o
+#9 47.23 CC	libavcodec/mjpegenc_common.o
+#9 47.24 CC	libavcodec/mjpegenc_huffman.o
+#9 47.31 CC	libavcodec/mlp.o
+#9 47.33 CC	libavcodec/mlp_parse.o
+#9 47.33 CC	libavcodec/mlp_parser.o
+#9 47.39 CC	libavcodec/mlpdec.o
+#9 47.41 CC	libavcodec/mlpdsp.o
+#9 47.44 CC	libavcodec/mlz.o
+#9 47.45 CC	libavcodec/mmvideo.o
+#9 47.49 CC	libavcodec/mobiclip.o
+#9 47.53 CC	libavcodec/motion_est.o
+#9 47.54 CC	libavcodec/motionpixels.o
+#9 47.64 CC	libavcodec/movtextdec.o
+#9 47.66 CC	libavcodec/mpc.o
+#9 47.75 CC	libavcodec/mpc7.o
+#9 47.76 CC	libavcodec/mpc8.o
+#9 47.88 CC	libavcodec/mpeg12.o
+#9 47.90 CC	libavcodec/mpeg12data.o
+#9 47.91 CC	libavcodec/mpeg12dec.o
+#9 47.92 libavcodec/mpc8.c: In function 'mpc8_decode_init':
+#9 47.92 libavcodec/mpc8.c:158:5: warning: ISO C90 forbids mixed declarations and code [-Wdeclaration-after-statement]
+#9 47.92   158 |     uint8_t sample_rate_idx = get_bits(&gb, 3);
+#9 47.92       |     ^~~~~~~
+#9 48.04 CC	libavcodec/mpeg12framerate.o
+#9 48.05 CC	libavcodec/mpeg4audio.o
+#9 48.10 CC	libavcodec/mpeg4audio_sample_rates.o
+#9 48.10 CC	libavcodec/mpeg4video.o
+#9 48.11 CC	libavcodec/mpeg4video_parser.o
+#9 48.16 CC	libavcodec/mpeg4videodec.o
+#9 48.27 CC	libavcodec/mpeg4videodsp.o
+#9 48.30 CC	libavcodec/mpeg_er.o
+#9 48.33 CC	libavcodec/mpegaudio.o
+#9 48.34 CC	libavcodec/mpegaudio_parser.o
+#9 48.35 CC	libavcodec/mpegaudiodata.o
+#9 48.37 CC	libavcodec/mpegaudiodec_common.o
+#9 48.39 CC	libavcodec/mpegaudiodec_fixed.o
+#9 48.43 CC	libavcodec/mpegaudiodec_float.o
+#9 48.51 CC	libavcodec/mpegaudiodecheader.o
+#9 48.51 CC	libavcodec/mpegaudiodsp.o
+#9 48.55 CC	libavcodec/mpegaudiodsp_data.o
+#9 48.56 CC	libavcodec/mpegaudiodsp_fixed.o
+#9 48.57 CC	libavcodec/mpegaudiodsp_float.o
+#9 48.63 CC	libavcodec/mpegaudiotabs.o
+#9 48.65 CC	libavcodec/mpegpicture.o
+#9 48.67 CC	libavcodec/mpegutils.o
+#9 48.70 CC	libavcodec/mpegvideo.o
+#9 48.72 CC	libavcodec/mpegvideo_dec.o
+#9 48.81 CC	libavcodec/mpegvideo_enc.o
+#9 48.89 CC	libavcodec/mpegvideo_motion.o
+#9 49.01 CC	libavcodec/mpegvideo_parser.o
+#9 49.03 libavcodec/mpegvideo_enc.c: In function 'write_mb_info':
+#9 49.03 libavcodec/mpegvideo_enc.c:2805:5: warning: 'pred_x' is used uninitialized [-Wuninitialized]
+#9 49.03  2805 |     bytestream_put_byte(&ptr, pred_x); /* hmv1 */
+#9 49.03       |     ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#9 49.03 libavcodec/mpegvideo_enc.c:2798:9: note: 'pred_x' was declared here
+#9 49.03  2798 |     int pred_x, pred_y;
+#9 49.03       |         ^~~~~~
+#9 49.03 libavcodec/mpegvideo_enc.c:2806:5: warning: 'pred_y' is used uninitialized [-Wuninitialized]
+#9 49.03  2806 |     bytestream_put_byte(&ptr, pred_y); /* vmv1 */
+#9 49.03       |     ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#9 49.03 libavcodec/mpegvideo_enc.c:2798:17: note: 'pred_y' was declared here
+#9 49.03  2798 |     int pred_x, pred_y;
+#9 49.03       |                 ^~~~~~
+#9 49.10 CC	libavcodec/mpegvideodata.o
+#9 49.12 CC	libavcodec/mpegvideoencdsp.o
+#9 49.23 CC	libavcodec/mpl2dec.o
+#9 49.27 CC	libavcodec/mqc.o
+#9 49.28 CC	libavcodec/mqcdec.o
+#9 49.29 CC	libavcodec/mscc.o
+#9 49.31 CC	libavcodec/msgsmdec.o
+#9 49.31 CC	libavcodec/msmpeg4.o
+#9 49.33 CC	libavcodec/msmpeg4_vc1_data.o
+#9 49.35 CC	libavcodec/msmpeg4data.o
+#9 49.39 CC	libavcodec/msmpeg4dec.o
+#9 49.40 CC	libavcodec/msp2dec.o
+#9 49.41 CC	libavcodec/msrle.o
+#9 49.52 CC	libavcodec/msrledec.o
+#9 49.53 CC	libavcodec/mss1.o
+#9 49.59 CC	libavcodec/mss12.o
+#9 49.60 CC	libavcodec/mss2.o
+#9 49.60 CC	libavcodec/mss2dsp.o
+#9 49.67 CC	libavcodec/mss3.o
+#9 49.74 CC	libavcodec/mss34dsp.o
+#9 49.75 CC	libavcodec/mss4.o
+#9 49.76 CC	libavcodec/msvideo1.o
+#9 49.80 CC	libavcodec/mv30.o
+#9 49.83 CC	libavcodec/mvcdec.o
+#9 49.99 CC	libavcodec/mvha.o
+#9 50.04 CC	libavcodec/mwsc.o
+#9 50.07 CC	libavcodec/mxpegdec.o
+#9 50.10 CC	libavcodec/nellymoser.o
+#9 50.14 CC	libavcodec/nellymoserdec.o
+#9 50.17 CC	libavcodec/neon/mpegvideo.o
+#9 50.25 CC	libavcodec/notchlc.o
+#9 50.27 CC	libavcodec/null.o
+#9 50.28 CC	libavcodec/nuv.o
+#9 50.29 CC	libavcodec/on2avc.o
+#9 50.30 CC	libavcodec/on2avcdata.o
+#9 50.31 CC	libavcodec/options.o
+#9 50.33 CC	libavcodec/opus/celt.o
+#9 50.35 CC	libavcodec/opus/dec.o
+#9 50.36 CC	libavcodec/opus/dec_celt.o
+#9 50.37 CC	libavcodec/opus/dsp.o
+#9 50.40 CC	libavcodec/opus/parse.o
+#9 50.46 CC	libavcodec/opus/parser.o
+#9 50.50 CC	libavcodec/opus/pvq.o
+#9 50.63 CC	libavcodec/opus/rc.o
+#9 50.66 CC	libavcodec/opus/silk.o
+#9 50.68 CC	libavcodec/opus/tab.o
+#9 50.70 CC	libavcodec/osq.o
+#9 50.71 CC	libavcodec/packet.o
+#9 50.71 CC	libavcodec/pafaudio.o
+#9 50.82 CC	libavcodec/pafvideo.o
+#9 50.89 CC	libavcodec/parser.o
+#9 50.90 CC	libavcodec/parsers.o
+#9 50.94 CC	libavcodec/pcm-bluray.o
+#9 50.94 CC	libavcodec/pcm-dvd.o
+#9 50.98 CC	libavcodec/pcm.o
+#9 50.99 CC	libavcodec/pcx.o
+#9 51.00 CC	libavcodec/pdvdec.o
+#9 51.05 CC	libavcodec/pgssubdec.o
+#9 51.09 CC	libavcodec/pgxdec.o
+#9 51.13 libavcodec/pcm.c: In function 'pcm_decode_init':
+#9 51.13 libavcodec/pcm.c:287:5: warning: 'sample_fmts' is deprecated [-Wdeprecated-declarations]
+#9 51.13   287 |     avctx->sample_fmt = avctx->codec->sample_fmts[0];
+#9 51.13       |     ^~~~~
+#9 51.13 In file included from libavcodec/avcodec.h:41,
+#9 51.13                  from libavcodec/pcm.c:34:
+#9 51.13 libavcodec/codec.h:219:32: note: declared here
+#9 51.13   219 |     const enum AVSampleFormat *sample_fmts; ///< @deprecated use avcodec_get_supported_config()
+#9 51.13       |                                ^~~~~~~~~~~
+#9 51.14 libavcodec/pcm.c: At top level:
+#9 51.14 libavcodec/pcm.c:96:12: warning: 'pcm_encode_frame' defined but not used [-Wunused-function]
+#9 51.14    96 | static int pcm_encode_frame(AVCodecContext *avctx, AVPacket *avpkt,
+#9 51.14       |            ^~~~~~~~~~~~~~~~
+#9 51.14 libavcodec/pcm.c:41:20: warning: 'pcm_encode_init' defined but not used [-Wunused-function]
+#9 51.14    41 | static av_cold int pcm_encode_init(AVCodecContext *avctx)
+#9 51.14       |                    ^~~~~~~~~~~~~~~
+#9 51.16 CC	libavcodec/photocd.o
+#9 51.16 CC	libavcodec/pictordec.o
+#9 51.22 CC	libavcodec/pixblockdsp.o
+#9 51.23 CC	libavcodec/pixlet.o
+#9 51.26 CC	libavcodec/png.o
+#9 51.30 CC	libavcodec/png_parser.o
+#9 51.30 CC	libavcodec/pngdec.o
+#9 51.33 CC	libavcodec/pngdsp.o
+#9 51.34 CC	libavcodec/pnm.o
+#9 51.42 CC	libavcodec/pnm_parser.o
+#9 51.43 CC	libavcodec/pnmdec.o
+#9 51.46 CC	libavcodec/profiles.o
+#9 51.48 CC	libavcodec/proresdata.o
+#9 51.48 CC	libavcodec/proresdec.o
+#9 51.49 CC	libavcodec/proresdsp.o
+#9 51.49 CC	libavcodec/prosumer.o
+#9 51.49 CC	libavcodec/psd.o
+#9 51.54 CC	libavcodec/pthread.o
+#9 51.59 CC	libavcodec/pthread_frame.o
+#9 51.72 CC	libavcodec/pthread_slice.o
+#9 51.74 CC	libavcodec/ptx.o
+#9 51.76 CC	libavcodec/qcelpdec.o
+#9 51.77 CC	libavcodec/qdm2.o
+#9 51.77 CC	libavcodec/qdmc.o
+#9 51.78 CC	libavcodec/qdrw.o
+#9 51.83 CC	libavcodec/qoadec.o
+#9 51.89 CC	libavcodec/qoi_parser.o
+#9 51.92 CC	libavcodec/qoidec.o
+#9 51.93 CC	libavcodec/qpeg.o
+#9 51.98 CC	libavcodec/qpeldsp.o
+#9 52.05 CC	libavcodec/qsv_api.o
+#9 52.07 CC	libavcodec/qtrle.o
+#9 52.10 CC	libavcodec/r210dec.o
+#9 52.11 CC	libavcodec/ra144.o
+#9 52.12 CC	libavcodec/ra144dec.o
+#9 52.16 CC	libavcodec/ra288.o
+#9 52.17 CC	libavcodec/ralf.o
+#9 52.18 CC	libavcodec/rangecoder.o
+#9 52.23 CC	libavcodec/rasc.o
+#9 52.31 CC	libavcodec/ratecontrol.o
+#9 52.36 CC	libavcodec/raw.o
+#9 52.39 libavcodec/rasc.c: In function 'decode_move':
+#9 52.39 libavcodec/rasc.c:300:13: warning: ISO C90 forbids mixed declarations and code [-Wdeclaration-after-statement]
+#9 52.39   300 |             uint8_t *buffer = s->mv_scratch;
+#9 52.39       |             ^~~~~~~
+#9 52.40 CC	libavcodec/rawdec.o
+#9 52.41 CC	libavcodec/realtextdec.o
+#9 52.44 CC	libavcodec/refstruct.o
+#9 52.46 CC	libavcodec/rka.o
+#9 52.50 CC	libavcodec/rl.o
+#9 52.54 CC	libavcodec/rl2.o
+#9 52.59 CC	libavcodec/roqvideo.o
+#9 52.63 CC	libavcodec/roqvideodec.o
+#9 52.66 CC	libavcodec/rpza.o
+#9 52.68 CC	libavcodec/rscc.o
+#9 52.69 CC	libavcodec/rtjpeg.o
+#9 52.74 CC	libavcodec/rtv1.o
+#9 52.88 CC	libavcodec/rv10.o
+#9 52.88 CC	libavcodec/rv30.o
+#9 52.91 CC	libavcodec/rv30dsp.o
+#9 52.91 CC	libavcodec/rv34.o
+#9 52.92 CC	libavcodec/rv34_parser.o
+#9 52.94 CC	libavcodec/rv34dsp.o
+#9 53.03 CC	libavcodec/rv40.o
+#9 53.03 CC	libavcodec/rv40dsp.o
+#9 53.09 CC	libavcodec/s302m.o
+#9 53.12 CC	libavcodec/samidec.o
+#9 53.18 CC	libavcodec/sanm.o
+#9 53.20 CC	libavcodec/sbc.o
+#9 53.22 CC	libavcodec/sbc_parser.o
+#9 53.27 CC	libavcodec/sbcdec.o
+#9 53.30 CC	libavcodec/sbcdec_data.o
+#9 53.31 CC	libavcodec/sbrdsp.o
+#9 53.38 CC	libavcodec/sbrdsp_fixed.o
+#9 53.43 CC	libavcodec/scpr.o
+#9 53.43 CC	libavcodec/screenpresso.o
+#9 53.49 CC	libavcodec/sga.o
+#9 53.58 CC	libavcodec/sgidec.o
+#9 53.61 CC	libavcodec/sgirledec.o
+#9 53.65 libavcodec/sga.c: In function 'decode_palmapdata':
+#9 53.65 libavcodec/sga.c:257:9: warning: variable 'ret' set but not used [-Wunused-but-set-variable]
+#9 53.65   257 |     int ret;
+#9 53.65       |         ^~~
+#9 53.65 libavcodec/sga.c: In function 'decode_tiledata':
+#9 53.65 libavcodec/sga.c:282:9: warning: variable 'ret' set but not used [-Wunused-but-set-variable]
+#9 53.65   282 |     int ret;
+#9 53.65       |         ^~~
+#9 53.67 CC	libavcodec/sheervideo.o
+#9 53.82 CC	libavcodec/shorten.o
+#9 53.82 CC	libavcodec/simple_idct.o
+#9 53.86 CC	libavcodec/sinewin.o
+#9 53.90 CC	libavcodec/sipr.o
+#9 54.02 CC	libavcodec/sipr16k.o
+#9 54.05 CC	libavcodec/sipr_parser.o
+#9 54.09 CC	libavcodec/siren.o
+#9 54.11 CC	libavcodec/smacker.o
+#9 54.27 CC	libavcodec/smc.o
+#9 54.36 CC	libavcodec/snappy.o
+#9 54.41 CC	libavcodec/snow.o
+#9 54.45 CC	libavcodec/snow_dwt.o
+#9 54.50 CC	libavcodec/snowdec.o
+#9 54.58 CC	libavcodec/sonic.o
+#9 54.58 CC	libavcodec/sp5xdec.o
+#9 54.62 CC	libavcodec/speedhq.o
+#9 54.63 CC	libavcodec/speedhqdec.o
+#9 54.64 CC	libavcodec/speexdec.o
+#9 54.69 CC	libavcodec/srtdec.o
+#9 54.76 CC	libavcodec/startcode.o
+#9 54.86 CC	libavcodec/subviewerdec.o
+#9 54.91 CC	libavcodec/sunrast.o
+#9 54.92 CC	libavcodec/svq1.o
+#9 54.92 CC	libavcodec/svq1dec.o
+#9 54.92 CC	libavcodec/svq3.o
+#9 54.95 CC	libavcodec/synth_filter.o
+#9 55.07 CC	libavcodec/tak.o
+#9 55.12 CC	libavcodec/tak_parser.o
+#9 55.17 CC	libavcodec/takdec.o
+#9 55.31 CC	libavcodec/takdsp.o
+#9 55.32 CC	libavcodec/targa.o
+#9 55.34 CC	libavcodec/targa_y216dec.o
+#9 55.34 CC	libavcodec/tdsc.o
+#9 55.36 CC	libavcodec/textdec.o
+#9 55.38 CC	libavcodec/texturedsp.o
+#9 55.40 CC	libavcodec/threadprogress.o
+#9 55.44 CC	libavcodec/tiertexseqv.o
+#9 55.47 CC	libavcodec/tiff.o
+#9 55.57 CC	libavcodec/tiff_common.o
+#9 55.65 CC	libavcodec/tmv.o
+#9 55.67 CC	libavcodec/to_upper4.o
+#9 55.69 CC	libavcodec/tpeldsp.o
+#9 55.71 CC	libavcodec/truemotion1.o
+#9 55.77 CC	libavcodec/truemotion2.o
+#9 55.78 CC	libavcodec/truemotion2rt.o
+#9 55.84 CC	libavcodec/truespeech.o
+#9 55.96 CC	libavcodec/tscc.o
+#9 56.01 CC	libavcodec/tscc2.o
+#9 56.02 CC	libavcodec/tta.o
+#9 56.15 CC	libavcodec/ttadata.o
+#9 56.17 CC	libavcodec/ttadsp.o
+#9 56.17 CC	libavcodec/twinvq.o
+#9 56.18 CC	libavcodec/twinvqdec.o
+#9 56.20 CC	libavcodec/txd.o
+#9 56.27 CC	libavcodec/ulti.o
+#9 56.35 CC	libavcodec/utils.o
+#9 56.41 CC	libavcodec/utvideodec.o
+#9 56.48 CC	libavcodec/utvideodsp.o
+#9 56.50 CC	libavcodec/v210dec.o
+#9 56.51 CC	libavcodec/v210x.o
+#9 56.51 CC	libavcodec/v308dec.o
+#9 56.53 CC	libavcodec/v408dec.o
+#9 56.55 CC	libavcodec/v410dec.o
+#9 56.56 CC	libavcodec/vb.o
+#9 56.56 CC	libavcodec/vble.o
+#9 56.57 CC	libavcodec/vbndec.o
+#9 56.58 CC	libavcodec/vc1.o
+#9 56.71 CC	libavcodec/vc1_block.o
+#9 56.72 CC	libavcodec/vc1_loopfilter.o
+#9 56.74 CC	libavcodec/vc1_mc.o
+#9 56.76 CC	libavcodec/vc1_parser.o
+#9 56.77 CC	libavcodec/vc1_pred.o
+#9 56.83 CC	libavcodec/vc1data.o
+#9 56.90 CC	libavcodec/vc1dec.o
+#9 56.97 CC	libavcodec/vc1dsp.o
+#9 57.00 CC	libavcodec/vcr1.o
+#9 57.06 CC	libavcodec/version.o
+#9 57.09 CC	libavcodec/videodsp.o
+#9 57.26 CC	libavcodec/vima.o
+#9 57.30 CC	libavcodec/vlc.o
+#9 57.36 CC	libavcodec/vmdaudio.o
+#9 57.40 CC	libavcodec/vmdvideo.o
+#9 57.48 CC	libavcodec/vmixdec.o
+#9 57.48 CC	libavcodec/vmnc.o
+#9 57.56 CC	libavcodec/vorbis.o
+#9 57.64 In function 'add_level',
+#9 57.64     inlined from 'add_level' at libavcodec/vlc.c:457:17,
+#9 57.64     inlined from 'add_level' at libavcodec/vlc.c:457:17,
+#9 57.64     inlined from 'add_level' at libavcodec/vlc.c:457:17,
+#9 57.64     inlined from 'vlc_multi_gen' at libavcodec/vlc.c:508:5,
+#9 57.64     inlined from 'ff_vlc_init_multi_from_lengths' at libavcodec/vlc.c:564:11:
+#9 57.64 libavcodec/vlc.c:443:36: warning: array subscript 3 is above array bounds of 'uint16_t[3]' {aka 'short unsigned int[3]'} [-Warray-bounds=]
+#9 57.64   443 |             if (is16bit) info.val16[curlevel] = sym;
+#9 57.64       |                          ~~~~~~~~~~^~~~~~~~~~
+#9 57.64 In file included from libavcodec/vlc.c:39:
+#9 57.64 libavcodec/vlc.h: In function 'ff_vlc_init_multi_from_lengths':
+#9 57.64 libavcodec/vlc.h:45:18: note: while referencing 'val16'
+#9 57.64    45 |         uint16_t val16[VLC_MULTI_MAX_SYMBOLS / 2];
+#9 57.64       |                  ^~~~~
+#9 57.64 In function 'add_level',
+#9 57.64     inlined from 'add_level' at libavcodec/vlc.c:457:17,
+#9 57.64     inlined from 'add_level' at libavcodec/vlc.c:457:17,
+#9 57.64     inlined from 'add_level' at libavcodec/vlc.c:457:17,
+#9 57.64     inlined from 'add_level' at libavcodec/vlc.c:457:17,
+#9 57.64     inlined from 'vlc_multi_gen' at libavcodec/vlc.c:508:5,
+#9 57.64     inlined from 'ff_vlc_init_multi_from_lengths' at libavcodec/vlc.c:564:11:
+#9 57.64 libavcodec/vlc.c:443:36: warning: array subscript 4 is above array bounds of 'uint16_t[3]' {aka 'short unsigned int[3]'} [-Warray-bounds=]
+#9 57.64   443 |             if (is16bit) info.val16[curlevel] = sym;
+#9 57.64       |                          ~~~~~~~~~~^~~~~~~~~~
+#9 57.64 libavcodec/vlc.h: In function 'ff_vlc_init_multi_from_lengths':
+#9 57.64 libavcodec/vlc.h:45:18: note: while referencing 'val16'
+#9 57.64    45 |         uint16_t val16[VLC_MULTI_MAX_SYMBOLS / 2];
+#9 57.64       |                  ^~~~~
+#9 57.64 In function 'add_level',
+#9 57.64     inlined from 'add_level' at libavcodec/vlc.c:457:17,
+#9 57.64     inlined from 'add_level' at libavcodec/vlc.c:457:17,
+#9 57.64     inlined from 'add_level' at libavcodec/vlc.c:457:17,
+#9 57.64     inlined from 'add_level' at libavcodec/vlc.c:457:17,
+#9 57.64     inlined from 'add_level' at libavcodec/vlc.c:457:17,
+#9 57.64     inlined from 'vlc_multi_gen' at libavcodec/vlc.c:508:5,
+#9 57.64     inlined from 'ff_vlc_init_multi_from_lengths' at libavcodec/vlc.c:564:11:
+#9 57.64 libavcodec/vlc.c:443:36: warning: array subscript 5 is above array bounds of 'uint16_t[3]' {aka 'short unsigned int[3]'} [-Warray-bounds=]
+#9 57.64   443 |             if (is16bit) info.val16[curlevel] = sym;
+#9 57.64       |                          ~~~~~~~~~~^~~~~~~~~~
+#9 57.64 libavcodec/vlc.h: In function 'ff_vlc_init_multi_from_lengths':
+#9 57.64 libavcodec/vlc.h:45:18: note: while referencing 'val16'
+#9 57.64    45 |         uint16_t val16[VLC_MULTI_MAX_SYMBOLS / 2];
+#9 57.64       |                  ^~~~~
+#9 57.64 CC	libavcodec/vorbis_data.o
+#9 57.66 CC	libavcodec/vorbis_parser.o
+#9 57.67 CC	libavcodec/vorbisdec.o
+#9 57.76 CC	libavcodec/vorbisdsp.o
+#9 57.78 CC	libavcodec/vp3.o
+#9 57.80 CC	libavcodec/vp3_parser.o
+#9 57.83 CC	libavcodec/vp3dsp.o
+#9 57.83 CC	libavcodec/vp5.o
+#9 57.88 CC	libavcodec/vp56.o
+#9 57.98 CC	libavcodec/vp56data.o
+#9 58.15 CC	libavcodec/vp56dsp.o
+#9 58.16 CC	libavcodec/vp6.o
+#9 58.20 CC	libavcodec/vp6dsp.o
+#9 58.25 CC	libavcodec/vp8.o
+#9 58.41 CC	libavcodec/vp8_parser.o
+#9 58.42 CC	libavcodec/vp8data.o
+#9 58.44 CC	libavcodec/vp8dsp.o
+#9 58.59 CC	libavcodec/vp9.o
+#9 58.64 CC	libavcodec/vp9_parser.o
+#9 58.78 CC	libavcodec/vp9block.o
+#9 58.80 CC	libavcodec/vp9data.o
+#9 58.82 CC	libavcodec/vp9dsp.o
+#9 58.83 CC	libavcodec/vp9dsp_10bpp.o
+#9 58.84 CC	libavcodec/vp9dsp_12bpp.o
+#9 58.97 CC	libavcodec/vp9dsp_8bpp.o
+#9 59.11 CC	libavcodec/vp9lpf.o
+#9 59.41 CC	libavcodec/vp9mvs.o
+#9 59.60 CC	libavcodec/vp9prob.o
+#9 60.04 CC	libavcodec/vp9recon.o
+#9 60.09 CC	libavcodec/vpx_rac.o
+#9 60.11 CC	libavcodec/vqavideo.o
+#9 60.26 CC	libavcodec/vqcdec.o
+#9 60.45 CC	libavcodec/vvc/cabac.o
+#9 60.53 CC	libavcodec/vvc/ctu.o
+#9 60.92 CC	libavcodec/vvc/data.o
+#9 60.93 CC	libavcodec/vvc/dec.o
+#9 60.99 CC	libavcodec/vvc/dsp.o
+#9 61.38 CC	libavcodec/vvc/filter.o
+#9 61.53 CC	libavcodec/vvc/inter.o
+#9 61.66 CC	libavcodec/vvc/intra.o
+#9 61.84 CC	libavcodec/vvc/intra_utils.o
+#9 61.85 CC	libavcodec/vvc/itx_1d.o
+#9 62.05 CC	libavcodec/vvc/mvs.o
+#9 62.06 CC	libavcodec/vvc/ps.o
+#9 62.07 CC	libavcodec/vvc/refs.o
+#9 62.16 CC	libavcodec/vvc/thread.o
+#9 62.44 CC	libavcodec/vvc_parser.o
+#9 62.46 CC	libavcodec/wavarc.o
+#9 62.63 CC	libavcodec/wavpack.o
+#9 62.68 CC	libavcodec/wavpackdata.o
+#9 62.69 CC	libavcodec/wbmpdec.o
+#9 62.69 CC	libavcodec/wcmv.o
+#9 62.88 CC	libavcodec/webp.o
+#9 62.94 CC	libavcodec/webp_parser.o
+#9 62.94 CC	libavcodec/webvttdec.o
+#9 62.99 CC	libavcodec/wma.o
+#9 62.99 CC	libavcodec/wma_common.o
+#9 63.00 CC	libavcodec/wma_freqs.o
+#9 63.00 CC	libavcodec/wmadec.o
+#9 63.01 CC	libavcodec/wmalosslessdec.o
+#9 63.02 CC	libavcodec/wmaprodec.o
+#9 63.26 libavcodec/wmadec.c: In function 'wma_decode_block':
+#9 63.26 libavcodec/wmadec.c:519:30: warning: writing 1 byte into a region of size 0 [-Wstringop-overflow=]
+#9 63.26   519 |         s->channel_coded[ch] = a;
+#9 63.26       |         ~~~~~~~~~~~~~~~~~~~~~^~~
+#9 63.26 In file included from libavcodec/wmadec.c:45:
+#9 63.26 libavcodec/wma.h:112:13: note: at offset 2 into destination object 'channel_coded' of size 2
+#9 63.26   112 |     uint8_t channel_coded[MAX_CHANNELS];    ///< true if channel is coded
+#9 63.26       |             ^~~~~~~~~~~~~
+#9 63.26 CC	libavcodec/wmavoice.o
+#9 63.44 CC	libavcodec/wmv2.o
+#9 63.46 CC	libavcodec/wmv2data.o
+#9 63.47 CC	libavcodec/wmv2dec.o
+#9 63.64 CC	libavcodec/wmv2dsp.o
+#9 63.69 CC	libavcodec/wnv1.o
+#9 63.80 CC	libavcodec/wrapped_avframe.o
+#9 63.84 CC	libavcodec/ws-snd1.o
+#9 63.86 CC	libavcodec/xan.o
+#9 63.89 CC	libavcodec/xbm_parser.o
+#9 63.93 CC	libavcodec/xbmdec.o
+#9 63.98 CC	libavcodec/xface.o
+#9 64.00 CC	libavcodec/xfacedec.o
+#9 64.04 CC	libavcodec/xiph.o
+#9 64.06 CC	libavcodec/xl.o
+#9 64.07 CC	libavcodec/xma_parser.o
+#9 64.09 CC	libavcodec/xpmdec.o
+#9 64.10 CC	libavcodec/xsubdec.o
+#9 64.17 CC	libavcodec/xvididct.o
+#9 64.20 CC	libavcodec/xwd_parser.o
+#9 64.20 CC	libavcodec/xwddec.o
+#9 64.20 CC	libavcodec/xxan.o
+#9 64.25 CC	libavcodec/y41pdec.o
+#9 64.25 CC	libavcodec/ylc.o
+#9 64.29 CC	libavcodec/yop.o
+#9 64.32 CC	libavcodec/yuv4dec.o
+#9 64.35 CC	libavcodec/zerocodec.o
+#9 64.36 CC	libavcodec/zlib_wrapper.o
+#9 64.37 CC	libavcodec/zmbv.o
+#9 64.40 CC	libavcodec/log2_tab.o
+#9 64.41 CC	libavcodec/reverse.o
+#9 64.42 GEN	libavformat/libavformat.pc
+#9 64.42 GEN	libavcodec/libavcodec.pc
+#9 64.43 GEN	libswresample/libswresample.pc
+#9 64.43 GEN	libswscale/libswscale.pc
+#9 64.43 GEN	libavutil/libavutil.pc
+#9 64.43 CC	fftools/ffmpeg_dec.o
+#9 64.43 CC	fftools/ffmpeg_demux.o
+#9 64.43 CC	fftools/ffmpeg_enc.o
+#9 64.48 CC	fftools/ffmpeg_filter.o
+#9 64.56 CC	fftools/ffmpeg_hw.o
+#9 64.64 CC	fftools/ffmpeg_mux.o
+#9 64.64 CC	fftools/ffmpeg_mux_init.o
+#9 64.65 CC	fftools/ffmpeg_opt.o
+#9 64.77 CC	fftools/ffmpeg_sched.o
+#9 64.83 CC	fftools/objpool.o
+#9 64.87 CC	fftools/sync_queue.o
+#9 64.90 CC	fftools/thread_queue.o
+#9 64.96 CC	fftools/cmdutils.o
+#9 64.96 CC	fftools/opt_common.o
+#9 65.03 CC	fftools/ffmpeg.o
+#9 65.03 CC	fftools/ffprobe.o
+#9 65.26 GEN	libavfilter/libavfilter.ver
+#9 65.26 GEN	libswscale/libswscale.ver
+#9 65.26 GEN	libavutil/libavutil.ver
+#9 65.26 GEN	libswresample/libswresample.ver
+#9 65.26 GEN	libavformat/libavformat.ver
+#9 65.26 LD	libavutil/libavutil.so.59
+#9 65.30 LD	libswscale/libswscale.so.8
+#9 65.30 LD	libswresample/libswresample.so.5
+#9 65.33 LD	libavfilter/libavfilter.so.10
+#9 68.60 GEN	libavcodec/libavcodec.ver
+#9 68.60 LD	libavcodec/libavcodec.so.61
+#9 68.93 LD	libavformat/libavformat.so.61
+#9 69.03 LD	ffmpeg_g
+#9 69.03 LD	ffprobe_g
+#9 69.05 STRIP	ffprobe
+#9 69.05 STRIP	ffmpeg
+#9 69.15 INSTALL	libavfilter/libavfilter.so
+#9 69.15 STRIP	install-libavfilter-shared
+#9 69.17 INSTALL	libavformat/libavformat.so
+#9 69.17 STRIP	install-libavformat-shared
+#9 69.18 INSTALL	libavcodec/libavcodec.so
+#9 69.20 STRIP	install-libavcodec-shared
+#9 69.21 INSTALL	libswresample/libswresample.so
+#9 69.21 STRIP	install-libswresample-shared
+#9 69.21 INSTALL	libswscale/libswscale.so
+#9 69.21 STRIP	install-libswscale-shared
+#9 69.22 INSTALL	libavutil/libavutil.so
+#9 69.22 STRIP	install-libavutil-shared
+#9 69.22 INSTALL	install-progs-yes
+#9 69.22 INSTALL	ffmpeg
+#9 69.22 INSTALL	ffprobe
+#9 69.22 INSTALL	presets/libvpx-1080p.ffpreset
+#9 69.22 INSTALL	presets/libvpx-1080p50_60.ffpreset
+#9 69.22 INSTALL	presets/libvpx-360p.ffpreset
+#9 69.22 INSTALL	presets/libvpx-720p.ffpreset
+#9 69.22 INSTALL	presets/libvpx-720p50_60.ffpreset
+#9 69.22 INSTALL	doc/ffprobe.xsd
+#9 69.22 INSTALL	doc/examples/avio_http_serve_files.c
+#9 69.22 INSTALL	doc/examples/avio_list_dir.c
+#9 69.22 INSTALL	doc/examples/avio_read_callback.c
+#9 69.22 INSTALL	doc/examples/decode_audio.c
+#9 69.22 INSTALL	doc/examples/decode_filter_audio.c
+#9 69.22 INSTALL	doc/examples/decode_filter_video.c
+#9 69.22 INSTALL	doc/examples/decode_video.c
+#9 69.22 INSTALL	doc/examples/demux_decode.c
+#9 69.22 INSTALL	doc/examples/encode_audio.c
+#9 69.22 INSTALL	doc/examples/encode_video.c
+#9 69.22 INSTALL	doc/examples/extract_mvs.c
+#9 69.22 INSTALL	doc/examples/filter_audio.c
+#9 69.22 INSTALL	doc/examples/hw_decode.c
+#9 69.22 INSTALL	doc/examples/mux.c
+#9 69.22 INSTALL	doc/examples/qsv_decode.c
+#9 69.22 INSTALL	doc/examples/qsv_transcode.c
+#9 69.22 INSTALL	doc/examples/remux.c
+#9 69.22 INSTALL	doc/examples/resample_audio.c
+#9 69.22 INSTALL	doc/examples/scale_video.c
+#9 69.22 INSTALL	doc/examples/show_metadata.c
+#9 69.22 INSTALL	doc/examples/transcode.c
+#9 69.22 INSTALL	doc/examples/transcode_aac.c
+#9 69.22 INSTALL	doc/examples/vaapi_encode.c
+#9 69.22 INSTALL	doc/examples/vaapi_transcode.c
+#9 69.22 INSTALL	doc/examples/README
+#9 69.22 INSTALL	doc/examples/Makefile
+#9 69.23 INSTALL	doc/examples/avio_http_serve_files.c
+#9 69.23 INSTALL	doc/examples/avio_list_dir.c
+#9 69.23 INSTALL	doc/examples/avio_read_callback.c
+#9 69.23 INSTALL	doc/examples/decode_audio.c
+#9 69.23 INSTALL	doc/examples/decode_filter_audio.c
+#9 69.23 INSTALL	doc/examples/decode_filter_video.c
+#9 69.23 INSTALL	doc/examples/decode_video.c
+#9 69.23 INSTALL	doc/examples/demux_decode.c
+#9 69.23 INSTALL	doc/examples/encode_audio.c
+#9 69.23 INSTALL	doc/examples/encode_video.c
+#9 69.23 INSTALL	doc/examples/extract_mvs.c
+#9 69.23 INSTALL	doc/examples/filter_audio.c
+#9 69.23 INSTALL	doc/examples/hw_decode.c
+#9 69.23 INSTALL	doc/examples/mux.c
+#9 69.23 INSTALL	doc/examples/qsv_decode.c
+#9 69.23 INSTALL	doc/examples/qsv_transcode.c
+#9 69.23 INSTALL	doc/examples/remux.c
+#9 69.23 INSTALL	doc/examples/resample_audio.c
+#9 69.23 INSTALL	doc/examples/scale_video.c
+#9 69.23 INSTALL	doc/examples/show_metadata.c
+#9 69.23 INSTALL	doc/examples/transcode.c
+#9 69.23 INSTALL	doc/examples/transcode_aac.c
+#9 69.23 INSTALL	doc/examples/vaapi_encode.c
+#9 69.23 INSTALL	doc/examples/vaapi_transcode.c
+#9 69.23 INSTALL	doc/examples/README
+#9 69.23 INSTALL	doc/examples/Makefile
+#9 69.23 INSTALL	libavfilter/avfilter.h
+#9 69.23 INSTALL	libavfilter/buffersink.h
+#9 69.23 INSTALL	libavfilter/buffersrc.h
+#9 69.23 INSTALL	libavfilter/version.h
+#9 69.23 INSTALL	libavfilter/version_major.h
+#9 69.23 INSTALL	libavfilter/libavfilter.pc
+#9 69.23 INSTALL	libavformat/avformat.h
+#9 69.23 INSTALL	libavformat/avio.h
+#9 69.23 INSTALL	libavformat/version.h
+#9 69.23 INSTALL	libavformat/version_major.h
+#9 69.23 INSTALL	libavformat/libavformat.pc
+#9 69.23 INSTALL	libavcodec/ac3_parser.h
+#9 69.23 INSTALL	libavcodec/adts_parser.h
+#9 69.23 INSTALL	libavcodec/avcodec.h
+#9 69.23 INSTALL	libavcodec/avdct.h
+#9 69.23 INSTALL	libavcodec/avfft.h
+#9 69.23 INSTALL	libavcodec/bsf.h
+#9 69.23 INSTALL	libavcodec/codec.h
+#9 69.23 INSTALL	libavcodec/codec_desc.h
+#9 69.23 INSTALL	libavcodec/codec_id.h
+#9 69.23 INSTALL	libavcodec/codec_par.h
+#9 69.23 INSTALL	libavcodec/d3d11va.h
+#9 69.23 INSTALL	libavcodec/defs.h
+#9 69.23 INSTALL	libavcodec/dirac.h
+#9 69.23 INSTALL	libavcodec/dv_profile.h
+#9 69.23 INSTALL	libavcodec/dxva2.h
+#9 69.23 INSTALL	libavcodec/jni.h
+#9 69.23 INSTALL	libavcodec/mediacodec.h
+#9 69.23 INSTALL	libavcodec/packet.h
+#9 69.23 INSTALL	libavcodec/qsv.h
+#9 69.23 INSTALL	libavcodec/vdpau.h
+#9 69.23 INSTALL	libavcodec/version.h
+#9 69.23 INSTALL	libavcodec/version_major.h
+#9 69.23 INSTALL	libavcodec/videotoolbox.h
+#9 69.23 INSTALL	libavcodec/vorbis_parser.h
+#9 69.23 INSTALL	libavcodec/libavcodec.pc
+#9 69.23 INSTALL	libswresample/swresample.h
+#9 69.23 INSTALL	libswresample/version.h
+#9 69.23 INSTALL	libswresample/version_major.h
+#9 69.23 INSTALL	libswresample/libswresample.pc
+#9 69.24 INSTALL	libswscale/swscale.h
+#9 69.24 INSTALL	libswscale/version.h
+#9 69.24 INSTALL	libswscale/version_major.h
+#9 69.24 INSTALL	libswscale/libswscale.pc
+#9 69.24 INSTALL	libavutil/adler32.h
+#9 69.24 INSTALL	libavutil/aes.h
+#9 69.24 INSTALL	libavutil/aes_ctr.h
+#9 69.24 INSTALL	libavutil/ambient_viewing_environment.h
+#9 69.24 INSTALL	libavutil/attributes.h
+#9 69.24 INSTALL	libavutil/audio_fifo.h
+#9 69.24 INSTALL	libavutil/avassert.h
+#9 69.24 INSTALL	libavutil/avstring.h
+#9 69.24 INSTALL	libavutil/avutil.h
+#9 69.24 INSTALL	libavutil/base64.h
+#9 69.24 INSTALL	libavutil/blowfish.h
+#9 69.24 INSTALL	libavutil/bprint.h
+#9 69.24 INSTALL	libavutil/bswap.h
+#9 69.24 INSTALL	libavutil/buffer.h
+#9 69.24 INSTALL	libavutil/cast5.h
+#9 69.24 INSTALL	libavutil/camellia.h
+#9 69.24 INSTALL	libavutil/channel_layout.h
+#9 69.24 INSTALL	libavutil/common.h
+#9 69.24 INSTALL	libavutil/cpu.h
+#9 69.24 INSTALL	libavutil/crc.h
+#9 69.24 INSTALL	libavutil/csp.h
+#9 69.24 INSTALL	libavutil/des.h
+#9 69.24 INSTALL	libavutil/detection_bbox.h
+#9 69.24 INSTALL	libavutil/dict.h
+#9 69.24 INSTALL	libavutil/display.h
+#9 69.24 INSTALL	libavutil/dovi_meta.h
+#9 69.24 INSTALL	libavutil/downmix_info.h
+#9 69.24 INSTALL	libavutil/encryption_info.h
+#9 69.24 INSTALL	libavutil/error.h
+#9 69.24 INSTALL	libavutil/eval.h
+#9 69.24 INSTALL	libavutil/executor.h
+#9 69.24 INSTALL	libavutil/fifo.h
+#9 69.24 INSTALL	libavutil/file.h
+#9 69.24 INSTALL	libavutil/frame.h
+#9 69.24 INSTALL	libavutil/hash.h
+#9 69.24 INSTALL	libavutil/hdr_dynamic_metadata.h
+#9 69.24 INSTALL	libavutil/hdr_dynamic_vivid_metadata.h
+#9 69.24 INSTALL	libavutil/hmac.h
+#9 69.24 INSTALL	libavutil/hwcontext.h
+#9 69.24 INSTALL	libavutil/hwcontext_cuda.h
+#9 69.24 INSTALL	libavutil/hwcontext_d3d11va.h
+#9 69.24 INSTALL	libavutil/hwcontext_d3d12va.h
+#9 69.24 INSTALL	libavutil/hwcontext_drm.h
+#9 69.24 INSTALL	libavutil/hwcontext_dxva2.h
+#9 69.24 INSTALL	libavutil/hwcontext_qsv.h
+#9 69.24 INSTALL	libavutil/hwcontext_mediacodec.h
+#9 69.24 INSTALL	libavutil/hwcontext_opencl.h
+#9 69.24 INSTALL	libavutil/hwcontext_vaapi.h
+#9 69.24 INSTALL	libavutil/hwcontext_videotoolbox.h
+#9 69.24 INSTALL	libavutil/hwcontext_vdpau.h
+#9 69.24 INSTALL	libavutil/hwcontext_vulkan.h
+#9 69.24 INSTALL	libavutil/iamf.h
+#9 69.24 INSTALL	libavutil/imgutils.h
+#9 69.24 INSTALL	libavutil/intfloat.h
+#9 69.24 INSTALL	libavutil/intreadwrite.h
+#9 69.24 INSTALL	libavutil/lfg.h
+#9 69.24 INSTALL	libavutil/log.h
+#9 69.24 INSTALL	libavutil/lzo.h
+#9 69.24 INSTALL	libavutil/macros.h
+#9 69.24 INSTALL	libavutil/mathematics.h
+#9 69.24 INSTALL	libavutil/mastering_display_metadata.h
+#9 69.24 INSTALL	libavutil/md5.h
+#9 69.24 INSTALL	libavutil/mem.h
+#9 69.24 INSTALL	libavutil/motion_vector.h
+#9 69.24 INSTALL	libavutil/murmur3.h
+#9 69.24 INSTALL	libavutil/opt.h
+#9 69.24 INSTALL	libavutil/parseutils.h
+#9 69.24 INSTALL	libavutil/pixdesc.h
+#9 69.24 INSTALL	libavutil/pixelutils.h
+#9 69.24 INSTALL	libavutil/pixfmt.h
+#9 69.24 INSTALL	libavutil/random_seed.h
+#9 69.24 INSTALL	libavutil/rc4.h
+#9 69.24 INSTALL	libavutil/rational.h
+#9 69.24 INSTALL	libavutil/replaygain.h
+#9 69.24 INSTALL	libavutil/ripemd.h
+#9 69.24 INSTALL	libavutil/samplefmt.h
+#9 69.24 INSTALL	libavutil/sha.h
+#9 69.24 INSTALL	libavutil/sha512.h
+#9 69.24 INSTALL	libavutil/spherical.h
+#9 69.24 INSTALL	libavutil/stereo3d.h
+#9 69.24 INSTALL	libavutil/threadmessage.h
+#9 69.24 INSTALL	libavutil/time.h
+#9 69.24 INSTALL	libavutil/timecode.h
+#9 69.24 INSTALL	libavutil/timestamp.h
+#9 69.24 INSTALL	libavutil/tree.h
+#9 69.24 INSTALL	libavutil/twofish.h
+#9 69.24 INSTALL	libavutil/uuid.h
+#9 69.24 INSTALL	libavutil/version.h
+#9 69.24 INSTALL	libavutil/video_enc_params.h
+#9 69.24 INSTALL	libavutil/xtea.h
+#9 69.24 INSTALL	libavutil/tea.h
+#9 69.24 INSTALL	libavutil/tx.h
+#9 69.24 INSTALL	libavutil/film_grain_params.h
+#9 69.24 INSTALL	libavutil/video_hint.h
+#9 69.24 INSTALL	libavutil/avconfig.h
+#9 69.24 INSTALL	libavutil/ffversion.h
+#9 69.24 INSTALL	libavutil/libavutil.pc
+#9 DONE 69.4s
+
+#13 [toolchain 2/4] COPY --from=ffmpeg /opt/ffmpeg /opt/ffmpeg
+#13 DONE 0.0s
+
+#14 [toolchain 3/4] COPY --from=dotnet /opt/dotnet /opt/dotnet
+#14 DONE 2.2s
+
+#15 [toolchain 4/4] WORKDIR /src
+#15 DONE 0.0s
+
+#16 exporting to image
+#16 exporting layers
+#16 exporting layers 9.5s done
+#16 exporting manifest sha256:5f040429af94fd50fbbe748c3094821254cca4204834902ebab2e901dbcde2a4 done
+#16 exporting config sha256:44240edeb5ae3cddfd3607be92593603cb2c1501e7e2948b5f442880527de922 done
+#16 exporting attestation manifest sha256:9836dd5e20660698f635273f6c0804a614d02e6dd7ffd9f598473e542259943d done
+#16 exporting manifest list sha256:ec25af894819353c1db3079233e0240782f4de4809f681e05772c77e7c9425bc done
+#16 naming to docker.io/library/campfire-fsharp-toolchain:latest done
+#16 unpacking to docker.io/library/campfire-fsharp-toolchain:latest
+#16 unpacking to docker.io/library/campfire-fsharp-toolchain:latest 2.1s done
+#16 DONE 11.7s
+
+Build succeeded.
+    0 Warning(s)
+    0 Error(s)
+
+Time Elapsed 00:00:23.91
+Running tests from /work/tests/Campfire.App.Tests/bin/Release/net11.0/Campfire.App.Tests.dll (net11.0|arm64)
+/work/tests/Campfire.App.Tests/bin/Release/net11.0/Campfire.App.Tests.dll (net11.0|arm64) passed [+1/x0/?0] (675ms)
+
+Test run summary: Passed!
+  total: 1
+  failed: 0
+  succeeded: 1
+  skipped: 0
+  duration: 742ms

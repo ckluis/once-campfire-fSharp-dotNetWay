@@ -1,0 +1,13 @@
+
+Build succeeded.
+    0 Warning(s)
+    0 Error(s)
+
+Time Elapsed 00:00:12.23
+== fsharp
+hello (tiny)                    190708 req/s   server CPU   32.1 us/request
+page 100KB, identity             69892 req/s   server CPU   76.5 us/request
+page 100KB, gzip                138577 req/s   server CPU   57.0 us/request
+asset (front cache hit)         157735 req/s   server CPU   38.7 us/request
+asset, zstd (cache hit)         194131 req/s   server CPU   31.8 us/request
+POST form -> redirect           192809 req/s   server CPU   32.4 us/request

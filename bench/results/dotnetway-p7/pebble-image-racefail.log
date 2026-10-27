@@ -1,0 +1,13 @@
+ok   Pebble issued 1 certificate at boot
+ok   campfire.test is 0600
+ok   acme_account+key exists
+ok   acme_account+key is 0600
+ok   storage/thruster is 0700
+ok   the HTTPS port sends a 2-certificate chain
+https 2 200
+FAIL the restart did not log a cached load
+ok   still 1 order after the restart
+ok   same certificate after the restart
+ok   2-certificate chain after the restart
+pebble-image: FAILED
+time="2026-10-26T23:11:19-04:00" level=fatal msg="exit status 1"
