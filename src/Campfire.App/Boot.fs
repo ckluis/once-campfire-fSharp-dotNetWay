@@ -24,6 +24,7 @@ open Microsoft.AspNetCore.Http.Features
 open Microsoft.Data.Sqlite
 open Microsoft.EntityFrameworkCore
 open Microsoft.Extensions.DependencyInjection
+open Microsoft.Extensions.DependencyInjection.Extensions
 open Microsoft.Extensions.Hosting
 open Microsoft.Extensions.Logging
 open Campfire.App.Channels
@@ -100,7 +101,10 @@ module Boot =
         let time = inputs.Time
         let loggers = inputs.Loggers
         let secrets = Secrets.create config.SecretKeyBase
-        services.AddSingleton<CampfireOptions>(config).AddSingleton<Secrets>(secrets).AddSingleton<TimeProvider>(time) |> ignore
+        // `build` has registered `CampfireOptions` as the validated `IOptions` value (J13) and that registration stands; a test host's
+        // second wiring (no options registration) gets the bootstrap read, which the same configuration makes equal.
+        services.TryAddSingleton<CampfireOptions>(config)
+        services.AddSingleton<Secrets>(secrets).AddSingleton<TimeProvider>(time) |> ignore
         services.AddSingleton<IDbContextFactory<Campfire.Db.Ef.CampfireDb>>(fun sp ->
             Campfire.Db.Ef.Data.factory (
                 Campfire.Db.Ef.Data.options (sp.GetRequiredService<CampfireOptions>()).Storage.Database (sp.GetRequiredService<TimeProvider>()) ignore

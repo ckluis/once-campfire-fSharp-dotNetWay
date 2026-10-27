@@ -16,6 +16,7 @@ open Microsoft.Extensions.Configuration
 open Microsoft.Extensions.DependencyInjection
 open Microsoft.Extensions.Hosting
 open Microsoft.Extensions.Logging.Abstractions
+open Microsoft.Extensions.Options
 open Xunit
 open Campfire.App
 
@@ -115,6 +116,11 @@ let ``BB2 the app's services are the host's: one AppState, one client factory, t
                 Assert.Same(app.Services.GetRequiredService<Campfire.Cable.CableServer<Campfire.App.Channels.CableUser>>(), state.Cable)
                 Assert.Same(app.Services.GetRequiredService<Campfire.Db.WriteGate>(), state.Gate)
                 Assert.Same(app.Services.GetRequiredService<Campfire.App.Jobs>(), state.Jobs)
+                // J13: the settings the app runs on are the validated `IOptions` values, not a second read beside them.
+                let options = app.Services.GetRequiredService<IOptions<CampfireOptions>>().Value
+                Assert.Same(options, app.Services.GetRequiredService<CampfireOptions>())
+                Assert.Same(options, state.Config)
+                Assert.Same(app.Services.GetRequiredService<IOptions<Campfire.App.Web.FrontSettings>>().Value, app.Services.GetRequiredService<Campfire.App.Web.FrontSettings>())
                 Assert.True(state.WebPush.IsNone, "no VAPID keys: Web Push is off")
                 Assert.Equal(dir, Path.GetDirectoryName(Path.GetDirectoryName(state.Config.Storage.Database)))
             finally
