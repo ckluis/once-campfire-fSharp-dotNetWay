@@ -47,19 +47,18 @@ module IntegrationJobs =
         task {
             match event, app.WebPush with
             | Event.PushMessage(_, messageId), Some pool ->
-                // Off the job's thread: it counts a badge for, and queues a notification to, every subscriber.
-                let pushed =
-                    Task.Run(fun () ->
-                        readEf app (fun db ->
-                            let message = Message.find db messageId
-                            WebPushPool.pushMessage pool db app.Env.RichText message (RailsTime.now app.Env.Time) |> ignore))
-                match! pushed with
+                // It counts a badge for, and queues a notification to, every subscriber; the job already runs on a worker.
+                match
+                    readEf app (fun db ->
+                        let message = Message.find db messageId
+                        PushDeliveries.pushMessage pool db app.Env.RichText message (RailsTime.now app.Env.Time) |> ignore)
+                with
                 | Ok() -> return Ok()
                 | Error error -> return Error(failure error)
             | _ -> return Ok()
         }
 
-    /// config/initializers/web_push.rb (`config.x.web_push_pool`): the pool, whose invalid subscription handler
+    /// config/initializers/web_push.rb (`config.x.web_push_pool`): the deliveries service, whose invalid subscription handler
     /// destroys the subscription (`Push::Subscription.find_by(id:)&.destroy`). `None`, and Web Push is off, when the
     /// VAPID keys are missing or invalid.
     let webPushPool
@@ -68,7 +67,7 @@ module IntegrationJobs =
         (gate: WriteGate)
         (env: Ef.Env)
         (logger: ILogger)
-        : WebPushPool option =
+        : PushDeliveries option =
         match VapidConfig.FromConfig config with
         | Error Missing ->
             logger.LogWarning("Web Push is off: {Reason}", VapidError.message Missing)
@@ -77,14 +76,15 @@ module IntegrationJobs =
             logger.LogError("Web Push is off: {Reason}", VapidError.message error)
             None
         | Ok vapid ->
-            let invalidSubscriptionHandler (id: int64) : Result<unit, string> =
-                // Runs on the pool's own invalidation thread, which waits for the write.
-                use context = factory.CreateDbContext()
-                match (Ef.Writes.run gate env context (fun tx -> PushSubscription.destroy tx (PushSubscription.find tx.Db id))).GetAwaiter().GetResult() with
-                | Ok()
-                | Error(RecordNotFound _) -> Ok()
-                | Error error -> Error(failure error)
-            Some(WebPushPool(Network.system env.Time, vapid, invalidSubscriptionHandler, logger))
+            let invalidSubscriptionHandler (id: int64) : Task<Result<unit, string>> =
+                task {
+                    use context = factory.CreateDbContext()
+                    match! Ef.Writes.run gate env context (fun tx -> PushSubscription.destroy tx (PushSubscription.find tx.Db id)) with
+                    | Ok()
+                    | Error(RecordNotFound _) -> return Ok()
+                    | Error error -> return Error(failure error)
+                }
+            Some(new PushDeliveries(Network.system env.Time, vapid, invalidSubscriptionHandler, logger))
 
     /// `room.messages.create!(body: text, creator: user)`: the text is assigned to the rich text body, which stores
     /// it canonicalized (as `MessagesController` does; there's no request host in a job).

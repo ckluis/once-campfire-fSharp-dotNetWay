@@ -7,7 +7,8 @@
 // own workers, so a kind that's slow (webhooks to a slow bot) or full can't hold up the others (pushes,
 // purges). Nothing retries (`retry_on` is commented out in `reference/app/jobs/application_job.rb`); a
 // failure or exception is logged. Queued work is lost if the process crashes, which the plan accepts. On
-// shutdown the runner stops taking new work, performs what's queued and waits for it up to a deadline.
+// shutdown the runner stops taking new work, performs what's queued and waits for it up to the host's grace
+// (`HostOptions.ShutdownTimeout`).
 //
 // Handlers are looked up in a `Registry`. Core registers `RemoveBannedContent` and `PurgeBlob`
 // (`CoreJobs`, which needs the app); integrations register `PushMessage` and `DeliverWebhook`.
@@ -24,6 +25,7 @@ open System.Collections.Generic
 open System.Threading
 open System.Threading.Channels
 open System.Threading.Tasks
+open Microsoft.Extensions.Hosting
 open Microsoft.Extensions.Logging
 open Campfire.Db
 open Campfire.App.Channels
@@ -112,7 +114,7 @@ type Jobs(capacity: int, logger: ILogger, ?cable: CableHandle) =
 
     member internal _.Logger = logger
 
-    /// Closes every queue to new work (the runner's shutdown): what is already queued stays for the
+    /// Closes every queue to new work (the runner's `StopAsync`): what is already queued stays for the
     /// workers to drain.
     member internal _.Close() : unit =
         stopped <- true
@@ -145,20 +147,7 @@ type Jobs(capacity: int, logger: ILogger, ?cable: CableHandle) =
                 | Some cable -> Revocation.disconnectUser cable userId reconnect |> ignore
             | None, event -> logger.LogWarning("not a job, dropping event {Event}", sprintf "%A" event)
 
-/// The running job runner.
-[<Sealed>]
-type Runner internal (jobs: Jobs, workers: Task list, time: TimeProvider) =
-    /// Stops taking new work, performs what's already queued, and waits for running jobs until
-    /// `deadline`, after which they're abandoned (logged).
-    member _.Shutdown(deadline: TimeSpan) : Task =
-        task {
-            jobs.Close()
-            let finished = Task.WhenAll workers
-            let! first = Task.WhenAny(finished, Task.Delay(deadline, time))
-            if not (obj.ReferenceEquals(first, finished)) then jobs.Logger.LogWarning "jobs still running at shutdown were abandoned"
-        }
-
-module JobRunner =
+module internal JobWorkers =
     /// `Error` carrying the exception's message and its causes, as `{error:#}` prints them.
     let private chain (error: exn) : string =
         let messages = ResizeArray<string>()
@@ -189,7 +178,7 @@ module JobRunner =
 
     /// One of a kind's workers: performs that kind's jobs, one at a time, until its queue has closed
     /// and drained.
-    let private work (queue: Channel<Work>) (app: 'App) (registry: Registry<'App>) (logger: ILogger) : Task =
+    let work (queue: Channel<Work>) (app: 'App) (registry: Registry<'App>) (logger: ILogger) : Task =
         task {
             let reader = queue.Reader
             let mutable more = true
@@ -203,11 +192,28 @@ module JobRunner =
                         do! perform app registry logger item
         }
 
-    /// Starts performing queued jobs: `concurrency` workers for each kind of job.
-    let start (jobs: Jobs) (app: 'App) (registry: Registry<'App>) (concurrency: int) (time: TimeProvider) : Runner =
+/// Performs queued jobs: `concurrency` workers for each kind of job. `StopAsync` stops taking new work, performs what is
+/// already queued, and waits for running jobs until the host's grace ends, after which they are abandoned (logged). The
+/// workers read without the stopping token on purpose: what is queued drains first.
+[<Sealed>]
+type JobRunner<'App>(jobs: Jobs, app: 'App, registry: Registry<'App>, concurrency: int) =
+    inherit BackgroundService()
+
+    override _.ExecuteAsync(_stoppingToken: CancellationToken) : Task =
         let workers =
             [ for kind in JobKind.all do
                   for _ in 1 .. max concurrency 1 do
                       // Each worker runs on the pool; the queue hands every job to exactly one.
-                      Task.Run(fun () -> work (jobs.Queue kind) app registry jobs.Logger) ]
-        Runner(jobs, workers, time)
+                      Task.Run(fun () -> JobWorkers.work (jobs.Queue kind) app registry jobs.Logger) ]
+        Task.WhenAll workers
+
+    member private _.StopBase(token: CancellationToken) : Task = base.StopAsync token
+
+    override this.StopAsync(token: CancellationToken) : Task =
+        task {
+            jobs.Close()
+            do! this.StopBase token
+            match this.ExecuteTask with
+            | null -> ()
+            | running -> if not running.IsCompleted then jobs.Logger.LogWarning "jobs still running at shutdown were abandoned"
+        }

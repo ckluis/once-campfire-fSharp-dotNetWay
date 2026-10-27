@@ -41,7 +41,7 @@ type AppState
         storage: Storage,
         cable: CableHandle,
         jobs: Jobs,
-        webPush: WebPushPool option,
+        webPush: PushDeliveries option,
         fragments: HybridCache,
         loggers: ILoggerFactory
     ) =

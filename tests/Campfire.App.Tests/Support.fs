@@ -362,7 +362,6 @@ type Test(booted: Booted, dir: string, host: Host, logs: CapturingLoggers) =
             ValueTask(
                 task {
                     do! (host :> IAsyncDisposable).DisposeAsync()
-                    do! booted.Jobs.Shutdown(TimeSpan.FromSeconds 5.0)
                     Boot.closeDatabase booted.App
                     try
                         Directory.Delete(dir, true)
@@ -400,7 +399,7 @@ let private startWithServices time dbOptions (more: IServiceCollection -> unit) 
     task {
         let logs = new CapturingLoggers()
         let! booted = Boot.bootWithTime time dbOptions config logs
-        let! host = startPipelineWith (fun services -> booted.ConfigureServices services; more services) booted.Pipeline
+        let! host = startPipelineWith (fun services -> booted.ConfigureServices services; booted.Workers services; more services) booted.Pipeline
         return new Test(booted, dir, host, logs)
     }
 

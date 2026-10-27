@@ -5,7 +5,9 @@
 module Campfire.App.Tests.RevocationTests
 
 open System.Threading.Tasks
+open Microsoft.Extensions.DependencyInjection
 open Xunit
+open Campfire.App
 open Campfire.App.Channels
 open Campfire.Cable
 open Campfire.Db
@@ -156,4 +158,27 @@ let ``only the revoked users connections are closed`` () =
         app.Server.Broadcast($"room:{GlobalId.toParam (Gid.roomGid designers)}", Payload.ofValue {| still = "here" |}) |> ignore
         let! frame = jz.NextText()
         Campfire.Tests.JsonFrames.assertSameFrame (delivery room """{"still":"here"}""") frame
+    }
+
+/// JB6: `remote_connections.where(current_user:).disconnect` is a synchronous broadcast in Rails, so the sink hands it to the
+/// cable at once. No runner is started here: a queued event would never be performed.
+[<Fact>]
+let ``JB6 DisconnectUser is not queued and reaches the cable directly`` () =
+    task {
+        use! app = start ()
+        let! cookie = app.CookieFor "kevin"
+        use! kevin = app.ConnectWithCookie(Some cookie)
+        let! welcome = kevin.NextText()
+        Assert.Equal("""{"type":"welcome"}""", welcome)
+
+        let handle = CableHandle()
+        let provider = ServiceCollection().AddSingleton<Cable>(app.Server).BuildServiceProvider()
+        handle.Attach provider
+        let jobs = Jobs(JobLimits.QueueCapacity, Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance, handle)
+        (jobs :> EventSink).Emit(Event.DisconnectUser(id "kevin", true))
+
+        let! frames = kevin.UntilClosed()
+        Assert.Equal<string list>([ disconnectReconnect ], frames)
+        for kind in JobKind.all do
+            Assert.Equal(0, jobs.Queued kind)
     }

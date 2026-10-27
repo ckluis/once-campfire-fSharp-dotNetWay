@@ -2,7 +2,7 @@
 //
 // Web Push: `WebPush::Notification` and `WebPush::Pool` (reference/lib/web_push), the gem request they make
 // (web-push 3.1.0 with the `WebPush::PersistentRequest` patch in reference/config/initializers/web_push.rb), and
-// `Room::MessagePusher#push` (`WebPushPool.pushMessage`).
+// `Room::MessagePusher#push` (`PushDeliveries.pushMessage`).
 //
 // Delivery resolves the endpoint on the worker, only for a permitted `https://...:443` push service, through the
 // private network guard, and connects to that address with no proxy.

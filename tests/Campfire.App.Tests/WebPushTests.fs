@@ -7,7 +7,9 @@ open System.Net
 open System.Security.Cryptography
 open System.Text
 open System.Text.Json
+open System.Threading
 open System.Threading.Tasks
+open Microsoft.Extensions.Hosting
 open Microsoft.Extensions.Logging.Abstractions
 open Xunit
 open Campfire.App
@@ -47,6 +49,22 @@ let private vapid () : VapidConfig =
     match VapidConfig.Create(ReferenceSubject, VapidPublicKey, VapidPrivateKey) with
     | Ok vapid -> vapid
     | Error error -> failwith (VapidError.message error)
+
+/// A `PushDeliveries` started as the host starts it, and stopped as the host stops it (deliveries get a second to finish,
+/// then the invalidations drain).
+let private startPool (net: Network) (handler: int64 -> Task<Result<unit, string>>) : Task<PushDeliveries> =
+    task {
+        let pool = new PushDeliveries(net, vapid (), handler, NullLogger.Instance)
+        do! (pool :> IHostedService).StartAsync CancellationToken.None
+        return pool
+    }
+
+let private stopPool (pool: PushDeliveries) : Task =
+    task {
+        use grace = new CancellationTokenSource(TimeSpan.FromSeconds 10.0)
+        do! (pool :> IHostedService).StopAsync grace.Token
+        pool.Dispose()
+    }
 
 let private p256 = ECCurve.NamedCurves.nistP256
 
@@ -302,7 +320,7 @@ let ``web push is off without a valid key pair`` () =
         Assert.True((pool (Some "dGVzdF9rZXk") (Some VapidPrivateKey)).IsNone)
         let on = pool (Some VapidPublicKey) (Some VapidPrivateKey)
         Assert.True on.IsSome
-        do! on.Value.Shutdown()
+        on.Value.Dispose()
         Assert.Equal(Error Missing, VapidConfig.FromConfig(config (Some VapidPublicKey) None) |> Result.map ignore)
     }
 
@@ -474,17 +492,16 @@ let ``pushes messages and destroys expired subscriptions`` () =
         let ok = pushService 201 "Created"
         use _ok = ok.Server
         let destroyed = List<int64>()
-        let pool =
-            WebPushPool(ok.Net, vapid (), (fun id -> lock destroyed (fun () -> destroyed.Add id); Ok()), NullLogger.Instance)
+        let! pool = startPool ok.Net (fun id -> lock destroyed (fun () -> destroyed.Add id); Task.FromResult(Ok()))
         let! message = create ()
         use pushContext = t.Factory.CreateDbContext()
         let payload =
-            match Ef.Reads.run pushContext (fun ctx -> WebPushPool.pushMessage pool ctx t.Env.RichText message (RailsTime.now t.Env.Time)) with
+            match Ef.Reads.run pushContext (fun ctx -> PushDeliveries.pushMessage pool ctx t.Env.RichText message (RailsTime.now t.Env.Time)) with
             | Ok payload -> payload
             | Error error -> failwith (DbError.display error)
         Assert.Equal("Designers", payload.Title)
         Assert.Equal("David: Hey @kevin", payload.Body)
-        do! pool.Shutdown()
+        do! stopPool pool
         let received = ok.Server.Received()
         Assert.Equal(2, received.Length)
         let suffixes = dict [ "david_chrome", "123"; "jason_chrome", "567"; "jz_chrome", "456"; "kevin_chrome", "789" ]
@@ -499,21 +516,23 @@ let ``pushes messages and destroys expired subscriptions`` () =
         // Expired: both subscriptions are destroyed by the handler, in the pool's worker thread.
         let gone = pushService 410 "Gone"
         use _gone = gone.Server
-        let handler (id: int64) : Result<unit, string> =
-            use destroyContext = t.Factory.CreateDbContext()
-            match (Ef.Writes.run t.Gate t.Env destroyContext (fun tx -> PushSubscription.destroy tx (PushSubscription.find tx.Db id))).GetAwaiter().GetResult() with
-            | Ok()
-            | Error(RecordNotFound _) -> Ok()
-            | Error error -> Error(DbError.display error)
-        let pool = WebPushPool(gone.Net, vapid (), handler, NullLogger.Instance)
+        let handler (id: int64) : Task<Result<unit, string>> =
+            task {
+                use destroyContext = t.Factory.CreateDbContext()
+                match! Ef.Writes.run t.Gate t.Env destroyContext (fun tx -> PushSubscription.destroy tx (PushSubscription.find tx.Db id)) with
+                | Ok()
+                | Error(RecordNotFound _) -> return Ok()
+                | Error error -> return Error(DbError.display error)
+            }
+        let! pool = startPool gone.Net handler
         let countPush () =
             use ctx = t.Factory.CreateDbContext()
             Ef.Reads.run ctx PushSubscription.count
         let before = countPush ()
         let! message = create ()
         use context = t.Factory.CreateDbContext()
-        Ef.Reads.run context (fun ctx -> WebPushPool.pushMessage pool ctx t.Env.RichText message (RailsTime.now t.Env.Time)) |> ignore
-        do! pool.Shutdown()
+        Ef.Reads.run context (fun ctx -> PushDeliveries.pushMessage pool ctx t.Env.RichText message (RailsTime.now t.Env.Time)) |> ignore
+        do! stopPool pool
         let after = countPush ()
         let count (result: Result<int64, DbError>) = match result with Ok n -> n | Error error -> failwith (DbError.display error)
         Assert.Equal(count before - 2L, count after)
@@ -526,9 +545,9 @@ let ``the pool keeps subscriptions it failed to reach`` () =
         use _server = service.Server
         let untrusted = { service.Net with Tls = CustomRoots(Security.Cryptography.X509Certificates.X509Certificate2Collection()) }
         let destroyed = List<int64>()
-        let pool = WebPushPool(untrusted, vapid (), (fun id -> lock destroyed (fun () -> destroyed.Add id); Ok()), NullLogger.Instance)
+        let! pool = startPool untrusted (fun id -> lock destroyed (fun () -> destroyed.Add id); Task.FromResult(Ok()))
         pool.DeliverLater(notification ((Receiver()).Subscription(1L, "https://fcm.googleapis.com/fcm/send/abc")))
-        do! pool.Shutdown()
+        do! stopPool pool
         Assert.True(destroyed.Count = 0)
     }
 
@@ -550,14 +569,22 @@ let ``the pool drops deliveries past its queue`` () =
     task {
         let resolver = GatedResolver()
         let net = { Resolver = resolver; Dialer = TcpDialer(); Tls = SystemRoots; Time = TimeProvider.System }
-        let pool = WebPushPool(net, vapid (), (fun _ -> Ok()), NullLogger.Instance)
+        let! pool = startPool net (fun _ -> Task.FromResult(Ok()))
         let receiver = Receiver()
         let subscription = receiver.Subscription(1L, "https://fcm.googleapis.com/fcm/send/abc")
-        for _ in 1 .. (50 + 10000 + 5) do
+        // 50 readers each take a delivery and wait on the gated lookup ...
+        for _ in 1 .. 50 do
+            pool.DeliverLater(notification subscription)
+        while pool.Running < 50 do
+            do! Task.Delay 5
+        Assert.Equal(50, pool.Running)
+        // ... 10,000 more wait in the queue, and the rest are dropped.
+        for _ in 1 .. (10000 + 5) do
             pool.DeliverLater(notification subscription)
         Assert.Equal(10050, pool.Pending)
+        Assert.Equal(50, pool.Running)
         resolver.Release()
-        do! pool.Shutdown()
+        do! stopPool pool
     }
 
 type private PanickingResolver() =
@@ -569,8 +596,8 @@ type private PanickingResolver() =
 let ``a panicking delivery frees its slot`` () =
     task {
         let net = { Resolver = PanickingResolver(); Dialer = TcpDialer(); Tls = SystemRoots; Time = TimeProvider.System }
-        let pool = WebPushPool(net, vapid (), (fun _ -> Ok()), NullLogger.Instance)
+        let! pool = startPool net (fun _ -> Task.FromResult(Ok()))
         pool.DeliverLater(notification ((Receiver()).Subscription(1L, "https://fcm.googleapis.com/fcm/send/abc")))
-        do! pool.Shutdown()
+        do! stopPool pool
         Assert.Equal(0, pool.Pending)
     }

@@ -31,7 +31,7 @@ open Campfire.App.Platform
 open Campfire.Storage
 open Campfire.Views
 
-/// A booted app: its state, the HTTP pipeline, and the job runner.
+/// A booted app: its state, the HTTP pipeline, and the registrations of its services.
 [<NoComparison; NoEquality>]
 type Booted =
     { App: AppState
@@ -39,7 +39,10 @@ type Booted =
       Pipeline: IApplicationBuilder -> unit
       /// Registers `CampfireDb`, its factory, the `WriteGate` and the `TimeProvider` (`Host.build`'s `configureServices`).
       ConfigureServices: IServiceCollection -> unit
-      Jobs: Runner }
+      /// The hosted services that work off the app's queues: Web Push deliveries, registered first, then the job runner and
+      /// its `Registry`. Hosted services stop in reverse order, so jobs stop before deliveries (a job queues them). Added to the one host that serves the app (`serveHosted`, the tests' main host), never to a second
+      /// host over the same state: stopping a runner closes the queues for good.
+      Workers: IServiceCollection -> unit }
 
 module Boot =
     // --- The HTTP stack ----------------------------------------------------------------------------------
@@ -119,7 +122,6 @@ module Boot =
 
             let registry = CoreJobs.withCoreJobs ()
             IntegrationJobs.registerJobs registry
-            let runner = JobRunner.start jobs app registry config.JobConcurrency time
 
             return
                 { App = app
@@ -130,7 +132,17 @@ module Boot =
                         services.AddSingleton<Campfire.Db.Ef.Env>(efEnv) |> ignore
                         Web.Services.add edge app services
                         CableServices.add services cableHandle
-                  Jobs = runner }
+                  Workers =
+                    fun services ->
+                        // Hosted services stop in reverse registration order, and `Build` registers the web host last, so
+                        // requests stop first, then jobs, then deliveries; the database closes after `RunAsync` returns.
+                        match webPush with
+                        | Some deliveries -> services.AddHostedService<PushDeliveries>(fun _ -> deliveries) |> ignore
+                        | None -> ()
+                        services.AddSingleton<Registry<AppState>>(registry) |> ignore
+                        services.AddHostedService<JobRunner<AppState>>(fun provider ->
+                            new JobRunner<AppState>(jobs, app, provider.GetRequiredService<Registry<AppState>>(), config.JobConcurrency))
+                        |> ignore }
         }
 
     /// `bootEdge` with no request log: the test hosts' (the log is `LOG_REQUESTS`'s, read by `serve`).
@@ -172,16 +184,9 @@ module Boot =
     /// How long in-flight requests and queued jobs get after SIGTERM/SIGINT.
     let ShutdownGrace = Web.Host.ShutdownGrace
 
-    /// What follows the server's stop: jobs first (pushing a message queues its notifications on the Web Push pool), then the pool,
-    /// and the database last (fold the WAL into the file and close every pooled connection; Rust drops its writer with the app).
-    let private drain (booted: Booted) : Task =
-        task {
-            do! booted.Jobs.Shutdown ShutdownGrace
-            match booted.App.WebPush with
-            | Some pool -> do! pool.Shutdown()
-            | None -> ()
-            closeDatabase booted.App
-        }
+    /// What follows the host's stop (which has already drained the jobs and the Web Push deliveries, as hosted services): the
+    /// database closes last (fold the WAL into the file and close every pooled connection; Rust drops its writer with the app).
+    let private drain (booted: Booted) : unit = closeDatabase booted.App
 
     /// `bin/boot` (F1, F13): the app's own host (`Web.Host`) on `HTTP_PORT` and `TARGET_PORT`, and with `TLS_DOMAIN` on `HTTPS_PORT`, run
     /// under ConsoleLifetime (SIGTERM, SIGINT) with a 10 s stop.
@@ -189,7 +194,7 @@ module Boot =
         task {
             let logger = loggers.CreateLogger "campfire"
             let! booted = bootServing settings config loggers
-            let host = Web.Host.build settings loggers booted.ConfigureServices booted.Pipeline
+            let host = Web.Host.build settings loggers (fun services -> booted.ConfigureServices services; booted.Workers services) booted.Pipeline
             // The cable server closes every WebSocket (`server_restart`) on `ApplicationStopping` (test P12 stops the app's own host).
             host.Lifetime.ApplicationStarted.Register(fun () ->
                 if settings.HasTls then
@@ -210,7 +215,7 @@ module Boot =
                         return None
                     | e -> return Some e
                 }
-            do! drain booted
+            drain booted
             match failure with
             | Some e -> System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(e).Throw()
             | None -> ()
