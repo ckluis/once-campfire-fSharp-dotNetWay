@@ -57,80 +57,79 @@ module OpengraphMetadata =
     let get (metadata: Metadata) (key: string) : string option =
         metadata.Attributes |> List.tryFind (fun (k, _) -> k = key) |> Option.bind snd
 
-    /// `tweet_url?`
-    let private tweetUrl (url: string) : Result<bool, UnfurlError> =
-        match RubyUri.parse url with
-        | Ok uri ->
-            Ok(
-                (uri.Host |> Option.exists (fun h -> List.contains h twitterHosts))
-                && (uri.Path |> Option.exists (fun p -> not (OpengraphDocument.isBlank p) && p <> "/"))
-            )
-        | Error InvalidUri -> Ok false
-        | Error InvalidComponent -> Error(Raised "URI::InvalidComponentError")
+    /// `tweet_url?`. A URL `System.Uri` refuses is no tweet; Rails' `URI::InvalidComponentError` for some of them (`mailto:` among them) is
+    /// an unfurl of nothing here (README, class B).
+    let private tweetUrl (url: string) : bool =
+        match OpengraphUri.parse url with
+        | ValueSome uri ->
+            (OpengraphUri.host uri |> Option.exists (fun h -> List.contains h twitterHosts))
+            && (let path = uri.AbsolutePath in not (OpengraphDocument.isBlank path) && path <> "/")
+        | ValueNone -> false
 
     /// `replace_twitter_domain_for_opengraph_support`
     let private replaceTwitterDomain (url: string) : string option =
-        match RubyUri.parse url with
-        | Error _ -> None
-        | Ok uri ->
-            let uri =
-                if uri.Host |> Option.exists (fun h -> List.contains h twitterHosts) then { uri with Host = Some FxTwitterHost } else uri
-            Some(RubyUri.toS uri)
+        match OpengraphUri.parse url with
+        | ValueNone -> None
+        | ValueSome uri ->
+            if List.contains uri.Host twitterHosts then
+                let builder = UriBuilder(uri, Host = FxTwitterHost)
+                Some builder.Uri.AbsoluteUri
+            else
+                Some uri.OriginalString
 
     /// `fetch_document(untrusted_url)`: tweets are read through fxtwitter.com. A tweet whose fxtwitter page can't be
     /// read raises (`nil.force_encoding`), as does a URL that `URI.parse` rejects with `URI::InvalidComponentError`.
-    let private fetchDocument (net: Network) (url: string) (cancellation: CancellationToken) (logger: ILogger) : Task<Result<byte[] option, UnfurlError>> =
+    let private fetchDocument (env: OpengraphEnv) (url: string) (cancellation: CancellationToken) (logger: ILogger) : Task<Result<byte[] option, UnfurlError>> =
         task {
             match tweetUrl url with
-            | Error error -> return Error error
-            | Ok true ->
+            | true ->
                 let fxtwitterUrl = replaceTwitterDomain url
-                let! html = Location(net, fxtwitterUrl, cancellation, logger).ReadHtml()
+                let! html = Location(env, fxtwitterUrl, cancellation, logger).ReadHtml()
                 match html with
                 | Some html -> return Ok(Some html)
                 | None -> return Error(Raised "NoMethodError")
-            | Ok false ->
-                let! html = Location(net, Some url, cancellation, logger).ReadHtml()
+            | false ->
+                let! html = Location(env, Some url, cancellation, logger).ReadHtml()
                 return Ok html
         }
 
     /// `valid_canonical_url(url, fallback)`
-    let private validCanonicalUrl (net: Network) (url: string option) (fallback: string) (cancellation: CancellationToken) (logger: ILogger) : Task<string> =
+    let private validCanonicalUrl (env: OpengraphEnv) (url: string option) (fallback: string) (cancellation: CancellationToken) (logger: ILogger) : Task<string> =
         task {
             match url with
             | Some url ->
-                let! valid = Location(net, Some url, cancellation, logger).IsValid()
+                let! valid = Location(env, Some url, cancellation, logger).IsValid()
                 return if valid then url else fallback
             | None -> return fallback
         }
 
     /// `valid_image_content_type(image)`: kept only when a HEAD says it's a JPEG, PNG, GIF or WebP.
-    let private validImageContentType (net: Network) (image: string option) (cancellation: CancellationToken) (logger: ILogger) : Task<string option> =
+    let private validImageContentType (env: OpengraphEnv) (image: string option) (cancellation: CancellationToken) (logger: ILogger) : Task<string option> =
         task {
             match image |> Option.filter (fun i -> not (OpengraphDocument.isBlank i)) with
             | None -> return None
             | Some image ->
-                match RubyUri.parse image with
-                | Error _ ->
+                match OpengraphUri.parse image with
+                | ValueNone ->
                     logger.LogWarning("Failed to fetch image content tpye: {Image} (bad URI(is not URI?): {Quoted})", image, Json.generate (Value.String image))
                     return None
-                | Ok _ ->
-                    let! contentType = Location(net, Some image, cancellation, logger).FetchContentType()
+                | ValueSome _ ->
+                    let! contentType = Location(env, Some image, cancellation, logger).FetchContentType()
                     match contentType |> Option.map (fun c -> c.ToLowerInvariant()) with
                     | Some contentType when List.contains contentType allowedImageContentTypes -> return Some image
                     | _ -> return None
         }
 
     /// `Metadata.from_url(url)`
-    let fromUrl (net: Network) (url: string) (cancellation: CancellationToken) (logger: ILogger) : Task<Result<Metadata, UnfurlError>> =
+    let fromUrl (env: OpengraphEnv) (url: string) (cancellation: CancellationToken) (logger: ILogger) : Task<Result<Metadata, UnfurlError>> =
         task {
-            match! fetchDocument net url cancellation logger with
+            match! fetchDocument env url cancellation logger with
             | Error error -> return Error error
             | Ok body ->
                 let! found = offTheRuntime (fun () -> OpengraphDocument.opengraphAttributes body)
                 let og (key: string) = found |> List.tryFind (fun (k, _) -> k = key) |> Option.map snd
-                let! canonicalUrl = validCanonicalUrl net (og "url") url cancellation logger
-                let! image = validImageContentType net (og "image") cancellation logger
+                let! canonicalUrl = validCanonicalUrl env (og "url") url cancellation logger
+                let! image = validImageContentType env (og "image") cancellation logger
                 let attributes = found |> List.map (fun (k, v) -> k, Some v)
                 let attributes = assign attributes "url" (Some canonicalUrl)
                 let attributes = assign attributes "image" image
@@ -167,7 +166,7 @@ module OpengraphMetadata =
 
     /// `valid?`: sanitizes the title and description first (`before_validation`), then checks presence and, when
     /// there's an image, that it's a valid location.
-    let validate (net: Network) (metadata: Metadata) (cancellation: CancellationToken) (logger: ILogger) : Task<Result<Metadata * bool, UnfurlError>> =
+    let validate (env: OpengraphEnv) (metadata: Metadata) (cancellation: CancellationToken) (logger: ILogger) : Task<Result<Metadata * bool, UnfurlError>> =
         task {
             let sanitizedKeys = [ "title"; "description" ]
             let values = sanitizedKeys |> List.map (get metadata)
@@ -192,7 +191,7 @@ module OpengraphMetadata =
                 let mutable valid = present "title" && present "url" && present "description"
                 match get metadata "image" |> Option.filter (fun i -> not (OpengraphDocument.isBlank i)) with
                 | Some image ->
-                    let! imageValid = Location(net, Some image, cancellation, logger).IsValid()
+                    let! imageValid = Location(env, Some image, cancellation, logger).IsValid()
                     valid <- valid && imageValid
                 | None -> ()
                 return Ok(metadata, valid)

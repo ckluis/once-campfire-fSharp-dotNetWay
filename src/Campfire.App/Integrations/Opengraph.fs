@@ -4,11 +4,11 @@
 // `Opengraph::Metadata`, `Location`, `Fetch` and `Document` (reference/app/models/opengraph).
 //
 // Every address is resolved through the private network guard and pinned, every redirect is re-checked, and documents
-// are capped at 5MB and 10 responses.
+// are capped at 5MB and 10 responses. The requests go through the "opengraph" client (`Clients`).
 //
-// Unlike Rails, which gives each connect and read 60 seconds, an unfurl has 10 seconds in all and each connect or
-// read 5, at most 16 run at once, and parsing runs off the async workers: the endpoint is open to any signed-in user
-// and fetches pages they choose.
+// Unlike Rails, which gives each connect and read 60 seconds, an unfurl has 10 seconds in all and each request 5 to its
+// response head, the client's limiter lets 16 requests run at once, and parsing runs off the async workers: the endpoint
+// is open to any signed-in user and fetches pages they choose.
 namespace Campfire.App.Integrations
 
 open System
@@ -28,29 +28,19 @@ module Opengraph =
     /// The most one unfurl may take, redirects and the image check included.
     let UnfurlDeadline: TimeSpan = TimeSpan.FromSeconds 10.0
 
-    /// Unfurls in flight at once; more wait their turn, within their deadline.
-    [<Literal>]
-    let private MaxConcurrentUnfurls = 16
-
-    let private slots = new SemaphoreSlim(MaxConcurrentUnfurls)
-
-    let unfurlWithin (net: Network) (url: string) (deadline: TimeSpan) (logger: ILogger) : Task<Result<Unfurl, UnfurlError>> =
+    let unfurlWithin (env: OpengraphEnv) (url: string) (deadline: TimeSpan) (logger: ILogger) : Task<Result<Unfurl, UnfurlError>> =
         task {
-            use cancellation = new CancellationTokenSource(deadline, net.Time)
+            use cancellation = new CancellationTokenSource(deadline, env.Time)
             let token = cancellation.Token
             let unfurling =
                 task {
-                    do! slots.WaitAsync token
-                    try
-                        match! OpengraphMetadata.fromUrl net url token logger with
+                    match! OpengraphMetadata.fromUrl env url token logger with
+                    | Error error -> return Error error
+                    | Ok metadata ->
+                        match! OpengraphMetadata.validate env metadata token logger with
                         | Error error -> return Error error
-                        | Ok metadata ->
-                            match! OpengraphMetadata.validate net metadata token logger with
-                            | Error error -> return Error error
-                            | Ok(metadata, true) -> return Ok(Unfurl.Json(OpengraphMetadata.toJson metadata))
-                            | Ok(_, false) -> return Ok NoContent
-                    finally
-                        slots.Release() |> ignore
+                        | Ok(metadata, true) -> return Ok(Unfurl.Json(OpengraphMetadata.toJson metadata))
+                        | Ok(_, false) -> return Ok NoContent
                 }
             try
                 return! unfurling
@@ -61,7 +51,7 @@ module Opengraph =
 
     /// The action after `params.require(:url)` (a missing or blank `url` is the controller's 400). One that runs out
     /// of time unfurls nothing.
-    let unfurlLogged (net: Network) (url: string) (logger: ILogger) : Task<Result<Unfurl, UnfurlError>> =
-        unfurlWithin net url UnfurlDeadline logger
+    let unfurlLogged (env: OpengraphEnv) (url: string) (logger: ILogger) : Task<Result<Unfurl, UnfurlError>> =
+        unfurlWithin env url UnfurlDeadline logger
 
-    let unfurl (net: Network) (url: string) : Task<Result<Unfurl, UnfurlError>> = unfurlLogged net url NullLogger.Instance
+    let unfurl (env: OpengraphEnv) (url: string) : Task<Result<Unfurl, UnfurlError>> = unfurlLogged env url NullLogger.Instance

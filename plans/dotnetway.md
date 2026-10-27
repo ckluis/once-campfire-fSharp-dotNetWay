@@ -3728,3 +3728,36 @@ guard's `connect` adds about 30, while `Http.fs`, `Net.fs` and `RubyUri.fs` (1,2
 - **Differences recorded** (README, Known differences, the webhook bullet; the full Integrations entry is written by 8.9): the request's header order, `Host`,
   `Connection` and `Accept-Encoding` are .NET's (class B); the target is `System.Uri`'s normalization (class A); a trickling reply is cut at the 60 s deadline, the 7 s
   timeout stands to the response head (class B); a relative URL says "not an HTTP URI" as Ruby does, one `System.Uri` refuses says "bad URI".
+
+### Phase 8, unit 8.4 Opengraph (2026-10-27)
+
+Sonnet builder, `plans/design-jobs.md` J3, J5, J6. `bin/kloc` 27,397 / **27,851 corrected (27.9)**, from 28,031 after 8.3 (-180: `OpengraphHtml.fs` (326) and
+`OpengraphEntities.fs` (49) are deleted now, not in 8.9, since nothing uses them after this unit; `decode`, `metaEncoding` and the AngleSharp reader (about 110 lines) are
+in `OpengraphDocument.fs`; `OpengraphFetch.fs` is 139 -> about 125).
+
+- **Code:** `OpengraphFetch.fs` has `OpengraphEnv` (`IHttpClientFactory`, `IResolver`, `TimeProvider`, replacing `Network` for opengraph), `OpengraphUri` (`System.Uri` behind
+  `Attachables.tryAbsoluteUri`; `host` is none for a URI without `//`, so `mailto:` looks nothing up) and Rails' loop by hand on the `"opengraph"` client: every request is pinned
+  (`Clients.pin`), 3xx is never followed by the handler, each `Location` is parsed, required to be http(s) and resolved through the guard again (10 responses at most), the
+  connect callback checks the pinned address once more. A transport failure is `FetchError.Transport of TransportError`. The body is read through `Clients.readLimited` (5 MB
+  after inflation); a HEAD returns the raw `Content-Type`. `OpengraphLocation` and `OpengraphMetadata` take the env and `System.Uri` (`tweetUrl`, the fxtwitter rewrite through
+  `UriBuilder`). `Opengraph.fs` no longer has its semaphore: the client's limiter (16, queue 1,024) is the bound, inside the unfurl's 10 s deadline. `OpengraphDocument.read`
+  parses with `HtmlParser(IsScripting = false, OnCreated)`; the callback stops the parse (an exception it owns) when an element would be the 100,001st or the previous element,
+  now in the tree, is deeper than 256 (void elements are never open); the `meta`s are then read from the partial document (`element.Owner`), so a page's head unfurls.
+  `UnfurlLinks` builds the env from `app.Http`, `SystemResolver()` and `app.Time`.
+- **Tests (`OpengraphTests`):** the 90 recorded cases one for one: response, lookups, and each request's method, `Host`, target, `Accept` and `User-Agent` (`Accept-Encoding`
+  is .NET's and dropped from the comparison). **89 matched on the first run; `mailto raises` is the one change**: 204, no lookup, no request (`classBCases`, and the named fact
+  "a mailto url unfurls nothing" for three mailto URLs). The existing facts (https with the test CA verifying the name, gzip bomb stopped in under 2 s, trickling page given up at
+  the deadline) run on the client; `IntegrationsSupport.opengraphEnv` builds the env over DI (the fake resolver and dial, and the test CA on the client's handler). OG1: six 5 MB
+  hostile pages (nested `div`, `span`, tables, misnested formatting, `<b><p>`, `<i>`) each report `Stopped`, created at most 100,000 elements and finished in under 10 s (the whole
+  class ran in 3 s). OG2: a head then 300 nested `div`s unfurls the head. OG4: a `Location` to `10.0.0.1`, to a name resolving to it and to `127.0.0.1` each ends in 204 after one
+  request, and nothing but the public address is dialed. OG3: the probes. The 5 MB pathological pages fact now expects the 130,000-meta page to find nothing (its title is last,
+  past the element cap).
+- **Differences recorded** (README, Known differences, the Integrations entry): the 90 cases and the request fields compared; `Accept-Encoding` is .NET's; **class B, malformed
+  pages: the list is 14 probes, not the 13 the unit's row counts** (`&AMP;`, `&#128;`, `&#150;`, `&#xD800;`, `&#1114112;`, `&#;`, `&#x;` and a meta inside `textarea`, `title`,
+  `template`, `<meta/property=.../content=...>`, an unterminated quoted value, a NUL, CR LF): S6 counted 6 reference probes, and the test has also had `&#x;`, which differs the
+  same way. Both tests fail if a listed probe stops differing or an unlisted one starts. Class B, caps (256 deep, 100,000 elements). Class B, `mailto:` answers 204.
+- **Gates:** `bin/verify` (`CAMPFIRE_REQUIRE_SEED=1`, Release, warnings as errors): 0 warnings, lint-markup (326 files, self-test ok), the guards, **1,020 tests, 1,014 passed, 6
+  skipped (the environmental six: Pebble, THP and others), 0 failed**. The first run had one failure, `Campfire.RichText.Tests` "the_rest_of_a_body_is_not_read_once_it_is_too_deep"
+  (343 ms against a 300 ms CPU bound) with the host at load 19; the project alone passed 115 of 115 and the second full `bin/verify` passed. No pixel run (no state shows a live
+  unfurl; `messages/opengraph*` render stored embeds). No image rebuild, no bench: unfurls are on no benchmarked path and the client factory is unchanged.
+- **Left for later units:** `Http.fs`, `Net.fs`'s `Network`/`Tls`, `RubyUri.fs` stay for Web Push until 8.5; 8.9 removes them and writes the full Integrations README entry.

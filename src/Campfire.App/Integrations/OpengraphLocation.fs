@@ -20,14 +20,14 @@ module private LocationPatterns =
         )
 
 [<Sealed>]
-type Location(net: Network, url: string option, cancellation: CancellationToken, logger: ILogger) =
+type Location(env: OpengraphEnv, url: string option, cancellation: CancellationToken, logger: ILogger) =
     /// `parsed_url` is `URI.parse(url) rescue nil`.
     let parsedUrl =
         url
         |> Option.bind (fun url ->
-            match RubyUri.parse url with
-            | Ok uri -> Some uri
-            | Error _ -> None)
+            match OpengraphUri.parse url with
+            | ValueSome uri -> Some uri
+            | ValueNone -> None)
 
     let mutable resolvedIp: IPAddress option option = None
 
@@ -39,9 +39,9 @@ type Location(net: Network, url: string option, cancellation: CancellationToken,
             | None ->
                 let! ip =
                     task {
-                        match parsedUrl |> Option.bind (fun uri -> uri.Host) with
+                        match parsedUrl |> Option.bind OpengraphUri.host with
                         | Some host ->
-                            match! Guard.resolve net.Resolver host with
+                            match! Guard.resolve env.Resolver host with
                             | Ok ip -> return Some ip
                             | Error _ -> return None
                         | None -> return None
@@ -53,7 +53,7 @@ type Location(net: Network, url: string option, cancellation: CancellationToken,
     /// `valid?`: both validations run, so the host is resolved even for a non-http URL.
     member this.IsValid() : Task<bool> =
         task {
-            let http = parsedUrl |> Option.exists RubyUri.isHttp
+            let http = parsedUrl |> Option.exists OpengraphUri.isHttp
             let! ip = this.ResolvedIp()
             return http && ip.IsSome
         }
@@ -68,10 +68,10 @@ type Location(net: Network, url: string option, cancellation: CancellationToken,
                 let! resolved = this.ResolvedIp()
                 match parsedUrl, resolved with
                 | Some uri, Some ip ->
-                    match! OpengraphFetch.fetchDocument net uri ip cancellation with
+                    match! OpengraphFetch.fetchDocument env uri ip cancellation with
                     | Ok html -> return html
                     | Error error ->
-                        logger.LogWarning("Failed to fetch {Url} at {Ip} ({Error})", RubyUri.toS uri, ip, FetchError.message error)
+                        logger.LogWarning("Failed to fetch {Url} at {Ip} ({Error})", uri.OriginalString, ip, FetchError.message error)
                         return None
                 | _ -> return None
         }
@@ -86,10 +86,10 @@ type Location(net: Network, url: string option, cancellation: CancellationToken,
                 let! resolved = this.ResolvedIp()
                 match parsedUrl, resolved with
                 | Some uri, Some ip ->
-                    match! OpengraphFetch.fetchContentType net uri ip cancellation with
+                    match! OpengraphFetch.fetchContentType env uri ip cancellation with
                     | Ok contentType -> return contentType
                     | Error error ->
-                        logger.LogWarning("Failed to fetch {Url} at {Ip} ({Error})", RubyUri.toS uri, ip, FetchError.message error)
+                        logger.LogWarning("Failed to fetch {Url} at {Ip} ({Error})", uri.OriginalString, ip, FetchError.message error)
                         return None
                 | _ -> return None
         }

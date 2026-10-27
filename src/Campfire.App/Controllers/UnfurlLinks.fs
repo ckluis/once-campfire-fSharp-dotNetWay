@@ -14,8 +14,9 @@ module UnfurlLinks =
     /// `Opengraph::Metadata.from_url(url)`, as JSON when `valid?` (`Opengraph`).
     let private opengraphJson (http: HttpContext) (url: string) : System.Threading.Tasks.Task<Result<string option, Error>> =
         task {
-            let net = Network.system (Data.app http).Time
-            match! Opengraph.unfurlLogged net url ((Data.app http).Loggers.CreateLogger "campfire.opengraph") with
+            let app = Data.app http
+            let env: OpengraphEnv = { Http = app.Http; Resolver = SystemResolver(); Time = app.Time }
+            match! Opengraph.unfurlLogged env url (app.Loggers.CreateLogger "campfire.opengraph") with
             | Result.Error e -> return Result.Error(Internal(exn (UnfurlError.message e)))
             | Ok(Unfurl.Json json) -> return Ok(Some json)
             | Ok Unfurl.NoContent -> return Ok None

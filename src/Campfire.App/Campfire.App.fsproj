@@ -74,8 +74,6 @@
     <Compile Include="Presenters/AttachmentWrites.fs" />
     <Compile Include="RichText.fs" />
     <Compile Include="CoreJobs.fs" />
-    <Compile Include="Integrations/OpengraphEntities.fs" />
-    <Compile Include="Integrations/OpengraphHtml.fs" />
     <Compile Include="Integrations/OpengraphDocument.fs" />
     <Compile Include="Integrations/OpengraphFetch.fs" />
     <Compile Include="Integrations/OpengraphLocation.fs" />

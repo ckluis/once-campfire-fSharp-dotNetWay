@@ -368,6 +368,48 @@ let httpClients (configure: IServiceCollection -> unit) : ServiceProvider =
     Clients.add services
     services.BuildServiceProvider()
 
+/// The opengraph client's TLS handshake accepts what the tests' CA signed (the name must still match), like `Network`'s `CustomRoots`.
+let private trustTestCa (services: IServiceCollection) : unit =
+    let roots = testTlsRoots ()
+    let validate (_: obj) (certificate: X509Certificate | null) (_: X509Chain | null) (errors: SslPolicyErrors) : bool =
+        match certificate with
+        | null -> false
+        | certificate ->
+            if errors.HasFlag SslPolicyErrors.RemoteCertificateNameMismatch then
+                false
+            else
+                use chain = new X509Chain()
+                chain.ChainPolicy.TrustMode <- X509ChainTrustMode.CustomRootTrust
+                chain.ChainPolicy.CustomTrustStore.AddRange roots
+                chain.ChainPolicy.RevocationMode <- X509RevocationMode.NoCheck
+                chain.Build(new X509Certificate2(certificate))
+    services.Configure<Microsoft.Extensions.Http.HttpClientFactoryOptions>(
+        Clients.Opengraph,
+        fun (options: Microsoft.Extensions.Http.HttpClientFactoryOptions) ->
+            options.HttpMessageHandlerBuilderActions.Add(fun (builder: Microsoft.Extensions.Http.HttpMessageHandlerBuilder) ->
+                match builder.PrimaryHandler with
+                | :? System.Net.Http.SocketsHttpHandler as handler ->
+                    handler.SslOptions.RemoteCertificateValidationCallback <- System.Net.Security.RemoteCertificateValidationCallback validate
+                | _ -> ())
+    )
+    |> ignore
+
+/// What an unfurl runs on: the resolver, the dial function (the fake public addresses go to a local server) and, with `trusted`,
+/// the test CA for https; the clients live as long as the provider.
+let opengraphEnv (resolver: FakeResolver) (dialer: MappingDialer) (trusted: bool) : ServiceProvider * OpengraphEnv =
+    let services = ServiceCollection()
+    services.AddLogging() |> ignore
+    services.AddSingleton<TimeProvider>(TimeProvider.System) |> ignore
+    services.AddSingleton<IResolver>(resolver :> IResolver) |> ignore
+    services.AddSingleton<IDialer>(dialer :> IDialer) |> ignore
+    Clients.add services
+    if trusted then trustTestCa services
+    let provider = services.BuildServiceProvider()
+    provider,
+    { Http = provider.GetRequiredService<System.Net.Http.IHttpClientFactory>()
+      Resolver = resolver :> IResolver
+      Time = TimeProvider.System }
+
 /// A server that counts the connections it accepts and answers each by `behave` (given the stream once the request head has been read).
 let countingServer (behave: System.Net.Sockets.TcpClient -> Task) : IDisposable * IPEndPoint * (unit -> int) =
     let listener = new TcpListener(IPAddress.Loopback, 0)

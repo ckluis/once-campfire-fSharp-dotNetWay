@@ -10,6 +10,7 @@ open System.Net
 open System.Text
 open System.Text.Json
 open System.Threading.Tasks
+open Microsoft.Extensions.DependencyInjection
 open Microsoft.Extensions.Logging.Abstractions
 open Xunit
 open Campfire.App.Integrations
@@ -19,17 +20,26 @@ open Campfire.App.Tests.Support
 // --- html.rs -------------------------------------------------------------------------------------------------------
 
 let private title (html: string) : string option =
-    OpengraphHtml.metaElements ("<meta charset=utf-8>" + html)
+    OpengraphDocument.metaElements ("<meta charset=utf-8>" + html)
     |> List.tryFindBack (fun m -> m.Attr "property" = Some "og:title")
     |> Option.bind (fun m -> m.Attr "content" |> Option.filter (fun c -> c <> ""))
 
 let private titleOf (content: string) : string option =
     title $"<meta property=\"og:title\" content=\"a{content}b\">"
 
-/// Probed against the reference's Nokogiri 1.19.4.
-[<Fact>]
-let ``decodes references like libxml2`` () =
-    for (reference, expected) in
+/// OG3, class B (README): what libxml2 (the reference's Nokogiri 1.19.4) answered where AngleSharp, which follows the HTML5 spec, answers
+/// otherwise. Listed by input, with AngleSharp's answer; a listed probe that stops differing, or one unlisted that starts to, fails.
+let private classBReferences: (string * string option) list =
+    [ "&AMP;", Some "a&b"
+      "&#128;", Some "a\u20acb"
+      "&#150;", Some "a\u2013b"
+      "&#xD800;", Some "a\ufffdb"
+      "&#1114112;", Some "a\ufffdb"
+      "&#;", Some "a&#;b"
+      "&#x;", Some "a&#x;b" ]
+
+/// Probed against the reference's Nokogiri 1.19.4 (the expectations are libxml2's).
+let private referenceProbes: (string * string) list =
         [ "&apos;", "a'b"
           "&eacute", "a&eacuteb"
           "&eacute;x", "aéxb"
@@ -51,12 +61,28 @@ let ``decodes references like libxml2`` () =
           "&hellip;", "a…b"
           "&nbsp", "a&nbspb"
           "&#;", "a"
-          "&#x;", "a" ] do
-        Assert.Equal(Some expected, titleOf reference)
+          "&#x;", "a" ]
 
 [<Fact>]
-let ``tokenizes like libxml2`` () =
-    let cases: (string * string option) list =
+let ``decodes references like libxml2 but for the class B probes`` () =
+    let classB = Map.ofList classBReferences
+    for (reference, expected) in referenceProbes do
+        match classB.TryFind reference with
+        | Some angleSharp ->
+            Assert.True((titleOf reference = angleSharp), $"{reference}: expected {angleSharp} but got {titleOf reference}")
+            Assert.True((titleOf reference <> Some expected), $"{reference} is listed as differing but now answers {expected} as libxml2 does")
+        | None -> Assert.True((titleOf reference = Some expected), $"{reference}: expected {expected} but got {titleOf reference}")
+
+let private classBTokens: (string * string option) list =
+    [ "<textarea><meta property=\"og:title\" content=\"in textarea\"></textarea>", None
+      "<title><meta property=\"og:title\" content=\"in title\"></title>", None
+      "<template><meta property=\"og:title\" content=\"in template\"></template>", None
+      "<meta property=\"og:title\" content=\"line1\r\nline2\">", Some "line1\nline2"
+      "<meta/property=\"og:title\"/content=\"slashes\">", Some "slashes"
+      "<meta property=\"og:title\" content=\"unterminated>", None
+      "<meta property=\"og:title\" content=\"\u0000nul\">", Some "\ufffdnul" ]
+
+let private tokenizerProbes: (string * string option) list =
         [ "<script><meta property=\"og:title\" content=\"in script\"></script><meta property=\"og:title\" content=\"after\">", Some "after"
           "<style><meta property=\"og:title\" content=\"in style\"></style>", None
           "<textarea><meta property=\"og:title\" content=\"in textarea\"></textarea>", Some "in textarea"
@@ -86,12 +112,27 @@ let ``tokenizes like libxml2`` () =
           "< meta property=\"og:title\" content=\"space\">", None
           "<meta property=\"og:title\" content=\"tab\there\">", Some "tab\there"
           "<meta property=\"og:title\" content=\"\u0000nul\">", None ]
-    for (html, expected) in cases do
-        Assert.True((title html = expected), $"{html}: expected {expected} but got {title html}")
+
+/// OG3, as above, for the tokenizer: libxml2's answers are the expectations, AngleSharp's are the listed ones.
+[<Fact>]
+let ``tokenizes like libxml2 but for the class B probes`` () =
+    let classB = Map.ofList classBTokens
+    for (html, expected) in tokenizerProbes do
+        match classB.TryFind html with
+        | Some angleSharp ->
+            Assert.True((title html = angleSharp), $"{html}: expected {angleSharp} but got {title html}")
+            Assert.True((title html <> expected), $"{html} is listed as differing but now answers {expected} as libxml2 does")
+        | None -> Assert.True((title html = expected), $"{html}: expected {expected} but got {title html}")
+
+/// OG3: the class B list is the 14 probes that differ (13 when `&#x;` was not yet a probe).
+[<Fact>]
+let ``the class B probes are listed`` () =
+    Assert.Equal(7, classBReferences.Length)
+    Assert.Equal(7, classBTokens.Length)
 
 [<Fact>]
 let ``decodes bytes like libxml2 reading utf8`` () =
-    let decode (bytes: byte list) = OpengraphHtml.decode (Array.ofList bytes)
+    let decode (bytes: byte list) = OpengraphDocument.decode (Array.ofList bytes)
     Assert.Equal("café ÿ x", decode [ yield! Encoding.ASCII.GetBytes "caf"; 0xc3uy; 0xa9uy; yield! Encoding.ASCII.GetBytes " "; 0xffuy; yield! Encoding.ASCII.GetBytes " x" ])
     Assert.Equal("ÿ café x", decode [ 0xffuy; yield! Encoding.ASCII.GetBytes " caf"; 0xc3uy; 0xa9uy; yield! Encoding.ASCII.GetBytes " x" ])
     Assert.Equal("\u0093q\u0094", decode [ 0x93uy; byte 'q'; 0x94uy ])
@@ -99,7 +140,7 @@ let ``decodes bytes like libxml2 reading utf8`` () =
 
 [<Fact>]
 let ``finds the meta encoding like nokogiri`` () =
-    let encoding (html: string) = OpengraphHtml.metaEncoding (OpengraphHtml.metaElements html)
+    let encoding (html: string) = OpengraphDocument.metaEncoding (OpengraphDocument.metaElements html)
     Assert.Equal(Some "iso-8859-1", encoding "<meta charset=\"iso-8859-1\">")
     Assert.Equal(Some "", encoding "<meta charset=\"\">")
     Assert.Equal(Some "iso-8859-1", encoding "<meta http-equiv=\"content-type\" content=\"text/html; charset=iso-8859-1\">")
@@ -146,7 +187,8 @@ let ``parses pathological pages quickly`` () =
     for page in pages do
         let started = DateTime.UtcNow
         let found = OpengraphDocument.opengraphAttributes (Some(Encoding.UTF8.GetBytes page))
-        Assert.Equal("title", fst found[0])
+        // The second page is 130,000 metas long and its title is the last: the element cap stops the parse before it.
+        if page.StartsWith "<meta charset=utf-8>" then Assert.Empty found else Assert.Equal("title", fst found[0])
         Assert.True((DateTime.UtcNow - started) < TimeSpan.FromSeconds 5.0, $"{DateTime.UtcNow - started} for {page.Substring(0, 60)}...")
 
 // --- metadata.rs ---------------------------------------------------------------------------------------------------
@@ -212,6 +254,10 @@ let private route (spec: JsonElement) : Route =
 let private answers (spec: JsonElement) : IPAddress list list =
     [ for list in spec.EnumerateArray() -> [ for ip in list.EnumerateArray() -> IPAddress.Parse(str ip) ] ]
 
+/// Class B (README): the recorded cases whose answer is now different, by name, with the new response. `mailto:` is a URL `System.Uri`
+/// parses (Rails raises `URI::InvalidComponentError` in `tweet_url?`), so the unfurl is nothing: 204, and no host is looked up.
+let private classBCases: Map<string, int * string option> = Map [ "mailto raises", (204, None) ]
+
 type private Shown =
     { Status: int
       Body: string option
@@ -236,10 +282,11 @@ let ``unfurls like the reference`` () =
             for host in spec.GetProperty("hosts").EnumerateObject() do
                 resolver.Set(host.Name, answers host.Value)
             let dialer = MappingDialer(publicIps, server.Addr)
-            let net = network resolver dialer
+            let clients, env = opengraphEnv resolver dialer false
+            use _clients = clients
             let before = server.Received().Length
 
-            let! outcome = Opengraph.unfurl net (str (case'.GetProperty "url"))
+            let! outcome = Opengraph.unfurl env (str (case'.GetProperty "url"))
             let response =
                 match outcome with
                 | Ok(Unfurl.Json body) -> 200, Some body, None
@@ -248,7 +295,7 @@ let ``unfurls like the reference`` () =
             let requests =
                 server.Received()
                 |> List.skip before
-                |> List.map (fun r -> r.Method, r.Header "host", r.Target, r.Header "accept", r.Header "accept-encoding", r.Header "user-agent")
+                |> List.map (fun r -> r.Method, r.Header "host", r.Target, r.Header "accept", None, r.Header "user-agent")
             let status, body, error = response
             let actual =
                 { Status = status
@@ -257,17 +304,33 @@ let ``unfurls like the reference`` () =
                   Lookups = resolver.Lookups
                   Requests = requests }
             let wantedResponse = expected.GetProperty "response"
+            let changed = classBCases.TryFind name
             let wanted =
-                { Status = wantedResponse.GetProperty("status").GetInt32()
+                { Status = (match changed with Some(status, _) -> status | None -> wantedResponse.GetProperty("status").GetInt32())
                   Body = property wantedResponse "body" |> Option.map str
-                  Error = property wantedResponse "error" |> Option.map str
-                  Lookups = [ for l in expected.GetProperty("lookups").EnumerateArray() -> str l ]
+                  Error = (match changed with Some(_, error) -> error | None -> property wantedResponse "error" |> Option.map str)
+                  Lookups = (if changed.IsSome then [] else [ for l in expected.GetProperty("lookups").EnumerateArray() -> str l ])
                   Requests =
                     [ for r in expected.GetProperty("requests").EnumerateArray() ->
                           let items = [ for item in r.EnumerateArray() -> if item.ValueKind = JsonValueKind.Null then None else Some(str item) ]
-                          str (r.EnumerateArray() |> Seq.head), items[1], (items[2]).Value, items[3], items[4], items[5] ] }
+                          str (r.EnumerateArray() |> Seq.head), items[1], (items[2]).Value, items[3], None, items[5] ] }
             if actual <> wanted then failures.Add $"{name}:\n  expected {wanted}\n  actual   {actual}"
         Assert.True(failures.Count = 0, $"{failures.Count} of {cases.Length} cases differ:\n" + String.Join("\n", failures))
+    }
+
+/// The one recorded case that changed (class B): `mailto:` answers 204 and looks nothing up, where Rails raised.
+[<Fact>]
+let ``a mailto url unfurls nothing`` () =
+    task {
+        let resolver = FakeResolver()
+        let clients, env = opengraphEnv resolver (MappingDialer(HashSet<IPAddress>(), IPEndPoint(IPAddress.Loopback, 9))) false
+        use _clients = clients
+        for url in [ "mailto:foo@example.com"; "mailto:foo@twitter.com"; "mailto:foo@x.com/status" ] do
+            match! Opengraph.unfurl env url with
+            | Ok NoContent -> ()
+            | other -> failwith $"{url}: {other}"
+        Assert.Empty resolver.Lookups
+        Assert.Equal(Some(204, None), classBCases.TryFind "mailto raises")
     }
 
 /// test/controllers/unfurl_links_controller_test.rb over plain HTTPS: the pinned address, with the certificate verified
@@ -284,9 +347,10 @@ let ``unfurls over https`` () =
         let resolver = FakeResolver([ "www.example.com", [ "93.184.216.34" ]; "example.com", [ "93.184.216.35" ] ])
         let publicIps = HashSet [ IPAddress.Parse "93.184.216.34"; IPAddress.Parse "93.184.216.35" ]
         let dialer = MappingDialer(publicIps, server.Addr)
-        let net = network resolver dialer
+        let clients, env = opengraphEnv resolver dialer true
+        use _clients = clients
 
-        match! Opengraph.unfurl net "https://www.example.com" with
+        match! Opengraph.unfurl env "https://www.example.com" with
         | Ok(Unfurl.Json body) ->
             Assert.Equal(
                 """{"title":"Hey!","url":"https://example.com","image":"https://example.com/image.png","description":"desc..","context_for_validation":{"context":null},"errors":{}}""",
@@ -296,17 +360,18 @@ let ``unfurls over https`` () =
         Assert.Equal<string list>([ "93.184.216.34:443"; "93.184.216.35:443" ], dialer.Dialed |> List.map string)
 
         // A certificate that doesn't verify is a failed fetch.
-        let untrusted = { net with Tls = CustomRoots(Security.Cryptography.X509Certificates.X509Certificate2Collection()) }
+        let untrustingClients, untrusted = opengraphEnv resolver dialer false
+        use _untrusting = untrustingClients
         match! Opengraph.unfurl untrusted "https://www.example.com" with
         | Ok NoContent -> ()
         | other -> failwith $"{other}"
     }
 
-/// www.example.com, at a fake public address that connects to `server`.
-let private networkTo (server: IPEndPoint) : Network =
+/// www.example.com, at a fake public address that connects to `server`; the clients live as long as the provider.
+let private envTo (server: IPEndPoint) : ServiceProvider * OpengraphEnv =
     let resolver = FakeResolver([ "www.example.com", [ "93.184.216.34" ] ])
     let dialer = MappingDialer(HashSet [ IPAddress.Parse "93.184.216.34" ], server)
-    network resolver dialer
+    opengraphEnv resolver dialer false
 
 /// A page followed by a gigabyte of zeros, gzipped to a megabyte, is past the 5MB limit as soon as that much is
 /// inflated. The same page followed by less unfurls.
@@ -326,13 +391,14 @@ let ``stops reading a gzip bomb at the limit`` () =
             |> Route.header "Content-Encoding" "gzip"
             |> Route.body (Array.append page zeros)
         use server = FakeServer.Start [ gzipped "/" (gzipBomb 1024); gzipped "/small" (gzipBomb 2) ]
-        let net = networkTo server.Addr
+        let clients, env = envTo server.Addr
+        use _clients = clients
 
-        match! Opengraph.unfurl net "http://www.example.com/small" with
+        match! Opengraph.unfurl env "http://www.example.com/small" with
         | Ok(Unfurl.Json _) -> ()
         | other -> failwith $"{other}"
         let started = DateTime.UtcNow
-        match! Opengraph.unfurl net "http://www.example.com/" with
+        match! Opengraph.unfurl env "http://www.example.com/" with
         | Ok NoContent -> ()
         | other -> failwith $"{other}"
         Assert.True((DateTime.UtcNow - started) < TimeSpan.FromSeconds 2.0, $"{DateTime.UtcNow - started}")
@@ -346,8 +412,71 @@ let ``gives up on a trickling page`` () =
         use _server = handle
         let started = DateTime.UtcNow
         let deadline = TimeSpan.FromMilliseconds 500.0
-        match! Opengraph.unfurlWithin (networkTo address) "http://www.example.com/" deadline NullLogger.Instance with
+        let clients, env = envTo address
+        use _clients = clients
+        match! Opengraph.unfurlWithin env "http://www.example.com/" deadline NullLogger.Instance with
         | Ok NoContent -> ()
         | other -> failwith $"{other}"
         Assert.True((DateTime.UtcNow - started) < deadline * 2.0, $"{DateTime.UtcNow - started}")
+    }
+
+// --- OG1, OG2, OG4: hostile pages and hostile redirects --------------------------------------------------------------
+
+/// OG1: pages as large as a fetch allows, built to make a parser nest or multiply elements, stop at the caps (no more than
+/// `MaxElements` are created, and a hostile page is reported as stopped) and in a bounded time.
+[<Fact>]
+let ``hostile pages are stopped by the caps`` () =
+    let limit = OpengraphFetch.MaxBodySize
+    let repeated (unit': string) = String.replicate (limit / unit'.Length) unit'
+    let pages =
+        [ "nested div", repeated "<div>"
+          "nested span", repeated "<span>"
+          "nested table", repeated "<table><tr><td>"
+          "misnested formatting", repeated "<b><i><a href=x>"
+          "b then p", repeated "<b><p>"
+          "wide", repeated "<i>" ]
+    for (name, page) in pages do
+        let started = DateTime.UtcNow
+        let reading = OpengraphDocument.read ("<meta charset=utf-8><meta property=\"og:title\" content=\"head\">" + page)
+        let took = DateTime.UtcNow - started
+        Assert.True(reading.Stopped, $"{name} was not stopped")
+        Assert.True(reading.Elements <= OpengraphDocument.MaxElements, $"{name} created {reading.Elements} elements")
+        Assert.True(took < TimeSpan.FromSeconds 10.0, $"{name} took {took}")
+        // The head was read before the stop.
+        Assert.Contains(reading.Metas, fun m -> m.Attr "content" = Some "head")
+
+/// OG2: a head of metas, then 300 nested divs: the head still unfurls.
+[<Fact>]
+let ``a deep body still unfurls the head`` () =
+    task {
+        let page =
+            "<html><head><meta property=\"og:url\" content=\"http://www.example.com/\"><meta property=\"og:title\" content=\"Hey!\"><meta property=\"og:description\" content=\"desc..\"></head><body>"
+            + String.replicate 300 "<div>"
+        use server = FakeServer.Start [ Route.create "GET" "www.example.com" "/" 200 |> Route.header "Content-Type" "text/html" |> Route.text page ]
+        let clients, env = envTo server.Addr
+        use _clients = clients
+        match! Opengraph.unfurl env "http://www.example.com/" with
+        | Ok(Unfurl.Json body) -> Assert.Contains("\"title\":\"Hey!\"", body)
+        | other -> failwith $"{other}"
+        Assert.True((OpengraphDocument.read page).Stopped)
+    }
+
+/// OG4: a `Location` to a private address is refused after a public first hop, whether it is a literal or a name, and nothing
+/// connects there.
+[<Fact>]
+let ``each redirect hop is guarded`` () =
+    task {
+        let redirect (path: string) (location: string) =
+            Route.create "GET" "www.example.com" path 302 |> Route.header "Location" location
+        use server = FakeServer.Start [ redirect "/literal" "http://10.0.0.1/secret"; redirect "/named" "http://internal.example/secret"; redirect "/loopback" "http://127.0.0.1:1/" ]
+        let resolver = FakeResolver([ "www.example.com", [ "93.184.216.34" ]; "internal.example", [ "10.0.0.1" ] ])
+        let dialer = MappingDialer(HashSet [ IPAddress.Parse "93.184.216.34" ], server.Addr)
+        let clients, env = opengraphEnv resolver dialer false
+        use _clients = clients
+        for path in [ "literal"; "named"; "loopback" ] do
+            match! Opengraph.unfurl env $"http://www.example.com/{path}" with
+            | Ok NoContent -> ()
+            | other -> failwith $"{path}: {other}"
+        Assert.Equal(3, server.Received().Length)
+        Assert.All(dialer.Dialed, fun address -> Assert.Equal(IPAddress.Parse "93.184.216.34", address.Address))
     }

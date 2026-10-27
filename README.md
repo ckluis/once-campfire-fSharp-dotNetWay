@@ -170,7 +170,7 @@ specific to this port are listed below, each citing the reference file it depart
     and every row is newer than the low one. Reference: `app/controllers/rooms/refreshes_controller.rb`.
   - Logs are `Microsoft.Extensions.Logging`'s console lines (`RAILS_LOG_LEVEL` or `CAMPFIRE_LOG` set the level), not
     `tracing`'s; the request lines are ASP.NET Core's HTTP logging (see **Front server** below), where Thruster wrote them.
-  - The outbound HTTP clients (opengraph, Web Push, bot webhooks; `Integrations/Http.fs`) write the HTTP/1.1 exchange
+  - The outbound HTTP client of Web Push (`Integrations/Http.fs`, until it moves to `HttpClient`) writes the HTTP/1.1 exchange
     themselves over a stream, as Rust does over hyper's client connection, and verify TLS peers with .NET's `SslStream`
     (the operating system's CA store, no revocation checks) where Rust uses rustls with the system's certificates. The
     request line and headers go out as `Net::HTTP` writes them, in its order and spelling, which `WebhookTests`
@@ -188,9 +188,25 @@ specific to this port are listed below, each citing the reference file it depart
   - An unfurl, a webhook delivery and a push that run past their deadline have their connection closed under the read
     in progress (Rust drops the future); the answer is the same ("Failed to respond within N seconds", no content, a
     read timeout). Tested by `OpengraphTests` ("gives up on a trickling page"), `WebhookTests` ("gives up on a trickling reply").
-  - The opengraph `<meta>` scanner steps through UTF-16 units where Rust's steps through bytes; everything it matches is
-    ASCII, so it splits the same places. `FILES_AND_MEDIA_URL_REGEX` is .NET's regex engine (non-backtracking) where
-    Rust uses the `regex` crate: `\b` and `\S` can differ from Rust's on characters that are only marks or letter numbers.
+  - Link unfurls (Phase 8, unit 8.4; `plans/design-jobs.md` J2, J3, J5, J6) go out on .NET's `HttpClient` (the "opengraph" client of
+    `Integrations/Clients.fs`), with Rails' redirect loop by hand (10 responses, each target re-parsed, required to be http(s) and resolved
+    through the guard again, pinned at connect). `OpengraphTests` "unfurls like the reference" compares the 90 recorded cases: the
+    response, the lookups, and each request's method, `Host`, target, `Accept` and `User-Agent`. `Accept-Encoding` is .NET's
+    (`gzip, deflate`). At most 16
+    requests run at once (the client's limiter), each has 5 s to its response head, and the unfurl as a whole 10 s.
+  - Class B, malformed pages: the `<meta>` reader is AngleSharp (HTML5 parsing), not libxml2's legacy HTML parser. They agree on all 55
+    recorded page bodies; they differ on 14 probes of `OpengraphTests` ("decodes references like libxml2 but for the class B probes" and
+    "tokenizes like libxml2 but for the class B probes", each failing if a listed probe stops differing or another starts): the
+    references `&AMP;`, `&#128;`, `&#150;`, `&#xD800;`, `&#1114112;`, `&#;` and `&#x;`, and a `meta` inside `textarea`, `title` or
+    `template`, `<meta/property=.../content=...>`, an unterminated quoted value, a NUL, and CR LF (normalized to LF).
+  - Class B, caps: a page nested deeper than 256 elements (libxml2's maximum depth) or with more than 100,000 elements (ours; libxml2 has
+    none) stops the parse, and the metas created before the stop are kept, so a page's head still unfurls (`OpengraphTests` OG1, OG2).
+    Rails' parser would spend minutes of CPU on a 5 MB page of nested elements; the unfurl endpoint is open to every signed-in user.
+  - Class B, `mailto:`: an unfurl of `mailto:...` answers 204 and looks nothing up, where Rails raised `URI::InvalidComponentError` (a 500) in
+    `Opengraph::Metadata#tweet_url?`. `System.Uri` parses `mailto:` and the URL is not http(s). Tested by `OpengraphTests` "a mailto url
+    unfurls nothing" and the recorded case "mailto raises", whose expectation is changed there.
+  - `FILES_AND_MEDIA_URL_REGEX` is .NET's regex engine (non-backtracking) where Rust uses the `regex` crate: `\b` and `\S` can differ from
+    Rust's on characters that are only marks or letter numbers.
 
 - **Web app manifest** (`Campfire.Views/Templates/Pwa/Manifest.fs`; reference `app/views/pwa/manifest.json.erb`):
   the account name and the logo URLs are JSON strings, where Rails HTML-escaped them inside the JSON (a small logo's
