@@ -4172,3 +4172,33 @@ Sonnet builder. Commits `9dc8f2c` (the unit) and `5b534b3` (the rooted path, fou
   Storage 1,452 (-194; the `FsToolkit` reference is in the fsproj). The ContentDisposition static-data move (C2) is not part of 9.1.
 - **Differences recorded:** class B, the five `Range` kinds and the disk 416 body (README; FR1's list); class A, `Accept-Ranges` on the disk service.
 - **Not done / left:** nothing in the 9.1 row. `p9ctl` (label `7d58f54`) stays for the gate.
+
+### Phase 9, unit 9.2: Campfire.Rails (2026-10-27)
+
+Sonnet builder. Commits `b50edf4` (trims) and `bb84c82` (the merge). `plans/design-close.md` C7, S5, S7.
+- **Commit 1, trims:** `Float.toF` with its strtod port (317 lines of `Float.fs`), `Erb`'s `writeHtmlEscaped`, `pushHtmlEscaped`, `writeHtmlEscapedUtf8`
+  (`htmlEscape` keeps its own loop), `Uri.fs` (`cgiEscape` and `urlEncode` are one line each on `Uri.EscapeDataString` in `Ruby.fs`; `Autolink.fs`'s mailto link calls
+  `Uri.EscapeDataString` directly), and `RubyString.isSpaceByte` (only `toF` used it). **Retired:** the `to_f` vector group of `ruby_core.json` with its test
+  `to_f` (`RubyCoreTests`; the vector file is unchanged), the facts "to_f like ruby" and "to_f drops what ruby has no room for", and "erb escapes straight into a utf-8
+  buffer"; "erb escapes like erb util" keeps its `htmlEscape` line. The url/cgi facts and the 427-string `cgi_escape`/`url_encode`/`addressable_unreserved` vectors stay,
+  now against the framework call. `ContentDispositionApproximations.fs` is in `bin/kloc`'s static-data list.
+- **Commit 2, the merge:** `src/Campfire.Rails` (`Ruby/` folder, `Routes.fs` last) and `tests/Campfire.Rails.Tests` (`Ruby/RubyUnitTests.fs`, `Ruby/RubyCoreTests.fs`, `RoutesTests.fs`
+  beside the RailsCompat tests; the Ruby unit module is `RubyUnitTests` so it does not clash with `UnitTests`, and none is in a `Campfire.Rails.Tests.Ruby` namespace, which
+  would shadow `Ruby.` in the tests). Mapping as C7: `Campfire.RailsCompat` -> `Campfire.Rails`, `Campfire.Ruby` -> `Campfire.Rails.Ruby`, `Campfire.Routes` -> `Campfire.Rails.Routes`,
+  `open Campfire.Routes` -> `open Campfire.Rails.Routes`. The first build after the rewrite had 0 warnings and 0 errors: no name-resolution fix was needed. slnx, every
+  `ProjectReference`, `bench/crypto-micro`, `reference-tools/richtext/review`, the entrypoint comment, `bin/kloc`, the storage table generator's header and AGENTS.md's layout row
+  (one row for the three crates) updated. `git grep -e 'Campfire\.RailsCompat' -e 'Campfire\.Ruby\b' -e 'Campfire\.Routes'` over the acceptance paths is empty.
+  **Not changed:** `bench/lib/layers.py` and `perf_layers.py` (old profile-layer regexes naming `Campfire.RailsCompat`, `Campfire.Ruby`, `Campfire.Routes` as assemblies, beside
+  layers for the long-gone `Campfire.Kit`); after the merge those three layers cannot be told apart by assembly, so they are left for 9.7's bench-tools pass; the acceptance grep
+  is literal and does not see their escaped dots. The `RailsCompat` module in `Secrets.fs` (`RailsCompat.appVerifier`) keeps its name.
+- **Tests:** `Campfire.Rails.Tests` 82 = RailsCompat 62 + Ruby 19 + Routes 5 (86) less the 4 retired facts named above. Golden vectors (`rails_compat`, `campfire_sessions`,
+  `campfire_routes`, `ruby_core` strings and floats, `storage` filenames) green.
+- **Gates:** `CAMPFIRE_REQUIRE_SEED=1 bin/verify` green on `bb84c82` (Release, warnings as errors, lint and its self-test, guards): 1,035 tests, 1,029 passed, 6 skipped (same skips as 9.1),
+  0 failed. `dotnet build bench/crypto-micro -c Release` and `reference-tools/richtext/review` build. Image rebuilt (label `bb84c82`). `bin/cookie-roundtrip` **20/20**.
+  `bin/pixel-parity --fast --only 'auth/**,rooms/show/designers,search/**,users/profile/**'`: default 48/48, custom_styles 6/6, first_run 8/8 screenshots, aria and loose equal,
+  crowd and restricted 0/0 (no cell in the slice). `bin/clean-parity` and `bin/clean-docker` run; free space 22 GB. HS2/HS4, AC11 and pebble not re-run: `Web/Host.fs`, `Acme.fs`
+  and `OutputCaching.fs` are untouched. No bench run: the unit changes no request path (one `Uri.EscapeDataString` replaces a hand loop in the mailto and pagination escapes).
+- **KLOC** (`bin/kloc`): 26,736 corrected (26,289 cloc) before, **26,195 corrected (25,748 cloc, 25.7 KLOC)** after: Campfire.Rails 1,534 (RailsCompat 1,455 + Ruby 538 + Routes 82 before, less the
+  trims and the 195-line `ContentDispositionApproximations.fs` moved to static data), static data left out 4,512 (corrected 4,815). The total prints once.
+- **Differences recorded:** none; no behaviour change.
+- **Not done / left:** nothing in the 9.2 row. `p9ctl` stays for the gate.
