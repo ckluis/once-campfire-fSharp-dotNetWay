@@ -10,6 +10,7 @@
 namespace Campfire.App.Integrations
 
 open System
+open System.Net.Http
 open System.Text.RegularExpressions
 open System.Threading
 open System.Threading.Tasks
@@ -46,7 +47,8 @@ type WebhookDelivery =
 type WebhookError =
     /// `URI::InvalidURIError`, or `ArgumentError` from `Net::HTTP::Post.new`.
     | InvalidUrl of string
-    | Http of HttpError
+    /// A connection failure other than a timeout (`Errno::ECONNREFUSED`, a reset, ...), or a timeout (answered with a reply).
+    | Transport of TransportError
     /// `Mime::Type::InvalidMimeType`
     | InvalidMimeType of string
     | ReplyTooLarge
@@ -55,7 +57,7 @@ module WebhookError =
     let message (error: WebhookError) : string =
         match error with
         | InvalidUrl message -> message
-        | Http error -> HttpError.message error
+        | Transport error -> TransportError.message error
         | InvalidMimeType mime -> $"\"{mime}\" is not a valid MIME type"
         | ReplyTooLarge -> "the reply is larger than 100 MB"
 
@@ -171,64 +173,73 @@ module WebhookClient =
                           Filename = $"attachment.{extension}"
                           ContentType = registered })
 
-    /// `post(payload)` over `Net::HTTP.new(uri.host, uri.port)`: the status, content type and body.
-    let private post (net: Network) (url: string) (payload: string) (cancellation: CancellationToken) : Task<Result<int * string option * byte[], WebhookError>> =
+    /// `URI(url)`, then `Net::HTTP::Post.new`: the wording of Rails' failures for a bad URL (J6: `System.Uri` behind the RFC 3986
+    /// character check).
+    let private parseUrl (url: string) : Result<Uri, WebhookError> =
+        match Attachables.tryAbsoluteUri url with
+        | ValueSome uri ->
+            if uri.Scheme <> Uri.UriSchemeHttp && uri.Scheme <> Uri.UriSchemeHttps then Error(InvalidUrl "not an HTTP URI")
+            elif uri.Host = "" then Error(InvalidUrl "no host component for URI")
+            else Ok uri
+        | ValueNone ->
+            if Attachables.rfc3986Characters url && Uri.IsWellFormedUriString(url, UriKind.Relative) then
+                Error(InvalidUrl "not an HTTP URI")
+            else
+                Error(InvalidUrl("bad URI (is not URI?): " + Campfire.RailsCompat.Json.generate (Campfire.RailsCompat.Value.String url)))
+
+    /// `post(payload)`: the status, content type and body. `Content-Type: application/json` without a charset, as Rails sends it.
+    let private post
+        (factory: IHttpClientFactory)
+        (url: string)
+        (payload: string)
+        (cancellation: CancellationToken)
+        : Task<Result<int * string option * byte[], WebhookError>> =
         task {
-            match RubyUri.parse url with
-            | Error _ -> return Error(InvalidUrl("bad URI (is not URI?): " + Campfire.RailsCompat.Json.generate (Campfire.RailsCompat.Value.String url)))
-            | Ok uri when not (RubyUri.isHttp uri) -> return Error(InvalidUrl "not an HTTP URI")
+            match parseUrl url with
+            | Error error -> return Error error
             | Ok uri ->
-                match uri.Host |> Option.filter (fun h -> h <> "") with
-                | None -> return Error(InvalidUrl "no host component for URI")
-                | Some host ->
-                    let https = uri.Scheme |> Option.exists (fun s -> s.Equals("https", StringComparison.OrdinalIgnoreCase))
-                    match uri.Port |> Option.filter (fun p -> p <= 65535UL) with
-                    | None -> return Error(InvalidUrl "invalid port")
-                    | Some port ->
-                        let port = int port
-                        let endpoint: Endpoint =
-                            { Https = https
-                              Host = host
-                              Port = port
-                              PinnedIp = None }
-                        let hostname = if host.StartsWith '[' && host.EndsWith ']' then host.Substring(1, host.Length - 2) else host
-                        let uriHost = if port = (if https then 443 else 80) then hostname else $"{hostname}:{port}"
-                        let request =
-                            Request.netHttp "POST" (Http.requestUri uri) (Some uriHost) [ "Content-Type", "application/json" ]
-                            |> Request.transport true endpoint
-                        let request = { request with Body = Text.Encoding.UTF8.GetBytes payload }
-                        let timeouts = { Open = EndpointTimeout; Read = EndpointTimeout }
-                        match! Http.exchange net endpoint request timeouts cancellation with
-                        | Error error -> return Error(Http error)
-                        | Ok response ->
-                            use response = response
-                            let status, contentType = response.Status, response.ContentType()
-                            match! response.ReadBody MaxReplySize with
-                            | Error error -> return Error(Http error)
-                            | Ok TooLarge -> return Error ReplyTooLarge
-                            | Ok(Complete body) -> return Ok(status, contentType, body)
+                use request = new HttpRequestMessage(HttpMethod.Post, uri)
+                let content = new ByteArrayContent(Text.Encoding.UTF8.GetBytes payload)
+                content.Headers.ContentType <- Headers.MediaTypeHeaderValue "application/json"
+                request.Content <- content
+                let client = factory.CreateClient Clients.Webhook
+                try
+                    use! response = client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellation)
+                    let status = int response.StatusCode
+                    let contentType = Clients.contentType response
+                    match! Clients.readLimited response.Content MaxReplySize cancellation with
+                    | ValueNone -> return Error ReplyTooLarge
+                    | ValueSome body -> return Ok(status, contentType, body)
+                with e when not cancellation.IsCancellationRequested ->
+                    return Error(Transport(TransportError.classify e))
         }
 
-    let deliverWithin (net: Network) (url: string) (payload: string) (deadline: TimeSpan) : Task<Result<WebhookDelivery, WebhookError>> =
+    let deliverWithin
+        (factory: IHttpClientFactory)
+        (time: TimeProvider)
+        (url: string)
+        (payload: string)
+        (deadline: TimeSpan)
+        : Task<Result<WebhookDelivery, WebhookError>> =
         task {
-            use cancellation = new CancellationTokenSource(deadline, net.Time)
+            use cancellation = new CancellationTokenSource(deadline, time)
             let! posted =
                 task {
                     try
-                        return! post net url payload cancellation.Token
+                        return! post factory url payload cancellation.Token
                     with e when cancellation.IsCancellationRequested ->
-                        return Error(Http(Io e))
+                        return Error(Transport(TransportError.Io e.Message))
                 }
             match posted with
             | Ok(status, contentType, body) ->
                 match reply status contentType body with
                 | Ok reply -> return Ok { Status = Some status; Reply = reply }
                 | Error error -> return Error error
-            | Error(Http(OpenTimeout | ReadTimeout)) -> return Ok(timedOut EndpointTimeout)
+            | Error(Transport(TransportError.OpenTimeout | TransportError.ReadTimeout)) -> return Ok(timedOut EndpointTimeout)
             | Error _ when cancellation.IsCancellationRequested -> return Ok(timedOut deadline)
             | Error error -> return Error error
         }
 
     /// `Webhook#deliver(message)`: `payload` is `Campfire.Db.Webhook.payload`.
-    let deliver (net: Network) (url: string) (payload: string) : Task<Result<WebhookDelivery, WebhookError>> =
-        deliverWithin net url payload DeliveryDeadline
+    let deliver (factory: IHttpClientFactory) (time: TimeProvider) (url: string) (payload: string) : Task<Result<WebhookDelivery, WebhookError>> =
+        deliverWithin factory time url payload DeliveryDeadline

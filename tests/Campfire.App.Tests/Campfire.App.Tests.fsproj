@@ -40,6 +40,7 @@
     <Compile Include="IntegrationsSupport.fs" />
     <Compile Include="GuardTests.fs" />
     <Compile Include="HttpTests.fs" />
+    <Compile Include="ClientsTests.fs" />
     <Compile Include="WebhookTests.fs" />
     <Compile Include="WebPushTests.fs" />
     <Compile Include="OpengraphTests.fs" />

@@ -43,7 +43,8 @@ type AppState
         jobs: Jobs,
         webPush: PushDeliveries option,
         fragments: HybridCache,
-        loggers: ILoggerFactory
+        loggers: ILoggerFactory,
+        http: System.Net.Http.IHttpClientFactory
     ) =
     member _.Config = config
     member _.Secrets = secrets
@@ -71,6 +72,9 @@ type AppState
     /// cache, the host's `HybridCache` as well (`Web.Services.add`). Fetched up front, awaited, by the presenters, the controllers
     /// and the broadcasts.
     member _.Fragments: HybridCache = fragments
+
+    /// The named outgoing clients (`Clients`): "opengraph", "push" and "webhook".
+    member _.Http: System.Net.Http.IHttpClientFactory = http
 
     /// For what Rust logs with `tracing` from anywhere (integrations, mostly).
     member _.Loggers = loggers

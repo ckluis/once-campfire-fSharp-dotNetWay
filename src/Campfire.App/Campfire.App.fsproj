@@ -25,6 +25,7 @@
     <Compile Include="Integrations/Net.fs" />
     <Compile Include="Integrations/Guard.fs" />
     <Compile Include="Integrations/Http.fs" />
+    <Compile Include="Integrations/Clients.fs" />
     <Compile Include="Integrations/WebPushEncryption.fs" />
     <Compile Include="Integrations/Vapid.fs" />
     <Compile Include="Integrations/WebPush.fs" />
@@ -140,6 +141,7 @@
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Certes" />
+    <PackageReference Include="Microsoft.Extensions.Http.Resilience" />
     <PackageReference Include="Falco" />
     <PackageReference Include="FsToolkit.ErrorHandling" />
   </ItemGroup>

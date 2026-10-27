@@ -6,7 +6,9 @@ open System.Collections.Generic
 open System.Net
 open System.Text
 open System.Text.Json
+open System.Net.Http
 open System.Threading.Tasks
+open Microsoft.Extensions.DependencyInjection
 open Xunit
 open Campfire.App.Integrations
 open Campfire.App.Tests.IntegrationsSupport
@@ -53,7 +55,8 @@ let ``delivers like the reference`` () =
                       Gzip = (match property c "gzip" with Some g -> g.GetBoolean() | None -> false)
                       Delay = TimeSpan.FromSeconds(match property c "delay" with Some d -> float (d.GetInt32()) | None -> 0.0) } ]
         use server = FakeServer.Start routes
-        let net = Network.system TimeProvider.System
+        use clients = httpClients ignore
+        let factory = clients.GetRequiredService<IHttpClientFactory>()
 
         let! outcomes =
             cases
@@ -63,7 +66,7 @@ let ``delivers like the reference`` () =
                     match property c "url" with
                     | Some url -> str url
                     | None -> $"http://{server.Addr}/{name}"
-                WebhookClient.deliver net url """{"message":"hi"}""")
+                WebhookClient.deliver factory TimeProvider.System url """{"message":"hi"}""")
             |> Task.WhenAll
 
         for (case', expected), outcome in List.zip (List.zip cases expected) (List.ofArray outcomes) do
@@ -78,7 +81,7 @@ let ``delivers like the reference`` () =
                         | ReplyAttachment a -> Attached(a.Filename, a.ContentType, a.Data)
                     { Status = delivery.Status; Error = None; Reply = reply }
                 | Error(InvalidMimeType _) -> { Status = None; Error = Some "Mime::Type::InvalidMimeType"; Reply = NoReply }
-                | Error(WebhookError.Http error) when HttpError.isConnectionRefused error ->
+                | Error(WebhookError.Transport TransportError.Refused) ->
                     { Status = None; Error = Some "Errno::ECONNREFUSED"; Reply = NoReply }
                 | Error error -> { Status = None; Error = Some(WebhookError.message error); Reply = NoReply }
             let wantedReply =
@@ -102,31 +105,30 @@ let ``delivers like the reference`` () =
                       Reply = wantedReply }
             Assert.True((actual = wanted), $"{name}: expected {wanted} but got {actual}")
 
-        // The request as Net::HTTP sends it
+        // The request, compared on method, target, Content-Type, Accept, User-Agent and body (the header list's order, Host, Connection and
+        // Accept-Encoding are .NET's: README class B)
         let request = server.Received() |> List.find (fun r -> r.Target = "/text")
         let recorded = (expected |> List.head).GetProperty("requests").EnumerateArray() |> Seq.head
-        let wanted =
-            headersOf (recorded.GetProperty "headers")
-            |> List.map (fun (n, v) -> if n = "Host" then n, string server.Addr else n, v)
-        Assert.Equal<(string * string) list>(wanted, request.Headers)
+        Assert.Equal("POST", request.Method)
+        Assert.Equal("POST /text HTTP/1.1", str (recorded.GetProperty "request_line"))
+        Assert.Equal("/text", request.Target)
+        let wanted = headersOf (recorded.GetProperty "headers")
+        for name in [ "Content-Type"; "Accept"; "User-Agent" ] do
+            Assert.Equal(wanted |> List.tryFind (fun (n, _) -> n = name) |> Option.map snd, request.Header name)
         Assert.Equal(str (recorded.GetProperty "body"), Encoding.UTF8.GetString request.Body)
     }
 
-/// Unguarded: private and loopback addresses are fine, names resolve normally, and nothing is pinned.
+/// Unguarded: a loopback address is fine, nothing is resolved through the guard and nothing is pinned.
 [<Fact>]
 let ``reaches internal services`` () =
     task {
         use server = FakeServer.Start [ Route.create "POST" "*" "/hook" 200 |> Route.header "Content-Type" "text/plain" |> Route.text "ok" ]
-        let resolver = FakeResolver([ "bots.internal", [ "10.0.0.7" ] ])
-        let dialer = MappingDialer(HashSet [ IPAddress.Parse "10.0.0.7" ], server.Addr)
-        let net = network resolver dialer
-        let! delivery = WebhookClient.deliver net "http://bots.internal:8080/hook" "{}"
+        use clients = httpClients ignore
+        let! delivery = WebhookClient.deliver (clients.GetRequiredService<IHttpClientFactory>()) TimeProvider.System $"http://{server.Addr}/hook" "{}"
         match delivery with
         | Ok delivery -> Assert.Equal({ Status = Some 200; Reply = ReplyText "ok" }, delivery)
         | Error error -> failwith (WebhookError.message error)
-        Assert.Equal<string list>([ "bots.internal" ], resolver.Lookups)
-        Assert.Equal<IPEndPoint list>([ IPEndPoint(IPAddress.Parse "10.0.0.7", 8080) ], dialer.Dialed)
-        Assert.Equal(Some "bots.internal:8080", (List.head (server.Received())).Header "Host")
+        Assert.Equal(Some(string server.Addr), (List.head (server.Received())).Header "Host")
     }
 
 /// An endpoint that keeps sending never trips the 7-second read timeout, but the delivery as a whole gives up and says
@@ -136,7 +138,8 @@ let ``gives up on a trickling reply`` () =
     task {
         let handle, address = trickleServer "HTTP/1.1 200 OK\r\nContent-Type: image/png\r\nConnection: close\r\n\r\n"
         use _server = handle
-        let! delivery = WebhookClient.deliverWithin (Network.system TimeProvider.System) $"http://{address}/hook" "{}" (TimeSpan.FromSeconds 1.0)
+        use clients = httpClients ignore
+        let! delivery = WebhookClient.deliverWithin (clients.GetRequiredService<IHttpClientFactory>()) TimeProvider.System $"http://{address}/hook" "{}" (TimeSpan.FromSeconds 1.0)
         match delivery with
         | Ok delivery -> Assert.Equal({ Status = None; Reply = ReplyText "Failed to respond within 1 seconds" }, delivery)
         | Error error -> failwith (WebhookError.message error)
@@ -153,7 +156,8 @@ let ``rejects replies over the limit`` () =
             |> Route.header "Content-Encoding" "gzip"
             |> Route.body bomb
         use server = FakeServer.Start [ route ]
-        let! outcome = WebhookClient.deliver (Network.system TimeProvider.System) $"http://{server.Addr}/hook" "{}"
+        use clients = httpClients ignore
+        let! outcome = WebhookClient.deliver (clients.GetRequiredService<IHttpClientFactory>()) TimeProvider.System $"http://{server.Addr}/hook" "{}"
         match outcome with
         | Error ReplyTooLarge -> ()
         | other -> failwith $"{other}"

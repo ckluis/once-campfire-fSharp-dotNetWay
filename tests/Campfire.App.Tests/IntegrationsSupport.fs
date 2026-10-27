@@ -15,6 +15,7 @@ open System.Security.Cryptography.X509Certificates
 open System.Text
 open System.Threading
 open System.Threading.Tasks
+open Microsoft.Extensions.DependencyInjection
 open Microsoft.Extensions.Logging.Abstractions
 open Campfire.App
 open Campfire.App.Integrations
@@ -356,3 +357,45 @@ type TestDb() =
                 Directory.Delete(dir, true)
             with _ ->
                 ()
+
+/// The app's three outgoing clients over a provider of their own: `configure` runs first, so a test registers its `IResolver` and
+/// `IDialer` (the dial function) before `Clients.add` takes the defaults.
+let httpClients (configure: IServiceCollection -> unit) : ServiceProvider =
+    let services = ServiceCollection()
+    services.AddLogging() |> ignore
+    services.AddSingleton<TimeProvider>(TimeProvider.System) |> ignore
+    configure services
+    Clients.add services
+    services.BuildServiceProvider()
+
+/// A server that counts the connections it accepts and answers each by `behave` (given the stream once the request head has been read).
+let countingServer (behave: System.Net.Sockets.TcpClient -> Task) : IDisposable * IPEndPoint * (unit -> int) =
+    let listener = new TcpListener(IPAddress.Loopback, 0)
+    listener.Start()
+    let stop = new CancellationTokenSource()
+    let accepted = ref 0
+    let accepting =
+        task {
+            try
+                while not stop.IsCancellationRequested do
+                    let! client = listener.AcceptTcpClientAsync stop.Token
+                    Interlocked.Increment(&accepted.contents) |> ignore
+                    Task.Run(fun () ->
+                        task {
+                            try
+                                do! behave client
+                            with _ ->
+                                ()
+                        }
+                        :> Task)
+                    |> ignore
+            with _ ->
+                ()
+        }
+    accepting |> ignore
+    ({ new IDisposable with
+        member _.Dispose() =
+            stop.Cancel()
+            listener.Stop() }),
+    (listener.LocalEndpoint :?> IPEndPoint),
+    (fun () -> Volatile.Read(&accepted.contents))

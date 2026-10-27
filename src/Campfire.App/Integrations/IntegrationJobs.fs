@@ -175,7 +175,7 @@ module IntegrationJobs =
                 | Error error -> return Error(failure error)
                 | Ok None -> return Error "undefined method 'deliver' for nil (the bot has no webhook)"
                 | Ok(Some(bot, room, url, payload)) ->
-                    match! WebhookClient.deliver (Network.system app.Time) (defaultArg url "") payload with
+                    match! WebhookClient.deliver app.Http app.Time (defaultArg url "") payload with
                     | Error error -> return Error(WebhookError.message error)
                     | Ok delivery ->
                         let! message =

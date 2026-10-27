@@ -10,8 +10,11 @@
 namespace Campfire.App.Integrations
 
 open System
+open System.IO
 open System.Net
+open System.Net.Http
 open System.Net.Sockets
+open System.Threading
 open System.Threading.Tasks
 
 type GuardError =
@@ -207,21 +210,16 @@ module Guard =
 
     // --- Classification (Surfguard.blocked_address?, default policy) ---------------------------------------
 
-    type private V4Range = uint32 * int
+    // The lists are `System.Net.IPNetwork` values (the framework's CIDR type), tested with `IPNetwork.Contains`.
+    let private v4 (a: int) (b: int) (c: int) (d: int) (prefix: int) : IPNetwork =
+        IPNetwork(IPAddress [| byte a; byte b; byte c; byte d |], prefix)
 
-    type private V6Range = UInt128 * int
-
-    let private v4 (a: int) (b: int) (c: int) (d: int) (prefix: int) : V4Range =
-        ((uint32 a <<< 24) ||| (uint32 b <<< 16) ||| (uint32 c <<< 8) ||| uint32 d), prefix
-
-    let private v6 (segments: int list) (prefix: int) : V6Range =
-        let mutable value = UInt128.Zero
-        for segment in segments do
-            value <- (value <<< 16) ||| UInt128(0UL, uint64 segment)
-        value, prefix
+    let private v6 (segments: int list) (prefix: int) : IPNetwork =
+        let bytes = segments |> List.collect (fun segment -> [ byte (segment >>> 8); byte segment ]) |> Array.ofList
+        IPNetwork(IPAddress bytes, prefix)
 
     /// `Surfguard::DISALLOWED_IPV4`
-    let private disallowedIpv4List: V4Range list =
+    let internal disallowedIpv4List: IPNetwork list =
         [ v4 0 0 0 0 8
           v4 10 0 0 0 8
           v4 100 64 0 0 10
@@ -240,7 +238,7 @@ module Guard =
           v4 240 0 0 0 4 ]
 
     /// `Surfguard::DISALLOWED_IPV6`
-    let private disallowedIpv6List: V6Range list =
+    let internal disallowedIpv6List: IPNetwork list =
         [ v6 [ 0; 0; 0; 0; 0; 0; 0; 0 ] 128
           v6 [ 0x100; 0; 0; 0; 0; 0; 0; 0 ] 64
           v6 [ 0x100; 0; 0; 1; 0; 0; 0; 0 ] 64
@@ -254,7 +252,7 @@ module Guard =
           v6 [ 0xff00; 0; 0; 0; 0; 0; 0; 0 ] 8 ]
 
     /// `Surfguard::IANA_ALLOCATED_IPV6_UNICAST`
-    let private ianaAllocatedIpv6Unicast: V6Range list =
+    let internal ianaAllocatedIpv6Unicast: IPNetwork list =
         [ v6 [ 0x2001; 0; 0; 0; 0; 0; 0; 0 ] 23
           v6 [ 0x2001; 0x200; 0; 0; 0; 0; 0; 0 ] 23
           v6 [ 0x2001; 0x400; 0; 0; 0; 0; 0; 0 ] 23
@@ -293,7 +291,7 @@ module Guard =
           v6 [ 0x2c00; 0; 0; 0; 0; 0; 0; 0 ] 12 ]
 
     /// `Surfguard::GLOBALLY_REACHABLE_IETF_ASSIGNMENTS`
-    let private globallyReachableIetfAssignments: V6Range list =
+    let internal globallyReachableIetfAssignments: IPNetwork list =
         [ v6 [ 0x2001; 3; 0; 0; 0; 0; 0; 0 ] 32; v6 [ 0x2001; 4; 0x112; 0; 0; 0; 0; 0 ] 48 ]
 
     let private ietfProtocolAssignments = v6 [ 0x2001; 0; 0; 0; 0; 0; 0; 0 ] 23
@@ -305,46 +303,34 @@ module Guard =
     let private uniqueLocal = v6 [ 0xfc00; 0; 0; 0; 0; 0; 0; 0 ] 7
     let private linkLocalV6 = v6 [ 0xfe80; 0; 0; 0; 0; 0; 0; 0 ] 10
 
-    let private inV4 (ip: uint32) ((network, prefix): V4Range) : bool = prefix = 0 || ((ip ^^^ network) >>> (32 - prefix)) = 0u
-
-    let private inV6 (ip: UInt128) ((network, prefix): V6Range) : bool =
-        prefix = 0 || ((ip ^^^ network) >>> (128 - prefix)) = UInt128.Zero
+    let private within (ip: IPAddress) (network: IPNetwork) : bool = network.Contains ip
 
     /// `disallowed_ipv4?`: `private?`, `loopback?` and `link_local?` are all inside the list.
-    let private disallowedIpv4 (ip: uint32) : bool = disallowedIpv4List |> List.exists (inV4 ip)
+    let private disallowedIpv4 (ip: IPAddress) : bool = disallowedIpv4List |> List.exists (within ip)
 
-    let private disallowedIpv6 (ip: UInt128) : bool =
-        if globallyReachableIetfAssignments |> List.exists (inV6 ip) then
+    let private disallowedIpv6 (ip: IPAddress) : bool =
+        if globallyReachableIetfAssignments |> List.exists (within ip) then
             false
-        elif inV6 ip uniqueLocal || ip = UInt128.One || inV6 ip linkLocalV6 || inV6 ip ietfProtocolAssignments then
+        elif within ip uniqueLocal || ip.Equals IPAddress.IPv6Loopback || within ip linkLocalV6 || within ip ietfProtocolAssignments then
             true
-        elif disallowedIpv6List |> List.exists (inV6 ip) then
+        elif disallowedIpv6List |> List.exists (within ip) then
             true
         else
-            not (ianaAllocatedIpv6Unicast |> List.exists (inV6 ip))
+            not (ianaAllocatedIpv6Unicast |> List.exists (within ip))
 
-    let private ipv4Value (ip: IPAddress) : uint32 =
-        let b = ip.GetAddressBytes()
-        (uint32 b[0] <<< 24) ||| (uint32 b[1] <<< 16) ||| (uint32 b[2] <<< 8) ||| uint32 b[3]
-
-    let private ipv6Value (ip: IPAddress) : UInt128 =
-        let mutable value = UInt128.Zero
-        for b in ip.GetAddressBytes() do
-            value <- (value <<< 8) ||| UInt128(0UL, uint64 b)
-        value
+    /// The IPv4 address in the last four bytes of an IPv6 one (NAT64, IPv4-translatable).
+    let private embeddedIpv4 (ip: IPAddress) : IPAddress = IPAddress(ip.GetAddressBytes()[12..15])
 
     /// `Surfguard.blocked_address?(ip)`
     let blockedAddress (ip: IPAddress) : bool =
         if ip.AddressFamily = AddressFamily.InterNetwork then
-            disallowedIpv4 (ipv4Value ip)
+            disallowedIpv4 ip
+        elif within ip ipv4Mapped || within ip ipv4Compatible || within ip nat64LocalUse then
+            true
+        elif within ip nat64WellKnown || within ip ipv4Translatable then
+            disallowedIpv4 (embeddedIpv4 ip)
         else
-            let ip = ipv6Value ip
-            if inV6 ip ipv4Mapped || inV6 ip ipv4Compatible || inV6 ip nat64LocalUse then
-                true
-            elif inV6 ip nat64WellKnown || inV6 ip ipv4Translatable then
-                disallowedIpv4 (uint32 (ip &&& UInt128(0UL, uint64 UInt32.MaxValue)))
-            else
-                disallowedIpv6 ip
+            disallowedIpv6 ip
 
     // --- Resolution -----------------------------------------------------------------------------------------
 
@@ -386,3 +372,37 @@ module Guard =
             | Ok(ip :: _) -> return Ok ip
             | Ok [] -> return Error(Violation host)
         }
+
+    /// Where Rails passes `ipaddr:`: a request that carries an address connects there, after the guard has looked at it again.
+    let Pinned: HttpRequestOptionsKey<IPAddress> = HttpRequestOptionsKey<IPAddress> "campfire.pinned"
+
+    /// `SocketsHttpHandler.ConnectCallback` for a guarded client: no connection it opens reaches a blocked address, whoever built the
+    /// request. A pinned address is re-checked; any other host goes through `resolve` and connects to the first public address. A
+    /// refusal is an `HttpRequestException` carrying the `GuardError`'s message.
+    let connect
+        (resolver: IResolver)
+        (dial: IPEndPoint -> CancellationToken -> Task<Socket>)
+        (context: SocketsHttpConnectionContext)
+        (cancellation: CancellationToken)
+        : ValueTask<Stream> =
+        let host = context.DnsEndPoint.Host
+        let port = context.DnsEndPoint.Port
+        let connected =
+            task {
+                let pinned =
+                    match context.InitialRequestMessage.Options.TryGetValue Pinned with
+                    | true, ip -> ValueSome ip
+                    | _ -> ValueNone
+                let! address =
+                    task {
+                        match pinned with
+                        | ValueSome ip -> return (if blockedAddress ip then Error(Violation host) else Ok ip)
+                        | ValueNone -> return! resolve resolver host
+                    }
+                match address with
+                | Error error -> return raise (HttpRequestException(GuardError.message error))
+                | Ok ip ->
+                    let! socket = dial (IPEndPoint(ip, port)) cancellation
+                    return new NetworkStream(socket, true) :> Stream
+            }
+        ValueTask<Stream> connected

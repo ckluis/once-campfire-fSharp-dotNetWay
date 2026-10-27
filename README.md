@@ -177,6 +177,12 @@ specific to this port are listed below, each citing the reference file it depart
     ("delivers like the reference") and `WebPushTests` ("delivers to the pinned address with the gems headers") compare.
     A gzip reply is inflated through .NET's `GZipStream` and `ZLibStream` read in 64 KB steps, so a bomb is stopped
     within 64 KB of the limit (Rust: within the decoder's 32 KB buffer); tested by `HttpTests`.
+  - Bot webhooks go out on .NET's `HttpClient` (the "webhook" client of `Integrations/Clients.fs`), not the `Net::HTTP` replica. The method,
+    request target, `Content-Type: application/json`, `Accept: */*`, `User-Agent: Ruby` and the body are Rails' (`WebhookTests` "delivers like
+    the reference" compares them on the 19 recorded cases); the header list's order, the `Host` spelling, `Connection` and
+    `Accept-Encoding: gzip, deflate` (Net::HTTP sends `gzip;q=1.0,deflate;q=0.6,identity;q=0.3`) are .NET's, and the request target is
+    `System.Uri`'s normalization (lower-case host, dot segments removed). A reply that trickles is cut at the 60 s delivery deadline; the 7 s
+    timeout applies up to the response head, not between reads (`ClientsTests` CL1 pins that a POST is sent once on a 500, a reset and a timeout).
   - Web Push's VAPID signature is ECDSA with a random nonce (`ECDsa`), where Rust's p256 signs deterministically
     (RFC 6979); both verify under the public key, which `WebPushTests` ("signs the vapid header like the gem") checks.
   - An unfurl, a webhook delivery and a push that run past their deadline have their connection closed under the read
