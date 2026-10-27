@@ -3684,8 +3684,8 @@ the design's -70 for this unit did not materialise, the net is made up in 8.7/8.
 ### Phase 8, unit 8.3 Clients, guard, webhook (2026-10-27)
 
 Sonnet builder, `plans/design-jobs.md` J2-J4, J6. `bin/kloc` 27,577 / **28,031 corrected (28.0)**, from 27,854 after 8.2 (+177: `Clients.fs` is 188 lines and the
-guard's `connect` adds about 30, while `Http.fs`, `Net.fs` and `RubyUri.fs` (1,160 lines) stay until opengraph and push leave them in 8.4 and 8.5; the webhook itself
-is 234 -> 207 lines and `Guard.fs`'s `UInt128` arithmetic (about 60) is gone).
+guard's `connect` adds about 30, while `Http.fs`, `Net.fs` and `RubyUri.fs` (1,223 lines) stay until opengraph and push leave them in 8.4 and 8.5; the webhook grew
+234 -> 245 lines (the URL check and the transport mapping replace `Http.exchange`) and `Guard.fs` is 388 -> 408 (`connect` and the key, against the `UInt128` arithmetic that went).
 
 - **Code:** `Integrations/Clients.fs` (after `Http.fs`, before `Webhook.fs`) registers the three named clients: `"opengraph"` (guarded, connect timeout and pipeline
   timeout 5 s, one connection per request, concurrency limiter 16 with a 1,024 queue), `"push"` (guarded, 10 s, pooled) and `"webhook"` (unguarded, 7 s, one connection
