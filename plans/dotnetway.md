@@ -3457,3 +3457,40 @@ Commits `5fbe11b` (the deletion) and the one after it (harness fix and evidence)
 - **KLOC (`bin/kloc` after committing):** **27,834 corrected (27.8 KLOC)**, 27,379 by cloc; Campfire.App 13,011. Phase 7 net from 29.97 (`309ab42`) is -2.14 corrected; the projection was about 27.6 (the host layer came in about 0.2 over: `Host.fs` carries F6 and the handshake options, `Acme.fs` the service). Rust's bar is 31.0.
 - **Differences recorded:** README "Front server" now holds the whole of section 8 (class B and the Class A line). No new difference in this unit.
 - **Open for the phase:** the verifier. `campfire-dotnetway:p7pre`, `campfire-dotnetway:p6ctl` and `campfire-candidate-p6ctl` are still in colima (remove them when the phase closes); the Pebble image and its directory are removed.
+
+### Phase 7: gate (2026-10-26/27)
+
+Evidence: `bench/results/dotnetway-p7/` (slim: logs, `report.json` per pixel slice, bench JSON, `kloc.md`). Gate runner. Image `campfire-dotnetway:app` built from `607b31c` (label checked equal to HEAD); control built from `309ab42` (Phase 6's closing commit, per its verification entry) in a scratch worktree, tag `campfire-dotnetway:p7gatectl`, label `309ab42`, removed afterwards with its worktree. One tooling fix, no app change (below).
+- **`CAMPFIRE_REQUIRE_SEED=1 bin/verify`** on `607b31c`: 990 total, 984 passed, 0 failed, 6 skipped (the environmental six); lint self-test 39/39, lint 327 files clean; Dapper and EF guards, H1 and the Release warnings-as-errors build green (`verify.log`).
+- **Phase-specific.** AC11 against Pebble (colima, `bin/linux-tests App`): passed. `reference-tools/front/pebble-image.sh` on the image: **PASSED, 10 of 10 runs after the fix; before it, 4 of 12 runs failed** "the restart did not log a cached load". Cause, a race in the script and not in the app: `since=$(date +%s)` has whole-second resolution, so when boot, order and checks all fit in one second, `docker logs --since` also matched the **first** boot's `Server started`, the wait ended before the restarted container had logged anything, and the grep for `Loaded the cached certificate` ran too early (the failing run's log shows only the first boot; the later checks, one order, same certificate, 2-certificate chain, passed). Fixed with a sub-second RFC 3339 `since`; the failing log is `pebble-image-racefail.log`. Unit 7.6's single pass was luck. TLS states (`--candidate-tls`, `auth/sign_in`, `rooms/show/designers`): **28/28** screenshots, aria and loose equal. `bench/front/run fsharp` (wrk -t4 -c64, 8 s, host load about 3; `front-run.log`), req/s and server CPU us/request: tiny 190,708 / 32.1, 100 KB identity 69,892 / 76.5, gzip 138,577 / 57.0, cache hit 157,735 / 38.7, zstd hit 194,131 / 31.8, form post 192,809 / 32.4.
+- **Lean pixel gate, every seed** (12 directory slices on default, the 13 `realtime/**` states one at a time, the other four seeds in one run, three browsers, both themes, breakpoints): **940 of 940 cells equal on screenshot, aria and loose DOM**, no cell NOT CAPTURED; every slice rc 0.
+
+| seed | screenshots | aria | loose DOM |
+|---|---:|---:|---:|
+| default | 860/860 | 860/860 | 860/860 |
+| crowd | 24/24 | 24/24 | 24/24 |
+| custom_styles | 32/32 | 32/32 | 32/32 |
+| first_run | 16/16 | 16/16 | 16/16 |
+| restricted | 8/8 | 8/8 | 8/8 |
+
+  One incident: the first `rooms/**` slice (after 11 slices that passed) stopped writing at cell 137 of 172, on the fresh-server cells (`rooms/directs/new`), and sat 37 minutes with no new file and no CPU; I killed it (the driver, then `bin/pixel-parity` in the VM, then its containers) and ran the slice again: 170/170 equal on all three layers in 488 s, nothing else changed. Not diagnosed beyond that; the hung run's log is `pixels/hung/`. The progress lines of a run print `fail` per cell for the ungated layers (the network layer differs on nearly every cell, Phase 6 verification); the verdict is the summary.
+- **`bin/cookie-roundtrip`** 20/20 both ways. **`bin/db-differential`** rc 0 (schemas agree, reference boots on the database we wrote, rollback ok).
+- **Speed** (`bench/quick`, five workloads plus `avatar`, `static_css`, `up`, c=1 and c=16, 3 reps interleaved new/ctl/ctl/new/new/ctl, each rep in four parts). Host probe 1.035-1.066 before runs (new), 1.025-1.067 (ctl), windows 1.03-1.09 after; Mac load average 2.6-6.5 at part boundaries (other programs on the Mac; the probe says the pinned cores were not slowed); 48 runs per side, all 2xx, 0 connection errors, post rows equal to the 2xx answers, decoded bytes equal the stored sizes. Medians:
+
+| workload | c | new req/s | control req/s | new vs control | x Rails (new) | x Rails (control) | CPU us/req new / control |
+|---|---:|---:|---:|---:|---:|---:|---|
+| room page | 16 | 7,234 | 7,399 | -2.2% | 30.23 | 30.92 | 456 / 437 |
+| room page | 1 | 2,227 | 2,519 | -11.6% | 20.80 | 23.52 | 563 / 496 |
+| messages page | 16 | 7,106 | 7,339 | -3.2% | 18.67 | 19.28 | 476 / 453 |
+| messages page | 1 | 2,085 | 2,339 | -10.9% | 9.57 | 10.73 | 594 / 524 |
+| sidebar | 16 | 7,357 | 7,696 | -4.4% | 12.29 | 12.86 | 454 / 426 |
+| sidebar | 1 | 2,224 | 2,581 | -13.8% | 7.76 | 9.01 | 572 / 479 |
+| search | 16 | 6,801 | 7,082 | -4.0% | 16.67 | 17.36 | 505 / 478 |
+| search | 1 | 1,913 | 2,157 | -11.3% | 9.93 | 11.19 | 639 / 557 |
+| post a message | 16 | 2,113 | 2,013 | +5.0% | 6.40 | 6.10 | 1,513 / 1,485 |
+| post a message | 1 | 1,074 | 1,121 | -4.2% | 6.43 | 6.72 | 1,726 / 1,648 |
+
+  **No cell under the 5x floor** (thinnest: post c=16 6.40x, post c=1 6.43x, sidebar c=1 7.76x); no speed fix made. Cost of Phase 7 against Phase 6's close: reads -2% to -4% at c=16 and -11% to -14% at c=1 (CPU per request +4% to +19%; the c=1 cost is the per-request logging line and the host's extra stages, as the design measured: +14 to +38 us at c=1), posting +5% / -4% (inside the control's range, 1,974-2,176 at c=16). Static rows new / control: avatar 12,725 / 24,970 (c=1), 103,863 / 124,992 (c=16); `static_css` 12,051 / 17,188 and 91,955 / 100,076; `up` 11,577 / 16,351 and 78,958 / 90,000: the cost of one logged request through the host, no Rails floor on them. (`bench-new.log` notes "avatar c=16 warm-up did not settle", the avatar row's own warm-up, not a gate cell.)
+- **KLOC:** `bin/kloc` 27,379 by upstream's rules, **27,834 corrected (27.8 KLOC)**; App 13,011, Views 5,219, Db 2,460, RichText 2,268, Storage 1,646. From 30.0 at Phase 6's close, -2.14; Rust's bar is 31.0. Unchanged by this unit.
+- **Differences recorded:** none new.
+- Disk: 17-32 GB free; `bin/clean-docker` and `bin/clean-parity` run, `fstrim` once in the VM; the control image, its candidate image and the Pebble container are removed. Still in colima from earlier units: `campfire-dotnetway:p7pre`, `p6ctl`, `campfire-candidate-p6ctl` (remove when the phase closes).
