@@ -40,7 +40,9 @@ type PushDeliveries(net: Network, vapid: VapidConfig, invalidSubscriptionHandler
     /// Deliveries dropped since the queue was last accepting them.
     let mutable dropped = 0
     let mutable shutDown = false
-    let mutable deliveryReaders: Task = Task.CompletedTask
+    /// Set once every delivery reader has finished. A completion source rather than the readers' task, because `StopAsync` may run
+    /// before `ExecuteAsync` has: `BackgroundService.StartAsync` runs all of `ExecuteAsync` on the thread pool (.NET 10 on).
+    let deliveriesDone = TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously)
 
     member private _.Deliver(notification: Notification) : Task =
         task {
@@ -50,29 +52,28 @@ type PushDeliveries(net: Network, vapid: VapidConfig, invalidSubscriptionHandler
             | Error error -> logger.LogError("Error in WebPush::Pool.deliver: {Class} {Error}", DeliveryError.className error, DeliveryError.message error)
         }
 
-    /// One of the 50 readers: delivers one notification at a time until the queue has closed and drained, or the host stops.
-    member private this.ReadDeliveries(stopping: CancellationToken) : Task =
+    /// One of the 50 readers: delivers one notification at a time until the queue has closed and drained. It reads without the
+    /// stopping token on purpose, like the job workers: whatever was queued before `StopAsync` closed the queue is still delivered,
+    /// even when the readers start after the stop (each delivery has its own deadline; the host's grace bounds the rest).
+    member private this.ReadDeliveries() : Task =
         task {
             let reader = deliveries.Reader
-            try
-                let mutable more = true
-                while more do
-                    let! available = reader.WaitToReadAsync stopping
-                    if not available then
-                        more <- false
-                    else
-                        let mutable item = Unchecked.defaultof<Notification>
-                        while reader.TryRead(&item) do
-                            Interlocked.Increment(&running) |> ignore
+            let mutable more = true
+            while more do
+                let! available = reader.WaitToReadAsync()
+                if not available then
+                    more <- false
+                else
+                    let mutable item = Unchecked.defaultof<Notification>
+                    while reader.TryRead(&item) do
+                        Interlocked.Increment(&running) |> ignore
+                        try
                             try
-                                try
-                                    do! this.Deliver item
-                                with e ->
-                                    logger.LogError("WebPush::Pool delivery panicked: {Panic}", e.Message)
-                            finally
-                                Interlocked.Decrement(&running) |> ignore
-            with :? OperationCanceledException ->
-                ()
+                                do! this.Deliver item
+                            with e ->
+                                logger.LogError("WebPush::Pool delivery panicked: {Panic}", e.Message)
+                        finally
+                            Interlocked.Decrement(&running) |> ignore
         }
 
     /// The invalidation worker: destroys each subscription in order.
@@ -95,10 +96,14 @@ type PushDeliveries(net: Network, vapid: VapidConfig, invalidSubscriptionHandler
                             logger.LogError("Error in WebPush::Pool.invalid_subscription_handler: {Panic}", e.Message)
         }
 
-    override this.ExecuteAsync(stoppingToken: CancellationToken) : Task =
-        let readers = [ for _ in 1 .. PoolLimits.MaxThreads -> Task.Run(fun () -> this.ReadDeliveries stoppingToken) ]
-        deliveryReaders <- Task.WhenAll readers
-        Task.WhenAll(deliveryReaders, Task.Run(fun () -> this.ReadInvalidations()))
+    override this.ExecuteAsync(_stoppingToken: CancellationToken) : Task =
+        task {
+            let invalidating = Task.Run(fun () -> this.ReadInvalidations())
+            do! Task.WhenAll [ for _ in 1 .. PoolLimits.MaxThreads -> Task.Run(fun () -> this.ReadDeliveries()) ]
+            deliveriesDone.TrySetResult() |> ignore
+            do! invalidating
+        }
+        :> Task
 
     member this.DeliverLater(notification: Notification) : unit =
         if Volatile.Read(&shutDown) then
@@ -124,7 +129,7 @@ type PushDeliveries(net: Network, vapid: VapidConfig, invalidSubscriptionHandler
         task {
             Volatile.Write(&shutDown, true)
             deliveries.Writer.TryComplete() |> ignore
-            let! _ = Task.WhenAny(deliveryReaders, Task.Delay(TimeSpan.FromSeconds 1.0, net.Time))
+            let! _ = Task.WhenAny(deliveriesDone.Task, Task.Delay(TimeSpan.FromSeconds 1.0, net.Time))
             invalidations.Writer.TryComplete() |> ignore
             do! this.StopBase token
         }

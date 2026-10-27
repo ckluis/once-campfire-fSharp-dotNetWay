@@ -587,6 +587,24 @@ let ``the pool drops deliveries past its queue`` () =
         do! stopPool pool
     }
 
+/// A stop that comes right after the start still delivers what was queued and destroys what is gone: `StartAsync` runs all of
+/// `ExecuteAsync` on the thread pool, so the stop may run before the readers exist.
+[<Fact>]
+let ``a stop right after the start still delivers and invalidates`` () =
+    task {
+        let gone = pushService 410 "Gone"
+        use _gone = gone.Server
+        let receiver = Receiver()
+        for round in 1 .. 20 do
+            let destroyed = List<int64>()
+            let pool = new PushDeliveries(gone.Net, vapid (), (fun id -> lock destroyed (fun () -> destroyed.Add id); Task.FromResult(Ok())), NullLogger.Instance)
+            pool.DeliverLater(notification (receiver.Subscription(int64 round, "https://fcm.googleapis.com/fcm/send/abc")))
+            do! (pool :> IHostedService).StartAsync CancellationToken.None
+            do! stopPool pool
+            Assert.True((destroyed.Count = 1), $"round {round}: {destroyed.Count} destroyed")
+        Assert.Equal(20, gone.Server.Received().Length)
+    }
+
 type private PanickingResolver() =
     interface IResolver with
         member _.Lookup(host: string) : Task<Result<IPAddress list, exn>> = failwith $"resolving {host} panicked"
