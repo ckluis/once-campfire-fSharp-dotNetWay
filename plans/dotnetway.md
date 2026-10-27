@@ -3644,3 +3644,39 @@ Sonnet builder, `plans/design-jobs.md` J10. `bin/kloc` 27,379 / **27,833 correct
   `bin/pixel-parity --fast --only 'rooms/show/designers,messages/**,users/profile/**,auth/**'`: default 96/96, custom_styles 4/4, first_run 8/8,
   crowd and restricted 0/0 (no matching states), every screenshot, aria and loose layer equal, 368 s. `bin/cookie-roundtrip` 20/20 (dotnetway).
   `bin/db-differential` rc 0 (fixtures, scenario, schema identity, reference on our database). No bench (not asked of this unit). Disk 27 GB free.
+
+### Phase 8, unit 8.2 Jobs (2026-10-27)
+
+Sonnet builder, `plans/design-jobs.md` J1. `bin/kloc` 27,400 / **27,854 corrected (27.9)**, from 27,833 after 8.1 (+21: `PushDeliveries.fs` is 148 lines against
+`WebPushPool.fs`'s 128 because it now owns the reader loops and the stop sequence that `Task.Run` and the semaphores hid, and the new tests are not counted;
+the design's -70 for this unit did not materialise, the net is made up in 8.7/8.9).
+- **Code:** `JobRunner<'App>` is a `BackgroundService` (generic because `Jobs.fs` compiles before `AppState`): `ExecuteAsync` starts `JOB_CONCURRENCY` readers
+  per kind on the pool; `StopAsync` closes the queues, then `base.StopAsync` waits for the drain within the host's grace (`HostOptions.ShutdownTimeout`,
+  10 s) and logs "jobs still running at shutdown were abandoned" if it ends first. The readers do not take the stopping token on purpose, so what is queued
+  drains. `PushDeliveries` (`Integrations/PushDeliveries.fs`, replacing `WebPushPool.fs`) is a `BackgroundService` over a bounded 10,000 channel with 50
+  readers (`TryWrite`: a full queue drops and logs, first drop and then the count) and an unbounded channel with 1 reader for invalidations; its handler is
+  now `int64 -> Task<Result<unit, string>>` (no `GetAwaiter().GetResult()`). `StopAsync` closes deliveries, waits up to a second on the provider (`wait_for_termination(1)`),
+  then closes invalidations (a 410 that comes back in that second is still destroyed), then waits within the grace. `Booted.Jobs`, `Runner`, `JobRunner.start`,
+  the `Thread`, `BlockingCollection` and both semaphores are gone; `Boot.drain` is `closeDatabase`; the push job's `Task.Run` is gone. `Registry<AppState>`
+  is a DI singleton. `Booted.Workers` registers the services (deliveries first, jobs second, so the stop order is web host, jobs, deliveries, then the
+  database after `RunAsync`); only the host that serves the app gets it (`serveHosted` and `Support`'s main host), because stopping a runner closes the
+  queues for good and a second host over the same state must not. `Boot.build` (8.7) will register them in the one builder.
+- **Tests:** `JobsTests` JB1-JB5 (the old facts ported one for one onto `started`/`stopped`, which do what the host does; JB2's log is also checked at Error
+  level on the collector), JB6 in `RevocationTests` (after `ChannelsSupport`): `Event.DisconnectUser` on a `Jobs` with no runner disconnects a connected
+  client at once, and no queue holds anything. The pool-limit facts on `PushDeliveries`: 50 deliveries are running (`Running`, polled), then 10,000 queued
+  and 5 dropped (`Pending` 10,050), the gate released, drained at stop; a panicking delivery frees its place; invalidations destroy in order
+  (the 410 test). The pool facts first fill 50 readers and then the queue because readers drain the channel concurrently, unlike the old semaphore count.
+- **Gates:** `CAMPFIRE_REQUIRE_SEED=1 bin/verify` green: 1,002 tests, 996 passed, 6 skipped (the environmental six), 0 warnings; H1, the markup lint, the Dapper guard and
+  the clock guard in it. P12 and HS11 pass. `p8ctl` was lost at the end of 8.1; it is `campfire-dotnetway:app` as built at `6da5ef7` (8.1's code, label
+  checked, `8e98d39` added only tests and docs) re-tagged before the rebuild, so it is Phase 8's state before 8.2 rather than `2fae069`. Image rebuilt at `b6fac7c`
+  (label checked), `bin/clean-docker` run. `bin/pixel-parity --fast --only 'bot_api/**'`: default 4/4 on the server layer (fragment states have no screenshot,
+  so the report counts 0/0 screenshots; `report.json` lists the four as pass), the other four seeds have no such states, PASSED. `--only realtime/message_sent`
+  alone: default 2/2 screenshots, aria and loose equal, PASSED, `bin/clean-parity` run. `bench/lib/logcount 20000`: sent 20,000 (+1 probe), logged 20,001 lines
+  after SIGTERM, OK (the SIGTERM run now goes through the host's hosted-service stop).
+- **Bench** (`bench/quick --reps 3 --apps fsharp,dotnetway --routes post_message`, `FSHARP_IMAGE=campfire-dotnetway:p8ctl` as control, interleaved, host probe
+  1.045-1.069, `bench/results/quick-82`; 12 runs, all 2xx, 0 errors, post rows equal the 2xx answers): medians new / control req/s: post c=1 1,118 [1,055-1,118]
+  / 1,124 [1,054-1,128]; post c=16 2,150 [2,148-2,161] / 2,164 [2,144-2,167]; p50 0.79 / 0.79 ms and 6.00 / 5.92 ms. CPU per request: c=1 1,749 [1,740-1,829]
+  against 1,670 [1,660-1,722] (+4.7%, above the control's range, though the throughput is inside it), c=16 1,504 against 1,487 (+1.2%, inside). **vs Rails** (stored
+  medians): post c=1 **6.70x**, c=16 **6.51x**; no cell under 5x, no speed fix made. The c=1 CPU gap is the one thing to watch in the phase gate's bench.
+- **Differences recorded:** none for users. Internally, a delivery that the old pool would have held in its 10,050 slots is now held in 10,000 plus the 50 the
+  readers have in hand, the same count in total once the readers are busy; before they have started, 10,000.

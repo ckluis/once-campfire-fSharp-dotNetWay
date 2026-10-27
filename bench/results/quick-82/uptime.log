@@ -1,0 +1,12 @@
+05:18:58 fsharp rep 1 start:  05:18:58 up 7 days, 20:10,  1 user,  load average: 1.09, 0.77, 0.63
+05:20:32 fsharp rep 1 end:    05:20:32 up 7 days, 20:12,  1 user,  load average: 3.08, 1.45, 0.88
+05:20:32 dotnetway rep 1 start:  05:20:32 up 7 days, 20:12,  1 user,  load average: 3.08, 1.45, 0.88
+05:22:55 dotnetway rep 1 end:    05:22:55 up 7 days, 20:14,  1 user,  load average: 2.49, 1.62, 1.01
+05:22:55 dotnetway rep 2 start:  05:22:55 up 7 days, 20:14,  1 user,  load average: 2.49, 1.62, 1.01
+05:25:08 dotnetway rep 2 end:    05:25:08 up 7 days, 20:16,  1 user,  load average: 2.42, 1.73, 1.12
+05:25:08 fsharp rep 2 start:  05:25:08 up 7 days, 20:16,  1 user,  load average: 2.42, 1.73, 1.12
+05:27:11 fsharp rep 2 end:    05:27:11 up 7 days, 20:18,  1 user,  load average: 2.13, 1.68, 1.17
+05:27:11 fsharp rep 3 start:  05:27:11 up 7 days, 20:18,  1 user,  load average: 2.13, 1.68, 1.17
+05:29:17 fsharp rep 3 end:    05:29:17 up 7 days, 20:21,  1 user,  load average: 2.32, 1.73, 1.24
+05:29:17 dotnetway rep 3 start:  05:29:17 up 7 days, 20:21,  1 user,  load average: 2.32, 1.73, 1.24
+05:31:20 dotnetway rep 3 end:    05:31:20 up 7 days, 20:23,  1 user,  load average: 2.56, 1.87, 1.34
