@@ -20,8 +20,9 @@
   const callSite = () => {
     const lines = (new Error().stack || "").split("\n").filter((l) => l.trim() && !/^Error/.test(l))
     // [0] is callSite, [1] is random, [2] is the caller (V8, SpiderMonkey and JSC agree on this).
-    // The origin is no part of the site: the candidate's TLS mode shows the browser another one (https://campfire.localhost:PORT).
-    return (lines[2] || "").replace(/https?:\/\/[^\/\s)]+/g, "").replace(/(?:-[0-9a-f]{7,64}|\.[0-9a-z]{10})(\.[a-z]+)/g, "$1").replace(/^\s*at\s+/, "").trim()
+    // The candidate's TLS mode shows the browser another origin (https://campfire.localhost:PORT): it reads as the shared one here, as in the
+    // normalized layers. Any other origin stays in the site: stripping all of them changed the seeds of every default run (removed_from_room on WebKit).
+    return (lines[2] || "").replace(/https:\/\/campfire\.localhost(:\d+)?/g, "http://localhost:3999").replace(/(?:-[0-9a-f]{7,64}|\.[0-9a-z]{10})(\.[a-z]+)/g, "$1").replace(/^\s*at\s+/, "").trim()
   }
   Math.random = function random() {
     const site = callSite()

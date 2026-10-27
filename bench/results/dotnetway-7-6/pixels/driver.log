@@ -1,0 +1,52 @@
+=== lean-auth 19:02:37 df 20Gi load 6.00 7.71 12.73
+lean-auth rc=0
+=== lean-errors 19:06:54 df 20Gi load 11.50 10.25 12.50
+lean-errors rc=0
+=== lean-pwa 19:07:43 df 20Gi load 8.90 9.65 12.15
+lean-pwa rc=0
+=== lean-welcome 19:10:37 df 20Gi load 5.99 8.66 11.34
+lean-welcome rc=0
+=== lean-bot_api 19:11:20 df 20Gi load 5.58 8.22 11.05
+lean-bot_api rc=0
+=== lean-search 19:11:31 df 20Gi load 5.43 8.09 10.97
+lean-search rc=0
+=== lean-account 19:13:00 df 19Gi load 5.31 7.35 10.39
+lean-account rc=0
+=== lean-users 19:14:49 df 19Gi load 5.08 6.77 9.80
+lean-users rc=0
+=== lean-autocompletable 19:17:53 df 19Gi load 5.77 6.17 8.94
+lean-autocompletable rc=0
+=== lean-messages 19:18:01 df 19Gi load 5.55 6.12 8.90
+lean-messages rc=0
+=== lean-interactions 19:24:17 df 17Gi load 5.73 5.96 7.83
+lean-interactions rc=0
+=== lean-rooms 19:36:53 df 16Gi load 3.13 4.27 5.85
+lean-rooms rc=0
+=== lean-rt-message_sent 19:45:26 df 16Gi load 2.98 4.43 5.38
+lean-rt-message_sent rc=0
+=== lean-rt-attachment_sent 19:47:11 df 16Gi load 4.05 4.41 5.26
+lean-rt-attachment_sent rc=0
+=== lean-rt-message_edited 19:48:53 df 16Gi load 3.67 4.30 5.13
+lean-rt-message_edited rc=0
+=== lean-rt-message_deleted 19:50:45 df 30Gi load 3.31 4.11 4.95
+lean-rt-message_deleted rc=0
+=== lean-rt-boosted 19:52:29 df 30Gi load 4.75 4.41 4.97
+lean-rt-boosted rc=0
+=== lean-rt-boost_removed 19:54:08 df 29Gi load 4.63 4.43 4.91
+lean-rt-boost_removed rc=0
+=== lean-rt-typing_one 19:55:47 df 29Gi load 4.48 4.49 4.88
+lean-rt-typing_one rc=0
+=== lean-rt-typing_many 19:57:24 df 29Gi load 5.21 4.78 4.96
+lean-rt-typing_many rc=0
+=== lean-rt-unread_in_sidebar 19:59:25 df 29Gi load 4.43 4.72 4.91
+lean-rt-unread_in_sidebar rc=0
+=== lean-rt-new_room_in_sidebar 20:01:18 df 29Gi load 4.96 5.07 5.04
+lean-rt-new_room_in_sidebar rc=0
+=== lean-rt-removed_from_room 20:03:08 df 29Gi load 3.81 4.71 4.90
+lean-rt-removed_from_room rc=1
+=== lean-rt-room_deleted_then_send 20:19:24 df 28Gi load 2.17 3.04 3.63
+lean-rt-room_deleted_then_send rc=0
+=== lean-rt-presence_read 20:21:15 df 28Gi load 3.79 3.37 3.69
+lean-rt-presence_read rc=0
+=== lean-otherseeds 20:22:54 df 28Gi load 3.83 3.54 3.72
+lean-otherseeds rc=0
