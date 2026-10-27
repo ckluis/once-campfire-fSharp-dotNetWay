@@ -8,7 +8,7 @@ open System.Text.Json
 open Xunit
 open Campfire.App
 open Campfire.App.UserAgent
-open Campfire.Ruby
+open Campfire.Rails.Ruby
 open Campfire.Tests
 
 let vectors () : JsonElement = (Repo.vector "campfire_user_agents").RootElement

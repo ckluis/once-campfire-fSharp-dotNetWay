@@ -9,8 +9,8 @@ open System
 open System.Text
 open System.Text.Json
 open System.Threading.Tasks
-open Campfire.RailsCompat
-open Campfire.Ruby
+open Campfire.Rails
+open Campfire.Rails.Ruby
 
 [<Literal>]
 let StreamsChannelName = "Turbo::StreamsChannel"
@@ -102,7 +102,7 @@ type Target =
 
 let private htmlSpecials = System.Buffers.SearchValues.Create "&<>\"'"
 
-/// An attribute value as `ERB::Util.unwrapped_html_escape` writes it (the escaping is `Campfire.Ruby`'s;
+/// An attribute value as `ERB::Util.unwrapped_html_escape` writes it (the escaping is `Campfire.Rails.Ruby`'s;
 /// most values have nothing to escape and are used as they are).
 let private escapedAttribute (value: string) : string =
     if value.AsSpan().IndexOfAny htmlSpecials < 0 then value else Erb.htmlEscape value

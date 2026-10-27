@@ -12,7 +12,7 @@ open Microsoft.Extensions.Caching.Memory
 open Microsoft.Extensions.DependencyInjection
 open Microsoft.Extensions.Options
 open Xunit
-open Campfire.RailsCompat
+open Campfire.Rails
 open Campfire.Views
 open Campfire.Views.Differential.Inputs
 open Campfire.Views.Tests.GoldenB

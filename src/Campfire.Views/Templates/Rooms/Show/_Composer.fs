@@ -3,7 +3,7 @@
 module Campfire.Views.Templates.Rooms.Show._Composer
 
 open Falco.Markup
-open Campfire.Routes
+open Campfire.Rails.Routes
 open Campfire.Views
 open Campfire.Views.Markup
 open Campfire.Views.Rooms

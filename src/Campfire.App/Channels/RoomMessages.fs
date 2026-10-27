@@ -13,7 +13,7 @@ open System.Threading.Tasks
 open Campfire.Cable
 open Campfire.Cable.Turbo
 open Campfire.Db
-open Campfire.RailsCompat
+open Campfire.Rails
 
 [<Literal>]
 let StreamSuffix = "messages"

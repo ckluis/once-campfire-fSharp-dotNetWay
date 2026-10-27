@@ -1,11 +1,11 @@
 // Port of rust/crates/richtext/src/ruby.rs
 //
-// Ruby and Active Support string behaviors the pipeline depends on, beyond `Campfire.Ruby`'s.
+// Ruby and Active Support string behaviors the pipeline depends on, beyond `Campfire.Rails.Ruby`'s.
 module Campfire.RichText.RubyExt
 
 open System
 open System.Text
-open Campfire.RailsCompat
+open Campfire.Rails
 open Campfire.RichText.Unicode
 
 /// Active Support's `String#blank?`: empty or only Unicode whitespace (`/\A[[:space:]]*\z/`).
@@ -141,7 +141,7 @@ let rec jsonValueInspect (v: Value) : string =
     | Value.Bool b -> if b then "true" else "false"
     | Value.Int i -> string i
     | Value.UInt u -> string u
-    | Value.Float f -> Campfire.Ruby.Float.floatToS f
+    | Value.Float f -> Campfire.Rails.Ruby.Float.floatToS f
     | Value.String s -> stringInspect s
     | Value.Array items -> "[" + String.Join(", ", items |> List.map jsonValueInspect) + "]"
     | Value.Object entries ->

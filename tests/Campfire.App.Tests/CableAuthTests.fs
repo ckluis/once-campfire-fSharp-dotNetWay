@@ -16,7 +16,7 @@ open Campfire.App.Channels
 open Campfire.App.Tests.Support
 open Campfire.Cable
 open Campfire.Db
-open Campfire.RailsCompat
+open Campfire.Rails
 
 let private davidSessionId = 481019661L
 

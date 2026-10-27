@@ -12,7 +12,7 @@ namespace Campfire.App.Channels
 open Campfire.Cable
 open Campfire.Cable.Turbo
 open Campfire.Db
-open Campfire.RailsCompat
+open Campfire.Rails
 
 /// The partials Turbo renders for broadcasts (`ApplicationController.render(partial:, locals:)`,
 /// html format, no request). Each returns the rendered HTML; the fragment-backed ones (a message and a boost, cached bytes) as the

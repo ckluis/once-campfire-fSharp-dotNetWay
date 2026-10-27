@@ -9,7 +9,7 @@ open System
 open System.Collections.Generic
 open System.Text.RegularExpressions
 open Microsoft.AspNetCore.Components
-open Campfire.Ruby
+open Campfire.Rails.Ruby
 
 type Pin = { Name: string; Path: string; Preload: bool }
 

@@ -11,7 +11,7 @@ open System
 open Microsoft.Extensions.Logging
 open Campfire.App.Presenters
 open Campfire.Db
-open Campfire.RailsCompat
+open Campfire.Rails
 open Campfire.RichText
 
 type AppRichText(secrets: Secrets, time: TimeProvider, logger: ILogger) =

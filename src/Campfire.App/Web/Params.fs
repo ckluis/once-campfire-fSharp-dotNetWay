@@ -295,18 +295,18 @@ module Params =
         | _ -> nested http outer inner
 
     /// `params[:a][:b]` as the hash it is (`permit(b: {})`), `None` when `b` is not a hash.
-    let hashJson (http: HttpContext) (outer: string) (inner: string) : Campfire.RailsCompat.Value option =
+    let hashJson (http: HttpContext) (outer: string) (inner: string) : Campfire.Rails.Value option =
         match jsonRoot http with
         | Ok(ValueSome root) ->
             match jsonProperty root outer with
             | ValueSome obj ->
                 match jsonProperty obj inner with
-                | ValueSome members when members.ValueKind = JsonValueKind.Object -> Campfire.RailsCompat.Json.parseInt64Only (members.GetRawText())
+                | ValueSome members when members.ValueKind = JsonValueKind.Object -> Campfire.Rails.Json.parseInt64Only (members.GetRawText())
                 | _ -> None
             | ValueNone -> None
         | _ ->
             hashMembers http outer inner
-            |> Option.map (fun members -> Campfire.RailsCompat.Value.Object [ for key, value in members -> key, Campfire.RailsCompat.Value.String value ])
+            |> Option.map (fun members -> Campfire.Rails.Value.Object [ for key, value in members -> key, Campfire.Rails.Value.String value ])
 
     /// `ActionController::Parameters#present?` for a scalar: not blank.
     let isPresent (value: ParamValue) : bool =

@@ -27,7 +27,7 @@ open System.Text
 open System.Text.Json
 open System.Threading.Tasks
 open Xunit
-open Campfire.RailsCompat
+open Campfire.Rails
 open Campfire.Cable
 open Campfire.Cable.Tests.Support
 open Campfire.Tests

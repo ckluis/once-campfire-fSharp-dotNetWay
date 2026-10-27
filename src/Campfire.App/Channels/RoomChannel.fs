@@ -10,8 +10,8 @@ open System.Threading.Tasks
 open Microsoft.Extensions.DependencyInjection
 open Campfire.Cable
 open Campfire.Db
-open Campfire.RailsCompat
-open Campfire.Ruby
+open Campfire.Rails
+open Campfire.Rails.Ruby
 
 /// What the room channels read and write with: the `CampfireDb` of the command's scope (C12: one per command, returned to the
 /// pool when the command ends), the write gate and the write environment.

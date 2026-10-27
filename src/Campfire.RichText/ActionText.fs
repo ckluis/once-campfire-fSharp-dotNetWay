@@ -5,8 +5,8 @@ namespace Campfire.RichText
 open System
 open Campfire.RichText.Unicode
 open Campfire.RichText.RubyExt
-open Campfire.RailsCompat
-open Campfire.Ruby
+open Campfire.Rails
+open Campfire.Rails.Ruby
 
 /// How `messages/_message.html.erb` shows a text message body.
 [<RequireQualifiedAccess>]

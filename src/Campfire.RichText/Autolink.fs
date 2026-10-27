@@ -13,7 +13,7 @@ namespace Campfire.RichText
 open System
 open System.Text
 open AngleSharp.Dom
-open Campfire.Ruby
+open Campfire.Rails.Ruby
 open Campfire.RichText.RubyExt
 open Campfire.RichText.Unicode
 

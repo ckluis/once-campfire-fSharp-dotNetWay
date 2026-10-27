@@ -2,7 +2,7 @@
 namespace Campfire.Storage
 
 open System.Text
-open Campfire.Ruby
+open Campfire.Rails.Ruby
 
 /// `ActiveStorage::Filename`, with Ruby's `File.extname`/`File.basename` semantics.
 type Filename = Filename of string

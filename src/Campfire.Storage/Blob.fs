@@ -12,7 +12,7 @@ open System.IO
 open System.Linq
 open Microsoft.EntityFrameworkCore
 open Campfire.Db
-open Campfire.RailsCompat
+open Campfire.Rails
 
 type Blob =
     { Id: int64

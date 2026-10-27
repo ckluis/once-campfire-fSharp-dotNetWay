@@ -17,7 +17,7 @@ open System.Threading.Tasks
 open Lib.Net.Http.WebPush
 open Lib.Net.Http.WebPush.Authentication
 open Campfire.Db
-open Campfire.RailsCompat
+open Campfire.Rails
 open Campfire.RichText
 
 /// `Push::Subscription#notification(title:, body:, path:)`: built on the enqueuing side, with the badge counted

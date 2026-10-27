@@ -3,8 +3,8 @@ namespace Campfire.Views.Markup
 
 open System.Text
 open Falco.Markup
-open Campfire.RailsCompat
-open Campfire.Routes
+open Campfire.Rails
+open Campfire.Rails.Routes
 open Campfire.Views
 
 module Application =

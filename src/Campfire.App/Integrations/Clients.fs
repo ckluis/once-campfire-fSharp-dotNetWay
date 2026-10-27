@@ -18,7 +18,7 @@ open Microsoft.Extensions.DependencyInjection
 open Microsoft.Extensions.DependencyInjection.Extensions
 open Polly
 open Polly.Timeout
-open Campfire.Ruby
+open Campfire.Rails.Ruby
 
 /// How a request failed to produce a response, by Rails' exception.
 [<RequireQualifiedAccess>]

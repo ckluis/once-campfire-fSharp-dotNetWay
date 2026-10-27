@@ -4,7 +4,7 @@ namespace Campfire.Db
 
 open System.Linq
 open Microsoft.EntityFrameworkCore
-open Campfire.RailsCompat
+open Campfire.Rails
 open Campfire.Db.Ef
 
 /// `has_json :settings, restrict_room_creation_to_administrators: false`

@@ -3,7 +3,7 @@
 module Campfire.Views.Templates.Searches._Recents
 
 open Falco.Markup
-open Campfire.Routes
+open Campfire.Rails.Routes
 open Campfire.Views
 open Campfire.Views.Markup
 open Campfire.Views.Searches

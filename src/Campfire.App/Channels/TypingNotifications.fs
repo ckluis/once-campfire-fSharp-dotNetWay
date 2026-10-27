@@ -6,7 +6,7 @@ module Campfire.App.Channels.TypingNotifications
 open System.Threading.Tasks
 open Campfire.Cable
 open Campfire.Db
-open Campfire.RailsCompat
+open Campfire.Rails
 
 let channel () : Channel<CableUser> =
     let room: Room option ref = ref None

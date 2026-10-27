@@ -9,7 +9,7 @@ module Campfire.Cable.Naming
 
 open System
 open System.Text
-open Campfire.RailsCompat
+open Campfire.Rails
 
 /// `GlobalID#to_param`: the URL-safe, unpadded Base64 of `gid://app/Model/id`. Records use their
 /// STI class name, e.g. `Rooms::Open`.

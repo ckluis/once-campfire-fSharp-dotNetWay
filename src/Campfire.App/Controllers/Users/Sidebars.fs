@@ -38,8 +38,8 @@ module Sidebars =
                 let data: SidebarShow =
                     { CurrentUser = Common.userSummary secrets user
                       // turbo_stream_from :rooms / turbo_stream_from Current.user, :rooms
-                      RoomsStream = Campfire.RailsCompat.Turbo.signedStreamName secrets [ "rooms" ]
-                      UserRoomsStream = Campfire.RailsCompat.Turbo.signedStreamName secrets [ Campfire.RailsCompat.GlobalId.toParam (Gid.userGid user.Id); "rooms" ]
+                      RoomsStream = Campfire.Rails.Turbo.signedStreamName secrets [ "rooms" ]
+                      UserRoomsStream = Campfire.Rails.Turbo.signedStreamName secrets [ Campfire.Rails.GlobalId.toParam (Gid.userGid user.Id); "rooms" ]
                       DirectMemberships = sidebar.DirectMemberships
                       DirectPlaceholderUsers = sidebar.DirectPlaceholderUsers
                       OtherMemberships = sidebar.OtherMemberships

@@ -9,7 +9,7 @@ open System
 open System.Diagnostics
 open System.Globalization
 open System.Text
-open Campfire.RailsCompat
+open Campfire.Rails
 open Campfire.Storage.Process
 
 /// How long ffprobe may take to read a file's streams before it's killed. Rails sets no limit.

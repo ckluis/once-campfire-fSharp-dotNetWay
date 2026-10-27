@@ -13,7 +13,7 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="../../../src/Campfire.RichText/Campfire.RichText.fsproj" />
-    <ProjectReference Include="../../../src/Campfire.RailsCompat/Campfire.RailsCompat.fsproj" />
+    <ProjectReference Include="../../../src/Campfire.Rails/Campfire.Rails.fsproj" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="AngleSharp" />

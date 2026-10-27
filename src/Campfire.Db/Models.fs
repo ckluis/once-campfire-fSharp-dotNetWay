@@ -9,14 +9,14 @@ open System.Linq
 open System.Runtime.CompilerServices
 open System.Text
 open Microsoft.EntityFrameworkCore
-open Campfire.RailsCompat
+open Campfire.Rails
 // RailsCompat's `Timestamp` (an alias of DateTimeOffset) is not used here: models keep UTC `DateTime` (RailsTime, E4).
 open Campfire.Db
 
 // ---------------------------------------------------------------------------------------------
 // User
 // `reference/app/models/user.rb` and `user/*.rb` (Role, Bot, Bannable, Mentionable; Avatar
-// and Transferable are signed ids, which live in `Campfire.RailsCompat`).
+// and Transferable are signed ids, which live in `Campfire.Rails`).
 // ---------------------------------------------------------------------------------------------
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]

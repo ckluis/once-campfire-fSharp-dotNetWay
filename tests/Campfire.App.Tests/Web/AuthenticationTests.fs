@@ -10,7 +10,7 @@ open Microsoft.Extensions.DependencyInjection
 open Xunit
 open Campfire.App.Tests.Support
 open Campfire.App.Web
-open Campfire.RailsCompat
+open Campfire.Rails
 
 let private davidSessionId = 481019661L
 

@@ -3,7 +3,7 @@
 namespace Campfire.Views.Markup
 
 open Falco.Markup
-open Campfire.Routes
+open Campfire.Rails.Routes
 open Campfire.Views
 
 module Users =

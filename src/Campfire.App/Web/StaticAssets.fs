@@ -94,7 +94,7 @@ module StaticAssets =
             routes.Keys |> Seq.filter (fun l -> l.EndsWith(".css", StringComparison.Ordinal)) |> Seq.sortWith (fun a b -> String.CompareOrdinal(a, b))
             |> Seq.map (fun l -> routes[l]) |> List.ofSeq
         let tags =
-            hrefs |> List.map (fun href -> $"<link rel=\"stylesheet\" href=\"{Campfire.Ruby.Erb.htmlEscape href}\" data-turbo-track=\"reload\" />")
+            hrefs |> List.map (fun href -> $"<link rel=\"stylesheet\" href=\"{Campfire.Rails.Ruby.Erb.htmlEscape href}\" data-turbo-track=\"reload\" />")
         let header = System.Text.StringBuilder()
         let mutable size = 0
         let mutable full = false

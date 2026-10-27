@@ -16,8 +16,8 @@ open System.Threading.Tasks
 open Microsoft.EntityFrameworkCore
 open Campfire.App
 open Campfire.Db
-open Campfire.RailsCompat
-open Campfire.Routes
+open Campfire.Rails
+open Campfire.Rails.Routes
 open Campfire.Views
 open Campfire.Views.Accounts
 open Campfire.Views.Users

@@ -3,7 +3,7 @@ module Campfire.RichText.Tests.RubyTests
 
 open System
 open Xunit
-open Campfire.RailsCompat
+open Campfire.Rails
 open Campfire.RichText
 
 [<Fact>]

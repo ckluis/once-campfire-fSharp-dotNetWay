@@ -7,7 +7,7 @@ open FsToolkit.ErrorHandling
 open Microsoft.AspNetCore.Http
 open Campfire.App
 open Campfire.Db
-open Campfire.Routes
+open Campfire.Rails.Routes
 open Campfire.App.Web
 
 module Bans =

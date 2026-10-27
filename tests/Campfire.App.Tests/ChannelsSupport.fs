@@ -23,7 +23,7 @@ open Campfire.App
 open Campfire.App.Channels
 open Campfire.Cable
 open Campfire.Db
-open Campfire.RailsCompat
+open Campfire.Rails
 open Microsoft.Extensions.Time.Testing
 
 [<Literal>]
@@ -290,7 +290,7 @@ type TestApp
     /// `Now` as the UTC `DateTime` the EF entities carry.
     member _.Utc() : System.DateTime = Campfire.Db.RailsTime.truncate (clock.GetUtcNow().UtcDateTime)
 
-    member _.NowOffset() : Campfire.RailsCompat.Timestamp = clock.GetUtcNow()
+    member _.NowOffset() : Campfire.Rails.Timestamp = clock.GetUtcNow()
 
     /// A session cookie for the fixture user (`cookies.signed[:session_token]`).
     member this.CookieFor(user: string) : Task<string> =
@@ -303,7 +303,7 @@ type TestApp
 
     member this.CookieWithToken(token: string) : string = this.CookieWithTokenExpiring(token, None)
 
-    member _.CookieWithTokenExpiring(token: string, expiresAt: Campfire.RailsCompat.Timestamp option) : string =
+    member _.CookieWithTokenExpiring(token: string, expiresAt: Campfire.Rails.Timestamp option) : string =
         let signed = Cookies.sign secrets "session_token" token expiresAt
         "session_token=" + signed.Replace("+", "%2B").Replace("/", "%2F").Replace("=", "%3D")
 

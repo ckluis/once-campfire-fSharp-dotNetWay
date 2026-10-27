@@ -5,8 +5,8 @@ module Campfire.Views.Differential.Operations
 open System
 open System.Text
 open System.Text.Json
-open Campfire.RailsCompat
-open Campfire.Routes
+open Campfire.Rails
+open Campfire.Rails.Routes
 open Campfire.Views
 open Campfire.Views.Helpers
 open Falco.Markup

@@ -81,7 +81,7 @@ let ``long payloads are cut short to fit a push message`` () =
     let payload = t.ReadEf(fun c -> PushSubscription.payloadFor c richText room message)
 
     // `serde_json::to_string(text).len() - 2`
-    let jsonLen (text: string) = (Campfire.RailsCompat.Json.generate (Campfire.RailsCompat.Value.String text) |> System.Text.Encoding.UTF8.GetByteCount) - 2
+    let jsonLen (text: string) = (Campfire.Rails.Json.generate (Campfire.Rails.Value.String text) |> System.Text.Encoding.UTF8.GetByteCount) - 2
     Assert.StartsWith("David: éé", payload.Body)
     Assert.EndsWith("xx…", payload.Body)
     Assert.True(jsonLen payload.Body <= PushSubscription.MaxPayloadBodyBytes)

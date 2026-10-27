@@ -110,5 +110,5 @@ module Avatars =
                 do! Before.chain Before.Default http
                 let! (user: User) = Current.requireUser http
                 let! (_: bool) = Data.write http (fun tx -> AttachmentWrites.destroy tx (Record.user user.Id) "avatar")
-                return! Respond.redirectTo http (Respond.urlFor http (Campfire.Routes.Routes.userProfile ()))
+                return! Respond.redirectTo http (Respond.urlFor http (Campfire.Rails.Routes.Routes.userProfile ()))
             }

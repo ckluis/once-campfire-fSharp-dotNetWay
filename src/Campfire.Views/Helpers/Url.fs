@@ -1,11 +1,11 @@
 // Port of rust/crates/views/src/helpers/url.rs
-/// URL building that `Campfire.Routes` leaves to the caller: query strings (`Hash#to_query`) and
+/// URL building that `Campfire.Rails.Routes` leaves to the caller: query strings (`Hash#to_query`) and
 /// format extensions (`path(format: :json)`).
 module Campfire.Views.Helpers.Url
 
 open System
-open Campfire.Ruby
-open Campfire.Routes
+open Campfire.Rails.Ruby
+open Campfire.Rails.Routes
 
 /// `CGI.escape`, for templates too.
 let cgiEscape (s: string) : string = Ruby.cgiEscape s

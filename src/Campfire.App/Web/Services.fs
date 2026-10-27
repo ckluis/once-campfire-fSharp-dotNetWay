@@ -20,7 +20,7 @@ open Microsoft.AspNetCore.ResponseCompression
 open Microsoft.Extensions.Options
 open Microsoft.Extensions.DependencyInjection
 open Campfire.App
-open Campfire.RailsCompat
+open Campfire.Rails
 
 /// K11: `UseResponseCompression`, replacing `Rack::Deflater`.
 module Compression =

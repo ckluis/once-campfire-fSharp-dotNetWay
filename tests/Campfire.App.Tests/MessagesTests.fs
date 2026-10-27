@@ -142,7 +142,7 @@ let ``F3 a text message is answered and broadcast as it was stored`` () =
     task {
         use! test = bootSeeded "default"
         let! room = readEf test (fun db -> Room.find db ALL_TALK)
-        let streamables = [ Campfire.RailsCompat.GlobalId.toParam (Campfire.App.Channels.Gid.roomGid room); "messages" ]
+        let streamables = [ Campfire.Rails.GlobalId.toParam (Campfire.App.Channels.Gid.roomGid room); "messages" ]
         let frames = ResizeArray<ReadOnlyMemory<byte>>()
         let outbound =
             { new Campfire.Cable.IOutbound with

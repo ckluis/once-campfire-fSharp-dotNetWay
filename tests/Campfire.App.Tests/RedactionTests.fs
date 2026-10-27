@@ -170,7 +170,7 @@ let ``RD6 the same key gives the same hash within an install and other secrets g
         use! two = bootSeededRequestLog "default"
         Assert.Equal(first, redacted two botKey)
         let services = ServiceCollection()
-        Logging.add services (Campfire.RailsCompat.Secrets.create "another-secret-key-base")
+        Logging.add services (Campfire.Rails.Secrets.create "another-secret-key-base")
         use provider = services.BuildServiceProvider()
         let other = (Logging.redactor (provider.GetRequiredService<Microsoft.Extensions.Compliance.Redaction.IRedactorProvider>())).Redact botKey
         Assert.NotEqual<string>(first, other)

@@ -29,7 +29,7 @@ open Campfire.App.Tests.Support
 open Campfire.Cable
 open Microsoft.Extensions.DependencyInjection
 open Campfire.Db
-open Campfire.RailsCompat
+open Campfire.Rails
 open Campfire.Tests
 
 /// How long a replay waits for a frame the recording says is coming.

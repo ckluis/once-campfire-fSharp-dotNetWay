@@ -5,7 +5,7 @@ open FsToolkit.ErrorHandling
 open System
 open System.IO
 open System.Text
-open Campfire.RailsCompat
+open Campfire.Rails
 open Campfire.Storage.Disposition
 
 /// `ActiveStorage::Service::DiskService`: files at `<root>/<key[0..2]>/<key[2..4]>/<key>`, and the

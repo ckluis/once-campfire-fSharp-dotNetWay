@@ -7,7 +7,7 @@ open System.Threading.Tasks
 open Xunit
 open Campfire.App.Controllers
 open Campfire.App.Tests.Support
-open Campfire.RailsCompat
+open Campfire.Rails
 
 // --- unfurl_links.rs -------------------------------------------------------------------------------
 

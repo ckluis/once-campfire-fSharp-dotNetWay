@@ -41,7 +41,7 @@ module ViewContextBuilder =
     let importmapTrusted () : Campfire.Views.Markup.Html.Trusted = importmapHtml.Value
 
     /// `Current.user` as the layout's meta tags and helpers see it.
-    let currentUser (secrets: Campfire.RailsCompat.Secrets) (user: User) : Campfire.Views.CurrentUser =
+    let currentUser (secrets: Campfire.Rails.Secrets) (user: User) : Campfire.Views.CurrentUser =
         { Id = user.Id
           Name = user.Name
           Administrator = User.canAdminister user None false

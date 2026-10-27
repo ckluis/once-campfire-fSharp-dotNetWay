@@ -357,7 +357,7 @@ specific to this port are listed below, each citing the reference file it depart
     and `SeamTests` (the table dispatches an unknown path to the 404 page).
   - `Pages.json` writes floats as the json gem does (`1e+15`, `0.00000015`: `Json.generate`), which is what `render json:`
     gives in Rails (json 2.21.2 in the reference). Rust's `Ctx::json` goes through serde_json (`1000000000000000.0`,
-    `1.5e-7`). Tested by `RailsCompat.Tests` ("floats match the json gem").
+    `1.5e-7`). Tested by `Campfire.Rails.Tests` ("floats match the json gem").
   - A file an upload spooled is deleted when the response completes (`Uploads.assignmentNamed`), as Rails'
     `Rack::TempfileReaper` does. In Rust a `TempPath` goes when the `UploadedFile` drops, so an app that kept the file past
     the request could still read it there.

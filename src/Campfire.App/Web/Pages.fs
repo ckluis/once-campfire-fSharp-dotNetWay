@@ -17,7 +17,7 @@ open Microsoft.Extensions.DependencyInjection
 open Campfire.App
 open Campfire.App.Presenters
 open Campfire.Db
-open Campfire.Ruby
+open Campfire.Rails.Ruby
 open Campfire.Views
 open Campfire.Views.Templates.Sessions
 
@@ -61,7 +61,7 @@ module Pages =
         let roomId = string roomId
         if http.Request.Cookies["last_room"] <> roomId then
             // `cookies.permanent`: 20 calendar years out on the harness's clock. `UseCookiePolicy` adds `secure`/`samesite`.
-            let expires = Campfire.RailsCompat.Cookies.permanentExpiresAt (Data.now http)
+            let expires = Campfire.Rails.Cookies.permanentExpiresAt (Data.now http)
             http.Response.Cookies.Append("last_room", roomId, CookieOptions(Path = "/", Expires = Nullable expires, SameSite = SameSiteMode.Lax))
 
     /// The base of the URLs in a render outside the request during it: `SetCurrentRequest`'s `default_url_options` carry only the
@@ -238,8 +238,8 @@ module Pages =
     let html (http: HttpContext) (body: string) : HttpHandler = renderText http 200 HtmlUtf8 body
 
     /// `render json:`
-    let json (http: HttpContext) (status: int) (value: Campfire.RailsCompat.Value) : HttpHandler =
-        renderAs http status JsonUtf8 (ReadOnlyMemory<byte>(Encoding.UTF8.GetBytes(Campfire.RailsCompat.Json.generate value)))
+    let json (http: HttpContext) (status: int) (value: Campfire.Rails.Value) : HttpHandler =
+        renderAs http status JsonUtf8 (ReadOnlyMemory<byte>(Encoding.UTF8.GetBytes(Campfire.Rails.Json.generate value)))
 
     /// `set_paginated_headers` (after_action), for JSON requests: `X-Total-Count`, and a `Link` to the next page unless this is the last.
     let applyPageHeaders (http: HttpContext) (page: Pagination.Page) : unit =

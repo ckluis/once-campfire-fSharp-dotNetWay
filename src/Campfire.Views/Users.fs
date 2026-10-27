@@ -5,7 +5,7 @@
 module Campfire.Views.Users
 
 open System
-open Campfire.RailsCompat
+open Campfire.Rails
 open Campfire.Views.Helpers
 
 type Role =

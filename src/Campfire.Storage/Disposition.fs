@@ -8,7 +8,7 @@ open System.Text
 /// `ActiveStorage::Service#content_disposition_with`: anything but "attachment" is "inline".
 let contentDispositionWith (disposition: string) (sanitizedFilename: string) : string =
     let disposition = if disposition = "attachment" then "attachment" else "inline"
-    Campfire.RailsCompat.ContentDisposition.format disposition sanitizedFilename
+    Campfire.Rails.ContentDisposition.format disposition sanitizedFilename
 
 let private isAsciiAlphanumeric (b: byte) : bool =
     (b >= byte 'a' && b <= byte 'z') || (b >= byte 'A' && b <= byte 'Z') || (b >= byte '0' && b <= byte '9')

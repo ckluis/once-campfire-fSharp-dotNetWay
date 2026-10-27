@@ -9,7 +9,7 @@ open Microsoft.Extensions.Logging
 open Microsoft.Extensions.Options
 open Campfire.Cable
 open Campfire.Cable.Turbo
-open Campfire.RailsCompat
+open Campfire.Rails
 
 /// The channels under their Ruby class names. `RoomMessagesChannel` verifies signed stream names with `streams`, and
 /// `Turbo::StreamsChannel` gets it with `RoomStreamsAreAuthorized` prepended.

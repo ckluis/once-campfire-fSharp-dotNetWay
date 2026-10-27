@@ -8,8 +8,8 @@ module Campfire.RichText.Tests.ReferenceTests
 open System
 open System.Text
 open Xunit
-open Campfire.RailsCompat
-open Campfire.Ruby
+open Campfire.Rails
+open Campfire.Rails.Ruby
 open Campfire.RichText
 open Campfire.RichText.Tests.Support
 

@@ -11,8 +11,8 @@ open System.Linq
 open Microsoft.Data.Sqlite
 open Microsoft.EntityFrameworkCore
 open Campfire.Db
-open Campfire.RailsCompat
-open Campfire.Routes
+open Campfire.Rails
+open Campfire.Rails.Routes
 open Campfire.Views.Users
 
 module Common =

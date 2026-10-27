@@ -2,7 +2,7 @@
 namespace Campfire.App.Platform
 
 open System
-open Campfire.RailsCompat
+open Campfire.Rails
 
 /// The harness's frozen clock: `Time.current` stands still and nothing else does. It overrides `GetUtcNow` only, so timers
 /// (`PeriodicTimer`, `Task.Delay`, `CancellationTokenSource`) and `GetTimestamp` keep running, which Cable's heartbeat and

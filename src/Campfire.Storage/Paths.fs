@@ -6,8 +6,8 @@
 /// proxy variants. `urls_expire_in` is unset in Campfire, so these signed ids never expire.
 module Campfire.Storage.Paths
 
-open Campfire.RailsCompat
-open Campfire.Ruby
+open Campfire.Rails
+open Campfire.Rails.Ruby
 open Campfire.Storage.Disposition
 
 [<Literal>]

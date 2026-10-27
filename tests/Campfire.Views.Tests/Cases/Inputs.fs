@@ -3,7 +3,7 @@ module Campfire.Views.Differential.Inputs
 
 open System
 open System.Text.Json
-open Campfire.RailsCompat
+open Campfire.Rails
 open Campfire.Views
 open Campfire.Views.Helpers
 open Falco.Markup

@@ -10,7 +10,7 @@ open Campfire.Views
 open Campfire.App
 open Campfire.App.Presenters
 open Campfire.Db
-open Campfire.Ruby
+open Campfire.Rails.Ruby
 open Campfire.App.Web
 
 module AutocompletableUsers =

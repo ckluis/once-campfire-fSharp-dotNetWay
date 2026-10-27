@@ -16,8 +16,8 @@ open Campfire.App
 open Campfire.App.Channels
 open Campfire.App.Presenters
 open Campfire.Db
-open Campfire.Routes
-open Campfire.Ruby
+open Campfire.Rails.Routes
+open Campfire.Rails.Ruby
 open Campfire.Views
 open Campfire.App.Web
 
@@ -146,7 +146,7 @@ module RoomsController =
                             | Some message when message.RoomId = room.Id -> Message.pageAround db room.Id message
                             | _ -> Message.lastPage db room.Id
                         let presenter = Presenter(db, app, requestHost)
-                        let roomGid = Campfire.RailsCompat.GlobalId.toParam (Gid.roomGid room)
+                        let roomGid = Campfire.Rails.GlobalId.toParam (Gid.roomGid room)
                         // The page's message fragments are fetched up front.
                         let! items = presenter.Messages messages
                         return
@@ -156,7 +156,7 @@ module RoomsController =
                                Messages = items
                                Invitation = original && not (Message.paged db room.Id)
                                JoinCode = Account.first db |> Option.map (fun account -> account.JoinCode) |> Option.defaultValue ""
-                               MessagesStreamName = Campfire.RailsCompat.Turbo.signedStreamName app.Secrets [ roomGid; "messages" ] }: Campfire.Views.Rooms.ShowView)
+                               MessagesStreamName = Campfire.Rails.Turbo.signedStreamName app.Secrets [ roomGid; "messages" ] }: Campfire.Views.Rooms.ShowView)
                     })
             return!
                 Pages.page http 200 (fun ctx -> ShowPage.rendered ctx show)

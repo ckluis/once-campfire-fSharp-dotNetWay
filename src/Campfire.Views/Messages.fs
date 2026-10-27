@@ -6,8 +6,8 @@
 module Campfire.Views.Messages
 
 open System
-open Campfire.RailsCompat
-open Campfire.Routes
+open Campfire.Rails
+open Campfire.Rails.Routes
 open Campfire.Views.Markup
 open Campfire.Views.MessagesSupport
 

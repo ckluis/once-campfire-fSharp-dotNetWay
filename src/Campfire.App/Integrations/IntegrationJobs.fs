@@ -14,7 +14,7 @@ open Campfire.App
 open Campfire.App.Controllers
 open Campfire.App.Presenters
 open Campfire.Db
-open Campfire.Routes
+open Campfire.Rails.Routes
 open Campfire.Views
 
 module IntegrationJobs =

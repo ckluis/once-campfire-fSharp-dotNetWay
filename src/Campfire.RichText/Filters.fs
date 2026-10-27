@@ -4,7 +4,7 @@ namespace Campfire.RichText
 
 open System
 open System.Collections.Generic
-open Campfire.Ruby
+open Campfire.Rails.Ruby
 open AngleSharp.Dom
 open Campfire.RichText.RubyExt
 

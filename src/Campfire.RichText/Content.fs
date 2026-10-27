@@ -8,8 +8,8 @@ namespace Campfire.RichText
 open System
 open System.Text
 open AngleSharp.Dom
-open Campfire.RailsCompat
-open Campfire.Ruby
+open Campfire.Rails
+open Campfire.Rails.Ruby
 open Campfire.RichText.RubyExt
 
 /// A fragment of rich text: the container element a body was parsed into (R5).

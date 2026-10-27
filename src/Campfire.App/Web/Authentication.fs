@@ -20,7 +20,7 @@ open Microsoft.Extensions.Logging
 open Microsoft.Extensions.Options
 open Campfire.App
 open Campfire.Db
-open Campfire.Ruby
+open Campfire.Rails.Ruby
 
 module SessionCookie =
     /// `cookies.signed.permanent[:session_token] = { httponly: true, same_site: :lax }`.
@@ -121,7 +121,7 @@ module Authentication =
             AuthenticationProperties(
                 IsPersistent = true,
                 IssuedUtc = Nullable now,
-                ExpiresUtc = Nullable(Campfire.RailsCompat.Cookies.permanentExpiresAt now)
+                ExpiresUtc = Nullable(Campfire.Rails.Cookies.permanentExpiresAt now)
             )
         keepingHeaders http (fun () -> http.SignInAsync(Schemes.Session, principal, properties))
 

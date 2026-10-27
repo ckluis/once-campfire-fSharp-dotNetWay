@@ -121,9 +121,7 @@
     <PackageReference Include="Microsoft.Extensions.Caching.Hybrid" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="../Campfire.Routes/Campfire.Routes.fsproj" />
-    <ProjectReference Include="../Campfire.RailsCompat/Campfire.RailsCompat.fsproj" />
-    <ProjectReference Include="../Campfire.Ruby/Campfire.Ruby.fsproj" />
+    <ProjectReference Include="../Campfire.Rails/Campfire.Rails.fsproj" />
   </ItemGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="Campfire.Views.Tests" />

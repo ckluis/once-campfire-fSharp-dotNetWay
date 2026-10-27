@@ -3,7 +3,7 @@
 module Campfire.Views.Tests.UsersTests
 
 open Xunit
-open Campfire.RailsCompat
+open Campfire.Rails
 open Campfire.Views
 open Campfire.Views.Users
 

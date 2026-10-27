@@ -20,7 +20,7 @@ open Microsoft.Extensions.Logging.Abstractions
 open Campfire.App
 open Campfire.App.Integrations
 open Campfire.Db
-open Campfire.RailsCompat
+open Campfire.Rails
 open Microsoft.Extensions.Time.Testing
 
 /// Fixed answers per host. A host with several answer lists gives the next one on each lookup and then keeps giving the

@@ -10,7 +10,7 @@ open Microsoft.AspNetCore.Http
 open Campfire.App
 open Campfire.App.Presenters
 open Campfire.Db
-open Campfire.Routes
+open Campfire.Rails.Routes
 open Campfire.Views
 open Campfire.App.Web
 

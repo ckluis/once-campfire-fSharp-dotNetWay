@@ -14,7 +14,7 @@ open FsToolkit.ErrorHandling
 open System
 open System.IO
 open Campfire.Db
-open Campfire.RailsCompat
+open Campfire.Rails
 open Campfire.Storage.Analyze
 
 type Storage =

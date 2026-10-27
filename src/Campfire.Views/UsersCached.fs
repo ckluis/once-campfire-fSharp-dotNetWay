@@ -5,7 +5,7 @@
 module Campfire.Views.UsersCached
 
 open System.Threading.Tasks
-open Campfire.RailsCompat
+open Campfire.Rails
 open Microsoft.Extensions.Caching.Hybrid
 open Campfire.Views.Users
 open Campfire.Views.Templates.Users.Sidebars.Rooms

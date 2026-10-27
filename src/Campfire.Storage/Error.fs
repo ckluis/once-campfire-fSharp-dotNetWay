@@ -4,7 +4,7 @@ namespace Campfire.Storage
 open System
 open System.IO
 
-/// What can go wrong in storage. Named `StorageError` because `Campfire.RailsCompat.Error` has
+/// What can go wrong in storage. Named `StorageError` because `Campfire.Rails.Error` has
 /// cases of the same names (`InvalidSignature`).
 [<RequireQualifiedAccess>]
 type StorageError =

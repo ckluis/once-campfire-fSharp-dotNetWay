@@ -12,8 +12,7 @@
     <Compile Include="Turbo.fs" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="../Campfire.RailsCompat/Campfire.RailsCompat.fsproj" />
-    <ProjectReference Include="../Campfire.Ruby/Campfire.Ruby.fsproj" />
+    <ProjectReference Include="../Campfire.Rails/Campfire.Rails.fsproj" />
   </ItemGroup>
   <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />

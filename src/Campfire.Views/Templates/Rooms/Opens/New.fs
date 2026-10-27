@@ -2,7 +2,7 @@
 /// `rooms/opens/new.html.erb`.
 module Campfire.Views.Templates.Rooms.Opens.New
 
-open Campfire.Routes
+open Campfire.Rails.Routes
 open Campfire.Views
 open Campfire.Views.Templates.Rooms
 open Campfire.Views.Rooms

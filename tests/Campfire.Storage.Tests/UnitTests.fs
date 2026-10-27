@@ -5,7 +5,7 @@ module Campfire.Storage.Tests.UnitTests
 open System
 open System.IO
 open Xunit
-open Campfire.RailsCompat
+open Campfire.Rails
 open Campfire.Storage
 open Campfire.Db
 open System.Linq

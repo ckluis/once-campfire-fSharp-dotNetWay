@@ -11,7 +11,7 @@ open Microsoft.AspNetCore.Http
 open Campfire.App
 open Campfire.App.Presenters
 open Campfire.Db
-open Campfire.Ruby
+open Campfire.Rails.Ruby
 open Campfire.Views
 open Campfire.Views.Rooms
 open Campfire.App.Web

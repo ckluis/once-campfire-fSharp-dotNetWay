@@ -494,7 +494,7 @@ module Respond =
             Ok(fun (http: HttpContext) ->
                 match options.Disposition with
                 | null -> ()
-                | disposition -> http.Response.Headers.ContentDisposition <- Campfire.RailsCompat.ContentDisposition.format disposition filename
+                | disposition -> http.Response.Headers.ContentDisposition <- Campfire.Rails.ContentDisposition.format disposition filename
                 http.Response.Headers["content-transfer-encoding"] <- "binary"
                 // A relative path is a virtual one to `Results.File` (under the web root): the storage directory may be relative.
                 let result = Results.File(IO.Path.GetFullPath path, contentType, enableRangeProcessing = true)

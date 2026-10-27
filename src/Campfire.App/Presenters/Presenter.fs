@@ -12,9 +12,9 @@ open System.Text.RegularExpressions
 open System.Threading.Tasks
 open Campfire.App
 open Campfire.Db
-open Campfire.RailsCompat
+open Campfire.Rails
 open Campfire.RichText
-open Campfire.Routes
+open Campfire.Rails.Routes
 open Campfire.Storage
 open Campfire.Views
 open Campfire.Views.Messages

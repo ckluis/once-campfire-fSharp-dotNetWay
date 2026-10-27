@@ -25,8 +25,8 @@ open System.Threading.Tasks
 open Falco
 open Microsoft.AspNetCore.Http
 open Campfire.Db
-open Campfire.Routes
-open Campfire.Ruby
+open Campfire.Rails.Routes
+open Campfire.Rails.Ruby
 
 /// How a controller's `allow_unauthenticated_access` / `require_unauthenticated_access` change the chain for one action.
 type Auth =

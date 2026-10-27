@@ -9,7 +9,7 @@ open System.Numerics
 open System.Security.Cryptography
 open System.Text
 open Campfire.App
-open Campfire.RailsCompat
+open Campfire.Rails
 
 type EncryptionError =
     /// `ArgumentError`: a blank argument, bad Base64, or a payload over 4096 bytes.

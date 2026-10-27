@@ -15,7 +15,7 @@ open System.Globalization
 open System.Text
 open System.Threading
 open System.Threading.Tasks
-open Campfire.RailsCompat
+open Campfire.Rails
 open Microsoft.Extensions.Caching.Hybrid
 open Microsoft.Extensions.DependencyInjection
 

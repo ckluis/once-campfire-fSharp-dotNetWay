@@ -9,7 +9,7 @@ open System.Runtime.CompilerServices
 open Microsoft.Extensions.Compliance.Classification
 open Microsoft.Extensions.Compliance.Redaction
 open Microsoft.Extensions.DependencyInjection
-open Campfire.RailsCompat
+open Campfire.Rails
 
 module Logging =
     /// The class of what is redacted (the attributes that would name it are applied by C# generators, so `AddRedaction` is explicit).

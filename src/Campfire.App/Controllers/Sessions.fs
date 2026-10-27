@@ -10,7 +10,7 @@ open FsToolkit.ErrorHandling
 open Campfire.App
 open Campfire.App.Presenters
 open Campfire.Db
-open Campfire.Routes
+open Campfire.Rails.Routes
 open Campfire.Views.Templates.Sessions
 open Campfire.App.Web
 

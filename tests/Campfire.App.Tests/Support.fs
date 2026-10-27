@@ -627,7 +627,7 @@ type Reply with
 
 /// `Req::new(method, path).form(...)`: a form post's body, URL-encoded.
 let formBody (pairs: (string * string) list) : string =
-    pairs |> List.map (fun (k, v) -> $"{Campfire.Ruby.Ruby.cgiEscape k}={Campfire.Ruby.Ruby.cgiEscape v}") |> String.concat "&"
+    pairs |> List.map (fun (k, v) -> $"{Campfire.Rails.Ruby.Ruby.cgiEscape k}={Campfire.Rails.Ruby.Ruby.cgiEscape v}") |> String.concat "&"
 
 /// `Req::multipart`: a body with text fields and one file field (name, filename, content type, data).
 let multipartReq (req: Req) (fields: (string * string) list) (name: string, filename: string, contentType: string, data: byte[]) : Req =

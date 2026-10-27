@@ -8,7 +8,7 @@ open FsToolkit.ErrorHandling
 open Microsoft.AspNetCore.Http
 open Campfire.App
 open Campfire.Db
-open Campfire.Ruby
+open Campfire.Rails.Ruby
 open Campfire.Views
 open Campfire.App.Web
 

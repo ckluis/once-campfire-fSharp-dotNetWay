@@ -3,7 +3,7 @@
 /// Views for `reference/app/views/autocompletable`.
 module Campfire.Views.Autocompletable
 
-open Campfire.RailsCompat
+open Campfire.Rails
 open Campfire.Views.Helpers
 open Campfire.Views.Users
 
@@ -18,7 +18,7 @@ type UserJson =
 
 module UserJson =
     let create (user: MentionUser) (baseUrl: string) : UserJson =
-        { Name = Campfire.Ruby.Erb.htmlEscape user.User.Name
+        { Name = Campfire.Rails.Ruby.Erb.htmlEscape user.User.Name
           Value = user.User.Id
           AvatarUrl = baseUrl + user.User.AvatarPath
           Sgid = user.AttachableSgid }

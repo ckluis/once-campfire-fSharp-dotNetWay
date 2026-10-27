@@ -5,8 +5,8 @@ module Campfire.Views.MessagesSupport
 
 open System
 open System.Globalization
-open Campfire.RailsCompat
-open Campfire.Ruby
+open Campfire.Rails
+open Campfire.Rails.Ruby
 
 let private epochTicks = DateTimeOffset.UnixEpoch.UtcTicks
 

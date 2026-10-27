@@ -6,7 +6,7 @@ namespace Campfire.App.Presenters
 
 open System
 open System.Text
-open Campfire.Ruby
+open Campfire.Rails.Ruby
 
 module Pagination =
     module Url =
@@ -32,7 +32,7 @@ module Pagination =
             Encoding.UTF8.GetString(output.ToArray())
 
         /// `Addressable::URI.encode_component(value, CharacterClassesRegexps::UNRESERVED)`, which keeps
-        /// the same characters as `ERB::Util.url_encode` (`Campfire.Ruby` checks both against the reference).
+        /// the same characters as `ERB::Util.url_encode` (`Campfire.Rails.Ruby` checks both against the reference).
         let encodeComponent (value: string) : string = Ruby.urlEncode value
 
         let private split (separator: char) (text: string) : string * string option =

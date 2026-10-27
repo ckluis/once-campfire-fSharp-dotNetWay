@@ -4,7 +4,7 @@ module Campfire.Cable.Tests.TurboTests
 open System
 open System.Text
 open Xunit
-open Campfire.RailsCompat
+open Campfire.Rails
 open Campfire.Cable
 open Campfire.Cable.Turbo
 

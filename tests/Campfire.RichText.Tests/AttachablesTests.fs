@@ -3,7 +3,7 @@ module Campfire.RichText.Tests.AttachablesTests
 
 open System
 open Xunit
-open Campfire.RailsCompat
+open Campfire.Rails
 open Campfire.RichText
 open Campfire.RichText.Tests.Support
 open Campfire.Tests

@@ -9,7 +9,7 @@ open Xunit
 open Campfire.App.Channels
 open Campfire.Cable
 open Campfire.Db
-open Campfire.RailsCompat
+open Campfire.Rails
 open Campfire.App.Tests.ChannelsSupport
 open Campfire.Tests.JsonFrames
 

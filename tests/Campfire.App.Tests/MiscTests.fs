@@ -11,7 +11,7 @@ open Campfire.App.Presenters
 open Campfire.App.Controllers
 open Campfire.App.Tests.Support
 open Campfire.Db
-open Campfire.RailsCompat
+open Campfire.Rails
 open Campfire.Storage
 
 // --- rich_text.rs --------------------------------------------------------------------------------------------

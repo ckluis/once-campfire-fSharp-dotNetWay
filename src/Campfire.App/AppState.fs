@@ -13,7 +13,7 @@ open Microsoft.Extensions.Logging
 open Campfire.App.Channels
 open Campfire.App.Integrations
 open Campfire.Db
-open Campfire.RailsCompat
+open Campfire.Rails
 open Campfire.Storage
 open Campfire.Views
 

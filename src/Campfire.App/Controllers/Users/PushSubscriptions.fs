@@ -17,8 +17,8 @@ open Campfire.App
 open Campfire.App.Integrations
 open Campfire.App.Presenters
 open Campfire.Db
-open Campfire.Routes
-open Campfire.Ruby
+open Campfire.Rails.Routes
+open Campfire.Rails.Ruby
 open Campfire.App.Web
 
 module PushSubscriptions =

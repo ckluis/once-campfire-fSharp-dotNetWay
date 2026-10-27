@@ -5,8 +5,8 @@
 module Campfire.Views.Rooms
 
 open System
-open Campfire.RailsCompat
-open Campfire.Routes
+open Campfire.Rails
+open Campfire.Rails.Routes
 open Campfire.Views.Helpers
 open Campfire.Views.Messages
 

@@ -7,7 +7,7 @@ open System
 open System.Diagnostics
 open System.Threading.Tasks
 open Xunit
-open Campfire.RailsCompat
+open Campfire.Rails
 open Campfire.Cable
 open Campfire.Cable.Tests.Support
 
@@ -580,8 +580,8 @@ let ``a connection's request is what the authenticator sees`` () =
 let ``turbo streams channel verifies names signed with the app's secret`` () =
     task {
         let secrets = Secrets.create "a secret key base for the cable tests"
-        let signed = Campfire.RailsCompat.Turbo.signedStreamName secrets [ "Z2lk"; "messages" ]
-        let rooms = Campfire.RailsCompat.Turbo.signedStreamName secrets [ "rooms" ]
+        let signed = Campfire.Rails.Turbo.signedStreamName secrets [ "Z2lk"; "messages" ]
+        let rooms = Campfire.Rails.Turbo.signedStreamName secrets [ "rooms" ]
         let server =
             Server.builder (testOptions ()) cookieAuth identify
             |> ServerBuilder.channel Campfire.Cable.Turbo.StreamsChannelName (fun () ->
@@ -604,7 +604,7 @@ let ``turbo streams channel verifies names signed with the app's secret`` () =
                 do! client.Subscribe(turbo signed)
                 do! expectText (reject (turbo signed)) client
                 // A name signed with another secret doesn't verify.
-                let other = Campfire.RailsCompat.Turbo.signedStreamName (Secrets.create "another") [ "rooms" ]
+                let other = Campfire.Rails.Turbo.signedStreamName (Secrets.create "another") [ "rooms" ]
                 do! client.Subscribe(turbo other)
                 do! expectText (reject (turbo other)) client
                 eq 1 (Campfire.Cable.Turbo.broadcastUpdateTo server [ "rooms" ] "list" "<b>1</b>")

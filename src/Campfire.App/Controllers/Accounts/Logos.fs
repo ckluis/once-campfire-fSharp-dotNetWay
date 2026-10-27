@@ -11,7 +11,7 @@ open Campfire.Views
 open Campfire.App
 open Campfire.App.Presenters
 open Campfire.Db
-open Campfire.Routes
+open Campfire.Rails.Routes
 open Campfire.Storage
 open Microsoft.Extensions.DependencyInjection
 open Campfire.App.Web

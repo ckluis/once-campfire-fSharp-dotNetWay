@@ -21,7 +21,7 @@ module Health =
                         Pages.json
                             http
                             200
-                            (Campfire.RailsCompat.Value.Object [ "status", Campfire.RailsCompat.Value.String "up"; "timestamp", Campfire.RailsCompat.Value.String timestamp ])
+                            (Campfire.Rails.Value.Object [ "status", Campfire.Rails.Value.String "up"; "timestamp", Campfire.Rails.Value.String timestamp ])
                 else
                     return Pages.html http """<!DOCTYPE html><html><body style="background-color: green"></body></html>"""
             }

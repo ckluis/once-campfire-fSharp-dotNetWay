@@ -2,7 +2,7 @@
 module Campfire.Cable.Tests.NamingTests
 
 open Xunit
-open Campfire.RailsCompat
+open Campfire.Rails
 open Campfire.Cable
 
 [<Fact>]

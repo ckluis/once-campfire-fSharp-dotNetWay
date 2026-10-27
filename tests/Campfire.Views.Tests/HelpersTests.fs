@@ -68,7 +68,7 @@ let ``body classes join the page the admin and the logo`` () =
     for admin in [ true; false ] do
         for logo in [ true; false ] do
             for bodyClass in [ None; Some ""; Some "sidebar"; Some "a&\"b<'c'>" ] do
-                let expected = Campfire.Ruby.Erb.htmlEscape (bodyClasses (ctx admin logo) bodyClass)
+                let expected = Campfire.Rails.Ruby.Erb.htmlEscape (bodyClasses (ctx admin logo) bodyClass)
                 let node = Falco.Markup.Elem.i [ Markup.Html.attr "class" (bodyClasses (ctx admin logo) bodyClass) ] []
                 Assert.Equal("<i class=\"" + expected + "\"></i>", (HtmlOutput.ofNode node []).ToString())
 

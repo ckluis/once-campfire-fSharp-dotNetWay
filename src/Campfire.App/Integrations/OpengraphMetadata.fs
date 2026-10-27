@@ -8,7 +8,7 @@ open System
 open System.Threading
 open System.Threading.Tasks
 open Microsoft.Extensions.Logging
-open Campfire.RailsCompat
+open Campfire.Rails
 open Campfire.RichText
 
 /// Where the Rails action raises (a 500).

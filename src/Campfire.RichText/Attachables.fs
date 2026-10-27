@@ -6,8 +6,8 @@ namespace Campfire.RichText
 
 open System
 open System.Text
-open Campfire.RailsCompat
-open Campfire.Ruby
+open Campfire.Rails
+open Campfire.Rails.Ruby
 open Campfire.RichText.RubyExt
 open Campfire.RichText.Unicode
 

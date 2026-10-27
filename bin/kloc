@@ -30,7 +30,7 @@ tmp, mode = sys.argv[1], sys.argv[2]
 DATA = ('src/Campfire.Storage/Tables.fs', 'src/Campfire.Views/Helpers/UnicodeTables.fs', 'src/Campfire.Db/Fixtures.fs',
         'src/Campfire.RichText/Unicode/WordRanges.fs', 'src/Campfire.App/Integrations/SearchWordRanges.fs',
         'src/Campfire.Views/Helpers/TranslationsTable.fs',
-        'src/Campfire.RailsCompat/ContentDispositionApproximations.fs')
+        'src/Campfire.Rails/ContentDispositionApproximations.fs')
 def load(name):
     out = {}
     for r in csv.reader(open(f'{tmp}/{name}')):

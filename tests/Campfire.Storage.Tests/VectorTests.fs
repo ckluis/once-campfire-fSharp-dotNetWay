@@ -22,7 +22,7 @@ open System.Text
 open System.Text.Json
 open Microsoft.Data.Sqlite
 open Xunit
-open Campfire.RailsCompat
+open Campfire.Rails
 open Campfire.Storage
 open Campfire.Tests
 

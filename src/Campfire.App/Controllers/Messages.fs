@@ -12,8 +12,8 @@ open Campfire.App.Channels
 open Campfire.Db
 open Campfire.App.Web
 open Campfire.RichText
-open Campfire.Routes
-open Campfire.Ruby
+open Campfire.Rails.Routes
+open Campfire.Rails.Ruby
 open Campfire.Storage
 open Campfire.Views
 open Campfire.App.Presenters

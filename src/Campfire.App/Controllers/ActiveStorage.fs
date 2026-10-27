@@ -15,8 +15,8 @@ open System.Threading.Tasks
 open FsToolkit.ErrorHandling
 open Falco
 open Microsoft.AspNetCore.Http
-open Campfire.RailsCompat
-open Campfire.Ruby
+open Campfire.Rails
+open Campfire.Rails.Ruby
 open Campfire.App
 open Campfire.Db
 open Campfire.Storage

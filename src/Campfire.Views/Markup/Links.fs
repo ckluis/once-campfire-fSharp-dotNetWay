@@ -2,7 +2,7 @@
 namespace Campfire.Views.Markup
 
 open Falco.Markup
-open Campfire.Ruby
+open Campfire.Rails.Ruby
 
 module Links =
     /// `link_to(url, options) do ... end`: the options in order, then `href`.

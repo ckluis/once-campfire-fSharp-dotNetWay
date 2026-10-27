@@ -19,8 +19,7 @@
     <PackageReference Include="AngleSharp" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="../Campfire.RailsCompat/Campfire.RailsCompat.fsproj" />
-    <ProjectReference Include="../Campfire.Ruby/Campfire.Ruby.fsproj" />
+    <ProjectReference Include="../Campfire.Rails/Campfire.Rails.fsproj" />
   </ItemGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="Campfire.RichText.Tests" />

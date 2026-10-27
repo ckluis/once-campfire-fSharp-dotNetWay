@@ -21,8 +21,8 @@ open System.Threading
 open System.Linq
 open System.Threading.Tasks
 open Microsoft.EntityFrameworkCore
-open Campfire.RailsCompat
-open Campfire.Ruby
+open Campfire.Rails
+open Campfire.Rails.Ruby
 open Campfire.App.Web
 open Campfire.App.Presenters
 open Campfire.Db

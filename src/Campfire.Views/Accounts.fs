@@ -3,7 +3,7 @@
 /// Views for `reference/app/views/accounts`.
 module Campfire.Views.Accounts
 
-open Campfire.Routes
+open Campfire.Rails.Routes
 open Campfire.Views.Users
 
 /// `User.administrator.first`, shown by `accounts/_help_contact`.

@@ -11,7 +11,7 @@ open Microsoft.AspNetCore.Authentication
 open Microsoft.AspNetCore.Authentication.Cookies
 open Microsoft.AspNetCore.Http
 open Microsoft.AspNetCore.Http.Features
-open Campfire.RailsCompat
+open Campfire.Rails
 
 module Schemes =
     /// The `session_token` cookie scheme.

@@ -79,7 +79,7 @@ let ``users partials`` () =
     let name = "user_json"
     let jz = user name "JZ"
     let json =
-        Campfire.RailsCompat.Json.encode (
+        Campfire.Rails.Json.encode (
             MessagesJson.userToValue
                 { Id = jz.GetProperty("id").GetInt64()
                   Name = "JZ"
@@ -128,7 +128,7 @@ let private sidebar (name: string) : Users.SidebarShow =
                     UpdatedAtEpoch = text (d.GetProperty "updated_at_epoch")
                     Members = strings (d.GetProperty "member_names") |> List.map (named name)
                     MembershipId = roomId
-                    MembershipUpdatedAt = Campfire.RailsCompat.Timestamps.unixEpoch }
+                    MembershipUpdatedAt = Campfire.Rails.Timestamps.unixEpoch }
               ({ Html = HtmlOutput.toFragment (HtmlOutput.ofNode (Templates.Users.Sidebars.Rooms._Direct.render (context name Request.none) direct) []) }: Users.SidebarDirectItem) ]
       DirectPlaceholderUsers = strings (sidebar.GetProperty "placeholders") |> List.map (named name)
       OtherMemberships =

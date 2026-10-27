@@ -14,7 +14,7 @@ open System.Text
 open System.Threading.Tasks
 open Microsoft.AspNetCore.Http
 open Microsoft.AspNetCore.Http.Features
-open Campfire.RailsCompat
+open Campfire.Rails
 
 /// Where the session lives for the request: its cookie and the keys the app keeps in it.
 module SessionKeys =

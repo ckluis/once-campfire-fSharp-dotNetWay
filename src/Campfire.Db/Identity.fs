@@ -3,7 +3,7 @@
 namespace Campfire.Db
 
 open System
-open Campfire.RailsCompat
+open Campfire.Rails
 // RailsCompat's `Timestamp` (an alias of DateTimeOffset) is not used here: models keep UTC `DateTime` (RailsTime, E4).
 open Campfire.Db
 

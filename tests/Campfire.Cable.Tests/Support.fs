@@ -22,7 +22,7 @@ open Microsoft.AspNetCore.Hosting.Server
 open Microsoft.AspNetCore.Hosting.Server.Features
 open Microsoft.Extensions.DependencyInjection
 open Microsoft.Extensions.Logging
-open Campfire.RailsCompat
+open Campfire.Rails
 open Campfire.Cable
 
 type User = { Id: uint64; RoomIds: uint64 list }

@@ -17,7 +17,7 @@ module QrCode =
                 // `Base64.urlsafe_decode64(params[:id])` raises ArgumentError (a 500) on malformed input.
                 let id = match Params.value http "id" with null -> "" | id -> id
                 let! url =
-                    match Campfire.RailsCompat.RailsEncoding.urlsafeDecode id with
+                    match Campfire.Rails.RailsEncoding.urlsafeDecode id with
                     | Some url -> Ok url
                     | None -> Result.Error(Internal(exn "invalid base64"))
                 // Too much to encode is the client's doing (rqrcode raises, a 500 in Rails).

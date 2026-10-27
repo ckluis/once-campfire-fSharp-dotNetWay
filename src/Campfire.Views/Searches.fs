@@ -2,7 +2,7 @@
 /// Views for `reference/app/views/searches`, plus `SearchesHelper`.
 module Campfire.Views.Searches
 
-open Campfire.Routes
+open Campfire.Rails.Routes
 open Campfire.Views.Helpers
 open Campfire.Views.Messages
 

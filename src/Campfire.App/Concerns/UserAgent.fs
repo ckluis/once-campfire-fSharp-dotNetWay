@@ -15,7 +15,7 @@
 module Campfire.App.UserAgent
 
 open System
-open Campfire.Ruby
+open Campfire.Rails.Ruby
 open Campfire.Views.Helpers
 
 /// The gem raised (NoMethodError/ArgumentError) instead of answering.

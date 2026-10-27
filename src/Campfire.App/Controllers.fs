@@ -33,8 +33,8 @@ open System.Threading.Tasks
 open FsToolkit.ErrorHandling
 open Microsoft.Extensions.DependencyInjection
 open Microsoft.Extensions.Logging
-open Campfire.RailsCompat
-open Campfire.Routes
+open Campfire.Rails
+open Campfire.Rails.Routes
 open Campfire.App.Controllers
 
 type Route =

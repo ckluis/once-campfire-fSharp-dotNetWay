@@ -185,7 +185,7 @@ module WebhookClient =
             if Attachables.rfc3986Characters url && Uri.IsWellFormedUriString(url, UriKind.Relative) then
                 Error(InvalidUrl "not an HTTP URI")
             else
-                Error(InvalidUrl("bad URI (is not URI?): " + Campfire.RailsCompat.Json.generate (Campfire.RailsCompat.Value.String url)))
+                Error(InvalidUrl("bad URI (is not URI?): " + Campfire.Rails.Json.generate (Campfire.Rails.Value.String url)))
 
     /// `post(payload)`: the status, content type and body. `Content-Type: application/json` without a charset, as Rails sends it.
     let private post

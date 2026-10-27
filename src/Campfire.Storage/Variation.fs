@@ -4,7 +4,7 @@ namespace Campfire.Storage
 open FsToolkit.ErrorHandling
 open System
 open System.Security.Cryptography
-open Campfire.RailsCompat
+open Campfire.Rails
 
 /// `ActiveStorage::Variation`: an ordered transformations hash, its Marshal-based digest (the
 /// `variation_digest` column of `active_storage_variant_records`) and its signed URL key.

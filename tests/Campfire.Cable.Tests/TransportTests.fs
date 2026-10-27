@@ -11,7 +11,7 @@ open System.Threading
 open System.Threading.Tasks
 open Microsoft.Extensions.DependencyInjection
 open Xunit
-open Campfire.RailsCompat
+open Campfire.Rails
 open Campfire.Cable
 open Campfire.Cable.Tests.Support
 

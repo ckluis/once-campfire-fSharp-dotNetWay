@@ -8,9 +8,9 @@ namespace Campfire.App.Presenters
 open System
 open System.Globalization
 open Campfire.Db
-open Campfire.RailsCompat
+open Campfire.Rails
 open Campfire.RichText
-open Campfire.Routes
+open Campfire.Rails.Routes
 
 type DbResolver(db: Ef.CampfireDb, secrets: Secrets, now: Timestamp) =
     member private _.MentionUser(user: User) : MentionUser =

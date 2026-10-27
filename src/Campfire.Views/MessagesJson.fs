@@ -6,7 +6,7 @@
 module Campfire.Views.MessagesJson
 
 open System.Text
-open Campfire.RailsCompat
+open Campfire.Rails
 
 /// `users/_user.json.jbuilder`: `json.(user, :id, :name, :role)` and `avatar_url`.
 type UserJson =

@@ -10,7 +10,7 @@ open System.Text.Json
 open Xunit
 open Campfire.App.Controllers
 open Campfire.App.Tests.Support
-open Campfire.RailsCompat
+open Campfire.Rails
 
 [<Fact>]
 let ``matches rqrcode`` () =

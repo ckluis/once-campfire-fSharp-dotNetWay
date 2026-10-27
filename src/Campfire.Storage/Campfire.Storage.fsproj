@@ -19,8 +19,7 @@
     <Compile Include="Storage.fs" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="../Campfire.RailsCompat/Campfire.RailsCompat.fsproj" />
-    <ProjectReference Include="../Campfire.Ruby/Campfire.Ruby.fsproj" />
+    <ProjectReference Include="../Campfire.Rails/Campfire.Rails.fsproj" />
     <ProjectReference Include="../Campfire.Db/Campfire.Db.fsproj" />
   </ItemGroup>
   <ItemGroup>

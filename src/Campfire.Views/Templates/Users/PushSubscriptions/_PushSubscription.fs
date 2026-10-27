@@ -3,7 +3,7 @@
 module Campfire.Views.Templates.Users.PushSubscriptions._PushSubscription
 
 open Falco.Markup
-open Campfire.Routes
+open Campfire.Rails.Routes
 open Campfire.Views
 open Campfire.Views.Markup
 open Campfire.Views.Users

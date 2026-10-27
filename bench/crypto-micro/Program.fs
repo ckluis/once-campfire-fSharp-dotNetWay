@@ -11,7 +11,7 @@ module CryptoMicro
 open System
 open System.Diagnostics
 open System.Security.Cryptography
-open Campfire.RailsCompat
+open Campfire.Rails
 
 let private time (seconds: float) (f: unit -> unit) : float * float =
     let warm = Stopwatch.StartNew()
