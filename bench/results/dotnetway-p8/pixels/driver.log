@@ -1,0 +1,56 @@
+=== tls 11:53:43 df 18Gi load 25.51 12.94 7.73
+tls rc=0
+=== lean-auth 11:55:06 df 18Gi load 9.48 10.72 7.34
+lean-auth rc=0
+=== lean-errors 11:58:53 df 18Gi load 3.79 7.02 6.52
+lean-errors rc=0
+=== lean-pwa 11:59:43 df 18Gi load 3.82 6.51 6.36
+lean-pwa rc=0
+=== lean-welcome 12:02:26 df 17Gi load 4.36 5.73 6.06
+lean-welcome rc=0
+=== lean-bot_api 12:03:07 df 17Gi load 4.10 5.52 5.97
+lean-bot_api rc=0
+=== lean-search 12:03:18 df 17Gi load 4.25 5.50 5.96
+lean-search rc=0
+=== lean-account 12:04:44 df 17Gi load 4.02 5.12 5.76
+lean-account rc=0
+=== lean-users 12:06:30 df 17Gi load 3.74 4.74 5.54
+lean-users rc=0
+=== lean-autocompletable 12:09:23 df 17Gi load 3.87 4.44 5.27
+lean-autocompletable rc=0
+=== lean-messages 12:09:31 df 17Gi load 4.19 4.50 5.28
+lean-messages rc=0
+=== lean-interactions 12:15:26 df 13Gi load 3.29 4.02 4.81
+lean-interactions rc=0
+=== lean-rooms 12:27:34 df 12Gi load 4.48 4.48 4.68
+lean-rooms rc=0
+=== lean-rt-message_sent 12:35:47 df 20Gi load 4.33 5.01 4.94
+lean-rt-message_sent rc=0
+=== lean-rt-attachment_sent 12:37:28 df 20Gi load 4.40 4.92 4.91
+lean-rt-attachment_sent rc=0
+=== lean-rt-message_edited 12:39:08 df 20Gi load 4.12 4.67 4.81
+lean-rt-message_edited rc=0
+=== lean-rt-message_deleted 12:40:58 df 19Gi load 3.46 4.31 4.65
+lean-rt-message_deleted rc=0
+=== lean-rt-boosted 12:42:43 df 20Gi load 4.46 4.48 4.68
+lean-rt-boosted rc=0
+=== lean-rt-boost_removed 12:44:20 df 19Gi load 4.05 4.42 4.64
+lean-rt-boost_removed rc=0
+=== lean-rt-typing_one 12:45:57 df 19Gi load 4.39 4.42 4.61
+lean-rt-typing_one rc=0
+=== lean-rt-typing_many 12:47:31 df 19Gi load 3.92 4.31 4.55
+lean-rt-typing_many rc=0
+=== lean-rt-unread_in_sidebar 12:49:30 df 19Gi load 4.43 4.50 4.60
+lean-rt-unread_in_sidebar rc=0
+=== lean-rt-new_room_in_sidebar 12:51:19 df 19Gi load 4.48 4.46 4.56
+lean-rt-new_room_in_sidebar rc=0
+=== lean-rt-removed_from_room 12:53:08 df 19Gi load 4.57 4.53 4.57
+lean-rt-removed_from_room rc=0
+=== lean-rt-room_deleted_then_send 12:56:46 df 18Gi load 3.10 3.90 4.29
+lean-rt-room_deleted_then_send rc=0
+=== lean-rt-presence_read 12:58:35 df 18Gi load 4.08 4.03 4.30
+lean-rt-presence_read rc=0
+=== lean-otherseeds 13:00:12 df 18Gi load 3.60 3.93 4.23
+lean-otherseeds rc=0
+cookie rc=0
+dbdiff rc=0

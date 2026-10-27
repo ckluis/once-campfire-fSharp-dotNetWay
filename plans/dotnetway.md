@@ -3971,3 +3971,39 @@ Sonnet builder. `bin/kloc` 26,626 / **27,069 corrected (27.1)**, from 28,135 aft
 - **Gates:** `CAMPFIRE_REQUIRE_SEED=1 bin/verify` 1,038 tests, 1,032 passed, 6 skipped, 0 failed (guards, lint-markup, H1 green). The acceptance `git grep` over `src tests bin AGENTS.md README.md` finds nothing.
 - **Image:** rebuilt (`CAMPFIRE_REVISION=326c2b0 parity/bin/candidate build`), `bin/clean-docker` run; `bin/pixel-parity --fast --only 'rooms/show/designers'`: default 2/2 screenshots, aria and loose equal, PASSED in 37 s; `bin/clean-parity` run. Free disk 19 GB. No benchmark (nothing on the request path changed).
 - **Differences recorded:** class B, a tweet URL's host case (above). Nothing for users otherwise.
+
+### Phase 8: gate (2026-10-27)
+
+Evidence: `bench/results/dotnetway-p8/` (slim: logs, `report.json` per pixel slice, bench JSON, `kloc.md`, the three driver scripts). Gate runner. Image `campfire-dotnetway:app` built from `0e46e8b` (label checked equal to HEAD); control built from `2fae069` (Phase 7's closing commit, per its verification entry) in a scratch worktree, tag `campfire-dotnetway:p8gatectl`, label `2fae069`, removed afterwards with its worktree and its candidate image. No app change, no tooling change.
+- **`CAMPFIRE_REQUIRE_SEED=1 bin/verify`** on `0e46e8b`: 1,038 total, 1,032 passed, 0 failed, 6 skipped (the environmental six); lint self-test 39/39, lint 324 files clean; the Dapper, EF and DateTime guards, H1 and the Release warnings-as-errors build green (`verify.log`). The recorded opengraph, webhook and push cases and the guard tests (OG, WH, WP, CL, TM and the verify guards) are in that run's tests.
+- **Lean pixel gate, every seed** (12 directory slices on default, the 13 `realtime/**` states one at a time, the other four seeds in one run, three browsers, both themes, breakpoints; the directory slices include `users/**` (profile, qr_code, push_subscriptions), `auth/**` (incompatible_browser) and `bot_api/**`): **940 of 940 cells equal on screenshot, aria and loose DOM**, no cell NOT CAPTURED, every slice rc 0, no re-run needed; plus the TLS states (`--candidate-tls`, `auth/sign_in`, `rooms/show/designers`): 28/28 on all three layers.
+
+| seed | screenshots | aria | loose DOM |
+|---|---:|---:|---:|
+| default | 860/860 | 860/860 | 860/860 |
+| crowd | 24/24 | 24/24 | 24/24 |
+| custom_styles | 32/32 | 32/32 | 32/32 |
+| first_run | 16/16 | 16/16 | 16/16 |
+| restricted | 8/8 | 8/8 | 8/8 |
+
+- **`bin/cookie-roundtrip`** 20/20 both ways. **`bin/db-differential`** rc 0 (schemas agree, reference boots on the database we wrote, rollback ok).
+- **Speed** (`bench/quick`, five workloads plus `avatar`, `static_css`, `up`, c=1 and c=16, 3 reps interleaved new/ctl/ctl/new/new/ctl, four parts each). Host probe before runs 1.063-1.076 (new), 1.046-1.07 (ctl); after each window 1.033-1.094 (new), 1.042-1.088 (ctl): none above 1.10. Mac load average 2.9-6.2 at part boundaries (other programs on the Mac). 48 runs per side, all 2xx, 0 connection errors, post rows equal the 2xx answers, decoded bytes equal the stored sizes. Medians:
+
+| workload | c | new req/s | control req/s | new vs control | x Rails (new) | x Rails (control) | CPU us/req new / control |
+|---|---:|---:|---:|---:|---:|---:|---|
+| room page | 16 | 7,202 | 7,219 | -0.2% | 30.09 | 30.17 | 458 / 457 |
+| room page | 1 | 2,232 | 2,250 | -0.8% | 20.84 | 21.01 | 564 / 568 |
+| messages page | 16 | 7,083 | 7,022 | +0.9% | 18.61 | 18.45 | 474 / 480 |
+| messages page | 1 | 2,072 | 2,073 | -0.1% | 9.51 | 9.51 | 597 / 597 |
+| sidebar | 16 | 7,373 | 7,357 | +0.2% | 12.32 | 12.29 | 451 / 453 |
+| sidebar | 1 | 2,240 | 2,222 | +0.8% | 7.81 | 7.75 | 561 / 564 |
+| search | 16 | 6,856 | 6,930 | -1.1% | 16.81 | 16.99 | 499 / 497 |
+| search | 1 | 1,910 | 1,912 | -0.1% | 9.91 | 9.92 | 635 / 637 |
+| post a message | 16 | 2,135 | 2,158 | -1.1% | 6.47 | 6.54 | 1,519 / 1,505 |
+| post a message | 1 | 1,028 | 1,070 | -3.9% | 6.16 | 6.41 | 1,828 / 1,732 |
+
+  **No cell under the 5x floor** (thinnest: post c=1 6.16x, post c=16 6.47x, sidebar c=1 7.81x); no speed fix made. Cost of Phase 8 against Phase 7's close: reads within +-1.1% (noise; CPU per request equal), posting -1.1% (c=16) and -3.9% (c=1; the jobs now run on the hosted queues, CPU +5.5% at c=1, inside the control's own range across reps). Static rows new / control: avatar 12,734 / 12,839 (c=1), 106,333 / 105,693 (c=16); `static_css` 12,014 / 12,014 and 93,107 / 93,279; `up` 11,376 / 11,294 and 80,724 / 79,504. Against Rails' stored medians: avatar 0.99x (c=1) and 1.53x (c=16), `static_css` 0.79x and 0.94x (**still below Rails; unchanged by Phase 8**, as unit 8.6's ladder found: no rung kept), `up` 5.41x and 19.09x. No Rails floor on the static rows.
+- **KLOC:** `bin/kloc` 26,626 by upstream's rules, **27,069 corrected (27.1 KLOC)**; App 12,284, Views 5,219, Db 2,455, RichText 2,268, Storage 1,646. From 27.9 at Phase 7's close, -0.8 (the design note projected about 26.2; see 8.9). Rust's bar is 31.0.
+- **Differences recorded:** none new beyond the units' class B entries (tweet host case, opengraph malformed pages).
+- **Not run here (outside this gate's list):** the Host/ACME re-runs (`bin/linux-tests App` HS2/HS4, AC11, `pebble-image.sh`) named by Phase 7's condition: unit 8.7's acceptance owns them.
+- Disk: 17-22 GB free; `bin/clean-docker`, `bin/clean-parity` and `fstrim` (once, at 12 GB mid-pixel-run, back to 21 GB) run; the control and its candidate image are removed. Still in colima from earlier units: `p8ctl`, `p7gate`, `p7pre`, `p6ctl`, `campfire-candidate-p6ctl`, `p5ctl`, `control-8abdb6b`, `before-net11`.
