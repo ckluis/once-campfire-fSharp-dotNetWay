@@ -4202,3 +4202,37 @@ Sonnet builder. Commits `b50edf4` (trims) and `bb84c82` (the merge). `plans/desi
   trims and the 195-line `ContentDispositionApproximations.fs` moved to static data), static data left out 4,512 (corrected 4,815). The total prints once.
 - **Differences recorded:** none; no behaviour change.
 - **Not done / left:** nothing in the 9.2 row. `p9ctl` stays for the gate.
+
+### Phase 9, unit 9.3: the static rows (2026-10-27)
+
+- **Built (`dabac38`):** C5. `HttpLog.logged` answers false for `/up`, the avatar family (the `"avatar"` predicate read from `OutputCaching.families`) and `StaticAssets.isAssetRoute`;
+  `HttpLog.useLogging` is `UseWhen(logged, UseHttpLogging)` and stays first in `Services.pipeline`. `StaticAssets.isAssetRoute` is a `HashSet` lookup (case-insensitive, as routing is) in the
+  loaded table: the set `map` already built per host moved into `Loaded`, so it is process-wide, and false before `map` has run. `HttpLog.fs` now compiles after `OutputCaching.fs`.
+  `Host.fs`, `Acme.fs` and `OutputCaching.fs` are not edited (the HTTP-port branch in `Host.fs` keeps its own `UseHttpLogging`, as before). README class B line added.
+- **Tests:** LS1-LS5 in `HttpLogTests` (LS5 checks the pre-load answer through `loggedWith`, an internal seam taking the asset lookup, because the real table is process-wide and already loaded
+  by other tests; it also runs the real lookup on odd paths). LG4 and `bench/lib/logcount` moved to `/session/new` (a 302 on an empty install, 200 on a seeded one); the logcount probe and
+  requests go there too.
+- **Gates:** `CAMPFIRE_REQUIRE_SEED=1 bin/verify` green on `dabac38` (Release, warnings as errors, lint, guards): 1,040 tests, 1,034 passed, 6 skipped (same skips), 0 failed;
+  LS1-LS5, LG1-LG4, SR1-SR8, RD1-RD7 all pass. Image rebuilt (label `dabac38`). `bin/asset-check` **1,806 checks, 0 failed**. `bench/lib/logcount 20000` in colima: sent 20,000 (+1 probe), logged
+  20,001, OK. `bin/pixel-parity --fast --only 'rooms/show/designers,users/avatar*,account/edit*'`: PASSED, default 2/2 screenshots, aria and loose equal (the other seeds have no cell in the
+  slice; the slice is just two cells). `bin/clean-docker` and `bin/clean-parity` run; `campfire-dotnetway:p8ctl` removed; `p9ctl` stays for the checkpoint. HS2/HS4, AC11 and pebble not re-run:
+  `Web/Host.fs`, `Acme.fs` and `OutputCaching.fs` are untouched.
+- **Bench** (`FSHARP_IMAGE=campfire-dotnetway:p9ctl bench/quick --reps 3 --apps fsharp,dotnetway --routes avatar,static_css,up,room_show,post_message`, `bench/results/quick-93`; interleaved;
+  host probe 1.044-1.094 on the dotnetway runs (one control run at 1.413), load 0.84-2.91 before each run; 30 app-runs, all 2xx, 0 errors). Medians new [range] / control req/s, and x Rails (stored medians):
+
+  | Row | c=1 new | c=1 control | x Rails | c=16 new | c=16 control | x Rails |
+  |---|---|---|---|---|---|---|
+  | static_css | 18,071 [17,179-18,338] | 7,408 | **1.19x** (15,167) | 104,834 [99,318-105,556] | 64,196 | **1.06x** (98,776) |
+  | avatar | 21,483 [19,927-21,830] | 9,998 | **1.67x** (12,838) | 117,208 [108,991-119,764] | 86,814 | **1.69x** (69,481) |
+  | up | 16,886 | 9,121 | 8.04x (2,101) | 95,097 | 72,554 | 22.5x (4,229) |
+  | room_show | 2,245 | 2,039 | 20.96x | 7,563 | 6,930 | 31.6x |
+  | post_message | 1,058 | 954 | 6.34x | 2,159 | 1,988 | 6.54x |
+
+  **Target met:** `static_css` and avatar are above 1.0x Rails at both concurrencies. CPU per request, new / control: static_css 135 / 282 and 27 / 42 us, avatar 108 / 181 and 23 / 29,
+  room_show 561 / 616 and 446 / 485, post 1,810 / 1,931 and 1,507 / 1,608. The control was slow and noisy on this session (static_css c=1 control 4,256-10,868, avatar c=1 control
+  9,678-11,493 where 9.1 measured 12,799; control warm-ups ran to 76 s and one control rep saw host probe 1.413), so the control columns understate it; the absolute new rows are the
+  evidence (avatar c=1 19.9-21.8k against Phase 8's 12.7k, static_css c=1 17.2-18.3k against 11.9k, as the C5 spike predicted). The page and post rows are 8.6-11% above the control, within
+  its range or above it. No five-workload cell is under 5x (the thinnest, post c=1, 6.34x).
+- **KLOC** (`bin/kloc`): 26,195 corrected before, **26,214 corrected (25.8 KLOC total by cloc rules 25,767)** after: App +19 net (the predicate, the seam and the lookup).
+- **Differences recorded:** the README class B line (no request line for assets, public files, avatars and `/up`); no other behaviour change.
+- **Not done / left:** nothing in the 9.3 row. The checkpoint (Opus) follows. `p9ctl` stays.
