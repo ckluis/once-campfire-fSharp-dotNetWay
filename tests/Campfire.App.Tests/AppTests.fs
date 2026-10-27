@@ -560,7 +560,7 @@ let ``a failed backup prints the error and exits 1 instead of throwing`` () =
     Directory.CreateDirectory dir |> ignore
     try
         let config =
-            match AppConfig.fromLookup (fun name -> match name with "SECRET_KEY_BASE" -> "abc" | "CAMPFIRE_STORAGE_PATH" -> dir | _ -> null) with
+            match CampfireOptions.fromLookup (fun name -> match name with "SECRET_KEY_BASE" -> "abc" | "CAMPFIRE_STORAGE_PATH" -> dir | _ -> null) with
             | Ok config -> config
             | Error e -> failwith e
         let originalError = Console.Error
@@ -594,7 +594,7 @@ let ``the console logger never colours its lines`` () =
     Console.SetOut sw
     try
         let config =
-            match AppConfig.fromLookup (fun name -> match name with "SECRET_KEY_BASE" -> "abc" | _ -> null) with
+            match CampfireOptions.fromLookup (fun name -> match name with "SECRET_KEY_BASE" -> "abc" | _ -> null) with
             | Ok config -> config
             | Error e -> failwith e
         let factory = Boot.createLoggerFactory config

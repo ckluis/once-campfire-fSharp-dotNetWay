@@ -59,7 +59,7 @@ module IntegrationJobs =
         }
 
     /// The VAPID key pair, or `None` (logged) when Web Push is off: missing or invalid keys.
-    let vapidOrOff (config: AppConfig) (logger: ILogger) : VapidConfig option =
+    let vapidOrOff (config: CampfireOptions) (logger: ILogger) : VapidConfig option =
         match VapidConfig.FromConfig config with
         | Error Missing ->
             logger.LogWarning("Web Push is off: {Reason}", VapidError.message Missing)
@@ -92,7 +92,7 @@ module IntegrationJobs =
     /// config/initializers/web_push.rb (`config.x.web_push_pool`): `None`, and Web Push is off, when the VAPID keys are missing
     /// or invalid.
     let webPushPool
-        (config: AppConfig)
+        (config: CampfireOptions)
         (factory: IDbContextFactory<Ef.CampfireDb>)
         (gate: WriteGate)
         (env: Ef.Env)

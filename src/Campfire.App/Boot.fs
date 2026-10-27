@@ -38,7 +38,7 @@ open Campfire.Views
 /// `TimeProvider`, which the services resolve, so a test replaces it in `overrides`).
 [<NoComparison; NoEquality>]
 type BootInputs =
-    { Config: AppConfig
+    { Config: CampfireOptions
       Loggers: ILoggerFactory
       Edge: Web.EdgeConfig
       Time: TimeProvider }
@@ -48,7 +48,7 @@ type BootInputs =
 [<Sealed>]
 type DatabaseStartup
     (
-        config: AppConfig,
+        config: CampfireOptions,
         time: TimeProvider,
         factory: IDbContextFactory<Campfire.Db.Ef.CampfireDb>,
         gate: WriteGate,
@@ -100,9 +100,11 @@ module Boot =
         let time = inputs.Time
         let loggers = inputs.Loggers
         let secrets = Secrets.create config.SecretKeyBase
-        services.AddSingleton<AppConfig>(config).AddSingleton<Secrets>(secrets).AddSingleton<TimeProvider>(time) |> ignore
+        services.AddSingleton<CampfireOptions>(config).AddSingleton<Secrets>(secrets).AddSingleton<TimeProvider>(time) |> ignore
         services.AddSingleton<IDbContextFactory<Campfire.Db.Ef.CampfireDb>>(fun sp ->
-            Campfire.Db.Ef.Data.factory (Campfire.Db.Ef.Data.options config.Storage.Database (sp.GetRequiredService<TimeProvider>()) ignore))
+            Campfire.Db.Ef.Data.factory (
+                Campfire.Db.Ef.Data.options (sp.GetRequiredService<CampfireOptions>()).Storage.Database (sp.GetRequiredService<TimeProvider>()) ignore
+            ))
         |> ignore
         services.AddScoped<Campfire.Db.Ef.CampfireDb>(fun sp ->
             sp.GetRequiredService<IDbContextFactory<Campfire.Db.Ef.CampfireDb>>().CreateDbContext())
@@ -119,8 +121,8 @@ module Boot =
                   BcryptCost = Password.Cost }
             env)
         |> ignore
-        services.AddSingleton<Storage>(fun _ ->
-            Storage.create (DiskService.create config.Storage.Files "local") (RailsCompat.appVerifier secrets "ActiveStorage"))
+        services.AddSingleton<Storage>(fun sp ->
+            Storage.create (DiskService.create (sp.GetRequiredService<CampfireOptions>()).Storage.Files "local") (RailsCompat.appVerifier secrets "ActiveStorage"))
         |> ignore
         services.AddSingleton<Registry<AppState>>(fun _ ->
             let registry = CoreJobs.withCoreJobs ()
@@ -150,7 +152,7 @@ module Boot =
         | None -> ()
         services.AddSingleton<AppState>(fun sp ->
             AppState(
-                config,
+                sp.GetRequiredService<CampfireOptions>(),
                 secrets,
                 sp.GetRequiredService<TimeProvider>(),
                 sp.GetRequiredService<WriteGate>(),
@@ -173,7 +175,7 @@ module Boot =
     /// The hosted services that work off the app's queues: Web Push deliveries (when there are keys), then the job runner. Hosted
     /// services stop in reverse order, so jobs stop before deliveries (a job queues them), and the web host, registered last, stops
     /// before both.
-    let addWorkers (services: IServiceCollection) (config: AppConfig) : unit =
+    let addWorkers (services: IServiceCollection) (config: CampfireOptions) : unit =
         match VapidConfig.FromConfig config with
         | Ok _ -> services.AddHostedService<PushDeliveries>(fun sp -> sp.GetRequiredService<PushDeliveries>()) |> ignore
         | Error _ -> ()
@@ -182,7 +184,7 @@ module Boot =
                 sp.GetRequiredService<Jobs>(),
                 sp.GetRequiredService<AppState>(),
                 sp.GetRequiredService<Registry<AppState>>(),
-                config.JobConcurrency
+                (sp.GetRequiredService<CampfireOptions>()).JobConcurrency
             ))
         |> ignore
 
@@ -195,35 +197,42 @@ module Boot =
 
     // --- Build -----------------------------------------------------------------------------------------------
 
-    /// The app's host (J14): one `WebApplication` builder. The configuration (`AppConfig`, `FrontSettings`, `CAMPFIRE_FROZEN_TIME`)
-    /// is read from the builder's, which `configure` may extend before anything is read (an in-memory provider); `overrides` runs after
-    /// the registrations, so that what it adds replaces them. `DatabaseStartup` is registered first, so the database is ready before
-    /// any hosted service starts and before Kestrel binds. A bad configuration throws here, before a listener exists. The caller runs
-    /// the host (`RunAsync`) and then `closeDatabase`.
+    /// The edge settings, from the two option types (`DISABLE_SSL`, then Thruster's `LOG_REQUESTS`, cache and body limits).
+    let edgeOf (config: CampfireOptions) (settings: Web.FrontSettings) : Web.EdgeConfig =
+        servingEdge settings (Web.EdgeConfig.production config.DisableSsl (errorPages ()))
+
+    /// The app's host (J14): one `WebApplication` builder. The configuration (`CampfireOptions`, `FrontSettings`) is the builder's, which
+    /// `configure` may extend before anything is read (an in-memory provider); `overrides` runs after the registrations, so that what it
+    /// adds replaces them. Both option types are `IOptions` (J13), filled from it, validated and checked at start: a bad configuration
+    /// fails `StartAsync` with its message (`DatabaseStartup` is the first to resolve it), before a listener binds. What the shape of
+    /// the host depends on (the TLS store, the edge, the secrets the registrations read) is read once more at build time through
+    /// `CampfireOptions.read`, which records a problem instead of throwing; the options themselves are never read until the host starts.
+    /// `DatabaseStartup` is registered first, so the database is ready before any hosted service starts and before Kestrel binds. The
+    /// caller runs the host (`RunAsync`) and then `closeDatabase`.
     let build (loggers: ILoggerFactory) (configure: WebApplicationBuilder -> unit) (overrides: IServiceCollection -> unit) : WebApplication =
         let builder = WebApplication.CreateSlimBuilder(Web.StaticAssets.hostOptions Web.Host.hostArgs)
         configure builder
-        let lookup (key: string) : string | null = builder.Configuration[key]
-        let config =
-            match AppConfig.fromLookup lookup with
-            | Ok config -> config
-            | Error message -> failwith message
+        let lookup = CampfireOptions.ofConfiguration builder.Configuration
+        let config = CampfireOptions.read lookup
         let settings = Web.FrontSettings.fromLookup lookup
-        // The process clock: `CAMPFIRE_FROZEN_TIME` freezes `Time.current` (the parity runs pin it), the system clock otherwise.
+        // The process clock: `CAMPFIRE_FROZEN_TIME` freezes `Time.current` (the parity runs pin it), the system clock otherwise. A bad
+        // value is a validation failure at start, so the clock falls back to the system's until then.
         let time =
-            match HarnessClock.fromValue (lookup HarnessClock.Variable) with
+            match HarnessClock.fromValue (match config.FrozenTime with Some value -> value | None -> null) with
             | Ok time -> time
-            | Error message -> failwith message
+            | Error _ -> TimeProvider.System
         let inputs =
             { Config = config
               Loggers = loggers
-              Edge = servingEdge settings (Web.EdgeConfig.production config.DisableSsl (errorPages ()))
+              Edge = edgeOf config settings
               Time = time }
         let services = builder.Services
-        services.AddSingleton<ILoggerFactory>(loggers).AddSingleton<Web.FrontSettings>(settings) |> ignore
+        services.AddSingleton<ILoggerFactory>(loggers) |> ignore
+        CampfireOptionsRegistration.add services
+        Web.FrontSettingsRegistration.add services
         services.AddHostedService<DatabaseStartup>(fun sp ->
             DatabaseStartup(
-                config,
+                sp.GetRequiredService<CampfireOptions>(),
                 sp.GetRequiredService<TimeProvider>(),
                 sp.GetRequiredService<IDbContextFactory<Campfire.Db.Ef.CampfireDb>>(),
                 sp.GetRequiredService<WriteGate>(),
@@ -277,7 +286,7 @@ module Boot =
             let logger = loggers.CreateLogger "campfire"
             let host = build loggers ignore ignore
             let settings = host.Services.GetRequiredService<Web.FrontSettings>()
-            let databasePath = host.Services.GetRequiredService<AppConfig>().Storage.Database
+            let databasePath = host.Services.GetRequiredService<CampfireOptions>().Storage.Database
             // The cable server closes every WebSocket (`server_restart`) on `ApplicationStopping` (test P12 stops the app's own host).
             host.Lifetime.ApplicationStarted.Register(fun () ->
                 if settings.HasTls then
@@ -347,7 +356,7 @@ module Boot =
 
     /// `script/admin/prepare-backup`: `SQLite3::Backup` of the live database, all pages in one step,
     /// into `storage/backups/<database file name>`.
-    let backup (config: AppConfig) (logger: ILogger) : unit =
+    let backup (config: CampfireOptions) (logger: ILogger) : unit =
         let destination = StoragePaths.backupFile config.Storage
         let dir =
             match Path.GetDirectoryName destination with
@@ -376,7 +385,7 @@ module Boot =
 
     /// A logger factory at the level `RAILS_LOG_LEVEL` names (or `CAMPFIRE_LOG`, which replaces it); the framework's own categories
     /// at Warning, except the request log (`Microsoft.AspNetCore.HttpLogging`, F8), which is at Information whatever the level.
-    let createLoggerFactory (config: AppConfig) : ILoggerFactory =
+    let createLoggerFactory (config: CampfireOptions) : ILoggerFactory =
         let level =
             match
                 (match Environment.GetEnvironmentVariable "CAMPFIRE_LOG" with
@@ -402,7 +411,7 @@ module Boot =
             |> ignore)
 
     /// Run a command; a failure is `Error: <message>` on stderr and exit code 1, as `anyhow`'s `main` ends.
-    let internal execute (config: AppConfig) (loggers: ILoggerFactory) (command: string option) : int =
+    let internal execute (config: CampfireOptions) (loggers: ILoggerFactory) (command: string option) : int =
         try
             match command with
             | None
@@ -438,7 +447,7 @@ module Boot =
             printfn "%s" Usage
             0
         else
-            match AppConfig.fromEnv () with
+            match CampfireOptions.fromEnv () with
             | Error message ->
                 eprintfn "Error: %s" message
                 1

@@ -8,7 +8,6 @@
     <Compile Include="../Shared/JsonFrames.fs" Link="JsonFrames.fs" />
     <Compile Include="../Shared/Testing.fs" Link="Testing.fs" />
     <Compile Include="Support.fs" />
-    <Compile Include="ConfigTests.fs" />
     <Compile Include="TimeTests.fs" />
     <Compile Include="UriTests.fs" />
     <Compile Include="UserAgentTests.fs" />
@@ -61,6 +60,7 @@
     <Compile Include="CableAuthTests.fs" />
     <Compile Include="HotPathTests.fs" />
     <Compile Include="BuildTests.fs" />
+    <Compile Include="OptionsTests.fs" />
     <Compile Include="FastReadsTests.fs" />
     <Compile Include="AssetsTests.fs" />
   </ItemGroup>

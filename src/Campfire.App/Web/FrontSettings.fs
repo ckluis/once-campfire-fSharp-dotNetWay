@@ -1,30 +1,33 @@
 // plans/design-front.md F14, section 3: the front server's settings: Thruster's variables with their names (the THRUSTER_ prefix, Go's
-// parsing), trimmed to what the host still reads. Phase 8 moves this record to IOptions with the rest of the configuration.
+// parsing), trimmed to what the host still reads. `IOptions<FrontSettings>` (plans/design-jobs.md J13), filled from the host's configuration.
 namespace Campfire.App.Web
 
 open System
 open System.Net
+open Microsoft.Extensions.Configuration
+open Microsoft.Extensions.DependencyInjection
 
+[<CLIMutable>]
 type FrontSettings =
-    { HttpPort: int
-      HttpsPort: int
-      TargetPort: int
-      TargetBind: IPAddress
+    { mutable HttpPort: int
+      mutable HttpsPort: int
+      mutable TargetPort: int
+      mutable TargetBind: IPAddress
       /// `TLS_DOMAIN`, comma-separated. Setting it turns TLS on.
-      TlsDomains: string list
-      AcmeDirectory: string
+      mutable TlsDomains: string list
+      mutable AcmeDirectory: string
       /// `EAB_KID` and `EAB_HMAC_KEY` (unpadded base64url), when both are set.
-      ExternalAccount: (string * string) voption
-      StoragePath: string
+      mutable ExternalAccount: (string * string) voption
+      mutable StoragePath: string
       /// `HTTP_IDLE_TIMEOUT` and `HTTP_READ_TIMEOUT`; `TimeSpan.MaxValue` is no timeout (zero, negative, or 49 days and more).
-      IdleTimeout: TimeSpan
-      ReadTimeout: TimeSpan
-      ForwardHeaders: bool
+      mutable IdleTimeout: TimeSpan
+      mutable ReadTimeout: TimeSpan
+      mutable ForwardHeaders: bool
       /// 0 = none.
-      MaxRequestBody: int64
-      CacheSize: int64
-      MaxCacheItemSize: int64
-      LogRequests: bool }
+      mutable MaxRequestBody: int64
+      mutable CacheSize: int64
+      mutable MaxCacheItemSize: int64
+      mutable LogRequests: bool }
 
     member this.HasTls = not this.TlsDomains.IsEmpty
 
@@ -78,7 +81,7 @@ module FrontSettings =
     /// Thruster's `NewConfig` (`internal/config.go`), trimmed to what the host still reads: every setting is `THRUSTER_<NAME>`, then
     /// `<NAME>`; a value that does not parse is the default. `H2C_ENABLED`, `GZIP_COMPRESSION_*`, `HTTP_WRITE_TIMEOUT` and `DEBUG`
     /// are not read (F14). Over any lookup, so tests pass a map.
-    let fromLookup (get: string -> string | null) : FrontSettings =
+    let configure (get: string -> string | null) (settings: FrontSettings) : unit =
         let find (key: string) : string voption =
             match get ("THRUSTER_" + key) with
             | null ->
@@ -104,20 +107,43 @@ module FrontSettings =
             | "", _
             | _, "" -> ValueNone
             | kid, key -> ValueSome(kid, key)
-        { HttpPort = port "HTTP_PORT" 80
-          HttpsPort = port "HTTPS_PORT" 443
-          TargetPort = port "TARGET_PORT" 3000
-          TargetBind = find "TARGET_BIND" |> ValueOption.bind parseIp |> ValueOption.defaultValue IPAddress.Loopback
-          TlsDomains = tlsDomains
-          AcmeDirectory = text "ACME_DIRECTORY" LetsEncryptUrl
-          ExternalAccount = external
-          StoragePath = text "STORAGE_PATH" "./storage/thruster"
-          IdleTimeout = timeout "HTTP_IDLE_TIMEOUT" 60L
-          ReadTimeout = timeout "HTTP_READ_TIMEOUT" 30L
-          ForwardHeaders = boolean "FORWARD_HEADERS" tlsDomains.IsEmpty
-          MaxRequestBody = integer "MAX_REQUEST_BODY" 0L
-          CacheSize = integer "CACHE_SIZE" (64L * MB)
-          MaxCacheItemSize = integer "MAX_CACHE_ITEM_SIZE" MB
-          LogRequests = boolean "LOG_REQUESTS" true }
+        settings.HttpPort <- port "HTTP_PORT" 80
+        settings.HttpsPort <- port "HTTPS_PORT" 443
+        settings.TargetPort <- port "TARGET_PORT" 3000
+        settings.TargetBind <- find "TARGET_BIND" |> ValueOption.bind parseIp |> ValueOption.defaultValue IPAddress.Loopback
+        settings.TlsDomains <- tlsDomains
+        settings.AcmeDirectory <- text "ACME_DIRECTORY" LetsEncryptUrl
+        settings.ExternalAccount <- external
+        settings.StoragePath <- text "STORAGE_PATH" "./storage/thruster"
+        settings.IdleTimeout <- timeout "HTTP_IDLE_TIMEOUT" 60L
+        settings.ReadTimeout <- timeout "HTTP_READ_TIMEOUT" 30L
+        settings.ForwardHeaders <- boolean "FORWARD_HEADERS" tlsDomains.IsEmpty
+        settings.MaxRequestBody <- integer "MAX_REQUEST_BODY" 0L
+        settings.CacheSize <- integer "CACHE_SIZE" (64L * MB)
+        settings.MaxCacheItemSize <- integer "MAX_CACHE_ITEM_SIZE" MB
+        settings.LogRequests <- boolean "LOG_REQUESTS" true
+
+    /// A record to fill (what `AddOptions` makes through the `CLIMutable` constructor).
+    let empty () : FrontSettings =
+        { HttpPort = 80
+          HttpsPort = 443
+          TargetPort = 3000
+          TargetBind = IPAddress.Loopback
+          TlsDomains = []
+          AcmeDirectory = LetsEncryptUrl
+          ExternalAccount = ValueNone
+          StoragePath = "./storage/thruster"
+          IdleTimeout = TimeSpan.MaxValue
+          ReadTimeout = TimeSpan.MaxValue
+          ForwardHeaders = true
+          MaxRequestBody = 0L
+          CacheSize = 0L
+          MaxCacheItemSize = 0L
+          LogRequests = true }
+
+    let fromLookup (get: string -> string | null) : FrontSettings =
+        let settings = empty ()
+        configure get settings
+        settings
 
     let fromEnv () : FrontSettings = fromLookup Environment.GetEnvironmentVariable

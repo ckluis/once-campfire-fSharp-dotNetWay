@@ -32,7 +32,7 @@ module AppErrors =
 [<Sealed; NoComparison; NoEquality>]
 type AppState
     (
-        config: AppConfig,
+        config: CampfireOptions,
         secrets: Secrets,
         time: TimeProvider,
         gate: WriteGate,

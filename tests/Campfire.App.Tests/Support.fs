@@ -415,9 +415,9 @@ let configVars (root: string) (extra: (string * string) list) : (string * string
     @ extra
 
 /// The app's configuration over `root` as its storage, with the parity secret.
-let configFor (root: string) (extra: (string * string) list) : AppConfig =
+let configFor (root: string) (extra: (string * string) list) : CampfireOptions =
     let vars = Map.ofList (configVars root extra)
-    match AppConfig.fromLookup (fun name -> match Map.tryFind name vars with Some value -> value | None -> null) with
+    match CampfireOptions.fromLookup (fun name -> match Map.tryFind name vars with Some value -> value | None -> null) with
     | Ok config -> config
     | Error message -> failwith message
 
@@ -488,7 +488,7 @@ let private startApp time dbOptions (more: IServiceCollection -> unit) (vars: (s
             | Some(time: TimeProvider) -> services.AddSingleton<TimeProvider>(time) |> ignore
             | None -> ()
             services.AddSingleton<IDbContextFactory<Campfire.Db.Ef.CampfireDb>>(fun sp ->
-                let config = sp.GetRequiredService<AppConfig>()
+                let config = sp.GetRequiredService<CampfireOptions>()
                 Campfire.Db.Ef.Data.factory (Campfire.Db.Ef.Data.options config.Storage.Database (sp.GetRequiredService<TimeProvider>()) dbOptions))
             |> ignore
             more services

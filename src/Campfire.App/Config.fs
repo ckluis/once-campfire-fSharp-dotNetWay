@@ -1,6 +1,7 @@
 // Port of rust/crates/campfire/src/config.rs
 //
-// Environment configuration: the env vars the reference reads in production, plus a few
+// Environment configuration (plans/design-jobs.md J13: `IOptions<CampfireOptions>`, filled from the host's configuration, checked by
+// `CampfireOptionsValidator` with `ValidateOnStart()`): the env vars the reference reads in production, plus a few
 // `CAMPFIRE_*` knobs for things Rails gets from its directory layout.
 //
 // Reference sources:
@@ -26,7 +27,7 @@
 //   reference caches fragments in Redis (`redis_cache_store`) with no `maxmemory`; this store is
 //   in the process, so it's bounded like Rails' `MemoryStore` (default `size` 32 MB), evicting the
 //   least recently used fragments. See `Campfire.Views.Fragments`.
-// - `CAMPFIRE_FROZEN_TIME` (`Boot`): pins the clock, for parity runs.
+// - `CAMPFIRE_FROZEN_TIME` (`Platform/HarnessClock.fs`): pins the clock, for parity runs; a bad value is a validation failure.
 // - `CAMPFIRE_LOG`: a `Microsoft.Extensions.Logging` level (`debug`, `info`, ...) that replaces the
 //   one `RAILS_LOG_LEVEL` gives (Rust's `CAMPFIRE_LOG` is a tracing filter; see Program.fs).
 //
@@ -37,6 +38,10 @@ namespace Campfire.App
 open System
 open System.IO
 open System.Security.Cryptography
+open Microsoft.Extensions.Configuration
+open Microsoft.Extensions.DependencyInjection
+open Microsoft.Extensions.Options
+open Campfire.App.Platform
 open Campfire.Views
 
 type StoragePaths =
@@ -71,26 +76,33 @@ module StoragePaths =
             | name -> name
         Path.Combine(paths.Backups, name)
 
-type AppConfig =
-    { SecretKeyBase: string
-      VapidPublicKey: string option
-      VapidPrivateKey: string option
+/// The install's settings (`IOptions<CampfireOptions>`). Mutable fields so the options machinery can fill it; `Problem` is the first
+/// thing wrong with the configuration (what `CampfireOptionsValidator` reports), which a value that does not fit its field (a
+/// non-number) cannot say any other way.
+[<CLIMutable>]
+type CampfireOptions =
+    { mutable SecretKeyBase: string
+      mutable VapidPublicKey: string option
+      mutable VapidPrivateKey: string option
       /// `VAPID_SUBJECT`, or a default (see the module docs).
-      VapidSubject: string
+      mutable VapidSubject: string
       /// `DISABLE_SSL` present: no `assume_ssl`, no `force_ssl`.
-      DisableSsl: bool
+      mutable DisableSsl: bool
       /// `Rails.application.config.app_version`
-      AppVersion: string
+      mutable AppVersion: string
       /// `Rails.application.config.git_revision`
-      GitRevision: string option
-      Environment: string
-      Storage: StoragePaths
-      JobConcurrency: int
-      LogLevel: string
+      mutable GitRevision: string option
+      mutable Environment: string
+      mutable Storage: StoragePaths
+      mutable JobConcurrency: int
+      mutable LogLevel: string
       /// The fragment store's limit in bytes (`CAMPFIRE_FRAGMENT_CACHE_MB`).
-      FragmentBytes: int64 }
+      mutable FragmentBytes: int64
+      /// `CAMPFIRE_FROZEN_TIME`, as set.
+      mutable FrozenTime: string option
+      mutable Problem: string option }
 
-module AppConfig =
+module CampfireOptions =
     /// The install's own HTTPS URL when it has a TLS domain; the project's otherwise.
     let private defaultVapidSubject (tlsDomains: string option) : string =
         let domain =
@@ -100,7 +112,8 @@ module AppConfig =
         | Some domain -> $"https://{domain}"
         | None -> "https://github.com/ckluis/once-campfire-fsharp"
 
-    let private dummySecret () : string = Convert.ToHexStringLower(RandomNumberGenerator.GetBytes 64)
+    /// One throwaway secret per process (`SECRET_KEY_BASE_DUMMY`), so that every read of the configuration agrees on it.
+    let private dummySecret: Lazy<string> = lazy (Convert.ToHexStringLower(RandomNumberGenerator.GetBytes 64))
 
     /// Rust's `usize::from_str`: an optional `+` and decimal digits.
     let private parseNumber (value: string) : int64 option =
@@ -126,59 +139,114 @@ module AppConfig =
             | c -> out.Append c |> ignore
         out.Append('"').ToString()
 
-    /// Builds the config from any variable lookup (tests pass a map).
-    let fromLookup (get: string -> string | null) : Result<AppConfig, string> =
+    /// A record to fill (what `AddOptions` makes through the `CLIMutable` constructor).
+    let empty () : CampfireOptions =
+        { SecretKeyBase = ""
+          VapidPublicKey = None
+          VapidPrivateKey = None
+          VapidSubject = ""
+          DisableSsl = false
+          AppVersion = "0"
+          GitRevision = None
+          Environment = "production"
+          Storage = StoragePaths.create "storage" "production"
+          JobConcurrency = 2
+          LogLevel = "info"
+          FragmentBytes = 0L
+          FrozenTime = None
+          Problem = None }
+
+    /// Fills `options` from any variable lookup (the host's configuration; tests pass a map). A problem is recorded, not thrown: the
+    /// first one, in the order Rails' boot meets them.
+    let configure (get: string -> string | null) (options: CampfireOptions) : unit =
         let present (name: string) : string option =
             match get name with
             | null -> None
             | value -> if String.IsNullOrWhiteSpace value then None else Some value
-        let number (name: string) (fallback: int64) : Result<int64, string> =
+        let mutable problem: string option = None
+        let fail (message: string) = if problem.IsNone then problem <- Some message
+        let number (name: string) (fallback: int64) : int64 =
             match present name with
             | Some value ->
                 match parseNumber (value.Trim()) with
-                | Some n -> Ok n
-                | None -> Error $"{name}={debugString value} is not a number"
-            | None -> Ok fallback
-        let secretKeyBase =
+                | Some n -> n
+                | None ->
+                    fail $"{name}={debugString value} is not a number"
+                    fallback
+            | None -> fallback
+        options.SecretKeyBase <-
             match present "SECRET_KEY_BASE" with
-            | Some secret -> Ok secret
-            | None when (present "SECRET_KEY_BASE_DUMMY").IsSome -> Ok(dummySecret ())
-            | None -> Error "Missing `secret_key_base` for 'production' environment, set SECRET_KEY_BASE"
-        match secretKeyBase with
-        | Error e -> Error e
-        | Ok secretKeyBase ->
-            let environment = defaultArg (present "RAILS_ENV") "production"
-            let storageRoot = defaultArg (present "CAMPFIRE_STORAGE_PATH") "storage"
-            let defaults = StoragePaths.create storageRoot environment
-            let storage =
-                { Database = defaultArg (present "CAMPFIRE_DATABASE_PATH") defaults.Database
-                  Files = defaultArg (present "CAMPFIRE_FILES_PATH") defaults.Files
-                  Backups = defaultArg (present "CAMPFIRE_BACKUPS_PATH") defaults.Backups }
-            match
-                number "JOB_CONCURRENCY" 2L,
-                number "CAMPFIRE_FRAGMENT_CACHE_MB" (int64 (Fragments.DefaultMaxBytes >>> 20))
-            with
-            | Error e, _
-            | _, Error e -> Error e
-            | Ok concurrency, Ok megabytes ->
-                Ok
-                    { SecretKeyBase = secretKeyBase
-                      VapidPublicKey = present "VAPID_PUBLIC_KEY"
-                      VapidPrivateKey = present "VAPID_PRIVATE_KEY"
-                      VapidSubject =
-                        (match present "VAPID_SUBJECT" with
-                         | Some subject -> subject
-                         | None -> defaultVapidSubject (present "TLS_DOMAIN"))
-                      DisableSsl = (present "DISABLE_SSL").IsSome
-                      AppVersion =
-                        (match present "APP_VERSION" |> Option.orElse (present "GIT_REVISION") with
-                         | Some version -> version
-                         | None -> "0")
-                      GitRevision = (match get "GIT_REVISION" with null -> None | revision -> Some revision)
-                      Environment = environment
-                      Storage = storage
-                      JobConcurrency = int (max concurrency 1L)
-                      LogLevel = defaultArg (present "RAILS_LOG_LEVEL") "info"
-                      FragmentBytes = megabytes * (1L <<< 20) }
+            | Some secret -> secret
+            | None when (present "SECRET_KEY_BASE_DUMMY").IsSome -> dummySecret.Value
+            | None ->
+                fail "Missing `secret_key_base` for 'production' environment, set SECRET_KEY_BASE"
+                ""
+        let environment = defaultArg (present "RAILS_ENV") "production"
+        let storageRoot = defaultArg (present "CAMPFIRE_STORAGE_PATH") "storage"
+        let defaults = StoragePaths.create storageRoot environment
+        let concurrency = number "JOB_CONCURRENCY" 2L
+        let megabytes = number "CAMPFIRE_FRAGMENT_CACHE_MB" (int64 (Fragments.DefaultMaxBytes >>> 20))
+        options.FrozenTime <- present HarnessClock.Variable
+        match HarnessClock.fromValue (get HarnessClock.Variable) with
+        | Error message -> fail message
+        | Ok _ -> ()
+        options.VapidPublicKey <- present "VAPID_PUBLIC_KEY"
+        options.VapidPrivateKey <- present "VAPID_PRIVATE_KEY"
+        options.VapidSubject <-
+            (match present "VAPID_SUBJECT" with
+             | Some subject -> subject
+             | None -> defaultVapidSubject (present "TLS_DOMAIN"))
+        options.DisableSsl <- (present "DISABLE_SSL").IsSome
+        options.AppVersion <-
+            (match present "APP_VERSION" |> Option.orElse (present "GIT_REVISION") with
+             | Some version -> version
+             | None -> "0")
+        options.GitRevision <- (match get "GIT_REVISION" with null -> None | revision -> Some revision)
+        options.Environment <- environment
+        options.Storage <-
+            { Database = defaultArg (present "CAMPFIRE_DATABASE_PATH") defaults.Database
+              Files = defaultArg (present "CAMPFIRE_FILES_PATH") defaults.Files
+              Backups = defaultArg (present "CAMPFIRE_BACKUPS_PATH") defaults.Backups }
+        options.JobConcurrency <- int (max concurrency 1L)
+        options.LogLevel <- defaultArg (present "RAILS_LOG_LEVEL") "info"
+        options.FragmentBytes <- megabytes * (1L <<< 20)
+        options.Problem <- problem
 
-    let fromEnv () : Result<AppConfig, string> = fromLookup Environment.GetEnvironmentVariable
+    /// The options over a lookup, whatever is wrong with them (`Problem` says).
+    let read (get: string -> string | null) : CampfireOptions =
+        let options = empty ()
+        configure get options
+        options
+
+    /// The options over a lookup, or what is wrong with them.
+    let fromLookup (get: string -> string | null) : Result<CampfireOptions, string> =
+        let options = read get
+        match options.Problem with
+        | Some message -> Error message
+        | None -> Ok options
+
+    let fromEnv () : Result<CampfireOptions, string> = fromLookup Environment.GetEnvironmentVariable
+
+    /// The host's configuration as the variable lookup.
+    let ofConfiguration (configuration: IConfiguration) : string -> string | null = fun key -> configuration[key]
+
+/// J13: a problem found while filling the options fails validation with its message (Rails' own words).
+[<Sealed>]
+type CampfireOptionsValidator() =
+    interface IValidateOptions<CampfireOptions> with
+        member _.Validate(_: string | null, options: CampfireOptions) : ValidateOptionsResult =
+            match options.Problem with
+            | Some message -> ValidateOptionsResult.Fail message
+            | None -> ValidateOptionsResult.Success
+
+module CampfireOptionsRegistration =
+    /// `IOptions<CampfireOptions>` (one instance, made on first use), filled from the host's `IConfiguration`, validated, and checked
+    /// when the host starts; `CampfireOptions` itself is its value.
+    let add (services: IServiceCollection) : unit =
+        services
+            .AddOptions<CampfireOptions>()
+            .Configure<IConfiguration>(fun options configuration -> CampfireOptions.configure (CampfireOptions.ofConfiguration configuration) options)
+            .ValidateOnStart()
+        |> ignore
+        services.AddSingleton<IValidateOptions<CampfireOptions>, CampfireOptionsValidator>() |> ignore
+        services.AddSingleton<CampfireOptions>(fun sp -> sp.GetRequiredService<IOptions<CampfireOptions>>().Value) |> ignore

@@ -291,9 +291,9 @@ let ``rejects bad vapid keys up front`` () =
     Assert.Equal(Error Mismatched, keys otherPublicKey VapidPrivateKey)
     Assert.Equal(Ok(), keys (VapidPublicKey.TrimEnd '=') (VapidPrivateKey.TrimEnd '='))
 
-let private config (publicKey: string option) (privateKey: string option) : AppConfig =
+let private config (publicKey: string option) (privateKey: string option) : CampfireOptions =
     let vars = dict [ "SECRET_KEY_BASE_DUMMY", "1" ]
-    match AppConfig.fromLookup (fun name -> match vars.TryGetValue name with | true, v -> v | _ -> null) with
+    match CampfireOptions.fromLookup (fun name -> match vars.TryGetValue name with | true, v -> v | _ -> null) with
     | Ok config ->
         { config with
             VapidPublicKey = publicKey

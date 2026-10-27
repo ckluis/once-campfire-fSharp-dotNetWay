@@ -66,7 +66,7 @@ type VapidConfig private (subject: string, publicKey: string, privateKey: string
                         with :? CryptographicException ->
                             Error Mismatched
 
-    static member FromConfig(config: AppConfig) : Result<VapidConfig, VapidError> =
+    static member FromConfig(config: CampfireOptions) : Result<VapidConfig, VapidError> =
         match config.VapidPublicKey, config.VapidPrivateKey with
         | Some publicKey, Some privateKey -> VapidConfig.Create(config.VapidSubject, publicKey, privateKey)
         | _ -> Error Missing

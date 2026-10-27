@@ -124,16 +124,21 @@ let ``BB2 the app's services are the host's: one AppState, one client factory, t
         :> Task)
 
 [<Fact>]
-let ``BB3 a bad configuration fails the build, before a listener exists`` () =
+let ``BB3 a bad configuration builds, and fails the start before a listener exists`` () =
     withTempDir (fun dir ->
         task {
-            let fails (extra: (string * string) list) : string =
-                let e =
-                    Assert.Throws<Exception>(fun () ->
-                        Boot.build NullLoggerFactory.Instance (configuration dir (freePort ()) (freePort ()) extra) ignore |> ignore)
-                e.Message
-            Assert.Contains("secret_key_base", fails [ "SECRET_KEY_BASE", ""; "SECRET_KEY_BASE_DUMMY", "" ])
-            Assert.Contains("JOB_CONCURRENCY=\"two\" is not a number", fails [ "JOB_CONCURRENCY", "two" ])
-            Assert.Contains("CAMPFIRE_FROZEN_TIME=yesterday is not an RFC 3339 timestamp", fails [ "CAMPFIRE_FROZEN_TIME", "yesterday" ])
+            let fails (extra: (string * string) list) : Task<string> =
+                task {
+                    let app = Boot.build NullLoggerFactory.Instance (configuration dir (freePort ()) (freePort ()) extra) ignore
+                    let! e = Assert.ThrowsAnyAsync<Exception>(fun () -> app.StartAsync())
+                    (app :> IAsyncDisposable).DisposeAsync().AsTask().GetAwaiter().GetResult()
+                    return e.Message
+                }
+            let! secret = fails [ "SECRET_KEY_BASE", ""; "SECRET_KEY_BASE_DUMMY", "" ]
+            Assert.Contains("secret_key_base", secret)
+            let! number = fails [ "JOB_CONCURRENCY", "two" ]
+            Assert.Contains("JOB_CONCURRENCY=\"two\" is not a number", number)
+            let! time = fails [ "CAMPFIRE_FROZEN_TIME", "yesterday" ]
+            Assert.Contains("CAMPFIRE_FROZEN_TIME=yesterday is not an RFC 3339 timestamp", time)
         }
         :> Task)

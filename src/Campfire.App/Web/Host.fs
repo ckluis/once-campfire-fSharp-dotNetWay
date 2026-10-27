@@ -16,8 +16,10 @@ open Microsoft.AspNetCore.Server.Kestrel.Core
 open Microsoft.AspNetCore.Server.Kestrel.Https
 open Microsoft.Extensions.DependencyInjection
 open Microsoft.Extensions.DependencyInjection.Extensions
+open Microsoft.Extensions.Configuration
 open Microsoft.Extensions.Hosting
 open Microsoft.Extensions.Logging
+open Microsoft.Extensions.Options
 
 module Host =
     /// How long in-flight requests get after SIGTERM/SIGINT (F13): one budget for the generic host's whole stop.
@@ -128,16 +130,24 @@ module Host =
                     http.Response.ContentLength <- 0L
                     Task.CompletedTask)
 
-    /// `TLS_DOMAIN` names `ServerNames.normalize` refuses are never served: logged, and a list with none left is a failed boot
-    /// (a TLS install with no name could not hand any client a certificate).
-    let validateDomains (settings: FrontSettings) (logger: ILogger) : unit =
-        let refused =
-            settings.TlsDomains
-            |> List.choose (fun d -> match ServerNames.normalize d with Error reason -> Some(d, reason) | Ok _ -> None)
-        for domain, reason in refused do
+    /// The `TLS_DOMAIN` names `ServerNames.normalize` refuses, with the reason.
+    let private refusedDomains (settings: FrontSettings) : (string * string) list =
+        settings.TlsDomains
+        |> List.choose (fun d -> match ServerNames.normalize d with Error reason -> Some(d, reason) | Ok _ -> None)
+
+    /// A TLS install with no usable name could not hand any client a certificate.
+    let internal noUsableName (settings: FrontSettings) : bool =
+        not settings.TlsDomains.IsEmpty && (refusedDomains settings).Length = settings.TlsDomains.Length
+
+    /// `TLS_DOMAIN` names `ServerNames.normalize` refuses are never served: logged.
+    let private logRefused (settings: FrontSettings) (logger: ILogger) : unit =
+        for domain, reason in refusedDomains settings do
             logger.LogError("TLS_DOMAIN name is not served: {Domain}: {Reason}", domain, reason)
-        if refused.Length = settings.TlsDomains.Length && not settings.TlsDomains.IsEmpty then
-            invalidOp "TLS_DOMAIN holds no usable name"
+
+    /// Logged, and a list with none left is a failed boot.
+    let validateDomains (settings: FrontSettings) (logger: ILogger) : unit =
+        logRefused settings logger
+        if noUsableName settings then invalidOp "TLS_DOMAIN holds no usable name"
 
     /// The host's arguments: configuration is not watched. `appsettings.json` is read with `reloadOnChange` by default, which
     /// starts a FileSystemWatcher on the whole content root (recursive): every write SQLite makes under `storage/` then wakes the
@@ -155,7 +165,8 @@ module Host =
     let configure (builder: WebApplicationBuilder) (settings: FrontSettings) (logger: ILogger) : CertificateStore voption =
         let store =
             if settings.HasTls then
-                validateDomains settings logger
+                // The refusal itself is `FrontSettingsValidator`'s, when the options are checked at start.
+                logRefused settings logger
                 ValueSome(CertificateStore settings.TlsDomains)
             else
                 ValueNone
@@ -163,7 +174,8 @@ module Host =
         match store with
         | ValueSome store ->
             builder.Services.TryAddSingleton<TimeProvider>(TimeProvider.System)
-            builder.Services.AddSingleton<FrontSettings>(settings).AddSingleton<CertificateStore>(store) |> ignore
+            builder.Services.TryAddSingleton<FrontSettings>(settings)
+            builder.Services.AddSingleton<CertificateStore>(store) |> ignore
             builder.Services.AddHttpClient "acme" |> ignore
             builder.Services.AddHostedService<AcmeService>() |> ignore
         | ValueNone -> ()
@@ -201,6 +213,7 @@ module Host =
         (pipeline: IApplicationBuilder -> unit)
         : WebApplication =
         let logger = loggers.CreateLogger "campfire"
+        validateDomains settings logger
         let builder = WebApplication.CreateSlimBuilder(StaticAssets.hostOptions hostArgs)
         builder.Services.AddSingleton<ILoggerFactory>(loggers) |> ignore
         configureServices builder.Services
@@ -209,3 +222,25 @@ module Host =
         mapHttpPort app settings store
         pipeline app
         app
+
+/// J13: a TLS install whose `TLS_DOMAIN` has no usable name fails validation, before a listener binds.
+[<Sealed>]
+type FrontSettingsValidator() =
+    interface IValidateOptions<FrontSettings> with
+        member _.Validate(_: string | null, settings: FrontSettings) : ValidateOptionsResult =
+            if Host.noUsableName settings then
+                ValidateOptionsResult.Fail "TLS_DOMAIN holds no usable name"
+            else
+                ValidateOptionsResult.Success
+
+module FrontSettingsRegistration =
+    /// `IOptions<FrontSettings>` (Thruster's variables, `THRUSTER_<NAME>` first), filled from the host's `IConfiguration`, validated
+    /// and checked when the host starts; `FrontSettings` itself is its value.
+    let add (services: IServiceCollection) : unit =
+        services
+            .AddOptions<FrontSettings>()
+            .Configure<IConfiguration>(fun settings configuration -> FrontSettings.configure (fun key -> configuration[key]) settings)
+            .ValidateOnStart()
+        |> ignore
+        services.AddSingleton<IValidateOptions<FrontSettings>, FrontSettingsValidator>() |> ignore
+        services.AddSingleton<FrontSettings>(fun sp -> sp.GetRequiredService<IOptions<FrontSettings>>().Value) |> ignore
