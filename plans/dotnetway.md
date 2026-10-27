@@ -3797,3 +3797,47 @@ Opus, against `plans/design-jobs.md` J1-J15 and D1-D9, over `4c6e99f..3f14e11`. 
 - **The units' gate claims check out** against their logs and this run (8.3's parallel-run flakiness is recorded as it happened; 8.4's verify passed on its second run).
 - **8.7 should split now:** 8.7a the production path (`Boot.build`, `DatabaseStartup`, `AppState` from DI, the clients in the host's provider in place of `Boot`'s side
   provider, `Boot.serve`; the HS2/HS4, AC11, `pebble-image.sh` and bench gates), 8.7b `Support` (609 lines) on `Boot.build` and `Booted`/`bootWith*` deleted.
+
+### Phase 8, unit 8.5 Web Push (2026-10-27)
+
+Sonnet builder, `plans/design-jobs.md` J7. `bin/kloc` 27,417 / **27,860 corrected (27.9)**, from 27,851 after 8.4 (+9: the `PinHandler` and `Clients.withPin` (about 25 lines) and the
+`PushEnv` record outweigh the 90 lines of header writing and `Http.exchange` plumbing that left `WebPush.fs`; `WebPushEncryption.fs` (154), `Http.fs` (683), `RubyUri.fs` and
+`Net.fs`'s `Network` stay compiled until 8.9, which is where the cut shows).
+
+- **Code:** `WebPush.deliver` and `deliverTestNotification` take a `PushEnv` (`IHttpClientFactory`, `IResolver`, `TimeProvider`) and build a `PushServiceClient` over the factory's
+  `"push"` client with `AutoRetryAfter = false`, `PushMessage(Urgency = High, TimeToLive = 2419200)` and a per-delivery `VapidAuthentication` (`Subject`, 12 h `Expiration`, scheme
+  `Vapid`) under a 30 s deadline on the provider's timer. `DeliveryError` lost `Tls` and `Http of HttpError` for `Transport of TransportError`; `PushServiceClientException`'s status
+  maps as `verifyResponse` did (410, 404 destroy; 401, 403, 413, 429, 5xx and the rest log), `CryptographicException` is the key error (invalidates), `ArgumentException`,
+  `FormatException` and the library's `InvalidOperationException` for a blank key are `ArgumentError`. `deliver` now answers `Ok true` (sent) or `Ok false` (not a permitted push
+  host or a private address: nothing connected) because the library does not return the status. `Vapid.fs` is the pair check only (`VapidConfig.Create`/`FromConfig`, keys kept
+  as unpadded Base64 for the library); `WebPushEncryption.fs` is not called (`WebPushEncoding.decode64` and `P256.parsePoint` are used by the pair check; 8.9 moves them).
+  `PushDeliveries`, `IntegrationJobs.webPushPool` and `TestNotifications` take the env; `Boot` builds it from its side provider (until 8.7), which now also supplies the resolver.
+  `Directory.Packages.props`/`Campfire.App.fsproj`: `Lib.Net.Http.WebPush` 3.3.1.
+- **Opus checkpoint note 1, the pin: option 1 taken.** The library builds its own request, so `Clients.pin` cannot be set on it. `Clients.PinHandler` (a `DelegatingHandler`
+  registered on the `"push"` client only) copies an `AsyncLocal` address onto `request.Options` and `Clients.withPin` sets and restores it around the call. The "delivers to the
+  pinned address" test keeps its meaning (one lookup, one dial to the resolved address, the connect callback re-checks it): without the pin the callback would resolve a second time. The
+  `AsyncLocal` flows only into the call's own continuations, and the guard at connect does not depend on it (an unpinned request is resolved and checked there). `MaxResponseContentBufferSize`
+  is 16 KB on the push client, since the library reads an error body whole. README: the stale Web Push paragraph (it described `Http.fs`) is rewritten.
+- **Tests (`WebPushTests`, 17):** WP1 the vector's receiver key decrypts the payload to the message with the 0x02 delimiter and record size 4096, and the longest payload fits; WP2
+  `Content-Encoding: aes128gcm`, `TTL: 2419200`, `Urgency: high`, `Authorization: vapid t=..., k=<VAPID_PUBLIC_KEY>`, the JWT header segment equal to the gem's, claims `aud`
+  `https://fcm.googleapis.com`, `sub` (the configured subject, and a second subject), `exp` within a window of now + 12 h (the library reads its own clock, so not the provider's), the
+  signature verifying with the public key; WP3 410 and 404 destroy, 401, 403, 400, 413, 429, 500, 503 and 302 are logged and keep, each with one request; WP4 a 429 with `Retry-After: 1`
+  reaches the server once (waited 1.5 s); WP5 six endpoints never connect (no dial, no request, lookups only for the two that need one); WP6 missing, malformed or mismatched keys give
+  `None` from `webPushPool` and `VapidConfig` errors; WP7 the test notification delivers once and its payload is right (the redirect is the controller's, unchanged); WP8 the three pool
+  facts (queue and 50 readers, panic frees a slot, stop right after start) on `PushEnv`. The four tests of `Encryption`/`Vapid.Authorization` went with the code they tested.
+  `IntegrationsSupport.pushEnv` builds the env over DI with the test CA on the `"push"` client.
+- **Differences recorded** (README, Known differences, the Web Push entry; class A on the wire, all decrypted and verified by the tests): record size 4096 against the gem's ciphertext length
+  and the padding, the JWT's bytes, `Authorization: vapid t=..., k=...` with a space after the comma, the library's header spelling (`TTL`) and order, no `Accept` or `User-Agent: Ruby`; class
+  B: a 400 "UnauthorizedRegistration" logs as `ResponseError` (the reason phrase is not kept), still not destroying; `exp` follows the library's clock.
+- **Gates:** `CAMPFIRE_REQUIRE_SEED=1 bin/verify` green on the first run: 1,020 tests, 1,014 passed, 6 skipped (the environmental six), 0 failed, 0 warnings; H1, the markup lint, the Dapper guard in it.
+  `dotnet list package --vulnerable --include-transitive`: none. Image rebuilt at `f181944` (label checked), `bin/clean-docker` run. `bin/pixel-parity --fast --only 'users/push_subscriptions/**'`:
+  default 2/2 screenshots pixel-equal, aria and loose equal; crowd, custom_styles, first_run and restricted have no such state (0/0); PASSED in 35 s, `bin/clean-parity` run.
+- **Bench** (`bench/quick --reps 3 --apps fsharp,dotnetway --routes post_message` inside colima, `FSHARP_IMAGE=campfire-dotnetway:p8ctl` as control, interleaved, host probe 1.043-1.098,
+  `bench/results/quick-85`; 12 runs, all 2xx, 0 errors, post rows equal the 2xx answers): medians new / control req/s: post c=1 1,086 [1,082-1,098] / 1,087 [984-1,095]; post c=16 2,133
+  [2,132-2,177] / 2,180 [1,952-2,181] (-2.2%, inside the control's range, whose first rep was the slow one); p50 0.82 / 0.82 ms and 6.01 / 5.89 ms; CPU per request c=1 1,768 / 1,691
+  (+4.6%, as in 8.2's note: the same gap, not new), c=16 1,503 / 1,483 (+1.4%). **vs Rails** (stored medians): post c=1 **6.51x**, c=16 **6.46x**; no cell under 5x, no speed fix needed (the bench's
+  subscriptions point at a refused host, so the library never encrypts on the benchmarked path). A first attempt was spoiled by a stray run I started on the Mac instead of in colima
+  (it shared the container name and removed the real run's container when I stopped it); it was discarded and the run above is the second, clean one.
+- **Left for later units:** 8.6 (redaction), 8.7a/b (production Boot, `IResolver` from DI in `UnfurlLinks`, the `StopAsync`-versus-`ExecuteAsync` check of `Heartbeat.fs` and `Acme.fs`), 8.8, 8.9 (delete
+  `Http.fs`, `Net.fs`'s `Network`, `RubyUri.fs`, `WebPushEncryption.fs`; the class B tweet-host note). The checkpoint's test-flake item (RichText `CpuTimer`, Cable L7) is still open for before the phase
+  gate; it did not fire in this unit's `bin/verify`.
