@@ -4032,3 +4032,79 @@ Evidence: `bench/results/dotnetway-p8-security/` (`verify.log`, `vulnerable-pack
   (the lookups are on unfurls, pushes and subscription creation; the redaction compare is the only per-request change).
 - **KLOC (`bin/kloc`):** 26,665 by upstream's rules, **27,112 corrected (27.1 KLOC)**, App 12,327 (+43: the two printers and the token plumbing).
 - **Differences recorded:** none new (the unfurl's 10 s bound was already README class B; it now holds during name resolution too).
+
+### Phase 8: independent verification (2026-10-27) - PHASE 8 DONE; Phase 9 GO, with conditions
+
+Opus verifier, adversarial review of `4c6e99f..b59ddbd` (design, 8.1-8.9, the checkpoint, the gate, the security review) against `plans/design-jobs.md`
+J1-J15, plan sections 2.7, 2.8 and 3-5 and D1-D9; cheap checks re-run and an image of the closing code re-gated. Fixes in `7d58f54` (code) and
+`c8cce8f` (docs). **Phase 8 closes at `c8cce8f`** (its `src` is `7d58f54`'s; this entry and the evidence are the commit after it). Evidence:
+`bench/results/dotnetway-p8-verify/` (`driver.sh`, `driver2.sh`, `driver.log`, the logs below, `quick/`, `pixels/*/report.json`, `kloc.md`).
+- **Fixed, `7d58f54`: the app did not run on the validated options.** `Boot.addServices` registered the bootstrap read of `CampfireOptions` after
+  `CampfireOptionsRegistration.add`, so in `Boot.build`'s host the `CampfireOptions` singleton (what `AppState`, `DatabaseStartup`, the context factory,
+  storage and the job runner take) was a second record beside `IOptions<CampfireOptions>.Value`, not the value 8.8 recorded. The content was equal (one
+  configuration, one dummy secret per process) and validation still ran at start, so no behaviour changed; OP7 missed it because it builds a provider of its
+  own. Now a `TryAdd`: the options registration stands in `Boot.build`, and `Support`'s second wiring (no options registration) keeps the bootstrap read.
+  BB2 asserts `IOptions<CampfireOptions>.Value`, the `CampfireOptions` singleton and `AppState.Config` are one object (and `FrontSettings` likewise); it
+  failed before the fix.
+- **Fixed, `c8cce8f` (docs):** README said 8.9 deleted "its resolver-and-dialer plumbing" (`Net.fs` keeps `IResolver` and `IDialer`; only `Network` and
+  `TlsTrust` went); two `Html5Tests` comments still called `CpuTimer` the process's timer.
+- **Deleted, checked:** `Http.fs`, `RubyUri.fs`, `WebPushEncryption.fs`, `WebPushPool.fs`, `OpengraphHtml.fs`, `OpengraphEntities.fs`,
+  `RailsCompat/Clock.fs`, `ClockTimeProvider`, `Booted`/`bootEdge`/`bootWith*`, `Runner`/`JobRunner.start`, `Net.fs`' `Network` and `TlsTrust`, and the
+  tests `HttpTests`/`UriTests`. `git grep` over `src tests bin AGENTS.md README.md` for 8.9's nine names plus `WebPushEncryption`, `TlsTrust`,
+  `Network.system`, `bootEdge`, `bootWith`, `JobRunner.start`, `KitClock`, `SystemClock` finds none. Names that survive by design: `IResolver`, `IDialer`,
+  `TcpDialer` (the guard's dial), `CapturingLoggers` (now a `FakeLoggerProvider` wrapper) and `Test.Booted` (now the `Wiring` record; Phase 9's test
+  consolidation may rename both). Not deleted, as J8/J9 decided: `Concerns/UserAgent.fs`, `Controllers/QrCode/Rqrcode.fs`. No `FakeTimeProvider`,
+  `AddStandardResilienceHandler`, retry, breaker or hedging under `src`; `Clients.fs` is the only `SocketsHttpHandler`.
+- **Read, against the note:** `Boot.fs`, `Config.fs`, `Logging.fs`, `Jobs.fs`, `Web/HttpLog.fs`, `Web/Host.fs` (8.8's diff), `Platform/HarnessClock.fs`,
+  `Integrations/` (`Clients`, `Guard`'s resolve and connect, `Net`, `Opengraph`, `PushDeliveries`, `WebPush`, `IntegrationJobs`' webhook path). J1-J15 hold
+  as built and as the units' entries record their departures (the restored unfurl semaphore, the `PinHandler` pin, 8.7's split, the bootstrap read of
+  8.8, 14 probes not 13). The registration order gives the stop order J1 asks for (web host, jobs, deliveries, then the database after `RunAsync`), and
+  `JobRunner`/`PushDeliveries` read no state `ExecuteAsync` assigns. `Boot.run` still reads the environment with `CampfireOptions.fromEnv` before the host
+  exists (for the logger factory's level), so in the image a bad `SECRET_KEY_BASE`, `JOB_CONCURRENCY` or `CAMPFIRE_FROZEN_TIME` stops there with the same
+  message and exit code; `ValidateOnStart` is what a host built any other way (the tests, BB3, OP2-OP5) meets. Equivalent; recorded, not changed.
+- **Gate evidence, checked:** the gate's `report.json`s hold **940 distinct lean page cells, every one equal on screenshot, aria and loose DOM** (default
+  860, crowd 24, custom_styles 32, first_run 16, restricted 8; 16 non-page entries with the server layer only) and **28/28 TLS cells**; all 27 slices,
+  the cookie round trip and `db-differential` rc 0 in its driver log; its bench images carry the labels `0e46e8b` (new) and `2fae069` (control).
+- **Gates re-run on the closing code:** `CAMPFIRE_REQUIRE_SEED=1 bin/verify` at `7d58f54` and `c8cce8f`: **1,044 total, 1,038 passed, 0 failed, 6 skipped**
+  (the environmental six), 0 warnings (the App and its tests also rebuilt `--no-incremental -warnaserror`), lint self-test 39/39 and 324 files clean,
+  the Dapper, EF and DateTime guards, H1. `dotnet list package --vulnerable` and `--deprecated --include-transitive` on the App: none. **Image rebuilt
+  from `7d58f54`** (label checked). `bin/pixel-parity --fast --only 'auth/**,users/**,bot_api/**,account/**,pwa/**,rooms/show/designers'` on every seed:
+  **124/124** (default 100, custom_styles 10, first_run 8, crowd 4, restricted 2; 10 non-page entries) and `realtime/message_sent` alone 2/2, screenshots,
+  aria and loose DOM equal. `bin/cookie-roundtrip` **20/20**. **Phase 7's Host condition, open since 8.8 changed `Web/Host.fs` after 8.7a's runs:**
+  `bin/linux-tests App` **432 total, 431 passed, 1 skipped** (AC11 without Pebble; HS2, HS4 and the THP test ran), **AC11 on Pebble 1/1**,
+  `reference-tools/front/pebble-image.sh` **PASSED** (one order at boot, 0600/0700, 2-certificate chain, the restart loads the cache, still one order).
+  `bin/clean-parity`, `bin/clean-docker` run; Mac 17-25 GB free.
+- **Speed (`bench/quick --routes post_message,sidebar`, c=1 and c=16, 3 reps):** new = `7d58f54`; the gate's `0e46e8b` image was meant as the control
+  but the rebuild pruned it (two control reps failed "No such image", kept as `quick/bench-ctl-failed-noimage.log`), so the control is `p8ctl` (8.1's
+  state, the units' control). Order new, new, ctl, ctl, new, ctl; host probe 1.054-1.09, Mac load 2.2-6.2 (another session). 24 runs, all 2xx, 0
+  errors, post rows equal the 2xx answers. Medians new / ctl: post c=16 **1,974** [1,968-2,171] / 2,144 [2,008-2,167], CPU 1,635 / 1,510 us; post c=1
+  **1,020** [955-1,085] / 1,023 [1,003-1,079], CPU 1,860 / 1,799 us; sidebar c=16 6,834 [6,780-7,505] / 6,938, c=1 2,126 / 2,116. **vs Rails: post 5.98x
+  (c=16) / 6.11x (c=1), sidebar 11.4x / 7.42x: no cell under 5x.** The post c=16 median is -7.9% but not a regression: new reps 1-2 ran in a slower
+  window (sidebar c=16 6,780-6,834 there against 7,505 in rep 3) and the reps taken back to back in the quiet window are equal (new 3 2,171, ctl 3
+  2,144); the only per-request change since the gate is S2's case-blind prefix compare. The gate's table (all eight rows against `2fae069`) stands for
+  the phase: reads within +-1.1%, post -1.1% (c=16) and -3.9% (c=1). **One real cost:** CPU per post at c=1 is about +3-5% against every control since 8.2
+  (8.2 +4.7%, 8.5 +4.6%, the gate +5.5%, here +3.4%), the job runner as a hosted service; undiagnosed, above the floor.
+- **KLOC (`bin/kloc`, `c8cce8f`):** 26,667 by upstream's rules, **27,114 corrected (27.1 KLOC)**, App 12,329. Phase 8 is **-747** from 27,861 against
+  the note's -1,700 (26.2, range 26.0-26.5): **0.6 over the range's top**. The integrations went 3,607 -> 2,406 lines by `wc` (-1,201, as projected), but
+  the boot, options and logging grew instead of shrinking (`Boot.fs` 374 -> 460, `Config.fs` 184 -> 274, `Logging.fs` +99, `FrontSettings.fs` 123 -> 172,
+  `Host.fs` 200 -> 246, `HarnessClock.fs` +31: about +370 against the note's -65). Under Rust's 31.0; the plan's 18.5 for this point is out of reach.
+- **Known differences, checked:** README has every class B line of the note's section 8 with its test (webhook headers and the 7 s to the response
+  head, 16 unfurls, the 14 malformed-page probes, the caps, `mailto:`, the tweet host's case, redaction, the 429 sent once) and the class A lines (request
+  target normalization, push record size and JWT, push headers). Jobs, push limits, user agent and QR code: no new difference.
+- **Open items of earlier phases, checked:** Phase 7 (a) the c=1 request-log cost and the static rows: measured by 8.6's ladder, no rung kept, `static_css`
+  0.79x / 0.94x Rails with the reason recorded (the framework's line, ~60 us a request): closed as recorded, not as fixed. (b) SR1-SR8, LG1-LG4 and HS12
+  green; `TLS_DOMAIN` refused at start (8.8's image run). (c) the Host re-runs: closed here. Checkpoint note 4, the `CpuTimer` flake: fixed in 8.7a
+  (thread CPU time); no RichText timing failure in this verifier's runs. Cable `MemoryTests` L7 and `ProtocolTests` L5 each failed once under load (8.8,
+  the checkpoint) and are unchanged.
+- **Open, none blocking:** (1) the stale control images in colima (`p8ctl`, `p7gate`, `p7pre`, `p6ctl`, `campfire-candidate-p6ctl`, `p5ctl`,
+  `control-8abdb6b`, `before-net11`): the note says `p8ctl` goes when the phase closes; this verifier may not remove images; (2) the operator's Let's
+  Encrypt staging run (8.8 touched `Web/Host.fs`); (3) the security review's S4 (a pooled push may be resent, accepted), S5 (join codes and transfer ids
+  in request paths, as Rails; a plan decision) and S6 (info); (4) `static_css` below Rails (no floor); (5) the post c=1 CPU gap above; (6) Cable L5/L7
+  under load; (7) carried from Phases 4-7: Firefox empty-404 pair, WebKit WebP avatar flake, the 16 KB Cable bound, Q1 and F6 of Phase 5,
+  `bench/lib/layers.py`'s stale `Campfire.Kit` buckets.
+- **Phase 9 GO.** Conditions: keep H1, the markup lint (and its self-test), the Dapper, EF and DateTime guards and Phase 6's asset conditions green;
+  any change to `Web/Host.fs`, `Acme.fs` or `OutputCaching.fs` re-runs HS2/HS4 under `bin/linux-tests App`, AC11 and `pebble-image.sh`; keep the
+  integrations' facts (CL1 one POST, GD1-GD4, OG1-OG4, SR-J1/J2/J5, WP1-WP8, RD1-RD7, OP1-OP8, BB1-BB3) green through the test consolidation, and
+  keep `Boot.build` the one way the app and the tests boot; re-project Phase 9's KLOC from 27.1, not the plan's 18.5; the final bench re-measures Rails,
+  so re-check post a message against the floor there (5.98x-6.5x at c=16 in this phase's runs, the thinnest cell); remove the stale images before the
+  full pixel gate when the orchestrator allows (the gate dipped to 12 GB free).

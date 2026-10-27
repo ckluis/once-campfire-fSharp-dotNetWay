@@ -1,0 +1,48 @@
+Error response from daemon: No such image: sha256:cd5d6be14b764c9f50fbad0bc7639cfe9b0cd7408ab6878b9665a19d802b3588
+Error response from daemon: No such image: sha256:cd5d6be14b764c9f50fbad0bc7639cfe9b0cd7408ab6878b9665a19d802b3588
+date: 2026-10-27T15:09:35-04:00
+host: 6.8.0-117-generic, , 8 threads, 5GB
+server cpus: 0-3 (nproc 4); loadgen cpus: 4-7; network: host
+env: WEB_CONCURRENCY=3 JOB_CONCURRENCY=3 RAILS_MAX_THREADS=5 
+rust extra env: 
+fsharp extra env: 
+dotnetway extra env: 
+user agent: (none)
+dotnetway image: sha256:cd5d6be14b764c9f50fbad0bc7639cfe9b0cd7408ab6878b9665a19d802b3588  built from commit: 
+repo HEAD: 7d58f54 (dirty: 0 files under src/ and rust/)
+work dir (seed copies): /var/tmp/campfire-bench-work (ext4)
+loadgen: /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/target/rust/aarch64-unknown-linux-gnu/release/loadgen (2026-10-13 18:47:07), built with rust:1.98.1-trixie
+schedule: apps dotnetway, reps 3; suites: http; http secs 8, concs 1 16, routes post_message sidebar, warm-up 30s at each route and concentration, idle 5s
+log retention: 2 x 10m (json-file)
+[15:10:15] load before run: 1.27 1.20 0.95 (waited 40s)
+[15:10:18] host probe before run: {"spin_ms": 59.45, "spin_ms_max_cpu": 62.71, "cpus": "0-3,4-7", "baseline_ms": 55.57, "ratio": 1.07} (waited 40s)
+[15:10:18] dotnetway rep 1: starting (load: 1.27 1.20 0.95)
+docker: Error response from daemon: No such image: sha256:cd5d6be14b764c9f50fbad0bc7639cfe9b0cd7408ab6878b9665a19d802b3588
+
+Run 'docker run --help' for more information
+curl: (7) Failed to connect to 127.0.0.1 port 4390 after 0 ms: Couldn't connect to server
+Error response from daemon: No such container: bench-campfire-4390
+time="2026-10-27T15:11:52-04:00" level=fatal msg="exit status 1"
+date: 2026-10-27T15:09:35-04:00
+host: 6.8.0-117-generic, , 8 threads, 5GB
+server cpus: 0-3 (nproc 4); loadgen cpus: 4-7; network: host
+env: WEB_CONCURRENCY=3 JOB_CONCURRENCY=3 RAILS_MAX_THREADS=5 
+rust extra env: 
+fsharp extra env: 
+dotnetway extra env: 
+user agent: (none)
+dotnetway image: sha256:cd5d6be14b764c9f50fbad0bc7639cfe9b0cd7408ab6878b9665a19d802b3588  built from commit: 
+repo HEAD: 7d58f54 (dirty: 0 files under src/ and rust/)
+work dir (seed copies): /var/tmp/campfire-bench-work (ext4)
+loadgen: /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/target/rust/aarch64-unknown-linux-gnu/release/loadgen (2026-10-13 18:47:07), built with rust:1.98.1-trixie
+schedule: apps dotnetway, reps 3; suites: http; http secs 8, concs 1 16, routes post_message sidebar, warm-up 30s at each route and concentration, idle 5s
+log retention: 2 x 10m (json-file)
+[15:11:53] load before run: 0.33 0.90 0.86 (waited 0s)
+[15:11:55] host probe before run: {"spin_ms": 58.19, "spin_ms_max_cpu": 59.13, "cpus": "0-3,4-7", "baseline_ms": 55.57, "ratio": 1.047} (waited 0s)
+[15:11:55] dotnetway rep 2: starting (load: 0.38 0.90 0.86)
+docker: Error response from daemon: No such image: sha256:cd5d6be14b764c9f50fbad0bc7639cfe9b0cd7408ab6878b9665a19d802b3588
+
+Run 'docker run --help' for more information
+curl: (7) Failed to connect to 127.0.0.1 port 4390 after 0 ms: Couldn't connect to server
+Error response from daemon: No such container: bench-campfire-4390
+time="2026-10-27T15:13:30-04:00" level=fatal msg="exit status 1"

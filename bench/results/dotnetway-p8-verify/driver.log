@@ -1,0 +1,33 @@
+control image sha256:cd5d6be14b764c9f50fbad0bc7639cfe9b0cd7408ab6878b9665a19d802b3588 revision 0e46e8b8577cc7a121e3e7f074ccd57376544095
+=== build 15:04:49 mac-free 22Gi load 2.66 3.32 3.11
+build rc=0 head=7d58f54f9bced52bff995bea5898b306fb5987e7 label=7d58f54f9bced52bff995bea5898b306fb5987e7
+=== bench new rep 1 15:06:24 mac-free 19Gi load 2.22 2.96 2.99
+bench new 1 rc=0
+=== bench ctl rep 1 15:09:35 mac-free 19Gi load 4.62 3.91 3.38
+bench ctl 1 rc=1
+=== bench ctl rep 2 15:11:52 mac-free 19Gi load 2.20 3.17 3.16
+bench ctl 2 rc=1
+=== bench new rep 2 15:13:30 mac-free 19Gi load 2.40 3.00 3.09
+--- restart (control p8ctl)
+=== bench ctl rep 1 15:16:46 mac-free 19Gi load 6.16 4.20 3.55
+bench ctl 1 rc=0
+=== bench ctl rep 2 15:20:02 mac-free 19Gi load 5.01 4.16 3.62
+bench ctl 2 rc=0
+=== bench new rep 3 15:23:27 mac-free 19Gi load 4.46 4.15 3.71
+bench new 3 rc=0
+=== bench ctl rep 3 15:27:02 mac-free 19Gi load 4.14 3.98 3.70
+bench ctl 3 rc=0
+=== pixel fast 15:30:48 mac-free 19Gi load 3.93 3.70 3.61
+pixel fast rc=0
+=== pixel rt-message_sent 15:37:38 mac-free 19Gi load 3.00 3.72 3.71
+pixel rt-message_sent rc=0
+=== cookie 15:38:13 mac-free 18Gi load 2.99 3.63 3.67
+cookie rc=0
+=== linux-tests 15:38:21 mac-free 18Gi load 2.84 3.57 3.65
+linux-tests rc=0
+=== ac11 15:40:56 mac-free 17Gi load 4.82 4.48 4.03
+ac11 rc=0
+=== pebble-image 15:41:31 mac-free 17Gi load 4.66 4.46 4.04
+pebble-image rc=0
+=== clean 15:41:36 mac-free 17Gi load 4.37 4.41 4.02
+=== done 15:41:38 mac-free 25Gi load 4.10 4.35 4.00
