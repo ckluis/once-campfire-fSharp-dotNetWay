@@ -5,6 +5,7 @@
 namespace Campfire.App.Controllers
 
 open FsToolkit.ErrorHandling
+open Microsoft.Extensions.DependencyInjection
 open Microsoft.AspNetCore.Http
 open Campfire.App
 open Campfire.App.Integrations
@@ -15,7 +16,7 @@ module UnfurlLinks =
     let private opengraphJson (http: HttpContext) (url: string) : System.Threading.Tasks.Task<Result<string option, Error>> =
         task {
             let app = Data.app http
-            let env: OpengraphEnv = { Http = app.Http; Resolver = SystemResolver(); Time = app.Time }
+            let env: OpengraphEnv = { Http = app.Http; Resolver = http.RequestServices.GetRequiredService<IResolver>(); Time = app.Time }
             match! Opengraph.unfurlLogged env url (app.Loggers.CreateLogger "campfire.opengraph") with
             | Result.Error e -> return Result.Error(Internal(exn (UnfurlError.message e)))
             | Ok(Unfurl.Json json) -> return Ok(Some json)

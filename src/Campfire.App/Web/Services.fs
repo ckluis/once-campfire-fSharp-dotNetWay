@@ -99,12 +99,12 @@ module Services =
         |> ignore
 
 
-    /// Registers the app's services on the host (`Host.build`'s `configureServices`, and the tests' hosts).
-    let add (edge: EdgeConfig) (app: AppState) (services: IServiceCollection) : unit =
+    /// Registers the request layer's services on the host (`Boot.addServices`, which also registers `Secrets`, `AppState` and the
+    /// `HybridCache`): the edge settings, session state, cookies, compression, logging, the output cache, the login throttle and
+    /// the authentication schemes.
+    let add (edge: EdgeConfig) (secrets: Secrets) (services: IServiceCollection) : unit =
         AppContext.SetSwitch(SuppressAutoDefaultScheme, true)
         services.AddSingleton<EdgeConfig>(edge) |> ignore
-        services.AddSingleton<Secrets>(app.Secrets) |> ignore
-        services.AddSingleton<AppState>(app) |> ignore
         // K6: session state lives in server memory, so its keys are ephemeral too.
         services.AddDataProtection().UseEphemeralDataProtectionProvider() |> ignore
         services.AddDistributedMemoryCache(fun options -> options.SizeLimit <- 64L * 1024L * 1024L) |> ignore
@@ -129,7 +129,7 @@ module Services =
         // K11: gzip and Brotli at their fastest, what Rails compresses plus Turbo's streams; a body already smaller than
         // `Compression.MinimumLength` is not worth the CPU.
         services.AddResponseCompression(Compression.configure) |> ignore
-        Logging.add services app.Secrets
+        Logging.add services secrets
         if edge.LogRequests then HttpLog.add services
         if edge.CacheSize > 0L then
             services.AddOutputCache(OutputCaching.configure edge.CacheSize edge.MaxCacheItemSize) |> ignore
@@ -137,8 +137,6 @@ module Services =
             Compression.SkipSmall(ResponseCompressionProvider(sp, sp.GetRequiredService<IOptions<ResponseCompressionOptions>>()))
             :> IResponseCompressionProvider)
         |> ignore
-        // V5, V7: the kept compressed pages (and from unit 4.3 the fragments), in HybridCache over a size-limited memory cache.
-        services.AddSingleton<Microsoft.Extensions.Caching.Hybrid.HybridCache>(app.Fragments) |> ignore
         // K15: ten sign-in attempts per client IP in three minutes.
         services.AddSingleton<System.Threading.RateLimiting.PartitionedRateLimiter<string>>(fun _ -> LoginThrottle.create ()) |> ignore
         addAuthentication services

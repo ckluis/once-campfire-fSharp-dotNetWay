@@ -60,6 +60,7 @@
     <Compile Include="CableHostTests.fs" />
     <Compile Include="CableAuthTests.fs" />
     <Compile Include="HotPathTests.fs" />
+    <Compile Include="BuildTests.fs" />
     <Compile Include="FastReadsTests.fs" />
     <Compile Include="AssetsTests.fs" />
   </ItemGroup>

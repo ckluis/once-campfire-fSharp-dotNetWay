@@ -58,9 +58,39 @@ module IntegrationJobs =
             | _ -> return Ok()
         }
 
-    /// config/initializers/web_push.rb (`config.x.web_push_pool`): the deliveries service, whose invalid subscription handler
-    /// destroys the subscription (`Push::Subscription.find_by(id:)&.destroy`). `None`, and Web Push is off, when the
-    /// VAPID keys are missing or invalid.
+    /// The VAPID key pair, or `None` (logged) when Web Push is off: missing or invalid keys.
+    let vapidOrOff (config: AppConfig) (logger: ILogger) : VapidConfig option =
+        match VapidConfig.FromConfig config with
+        | Error Missing ->
+            logger.LogWarning("Web Push is off: {Reason}", VapidError.message Missing)
+            None
+        | Error error ->
+            logger.LogError("Web Push is off: {Reason}", VapidError.message error)
+            None
+        | Ok vapid -> Some vapid
+
+    /// The deliveries service, whose invalid subscription handler destroys the subscription
+    /// (`Push::Subscription.find_by(id:)&.destroy`).
+    let pushDeliveries
+        (vapid: VapidConfig)
+        (factory: IDbContextFactory<Ef.CampfireDb>)
+        (gate: WriteGate)
+        (env: Ef.Env)
+        (push: PushEnv)
+        (logger: ILogger)
+        : PushDeliveries =
+        let invalidSubscriptionHandler (id: int64) : Task<Result<unit, string>> =
+            task {
+                use context = factory.CreateDbContext()
+                match! Ef.Writes.run gate env context (fun tx -> PushSubscription.destroy tx (PushSubscription.find tx.Db id)) with
+                | Ok()
+                | Error(RecordNotFound _) -> return Ok()
+                | Error error -> return Error(failure error)
+            }
+        new PushDeliveries(push, vapid, invalidSubscriptionHandler, logger)
+
+    /// config/initializers/web_push.rb (`config.x.web_push_pool`): `None`, and Web Push is off, when the VAPID keys are missing
+    /// or invalid.
     let webPushPool
         (config: AppConfig)
         (factory: IDbContextFactory<Ef.CampfireDb>)
@@ -69,23 +99,7 @@ module IntegrationJobs =
         (push: PushEnv)
         (logger: ILogger)
         : PushDeliveries option =
-        match VapidConfig.FromConfig config with
-        | Error Missing ->
-            logger.LogWarning("Web Push is off: {Reason}", VapidError.message Missing)
-            None
-        | Error error ->
-            logger.LogError("Web Push is off: {Reason}", VapidError.message error)
-            None
-        | Ok vapid ->
-            let invalidSubscriptionHandler (id: int64) : Task<Result<unit, string>> =
-                task {
-                    use context = factory.CreateDbContext()
-                    match! Ef.Writes.run gate env context (fun tx -> PushSubscription.destroy tx (PushSubscription.find tx.Db id)) with
-                    | Ok()
-                    | Error(RecordNotFound _) -> return Ok()
-                    | Error error -> return Error(failure error)
-                }
-            Some(new PushDeliveries(push, vapid, invalidSubscriptionHandler, logger))
+        vapidOrOff config logger |> Option.map (fun vapid -> pushDeliveries vapid factory gate env push logger)
 
     /// `room.messages.create!(body: text, creator: user)`: the text is assigned to the rich text body, which stores
     /// it canonicalized (as `MessagesController` does; there's no request host in a job).

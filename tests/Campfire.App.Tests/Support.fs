@@ -363,6 +363,7 @@ type Test(booted: Booted, dir: string, host: Host, logs: CapturingLoggers) =
                 task {
                     do! (host :> IAsyncDisposable).DisposeAsync()
                     Boot.closeDatabase booted.App
+                    booted.Services.Dispose()
                     try
                         Directory.Delete(dir, true)
                     with _ ->

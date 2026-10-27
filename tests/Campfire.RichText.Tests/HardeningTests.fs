@@ -228,3 +228,19 @@ let ``markup_the_parser_throws_on_inside_an_attachment_is_refused_not_raised`` (
         ActionText.toPlainText body ctx |> ignore
         ActionText.editableValue body ctx |> ignore
     Assert.Equal(Presentation.Html "", ActionText.presentMessage $"<action-text-attachment content-type=\"text/html\" content=\"{throws}\"></action-text-attachment>" ctx)
+
+[<Fact>]
+let ``CpuTimer counts the calling thread's CPU time, not the process's`` () =
+    // A busy loop on this thread is seen; a second thread's work started meanwhile is not (so a bound is not spent by the runtime's other threads).
+    let other = Threading.Thread((fun () -> let mutable x = 0.0 in (for i in 1..400_000_000 do x <- x + sqrt (float i)); ignore x), IsBackground = true)
+    let started = CpuTimer()
+    other.Start()
+    Threading.Thread.Sleep 300
+    let idle = started.Elapsed
+    let mutable x = 0.0
+    for i in 1..20_000_000 do x <- x + sqrt (float i)
+    let busy = started.Elapsed
+    Assert.True(x > 0.0)
+    Assert.True(idle < TimeSpan.FromMilliseconds 100.0, $"a sleeping thread used {idle} of CPU while another thread worked")
+    Assert.True(busy > idle + TimeSpan.FromMilliseconds 5.0, $"a busy loop showed {busy - idle}")
+    other.Join()

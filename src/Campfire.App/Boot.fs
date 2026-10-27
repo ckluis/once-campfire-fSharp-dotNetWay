@@ -1,8 +1,9 @@
 // Port of rust/crates/campfire/src/app.rs (boot, the HTTP stack and the commands)
 //
-// Boot: configuration, the database (`db:prepare`), storage, the cable server, jobs and the HTTP stack,
-// wired the way the reference's middleware and initializers are. `AppState` (`AppState.fs`) is what
-// controllers, channels, jobs and integrations share. Actions reach it with `Data.app`.
+// Boot (plans/design-jobs.md J14): one `WebApplication` builder (`Boot.build`) with the configuration, the database (`db:prepare`
+// in `DatabaseStartup`), storage, the cable server, jobs, the outgoing clients and the HTTP stack registered in its provider,
+// wired the way the reference's middleware and initializers are. `AppState` (`AppState.fs`) is what controllers, channels, jobs
+// and integrations share, a singleton made from those. Actions reach it with `Data.app`.
 //
 // Request flow (mirroring the Rails middleware order): the pre-routing middleware (`Web.Edge`)
 // (`ActionDispatch::SSL`, request id, `_method` override) -> the asset endpoints
@@ -23,6 +24,7 @@ open Microsoft.AspNetCore.Http.Features
 open Microsoft.Data.Sqlite
 open Microsoft.EntityFrameworkCore
 open Microsoft.Extensions.DependencyInjection
+open Microsoft.Extensions.Hosting
 open Microsoft.Extensions.Logging
 open Campfire.App.Channels
 open Campfire.App.Integrations
@@ -32,18 +34,64 @@ open Campfire.App.Platform
 open Campfire.Storage
 open Campfire.Views
 
-/// A booted app: its state, the HTTP pipeline, and the registrations of its services.
+/// What the app's services are made from: the configuration, the loggers, the edge settings, the clock and the extra options of
+/// the EF contexts (tests: `LogTo`).
+[<NoComparison; NoEquality>]
+type BootInputs =
+    { Config: AppConfig
+      Loggers: ILoggerFactory
+      Edge: Web.EdgeConfig
+      Time: TimeProvider
+      DbOptions: Microsoft.EntityFrameworkCore.DbContextOptionsBuilder<Campfire.Db.Ef.CampfireDb> -> unit }
+
+/// `db:prepare` and `Membership.disconnect_all` (config/puma.rb), run by the host before any hosted service starts and before Kestrel
+/// binds (`IHostedLifecycleService.StartingAsync`); registered first.
+[<Sealed>]
+type DatabaseStartup
+    (
+        config: AppConfig,
+        time: TimeProvider,
+        factory: IDbContextFactory<Campfire.Db.Ef.CampfireDb>,
+        gate: WriteGate,
+        env: Campfire.Db.Ef.Env
+    ) =
+    /// `storage/{db,files}` exist (config/initializers/storage_paths.rb), the schema goes in through EF before anything else
+    /// opens the file (E15), and every membership's connection count resets.
+    member _.Prepare() : Task =
+        task {
+            StoragePaths.createDirs config.Storage
+            do!
+                Task.Run(fun () ->
+                    use context = factory.CreateDbContext()
+                    Campfire.Db.Schema.prepare context config.Environment time |> ignore)
+            use bootContext = factory.CreateDbContext()
+            match! Campfire.Db.Ef.Writes.run gate env bootContext (fun tx -> Membership.disconnectAll tx |> ignore) with
+            | Ok() -> ()
+            | Error error -> failwith (DbError.display error)
+        }
+
+    interface IHostedLifecycleService with
+        member this.StartingAsync(_: Threading.CancellationToken) : Task = this.Prepare()
+        member _.StartAsync(_: Threading.CancellationToken) : Task = Task.CompletedTask
+        member _.StartedAsync(_: Threading.CancellationToken) : Task = Task.CompletedTask
+        member _.StoppingAsync(_: Threading.CancellationToken) : Task = Task.CompletedTask
+        member _.StopAsync(_: Threading.CancellationToken) : Task = Task.CompletedTask
+        member _.StoppedAsync(_: Threading.CancellationToken) : Task = Task.CompletedTask
+
+/// A booted app for the tests (`Boot.bootEdge`): the state of a private service provider over the app's registrations, the
+/// registrations themselves to add to a test host, and the pipeline. Unit 8.7b moves the tests onto `Boot.build` and deletes this.
 [<NoComparison; NoEquality>]
 type Booted =
     { App: AppState
-      /// What `Host.build` builds the app's pipeline with (the app's `Web.Services.pipeline`).
+      /// What a test host builds the app's pipeline with (the app's `Web.Services.pipeline`).
       Pipeline: IApplicationBuilder -> unit
-      /// Registers `CampfireDb`, its factory, the `WriteGate` and the `TimeProvider` (`Host.build`'s `configureServices`).
+      /// The app's registrations (`Boot.addServices`), with the state `App` holds shared in, so that host and `App` see one app.
       ConfigureServices: IServiceCollection -> unit
-      /// The hosted services that work off the app's queues: Web Push deliveries, registered first, then the job runner and
-      /// its `Registry`. Hosted services stop in reverse order, so jobs stop before deliveries (a job queues them). Added to the one host that serves the app (`serveHosted`, the tests' main host), never to a second
-      /// host over the same state: stopping a runner closes the queues for good.
-      Workers: IServiceCollection -> unit }
+      /// The hosted services that work off the app's queues (`Boot.addWorkers`): Web Push deliveries, then the job runner. Added to
+      /// the one host that serves the app, never to a second host over the same state: stopping a runner closes the queues for good.
+      Workers: IServiceCollection -> unit
+      /// The provider `App` was resolved from; disposing it releases the app's pooled contexts and clients.
+      Services: IDisposable }
 
 module Boot =
     // --- The HTTP stack ----------------------------------------------------------------------------------
@@ -57,112 +105,101 @@ module Boot =
     let pipeline (edge: Web.EdgeConfig) (builder: IApplicationBuilder) : unit =
         Web.Services.pipeline edge (fun http -> Campfire.Cable.Endpoint.handle (http.RequestServices.GetRequiredService<Cable>()) http) RouteTable.dispatch builder
 
-    // --- Boot ----------------------------------------------------------------------------------------------
+    // --- Registrations -----------------------------------------------------------------------------------
 
-    /// Boots the app from `config`: prepares the database, restores the reference's boot-time side
-    /// effects, and builds the HTTP stack.
-    /// `bootWith` on a given `TimeProvider` (tests hand in a `FakeTimeProvider` instead of setting the process-wide environment variable).
-    let bootEdge
-        (tune: Web.EdgeConfig -> Web.EdgeConfig)
-        (timeOverride: TimeProvider option)
-        (dbOptions: Microsoft.EntityFrameworkCore.DbContextOptionsBuilder<Campfire.Db.Ef.CampfireDb> -> unit)
-        (config: AppConfig)
-        (loggers: ILoggerFactory)
-        : Task<Booted> =
-        task {
-            StoragePaths.createDirs config.Storage
-            let secrets = Secrets.create config.SecretKeyBase
-            // The process clock: `CAMPFIRE_FROZEN_TIME` freezes `Time.current` (the parity runs pin it), the system clock otherwise.
-            let time =
-                match timeOverride with
-                | Some time -> time
-                | None ->
-                    match HarnessClock.fromEnvironment () with
-                    | Ok time -> time
-                    | Error message -> failwith message
-
-            let cableHandle = CableHandle()
-            let jobs = Jobs(JobLimits.QueueCapacity, loggers.CreateLogger "campfire.jobs", cableHandle)
-            let richText = AppRichText(secrets, time, loggers.CreateLogger "campfire.rich_text")
-            let dbFactory = Campfire.Db.Ef.Data.factory (Campfire.Db.Ef.Data.options config.Storage.Database time dbOptions)
-            // `db:prepare` (E15): the schema goes in through EF before anything else opens the file.
-            do!
-                Task.Run(fun () ->
-                    use context = dbFactory.CreateDbContext()
-                    Campfire.Db.Schema.prepare context config.Environment time |> ignore)
-            let gate = WriteGate()
-
-            let storage =
-                Storage.create (DiskService.create config.Storage.Files "local") (RailsCompat.appVerifier secrets "ActiveStorage")
-
-            // `assume_ssl` is the edge middleware's: the cable's origin check sees the request's scheme.
-            let efEnv: Campfire.Db.Ef.Env =
+    /// Everything the app is made of, in `services`: the data services, the job queues, storage, the cable, the outgoing clients (J2),
+    /// the fragment cache, Web Push, the request layer's services (`Web.Services.add`), and `AppState`, made from those. No hosted
+    /// service but the cable's (`addWorkers` adds the app's, `DatabaseStartup` the database's). The loggers are the caller's to
+    /// register as the host's (`build`).
+    let addServices (services: IServiceCollection) (inputs: BootInputs) : unit =
+        let config = inputs.Config
+        let time = inputs.Time
+        let loggers = inputs.Loggers
+        let secrets = Secrets.create config.SecretKeyBase
+        services.AddSingleton<AppConfig>(config).AddSingleton<Secrets>(secrets).AddSingleton<TimeProvider>(time) |> ignore
+        services.AddSingleton<IDbContextFactory<Campfire.Db.Ef.CampfireDb>>(fun _ ->
+            Campfire.Db.Ef.Data.factory (Campfire.Db.Ef.Data.options config.Storage.Database time inputs.DbOptions))
+        |> ignore
+        services.AddScoped<Campfire.Db.Ef.CampfireDb>(fun sp ->
+            sp.GetRequiredService<IDbContextFactory<Campfire.Db.Ef.CampfireDb>>().CreateDbContext())
+        |> ignore
+        services.AddSingleton<WriteGate>(fun _ -> WriteGate()) |> ignore
+        services.AddSingleton<Jobs>(fun sp -> Jobs(JobLimits.QueueCapacity, loggers.CreateLogger "campfire.jobs", sp.GetRequiredService<CableHandle>()))
+        |> ignore
+        services.AddSingleton<Campfire.Db.Ef.Env>(fun sp ->
+            let env: Campfire.Db.Ef.Env =
                 { Time = time
-                  Sink = jobs
-                  RichText = richText
+                  Sink = sp.GetRequiredService<Jobs>()
+                  RichText = AppRichText(secrets, time, loggers.CreateLogger "campfire.rich_text")
                   BcryptCost = Password.Cost }
-
-            // config/puma.rb: `Membership.disconnect_all` when the server boots.
-            use bootContext = dbFactory.CreateDbContext()
-            match! Campfire.Db.Ef.Writes.run gate efEnv bootContext (fun tx -> Membership.disconnectAll tx |> ignore) with
-            | Ok() -> ()
-            | Error error -> failwith (DbError.display error)
-
-            let edge = tune (Web.EdgeConfig.production config.DisableSsl (errorPages ()))
-
-            // The fragment cache is built here, before the host, because jobs and broadcasts render outside a request; the host
-            // registers this instance as its `HybridCache` (`Web.Services.add`).
-            let fragments =
-                let services = ServiceCollection()
-                Campfire.Views.Fragments.add services config.FragmentBytes
-                services.BuildServiceProvider().GetRequiredService<Microsoft.Extensions.Caching.Hybrid.HybridCache>()
-            // config/initializers/web_push.rb: off without a valid VAPID key pair.
-            // The outgoing clients (J2) likewise come from a provider of their own until the host owns Boot (unit 8.7).
-            let clients =
-                let services = ServiceCollection()
-                services.AddSingleton<TimeProvider>(time) |> ignore
-                services.AddLogging() |> ignore
-                Clients.add services
-                services.BuildServiceProvider()
-            let http = clients.GetRequiredService<IHttpClientFactory>()
-            let pushEnv: PushEnv = { Http = http; Resolver = clients.GetRequiredService<IResolver>(); Time = time }
-            let webPush = IntegrationJobs.webPushPool config dbFactory gate efEnv pushEnv (loggers.CreateLogger "campfire.web_push")
-            let app =
-                AppState(config, secrets, time, gate, dbFactory, efEnv, storage, cableHandle, jobs, webPush, fragments, loggers, http)
-
+            env)
+        |> ignore
+        services.AddSingleton<Storage>(fun _ ->
+            Storage.create (DiskService.create config.Storage.Files "local") (RailsCompat.appVerifier secrets "ActiveStorage"))
+        |> ignore
+        services.AddSingleton<Registry<AppState>>(fun _ ->
             let registry = CoreJobs.withCoreJobs ()
             IntegrationJobs.registerJobs registry
+            registry)
+        |> ignore
+        // The fragment cache: one HybridCache over a size-limited memory cache, with no L2 (the session's distributed cache is not one).
+        Campfire.Views.Fragments.add services config.FragmentBytes
+        // The outgoing clients (J2), in the host's provider: the factory and its handlers are disposed with the host.
+        Clients.add services
+        // config/initializers/web_push.rb: off without a valid VAPID key pair.
+        match IntegrationJobs.vapidOrOff config (loggers.CreateLogger "campfire.web_push") with
+        | Some vapid ->
+            services.AddSingleton<PushDeliveries>(fun sp ->
+                let push: PushEnv =
+                    { Http = sp.GetRequiredService<IHttpClientFactory>()
+                      Resolver = sp.GetRequiredService<IResolver>()
+                      Time = time }
+                IntegrationJobs.pushDeliveries
+                    vapid
+                    (sp.GetRequiredService<IDbContextFactory<Campfire.Db.Ef.CampfireDb>>())
+                    (sp.GetRequiredService<WriteGate>())
+                    (sp.GetRequiredService<Campfire.Db.Ef.Env>())
+                    push
+                    (loggers.CreateLogger "campfire.web_push"))
+            |> ignore
+        | None -> ()
+        services.AddSingleton<AppState>(fun sp ->
+            AppState(
+                config,
+                secrets,
+                time,
+                sp.GetRequiredService<WriteGate>(),
+                sp.GetRequiredService<IDbContextFactory<Campfire.Db.Ef.CampfireDb>>(),
+                sp.GetRequiredService<Campfire.Db.Ef.Env>(),
+                sp.GetRequiredService<Storage>(),
+                sp.GetRequiredService<CableHandle>(),
+                sp.GetRequiredService<Jobs>(),
+                (match sp.GetService<PushDeliveries>() with
+                 | null -> None
+                 | deliveries -> Some deliveries),
+                sp.GetRequiredService<Microsoft.Extensions.Caching.Hybrid.HybridCache>(),
+                loggers,
+                sp.GetRequiredService<IHttpClientFactory>()
+            ))
+        |> ignore
+        Web.Services.add inputs.Edge secrets services
+        CableServices.add services (CableHandle())
 
-            return
-                { App = app
-                  Pipeline = pipeline edge
-                  ConfigureServices =
-                    fun services ->
-                        Campfire.Db.Ef.Data.addServices services dbFactory gate time
-                        services.AddSingleton<Campfire.Db.Ef.Env>(efEnv) |> ignore
-                        Web.Services.add edge app services
-                        CableServices.add services cableHandle
-                  Workers =
-                    fun services ->
-                        // Hosted services stop in reverse registration order, and `Build` registers the web host last, so
-                        // requests stop first, then jobs, then deliveries; the database closes after `RunAsync` returns.
-                        match webPush with
-                        | Some deliveries -> services.AddHostedService<PushDeliveries>(fun _ -> deliveries) |> ignore
-                        | None -> ()
-                        services.AddSingleton<Registry<AppState>>(registry) |> ignore
-                        services.AddHostedService<JobRunner<AppState>>(fun provider ->
-                            new JobRunner<AppState>(jobs, app, provider.GetRequiredService<Registry<AppState>>(), config.JobConcurrency))
-                        |> ignore }
-        }
-
-    /// `bootEdge` with no request log: the test hosts' (the log is `LOG_REQUESTS`'s, read by `serve`).
-    let bootWithTime timeOverride dbOptions config loggers : Task<Booted> = bootEdge id timeOverride dbOptions config loggers
-
-    /// Boots the app on the process clock (`CAMPFIRE_FROZEN_TIME` or the system clock).
-    let bootWith dbOptions config loggers : Task<Booted> = bootWithTime None dbOptions config loggers
-
-    /// `bootWith` with no extra context options (production).
-    let boot (config: AppConfig) (loggers: ILoggerFactory) : Task<Booted> = bootWith ignore config loggers
+    /// The hosted services that work off the app's queues: Web Push deliveries (when there are keys), then the job runner. Hosted
+    /// services stop in reverse order, so jobs stop before deliveries (a job queues them), and the web host, registered last, stops
+    /// before both.
+    let addWorkers (services: IServiceCollection) (config: AppConfig) : unit =
+        match VapidConfig.FromConfig config with
+        | Ok _ -> services.AddHostedService<PushDeliveries>(fun sp -> sp.GetRequiredService<PushDeliveries>()) |> ignore
+        | Error _ -> ()
+        services.AddHostedService<JobRunner<AppState>>(fun sp ->
+            new JobRunner<AppState>(
+                sp.GetRequiredService<Jobs>(),
+                sp.GetRequiredService<AppState>(),
+                sp.GetRequiredService<Registry<AppState>>(),
+                config.JobConcurrency
+            ))
+        |> ignore
 
     let internal servingEdge (front: Web.FrontSettings) (edge: Web.EdgeConfig) : Web.EdgeConfig =
         { edge with
@@ -171,22 +208,151 @@ module Boot =
             MaxCacheItemSize = front.MaxCacheItemSize
             MaxRequestBody = if front.MaxRequestBody > 0L then min front.MaxRequestBody edge.MaxRequestBody else edge.MaxRequestBody }
 
-    /// Production's boot: the request log (`UseHttpLogging`, F8 of plans/design-front.md) is on unless `LOG_REQUESTS` says no, the
-    /// output cache has `CACHE_SIZE` (F9), and `MAX_REQUEST_BODY` lowers the body cap below 16 MiB (F12).
-    let private bootServing (front: Web.FrontSettings) (config: AppConfig) (loggers: ILoggerFactory) : Task<Booted> =
-        bootEdge (servingEdge front) None ignore config loggers
+    // --- Build -----------------------------------------------------------------------------------------------
+
+    /// The app's host (J14): one `WebApplication` builder. The configuration (`AppConfig`, `FrontSettings`, `CAMPFIRE_FROZEN_TIME`)
+    /// is read from the builder's, which `configure` may extend before anything is read (an in-memory provider); `overrides` runs after
+    /// the registrations, so that what it adds replaces them. `DatabaseStartup` is registered first, so the database is ready before
+    /// any hosted service starts and before Kestrel binds. A bad configuration throws here, before a listener exists. The caller runs
+    /// the host (`RunAsync`) and then `closeDatabase`.
+    let build (loggers: ILoggerFactory) (configure: WebApplicationBuilder -> unit) (overrides: IServiceCollection -> unit) : WebApplication =
+        let builder = WebApplication.CreateSlimBuilder(Web.StaticAssets.hostOptions Web.Host.hostArgs)
+        configure builder
+        let lookup (key: string) : string | null = builder.Configuration[key]
+        let config =
+            match AppConfig.fromLookup lookup with
+            | Ok config -> config
+            | Error message -> failwith message
+        let settings = Web.FrontSettings.fromLookup lookup
+        // The process clock: `CAMPFIRE_FROZEN_TIME` freezes `Time.current` (the parity runs pin it), the system clock otherwise.
+        let time =
+            match HarnessClock.fromValue (lookup HarnessClock.Variable) with
+            | Ok time -> time
+            | Error message -> failwith message
+        let inputs =
+            { Config = config
+              Loggers = loggers
+              Edge = servingEdge settings (Web.EdgeConfig.production config.DisableSsl (errorPages ()))
+              Time = time
+              DbOptions = ignore }
+        let services = builder.Services
+        services.AddSingleton<ILoggerFactory>(loggers).AddSingleton<Web.FrontSettings>(settings) |> ignore
+        services.AddHostedService<DatabaseStartup>(fun sp ->
+            DatabaseStartup(
+                config,
+                time,
+                sp.GetRequiredService<IDbContextFactory<Campfire.Db.Ef.CampfireDb>>(),
+                sp.GetRequiredService<WriteGate>(),
+                sp.GetRequiredService<Campfire.Db.Ef.Env>()
+            ))
+        |> ignore
+        addServices services inputs
+        addWorkers services config
+        overrides services
+        let store = Web.Host.configure builder settings (loggers.CreateLogger "campfire")
+        let app = builder.Build()
+        Web.Host.mapHttpPort app settings store
+        pipeline inputs.Edge app
+        app
+
+    // --- Test boot -------------------------------------------------------------------------------------------
+
+    /// The instance `root` holds, registered in `target` (last registration wins), so that a test host serves the state `App` holds.
+    let private shareFrom<'T when 'T: not null and 'T: not struct> (root: IServiceProvider) (target: IServiceCollection) : unit =
+        target.AddSingleton<'T>(root.GetRequiredService<'T>()) |> ignore
+
+    /// What the tests boot (`Booted`): `addServices` over a provider of its own, the database prepared as the host would, and the
+    /// state `App` holds shared into every host the tests add the registrations to. `tune` changes the edge settings and
+    /// `timeOverride` is the clock (tests hand in a `FakeTimeProvider` instead of setting the process-wide environment variable).
+    let bootEdge
+        (tune: Web.EdgeConfig -> Web.EdgeConfig)
+        (timeOverride: TimeProvider option)
+        (dbOptions: Microsoft.EntityFrameworkCore.DbContextOptionsBuilder<Campfire.Db.Ef.CampfireDb> -> unit)
+        (config: AppConfig)
+        (loggers: ILoggerFactory)
+        : Task<Booted> =
+        task {
+            let time =
+                match timeOverride with
+                | Some time -> time
+                | None ->
+                    match HarnessClock.fromEnvironment () with
+                    | Ok time -> time
+                    | Error message -> failwith message
+            let inputs =
+                { Config = config
+                  Loggers = loggers
+                  Edge = tune (Web.EdgeConfig.production config.DisableSsl (errorPages ()))
+                  Time = time
+                  DbOptions = dbOptions }
+            let services = ServiceCollection()
+            services.AddLogging() |> ignore
+            addServices services inputs
+            let root = services.BuildServiceProvider()
+            let startup =
+                DatabaseStartup(
+                    config,
+                    time,
+                    root.GetRequiredService<IDbContextFactory<Campfire.Db.Ef.CampfireDb>>(),
+                    root.GetRequiredService<WriteGate>(),
+                    root.GetRequiredService<Campfire.Db.Ef.Env>()
+                )
+            do! startup.Prepare()
+            let share (target: IServiceCollection) : unit =
+                shareFrom<AppState> root target
+                shareFrom<CableHandle> root target
+                shareFrom<Jobs> root target
+                shareFrom<WriteGate> root target
+                shareFrom<IDbContextFactory<Campfire.Db.Ef.CampfireDb>> root target
+                shareFrom<Storage> root target
+                shareFrom<Campfire.Db.Ef.Env> root target
+                shareFrom<Registry<AppState>> root target
+                shareFrom<Microsoft.Extensions.Caching.Hybrid.HybridCache> root target
+                match root.GetService<PushDeliveries>() with
+                | null -> ()
+                | deliveries -> target.AddSingleton<PushDeliveries>(deliveries) |> ignore
+            return
+                { App = root.GetRequiredService<AppState>()
+                  Pipeline = pipeline inputs.Edge
+                  ConfigureServices =
+                    fun target ->
+                        addServices target inputs
+                        share target
+                  Workers = fun target -> addWorkers target config
+                  Services = root }
+        }
+
+    /// `bootEdge` with no request log: the test hosts' (the log is `LOG_REQUESTS`'s, read by `build`).
+    let bootWithTime timeOverride dbOptions config loggers : Task<Booted> = bootEdge id timeOverride dbOptions config loggers
+
+    /// Boots the app on the process clock (`CAMPFIRE_FROZEN_TIME` or the system clock).
+    let bootWith dbOptions config loggers : Task<Booted> = bootWithTime None dbOptions config loggers
+
+    /// `bootWith` with no extra context options.
+    let boot (config: AppConfig) (loggers: ILoggerFactory) : Task<Booted> = bootWith ignore config loggers
 
     // --- Commands ----------------------------------------------------------------------------------------
 
     /// What the old writer thread did on `Dispose`: a `TRUNCATE` checkpoint (the WAL's pages go into the database file and the WAL
-    /// is emptied), then every connection of Microsoft.Data.Sqlite's pool closed so that the file is released.
-    let internal closeDatabase (app: AppState) : unit =
+    /// is emptied), then every connection of Microsoft.Data.Sqlite's pool closed so that the file is released. On a connection of
+    /// its own, since the host (and the pooled contexts with it) is gone by then.
+    let internal closeDatabaseAt (path: string) (logger: ILogger) : unit =
         try
-            use context = app.DbFactory.CreateDbContext()
-            context.Database.ExecuteSql($"PRAGMA wal_checkpoint(TRUNCATE)") |> ignore
+            let builder = SqliteConnectionStringBuilder()
+            builder.DataSource <- path
+            builder.Mode <- SqliteOpenMode.ReadWrite
+            builder.Pooling <- false
+            use connection = new SqliteConnection(builder.ToString())
+            connection.Open()
+            use command = connection.CreateCommand()
+            command.CommandText <- "PRAGMA busy_timeout = 5000; PRAGMA wal_checkpoint(TRUNCATE)"
+            command.ExecuteNonQuery() |> ignore
         with e ->
-            (app.Loggers.CreateLogger "campfire").LogWarning(e, "the shutdown checkpoint failed")
+            logger.LogWarning(e, "the shutdown checkpoint failed")
         SqliteConnection.ClearAllPools()
+
+    let internal closeDatabase (app: AppState) : unit =
+        closeDatabaseAt app.Config.Storage.Database (app.Loggers.CreateLogger "campfire")
 
     [<Literal>]
     let Usage = "usage: campfire [server|backup]"
@@ -194,17 +360,16 @@ module Boot =
     /// How long in-flight requests and queued jobs get after SIGTERM/SIGINT.
     let ShutdownGrace = Web.Host.ShutdownGrace
 
-    /// What follows the host's stop (which has already drained the jobs and the Web Push deliveries, as hosted services): the
-    /// database closes last (fold the WAL into the file and close every pooled connection; Rust drops its writer with the app).
-    let private drain (booted: Booted) : unit = closeDatabase booted.App
-
-    /// `bin/boot` (F1, F13): the app's own host (`Web.Host`) on `HTTP_PORT` and `TARGET_PORT`, and with `TLS_DOMAIN` on `HTTPS_PORT`, run
-    /// under ConsoleLifetime (SIGTERM, SIGINT) with a 10 s stop.
-    let private serveHosted (settings: Web.FrontSettings) (config: AppConfig) (loggers: ILoggerFactory) : Task =
+    /// `bin/boot` (F1, F13): the app's own host (`build`) on `HTTP_PORT` and `TARGET_PORT`, and with `TLS_DOMAIN` on `HTTPS_PORT`, run
+    /// under ConsoleLifetime (SIGTERM, SIGINT) with a 10 s stop; then the database closes (fold the WAL into the file and close every
+    /// pooled connection; Rust drops its writer with the app). The host's stop has already drained the jobs and the Web Push deliveries,
+    /// as hosted services.
+    let serve (loggers: ILoggerFactory) : Task =
         task {
             let logger = loggers.CreateLogger "campfire"
-            let! booted = bootServing settings config loggers
-            let host = Web.Host.build settings loggers (fun services -> booted.ConfigureServices services; booted.Workers services) booted.Pipeline
+            let host = build loggers ignore ignore
+            let settings = host.Services.GetRequiredService<Web.FrontSettings>()
+            let databasePath = host.Services.GetRequiredService<AppConfig>().Storage.Database
             // The cable server closes every WebSocket (`server_restart`) on `ApplicationStopping` (test P12 stops the app's own host).
             host.Lifetime.ApplicationStarted.Register(fun () ->
                 if settings.HasTls then
@@ -213,7 +378,7 @@ module Boot =
                     logger.LogInformation("Server started http=:{Http}", settings.HttpPort))
             |> ignore
             host.Lifetime.ApplicationStopping.Register(fun () -> logger.LogInformation "shutting down") |> ignore
-            // A failed start (a port in use) still drains what booted, then fails the command.
+            // A failed start (a port in use) still closes the database, then fails the command.
             let! failure =
                 task {
                     try
@@ -225,16 +390,12 @@ module Boot =
                         return None
                     | e -> return Some e
                 }
-            drain booted
+            closeDatabaseAt databasePath logger
             match failure with
             | Some e -> System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(e).Throw()
             | None -> ()
             logger.LogInformation "Server stopped"
         }
-
-    /// `bin/boot`: the app's own host.
-    let serve (config: AppConfig) (loggers: ILoggerFactory) : Task =
-        serveHosted (Web.FrontSettings.fromEnv ()) config loggers
 
     /// SQLite's online backup of the live database at `source` into a new file at `target`: `sqlite3_backup_step(-1)`
     /// (every page in one step), retried `attempts` times, `delay` apart, while the source is busy or locked
@@ -341,7 +502,7 @@ module Boot =
                 match OpenFiles.raiseOpenFileLimit () with
                 | ValueSome limit -> (loggers.CreateLogger "campfire").LogInformation("open files limit={Limit}", limit)
                 | ValueNone -> ()
-                (serve config loggers).GetAwaiter().GetResult()
+                (serve loggers).GetAwaiter().GetResult()
                 0
             | Some "backup" ->
                 backup config (loggers.CreateLogger "campfire")

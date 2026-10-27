@@ -149,25 +149,17 @@ module Host =
     let configureForwarding (settings: FrontSettings) (options: ForwardedHeadersOptions) : unit =
         if not settings.ForwardHeaders then options.ForwardedHeaders <- ForwardedHeaders.None
 
-    /// The host (F1): the app's services (`configureServices`), Kestrel's listeners and limits, ConsoleLifetime's shutdown over
-    /// `ShutdownGrace`, and the app's pipeline (`pipeline`) on the host itself. The caller runs it (`RunAsync`).
-    let build
-        (settings: FrontSettings)
-        (loggers: ILoggerFactory)
-        (configureServices: IServiceCollection -> unit)
-        (pipeline: IApplicationBuilder -> unit)
-        : WebApplication =
-        let logger = loggers.CreateLogger "campfire"
+    /// The host's own registrations (F1): shutdown over `ShutdownGrace`, ACME with a certificate store, the forwarded-headers policy,
+    /// the static web assets, and Kestrel's limits and listeners. Returns the certificate store when TLS is on. `Boot.build` and
+    /// `build` both call it, after the app's services are registered (the ACME service is a hosted service: it starts after them).
+    let configure (builder: WebApplicationBuilder) (settings: FrontSettings) (logger: ILogger) : CertificateStore voption =
         let store =
             if settings.HasTls then
                 validateDomains settings logger
                 ValueSome(CertificateStore settings.TlsDomains)
             else
                 ValueNone
-        let builder = WebApplication.CreateSlimBuilder(StaticAssets.hostOptions hostArgs)
-        builder.Services.AddSingleton<ILoggerFactory>(loggers) |> ignore
         builder.Services.Configure<HostOptions>(fun (options: HostOptions) -> options.ShutdownTimeout <- ShutdownGrace) |> ignore
-        configureServices builder.Services
         match store with
         | ValueSome store ->
             builder.Services.TryAddSingleton<TimeProvider>(TimeProvider.System)
@@ -181,7 +173,10 @@ module Host =
             configureKestrel options
             listen settings store logger options)
         |> ignore
-        let app = builder.Build()
+        store
+
+    /// F6, on the built host: with TLS, the HTTP port gets its own branch (`httpPortHandler`), ahead of the app's pipeline.
+    let mapHttpPort (app: WebApplication) (settings: FrontSettings) (store: CertificateStore voption) : unit =
         match store with
         | ValueSome store ->
             let handler = httpPortHandler settings store
@@ -196,5 +191,21 @@ module Host =
             )
             |> ignore
         | ValueNone -> ()
+
+    /// A host over `configureServices` and `pipeline` (the tests' and the bench's; the app's own is `Boot.build`): the same
+    /// pieces, `configure` and `mapHttpPort`, around the caller's registrations. The caller runs it (`RunAsync`).
+    let build
+        (settings: FrontSettings)
+        (loggers: ILoggerFactory)
+        (configureServices: IServiceCollection -> unit)
+        (pipeline: IApplicationBuilder -> unit)
+        : WebApplication =
+        let logger = loggers.CreateLogger "campfire"
+        let builder = WebApplication.CreateSlimBuilder(StaticAssets.hostOptions hostArgs)
+        builder.Services.AddSingleton<ILoggerFactory>(loggers) |> ignore
+        configureServices builder.Services
+        let store = configure builder settings logger
+        let app = builder.Build()
+        mapHttpPort app settings store
         pipeline app
         app

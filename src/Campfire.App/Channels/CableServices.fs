@@ -41,6 +41,7 @@ type CableLink(handle: CableHandle, provider: System.IServiceProvider) =
 /// `Secrets`, `TimeProvider`, `WriteGate`, `Env` and the scoped `CampfireDb` (`Data.addServices`) and the session scheme
 /// (`Services.addAuthentication`) in the container.
 let add (services: IServiceCollection) (handle: CableHandle) : unit =
+    services.AddSingleton<CableHandle>(handle) |> ignore
     services.AddOptions<CableOptions>() |> ignore
     services.AddSingleton<Cable>(fun provider ->
         Cable(
@@ -57,4 +58,4 @@ let add (services: IServiceCollection) (handle: CableHandle) : unit =
     |> ignore
     services.AddSingleton<Broadcasts>(fun provider -> Broadcasts(provider.GetRequiredService<Cable>())) |> ignore
     services.AddHostedService<CableHeartbeat<CableUser>>(fun provider -> new CableHeartbeat<CableUser>(provider.GetRequiredService<Cable>())) |> ignore
-    services.AddHostedService<CableLink>(fun provider -> CableLink(handle, provider)) |> ignore
+    services.AddHostedService<CableLink>(fun provider -> CableLink(provider.GetRequiredService<CableHandle>(), provider)) |> ignore

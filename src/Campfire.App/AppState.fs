@@ -1,7 +1,7 @@
 // Port of `AppState`, `AppCtx` and `db_error` in rust/crates/campfire/src/app.rs
 //
 // `AppState` is what controllers, channels, jobs and integrations share. Actions reach it with
-// `c.App` (`CtxApp`). Boot (`App.boot`) builds it.
+// `c.App` (`CtxApp`). `Boot.addServices` registers it, made from the host's singletons.
 namespace Campfire.App
 
 open System
