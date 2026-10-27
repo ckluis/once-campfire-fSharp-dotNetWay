@@ -104,29 +104,19 @@ let ``LG3 no request or response header value but the user agent appears in the 
 [<Fact>]
 let ``LG4 the pipeline logs only with LogRequests (LOG_REQUESTS=false leaves the middleware out)`` () =
     task {
-        let dir = Directory.CreateTempSubdirectory("campfire-app-test").FullName
-        try
-            let lines (logRequests: bool) =
-                task {
-                    let logs = new CapturingLoggers()
-                    let! booted = Boot.bootEdge (fun edge -> { edge with LogRequests = logRequests }) None ignore (configFor dir []) logs
-                    let! host =
-                        startPipelineWith (fun services -> booted.ConfigureServices services; services.AddSingleton<ILoggerFactory>(logs) |> ignore) booted.Pipeline
-                    try
-                        let! reply = host.Send(get "/up")
-                        Assert.Equal(200, reply.Status)
-                    finally
-                        (host :> IAsyncDisposable).DisposeAsync().AsTask().GetAwaiter().GetResult()
-                    return logs
-                }
-            let! on = lines true
-            Assert.Equal(1, (entries on).Length)
-            Assert.Contains("Path: /up", (entries on).Head)
-            // The test hosts' boot leaves it off.
-            let! off = lines false
-            Assert.Empty(httpLines off)
-        finally
-            try Directory.Delete(dir, true) with _ -> ()
+        let lines (logRequests: bool) =
+            task {
+                use! test = bootEmptyWith [ "LOG_REQUESTS", (if logRequests then "true" else "false") ]
+                let! reply = test.Send(get "/up")
+                Assert.Equal(200, reply.Status)
+                return test.Captured
+            }
+        let! on = lines true
+        Assert.Equal(1, (entries on).Length)
+        Assert.Contains("Path: /up", (entries on).Head)
+        // The test hosts' boot leaves it off.
+        let! off = lines false
+        Assert.Empty(httpLines off)
     }
 
 // --- Compression ----------------------------------------------------------------------------------------------

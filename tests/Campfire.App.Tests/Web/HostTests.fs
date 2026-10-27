@@ -43,7 +43,7 @@ let private settingsOf (vars: (string * string) list) : FrontSettings =
 
 /// `Host.build` over a booted app's services and pipeline, started. Disposing the returned host stops it.
 let private startHostWith
-    (booted: Booted)
+    (booted: Wiring)
     (pipeline: Microsoft.AspNetCore.Builder.IApplicationBuilder -> unit)
     (settings: FrontSettings)
     : Task<Campfire.App.Tests.Support.Host * Microsoft.AspNetCore.Builder.WebApplication> =
@@ -53,7 +53,7 @@ let private startHostWith
         return new Campfire.App.Tests.Support.Host(app, settings.HttpPort, BodyWrites()), app
     }
 
-let private startHost (booted: Booted) (settings: FrontSettings) = startHostWith booted booted.Pipeline settings
+let private startHost (booted: Wiring) (settings: FrontSettings) = startHostWith booted booted.Pipeline settings
 
 /// The app's pipeline with a `/cable` that throws: an exception outside an action, which reaches `UseExceptionHandler` itself.
 let private throwingCable (builder: Microsoft.AspNetCore.Builder.IApplicationBuilder) : unit =
@@ -286,31 +286,18 @@ let ``HS8 HTTP_IDLE_TIMEOUT closes an idle keep-alive connection, HTTP_READ_TIME
 [<Fact>]
 let ``HS9 MAX_REQUEST_BODY below 16 MiB is the app's 413, above it the 16 MiB cap stays`` () =
     task {
-        let dir = Directory.CreateTempSubdirectory("campfire-app-test").FullName
-        try
-            let boot (vars: (string * string) list) =
-                task {
-                    let settings = settingsOf vars
-                    let! booted = Boot.bootEdge (Boot.servingEdge settings) None ignore (configFor dir []) (new CapturingLoggers())
-                    let! host, _ = startHost booted settings
-                    return host, booted
-                }
-            let formOf (n: int) = (request "POST" "/session").Form("email_address=" + String('a', n))
-            let! lowered, booted = boot [ "MAX_REQUEST_BODY", "1024" ]
-            use _lowered = lowered
-            let! small = lowered.Send(formOf 100)
-            Assert.NotEqual(413, small.Status)
-            let! big = lowered.Send(formOf 2000)
-            Assert.Equal(413, big.Status)
-            // Above the cap: the cap is still 16 MiB (a value of 99 GB is no larger).
-            let edgeOf (vars: (string * string) list) = Boot.servingEdge (settingsOf vars) (EdgeConfig.production true (Boot.errorPages ()))
-            Assert.Equal(1024L, (edgeOf [ "MAX_REQUEST_BODY", "1024" ]).MaxRequestBody)
-            Assert.Equal(Edge.MaxRequestBody, (edgeOf [ "MAX_REQUEST_BODY", "99000000000" ]).MaxRequestBody)
-            Assert.Equal(Edge.MaxRequestBody, (edgeOf [ "MAX_REQUEST_BODY", "0" ]).MaxRequestBody)
-            Assert.Equal(Edge.MaxRequestBody, (edgeOf []).MaxRequestBody)
-            Boot.closeDatabase booted.App
-        finally
-            try Directory.Delete(dir, true) with _ -> ()
+        let formOf (n: int) = (request "POST" "/session").Form("email_address=" + String('a', n))
+        use! lowered = bootEmptyWith [ "MAX_REQUEST_BODY", "1024" ]
+        let! small = lowered.Send(formOf 100)
+        Assert.NotEqual(413, small.Status)
+        let! big = lowered.Send(formOf 2000)
+        Assert.Equal(413, big.Status)
+        // Above the cap: the cap is still 16 MiB (a value of 99 GB is no larger).
+        let edgeOf (vars: (string * string) list) = Boot.servingEdge (settingsOf vars) (EdgeConfig.production true (Boot.errorPages ()))
+        Assert.Equal(1024L, (edgeOf [ "MAX_REQUEST_BODY", "1024" ]).MaxRequestBody)
+        Assert.Equal(Edge.MaxRequestBody, (edgeOf [ "MAX_REQUEST_BODY", "99000000000" ]).MaxRequestBody)
+        Assert.Equal(Edge.MaxRequestBody, (edgeOf [ "MAX_REQUEST_BODY", "0" ]).MaxRequestBody)
+        Assert.Equal(Edge.MaxRequestBody, (edgeOf []).MaxRequestBody)
     }
 
 [<Fact>]

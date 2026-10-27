@@ -3940,3 +3940,13 @@ Sonnet builder, `plans/design-jobs.md` J14, split per the checkpoint: 8.7a is th
   (`Error: <message>`, exit 1, the same text) and no longer before the TLS-domain check; and `closeDatabaseAt` opens a plain connection for the shutdown checkpoint instead of leasing a pooled context.
 - **Left for 8.7b:** `Support` onto `Boot.build` (in-memory configuration, provider and logger overrides, loopback Kestrel), then delete `Booted`, `bootEdge`, `bootWith*`, `Booted.Services` and the share
   list; `Boot.addServices`/`addWorkers` stay public only as long as the shim needs them.
+
+### Phase 8, unit 8.7b Builder, tests on `Boot.build` (2026-10-27)
+
+Sonnet builder, the second half of the 8.7 split. `bin/kloc` 27,594 / **28,037 corrected (28.0)**, from 28,107 after 8.7a (-70: `Booted`, `bootEdge`, `bootWith*`, the shim's share list and `BootInputs.DbOptions` are gone from `Boot.fs`; `Support.fs` grew by about a third of that).
+- **What changed:** `Support` boots every `Test` through `Boot.build` over an in-memory configuration on two free ports (`HTTP_PORT`, `TARGET_PORT`; `LOG_REQUESTS` and `CACHE_SIZE` default to 0 in tests, as the test hosts never ran the request log or the output cache), with the capture as the loggers.
+  The clock, the EF context options (`LogTo`) and the per-test services replace registrations through `overrides`; a startup filter counts body writes. `Boot.addServices` resolves `TimeProvider` from the provider, so a replacement takes effect everywhere (`Env`, `AppState`, `DatabaseStartup`, the context factory, push).
+  `Test.Booted` is now `Support.Wiring` (App, Pipeline, ConfigureServices, Workers): the registrations a second test host needs to serve the primary host's state (`Boot.addServices` over the host's own `EdgeConfig`, then the host's singletons shared in). It is a test helper, not a second app. `Boot.addServices` and `addWorkers` stay public for it.
+  LG4 and HS9 now boot the app with `LOG_REQUESTS` / `MAX_REQUEST_BODY` in the configuration instead of calling `bootEdge`. A port picked free and taken before Kestrel bound it (seen once) retries on new ports.
+- **Gates:** `CAMPFIRE_REQUIRE_SEED=1 bin/verify` 1,030 tests, 1,024 passed, 6 skipped, 0 failed (guards, lint-markup and H1 green). `bin/linux-tests App` 418 tests, 417 passed, 1 skipped (AC11 without Pebble; HS2 and HS4 ran). The production path is untouched apart from the `TimeProvider` resolution above, so the image, bench and pixel gates of 8.7a stand (no re-measure).
+- **Differences recorded:** none for users. Test logs now also carry the framework's own lines (the host's `ILoggerFactory` is the capture); the tests that read logs filter by category and passed unchanged.

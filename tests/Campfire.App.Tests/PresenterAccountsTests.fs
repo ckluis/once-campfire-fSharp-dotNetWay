@@ -1,7 +1,7 @@
 // Port of rust/crates/campfire/src/controllers/presenters/accounts/tests.rs
 //
 // Request-level tests for the session, account and user controllers (controllers A), through the
-// whole stack (`Boot.boot`, the Rails route table, kit) over a private copy of the reference-built
+// whole stack (`Boot.build`, the Rails route table, kit) over a private copy of the reference-built
 // `default` parity seed. Skipped (with a note) when the seed hasn't been built
 // (`parity/bin/seed build default`). Parity against the running reference lives in
 // `reference-tools/campfire/controllers_a/replay.py`.

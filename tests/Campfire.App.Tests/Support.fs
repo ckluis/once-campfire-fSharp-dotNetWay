@@ -22,6 +22,7 @@ open Microsoft.AspNetCore.Builder
 open Microsoft.AspNetCore.Hosting
 open Microsoft.AspNetCore.Hosting.Server
 open Microsoft.AspNetCore.Hosting.Server.Features
+open Microsoft.Extensions.Configuration
 open Microsoft.AspNetCore.Http
 open Microsoft.AspNetCore.Http.Features
 open Microsoft.AspNetCore.Server.Kestrel.Core
@@ -30,7 +31,12 @@ open Microsoft.Extensions.Logging
 open Microsoft.Extensions.Logging.Abstractions
 open Microsoft.Extensions.Logging.Testing
 open Xunit
+open Microsoft.EntityFrameworkCore
 open Campfire.App
+open Campfire.App.Channels
+open Campfire.App.Integrations
+open Campfire.Db
+open Campfire.Storage
 open Campfire.Tests
 
 /// The pinned values of the parity environment (`parity/.env.reference`).
@@ -308,8 +314,19 @@ module RawSql =
         use command = command conn sql args
         command.ExecuteNonQuery() |> ignore
 
-/// A booted app over its own copy of a seed (or an empty storage directory), and a server for its pipeline.
-type Test(booted: Booted, dir: string, host: Host, logs: CapturingLoggers) =
+/// What a second test host needs to serve the state of a booted app: its registrations (`Boot.addServices` over the same inputs, then the
+/// host's own singletons shared in, so that both hosts and `App` see one app) and its pipeline. Not a second app: the hosted services
+/// that work off the app's queues (`Boot.addWorkers`) go only to the host that serves it, since stopping a runner closes the queues for good.
+[<NoComparison; NoEquality>]
+type Wiring =
+    { App: AppState
+      Pipeline: IApplicationBuilder -> unit
+      ConfigureServices: IServiceCollection -> unit
+      Workers: IServiceCollection -> unit }
+
+/// A booted app over its own copy of a seed (or an empty storage directory): `Boot.build`'s host on loopback ports, with a raw
+/// client for it.
+type Test(booted: Wiring, dir: string, host: Host, logs: CapturingLoggers) =
     member _.Booted = booted
 
     /// The loopback port the app listens on.
@@ -317,6 +334,7 @@ type Test(booted: Booted, dir: string, host: Host, logs: CapturingLoggers) =
 
     /// What the app logged.
     member _.Logs: string = logs.Text
+    member _.Captured: CapturingLoggers = logs
     member _.App = booted.App
     member _.Dir = dir
 
@@ -363,7 +381,6 @@ type Test(booted: Booted, dir: string, host: Host, logs: CapturingLoggers) =
                 task {
                     do! (host :> IAsyncDisposable).DisposeAsync()
                     Boot.closeDatabase booted.App
-                    booted.Services.Dispose()
                     try
                         Directory.Delete(dir, true)
                     with _ ->
@@ -380,87 +397,151 @@ let private copyDir (from: string) (target: string) : unit =
             copy sub (Path.Combine(target, Path.GetFileName sub))
     copy from target
 
+let freePort () : int =
+    let listener = new TcpListener(IPAddress.Loopback, 0)
+    listener.Start()
+    let port = (listener.LocalEndpoint :?> IPEndPoint).Port
+    listener.Stop()
+    port
+
+/// The app's environment over `root` as its storage, with the parity secret.
+let configVars (root: string) (extra: (string * string) list) : (string * string) list =
+    let secret = defaultArg (parityEnv "SECRET_KEY_BASE") "test-secret-key-base"
+    [ "SECRET_KEY_BASE", secret
+      "DISABLE_SSL", "true"
+      "APP_VERSION", "parity"
+      "GIT_REVISION", "parity"
+      "CAMPFIRE_STORAGE_PATH", root ]
+    @ extra
+
 /// The app's configuration over `root` as its storage, with the parity secret.
 let configFor (root: string) (extra: (string * string) list) : AppConfig =
-    let secret = defaultArg (parityEnv "SECRET_KEY_BASE") "test-secret-key-base"
-    let vars =
-        Map.ofList (
-            [ "SECRET_KEY_BASE", secret
-              "DISABLE_SSL", "true"
-              "APP_VERSION", "parity"
-              "GIT_REVISION", "parity"
-              "CAMPFIRE_STORAGE_PATH", root ]
-            @ extra
-        )
+    let vars = Map.ofList (configVars root extra)
     match AppConfig.fromLookup (fun name -> match Map.tryFind name vars with Some value -> value | None -> null) with
     | Ok config -> config
     | Error message -> failwith message
 
-/// `requestLog`: the production edge (`UseHttpLogging`, with the interceptor) over the capture, as `Boot.serve` has it.
-let private startWithServicesLogged (requestLog: bool) time dbOptions (more: IServiceCollection -> unit) (config: AppConfig) (dir: string) : Task<Test> =
+/// Counts what goes through a response's body writer, ahead of everything the app adds (the host's first middleware).
+type private CountBodies(writes: BodyWrites) =
+    interface IStartupFilter with
+        member _.Configure(next: Action<IApplicationBuilder>) : Action<IApplicationBuilder> =
+            Action<IApplicationBuilder>(fun app ->
+                app.Use(
+                    Func<HttpContext, RequestDelegate, Task>(fun http next ->
+                        match http.Features.Get<IHttpResponseBodyFeature>() with
+                        | null -> ()
+                        | inner -> http.Features.Set<IHttpResponseBodyFeature>(CountingBody(inner, writes))
+                        next.Invoke http)
+                )
+                |> ignore
+                next.Invoke app)
+
+/// The instance the host's provider holds, registered in `target` (last registration wins).
+let private shareFrom<'T when 'T: not null and 'T: not struct> (root: IServiceProvider) (target: IServiceCollection) : unit =
+    target.AddSingleton<'T>(root.GetRequiredService<'T>()) |> ignore
+
+let private wiringOf (app: WebApplication) (logs: CapturingLoggers) : Wiring =
+    let root = app.Services
+    let state = root.GetRequiredService<AppState>()
+    let inputs: BootInputs =
+        { Config = state.Config
+          Loggers = logs
+          Edge = root.GetRequiredService<Campfire.App.Web.EdgeConfig>()
+          Time = root.GetRequiredService<TimeProvider>() }
+    let share (target: IServiceCollection) : unit =
+        shareFrom<AppState> root target
+        shareFrom<CableHandle> root target
+        shareFrom<Jobs> root target
+        shareFrom<WriteGate> root target
+        shareFrom<IDbContextFactory<Campfire.Db.Ef.CampfireDb>> root target
+        shareFrom<Storage> root target
+        shareFrom<Campfire.Db.Ef.Env> root target
+        shareFrom<Registry<AppState>> root target
+        shareFrom<Microsoft.Extensions.Caching.Hybrid.HybridCache> root target
+        shareFrom<TimeProvider> root target
+        match root.GetService<PushDeliveries>() with
+        | null -> ()
+        | deliveries -> target.AddSingleton<PushDeliveries>(deliveries) |> ignore
+    { App = state
+      Pipeline = Boot.pipeline inputs.Edge
+      ConfigureServices =
+        fun target ->
+            Boot.addServices target inputs
+            share target
+      Workers = fun target -> Boot.addWorkers target state.Config }
+
+/// The app as `Boot.build` makes it, over an in-memory configuration (`vars`; `LOG_REQUESTS` off unless a test sets it) on two free
+/// loopback-or-any ports, with the capture as its loggers, the clock `time` and the EF context options `dbOptions` (tests: `LogTo`)
+/// replacing the registrations, then `more`. Started; `Test.Port` is its `TARGET_PORT`.
+let private startApp time dbOptions (more: IServiceCollection -> unit) (vars: (string * string) list) (dir: string) : Task<Test> =
     task {
         let logs = new CapturingLoggers()
-        let tune (edge: Campfire.App.Web.EdgeConfig) = if requestLog then { edge with LogRequests = true } else edge
-        let! booted = Boot.bootEdge tune time dbOptions config logs
-        let! host =
-            startPipelineWith
-                (fun services ->
-                    booted.ConfigureServices services
-                    booted.Workers services
-                    if requestLog then services.AddSingleton<ILoggerFactory>(logs) |> ignore
-                    more services)
-                booted.Pipeline
-        return new Test(booted, dir, host, logs)
+        let writes = BodyWrites()
+        let httpPort, targetPort = freePort (), freePort ()
+        let all = [ "HTTP_PORT", string httpPort; "TARGET_PORT", string targetPort; "LOG_REQUESTS", "false"; "CACHE_SIZE", "0" ] @ vars
+        let configure (builder: WebApplicationBuilder) : unit =
+            builder.Logging.ClearProviders() |> ignore
+            builder.Configuration.AddInMemoryCollection(all |> Map.ofList |> Seq.map (fun (KeyValue(k, v)) -> KeyValuePair<string, string | null>(k, v))) |> ignore
+        let overrides (services: IServiceCollection) : unit =
+            services.AddSingleton<IStartupFilter>(CountBodies writes) |> ignore
+            match time with
+            | Some(time: TimeProvider) -> services.AddSingleton<TimeProvider>(time) |> ignore
+            | None -> ()
+            services.AddSingleton<IDbContextFactory<Campfire.Db.Ef.CampfireDb>>(fun sp ->
+                let config = sp.GetRequiredService<AppConfig>()
+                Campfire.Db.Ef.Data.factory (Campfire.Db.Ef.Data.options config.Storage.Database (sp.GetRequiredService<TimeProvider>()) dbOptions))
+            |> ignore
+            more services
+        let app = Boot.build logs configure overrides
+        do! app.StartAsync()
+        return new Test(wiringOf app logs, dir, new Host(app, targetPort, writes), logs)
     }
 
-let private startWithServices time dbOptions (more: IServiceCollection -> unit) (config: AppConfig) (dir: string) : Task<Test> =
-    startWithServicesLogged false time dbOptions more config dir
+/// `startApp`, again on other ports if a port picked free was taken before Kestrel bound it.
+let rec private startAppRetrying (attempts: int) time dbOptions more vars dir : Task<Test> =
+    task {
+        try
+            return! startApp time dbOptions more vars dir
+        with e when attempts > 1 && (string e).Contains "address already in use" ->
+            return! startAppRetrying (attempts - 1) time dbOptions more vars dir
+    }
 
-let private startWith time dbOptions (config: AppConfig) (dir: string) : Task<Test> = startWithServices time dbOptions ignore config dir
+let private startWithServices time dbOptions (more: IServiceCollection -> unit) (vars: (string * string) list) (dir: string) : Task<Test> =
+    startAppRetrying 5 time dbOptions more (configVars dir vars) dir
 
-let private start (config: AppConfig) (dir: string) : Task<Test> = startWith None ignore config dir
+/// A private copy of seed `name` under a new directory, or a skip when the seed isn't built.
+let private seedCopy (name: string) : (string * string) option =
+    match Repo.seed name with
+    | None ->
+        Assert.Skip $"parity seed {name} is not built (parity/bin/seed build {name}); CAMPFIRE_REQUIRE_SEED=1 fails it instead"
+        None
+    | Some seed ->
+        let dir = Directory.CreateTempSubdirectory("campfire-app-test").FullName
+        Directory.CreateDirectory(Path.Combine(dir, "db")) |> ignore
+        for file in [ "production.sqlite3"; "production.sqlite3-wal"; "production.sqlite3-shm" ] do
+            let from = Path.Combine(seed, "db", file)
+            if File.Exists from then File.Copy(from, Path.Combine(dir, "db", file))
+        let storage = Path.Combine(seed, "storage")
+        if Directory.Exists storage then copyDir storage (Path.Combine(dir, "files"))
+        Some(dir, seed)
+
+let private withLabels (seed: string) (test: Test) : Test =
+    let labels = Path.Combine(seed, "labels.json")
+    if File.Exists labels then test.Labels <- Some((JsonDocument.Parse(File.ReadAllText labels)).RootElement.Clone())
+    test
 
 /// An app booted over a private copy of seed `name`, with `dbOptions` applied to the EF context options (tests: `LogTo`).
 let bootSeededServices (time: TimeProvider option) dbOptions (more: IServiceCollection -> unit) (extra: (string * string) list) (name: string) : Task<Test> =
     task {
-        match Repo.seed name with
-        | None ->
-            Assert.Skip $"parity seed {name} is not built (parity/bin/seed build {name}); CAMPFIRE_REQUIRE_SEED=1 fails it instead"
-            return Unchecked.defaultof<Test>
-        | Some seed ->
-            let dir = Directory.CreateTempSubdirectory("campfire-app-test").FullName
-            Directory.CreateDirectory(Path.Combine(dir, "db")) |> ignore
-            for file in [ "production.sqlite3"; "production.sqlite3-wal"; "production.sqlite3-shm" ] do
-                let from = Path.Combine(seed, "db", file)
-                if File.Exists from then File.Copy(from, Path.Combine(dir, "db", file))
-            let storage = Path.Combine(seed, "storage")
-            if Directory.Exists storage then copyDir storage (Path.Combine(dir, "files"))
-            let! test = startWithServices time dbOptions more (configFor dir extra) dir
-            let labels = Path.Combine(seed, "labels.json")
-            if File.Exists labels then test.Labels <- Some((JsonDocument.Parse(File.ReadAllText labels)).RootElement.Clone())
-            return test
+        match seedCopy name with
+        | None -> return Unchecked.defaultof<Test>
+        | Some(dir, seed) ->
+            let! test = startWithServices time dbOptions more extra dir
+            return withLabels seed test
     }
 
 /// `bootSeeded` with the request log on and captured (unit 8.6's RD tests).
-let bootSeededRequestLog (name: string) : Task<Test> =
-    task {
-        match Repo.seed name with
-        | None ->
-            Assert.Skip $"parity seed {name} is not built (parity/bin/seed build {name}); CAMPFIRE_REQUIRE_SEED=1 fails it instead"
-            return Unchecked.defaultof<Test>
-        | Some seed ->
-            let dir = Directory.CreateTempSubdirectory("campfire-app-test").FullName
-            Directory.CreateDirectory(Path.Combine(dir, "db")) |> ignore
-            for file in [ "production.sqlite3"; "production.sqlite3-wal"; "production.sqlite3-shm" ] do
-                let from = Path.Combine(seed, "db", file)
-                if File.Exists from then File.Copy(from, Path.Combine(dir, "db", file))
-            let storage = Path.Combine(seed, "storage")
-            if Directory.Exists storage then copyDir storage (Path.Combine(dir, "files"))
-            let! test = startWithServicesLogged true None ignore ignore (configFor dir []) dir
-            let labels = Path.Combine(seed, "labels.json")
-            if File.Exists labels then test.Labels <- Some((JsonDocument.Parse(File.ReadAllText labels)).RootElement.Clone())
-            return test
-    }
+let bootSeededRequestLog (name: string) : Task<Test> = bootSeededServices None ignore ignore [ "LOG_REQUESTS", "true" ] name
 
 let bootSeededTimed (time: TimeProvider option) dbOptions (extra: (string * string) list) (name: string) : Task<Test> =
     bootSeededServices time dbOptions ignore extra name
@@ -478,16 +559,15 @@ let bootSeededWith dbOptions (name: string) : Task<Test> = bootSeededConfigured 
 /// An app booted over a private copy of seed `name`, or a skip when the seed isn't built.
 let bootSeeded (name: string) : Task<Test> = bootSeededWith ignore name
 
-/// An app booted over an empty storage directory (a fresh install's database).
-let bootEmpty () : Task<Test> =
+/// An app booted over an empty storage directory (a fresh install's database), with `extra` as its environment.
+let bootEmptyWith (extra: (string * string) list) : Task<Test> =
     task {
         let dir = Directory.CreateTempSubdirectory("campfire-app-test").FullName
-        let config =
-            match AppConfig.fromLookup (fun name -> match name with "SECRET_KEY_BASE_DUMMY" -> "1" | "CAMPFIRE_STORAGE_PATH" -> dir | _ -> null) with
-            | Ok config -> config
-            | Error message -> failwith message
-        return! start config dir
+        return! startAppRetrying 5 None ignore ignore ([ "SECRET_KEY_BASE_DUMMY", "1"; "CAMPFIRE_STORAGE_PATH", dir ] @ extra) dir
     }
+
+/// An app booted over an empty storage directory (a fresh install's database).
+let bootEmpty () : Task<Test> = bootEmptyWith []
 
 /// The Rails-issued session cookies and blob paths of `vectors/campfire_sessions.json`.
 type SessionVector = { UserName: string; CookieHeader: string }

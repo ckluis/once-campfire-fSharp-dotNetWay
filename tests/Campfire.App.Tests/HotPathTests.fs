@@ -2,7 +2,7 @@
 ///
 /// The five workloads of `bench/quick` (room page, messages page, sidebar, search, post a message) are requested through the
 /// app's whole pipeline over the `default` seed, with EF's query-compilation counter and command log attached to the app's own
-/// context options (`Boot.bootWith`).
+/// context options (`Support.bootSeededWith`).
 module Campfire.App.Tests.HotPathTests
 
 open System

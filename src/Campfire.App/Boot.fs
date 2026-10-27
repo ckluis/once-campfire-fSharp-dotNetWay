@@ -34,15 +34,14 @@ open Campfire.App.Platform
 open Campfire.Storage
 open Campfire.Views
 
-/// What the app's services are made from: the configuration, the loggers, the edge settings, the clock and the extra options of
-/// the EF contexts (tests: `LogTo`).
+/// What the app's services are made from: the configuration, the loggers, the edge settings and the clock (registered as the
+/// `TimeProvider`, which the services resolve, so a test replaces it in `overrides`).
 [<NoComparison; NoEquality>]
 type BootInputs =
     { Config: AppConfig
       Loggers: ILoggerFactory
       Edge: Web.EdgeConfig
-      Time: TimeProvider
-      DbOptions: Microsoft.EntityFrameworkCore.DbContextOptionsBuilder<Campfire.Db.Ef.CampfireDb> -> unit }
+      Time: TimeProvider }
 
 /// `db:prepare` and `Membership.disconnect_all` (config/puma.rb), run by the host before any hosted service starts and before Kestrel
 /// binds (`IHostedLifecycleService.StartingAsync`); registered first.
@@ -78,21 +77,6 @@ type DatabaseStartup
         member _.StopAsync(_: Threading.CancellationToken) : Task = Task.CompletedTask
         member _.StoppedAsync(_: Threading.CancellationToken) : Task = Task.CompletedTask
 
-/// A booted app for the tests (`Boot.bootEdge`): the state of a private service provider over the app's registrations, the
-/// registrations themselves to add to a test host, and the pipeline. Unit 8.7b moves the tests onto `Boot.build` and deletes this.
-[<NoComparison; NoEquality>]
-type Booted =
-    { App: AppState
-      /// What a test host builds the app's pipeline with (the app's `Web.Services.pipeline`).
-      Pipeline: IApplicationBuilder -> unit
-      /// The app's registrations (`Boot.addServices`), with the state `App` holds shared in, so that host and `App` see one app.
-      ConfigureServices: IServiceCollection -> unit
-      /// The hosted services that work off the app's queues (`Boot.addWorkers`): Web Push deliveries, then the job runner. Added to
-      /// the one host that serves the app, never to a second host over the same state: stopping a runner closes the queues for good.
-      Workers: IServiceCollection -> unit
-      /// The provider `App` was resolved from; disposing it releases the app's pooled contexts and clients.
-      Services: IDisposable }
-
 module Boot =
     // --- The HTTP stack ----------------------------------------------------------------------------------
 
@@ -117,8 +101,8 @@ module Boot =
         let loggers = inputs.Loggers
         let secrets = Secrets.create config.SecretKeyBase
         services.AddSingleton<AppConfig>(config).AddSingleton<Secrets>(secrets).AddSingleton<TimeProvider>(time) |> ignore
-        services.AddSingleton<IDbContextFactory<Campfire.Db.Ef.CampfireDb>>(fun _ ->
-            Campfire.Db.Ef.Data.factory (Campfire.Db.Ef.Data.options config.Storage.Database time inputs.DbOptions))
+        services.AddSingleton<IDbContextFactory<Campfire.Db.Ef.CampfireDb>>(fun sp ->
+            Campfire.Db.Ef.Data.factory (Campfire.Db.Ef.Data.options config.Storage.Database (sp.GetRequiredService<TimeProvider>()) ignore))
         |> ignore
         services.AddScoped<Campfire.Db.Ef.CampfireDb>(fun sp ->
             sp.GetRequiredService<IDbContextFactory<Campfire.Db.Ef.CampfireDb>>().CreateDbContext())
@@ -127,6 +111,7 @@ module Boot =
         services.AddSingleton<Jobs>(fun sp -> Jobs(JobLimits.QueueCapacity, loggers.CreateLogger "campfire.jobs", sp.GetRequiredService<CableHandle>()))
         |> ignore
         services.AddSingleton<Campfire.Db.Ef.Env>(fun sp ->
+            let time = sp.GetRequiredService<TimeProvider>()
             let env: Campfire.Db.Ef.Env =
                 { Time = time
                   Sink = sp.GetRequiredService<Jobs>()
@@ -153,7 +138,7 @@ module Boot =
                 let push: PushEnv =
                     { Http = sp.GetRequiredService<IHttpClientFactory>()
                       Resolver = sp.GetRequiredService<IResolver>()
-                      Time = time }
+                      Time = sp.GetRequiredService<TimeProvider>() }
                 IntegrationJobs.pushDeliveries
                     vapid
                     (sp.GetRequiredService<IDbContextFactory<Campfire.Db.Ef.CampfireDb>>())
@@ -167,7 +152,7 @@ module Boot =
             AppState(
                 config,
                 secrets,
-                time,
+                sp.GetRequiredService<TimeProvider>(),
                 sp.GetRequiredService<WriteGate>(),
                 sp.GetRequiredService<IDbContextFactory<Campfire.Db.Ef.CampfireDb>>(),
                 sp.GetRequiredService<Campfire.Db.Ef.Env>(),
@@ -233,14 +218,13 @@ module Boot =
             { Config = config
               Loggers = loggers
               Edge = servingEdge settings (Web.EdgeConfig.production config.DisableSsl (errorPages ()))
-              Time = time
-              DbOptions = ignore }
+              Time = time }
         let services = builder.Services
         services.AddSingleton<ILoggerFactory>(loggers).AddSingleton<Web.FrontSettings>(settings) |> ignore
         services.AddHostedService<DatabaseStartup>(fun sp ->
             DatabaseStartup(
                 config,
-                time,
+                sp.GetRequiredService<TimeProvider>(),
                 sp.GetRequiredService<IDbContextFactory<Campfire.Db.Ef.CampfireDb>>(),
                 sp.GetRequiredService<WriteGate>(),
                 sp.GetRequiredService<Campfire.Db.Ef.Env>()
@@ -254,82 +238,6 @@ module Boot =
         Web.Host.mapHttpPort app settings store
         pipeline inputs.Edge app
         app
-
-    // --- Test boot -------------------------------------------------------------------------------------------
-
-    /// The instance `root` holds, registered in `target` (last registration wins), so that a test host serves the state `App` holds.
-    let private shareFrom<'T when 'T: not null and 'T: not struct> (root: IServiceProvider) (target: IServiceCollection) : unit =
-        target.AddSingleton<'T>(root.GetRequiredService<'T>()) |> ignore
-
-    /// What the tests boot (`Booted`): `addServices` over a provider of its own, the database prepared as the host would, and the
-    /// state `App` holds shared into every host the tests add the registrations to. `tune` changes the edge settings and
-    /// `timeOverride` is the clock (tests hand in a `FakeTimeProvider` instead of setting the process-wide environment variable).
-    let bootEdge
-        (tune: Web.EdgeConfig -> Web.EdgeConfig)
-        (timeOverride: TimeProvider option)
-        (dbOptions: Microsoft.EntityFrameworkCore.DbContextOptionsBuilder<Campfire.Db.Ef.CampfireDb> -> unit)
-        (config: AppConfig)
-        (loggers: ILoggerFactory)
-        : Task<Booted> =
-        task {
-            let time =
-                match timeOverride with
-                | Some time -> time
-                | None ->
-                    match HarnessClock.fromEnvironment () with
-                    | Ok time -> time
-                    | Error message -> failwith message
-            let inputs =
-                { Config = config
-                  Loggers = loggers
-                  Edge = tune (Web.EdgeConfig.production config.DisableSsl (errorPages ()))
-                  Time = time
-                  DbOptions = dbOptions }
-            let services = ServiceCollection()
-            services.AddLogging() |> ignore
-            addServices services inputs
-            let root = services.BuildServiceProvider()
-            let startup =
-                DatabaseStartup(
-                    config,
-                    time,
-                    root.GetRequiredService<IDbContextFactory<Campfire.Db.Ef.CampfireDb>>(),
-                    root.GetRequiredService<WriteGate>(),
-                    root.GetRequiredService<Campfire.Db.Ef.Env>()
-                )
-            do! startup.Prepare()
-            let share (target: IServiceCollection) : unit =
-                shareFrom<AppState> root target
-                shareFrom<CableHandle> root target
-                shareFrom<Jobs> root target
-                shareFrom<WriteGate> root target
-                shareFrom<IDbContextFactory<Campfire.Db.Ef.CampfireDb>> root target
-                shareFrom<Storage> root target
-                shareFrom<Campfire.Db.Ef.Env> root target
-                shareFrom<Registry<AppState>> root target
-                shareFrom<Microsoft.Extensions.Caching.Hybrid.HybridCache> root target
-                match root.GetService<PushDeliveries>() with
-                | null -> ()
-                | deliveries -> target.AddSingleton<PushDeliveries>(deliveries) |> ignore
-            return
-                { App = root.GetRequiredService<AppState>()
-                  Pipeline = pipeline inputs.Edge
-                  ConfigureServices =
-                    fun target ->
-                        addServices target inputs
-                        share target
-                  Workers = fun target -> addWorkers target config
-                  Services = root }
-        }
-
-    /// `bootEdge` with no request log: the test hosts' (the log is `LOG_REQUESTS`'s, read by `build`).
-    let bootWithTime timeOverride dbOptions config loggers : Task<Booted> = bootEdge id timeOverride dbOptions config loggers
-
-    /// Boots the app on the process clock (`CAMPFIRE_FROZEN_TIME` or the system clock).
-    let bootWith dbOptions config loggers : Task<Booted> = bootWithTime None dbOptions config loggers
-
-    /// `bootWith` with no extra context options.
-    let boot (config: AppConfig) (loggers: ILoggerFactory) : Task<Booted> = bootWith ignore config loggers
 
     // --- Commands ----------------------------------------------------------------------------------------
 
