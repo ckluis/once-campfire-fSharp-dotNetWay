@@ -193,7 +193,8 @@ specific to this port are listed below, each citing the reference file it depart
     through the guard again, pinned at connect). `OpengraphTests` "unfurls like the reference" compares the 90 recorded cases: the
     response, the lookups, and each request's method, `Host`, target, `Accept` and `User-Agent`. `Accept-Encoding` is .NET's
     (`gzip, deflate`). At most 16
-    requests run at once (the client's limiter), each has 5 s to its response head, and the unfurl as a whole 10 s.
+    unfurls run at once, body reads included (the client's own limiter of 16 holds a permit only to the response head), each request
+    has 5 s to its response head, and the unfurl as a whole 10 s.
   - Class B, malformed pages: the `<meta>` reader is AngleSharp (HTML5 parsing), not libxml2's legacy HTML parser. They agree on all 55
     recorded page bodies; they differ on 14 probes of `OpengraphTests` ("decodes references like libxml2 but for the class B probes" and
     "tokenizes like libxml2 but for the class B probes", each failing if a listed probe stops differing or another starts): the

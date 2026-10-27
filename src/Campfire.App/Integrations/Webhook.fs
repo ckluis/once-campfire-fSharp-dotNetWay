@@ -4,9 +4,9 @@
 // the bot's reply.
 //
 // Intentionally unguarded, unlike Opengraph::Fetch: only an administrator sets this URL and it may point at internal
-// services. Connect and each read time out after 7 seconds, and a timeout is itself answered with a text reply.
-// Unlike Rails, the whole delivery must finish within a minute and the reply is read up to 100 MB (see
-// `DeliveryDeadline`, `MaxReplySize`).
+// services. Connecting and the response head each have 7 seconds, and a timeout is itself answered with a text reply.
+// Unlike Rails, which also gives each body read 7 seconds, the body has what is left of a one-minute delivery deadline,
+// and the reply is read up to 100 MB (see `DeliveryDeadline`, `MaxReplySize`; README, class B).
 namespace Campfire.App.Integrations
 
 open System

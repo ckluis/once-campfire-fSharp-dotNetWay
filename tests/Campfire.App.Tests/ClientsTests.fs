@@ -154,6 +154,26 @@ let ``requests carry Net::HTTP's Accept and User-Agent`` () =
         | other -> failwith $"{other.Length} requests"
     }
 
+/// No client logs its requests: a webhook URL often carries the bot's secret in its path and a push endpoint is the subscription's
+/// capability URL, and `IHttpClientFactory`'s default handlers write both at Information.
+[<Fact>]
+let ``no client logs a request's URL`` () =
+    task {
+        use server = FakeServer.Start [ Route.create "GET" "*" "/secret-path" 200 |> Route.text "x" ]
+        use loggers = new Campfire.App.Tests.Support.CapturingLoggers()
+        let dialer = MappingDialer(HashSet [ publicHost ], server.Addr)
+        use provider =
+            httpClients (fun services ->
+                services.AddSingleton<Microsoft.Extensions.Logging.ILoggerFactory>(loggers) |> ignore
+                services.AddSingleton<IResolver>(FakeResolver([ "public.example", [ string publicHost ] ]) :> IResolver) |> ignore
+                services.AddSingleton<IDialer>(dialer :> IDialer) |> ignore)
+        for name in [ Clients.Opengraph; Clients.Webhook; Clients.Push ] do
+            use! _ = (factoryOf provider).CreateClient(name).GetAsync(urlFor name server.Addr "/secret-path")
+            ()
+        Assert.Equal(3, server.Received().Length)
+        Assert.DoesNotContain("secret-path", loggers.Text)
+    }
+
 /// CL5: `readLimited` stops a gigabyte gzip bomb at the limit, and inflates what fits.
 [<Fact>]
 let ``readLimited stops a gzip bomb at the limit`` () =

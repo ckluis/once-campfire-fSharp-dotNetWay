@@ -420,6 +420,41 @@ let ``gives up on a trickling page`` () =
         Assert.True((DateTime.UtcNow - started) < deadline * 2.0, $"{DateTime.UtcNow - started}")
     }
 
+/// At most `MaxConcurrentUnfurls` unfurls are in flight at once, body reads included: pages that send their head at once and then
+/// trickle forever hold their slots, and the unfurls past the limit never connect (the client's limiter alone lets them, since it
+/// holds a permit only to the response head).
+[<Fact>]
+let ``unfurls past the limit wait while bodies are read`` () =
+    task {
+        let head = Encoding.ASCII.GetBytes "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nConnection: close\r\n\r\n"
+        let handle, address, accepted =
+            countingServer (fun client ->
+                task {
+                    use client = client
+                    let stream = client.GetStream()
+                    let! _ = stream.ReadAsync(Array.zeroCreate<byte> 4096, 0, 4096)
+                    do! stream.WriteAsync(head, 0, head.Length)
+                    while true do
+                        do! stream.WriteAsync([| byte ' ' |], 0, 1)
+                        do! Task.Delay 50
+                })
+        use _server = handle
+        let clients, env = envTo address
+        use _clients = clients
+        let extra = 4
+        let unfurls =
+            [ for _ in 1 .. Opengraph.MaxConcurrentUnfurls + extra ->
+                  Opengraph.unfurlWithin env "http://www.example.com/" (TimeSpan.FromSeconds 2.0) NullLogger.Instance ]
+        // Let every unfurl that may start connect and get its head.
+        let started = DateTime.UtcNow
+        while accepted () < Opengraph.MaxConcurrentUnfurls && DateTime.UtcNow - started < TimeSpan.FromSeconds 1.5 do
+            do! Task.Delay 20
+        do! Task.Delay 200
+        Assert.True(accepted () <= Opengraph.MaxConcurrentUnfurls, $"{accepted ()} connections")
+        let! outcomes = Task.WhenAll unfurls
+        Assert.All(outcomes, fun outcome -> Assert.Equal(Ok NoContent, outcome))
+    }
+
 // --- OG1, OG2, OG4: hostile pages and hostile redirects --------------------------------------------------------------
 
 /// OG1: pages as large as a fetch allows, built to make a parser nest or multiply elements, stop at the caps (no more than

@@ -132,6 +132,9 @@ module Clients =
                     client.Timeout <- Timeout.InfiniteTimeSpan
                     if netHttp then netHttpHeaders client)
                 .ConfigurePrimaryHttpMessageHandler(fun provider -> handler guarded connectTimeout oneConnectionPerRequest provider :> HttpMessageHandler)
+                // The factory's default handlers log each request's URL at Information: a webhook URL often holds the bot's secret in
+                // its path and a push endpoint is the subscription's capability URL. Rails logs neither.
+                .RemoveAllLoggers()
         builder.AddResilienceHandler(
             name,
             fun (pipeline: ResiliencePipelineBuilder<HttpResponseMessage>) ->
