@@ -3761,3 +3761,39 @@ in `OpengraphDocument.fs`; `OpengraphFetch.fs` is 139 -> about 125).
   (343 ms against a 300 ms CPU bound) with the host at load 19; the project alone passed 115 of 115 and the second full `bin/verify` passed. No pixel run (no state shows a live
   unfurl; `messages/opengraph*` render stored embeds). No image rebuild, no bench: unfurls are on no benchmarked path and the client factory is unchanged.
 - **Left for later units:** `Http.fs`, `Net.fs`'s `Network`/`Tls`, `RubyUri.fs` stay for Web Push until 8.5; 8.9 removes them and writes the full Integrations README entry.
+
+### Phase 8, checkpoint after 8.4: Opus review (2026-10-27) - GO for 8.5, with notes
+
+Opus, against `plans/design-jobs.md` J1-J15 and D1-D9, over `4c6e99f..3f14e11`. `bin/kloc` 27,406 / **27,860 corrected (27.9)** (+9 from 8.4: the restored unfurl bound).
+- **The design note's checkpoint list holds:** no retry, breaker or hedging in any pipeline (CL1 counts 1 on a 500, a reset and a timeout); the guard is the
+  `ConnectCallback` of both guarded clients and re-checks a pinned address (GD2); the opengraph loop is Rails' `fetch.rb` line for line (10 responses, any 3xx, each
+  `Location` parsed, http(s) only, resolved and pinned again; OG4 and the recorded redirect cases); AngleSharp's caps bound OG1's six pages, and the 14 class B probes fail
+  both ways; `FakeTimeProvider` is in no `src` code, and the frozen provider feeds wall-clock stamps only (timers, `CancellationTokenSource` and `Task.Delay` run on the
+  system timer). `GuardTests.fs` is unchanged since the phase began. SSRF probes beyond the tests, by reading: decimal, octal and hex hosts are normalized by `System.Uri` or
+  read by `inetAton` and refused; IPv4-mapped and -compatible IPv6 is blocked outright; a zone (`%`) is refused; a redirect to a non-http scheme is `RedirectDenied`.
+  Extra hostile pages through `OpengraphDocument.read` (5 MB each): 580,000 attributes on one element 0.48 s CPU, one 5 MB attribute 36 ms, an unterminated comment 62 ms,
+  100,000 metas 0.49 s (stopped), 100,000 options in a select 0.12 s (stopped). `dotnet list package --vulnerable --include-transitive` on the App: none. BouncyCastle
+  comes only through Certes (Phase 7); Web Push has none.
+- **Fixed (3 defects, each with a test that failed first):**
+  - `aa2e748` **Unbounded concurrent unfurl bodies.** 8.4 replaced the module semaphore with the client's Polly limiter, which holds a permit only until a response
+    head arrives, so nothing bounded the 5 MB body reads (and the decode and parse queued behind them) of concurrent unfurls, an endpoint any signed-in user reaches.
+    The semaphore is back around the whole unfurl (16, waiting within the deadline); the client's limiter stays. Test "unfurls past the limit wait while bodies are read":
+    20 trickling unfurls, at most 16 connections (20 without the bound).
+  - `aa2e748` **Request URLs in logs.** `IHttpClientFactory`'s default handlers log each request URL at Information. Harmless today only because `Boot` builds the clients
+    in a side provider with no log providers; 8.7 moves them into the host, where webhook URLs (a secret in the path, often) and push endpoints (capability URLs) would be
+    printed. Every client now calls `RemoveAllLoggers()`. Test "no client logs a request's URL" (the path was in the log before). A webhook timeout's resilience event
+    was checked by hand and carries no URL. Also: `Webhook.fs`'s header comment said each read has 7 s (it is the response head; README already had the class B line).
+  - `4a21a1a` **`PushDeliveries` stop raced `ExecuteAsync` (8.2).** `BackgroundService.StartAsync` runs all of `ExecuteAsync` on the thread pool (.NET 10 on; checked: 0 of
+    200 starts ran it on the caller), so `StopAsync` could read `deliveryReaders` before it was assigned: the invalidations closed at once (a 410 never destroyed), and
+    readers that started after the stopping token was cancelled exited without delivering. `bin/verify` caught it once under load ("pushes messages and destroys expired
+    subscriptions": 4 left, 2 expected). The readers now read without the token until the queue is closed and drained (as the job workers do) and `StopAsync` waits on a
+    completion source they set. Test "a stop right after the start still delivers and invalidates" (20 rounds; the old code failed at round 2).
+- **Gates I ran:** `CAMPFIRE_REQUIRE_SEED=1 bin/verify` at 3f14e11 green (1,020 / 1,014 passed / 6 skipped / 0 failed). With the fixes: run 2 failed only the RichText L3
+  wall-clock flake ("160,000 ignored end tags took 74 ms, limit 50 ms", load 17); run 3 failed WebPushTests (the race above) and Cable `MemoryTests` L7 (20.4 KB, load 15);
+  run 4, at the final code, **green: 0 warnings, lint 326 files and self-test, the Dapper, EF and clock guards, H1; 1,023 tests, 1,017 passed, 6 skipped, 0 failed**.
+  Image rebuilt at `4a21a1a` (label checked), `bin/clean-docker`. `bin/pixel-parity --fast --only 'rooms/show/designers,bot_api/**,users/push_subscriptions/**'` on every seed
+  PASSED (default 4/4 screenshots, aria and loose equal; the other seeds have no such states), and `--seeds default --only realtime/message_sent` PASSED (2/2); `bin/clean-parity`.
+  No bench: the fixes are off the benchmarked paths (unfurls; the push pool's start and stop), and 8.5 benches post a message against `p8ctl`. Free disk 21-23 GB.
+- **The units' gate claims check out** against their logs and this run (8.3's parallel-run flakiness is recorded as it happened; 8.4's verify passed on its second run).
+- **8.7 should split now:** 8.7a the production path (`Boot.build`, `DatabaseStartup`, `AppState` from DI, the clients in the host's provider in place of `Boot`'s side
+  provider, `Boot.serve`; the HS2/HS4, AC11, `pebble-image.sh` and bench gates), 8.7b `Support` (609 lines) on `Boot.build` and `Booted`/`bootWith*` deleted.
