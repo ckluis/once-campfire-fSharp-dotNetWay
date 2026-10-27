@@ -272,3 +272,19 @@ let ``OP7 the options are one singleton, read once, not per request or per scope
     Assert.Same(first, provider.GetRequiredService<CampfireOptions>())
     Assert.Equal("abc", first.SecretKeyBase)
     Assert.Same(provider.GetRequiredService<IOptions<FrontSettings>>().Value, provider.GetRequiredService<FrontSettings>())
+
+/// SR-J4 (Phase 8 security review): the option records hold `SECRET_KEY_BASE`, `VAPID_PRIVATE_KEY` and `EAB_HMAC_KEY`. Printed (a log
+/// template's `{Options}`, `%A`, an exception message built from one), they show that a secret is set and never what it is.
+[<Fact>]
+let ``OP8 the option records never print a secret`` () =
+    let secrets = [ "sekrit-base-0123456789"; "vapid-private-0123456789"; "eab-hmac-0123456789" ]
+    let campfire = options [ "SECRET_KEY_BASE", secrets[0]; "VAPID_PUBLIC_KEY", "vapid-public"; "VAPID_PRIVATE_KEY", secrets[1] ]
+    let settings = front [ "EAB_KID", "kid-1"; "EAB_HMAC_KEY", secrets[2] ]
+    Assert.True(settings.ExternalAccount.IsSome)
+    for text in [ string campfire; sprintf "%A" campfire; sprintf "%O" campfire; string settings; sprintf "%A" settings; sprintf "%O" settings ] do
+        for secret in secrets do
+            Assert.DoesNotContain(secret, text)
+    // What is not secret still prints, so the records stay useful in a debugger and a log.
+    Assert.Contains("vapid-public", string campfire)
+    Assert.Contains("kid-1", string settings)
+    Assert.Contains("[FILTERED]", string campfire)

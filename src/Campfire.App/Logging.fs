@@ -60,9 +60,10 @@ module Logging =
         | null -> Erased
         | redactor -> redactor.Redact value
 
-    /// The key segment of `/rooms/:room_id/:bot_key/messages...`, the only routes that carry one; ValueNone for any other path.
+    /// The key segment of `/rooms/:room_id/:bot_key/messages...`, the only routes that carry one; ValueNone for any other path. The
+    /// literals are matched in any letter case: a bot that spells them otherwise gets a 404, but its key is on that line too.
     let private botKeyRange (path: string) : struct (int * int) voption =
-        if not (path.StartsWith("/rooms/", StringComparison.Ordinal)) then
+        if not (path.StartsWith("/rooms/", StringComparison.OrdinalIgnoreCase)) then
             ValueNone
         else
             // /rooms/<id>/<key>/messages[.fmt|/...]
@@ -74,7 +75,7 @@ module Logging =
                 else
                     let rest = path.AsSpan(keyEnd + 1)
                     let isMessages =
-                        rest.StartsWith("messages", StringComparison.Ordinal)
+                        rest.StartsWith("messages", StringComparison.OrdinalIgnoreCase)
                         && (rest.Length = 8 || rest[8] = '/' || rest[8] = '.')
                     if isMessages && keyEnd > idEnd + 1 then ValueSome(struct (idEnd + 1, keyEnd)) else ValueNone
 

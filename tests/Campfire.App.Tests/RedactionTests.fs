@@ -176,3 +176,22 @@ let ``RD6 the same key gives the same hash within an install and other secrets g
         Assert.NotEqual<string>(first, other)
         Assert.DoesNotContain(botKey, first)
     }
+
+/// SR-J3 (Phase 8 security review): the router matches literal segments without regard to case, so `/ROOMS/:id/:bot_key/MESSAGES`
+/// is the bot API too; the request line and the failure line must not carry its key either.
+[<Fact>]
+let ``RD7 a bot API path in another letter case logs no key`` () =
+    task {
+        use! test = bootSeededRequestLog "default"
+        let bot = anonymous test
+        let statuses = ResizeArray<string>()
+        for path in
+            [ $"/ROOMS/{ALL_TALK}/{botKey}/MESSAGES"
+              $"/Rooms/{ALL_TALK}/{botKey}/Messages.json"
+              $"/rooms/{ALL_TALK}/{botKey}/messages/1/BOOSTS" ] do
+            let! reply = bot.Send((request "POST" path).WithBody "Beep boop")
+            statuses.Add $"{path}={reply.Status}"
+        let logs = shipped test
+        Assert.False(logs.Contains botKey || logs.Contains botKeyLabel, $"""the key was logged ({String.Join(", ", statuses)})""")
+        Assert.Contains($"Path: /ROOMS/{ALL_TALK}/{redacted test botKey}/MESSAGES", logs)
+    }

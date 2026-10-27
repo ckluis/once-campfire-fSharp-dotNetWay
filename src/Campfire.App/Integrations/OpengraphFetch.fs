@@ -72,7 +72,7 @@ module OpengraphFetch =
                 return Error(Transport(TransportError.classify e))
         }
 
-    let private resolveRedirect (env: OpengraphEnv) (location: string option) : Task<Result<Uri * IPAddress, FetchError>> =
+    let private resolveRedirect (env: OpengraphEnv) (location: string option) (cancellation: CancellationToken) : Task<Result<Uri * IPAddress, FetchError>> =
         task {
             match location |> Option.map OpengraphUri.parse with
             | None
@@ -81,7 +81,7 @@ module OpengraphFetch =
                 if not (OpengraphUri.isHttp url) then
                     return Error RedirectDenied
                 else
-                    match! Guard.resolve env.Resolver (defaultArg (OpengraphUri.host url) "") with
+                    match! Guard.resolve env.Resolver (defaultArg (OpengraphUri.host url) "") cancellation with
                     | Ok ip -> return Ok(url, ip)
                     | Error error -> return Error(Guard error)
         }
@@ -109,7 +109,7 @@ module OpengraphFetch =
                     if status >= 300 && status < 400 then
                         let location = header response "location"
                         response.Dispose()
-                        match! resolveRedirect env location with
+                        match! resolveRedirect env location cancellation with
                         | Ok(next, nextIp) ->
                             url <- next
                             ip <- nextIp

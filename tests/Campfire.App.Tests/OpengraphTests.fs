@@ -9,6 +9,7 @@ open System.IO.Compression
 open System.Net
 open System.Text
 open System.Text.Json
+open System.Threading
 open System.Threading.Tasks
 open Microsoft.Extensions.DependencyInjection
 open Microsoft.Extensions.Logging.Abstractions
@@ -547,4 +548,72 @@ let ``each redirect hop is guarded`` () =
             | other -> failwith $"{path}: {other}"
         Assert.Equal(3, server.Received().Length)
         Assert.All(dialer.Dialed, fun address -> Assert.Equal(IPAddress.Parse "93.184.216.34", address.Address))
+    }
+
+// --- Phase 8 security review (plans/design-jobs.md, "Security review") ------------------------------------------------
+
+/// SR-J1: a name server that never answers. The unfurl's deadline must bound the lookup too, or a page on a host whose name
+/// server the poster runs holds the request and one of the `MaxConcurrentUnfurls` slots for as long as the resolver waits.
+type private SilentResolver() =
+    let mutable lookups = 0
+    member _.Lookups: int = Volatile.Read(&lookups)
+
+    interface IResolver with
+        member _.Lookup(_host: string, _cancellation: CancellationToken) : Task<Result<IPAddress list, exn>> =
+            Interlocked.Increment(&lookups) |> ignore
+            // Never completes, whatever it is told: the guard must not depend on a resolver giving up.
+            TaskCompletionSource<Result<IPAddress list, exn>>().Task
+
+[<Fact>]
+let ``SR-J1 a name server that never answers does not hold an unfurl past its deadline`` () =
+    task {
+        use clients = httpClients ignore
+        let resolver = SilentResolver()
+        let env: OpengraphEnv =
+            { Http = clients.GetRequiredService<System.Net.Http.IHttpClientFactory>()
+              Resolver = resolver
+              Time = TimeProvider.System }
+        let deadline = TimeSpan.FromMilliseconds 300.0
+        let unfurls =
+            [ for i in 1 .. Opengraph.MaxConcurrentUnfurls + 4 -> Opengraph.unfurlWithin env $"http://silent{i}.example/" deadline NullLogger.Instance ]
+        let all = Task.WhenAll unfurls
+        let! finished = Task.WhenAny(all, Task.Delay(TimeSpan.FromSeconds 5.0))
+        Assert.True(Object.ReferenceEquals(finished, all), "unfurls waited on the name server past their deadline")
+        Assert.All(all.Result, fun outcome -> Assert.Equal(Ok NoContent, outcome))
+        // The slots came back: a later unfurl gets one and asks the resolver.
+        let before = resolver.Lookups
+        let later = Opengraph.unfurlWithin env "http://later.example/" deadline NullLogger.Instance
+        let! finished = Task.WhenAny(later, Task.Delay(TimeSpan.FromSeconds 5.0))
+        Assert.True(Object.ReferenceEquals(finished, later), "a later unfurl never finished")
+        Assert.Equal(before + 1, resolver.Lookups)
+    }
+
+/// SR-J2: the forms a private address takes in a URL (decimal, octal and hex IPv4, shortened IPv4, IPv4-mapped, -compatible and
+/// NAT64 IPv6, a zone, the unspecified address, names that resolve to loopback or link-local) unfurl nothing and connect nowhere,
+/// through `System.Uri`'s reading of the host and the guard.
+[<Fact>]
+let ``SR-J2 private addresses in every URL form connect nowhere`` () =
+    task {
+        let resolver =
+            FakeResolver(
+                [ "localhost", [ "127.0.0.1" ]
+                  "metadata.example", [ "169.254.169.254" ]
+                  "six.example", [ "::1" ]
+                  "mapped.example", [ "::ffff:10.0.0.1" ]
+                  "nat64.example", [ "64:ff9b::a9fe:a9fe" ] ]
+            )
+        let dialer = MappingDialer(HashSet<IPAddress>(), IPEndPoint(IPAddress.Loopback, 1))
+        let clients, env = opengraphEnv resolver dialer false
+        use _clients = clients
+        let urls =
+            [ "http://2130706433/"; "http://0177.0.0.1/"; "http://0x7f.0.0.1/"; "http://0x7f000001/"; "http://127.1/"; "http://0/"
+              "http://[::1]/"; "http://[::ffff:127.0.0.1]/"; "http://[::ffff:7f00:1]/"; "http://[::127.0.0.1]/"; "http://[64:ff9b::7f00:1]/"
+              "http://[fe80::1%25en0]/"; "http://[fd00::1]/"; "http://[2002:7f00:1::]/"; "http://169.254.169.254/latest/meta-data/"
+              "http://localhost:3000/"; "http://metadata.example/"; "http://six.example/"; "http://mapped.example/"; "http://nat64.example/"
+              "https://127.0.0.1:443/"; "http://10.0.0.1/"; "http://[::]/" ]
+        for url in urls do
+            match! Opengraph.unfurl env url with
+            | Ok NoContent -> ()
+            | other -> failwith $"{url}: {other}"
+        Assert.Empty dialer.Dialed
     }

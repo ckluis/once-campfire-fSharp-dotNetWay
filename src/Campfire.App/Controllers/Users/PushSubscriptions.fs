@@ -6,6 +6,7 @@ namespace Campfire.App.Controllers
 
 open System
 open System.Linq
+open System.Threading
 open System.Threading.Tasks
 open FsToolkit.ErrorHandling
 open Microsoft.AspNetCore.Http
@@ -49,7 +50,7 @@ module PushSubscriptions =
 
     /// `RestrictedHTTP::PrivateNetworkGuard.resolve(endpoint_uri.host)`, done ahead of the (synchronous)
     /// validation for the one host it asks about: a first pass records the host, then it's resolved.
-    let private resolveEndpoint (dns: IResolver) (subscription: Ef.PushSubscription) : Task<Map<string, string option>> =
+    let private resolveEndpoint (dns: IResolver) (subscription: Ef.PushSubscription) (cancellation: CancellationToken) : Task<Map<string, string option>> =
         task {
             let mutable asked: string option = None
             PushSubscription.validate
@@ -60,7 +61,7 @@ module PushSubscriptions =
             |> ignore
             match asked with
             | Some host ->
-                let! resolved = Guard.resolve dns host
+                let! resolved = Guard.resolve dns host cancellation
                 let ip =
                     match resolved with
                     | Ok ip -> Some(ip.ToString())
@@ -73,9 +74,9 @@ module PushSubscriptions =
         fun host -> resolved |> Map.tryFind host |> Option.flatten
 
     /// `subscription.valid?`
-    let private validate (dns: IResolver) (subscription: Ef.PushSubscription) : Task<Errors> =
+    let private validate (dns: IResolver) (subscription: Ef.PushSubscription) (cancellation: CancellationToken) : Task<Errors> =
         task {
-            let! resolved = resolveEndpoint dns subscription
+            let! resolved = resolveEndpoint dns subscription cancellation
             return PushSubscription.validate (resolver resolved) subscription
         }
 
@@ -104,7 +105,7 @@ module PushSubscriptions =
                 match existing with
                 // Existing endpoints must pass current validations
                 | Some subscription ->
-                    let! errors = validate (http.RequestServices.GetRequiredService<IResolver>()) subscription
+                    let! errors = validate (http.RequestServices.GetRequiredService<IResolver>()) subscription http.RequestAborted
                     if Errors.isEmpty errors then
                         let id = subscription.Id
                         let! () =
@@ -124,7 +125,7 @@ module PushSubscriptions =
                         | values when values.Count = 0 -> null
                         | values -> values.ToString()
                     let subscription = PushSubscription.build userId (value "endpoint") (value "p256dh_key") (value "auth_key") userAgent
-                    let! resolved = resolveEndpoint (http.RequestServices.GetRequiredService<IResolver>()) subscription
+                    let! resolved = resolveEndpoint (http.RequestServices.GetRequiredService<IResolver>()) subscription http.RequestAborted
                     let! result = Data.tryWrite http (fun tx -> PushSubscription.create tx subscription (resolver resolved)) |> Task.map Ok
                     match result with
                     | Ok _ -> return Respond.head http 200

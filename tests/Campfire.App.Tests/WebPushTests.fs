@@ -537,7 +537,7 @@ type private GatedResolver() =
     member _.Release() = gate.TrySetResult() |> ignore
 
     interface IResolver with
-        member _.Lookup(_host: string) : Task<Result<IPAddress list, exn>> =
+        member _.Lookup(_host: string, _cancellation: CancellationToken) : Task<Result<IPAddress list, exn>> =
             task {
                 do! gate.Task
                 return Error(exn "released")
@@ -586,7 +586,7 @@ let ``a stop right after the start still delivers and invalidates`` () =
 
 type private PanickingResolver() =
     interface IResolver with
-        member _.Lookup(host: string) : Task<Result<IPAddress list, exn>> = failwith $"resolving {host} panicked"
+        member _.Lookup(host: string, _cancellation: CancellationToken) : Task<Result<IPAddress list, exn>> = failwith $"resolving {host} panicked"
 
 /// A delivery that panics still gives its place in the queue back, so panics can't fill it up.
 [<Fact>]
@@ -621,4 +621,20 @@ let ``RD4 a push failure logs the host and not the endpoint's path`` () =
         Assert.Contains("fcm.googleapis.com", text)
         Assert.DoesNotContain("/fcm/send/abc", text)
         Assert.DoesNotContain("abc", text.Replace("WebPush::Pool", ""))
+    }
+
+/// SR-J5 (Phase 8 security review): the library reads a push service's error body whole; the "push" client caps that buffer, so a
+/// gigabyte gzip bomb in a 500 neither inflates nor holds the delivery, and the answer is still the gem's `PushServiceError`.
+[<Fact>]
+let ``SR-J5 a push service's error body is capped`` () =
+    task {
+        let service = pushServiceWith true (Route.create "POST" "*" "" 500 |> Route.header "Content-Encoding" "gzip" |> Route.body (gzipBomb 1024))
+        use _server = service.Server
+        let receiver = Receiver()
+        let started = DateTime.UtcNow
+        match! WebPush.deliver service.Env (vapid ()) (notification (receiver.Subscription(1L, "https://fcm.googleapis.com/fcm/send/abc"))) with
+        | Error error -> Assert.False(DeliveryError.invalidatesSubscription error, DeliveryError.message error)
+        | Ok delivered -> failwith $"{delivered}"
+        Assert.True((DateTime.UtcNow - started) < TimeSpan.FromSeconds 10.0, $"{DateTime.UtcNow - started}")
+        Assert.Equal(1, service.Server.Received().Length)
     }

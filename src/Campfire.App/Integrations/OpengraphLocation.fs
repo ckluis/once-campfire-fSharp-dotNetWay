@@ -41,7 +41,7 @@ type Location(env: OpengraphEnv, url: string option, cancellation: CancellationT
                     task {
                         match parsedUrl |> Option.bind OpengraphUri.host with
                         | Some host ->
-                            match! Guard.resolve env.Resolver host with
+                            match! Guard.resolve env.Resolver host cancellation with
                             | Ok ip -> return Some ip
                             | Error _ -> return None
                         | None -> return None

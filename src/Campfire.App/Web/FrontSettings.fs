@@ -7,7 +7,8 @@ open System.Net
 open Microsoft.Extensions.Configuration
 open Microsoft.Extensions.DependencyInjection
 
-[<CLIMutable>]
+/// Printed (`string`, `%A`, a log template), `EAB_HMAC_KEY` shows as `[FILTERED]`.
+[<CLIMutable; StructuredFormatDisplay("{Display}")>]
 type FrontSettings =
     { mutable HttpPort: int
       mutable HttpsPort: int
@@ -30,6 +31,28 @@ type FrontSettings =
       mutable LogRequests: bool }
 
     member this.HasTls = not this.TlsDomains.IsEmpty
+
+    /// The fields, with the external account's HMAC key as `[FILTERED]`.
+    member this.Display: string =
+        sprintf
+            "%A"
+            {| HttpPort = this.HttpPort
+               HttpsPort = this.HttpsPort
+               TargetPort = this.TargetPort
+               TargetBind = this.TargetBind
+               TlsDomains = this.TlsDomains
+               AcmeDirectory = this.AcmeDirectory
+               ExternalAccount = this.ExternalAccount |> ValueOption.map (fun (kid, _) -> kid, "[FILTERED]")
+               StoragePath = this.StoragePath
+               IdleTimeout = this.IdleTimeout
+               ReadTimeout = this.ReadTimeout
+               ForwardHeaders = this.ForwardHeaders
+               MaxRequestBody = this.MaxRequestBody
+               CacheSize = this.CacheSize
+               MaxCacheItemSize = this.MaxCacheItemSize
+               LogRequests = this.LogRequests |}
+
+    override this.ToString() : string = this.Display
 
 module FrontSettings =
     [<Literal>]

@@ -298,6 +298,22 @@ let ``an IPv4-mapped answer is classified as its IPv4 address`` () =
             Assert.True(Guard.blockedAddress ((IPAddress.Parse v4).MapToIPv6()), $"::ffff:{v4}")
         Assert.True(Guard.blockedAddress ((IPAddress.Parse "8.8.8.8").MapToIPv6()))
         let resolver = FakeResolver([ "mapped.example", [ "::ffff:127.0.0.1"; "93.184.216.34" ] ]) :> IResolver
-        let! publicAnswers = Guard.resolvePublicIps resolver "mapped.example"
+        let! publicAnswers = Guard.resolvePublicIps resolver "mapped.example" CancellationToken.None
         Assert.Equal(Ok [ publicHost ], publicAnswers)
+    }
+
+/// SR-J6 (Phase 8 security review): the pipelines' own telemetry (Polly writes a timeout as a resilience event at Warning, which the
+/// production filters ship) carries no part of the URL either.
+[<Fact>]
+let ``a timed out webhook's resilience event logs no URL`` () =
+    task {
+        use server = FakeServer.Start [ { Route.create "POST" "*" "/hooks/secret-token-path" 200 with Delay = TimeSpan.FromSeconds 9.0 } ]
+        use loggers = new Campfire.App.Tests.Support.CapturingLoggers()
+        use clients = httpClients (fun services -> services.AddSingleton<Microsoft.Extensions.Logging.ILoggerFactory>(loggers) |> ignore)
+        let! outcome = deliver clients $"http://{server.Addr}/hooks/secret-token-path"
+        match outcome with
+        | Ok delivery -> Assert.Equal(None, delivery.Status)
+        | Error error -> failwith (WebhookError.message error)
+        Assert.Contains("Timeout", loggers.Text)
+        Assert.DoesNotContain("secret-token-path", loggers.Text)
     }

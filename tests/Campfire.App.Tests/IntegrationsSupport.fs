@@ -40,7 +40,7 @@ type FakeResolver() =
     member _.Lookups: string list = lock lookups (fun () -> List.ofSeq lookups)
 
     interface IResolver with
-        member _.Lookup(host: string) : Task<Result<IPAddress list, exn>> =
+        member _.Lookup(host: string, _cancellation: CancellationToken) : Task<Result<IPAddress list, exn>> =
             lock lookups (fun () ->
                 lookups.Add host
                 match answers.TryGetValue host with

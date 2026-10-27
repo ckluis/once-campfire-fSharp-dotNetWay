@@ -334,8 +334,9 @@ module Guard =
 
     // --- Resolution -----------------------------------------------------------------------------------------
 
-    /// `Surfguard.resolve_public_ips(host)`. Malformed input comes back empty rather than raising.
-    let resolvePublicIps (resolver: IResolver) (host: string) : Task<Result<IPAddress list, GuardError>> =
+    /// `Surfguard.resolve_public_ips(host)`. Malformed input comes back empty rather than raising. The lookup is abandoned at
+    /// `cancellation` (an `OperationCanceledException`) even when the resolver ignores it.
+    let resolvePublicIps (resolver: IResolver) (host: string) (cancellation: CancellationToken) : Task<Result<IPAddress list, GuardError>> =
         task {
             if not (normalHost host) then
                 return Ok []
@@ -346,7 +347,7 @@ module Guard =
                         | Invalid -> return Ok None
                         | Literal addresses -> return Ok(Some addresses)
                         | Name ->
-                            match! resolver.Lookup host with
+                            match! resolver.Lookup(host, cancellation).WaitAsync cancellation with
                             | Ok addresses -> return Ok(Some addresses)
                             | Error _ -> return Error Unresolvable
                     }
@@ -365,9 +366,9 @@ module Guard =
         }
 
     /// `RestrictedHTTP::PrivateNetworkGuard.resolve(hostname)`: the first public address.
-    let resolve (resolver: IResolver) (host: string) : Task<Result<IPAddress, GuardError>> =
+    let resolve (resolver: IResolver) (host: string) (cancellation: CancellationToken) : Task<Result<IPAddress, GuardError>> =
         task {
-            match! resolvePublicIps resolver host with
+            match! resolvePublicIps resolver host cancellation with
             | Error e -> return Error e
             | Ok(ip :: _) -> return Ok ip
             | Ok [] -> return Error(Violation host)
@@ -397,7 +398,7 @@ module Guard =
                     task {
                         match pinned with
                         | ValueSome ip -> return (if blockedAddress ip then Error(Violation host) else Ok ip)
-                        | ValueNone -> return! resolve resolver host
+                        | ValueNone -> return! resolve resolver host cancellation
                     }
                 match address with
                 | Error error -> return raise (HttpRequestException(GuardError.message error))

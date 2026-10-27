@@ -78,8 +78,8 @@ module StoragePaths =
 
 /// The install's settings (`IOptions<CampfireOptions>`). Mutable fields so the options machinery can fill it; `Problem` is the first
 /// thing wrong with the configuration (what `CampfireOptionsValidator` reports), which a value that does not fit its field (a
-/// non-number) cannot say any other way.
-[<CLIMutable>]
+/// non-number) cannot say any other way. Printed (`string`, `%A`, a log template), it shows whether a secret is set, never the secret.
+[<CLIMutable; StructuredFormatDisplay("{Display}")>]
 type CampfireOptions =
     { mutable SecretKeyBase: string
       mutable VapidPublicKey: string option
@@ -101,6 +101,28 @@ type CampfireOptions =
       /// `CAMPFIRE_FROZEN_TIME`, as set.
       mutable FrozenTime: string option
       mutable Problem: string option }
+
+    /// The fields, with `SECRET_KEY_BASE` and `VAPID_PRIVATE_KEY` as `[FILTERED]` when set.
+    member this.Display: string =
+        let filtered (value: string option) = value |> Option.map (fun _ -> "[FILTERED]")
+        sprintf
+            "%A"
+            {| SecretKeyBase = (if String.IsNullOrEmpty this.SecretKeyBase then "" else "[FILTERED]")
+               VapidPublicKey = this.VapidPublicKey
+               VapidPrivateKey = filtered this.VapidPrivateKey
+               VapidSubject = this.VapidSubject
+               DisableSsl = this.DisableSsl
+               AppVersion = this.AppVersion
+               GitRevision = this.GitRevision
+               Environment = this.Environment
+               Storage = this.Storage
+               JobConcurrency = this.JobConcurrency
+               LogLevel = this.LogLevel
+               FragmentBytes = this.FragmentBytes
+               FrozenTime = this.FrozenTime
+               Problem = this.Problem |}
+
+    override this.ToString() : string = this.Display
 
 module CampfireOptions =
     /// The install's own HTTPS URL when it has a TLS domain; the project's otherwise.

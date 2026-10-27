@@ -1,0 +1,61 @@
+lint-markup self-test: ok (39 planted files each caught once, the clean file passes)
+lint-markup: 324 files clean
+
+Build succeeded.
+    0 Warning(s)
+    0 Error(s)
+
+Time Elapsed 00:00:06.54
+Running tests from /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/bin/Release/net11.0/Campfire.App.Tests.dll (net11.0|arm64)
+Running tests from /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.Routes.Tests/bin/Release/net11.0/Campfire.Routes.Tests.dll (net11.0|arm64)
+Running tests from /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.Storage.Tests/bin/Release/net11.0/Campfire.Storage.Tests.dll (net11.0|arm64)
+Running tests from /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.Db.Tests/bin/Release/net11.0/Campfire.Db.Tests.dll (net11.0|arm64)
+Running tests from /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.Cable.Tests/bin/Release/net11.0/Campfire.Cable.Tests.dll (net11.0|arm64)
+Running tests from /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.RailsCompat.Tests/bin/Release/net11.0/Campfire.RailsCompat.Tests.dll (net11.0|arm64)
+Running tests from /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.Views.Tests/bin/Release/net11.0/Campfire.Views.Tests.dll (net11.0|arm64)
+Running tests from /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.RichText.Tests/bin/Release/net11.0/Campfire.RichText.Tests.dll (net11.0|arm64)
+Running tests from /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.Ruby.Tests/bin/Release/net11.0/Campfire.Ruby.Tests.dll (net11.0|arm64)
+skipped Campfire.Cable.Tests.GoldenTests.record_reference
+  Not run (due to explicit test filtering)
+  from /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.Cable.Tests/bin/Release/net11.0/Campfire.Cable.Tests.dll (net11.0|arm64)
+/Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.Routes.Tests/bin/Release/net11.0/Campfire.Routes.Tests.dll (net11.0|arm64) passed [+5/x0/?0] (360ms)
+/Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.Ruby.Tests/bin/Release/net11.0/Campfire.Ruby.Tests.dll (net11.0|arm64) passed [+21/x0/?0] (827ms)
+skipped Campfire.App.Tests.Web.AcmeTests.AC11 Pebble: a certificate is ordered at start over HTTP-01, cached, served with its intermediate, and a second host loads it without ordering
+  PEBBLE_DIRECTORY and PEBBLE_ROOT name a Pebble CA (the recipe is in AGENTS.md); skipped without them
+  from /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/bin/Release/net11.0/Campfire.App.Tests.dll (net11.0|arm64)
+/Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.RailsCompat.Tests/bin/Release/net11.0/Campfire.RailsCompat.Tests.dll (net11.0|arm64) passed [+62/x0/?0] (4s 848ms)
+skipped Campfire.Db.Tests.FixturesTests.export database for rails
+  writes a database to CAMPFIRE_EXPORT_DB for the Rails rollback check
+  from /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.Db.Tests/bin/Release/net11.0/Campfire.Db.Tests.dll (net11.0|arm64)
+skipped Campfire.Db.Tests.FixturesTests.fixtures match ruby row for row
+  needs CAMPFIRE_RUBY_FIXTURES_DB, a database the reference app filled with `db:fixtures:load`
+  from /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.Db.Tests/bin/Release/net11.0/Campfire.Db.Tests.dll (net11.0|arm64)
+skipped Campfire.Db.Tests.DifferentialTests.scenario matches ruby
+  needs CAMPFIRE_RUBY_SCENARIO_DB, the reference app's database after scenario.rb
+  from /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.Db.Tests/bin/Release/net11.0/Campfire.Db.Tests.dll (net11.0|arm64)
+/Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.Views.Tests/bin/Release/net11.0/Campfire.Views.Tests.dll (net11.0|arm64) passed [+124/x0/?0] (7s 295ms)
+/Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.Db.Tests/bin/Release/net11.0/Campfire.Db.Tests.dll (net11.0|arm64) passed [+159/x0/?3] (9s 054ms)
+skipped Campfire.App.Tests.MiscTests.transparent huge pages are disabled
+  transparent huge pages are a Linux setting (bin/linux-tests App runs this in the toolchain image)
+  from /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/bin/Release/net11.0/Campfire.App.Tests.dll (net11.0|arm64)
+/Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.Storage.Tests/bin/Release/net11.0/Campfire.Storage.Tests.dll (net11.0|arm64) passed [+42/x0/?0] (13s 122ms)
+/Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.RichText.Tests/bin/Release/net11.0/Campfire.RichText.Tests.dll (net11.0|arm64) passed [+116/x0/?0] (27s 680ms)
+/Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.Cable.Tests/bin/Release/net11.0/Campfire.Cable.Tests.dll (net11.0|arm64) passed [+79/x0/?1] (28s 108ms)
+/Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/bin/Release/net11.0/Campfire.App.Tests.dll (net11.0|arm64) passed [+430/x0/?2] (37s 326ms)
+
+Test run summary: Passed!
+  /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/bin/Release/net11.0/Campfire.App.Tests.dll (net11.0|arm64) passed [+430/x0/?2] (37s 326ms)
+  /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.Routes.Tests/bin/Release/net11.0/Campfire.Routes.Tests.dll (net11.0|arm64) passed [+5/x0/?0] (360ms)
+  /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.Storage.Tests/bin/Release/net11.0/Campfire.Storage.Tests.dll (net11.0|arm64) passed [+42/x0/?0] (13s 122ms)
+  /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.Db.Tests/bin/Release/net11.0/Campfire.Db.Tests.dll (net11.0|arm64) passed [+159/x0/?3] (9s 054ms)
+  /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.Cable.Tests/bin/Release/net11.0/Campfire.Cable.Tests.dll (net11.0|arm64) passed [+79/x0/?1] (28s 108ms)
+  /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.RailsCompat.Tests/bin/Release/net11.0/Campfire.RailsCompat.Tests.dll (net11.0|arm64) passed [+62/x0/?0] (4s 848ms)
+  /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.Views.Tests/bin/Release/net11.0/Campfire.Views.Tests.dll (net11.0|arm64) passed [+124/x0/?0] (7s 295ms)
+  /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.RichText.Tests/bin/Release/net11.0/Campfire.RichText.Tests.dll (net11.0|arm64) passed [+116/x0/?0] (27s 680ms)
+  /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.Ruby.Tests/bin/Release/net11.0/Campfire.Ruby.Tests.dll (net11.0|arm64) passed [+21/x0/?0] (827ms)
+
+  total: 1044
+  failed: 0
+  succeeded: 1038
+  skipped: 6
+  duration: 37s 419ms

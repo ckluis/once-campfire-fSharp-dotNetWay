@@ -4007,3 +4007,28 @@ Evidence: `bench/results/dotnetway-p8/` (slim: logs, `report.json` per pixel sli
 - **Differences recorded:** none new beyond the units' class B entries (tweet host case, opengraph malformed pages).
 - **Not run here (outside this gate's list):** the Host/ACME re-runs (`bin/linux-tests App` HS2/HS4, AC11, `pebble-image.sh`) named by Phase 7's condition: unit 8.7's acceptance owns them.
 - Disk: 17-22 GB free; `bin/clean-docker`, `bin/clean-parity` and `fstrim` (once, at 12 GB mid-pixel-run, back to 21 GB) run; the control and its candidate image are removed. Still in colima from earlier units: `p8ctl`, `p7gate`, `p7pre`, `p6ctl`, `campfire-candidate-p6ctl`, `p5ctl`, `control-8abdb6b`, `before-net11`.
+
+### Phase 8: security review of jobs, integrations, push, config and time (2026-10-27)
+
+Opus reviewer, on `7f08055` (the gate). Findings and method in `plans/design-jobs.md` section 11 ("Security review"); fix and tests in the same commit as this entry.
+Evidence: `bench/results/dotnetway-p8-security/` (`verify.log`, `vulnerable-packages.txt`, `kloc.md`).
+- **Read:** 26 source files of the phase (the integrations, logging, jobs, options, the request log, the exception page, `Boot`'s services and logger factory, the three
+  controllers that call them, the Db's push endpoint parser) and 7 test files; `System.Uri` probed with 32 hostile URL forms; the package graph read from the assets file.
+- **S1 (Medium, fixed):** name lookups ignored the unfurl's deadline (`IResolver.Lookup` took no token), so a URL on a name server that never answers held the request and
+  one of the 16 unfurl slots past the 10 s bound. `Lookup` takes a token, `Guard.resolvePublicIps` stops waiting at it, every caller passes its deadline (the push lookup gets the
+  delivery's 30 s). `OpengraphTests` "SR-J1" failed before (still waiting after 5 s), passes after.
+- **S2 (Low, fixed):** bot-key redaction matched `/rooms/.../messages` by case, so `/ROOMS/:id/:key/MESSAGES` (a 404) logged the key. Matched in any case now; `RedactionTests` RD7
+  failed before. A prefix compare per logged request, on no benchmarked cost that `bench/quick` can see (the post row's CPU is about 1.8 ms a request): no bench run.
+- **S3 (Low, hardening, fixed):** `CampfireOptions` and `FrontSettings` printed `SECRET_KEY_BASE`, `VAPID_PRIVATE_KEY` and `EAB_HMAC_KEY` through `string`/`%A`; nothing printed them
+  yet. They print `[FILTERED]` now; `OptionsTests` OP8 failed before.
+- **Open:** S4 (Low, accepted) the pooled "push" client may resend a push on a reused connection that fails before any response byte (a duplicate notification, rare); S5 (Info,
+  as Rails) join codes and session transfer ids are logged in request paths, outside J11's list; S6 (Info) the push pool's error line would carry an endpoint `System.Uri`
+  refuses, and none of 19 probed forms reaches it.
+- **Holding, with new facts that passed before and after:** "SR-J2" (23 private-address URL forms unfurl nothing and dial nothing), "SR-J5" (a push service's 1 GB gzip-bomb
+  error body is cut at the 16 KB buffer), "a timed out webhook's resilience event logs no URL". No retry anywhere (CL1), redirects by hand and re-guarded (OG4), BouncyCastle only
+  through Certes, `dotnet list package --vulnerable`/`--deprecated --include-transitive` on the App: none.
+- **Gates:** `CAMPFIRE_REQUIRE_SEED=1 bin/verify` green: **1,044 total, 1,038 passed, 0 failed, 6 skipped** (the environmental six; +6 tests), Release with warnings as errors (0),
+  lint-markup self-test 39/39 and 324 files clean, the Dapper, EF and DateTime guards, H1. No image rebuild, pixel run or bench: no page, broadcast or benchmarked path changed
+  (the lookups are on unfurls, pushes and subscription creation; the redaction compare is the only per-request change).
+- **KLOC (`bin/kloc`):** 26,665 by upstream's rules, **27,112 corrected (27.1 KLOC)**, App 12,327 (+43: the two printers and the token plumbing).
+- **Differences recorded:** none new (the unfurl's 10 s bound was already README class B; it now holds during name resolution too).

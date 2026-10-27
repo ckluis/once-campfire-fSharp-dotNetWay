@@ -181,15 +181,19 @@ module WebPush =
             | _ -> return Error(Argument("bad URI(is not URI?): " + Json.generate (Value.String endpoint)))
         }
 
-    /// `Push::Subscription#resolved_endpoint_ip`
+    /// `Push::Subscription#resolved_endpoint_ip`: a lookup that outlasts a delivery's deadline is no address.
     let private resolvedEndpointIp (env: PushEnv) (subscription: Ef.PushSubscription) : Task<IPAddress option> =
         task {
             match PushSubscription.resolvedEndpointIp Some subscription with
             | None -> return None
             | Some host ->
-                match! Guard.resolve env.Resolver host with
-                | Ok ip -> return Some ip
-                | Error _ -> return None
+                use deadline = new CancellationTokenSource(deliveryDeadline, env.Time)
+                try
+                    match! Guard.resolve env.Resolver host deadline.Token with
+                    | Ok ip -> return Some ip
+                    | Error _ -> return None
+                with :? OperationCanceledException when deadline.IsCancellationRequested ->
+                    return None
         }
 
     /// `WebPush::Notification#deliver`: nothing happens when the endpoint isn't a permitted push service or doesn't

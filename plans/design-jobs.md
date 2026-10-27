@@ -397,3 +397,61 @@ None. The following are settled by D9, the parity gate and the spikes, and recor
 - The frozen provider over `FakeTimeProvider` in production (timers).
 - Redaction of bot keys (the plan's list).
 - `IOptions` with `ValidateOnStart` and the builder (plan 2.8).
+
+## 11. Security review (2026-10-27)
+
+Opus reviewer, after the gate (`7f08055`), over the phase's commits `14a334a..7f08055`. Fix and tests in the commit that adds this section (`git log -1 -- plans/design-jobs.md`); evidence in
+`bench/results/dotnetway-p8-security/` (`verify.log`, `vulnerable-packages.txt`, `kloc.md`).
+
+**Read.** The phase's `src` changes whole: `Integrations/` (`Clients.fs`, `Guard.fs`, `Net.fs`, `Opengraph.fs`, `OpengraphFetch.fs`, `OpengraphLocation.fs`,
+`OpengraphDocument.fs`, `OpengraphMetadata.fs`, `Webhook.fs`, `WebPush.fs`, `Vapid.fs`, `PushDeliveries.fs`, `IntegrationJobs.fs`), `Logging.fs`, `Jobs.fs`, `Config.fs`,
+`Web/HttpLog.fs`, `Web/PublicExceptions.fs`, `Web/FrontSettings.fs`, `Web/Services.fs`' registrations, `Boot.fs` (`addServices`, `build`, the logger factory), `Platform/HarnessClock.fs`,
+the controllers that call them (`UnfurlLinks.fs`, `Users/PushSubscriptions.fs`, `Users/TestNotifications.fs`) and the endpoint parser they share with the Db
+(`Campfire.Db/PushSubscription.fs`); the tests `ClientsTests`, `GuardTests`, `RedactionTests`, `OptionsTests` and the security facts of `OpengraphTests`, `WebPushTests`,
+`WebhookTests`: 26 source files and 7 test files. `System.Uri` was probed directly (hostile URL forms below) and the restored package graph read from `project.assets.json`.
+
+**Findings.**
+
+| # | Where | Severity | Status | What, and the test that failed before the fix |
+|---|---|---|---|---|
+| S1 | `Integrations/Guard.fs:339-350`, `Net.fs` (`IResolver`), `OpengraphLocation.fs:44`, `OpengraphFetch.fs` (`resolveRedirect`) | Medium | fixed | **DNS lookups were outside the unfurl's deadline.** `IResolver.Lookup` took no token and `Guard.resolve` awaited it bare, so an unfurl of a URL whose name server never answers (the poster can run one) held the request and one of the 16 unfurl slots for as long as `getaddrinfo` waited, past the 10 s the note promises; 16 such posts stalled every user's unfurls. `Lookup` now takes the caller's token, `SystemResolver` passes it to `Dns.GetHostAddressesAsync`, and `resolvePublicIps` stops waiting at it (`WaitAsync`) whatever the resolver does. The opengraph calls pass the unfurl's token, the push endpoint's lookup gets the delivery's 30 s deadline (a timeout is "no address": nothing is sent), the subscription controller passes `RequestAborted`, and the guard's connect callback its connect token. `OpengraphTests` "SR-J1": 20 unfurls against a resolver that never completes, 300 ms deadline, all answer 204 within 5 s and a later unfurl still gets a slot; it failed (still waiting after 5 s) before the fix. |
+| S2 | `Logging.fs:66,78` (`botKeyRange`) | Low | fixed | **Bot-key redaction matched the route's literals by case.** `/ROOMS/:id/:bot_key/MESSAGES` (a 404: the router is case-sensitive here) logged the key in clear in the request line and the failure line. The literals now match in any case. `RedactionTests` "RD7": three such POSTs, no key in what production ships, the hash in the line; it failed before. |
+| S3 | `Config.fs:82` (`CampfireOptions`), `Web/FrontSettings.fs:11` | Low (hardening) | fixed | **The option records printed their secrets.** F# records print every field (`string`, `%A`, `%O`, a log template's `{Options}`), and these hold `SECRET_KEY_BASE`, `VAPID_PRIVATE_KEY` and `EAB_HMAC_KEY`. No line prints them today; the records now print `[FILTERED]` for a set secret and the other fields as before. `OptionsTests` "OP8"; it failed before (`{ SecretKeyBase = "sekrit-base-..."`). |
+| S4 | `Integrations/Clients.fs:172` ("push", pooled) | Low | open, accepted | `SocketsHttpHandler` resends a request whose reused HTTP/1.1 connection fails before any response byte, POSTs included, so a push that races a service closing an idle connection can, rarely, arrive twice. The webhook and opengraph clients take one connection per request, so they never resend (CL1). Rails' persistent Net::HTTP would not resend a POST; a duplicate notification is harmless and a connection per push would cost a TLS handshake each, so the pool stays. |
+| S5 | `Web/HttpLog.fs` (the request line) | Info | open, as Rails | Paths are logged as sent, so the join code (`/join/:join_code`) and a session transfer id (`/session/transfers/:id`) reach the request line, as Rails' and Thruster's lines carry them. J11 redacts the bot key and webhook URLs only (the plan's list); widening it is a decision for the plan, not a defect of this phase. |
+| S6 | `Integrations/WebPush.fs:181` | Info | open | A push endpoint the Db's parser accepts and `System.Uri` refuses would put the whole endpoint (a capability URL) in the pool's error line, as the gem's `URI::InvalidURIError` does. 19 probed forms (backslashes, `%zz`, `<>{}|^`, control and non-ASCII characters, lone surrogates, a 70,000-byte path, an empty port) all parse with `System.Uri`, so nothing reaches it today. |
+
+**Holding (each by reading, a probe or a test).**
+- SSRF: both guarded clients connect only through `Guard.connect`, which re-checks a pinned address and resolves any other host through the guard; every opengraph
+  request and every push is pinned, so a name is resolved once and the checked address is the one dialed (no rebinding window). `System.Uri` normalizes decimal, octal,
+  hex and shortened IPv4 (`2130706433`, `0177.0.0.1`, `0x7f.1`, `127.1` are all `127.0.0.1`) and the guard reads the rest with `inet_aton`; IPv4-mapped and -compatible
+  IPv6 are blocked outright, NAT64 and IPv4-translatable by their embedded address, a zone is dropped by `System.Uri` (`[fe80::1%25en0]` is `fe80::1`) or refused by the
+  guard. New fact `OpengraphTests` "SR-J2": 23 URL forms (those, `[::]`, `0`, `[2002:7f00:1::]`, `[fd00::1]`, the metadata address, names resolving to loopback,
+  link-local, `::1`, mapped and NAT64) unfurl nothing and dial nothing (passed before and after). Redirects are followed by hand only (`AllowAutoRedirect = false` on
+  all three clients), each `Location` parsed, http(s) only, resolved and pinned again (OG4). No proxy (`UseProxy = false`, CL3). HTTP/3 would bypass `ConnectCallback`,
+  but no request asks for it: the opengraph loop and the webhook build theirs at `HttpRequestMessage`'s default (1.1, `RequestVersionOrLower`) and the
+  push library sets no version (by reading; not probed), so `Alt-Svc` cannot upgrade one. The push endpoint's two parsers (the Db's for the
+  permitted host, `System.Uri` for the request) can disagree only on forms `System.Uri` refuses (a backslash in the authority) or where the request still connects to the
+  permitted host's pinned public address, whose certificate then fails for any other name. The webhook client is unguarded by design (Rails' `webhook.rb`; an
+  administrator sets the URL).
+- Delivery counts and timeouts: no retry, breaker or hedging in any pipeline (CL1 counts one POST on a 500, a reset and a timeout); `AutoRetryAfter = false` (WP4);
+  the job runner retries nothing. Timeouts: 7 s webhook, 5 s opengraph and 10 s push to the response head, 60 s, 10 s and 30 s over a whole delivery, unfurl or push, and
+  now the lookups within those (S1).
+- Response caps: opengraph 5 MB after inflation (`readLimited`, the gzip bomb facts), webhook 100 MB after inflation (CL5, "rejects replies over the limit"), the push
+  client's buffer 16 KB (new fact `WebPushTests` "SR-J5": a 500 carrying a gigabyte gzip bomb is a logged `PushServiceError` within 10 s, passed before and after),
+  response heads at `SocketsHttpHandler`'s 64 KB.
+- Hostile pages: AngleSharp under the two caps (OG1's six pages, OG2) plus the checkpoint's extra probes (580,000 attributes, one 5 MB attribute, an unterminated
+  comment, 100,000 metas, 100,000 options: all under 0.5 s CPU); parses run 4 at a time off the async workers; `charsetIn`, the meta scan and the attribute lookups are
+  linear in the 5 MB body; the title and description go through Phase 5's sanitizer with its caps.
+- Web Push keys and BouncyCastle: `Lib.Net.Http.WebPush` 3.3.1 resolves its `net6.0` assembly, which uses `System.Security.Cryptography` (its only dependency is
+  `Lib.Net.Http.EncryptedContentEncoding`); `BouncyCastle.Cryptography` 2.7.0 comes in only through Certes (Phase 7). `dotnet list package --vulnerable` and
+  `--deprecated --include-transitive` on the App: none (`vulnerable-packages.txt`). The VAPID pair is checked once at boot (a signature the public key verifies), kept as
+  Base64 in `VapidConfig` (whose `ToString` is the type name), signed per delivery with a fresh `VapidAuthentication` that is disposed; a subscription's bad key
+  invalidates only that subscription.
+- Redaction and logs: the factory's request-URL loggers are removed (CL "no client logs a request's URL"); Polly's timeout event names the pipeline and no URL (new fact
+  `ClientsTests` "a timed out webhook's resilience event logs no URL", passed before and after); push failures log the host only (RD4); a webhook URL is hashed in the
+  failure line, as written and JSON-quoted (RD3); a .NET transport message names `host:port`, never the path; jobs log an event's case name, not its fields. The
+  production logger factory holds the framework's categories at Warning (no hosting or routing line, which carry the raw path), scopes are off, and the single-line
+  console formatter replaces newlines, so a URL or page value cannot forge a line.
+- Options: validation messages are Rails' words and quote only the non-secret value at fault (`JOB_CONCURRENCY`, `CAMPFIRE_FRAGMENT_CACHE_MB`,
+  `CAMPFIRE_FROZEN_TIME`); `Boot.execute` prints the message only; a missing secret says so without a value; `SECRET_KEY_BASE_DUMMY` makes one random secret per process.

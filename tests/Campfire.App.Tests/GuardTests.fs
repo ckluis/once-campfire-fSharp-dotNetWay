@@ -5,6 +5,7 @@ module Campfire.App.Tests.GuardTests
 open System
 open System.Collections.Generic
 open System.Net
+open System.Threading
 open System.Threading.Tasks
 open Xunit
 open Campfire.App.Integrations
@@ -51,22 +52,22 @@ let ``resolves hosts like the private network guard`` () =
             )
         let net = resolver :> IResolver
         let ip (s: string) = IPAddress.Parse s
-        let! resolved = Guard.resolve net "www.example.com"
+        let! resolved = Guard.resolve net "www.example.com" CancellationToken.None
         Assert.Equal(Ok(ip "93.184.216.34"), resolved)
-        let! mixed = Guard.resolvePublicIps net "mixed.example"
+        let! mixed = Guard.resolvePublicIps net "mixed.example" CancellationToken.None
         Assert.Equal(Ok [ ip "93.184.216.39"; ip "2606:2800:220:1:248:1893:25c8:1946" ], mixed)
-        let! privateHost = Guard.resolve net "private.example"
+        let! privateHost = Guard.resolve net "private.example" CancellationToken.None
         Assert.Equal(Error(Violation "private.example"), privateHost)
-        let! nowhere = Guard.resolve net "nowhere.example"
+        let! nowhere = Guard.resolve net "nowhere.example" CancellationToken.None
         Assert.Equal(Error Unresolvable, nowhere)
-        let! literal = Guard.resolve net "8.8.8.8"
+        let! literal = Guard.resolve net "8.8.8.8" CancellationToken.None
         Assert.Equal(Ok(ip "8.8.8.8"), literal)
-        let! bracketed = Guard.resolve net "[2606:2800:220:1:248:1893:25c8:1946]"
+        let! bracketed = Guard.resolve net "[2606:2800:220:1:248:1893:25c8:1946]" CancellationToken.None
         Assert.Equal(Ok(ip "2606:2800:220:1:248:1893:25c8:1946"), bracketed)
         for host in
             [ "127.0.0.1"; "0x7f.1"; "2130706433"; "[::1]"; "::1"; "[fd00::1]"; "under_score.example"; ""; "a..b"; "1.2.3.4."; "01.2.3.4."
               "host%eth0"; "exämple.com"; "-lead.example"; "[v1.x]" ] do
-            let! result = Guard.resolve net host
+            let! result = Guard.resolve net host CancellationToken.None
             match result with
             | Error(Violation _) -> ()
             | other -> failwith $"{host}: {other}"
