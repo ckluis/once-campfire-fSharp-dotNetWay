@@ -1,4 +1,4 @@
-// Port of rust/crates/campfire/src/integrations/web_push/tests.rs and the tests of web_push/encryption.rs
+// Port of rust/crates/campfire/src/integrations/web_push/tests.rs, on Lib.Net.Http.WebPush (plans/design-jobs.md J7; WP1-WP8)
 module Campfire.App.Tests.WebPushTests
 
 open System
@@ -9,6 +9,7 @@ open System.Text
 open System.Text.Json
 open System.Threading
 open System.Threading.Tasks
+open Microsoft.Extensions.DependencyInjection
 open Microsoft.Extensions.Hosting
 open Microsoft.Extensions.Logging.Abstractions
 open Xunit
@@ -52,7 +53,7 @@ let private vapid () : VapidConfig =
 
 /// A `PushDeliveries` started as the host starts it, and stopped as the host stops it (deliveries get a second to finish,
 /// then the invalidations drain).
-let private startPool (net: Network) (handler: int64 -> Task<Result<unit, string>>) : Task<PushDeliveries> =
+let private startPool (net: PushEnv) (handler: int64 -> Task<Result<unit, string>>) : Task<PushDeliveries> =
     task {
         let pool = new PushDeliveries(net, vapid (), handler, NullLogger.Instance)
         do! (pool :> IHostedService).StartAsync CancellationToken.None
@@ -101,47 +102,10 @@ let private decrypt (body: byte[]) (receiver: ECDiffieHellman) (auth: byte[]) : 
     with _ ->
         None
 
-// --- encryption.rs -------------------------------------------------------------------------------------------
-
-// RFC 8291, section 5.
-[<Literal>]
-let private Plaintext = "V2hlbiBJIGdyb3cgdXAsIEkgd2FudCB0byBiZSBhIHdhdGVybWVsb24"
-
-[<Literal>]
-let private AsPrivate = "yfWPiYE-n46HLnH0KqZOF1fJJU3MYrct3AELtAQ-oRw"
-
-[<Literal>]
-let private UaPublic = "BCVxsr7N_eNgVRqvHtD0zTZsEc6-VV-JvLexhqUzORcxaOzi6-AYWXvTBHm4bjyPjs7Vd8pZGH6SRpkNtoIAiw4"
-
-[<Literal>]
-let private UaPrivate = "q1dXpw3UpT5VOmu_cf_v6ih07Aems3njxI-JWgLcM94"
-
-[<Literal>]
-let private Salt = "DGv6ra1nlYgDCS1FRnbzlw"
-
-[<Literal>]
-let private Auth = "BTBZMqHH6r4Tts7J_aSIgg"
-
-[<Literal>]
-let private RfcMessage =
-    "DGv6ra1nlYgDCS1FRnbzlwAAEABBBP4z9KsN6nGRTbVYI_c7VJSPQTBtkgcy27mlmlMoZIIgDll6e3vCYLocInmYWAmS6TlzAC8wEqKK6PBru3jl7A_yl95bQpu6cVPTpK4Mqgkf1CXztLVBSt2Ks3oZwbuwXPXLWyouBWLVWGNWQexSgSxsj_Qulcy4a-fN"
-
-[<Fact>]
-let ``matches the rfc 8291 test vector`` () =
-    // The application server's public key is the key id of the recorded message.
-    let message = decode64 RfcMessage
-    use serverKey = keyOf (decode64 AsPrivate) message[21..85]
-    let layout: Encryption.Layout = { RecordSize = Some 4096u; Padding = [| 2uy |] }
-    match Encryption.encryptWith (decode64 Plaintext) (Some UaPublic) (Some Auth) serverKey (decode64 Salt) layout with
-    | Ok body -> Assert.Equal(RfcMessage, encode64 body)
-    | Error error -> failwith (EncryptionError.message error)
-
-    use receiver = keyOf (decode64 UaPrivate) (decode64 UaPublic)
-    match decrypt message receiver (decode64 Auth) with
-    | Some(recordSize, plaintext) ->
-        Assert.Equal(4096u, recordSize)
-        Assert.Equal<byte[]>(Array.append (decode64 Plaintext) [| 2uy |], plaintext)
-    | None -> failwith "the user agent couldn't decrypt it"
+/// RFC 8188: the last record ends with the delimiter 0x02 (any padding zeros sit between the message and it).
+let private openMessage (plaintext: byte[]) : string =
+    Assert.True(plaintext.Length >= 1 && plaintext[plaintext.Length - 1] = 2uy, "aes128gcm delimiter")
+    Encoding.UTF8.GetString plaintext[.. plaintext.Length - 2]
 
 /// A user agent's key and auth secret.
 type private Receiver() =
@@ -157,49 +121,8 @@ type private Receiver() =
 
     member _.Open(body: byte[]) : string =
         match decrypt body key auth with
-        | Some(_, plaintext) ->
-            Assert.True(plaintext.Length >= 2 && plaintext[plaintext.Length - 2] = 2uy && plaintext[plaintext.Length - 1] = 0uy, "gem padding")
-            Encoding.UTF8.GetString plaintext[.. plaintext.Length - 3]
+        | Some(_, plaintext) -> openMessage plaintext
         | None -> failwith "decrypts"
-
-[<Fact>]
-let ``round trips with the gems framing`` () =
-    let receiver = Receiver()
-    let p256dh = encode64 (P256.uncompressed receiver.Key)
-    match Encryption.encrypt (Encoding.UTF8.GetBytes """{"title":"hi"}""") (Some p256dh) (Some(encode64 receiver.Auth)) with
-    | Ok body ->
-        match decrypt body receiver.Key receiver.Auth with
-        | Some(recordSize, plaintext) ->
-            Assert.Equal<byte[]>(Encoding.UTF8.GetBytes "{\"title\":\"hi\"}\u0002\u0000", plaintext)
-            Assert.Equal(body.Length - 86, int recordSize)
-        | None -> failwith "decrypts"
-    | Error error -> failwith (EncryptionError.message error)
-
-[<Fact>]
-let ``decrypts what the gem encrypted`` () =
-    let expected = expected ()
-    let receiver = keyOf (decode64 (str (expected.GetProperty "receiver_private_key"))) (decode64 (str (expected.GetProperty "p256dh")))
-    let body = decode64 (str (expected.GetProperty "ciphertext"))
-    match decrypt body receiver (decode64 (str (expected.GetProperty "auth"))) with
-    | Some(recordSize, plaintext) ->
-        Assert.Equal(body.Length - 86, int recordSize)
-        let message = str (expected.GetProperty "message")
-        Assert.Equal<byte[]>(Array.append (Encoding.UTF8.GetBytes message) [| 2uy; 0uy |], plaintext)
-    | None -> failwith "decrypts"
-
-[<Fact>]
-let ``rejects what the gem rejects`` () =
-    use key = ECDiffieHellman.Create p256
-    let ok = encode64 (P256.uncompressed key)
-    let encrypt (message: byte[]) (p256dh: string option) (auth: string option) = Encryption.encrypt message p256dh auth
-    let m = [| byte 'm' |]
-    let isArgument result = match result with Error(EncryptionError.Argument _) -> true | _ -> false
-    let isInvalidKey result = match result with Error(EncryptionError.InvalidKey _) -> true | _ -> false
-    Assert.True(isArgument (encrypt m None (Some "YXV0aA")))
-    Assert.True(isArgument (encrypt m (Some ok) (Some "")))
-    Assert.True(isArgument (encrypt m (Some "not base64!") (Some "YXV0aA")))
-    Assert.True(isInvalidKey (encrypt m (Some "dGVzdF9rZXk") (Some "YXV0aA")))
-    Assert.True(isArgument (encrypt (Array.create 4100 (byte 'x')) (Some ok) (Some "YXV0aA")))
 
 // --- tests.rs --------------------------------------------------------------------------------------------------
 
@@ -207,20 +130,25 @@ type private PushService =
     { Server: FakeServer
       Resolver: FakeResolver
       Dialer: MappingDialer
-      Net: Network }
+      Provider: ServiceProvider
+      Env: PushEnv }
 
-let private pushService (status: int) (reason: string) : PushService =
-    let route = { Route.create "POST" "*" "" status with Reason = reason }
+let private pushServiceWith (trusted: bool) (route: Route) : PushService =
     let routes =
         [ "/fcm/send/abc"; "/fcm/send/123"; "/fcm/send/456"; "/fcm/send/567"; "/fcm/send/789" ]
         |> List.map (fun path -> { route with Path = path })
     let server = FakeServer.StartTls routes
     let resolver = FakeResolver([ "fcm.googleapis.com", [ PublicIp ] ])
     let dialer = MappingDialer(HashSet [ IPAddress.Parse PublicIp ], server.Addr)
+    let provider, env = pushEnv resolver dialer trusted
     { Server = server
       Resolver = resolver
       Dialer = dialer
-      Net = network resolver dialer }
+      Provider = provider
+      Env = env }
+
+let private pushService (status: int) (reason: string) : PushService =
+    pushServiceWith true { Route.create "POST" "*" "" status with Reason = reason }
 
 let private notification (subscription: Ef.PushSubscription) : Notification =
     { Title = "t"
@@ -233,61 +161,123 @@ let private notification (subscription: Ef.PushSubscription) : Notification =
 let ``encodes the message like json generate`` () =
     let notification =
         { Title = "Designers <&> \"quotes\" é 😀"
-          Body = "Kevin: line\nbreak\ttab   \u001f / \\ "
+          Body = "Kevin: line\nbreak\ttab \u2028 \u001f / \\ "
           Path = "/rooms/1"
           Badge = 3L
           Subscription = PushSubscription.build 1L null null null null }
     Assert.Equal(str ((expected ()).GetProperty "message"), WebPush.Notification.encodedMessage notification)
 
+/// WP1: the vector's receiver key decrypts what the library sent to the message the gem encrypts, and the longest payload fits.
+[<Fact>]
+let ``the payload decrypts to the message`` () =
+    task {
+        let service = pushService 201 "Created"
+        use _server = service.Server
+        let expected = expected ()
+        let receiver = keyOf (decode64 (str (expected.GetProperty "receiver_private_key"))) (decode64 (str (expected.GetProperty "p256dh")))
+        let auth = decode64 (str (expected.GetProperty "auth"))
+        let subscription =
+            { PushSubscription.build 1L "https://fcm.googleapis.com/fcm/send/abc" (str (expected.GetProperty "p256dh")) (str (expected.GetProperty "auth")) null with
+                Id = 1L }
+        let notification =
+            { Title = "Designers <&> \"quotes\" é 😀"
+              Body = "Kevin: line\nbreak\ttab \u2028 \u001f / \\ "
+              Path = "/rooms/1"
+              Badge = 3L
+              Subscription = subscription }
+        let! delivered = WebPush.deliver service.Env (vapid ()) notification
+        Assert.Equal(Ok true, delivered |> Result.mapError (fun _ -> ()))
+        match decrypt (List.head (service.Server.Received())).Body receiver auth with
+        | Some(recordSize, plaintext) ->
+            Assert.Equal(4096u, recordSize)
+            Assert.Equal<byte[]>(Array.append (Encoding.UTF8.GetBytes(str (expected.GetProperty "message"))) [| 2uy |], plaintext)
+        | None -> failwith "the user agent couldn't decrypt it"
+    }
+
 [<Fact>]
 let ``the longest payload fits a push message`` () =
-    let receiver = Receiver()
-    let notification =
-        { Title = String.replicate (PushSubscription.MaxPayloadTitleBytes / 2) "\""
-          Body = String.replicate (PushSubscription.MaxPayloadBodyBytes / 6) "\u0001"
-          Path = $"/rooms/{Int64.MinValue}"
-          Badge = Int64.MinValue
-          Subscription = receiver.Subscription(1L, "https://fcm.googleapis.com/fcm/send/abc") }
-    let subscription = notification.Subscription
-    let message = WebPush.Notification.encodedMessage notification
-    match Encryption.encrypt (Encoding.UTF8.GetBytes message) (Option.ofObj subscription.P256dhKey) (Option.ofObj subscription.AuthKey) with
-    | Ok body -> Assert.Equal(message, receiver.Open body)
-    | Error error -> failwith (EncryptionError.message error)
+    task {
+        let service = pushService 201 "Created"
+        use _server = service.Server
+        let receiver = Receiver()
+        let notification =
+            { Title = String.replicate (PushSubscription.MaxPayloadTitleBytes / 2) "\""
+              Body = String.replicate (PushSubscription.MaxPayloadBodyBytes / 6) "\u0001"
+              Path = $"/rooms/{Int64.MinValue}"
+              Badge = Int64.MinValue
+              Subscription = receiver.Subscription(1L, "https://fcm.googleapis.com/fcm/send/abc") }
+        let! delivered = WebPush.deliver service.Env (vapid ()) notification
+        Assert.Equal(Ok true, delivered |> Result.mapError DeliveryError.message |> Result.mapError (fun _ -> ()))
+        Assert.Equal(WebPush.Notification.encodedMessage notification, receiver.Open (List.head (service.Server.Received())).Body)
+    }
 
+/// WP2, and the pinned address: the request goes to the address the delivery resolved, with no second lookup.
 [<Fact>]
-let ``signs the vapid header like the gem`` () =
-    let expected = expected ()
-    let now = expected.GetProperty("now").GetInt64()
-    let authorization = (vapid ()).Authorization("https://fcm.googleapis.com", now)
-    Assert.StartsWith("vapid t=", authorization)
-    let t, k = (let rest = authorization.Substring 8 in let at = rest.IndexOf ",k=" in rest.Substring(0, at), rest.Substring(at + 3))
-    Assert.Equal(str (expected.GetProperty "authorization_k"), k)
-    let segments = t.Split '.'
-    Assert.Equal(str (expected.GetProperty "jwt_header_segment"), segments[0])
-    Assert.Equal(str (expected.GetProperty "jwt_payload_segment"), segments[1])
+let ``delivers to the pinned address with the vapid headers`` () =
+    task {
+        let service = pushService 201 "Created"
+        use _server = service.Server
+        let receiver = Receiver()
+        let notification = notification (receiver.Subscription(1L, "https://fcm.googleapis.com/fcm/send/abc"))
+        let before = DateTimeOffset.UtcNow.ToUnixTimeSeconds()
 
-    let publicKey = decode64 VapidPublicKey
-    use key = ECDsa.Create(ECParameters(Curve = p256, Q = ECPoint(X = publicKey[1..32], Y = publicKey[33..64])))
-    Assert.True(
-        key.VerifyData(
-            Encoding.ASCII.GetBytes($"{segments[0]}.{segments[1]}"),
-            decode64 segments[2],
-            HashAlgorithmName.SHA256,
-            DSASignatureFormat.IeeeP1363FixedFieldConcatenation
+        let! delivered = WebPush.deliver service.Env (vapid ()) notification
+        Assert.Equal(Ok true, delivered |> Result.mapError DeliveryError.message |> Result.mapError (fun _ -> ()))
+
+        Assert.Equal<string list>([ "fcm.googleapis.com" ], service.Resolver.Lookups)
+        Assert.Equal<IPEndPoint list>([ IPEndPoint(IPAddress.Parse PublicIp, 443) ], service.Dialer.Dialed)
+        let received = service.Server.Received()
+        Assert.Equal(1, received.Length)
+        let request = received[0]
+        Assert.Equal(("POST", "/fcm/send/abc"), (request.Method, request.Target))
+        Assert.Equal(Some "fcm.googleapis.com", request.Header "Host")
+        Assert.Equal(Some "aes128gcm", request.Header "Content-Encoding")
+        Assert.Equal(Some "2419200", request.Header "TTL")
+        Assert.Equal(Some "high", request.Header "Urgency")
+        Assert.Equal(Some "application/octet-stream", request.Header "Content-Type")
+        Assert.Equal(Some(string request.Body.Length), request.Header "Content-Length")
+
+        let authorization = (request.Header "Authorization").Value
+        let expected = expected ()
+        Assert.StartsWith("vapid t=", authorization)
+        let t, k = (let rest = authorization.Substring 8 in let at = rest.IndexOf ", k=" in rest.Substring(0, at), rest.Substring(at + 4))
+        Assert.Equal(str (expected.GetProperty "authorization_k"), k)
+        let segments = t.Split '.'
+        Assert.Equal(str (expected.GetProperty "jwt_header_segment"), segments[0])
+        use claims = JsonDocument.Parse(Encoding.UTF8.GetString(decode64 segments[1]))
+        Assert.Equal("https://fcm.googleapis.com", str (claims.RootElement.GetProperty "aud"))
+        Assert.Equal(ReferenceSubject, str (claims.RootElement.GetProperty "sub"))
+        // `exp` is twelve hours out (the library reads its own clock).
+        let exp = claims.RootElement.GetProperty("exp").GetInt64()
+        Assert.InRange(exp, before + 12L * 3600L - 5L, before + 12L * 3600L + 120L)
+        let publicKey = decode64 VapidPublicKey
+        use key = ECDsa.Create(ECParameters(Curve = p256, Q = ECPoint(X = publicKey[1..32], Y = publicKey[33..64])))
+        Assert.True(
+            key.VerifyData(
+                Encoding.ASCII.GetBytes($"{segments[0]}.{segments[1]}"),
+                decode64 segments[2],
+                HashAlgorithmName.SHA256,
+                DSASignatureFormat.IeeeP1363FixedFieldConcatenation
+            )
         )
-    )
+        Assert.Equal(WebPush.Notification.encodedMessage notification, receiver.Open request.Body)
+    }
 
 [<Fact>]
 let ``signs with the configured subject`` () =
-    let vapid =
-        match VapidConfig.Create("mailto:ops@example.com", VapidPublicKey, VapidPrivateKey) with
-        | Ok vapid -> vapid
-        | Error error -> failwith (VapidError.message error)
-    let authorization = vapid.Authorization("https://fcm.googleapis.com", 0L)
-    let jwt = (authorization.Substring(8).Split ',')[0]
-    let payloadSegment = (jwt.Split '.').[1]
-    use claims = JsonDocument.Parse(Encoding.UTF8.GetString(decode64 payloadSegment))
-    Assert.Equal("mailto:ops@example.com", str (claims.RootElement.GetProperty "sub"))
+    task {
+        let service = pushService 201 "Created"
+        use _server = service.Server
+        let vapid =
+            match VapidConfig.Create("mailto:ops@example.com", VapidPublicKey, VapidPrivateKey) with
+            | Ok vapid -> vapid
+            | Error error -> failwith (VapidError.message error)
+        let! _ = WebPush.deliver service.Env vapid (notification ((Receiver()).Subscription(1L, "https://fcm.googleapis.com/fcm/send/abc")))
+        let authorization = ((List.head (service.Server.Received())).Header "Authorization").Value
+        let jwt = (authorization.Substring(8).Split ',')[0]
+        use claims = JsonDocument.Parse(Encoding.UTF8.GetString(decode64 (jwt.Split '.').[1]))
+        Assert.Equal("mailto:ops@example.com", str (claims.RootElement.GetProperty "sub"))
+    }
 
 [<Fact>]
 let ``rejects bad vapid keys up front`` () =
@@ -311,11 +301,14 @@ let private config (publicKey: string option) (privateKey: string option) : AppC
             VapidSubject = ReferenceSubject }
     | Error message -> failwith message
 
+/// WP6: invalid or missing keys turn push off (`None`), and nothing throws.
 [<Fact>]
 let ``web push is off without a valid key pair`` () =
     task {
         use t = new TestDb()
-        let pool publicKey privateKey = IntegrationJobs.webPushPool (config publicKey privateKey) t.Factory t.Gate t.Env NullLogger.Instance
+        let service = pushService 201 "Created"
+        use _server = service.Server
+        let pool publicKey privateKey = IntegrationJobs.webPushPool (config publicKey privateKey) t.Factory t.Gate t.Env service.Env NullLogger.Instance
         Assert.True((pool None (Some VapidPrivateKey)).IsNone)
         Assert.True((pool (Some "dGVzdF9rZXk") (Some VapidPrivateKey)).IsNone)
         let on = pool (Some VapidPublicKey) (Some VapidPrivateKey)
@@ -324,43 +317,7 @@ let ``web push is off without a valid key pair`` () =
         Assert.Equal(Error Missing, VapidConfig.FromConfig(config (Some VapidPublicKey) None) |> Result.map ignore)
     }
 
-[<Fact>]
-let ``delivers to the pinned address with the gems headers`` () =
-    task {
-        let service = pushService 201 "Created"
-        use _server = service.Server
-        let receiver = Receiver()
-        let notification = notification (receiver.Subscription(1L, "https://fcm.googleapis.com/fcm/send/abc"))
-
-        let! delivered = WebPush.deliver service.Net (vapid ()) notification
-        Assert.Equal(Ok(Some 201), delivered |> Result.mapError DeliveryError.message |> Result.mapError (fun _ -> ()))
-
-        Assert.Equal<string list>([ "fcm.googleapis.com" ], service.Resolver.Lookups)
-        Assert.Equal<IPEndPoint list>([ IPEndPoint(IPAddress.Parse PublicIp, 443) ], service.Dialer.Dialed)
-        let received = service.Server.Received()
-        Assert.Equal(1, received.Length)
-        let request = received[0]
-        Assert.Equal(("POST", "/fcm/send/abc"), (request.Method, request.Target))
-
-        let expected = expected ()
-        let expectedHeaders =
-            [ for pair in expected.GetProperty("headers").EnumerateArray() ->
-                  let name, value = str pair[0], str pair[1]
-                  name, (if name = "Content-Length" then string request.Body.Length else value) ]
-        let names = request.Headers |> List.map fst
-        Assert.Equal<string list>(
-            [ "Content-Type"; "Ttl"; "Urgency"; "Content-Encoding"; "Content-Length"; "Authorization"; "Accept-Encoding"; "Accept"; "User-Agent"; "Connection"; "Host" ],
-            names
-        )
-        for (name, value) in expectedHeaders do
-            Assert.Equal(Some value, request.Header name)
-        Assert.Equal(Some "fcm.googleapis.com", request.Header "Host")
-        Assert.Equal(Some "Ruby", request.Header "User-Agent")
-        let headerSegment = str (expected.GetProperty "jwt_header_segment")
-        Assert.StartsWith($"vapid t={headerSegment}.", (request.Header "Authorization").Value)
-        Assert.Equal(WebPush.Notification.encodedMessage notification, receiver.Open request.Body)
-    }
-
+/// WP5
 [<Fact>]
 let ``skips endpoints it may not deliver to`` () =
     task {
@@ -375,14 +332,16 @@ let ``skips endpoints it may not deliver to`` () =
               "https://fcm.googleapis.com:22/fcm/send/abc"
               "http://fcm.googleapis.com/fcm/send/abc"
               "https://evilfcm.googleapis.com.attacker.example/webhook" ] do
-            let! delivered = WebPush.deliver service.Net (vapid ()) (notification (receiver.Subscription(1L, endpoint)))
+            let! delivered = WebPush.deliver service.Env (vapid ()) (notification (receiver.Subscription(1L, endpoint)))
             match delivered with
-            | Ok None -> ()
-            | other -> failwith $"{endpoint}: {other}"
+            | Ok false -> ()
+            | other -> failwith $"{endpoint}: {other |> Result.mapError DeliveryError.message}"
         Assert.True(service.Server.Received().IsEmpty)
+        Assert.Empty(service.Dialer.Dialed)
         Assert.Equal<string list>([ "updates.push.services.mozilla.com"; "web.push.apple.com" ], service.Resolver.Lookups)
     }
 
+/// WP3 and WP4
 [<Fact>]
 let ``raises what the gem raises`` () =
     task {
@@ -391,18 +350,34 @@ let ``raises what the gem raises`` () =
         for (status, reason, kind, invalidates) in
             [ 410, "Gone", "WebPush::ExpiredSubscription", true
               404, "Not Found", "WebPush::InvalidSubscription", true
+              401, "Unauthorized", "WebPush::Unauthorized", false
               403, "Forbidden", "WebPush::Unauthorized", false
-              400, "UnauthorizedRegistration", "WebPush::Unauthorized", false
               400, "Bad Request", "WebPush::ResponseError", false
               413, "Payload Too Large", "WebPush::PayloadTooLarge", false
               429, "Too Many Requests", "WebPush::TooManyRequests", false
+              500, "Internal Server Error", "WebPush::PushServiceError", false
               503, "Service Unavailable", "WebPush::PushServiceError", false
               302, "Found", "WebPush::ResponseError", false ] do
             let service = pushService status reason
             use _server = service.Server
-            match! WebPush.deliver service.Net (vapid ()) (notification subscription) with
+            match! WebPush.deliver service.Env (vapid ()) (notification subscription) with
             | Error error -> Assert.Equal((kind, invalidates), (DeliveryError.className error, DeliveryError.invalidatesSubscription error))
             | Ok delivered -> failwith $"{status} {reason}: {delivered}"
+            Assert.Equal(1, service.Server.Received().Length)
+    }
+
+/// WP4: a 429 that says when to retry is still sent once.
+[<Fact>]
+let ``a 429 with retry after is sent once`` () =
+    task {
+        let service = pushServiceWith true (Route.create "POST" "*" "" 429 |> Route.header "Retry-After" "1")
+        use _server = service.Server
+        let receiver = Receiver()
+        match! WebPush.deliver service.Env (vapid ()) (notification (receiver.Subscription(1L, "https://fcm.googleapis.com/fcm/send/abc"))) with
+        | Error error -> Assert.Equal("WebPush::TooManyRequests", DeliveryError.className error)
+        | Ok delivered -> failwith $"{delivered}"
+        do! Task.Delay 1500
+        Assert.Equal(1, service.Server.Received().Length)
     }
 
 [<Fact>]
@@ -413,25 +388,27 @@ let ``only the subscriptions own faults invalidate it`` () =
         use _server = service.Server
         let badKey =
             PushSubscription.build 1L "https://fcm.googleapis.com/fcm/send/abc" "dGVzdF9rZXk" "dGVzdF9hdXRo" null
-        match! WebPush.deliver service.Net (vapid ()) (notification badKey) with
+        match! WebPush.deliver service.Env (vapid ()) (notification badKey) with
         | Error error ->
             Assert.Equal(("OpenSSL::PKey::EC::Point::Error", true), (DeliveryError.className error, DeliveryError.invalidatesSubscription error))
         | Ok delivered -> failwith $"{delivered}"
 
         // A certificate that doesn't verify may be our fault (an empty CA store, a skewed clock).
-        let untrusted = { service.Net with Tls = CustomRoots(Security.Cryptography.X509Certificates.X509Certificate2Collection()) }
+        let untrusted = pushServiceWith false (Route.create "POST" "*" "" 201)
+        use _untrusted = untrusted.Server
         let receiver = Receiver()
-        match! WebPush.deliver untrusted (vapid ()) (notification (receiver.Subscription(1L, "https://fcm.googleapis.com/fcm/send/abc"))) with
+        match! WebPush.deliver untrusted.Env (vapid ()) (notification (receiver.Subscription(1L, "https://fcm.googleapis.com/fcm/send/abc"))) with
         | Error error ->
             Assert.Equal(("OpenSSL::SSL::SSLError", false), (DeliveryError.className error, DeliveryError.invalidatesSubscription error))
         | Ok delivered -> failwith $"{delivered}"
 
         let blank = PushSubscription.build 1L "https://fcm.googleapis.com/fcm/send/abc" "" "dGVzdF9hdXRo" null
-        match! WebPush.deliver service.Net (vapid ()) (notification blank) with
+        match! WebPush.deliver service.Env (vapid ()) (notification blank) with
         | Error error -> Assert.Equal(("ArgumentError", false), (DeliveryError.className error, DeliveryError.invalidatesSubscription error))
         | Ok delivered -> failwith $"{delivered}"
     }
 
+/// WP7 (the delivery half; the redirect is the controller's)
 [<Fact>]
 let ``test notification`` () =
     task {
@@ -439,9 +416,10 @@ let ``test notification`` () =
         use _server = service.Server
         let receiver = Receiver()
         let subscription = receiver.Subscription(1L, "https://fcm.googleapis.com/fcm/send/abc")
-        match! WebPush.deliverTestNotification service.Net (vapid ()) subscription 4L "http://example.com/users/me/push_subscriptions" with
+        match! WebPush.deliverTestNotification service.Env (vapid ()) subscription 4L "http://example.com/users/me/push_subscriptions" with
         | Ok() -> ()
         | Error error -> failwith (DeliveryError.message error)
+        Assert.Equal(1, service.Server.Received().Length)
 
         use message = JsonDocument.Parse(receiver.Open (List.head (service.Server.Received())).Body)
         let root = message.RootElement
@@ -455,7 +433,7 @@ let ``test notification`` () =
 
         let expired = pushService 410 "Gone"
         use _expired = expired.Server
-        let! result = WebPush.deliverTestNotification expired.Net (vapid ()) subscription 4L "/"
+        let! result = WebPush.deliverTestNotification expired.Env (vapid ()) subscription 4L "/"
         Assert.True result.IsError
     }
 
@@ -492,7 +470,7 @@ let ``pushes messages and destroys expired subscriptions`` () =
         let ok = pushService 201 "Created"
         use _ok = ok.Server
         let destroyed = List<int64>()
-        let! pool = startPool ok.Net (fun id -> lock destroyed (fun () -> destroyed.Add id); Task.FromResult(Ok()))
+        let! pool = startPool ok.Env (fun id -> lock destroyed (fun () -> destroyed.Add id); Task.FromResult(Ok()))
         let! message = create ()
         use pushContext = t.Factory.CreateDbContext()
         let payload =
@@ -524,7 +502,7 @@ let ``pushes messages and destroys expired subscriptions`` () =
                 | Error(RecordNotFound _) -> return Ok()
                 | Error error -> return Error(DbError.display error)
             }
-        let! pool = startPool gone.Net handler
+        let! pool = startPool gone.Env handler
         let countPush () =
             use ctx = t.Factory.CreateDbContext()
             Ef.Reads.run ctx PushSubscription.count
@@ -543,9 +521,10 @@ let ``the pool keeps subscriptions it failed to reach`` () =
     task {
         let service = pushService 201 "Created"
         use _server = service.Server
-        let untrusted = { service.Net with Tls = CustomRoots(Security.Cryptography.X509Certificates.X509Certificate2Collection()) }
+        let untrusted = pushServiceWith false (Route.create "POST" "*" "" 201)
+        use _untrusted = untrusted.Server
         let destroyed = List<int64>()
-        let! pool = startPool untrusted (fun id -> lock destroyed (fun () -> destroyed.Add id); Task.FromResult(Ok()))
+        let! pool = startPool untrusted.Env (fun id -> lock destroyed (fun () -> destroyed.Add id); Task.FromResult(Ok()))
         pool.DeliverLater(notification ((Receiver()).Subscription(1L, "https://fcm.googleapis.com/fcm/send/abc")))
         do! stopPool pool
         Assert.True(destroyed.Count = 0)
@@ -568,7 +547,7 @@ type private GatedResolver() =
 let ``the pool drops deliveries past its queue`` () =
     task {
         let resolver = GatedResolver()
-        let net = { Resolver = resolver; Dialer = TcpDialer(); Tls = SystemRoots; Time = TimeProvider.System }
+        let _, net = pushEnv resolver (TcpDialer()) false
         let! pool = startPool net (fun _ -> Task.FromResult(Ok()))
         let receiver = Receiver()
         let subscription = receiver.Subscription(1L, "https://fcm.googleapis.com/fcm/send/abc")
@@ -597,7 +576,7 @@ let ``a stop right after the start still delivers and invalidates`` () =
         let receiver = Receiver()
         for round in 1 .. 20 do
             let destroyed = List<int64>()
-            let pool = new PushDeliveries(gone.Net, vapid (), (fun id -> lock destroyed (fun () -> destroyed.Add id); Task.FromResult(Ok())), NullLogger.Instance)
+            let pool = new PushDeliveries(gone.Env, vapid (), (fun id -> lock destroyed (fun () -> destroyed.Add id); Task.FromResult(Ok())), NullLogger.Instance)
             pool.DeliverLater(notification (receiver.Subscription(int64 round, "https://fcm.googleapis.com/fcm/send/abc")))
             do! (pool :> IHostedService).StartAsync CancellationToken.None
             do! stopPool pool
@@ -613,7 +592,7 @@ type private PanickingResolver() =
 [<Fact>]
 let ``a panicking delivery frees its slot`` () =
     task {
-        let net = { Resolver = PanickingResolver(); Dialer = TcpDialer(); Tls = SystemRoots; Time = TimeProvider.System }
+        let _, net = pushEnv (PanickingResolver()) (TcpDialer()) false
         let! pool = startPool net (fun _ -> Task.FromResult(Ok()))
         pool.DeliverLater(notification ((Receiver()).Subscription(1L, "https://fcm.googleapis.com/fcm/send/abc")))
         do! stopPool pool

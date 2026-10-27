@@ -118,13 +118,15 @@ module Boot =
                 services.BuildServiceProvider().GetRequiredService<Microsoft.Extensions.Caching.Hybrid.HybridCache>()
             // config/initializers/web_push.rb: off without a valid VAPID key pair.
             // The outgoing clients (J2) likewise come from a provider of their own until the host owns Boot (unit 8.7).
-            let http =
+            let clients =
                 let services = ServiceCollection()
                 services.AddSingleton<TimeProvider>(time) |> ignore
                 services.AddLogging() |> ignore
                 Clients.add services
-                services.BuildServiceProvider().GetRequiredService<IHttpClientFactory>()
-            let webPush = IntegrationJobs.webPushPool config dbFactory gate efEnv (loggers.CreateLogger "campfire.web_push")
+                services.BuildServiceProvider()
+            let http = clients.GetRequiredService<IHttpClientFactory>()
+            let pushEnv: PushEnv = { Http = http; Resolver = clients.GetRequiredService<IResolver>(); Time = time }
+            let webPush = IntegrationJobs.webPushPool config dbFactory gate efEnv pushEnv (loggers.CreateLogger "campfire.web_push")
             let app =
                 AppState(config, secrets, time, gate, dbFactory, efEnv, storage, cableHandle, jobs, webPush, fragments, loggers, http)
 

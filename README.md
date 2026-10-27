@@ -170,13 +170,17 @@ specific to this port are listed below, each citing the reference file it depart
     and every row is newer than the low one. Reference: `app/controllers/rooms/refreshes_controller.rb`.
   - Logs are `Microsoft.Extensions.Logging`'s console lines (`RAILS_LOG_LEVEL` or `CAMPFIRE_LOG` set the level), not
     `tracing`'s; the request lines are ASP.NET Core's HTTP logging (see **Front server** below), where Thruster wrote them.
-  - The outbound HTTP client of Web Push (`Integrations/Http.fs`, until it moves to `HttpClient`) writes the HTTP/1.1 exchange
-    themselves over a stream, as Rust does over hyper's client connection, and verify TLS peers with .NET's `SslStream`
-    (the operating system's CA store, no revocation checks) where Rust uses rustls with the system's certificates. The
-    request line and headers go out as `Net::HTTP` writes them, in its order and spelling, which `WebhookTests`
-    ("delivers like the reference") and `WebPushTests` ("delivers to the pinned address with the gems headers") compare.
-    A gzip reply is inflated through .NET's `GZipStream` and `ZLibStream` read in 64 KB steps, so a bomb is stopped
-    within 64 KB of the limit (Rust: within the decoder's 32 KB buffer); tested by `HttpTests`.
+  - Web Push goes out on `Lib.Net.Http.WebPush` 3.3.1 over the "push" client of `Integrations/Clients.fs` (no redirect, no proxy, the guard at
+    connect, a 10 s pipeline timeout and a 30 s delivery deadline, `AutoRetryAfter` off so a 429 is sent once). The library writes the
+    request, not the web-push gem: the payload is `aes128gcm` with a 4096-byte record size and the `0x02` delimiter (the gem's record size is
+    the ciphertext's length, with padding), the VAPID JWT's bytes and `Authorization: vapid t=..., k=...` (a space after the comma) are the
+    library's, and the library's own headers (`TTL`, `Urgency`, `Content-Encoding`, `Content-Type`) replace the gem's `Net::HTTP` ones, with no
+    `Accept: */*` or `User-Agent: Ruby`. The push service and the browser decrypt both forms (`WebPushTests` WP1 and WP2 decrypt and verify
+    what goes out). The gem's 400 "UnauthorizedRegistration" is logged as a plain `ResponseError` (the status line's reason phrase is not
+    kept); like the gem's it never destroys the subscription. The endpoint is still resolved on the worker through the private network guard
+    and the connection is pinned to that address (`PinHandler` copies it onto the library's request; the connect callback checks it again).
+    TLS verifies against the operating system's CA store with no revocation check, where Rust uses rustls. Invalid VAPID keys turn Web Push off
+    at boot with a log line.
   - Bot webhooks go out on .NET's `HttpClient` (the "webhook" client of `Integrations/Clients.fs`), not the `Net::HTTP` replica. The method,
     request target, `Content-Type: application/json`, `Accept: */*`, `User-Agent: Ruby` and the body are Rails' (`WebhookTests` "delivers like
     the reference" compares them on the 19 recorded cases); the header list's order, the `Host` spelling, `Connection` and

@@ -24,7 +24,7 @@ module internal PoolLimits =
     let MaxQueue = 10000
 
 [<Sealed>]
-type PushDeliveries(net: Network, vapid: VapidConfig, invalidSubscriptionHandler: int64 -> Task<Result<unit, string>>, logger: ILogger) =
+type PushDeliveries(env: PushEnv, vapid: VapidConfig, invalidSubscriptionHandler: int64 -> Task<Result<unit, string>>, logger: ILogger) =
     inherit BackgroundService()
 
     let deliveries =
@@ -46,7 +46,7 @@ type PushDeliveries(net: Network, vapid: VapidConfig, invalidSubscriptionHandler
 
     member private _.Deliver(notification: Notification) : Task =
         task {
-            match! WebPush.deliver net vapid notification with
+            match! WebPush.deliver env vapid notification with
             | Ok _ -> ()
             | Error error when DeliveryError.invalidatesSubscription error -> invalidations.Writer.TryWrite notification.Subscription.Id |> ignore
             | Error error -> logger.LogError("Error in WebPush::Pool.deliver: {Class} {Error}", DeliveryError.className error, DeliveryError.message error)
@@ -129,12 +129,15 @@ type PushDeliveries(net: Network, vapid: VapidConfig, invalidSubscriptionHandler
         task {
             Volatile.Write(&shutDown, true)
             deliveries.Writer.TryComplete() |> ignore
-            let! _ = Task.WhenAny(deliveriesDone.Task, Task.Delay(TimeSpan.FromSeconds 1.0, net.Time))
+            let! _ = Task.WhenAny(deliveriesDone.Task, Task.Delay(TimeSpan.FromSeconds 1.0, env.Time))
             invalidations.Writer.TryComplete() |> ignore
             do! this.StopBase token
         }
 
     member _.Vapid: VapidConfig = vapid
+
+    /// What a delivery runs on (the test notification delivers inline on it).
+    member _.Env: PushEnv = env
 
     /// Queued or running deliveries.
     member _.Pending: int = deliveries.Reader.Count + Volatile.Read(&running)

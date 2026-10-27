@@ -10,8 +10,12 @@ namespace Campfire.App.Integrations
 
 open System
 open System.Net
+open System.Net.Http
+open System.Security.Cryptography
 open System.Threading
 open System.Threading.Tasks
+open Lib.Net.Http.WebPush
+open Lib.Net.Http.WebPush.Authentication
 open Campfire.Db
 open Campfire.RailsCompat
 open Campfire.RichText
@@ -25,23 +29,19 @@ type Notification =
       Badge: int64
       Subscription: Ef.PushSubscription }
 
-/// What `WebPush.payload_send` raised.
+/// What `WebPush.payload_send` raised, by the gem's exceptions (the library's `PushServiceClientException` maps through its status).
 type DeliveryError =
     /// `WebPush::ExpiredSubscription` (410) and `WebPush::InvalidSubscription` (404): the push service doesn't
     /// know the subscription (any more).
     | SubscriptionGone of kind: string * host: string * status: int
-    /// The gem's other `ResponseError`s: 401/403 and 400 "UnauthorizedRegistration" (`Unauthorized`), 413, 429,
-    /// 5xx, and any other non-2xx.
+    /// The gem's other `ResponseError`s: 401/403 (`Unauthorized`), 413, 429, 5xx, and any other non-2xx.
     | Response of kind: string * host: string * status: int
     /// `OpenSSL::PKey::EC::Point::Error`: the subscription's key isn't a P-256 point.
     | InvalidSubscriptionKey of string
     /// `ArgumentError`: blank or malformed keys, an oversized payload.
     | Argument of string
-    /// `OpenSSL::SSL::SSLError`: a failed TLS session, which may well be our side's fault (a clock or CA store
-    /// problem).
-    | Tls of string
-    /// Connection failures and timeouts.
-    | Http of HttpError
+    /// Connection failures, TLS failures and timeouts.
+    | Transport of TransportError
 
 module DeliveryError =
     let message (error: DeliveryError) : string =
@@ -49,9 +49,8 @@ module DeliveryError =
         | SubscriptionGone(kind, host, status)
         | Response(kind, host, status) -> $"{kind}: host: {host}, status: {status}"
         | InvalidSubscriptionKey message
-        | Argument message
-        | Tls message -> message
-        | Http error -> HttpError.message error
+        | Argument message -> message
+        | Transport error -> TransportError.message error
 
     /// Whether the subscription can never be delivered to, so the pool destroys it. `WebPush::Pool#deliver` also
     /// destroys it for a 410 and any `OpenSSL::OpenSSLError`, which includes TLS failures and a bad VAPID key;
@@ -69,38 +68,30 @@ module DeliveryError =
         | Response(kind, _, _) -> kind
         | InvalidSubscriptionKey _ -> "OpenSSL::PKey::EC::Point::Error"
         | Argument _ -> "ArgumentError"
-        | Tls _ -> "OpenSSL::SSL::SSLError"
-        | Http OpenTimeout -> "Net::OpenTimeout"
-        | Http ReadTimeout -> "Net::ReadTimeout"
-        | Http _ -> "SystemCallError"
-
-    let ofEncryption (error: EncryptionError) : DeliveryError =
-        match error with
-        | EncryptionError.Argument message -> Argument message
-        | EncryptionError.InvalidKey message -> InvalidSubscriptionKey message
-
-    let ofHttp (error: HttpError) : DeliveryError =
-        match error with
-        | HttpError.Tls message -> Tls message
-        | other -> Http other
+        | Transport(TransportError.Tls _) -> "OpenSSL::SSL::SSLError"
+        | Transport TransportError.OpenTimeout -> "Net::OpenTimeout"
+        | Transport TransportError.ReadTimeout -> "Net::ReadTimeout"
+        | Transport _ -> "SystemCallError"
 
     /// The error as an exception, for the places that raise it.
     let toExn (error: DeliveryError) : exn = Exception($"{className error}: {message error}")
+
+/// What a delivery runs on: the factory's "push" client, the resolver for the endpoint's host, and the clock (the JWT's `exp`, deadlines).
+type PushEnv =
+    { Http: IHttpClientFactory
+      Resolver: IResolver
+      Time: TimeProvider }
 
 module WebPush =
     /// `WebPush::Request#default_options[:ttl]`: four weeks.
     [<Literal>]
     let private TtlSeconds = 2419200
 
-    [<Literal>]
-    let private Urgency = "high"
-
-    /// Per connect and read. The web-push gem leaves `Net::HTTP`'s 60 seconds, which let a slow push service hold
-    /// one of the pool's few workers for minutes.
-    let private timeouts: Timeouts = { Open = TimeSpan.FromSeconds 10.0; Read = TimeSpan.FromSeconds 10.0 }
-
-    /// For a whole delivery, however the push service trickles its reply.
+    /// For a whole delivery, however the push service trickles its reply (the client's pipeline bounds the time to the response head).
     let private deliveryDeadline = TimeSpan.FromSeconds 30.0
+
+    /// `WebPush::Request#expiration`
+    let private vapidLifetimeSeconds = 12 * 60 * 60
 
     /// `Rails.application.routes.url_helpers.account_logo_path`
     [<Literal>]
@@ -127,102 +118,97 @@ module WebPush =
                             "data", Value.Object [ "path", Value.String notification.Path; "badge", Value.Int notification.Badge ] ] ]
             )
 
-    /// `WebPush::Request#verify_response`
-    let private verifyResponse (status: int) (reason: string) (host: string) : Result<int, DeliveryError> =
-        let error kind = Error(Response(kind, host, status))
-        let gone kind = Error(SubscriptionGone(kind, host, status))
+    /// `WebPush::Request#verify_response`, from the library's exception. The status line's reason phrase is not kept, so the gem's
+    /// 400 "UnauthorizedRegistration" is a plain `ResponseError` here (logged either way, never invalidating).
+    let private ofStatus (status: int) (host: string) : DeliveryError =
+        let error kind = Response(kind, host, status)
         match status with
-        | 410 -> gone "WebPush::ExpiredSubscription"
-        | 404 -> gone "WebPush::InvalidSubscription"
+        | 410 -> SubscriptionGone("WebPush::ExpiredSubscription", host, status)
+        | 404 -> SubscriptionGone("WebPush::InvalidSubscription", host, status)
         | 401
         | 403 -> error "WebPush::Unauthorized"
-        | 400 when reason = "UnauthorizedRegistration" -> error "WebPush::Unauthorized"
         | 413 -> error "WebPush::PayloadTooLarge"
         | 429 -> error "WebPush::TooManyRequests"
         | s when s >= 500 && s <= 599 -> error "WebPush::PushServiceError"
-        | s when s >= 200 && s <= 299 -> Ok status
         | _ -> error "WebPush::ResponseError"
 
-    /// `WebPush.payload_send(message:, endpoint:, endpoint_ip:, p256dh:, auth:, vapid:, urgency: "high")` through
-    /// the pinned-address branch of `WebPush::PersistentRequest`.
+    /// What the library raised, by the gem's exception: its status for a push service's refusal, `ArgumentError` or the key error for
+    /// what it could not encrypt, and the transport's classification for the rest.
+    let private ofException (host: string) (e: exn) : DeliveryError =
+        match e with
+        | :? PushServiceClientException as refused -> ofStatus (int refused.StatusCode) host
+        | :? CryptographicException as key -> InvalidSubscriptionKey key.Message
+        | :? ArgumentException
+        | :? FormatException
+        // "The client P-256 public key or authentication secret is not available": a blank key.
+        | :? InvalidOperationException -> Argument e.Message
+        | e -> Transport(TransportError.classify e)
+
+    /// `WebPush.payload_send(message:, endpoint:, endpoint_ip:, p256dh:, auth:, vapid:, urgency: "high")` on the "push" client. The library
+    /// builds the request, so the pin travels in `Clients.withPin` and the client's handler copies it onto the request.
     let private payloadSend
-        (net: Network)
+        (env: PushEnv)
         (vapid: VapidConfig)
         (endpoint: string)
         (endpointIp: IPAddress)
         (subscription: Ef.PushSubscription)
-        (message: byte[])
-        (now: int64)
-        : Task<Result<int, DeliveryError>> =
+        (message: string)
+        : Task<Result<unit, DeliveryError>> =
         task {
-            match RubyUri.parse endpoint with
-            | Error _ -> return Error(Argument("bad URI(is not URI?): " + Json.generate (Value.String endpoint)))
-            | Ok uri ->
-                let host = defaultArg uri.Host ""
-                match Encryption.encrypt message (Option.ofObj subscription.P256dhKey) (Option.ofObj subscription.AuthKey) with
-                | Error error -> return Error(DeliveryError.ofEncryption error)
-                | Ok payload ->
-                    let scheme = (defaultArg uri.Scheme "").ToLowerInvariant()
-                    let audience = $"{scheme}://{host}"
-                    let headers =
-                        [ "Content-Type", "application/octet-stream"
-                          "Ttl", string TtlSeconds
-                          "Urgency", Urgency
-                          "Content-Encoding", "aes128gcm"
-                          "Content-Length", string payload.Length
-                          "Authorization", vapid.Authorization(audience, now) ]
-                    let target: Endpoint =
-                        { Https = true
-                          Host = host
-                          Port = (match uri.Port with Some port -> int port | None -> 443)
-                          PinnedIp = Some endpointIp }
-                    let request =
-                        Request.netHttp "POST" (Http.requestUri uri) None headers |> Request.transport true target
-                    let request = { request with Body = payload }
-                    use deadline = new CancellationTokenSource(deliveryDeadline, net.Time)
-                    let! exchanged =
-                        task {
-                            try
-                                return! Http.exchange net target request timeouts deadline.Token
-                            with :? OperationCanceledException ->
-                                return Error ReadTimeout
-                        }
-                    match exchanged with
-                    | Error error -> return Error(DeliveryError.ofHttp (if deadline.IsCancellationRequested then ReadTimeout else error))
-                    | Ok response ->
-                        use response = response
-                        return verifyResponse response.Status response.Reason host
+            match Uri.TryCreate(endpoint, UriKind.Absolute) with
+            | true, uri when not (isNull uri) ->
+                let host = (nonNull uri).Host
+                use deadline = new CancellationTokenSource(deliveryDeadline, env.Time)
+                try
+                    let target = Lib.Net.Http.WebPush.PushSubscription()
+                    target.Endpoint <- endpoint
+                    target.SetKey(PushEncryptionKeyName.P256DH, defaultArg (Option.ofObj subscription.P256dhKey) "")
+                    target.SetKey(PushEncryptionKeyName.Auth, defaultArg (Option.ofObj subscription.AuthKey) "")
+                    let push = Lib.Net.Http.WebPush.PushMessage(message)
+                    push.Urgency <- PushMessageUrgency.High
+                    push.TimeToLive <- Nullable TtlSeconds
+                    use authentication = new VapidAuthentication(vapid.PublicKey, vapid.PrivateKey)
+                    authentication.Subject <- vapid.Subject
+                    authentication.Expiration <- vapidLifetimeSeconds
+                    // `AutoRetryAfter` off: a 429 is raised, never sent again (Rails retries nothing).
+                    let client = PushServiceClient(env.Http.CreateClient Clients.Push, AutoRetryAfter = false)
+                    do!
+                        Clients.withPin endpointIp (fun () ->
+                            client.RequestPushMessageDeliveryAsync(target, push, authentication, VapidAuthenticationScheme.Vapid, deadline.Token))
+                    return Ok()
+                with e ->
+                    return Error(if deadline.IsCancellationRequested then Transport TransportError.ReadTimeout else ofException host e)
+            | _ -> return Error(Argument("bad URI(is not URI?): " + Json.generate (Value.String endpoint)))
         }
 
     /// `Push::Subscription#resolved_endpoint_ip`
-    let private resolvedEndpointIp (net: Network) (subscription: Ef.PushSubscription) : Task<IPAddress option> =
+    let private resolvedEndpointIp (env: PushEnv) (subscription: Ef.PushSubscription) : Task<IPAddress option> =
         task {
             match PushSubscription.resolvedEndpointIp Some subscription with
             | None -> return None
             | Some host ->
-                match! Guard.resolve net.Resolver host with
+                match! Guard.resolve env.Resolver host with
                 | Ok ip -> return Some ip
                 | Error _ -> return None
         }
 
     /// `WebPush::Notification#deliver`: nothing happens when the endpoint isn't a permitted push service or doesn't
-    /// resolve to a public address (`Ok None`); otherwise the push service's status.
-    let deliver (net: Network) (vapid: VapidConfig) (notification: Notification) : Task<Result<int option, DeliveryError>> =
+    /// resolve to a public address (`Ok false`); otherwise the push service accepted it (`Ok true`).
+    let deliver (env: PushEnv) (vapid: VapidConfig) (notification: Notification) : Task<Result<bool, DeliveryError>> =
         task {
-            match! resolvedEndpointIp net notification.Subscription with
-            | None -> return Ok None
+            match! resolvedEndpointIp env notification.Subscription with
+            | None -> return Ok false
             | Some endpointIp ->
                 let endpoint = defaultArg (Option.ofObj notification.Subscription.Endpoint) ""
-                let message = Text.Encoding.UTF8.GetBytes(Notification.encodedMessage notification)
-                let! sent = payloadSend net vapid endpoint endpointIp notification.Subscription message (net.Time.GetUtcNow().ToUnixTimeSeconds())
-                return sent |> Result.map Some
+                let! sent = payloadSend env vapid endpoint endpointIp notification.Subscription (Notification.encodedMessage notification)
+                return sent |> Result.map (fun () -> true)
         }
 
     /// `Users::PushSubscriptions::TestNotificationsController#create`: a "Campfire Test" notification with a random
     /// body, delivered inline. `path` is `user_push_subscriptions_url` (a full URL); `badge` is the subscriber's
     /// unread count. Errors propagate, as in Rails.
     let deliverTestNotification
-        (net: Network)
+        (env: PushEnv)
         (vapid: VapidConfig)
         (subscription: Ef.PushSubscription)
         (badge: int64)
@@ -235,6 +221,6 @@ module WebPush =
                   Path = path
                   Badge = badge
                   Subscription = subscription }
-            let! delivered = deliver net vapid notification
+            let! delivered = deliver env vapid notification
             return delivered |> Result.map ignore
         }

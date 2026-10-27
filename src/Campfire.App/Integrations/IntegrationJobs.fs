@@ -66,6 +66,7 @@ module IntegrationJobs =
         (factory: IDbContextFactory<Ef.CampfireDb>)
         (gate: WriteGate)
         (env: Ef.Env)
+        (push: PushEnv)
         (logger: ILogger)
         : PushDeliveries option =
         match VapidConfig.FromConfig config with
@@ -84,7 +85,7 @@ module IntegrationJobs =
                     | Error(RecordNotFound _) -> return Ok()
                     | Error error -> return Error(failure error)
                 }
-            Some(new PushDeliveries(Network.system env.Time, vapid, invalidSubscriptionHandler, logger))
+            Some(new PushDeliveries(push, vapid, invalidSubscriptionHandler, logger))
 
     /// `room.messages.create!(body: text, creator: user)`: the text is assigned to the rich text body, which stores
     /// it canonicalized (as `MessagesController` does; there's no request host in a job).

@@ -1,7 +1,7 @@
 // Port of rust/crates/campfire/src/integrations/web_push/vapid.rs
 //
-// VAPID identification (RFC 8292) as `WebPush::Request#build_vapid_header` writes it: `vapid t=<ES256 JWT>,k=<public
-// key>`, the JWT carrying `aud`, `exp` (12 hours out) and `sub`.
+// The boot-time check of the VAPID key pair (plans/design-jobs.md J7). Lib.Net.Http.WebPush signs the JWT (`aud`, `exp`, `sub`) and
+// writes `Authorization: vapid t=...,k=...`; this only turns Web Push off, with a log line, when the pair is unusable.
 namespace Campfire.App.Integrations
 
 open System
@@ -25,13 +25,10 @@ module VapidError =
         | Mismatched -> "VAPID_PUBLIC_KEY isn't the public key of VAPID_PRIVATE_KEY"
 
 /// `WebPush::Notification#vapid_identification`: the subject and `Rails.configuration.x.vapid`
-/// (`VAPID_PUBLIC_KEY`/`VAPID_PRIVATE_KEY`), parsed once at boot so that a bad key turns Web Push off rather than
-/// failing (and being blamed on) each subscription.
+/// (`VAPID_PUBLIC_KEY`/`VAPID_PRIVATE_KEY`), checked once at boot so that a bad key turns Web Push off rather than
+/// failing (and being blamed on) each subscription. The keys are kept as unpadded URL-safe Base64, the form the library reads.
 [<Sealed>]
-type VapidConfig private (subject: string, signingKey: ECDsa, publicKey: byte[]) =
-    /// `WebPush::Request#expiration`
-    static let expirationSeconds = 12L * 60L * 60L
-
+type VapidConfig private (subject: string, publicKey: string, privateKey: string) =
     /// P-256's group order: a private scalar is valid from 1 up to one below it.
     static let order =
         [| 0xFFuy; 0xFFuy; 0xFFuy; 0xFFuy; 0x00uy; 0x00uy; 0x00uy; 0x00uy; 0xFFuy; 0xFFuy; 0xFFuy; 0xFFuy; 0xFFuy; 0xFFuy; 0xFFuy; 0xFFuy
@@ -40,34 +37,31 @@ type VapidConfig private (subject: string, signingKey: ECDsa, publicKey: byte[])
     static member private ScalarInRange(scalar: byte[]) : bool =
         scalar |> Array.exists (fun b -> b <> 0uy) && ReadOnlySpan<byte>(scalar).SequenceCompareTo(ReadOnlySpan<byte> order) < 0
 
-    /// `VapidKey.from_keys(public_key, private_key)`: the private scalar signs; the public key is sent as given, so
-    /// it must be the private key's.
+    /// `VapidKey.from_keys(public_key, private_key)`: the public key is sent as given, so it must be the private key's (a signature the
+    /// public key alone verifies says so).
     static member Create(subject: string, publicKey: string, privateKey: string) : Result<VapidConfig, VapidError> =
         match WebPushEncoding.decode64 publicKey with
         | Error _ -> Error InvalidPublicKey
-        | Ok publicKey ->
-            match P256.parsePoint publicKey with
+        | Ok publicBytes ->
+            match P256.parsePoint publicBytes with
             | Error _ -> Error InvalidPublicKey
             | Ok point ->
                 match WebPushEncoding.decode64 privateKey with
                 | Error _ -> Error InvalidPrivateKey
-                | Ok privateKey when privateKey.Length > 32 -> Error InvalidPrivateKey
-                | Ok privateKey ->
-                    let scalar = Array.append (Array.zeroCreate (32 - privateKey.Length)) privateKey
+                | Ok privateBytes when privateBytes.Length > 32 -> Error InvalidPrivateKey
+                | Ok privateBytes ->
+                    let scalar = Array.append (Array.zeroCreate (32 - privateBytes.Length)) privateBytes
                     if not (VapidConfig.ScalarInRange scalar) then
                         Error InvalidPrivateKey
                     else
                         try
-                            let signingKey = ECDsa.Create(ECParameters(Curve = ECCurve.NamedCurves.nistP256, D = scalar, Q = point))
-                            // The point has to be the scalar's: a signature the public key alone can check says so (and
-                            // some platforms refuse the pair when they import it).
+                            use signing = ECDsa.Create(ECParameters(Curve = ECCurve.NamedCurves.nistP256, D = scalar, Q = point))
                             use verifying = ECDsa.Create(ECParameters(Curve = ECCurve.NamedCurves.nistP256, Q = point))
                             let probe = Encoding.ASCII.GetBytes "vapid"
-                            let signature = signingKey.SignData(probe, HashAlgorithmName.SHA256, DSASignatureFormat.IeeeP1363FixedFieldConcatenation)
+                            let signature = signing.SignData(probe, HashAlgorithmName.SHA256, DSASignatureFormat.IeeeP1363FixedFieldConcatenation)
                             if verifying.VerifyData(probe, signature, HashAlgorithmName.SHA256, DSASignatureFormat.IeeeP1363FixedFieldConcatenation) then
-                                Ok(VapidConfig(subject, signingKey, publicKey))
+                                Ok(VapidConfig(subject, WebPushEncoding.encode64Nopad publicBytes, WebPushEncoding.encode64Nopad scalar))
                             else
-                                signingKey.Dispose()
                                 Error Mismatched
                         with :? CryptographicException ->
                             Error Mismatched
@@ -77,16 +71,6 @@ type VapidConfig private (subject: string, signingKey: ECDsa, publicKey: byte[])
         | Some publicKey, Some privateKey -> VapidConfig.Create(config.VapidSubject, publicKey, privateKey)
         | _ -> Error Missing
 
-    /// The `Authorization` header for a push service at `audience` (`scheme://host`).
-    member _.Authorization(audience: string, now: int64) : string =
-        let header = """{"typ":"JWT","alg":"ES256"}"""
-        let claims =
-            Json.generate (
-                Value.Object [ "aud", Value.String audience; "exp", Value.Int(now + expirationSeconds); "sub", Value.String subject ]
-            )
-        let signingInput =
-            $"{WebPushEncoding.encode64Nopad (Encoding.UTF8.GetBytes header)}.{WebPushEncoding.encode64Nopad (Encoding.UTF8.GetBytes claims)}"
-        let signature =
-            lock signingKey (fun () ->
-                signingKey.SignData(Encoding.UTF8.GetBytes signingInput, HashAlgorithmName.SHA256, DSASignatureFormat.IeeeP1363FixedFieldConcatenation))
-        $"vapid t={signingInput}.{WebPushEncoding.encode64Nopad signature},k={WebPushEncoding.encode64Nopad publicKey}"
+    member _.Subject: string = subject
+    member _.PublicKey: string = publicKey
+    member _.PrivateKey: string = privateKey

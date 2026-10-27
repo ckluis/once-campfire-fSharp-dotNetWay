@@ -369,7 +369,7 @@ let httpClients (configure: IServiceCollection -> unit) : ServiceProvider =
     services.BuildServiceProvider()
 
 /// The opengraph client's TLS handshake accepts what the tests' CA signed (the name must still match), like `Network`'s `CustomRoots`.
-let private trustTestCa (services: IServiceCollection) : unit =
+let private trustTestCa (client: string) (services: IServiceCollection) : unit =
     let roots = testTlsRoots ()
     let validate (_: obj) (certificate: X509Certificate | null) (_: X509Chain | null) (errors: SslPolicyErrors) : bool =
         match certificate with
@@ -384,7 +384,7 @@ let private trustTestCa (services: IServiceCollection) : unit =
                 chain.ChainPolicy.RevocationMode <- X509RevocationMode.NoCheck
                 chain.Build(new X509Certificate2(certificate))
     services.Configure<Microsoft.Extensions.Http.HttpClientFactoryOptions>(
-        Clients.Opengraph,
+        client,
         fun (options: Microsoft.Extensions.Http.HttpClientFactoryOptions) ->
             options.HttpMessageHandlerBuilderActions.Add(fun (builder: Microsoft.Extensions.Http.HttpMessageHandlerBuilder) ->
                 match builder.PrimaryHandler with
@@ -403,7 +403,7 @@ let opengraphEnv (resolver: FakeResolver) (dialer: MappingDialer) (trusted: bool
     services.AddSingleton<IResolver>(resolver :> IResolver) |> ignore
     services.AddSingleton<IDialer>(dialer :> IDialer) |> ignore
     Clients.add services
-    if trusted then trustTestCa services
+    if trusted then trustTestCa Clients.Opengraph services
     let provider = services.BuildServiceProvider()
     provider,
     { Http = provider.GetRequiredService<System.Net.Http.IHttpClientFactory>()
@@ -441,3 +441,18 @@ let countingServer (behave: System.Net.Sockets.TcpClient -> Task) : IDisposable 
             listener.Stop() }),
     (listener.LocalEndpoint :?> IPEndPoint),
     (fun () -> Volatile.Read(&accepted.contents))
+
+/// What a push delivery runs on: the same, for the "push" client.
+let pushEnv (resolver: IResolver) (dialer: IDialer) (trusted: bool) : ServiceProvider * PushEnv =
+    let services = ServiceCollection()
+    services.AddLogging() |> ignore
+    services.AddSingleton<TimeProvider>(TimeProvider.System) |> ignore
+    services.AddSingleton<IResolver>(resolver) |> ignore
+    services.AddSingleton<IDialer>(dialer) |> ignore
+    Clients.add services
+    if trusted then trustTestCa Clients.Push services
+    let provider = services.BuildServiceProvider()
+    provider,
+    { Http = provider.GetRequiredService<System.Net.Http.IHttpClientFactory>()
+      Resolver = resolver
+      Time = TimeProvider.System }

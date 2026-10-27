@@ -67,6 +67,20 @@ module TransportError =
             | _ -> TransportError.Io http.Message
         | e -> TransportError.Io e.Message
 
+/// Copies the address `Clients.withPin` set for this logical call onto the request: a library that builds its own request (Web Push)
+/// cannot call `Clients.pin`. The connect callback still checks the address.
+[<Sealed>]
+type PinHandler() =
+    inherit DelegatingHandler()
+    static let current = AsyncLocal<IPAddress | null>()
+    static member Current with get () = current.Value and set (value: IPAddress | null) = current.Value <- value
+
+    override _.SendAsync(request: HttpRequestMessage, cancellation: CancellationToken) : Task<HttpResponseMessage> =
+        match PinHandler.Current with
+        | null -> ()
+        | address -> request.Options.Set(Guard.Pinned, address)
+        base.SendAsync(request, cancellation)
+
 module Clients =
     [<Literal>]
     let Opengraph = "opengraph"
@@ -84,6 +98,9 @@ module Clients =
     let private webhookTimeout = TimeSpan.FromSeconds 7.0
     let private opengraphTimeout = TimeSpan.FromSeconds 5.0
     let private pushTimeout = TimeSpan.FromSeconds 10.0
+
+    /// A push service's error body is read whole by the library; nothing legitimate is longer than this.
+    let private pushBodyLimit = 16L * 1024L
 
     /// Unfurls allow this many requests at once (the port's limit, kept).
     [<Literal>]
@@ -130,11 +147,13 @@ module Clients =
             services
                 .AddHttpClient(name, fun (client: HttpClient) ->
                     client.Timeout <- Timeout.InfiniteTimeSpan
+                    if name = Push then client.MaxResponseContentBufferSize <- pushBodyLimit
                     if netHttp then netHttpHeaders client)
                 .ConfigurePrimaryHttpMessageHandler(fun provider -> handler guarded connectTimeout oneConnectionPerRequest provider :> HttpMessageHandler)
                 // The factory's default handlers log each request's URL at Information: a webhook URL often holds the bot's secret in
                 // its path and a push endpoint is the subscription's capability URL. Rails logs neither.
                 .RemoveAllLoggers()
+        if name = Push then builder.AddHttpMessageHandler(fun () -> new PinHandler() :> DelegatingHandler) |> ignore
         builder.AddResilienceHandler(
             name,
             fun (pipeline: ResiliencePipelineBuilder<HttpResponseMessage>) ->
@@ -157,6 +176,17 @@ module Clients =
     let pin (address: IPAddress) (request: HttpRequestMessage) : HttpRequestMessage =
         request.Options.Set(Pinned, address)
         request
+
+    /// Runs `send` with every request it makes through a "push" client pinned to `address` (`PinHandler`).
+    let withPin (address: IPAddress) (send: unit -> Task) : Task =
+        task {
+            let before = PinHandler.Current
+            PinHandler.Current <- address
+            try
+                do! send ()
+            finally
+                PinHandler.Current <- before
+        }
 
     /// The body through `limit` bytes after decompression: the bytes, or `ValueNone` when it is longer (reading stops just past the limit).
     let readLimited (content: HttpContent) (limit: int) (cancellation: CancellationToken) : Task<byte[] voption> =
