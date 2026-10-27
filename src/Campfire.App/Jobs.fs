@@ -186,15 +186,13 @@ module internal JobWorkers =
     let work (queue: Channel<Work>) (app: 'App) (registry: Registry<'App>) (logger: ILogger) : Task =
         task {
             let reader = queue.Reader
-            let mutable more = true
-            while more do
-                let! available = reader.WaitToReadAsync()
-                if not available then
-                    more <- false
-                else
-                    let mutable item = Unchecked.defaultof<Work>
-                    while reader.TryRead(&item) do
-                        do! perform app registry logger item
+            try
+                while true do
+                    // `ReadAsync` wakes one worker per job; it throws once the queue is closed and drained.
+                    let! item = reader.ReadAsync()
+                    do! perform app registry logger item
+            with :? ChannelClosedException ->
+                ()
         }
 
 /// Performs queued jobs: `concurrency` workers for each kind of job. `StopAsync` stops taking new work, performs what is

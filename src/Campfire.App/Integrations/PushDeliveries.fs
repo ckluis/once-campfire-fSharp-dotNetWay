@@ -37,6 +37,7 @@ type PushDeliveries(env: PushEnv, vapid: VapidConfig, invalidSubscriptionHandler
         options.SingleReader <- true
         Channel.CreateUnbounded<int64> options
     let mutable running = 0
+    let mutable wakeups = 0
     /// Deliveries dropped since the queue was last accepting them.
     let mutable dropped = 0
     let mutable shutDown = false
@@ -58,22 +59,22 @@ type PushDeliveries(env: PushEnv, vapid: VapidConfig, invalidSubscriptionHandler
     member private this.ReadDeliveries() : Task =
         task {
             let reader = deliveries.Reader
-            let mutable more = true
-            while more do
-                let! available = reader.WaitToReadAsync()
-                if not available then
-                    more <- false
-                else
-                    let mutable item = Unchecked.defaultof<Notification>
-                    while reader.TryRead(&item) do
-                        Interlocked.Increment(&running) |> ignore
+            try
+                while true do
+                    // `ReadAsync` wakes one reader per item (`WaitToReadAsync` wakes all 50), and throws
+                    // `ChannelClosedException` once the queue is closed and drained.
+                    let! item = reader.ReadAsync()
+                    Interlocked.Increment(&wakeups) |> ignore
+                    Interlocked.Increment(&running) |> ignore
+                    try
                         try
-                            try
-                                do! this.Deliver item
-                            with e ->
-                                logger.LogError("WebPush::Pool delivery panicked: {Panic}", e.Message)
-                        finally
-                            Interlocked.Decrement(&running) |> ignore
+                            do! this.Deliver item
+                        with e ->
+                            logger.LogError("WebPush::Pool delivery panicked: {Panic}", e.Message)
+                    finally
+                        Interlocked.Decrement(&running) |> ignore
+            with :? ChannelClosedException ->
+                ()
         }
 
     /// The invalidation worker: destroys each subscription in order.
@@ -141,6 +142,9 @@ type PushDeliveries(env: PushEnv, vapid: VapidConfig, invalidSubscriptionHandler
 
     /// Queued or running deliveries.
     member _.Pending: int = deliveries.Reader.Count + Volatile.Read(&running)
+
+    /// Times a delivery reader woke with an item (a test hook: one per delivery).
+    member _.Wakeups: int = Volatile.Read(&wakeups)
 
     /// Deliveries running now (at most 50).
     member _.Running: int = Volatile.Read(&running)

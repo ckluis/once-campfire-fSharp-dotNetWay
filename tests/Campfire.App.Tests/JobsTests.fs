@@ -153,6 +153,29 @@ let ``a failed job is logged with its cause`` () =
     }
 
 [<Fact>]
+let ``CH3 the job workers drain a closed queue and end without an exception`` () =
+    task {
+        use! test = bootEmpty ()
+        use logs = new CapturingLoggers()
+        let performed = Channel.CreateUnbounded<Event>()
+        let gate = new SemaphoreSlim(0)
+        let registry = Registry<AppState>()
+        registry.Handle(JobKind.DeliverWebhook, reporting performed.Writer (Some gate))
+        let jobs = Jobs(JobLimits.QueueCapacity, logs.Logger "jobs")
+        let! runner = started jobs test.App registry 2
+        let sink = jobs :> EventSink
+        for messageId in 1L .. 8L do
+            sink.Emit(webhook messageId)
+        // The queue closes while two jobs are held and six wait; releasing them lets the workers empty it first.
+        let stopping = stopped runner
+        gate.Release 8 |> ignore
+        do! stopping
+        let count = performed.Reader.Count
+        Assert.Equal(8, count)
+        Assert.True((nonNull (runner :> BackgroundService).ExecuteTask).IsCompletedSuccessfully)
+    }
+
+[<Fact>]
 let ``JB5 shutdown performs what is queued and then takes no more`` () =
     task {
         use! test = bootEmpty ()

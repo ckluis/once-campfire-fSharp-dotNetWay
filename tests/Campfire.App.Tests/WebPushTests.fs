@@ -566,6 +566,46 @@ let ``the pool drops deliveries past its queue`` () =
         do! stopPool pool
     }
 
+[<Fact>]
+let ``CH1 one queued notification wakes one reader`` () =
+    task {
+        let resolver = GatedResolver()
+        resolver.Release()
+        let _, net = pushEnv resolver (TcpDialer()) false
+        let! pool = startPool net (fun _ -> Task.FromResult(Ok()))
+        let subscription = (Receiver()).Subscription(1L, "https://fcm.googleapis.com/fcm/send/abc")
+        // With 50 readers waiting, 1,000 notifications a millisecond apart: the old `WaitToReadAsync` loop woke all 50 readers
+        // for each one. Each notification wakes at most 2 readers here (in fact one).
+        for _ in 1 .. 1000 do
+            pool.DeliverLater(notification subscription)
+            do! Task.Delay 1
+        while pool.Pending > 0 do
+            do! Task.Delay 5
+        Assert.InRange(pool.Wakeups, 1000, 2000)
+        do! stopPool pool
+    }
+
+[<Fact>]
+let ``CH2 a closed queue is delivered whole and every reader ends once`` () =
+    task {
+        let resolver = GatedResolver()
+        let _, net = pushEnv resolver (TcpDialer()) false
+        let! pool = startPool net (fun _ -> Task.FromResult(Ok()))
+        let subscription = (Receiver()).Subscription(1L, "https://fcm.googleapis.com/fcm/send/abc")
+        for _ in 1 .. 50 do
+            pool.DeliverLater(notification subscription)
+        while pool.Running < 50 do
+            do! Task.Delay 5
+        for _ in 1 .. 10000 do
+            pool.DeliverLater(notification subscription)
+        Assert.Equal(10050, pool.Pending)
+        resolver.Release()
+        do! stopPool pool
+        Assert.Equal(10050, pool.Wakeups)
+        Assert.Equal(0, pool.Pending)
+        Assert.True((nonNull (pool :> BackgroundService).ExecuteTask).IsCompletedSuccessfully)
+    }
+
 /// A stop that comes right after the start still delivers what was queued and destroys what is gone: `StartAsync` runs all of
 /// `ExecuteAsync` on the thread pool, so the stop may run before the readers exist.
 [<Fact>]
