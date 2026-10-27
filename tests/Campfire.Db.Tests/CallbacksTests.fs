@@ -139,8 +139,7 @@ let ``recording searches keeps the ten most recent`` () =
 
 [<Fact>]
 let ``timestamps are written like active record`` () =
-    use t = new TestDb()
-    t.Time.SetUtcNow(DateTimeOffset(RailsTime.ofDb "2026-09-26 12:34:56.123456"))
+    use t = new TestDb(start = DateTimeOffset(RailsTime.ofDb "2026-09-26 12:34:56.123456"))
     let attributes = { NewMessage.create (id "hq") (id "david") with Body = Some "x" }
     let message = t.WriteEf(fun tx -> Message.create tx attributes)
     let createdAt, typeofCreated =

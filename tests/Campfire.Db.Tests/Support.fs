@@ -112,11 +112,14 @@ module Raw =
                   | other -> failwith $"unexpected SQLite value {other.GetType()}"
               r.GetName i, cell ]
 
-type TestDb(?fixtures: bool) =
+/// A `FakeTimeProvider` that starts at the real time, as `TestClock()` did (the fixtures date rows relative to now). It only moves
+/// forward: a test that sets a date in the past starts its clock there (`TestDb(start = ...)`).
+let fakeTime () : FakeTimeProvider = FakeTimeProvider(DateTimeOffset.UtcNow)
+
+type TestDb(?fixtures: bool, ?start: DateTimeOffset) =
     let dir = new TempDir()
     let sink = RecordingSink()
-    // Starts before every date the tests travel to; the fake clock only moves forward.
-    let clock = FakeTimeProvider(DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero))
+    let clock = match start with Some at -> FakeTimeProvider(at) | None -> fakeTime ()
     let path = dir.File "test.sqlite3"
     let time : TimeProvider = clock
     let factory = Ef.Data.factory (Ef.Data.options path time ignore)

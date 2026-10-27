@@ -3618,3 +3618,29 @@ RC2), with copies of the repo's opengraph scanner and `RubyUri.fs`. It was remov
 - **Projection:** 27.9 -> about 26.2 KLOC (range 26.0-26.5). The plan's -3.0 loses the 1.27 KLOC of the user-agent and QR ports, which stay.
   Five workloads: no per-request change on reads. Posting keeps the same channels. 8.2, 8.5 and 8.7 bench against `p8ctl` (Phase 7's close, `2fae069`).
 - **Questions for Chris:** none.
+
+### Phase 8, unit 8.1 Time (2026-10-27)
+
+Sonnet builder, `plans/design-jobs.md` J10. `bin/kloc` 27,379 / **27,833 corrected (27.8)**, from 27,406 / 27,861 at `14a334a` (-28).
+- **Code:** `Platform/HarnessClock.fs` (`FrozenTimeProvider`, which overrides `GetUtcNow` only; `HarnessClock.fromValue` / `fromEnvironment` for
+  `CAMPFIRE_FROZEN_TIME`). `AppState.Time` replaces `AppState.Clock`. `RailsCompat/Clock.fs` (`Clock`, `SharedClock`, `SystemClock`, `TestClock`) and
+  `ClockTimeProvider` are deleted. `Boot`, `AppRichText`, `Presenter`, `Controllers/Messages.fs`, `WebPush` (the VAPID `exp`) and `WebPushPool`'s shutdown
+  wait (a timestamp and `Task.Delay(.., time)`) read the provider; `Channels/Identity.fs` only opened the module. `Network` carries a `Time`
+  (`Network.system time`), which the opengraph, webhook and push deadlines (`new CancellationTokenSource(deadline, net.Time)`) take; `JobRunner.start`
+  takes it for `Runner.Shutdown`'s wait. Two system-clock uses stay: `Respond.fs`'s `Date` header and the `Stopwatch` request duration.
+- **Guard:** `bin/verify` refuses `DateTime(Offset).(Utc)Now` in `src` outside `Respond.fs`'s `Date` line. A planted `System.DateTime.UtcNow` in
+  `Platform/OpenFiles.fs` failed it (rc 1, naming the file and line); the file was restored.
+- **Tests:** `Microsoft.Extensions.TimeProvider.Testing` and `Diagnostics.Testing` 10.11.0. `TestClock` is `FakeTimeProvider` in the Db, App and Storage
+  tests (`ChannelsSupport`, `IntegrationsSupport`, `TestDb`, `SeedTests`, `EfTests`'s and Storage's fixed-time subclasses); `Support.bootSeededFrozen` takes
+  a provider (`FrozenTimeProvider` for the heartbeat and A5 tests). `CapturingLoggers` is a `FakeLoggerProvider` over a `FakeLogCollector` with a `Text`
+  helper over the snapshot. `TimeTests.fs` has TM1-TM4; TM5 is `CableHostTests`' heartbeat under the frozen harness clock (it already existed and passes).
+  The two `TestClock` facts in `RailsCompat.Tests` went with the type.
+- **Differences recorded (test-only):** `FakeTimeProvider.SetUtcNow` cannot go back and does not follow real time, unlike `TestClock`. So `TestDb` starts at
+  the real time (the fixtures date rows relative to now, and `db-differential` compares the shape of the dates), `TestDb(start = ...)` starts a test that
+  sets an earlier date there (P1, the timestamps test, and one `SeedTests` fact), the timestamps test's second date is a day later, and the differential
+  scenario sets `AutoAdvanceAmount` 1 ms (the real clock moved between its searches, which are kept by recency). No app behavior changed.
+- **Gates:** `CAMPFIRE_REQUIRE_SEED=1 bin/verify` green (build with warnings as errors; 1,000 tests, 994 passed, 6 skipped as before: THP, AC11, three Rails-db
+  differentials that need `bin/db-differential`, one Cable). Image rebuilt at `6da5ef7` (label checked), `p8ctl` tagged from the `2fae069` image first.
+  `bin/pixel-parity --fast --only 'rooms/show/designers,messages/**,users/profile/**,auth/**'`: default 96/96, custom_styles 4/4, first_run 8/8,
+  crowd and restricted 0/0 (no matching states), every screenshot, aria and loose layer equal, 368 s. `bin/cookie-roundtrip` 20/20 (dotnetway).
+  `bin/db-differential` rc 0 (fixtures, scenario, schema identity, reference on our database). No bench (not asked of this unit). Disk 27 GB free.

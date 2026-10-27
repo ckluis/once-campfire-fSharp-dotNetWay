@@ -235,9 +235,8 @@ let ``pagination`` () =
 /// and the room and reindexes.
 [<Fact>]
 let ``P1 post and boost with the clock frozen`` () =
-    use t = new TestDb()
     let frozen = DateTimeOffset(2026, 3, 4, 10, 11, 12, 123, TimeSpan.Zero).AddTicks(4560L)
-    t.Time.SetUtcNow frozen
+    use t = new TestDb(start = frozen)
     let now = t.Utc()
     let designers = id "designers"
     let posted =

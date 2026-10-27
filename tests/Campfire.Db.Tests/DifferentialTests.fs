@@ -121,6 +121,8 @@ let ``scenario matches ruby`` () =
     | path ->
         use ruby = Raw.openFile path
         use t = new TestDb()
+        // The real clock moved between the scenario's writes (the recent searches are kept by recency): so does this one.
+        t.Time.AutoAdvanceAmount <- TimeSpan.FromMilliseconds 1.0
         runScenario t
         use ours = Raw.openFile (t.Dir.File "test.sqlite3")
 
