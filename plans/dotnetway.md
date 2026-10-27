@@ -3517,3 +3517,67 @@ Opus reviewer, on `276219c`. Findings and method in `plans/design-front.md` sect
   then again with `DISABLE_SSL` empty for HSTS; both instances stopped. No pixel run (no response a page shows changed; the log line is not in the harness), no image rebuild.
 - **KLOC (`bin/kloc` after committing):** 27,406 by upstream's rules, **27,861 corrected (27.9 KLOC)**; App 13,038 (+27, the filter). 
 - **Differences recorded:** README class B, the request log: query values Rails filters are `[FILTERED]` (Thruster logged them as sent); paths are logged as sent, as Rails and Thruster log them.
+
+### Phase 7: independent verification (2026-10-27) - PHASE 7 DONE; Phase 8 GO, with conditions
+
+Opus verifier, adversarial review of `3696f18..031a492` (design, 7.1-7.6, the checkpoint, the gate, the security review) against `plans/design-front.md`,
+plan sections 2.4 and 3-5 and D1-D9, cheap checks re-run and an image of the closing commit re-gated. Fix in `2fae069` (comments and docs; no behaviour
+change). **Phase 7 closes at `2fae069`** (this entry and the evidence are the commit after it). Evidence: `bench/results/dotnetway-p7-verify/`.
+- **Deleted, checked:** `src/Campfire.Kit/`, `tests/Campfire.Kit.Tests/`, `bench/log-micro/`, their slnx rows and `ZstdSharp.Port` are gone. `git grep` for `Campfire\.Kit`,
+  `ZstdSharp`, `Front\.serve`, `RequestLines`, `CertManager`, `serveWithLines`, `FrontHandler`, `NoLifetime`, `DeadlineStream`, `withDeadlines`, `FrontH2c` over 7.6's acceptance
+  paths found **two stale comments 7.6 reported as clean** (`bench/front/rust/src/main.rs` and `bin/splice.rs` naming `Campfire.Kit`) and a leftover zstd comment in
+  `Directory.Packages.props`; fixed in `2fae069`, with `Acme.fs`' header ("not yet wired into the production host"), `Host.listen`'s doc comment (it sat on
+  `fallbackHandshakeTimeout`), the logger factory's cut-off comment, `Boot.run`'s "behind the front server" and README's logging line ("the request lines come from the
+  front server as Thruster's did"). Package added: Certes 4.1.0 (BouncyCastle.Cryptography 2.7.0), nothing vulnerable (`dotnet list package --vulnerable`, the security review).
+- **Read, against the note:** `Web/Host.fs`, `Acme.fs`, `HttpLog.fs`, `OutputCaching.fs`, `FrontSettings.fs`, the pipeline of `Services.fs`, `Edge`'s HSTS, `Boot.serve` and the
+  logger factory. The note's departures are each recorded and argued in the Phase log: HSTS stays in `Edge.onStarting` (F7; HS5's 500 case), the HTTP port's branch is
+  hand-written with Thruster's 421 instead of `UseHttpsRedirection` (F6; checkpoint note 2), the handshake budget is 30 s when `HTTP_READ_TIMEOUT` is none (note 4),
+  `TLS_DOMAIN` is validated with STD3 names (note 5), and `UseHttpLogging` stays first in the app's pipeline (7.4a (2)). Tag eviction (D5) is dropped by F9's argument
+  (`?v=` keys). `StaticAssets.map`, the marker middleware and `appEndpointsOnly` are where Phase 6 left them (`UseOutputCache` sits after `StaticAssets.map`, so no
+  asset is cached). Phase 6's conditions hold.
+- **Planted failures (re-run here):** the `Range` exclusion dropped from the cache's policies fails OC4; HSTS sent without `Request.IsHttps` fails nothing, and is
+  equivalent in every configuration (`assume_ssl` and `force_ssl` are both `not DISABLE_SSL`, and the HTTP port of a TLS install never reaches `Edge`). Reverted; `git status` clean.
+- **Gates re-run on `031a492` and `2fae069`:** `CAMPFIRE_REQUIRE_SEED=1 bin/verify` **998 total, 992 passed, 0 failed, 6 skipped** (both), 0 warnings, lint self-test 39/39
+  and 327 files clean, Dapper and EF guards, H1. **Image rebuilt from `2fae069`** (label checked; the gate's `607b31c` image kept as `campfire-dotnetway:p7gate` for the
+  bench control): `reference-tools/front/pebble-image.sh` **PASSED** (one order at boot, 0600/0700, 2-certificate chain, the restart loads the cache, still one order);
+  `bin/asset-check` **1,806 checks, 0 failed**; `bin/cookie-roundtrip` **20/20**; `bin/pixel-parity` (sequential, `bin/clean-parity` after each): **TLS lean**
+  `--candidate-tls --only 'auth/sign_in,rooms/show/designers'` default **28/28**; `--fast --only 'users/**,account/**,auth/**,errors/**,rooms/show/designers'` every seed
+  **108/108** (default 84, crowd 4, custom_styles 10, first_run 8, restricted 2); `realtime/message_sent` `--fast` **2/2**: screenshots, aria and loose DOM equal on every cell.
+- **Pixel evidence of the gate, checked:** its `report.json`s hold **940 distinct lean page cells** (default 860, crowd 24, custom_styles 32, first_run 16, restricted 8)
+  and 28 TLS cells, every one equal on screenshot, aria and loose DOM. 16 more entries are non-page responses (JSON, fragments, manifest, service worker) with only
+  the server layer; 4 of them differ there (`messages/{index,show}/fragment`, `rooms/refresh/fragment`, `pwa/manifest/custom_styles`) exactly as in Phase 5's and Phase 6's
+  evidence (class A, ungated).
+- **Speed (`bench/quick`, post, sidebar, search and avatar, c=1 and 16, 3 reps interleaved new/ctl/ctl/new/new/ctl in two parts each; new `2fae069` against `p7gate`
+  = the gate's `607b31c`, which isolates the security review's log filter):** host probe 1.027-1.074 before runs, two windows above 1.10 after, Mac load 1.3-5.9;
+  48 runs, all 2xx, 0 connection errors, decoded bytes and post rows as stored. Medians new / ctl: post **2,119 / 2,144** (c16, -1.2%, CPU 1,532 / 1,503 us), **1,076 /
+  1,090** (c1, -1.3%); sidebar 7,380 / 7,416, 2,215 / 2,236; search 7,130 / 7,161, 1,929 / 1,906; avatar 104,013 / 106,064 (c16), 12,248 / 12,658 (c1). Within noise
+  (post does not carry a query, so the filter does not run on it). **vs Rails (stored medians): post 6.42x (c16) / 6.45x (c1), sidebar 12.3x / 7.73x, search 17.5x /
+  10.0x: no cell under 5x.** The gate's table stands for the whole phase: reads -2% to -4% at c=16 and -11% to -14% at c=1 against Phase 6's close, post +5% / -4%; the
+  c=1 cost is the per-request log line (CPU per request +48 us on a static file, +69 us on an avatar hit at c=1: more than S5's +14..+38 us, as 7.1 found).
+- **Static rows against Rails (reported, no floor), from the gate:** avatar 12,725 / 103,863 req/s against Rails' 12,838 / 69,481 (0.99x c=1, 1.49x c=16);
+  `static_css` 12,051 / 91,955 against 15,167 / 98,776 (**0.79x and 0.93x: below Rails**); `up` 11,577 / 78,958 against 2,101 / 4,229. Phase 6 left "front cache for
+  `/assets`" and `static_css` (level with Rails at c=16) to Phase 7; the design note did not take the item up and the log line made it worse. Not a gate failure (the
+  floor is the five workloads), but **not closed**: carried to Phase 8 below.
+- **KLOC (`bin/kloc` on `2fae069`):** 27,406 by upstream's rules, **27,861 corrected (27.9 KLOC)**, App 13,038; unchanged by the fix (comments). Phase 7 is -2.11 corrected
+  from 29.97 against the note's -2.355 (27.6, range 27.5-27.75): **0.11 over the range's top**. The front layer in the App is about 0.92 KLOC by `wc` (`Acme.fs` 392,
+  `Host.fs` 199, `FrontSettings.fs` 123, `HttpLog.fs` 84, `OutputCaching.fs` 66, `OpenFiles.fs` 58) against the note's 0.53: `Acme.fs` is twice its estimate, `Host.fs`
+  carries F6 by hand, and R1 added 27. Under Rust's 31.0.
+- **Known differences, checked:** README "Front server" holds every class B line of note section 8 plus the departures (421, STD3, handshake budget, HSTS on a 500, the
+  filtered query), each naming its test (HS1-HS12, AC4/AC6/AC11, OC1-OC9, LG1-LG4, CZ1-CZ3, SR1-SR8), and the class A line; no class A line for HSTS (it survives).
+  The operator step (Let's Encrypt staging) is in AGENTS.md and the note, human-gated, **not run**.
+- **Open items of earlier units, checked:** the `ObtainingCount` flake is gone with `Campfire.Kit.Tests`; Phase 6's "refresh the bench's byte sizes" was done in 7.1
+  (`c61a029`; the gate's and this bench's byte checks pass); 7.4b's "a real order through the app's own host" is `pebble-image.sh` (passed here); the checkpoint's
+  `offline: false` certificate context (OCSP or AIA fetches in production) is still exercised only by the operator's staging run.
+- **Open, none blocking:** (1) static files and avatar hits are at or below Rails at c=1 (above); (2) the operator's Let's Encrypt staging run; (3) the gate's one
+  undiagnosed hang of the `rooms/**` slice (harness, rerun clean); (4) `bench/lib/layers.py` and `perf_layers.py` still bucket frames by `Campfire.Kit` names (stale
+  since Phases 2 and 7; the new front's frames fall under "Kestrel and ASP.NET Core HTTP" and the logger rows); (5) stale images in colima, not removed by this
+  verifier (its rules allow only `bin/clean-docker`): `campfire-dotnetway:p7gate` (made here), `p7pre`, `p6ctl`, `campfire-candidate-p6ctl`, `p5ctl`,
+  `control-8abdb6b`, `before-net11`, and the Pebble image; (6) carried from Phases 4-6: Firefox empty-404 pair, WebKit WebP avatar flake, the 16 KB Cable bound,
+  `Html5Tests` L3's load-sensitive 50 ms bound, Q1 and F6 of Phase 5.
+- **Phase 8 GO.** Conditions: keep H1, the markup lint, the Dapper guard and Phase 6's asset conditions green; Phase 8 owns logging and redaction, so (a) it takes up
+  the request log's c=1 cost and the static rows (risk 1's ladder: the console logger's queue and formatter settings, then the interceptor; measure `avatar`,
+  `static_css` and `up` at c=1 against a same-session control and record whether `static_css` gets back to Rails' level or why not), and (b) if it moves logging to
+  `IOptions` or the `Redactor` API, keep the request line's Rails-filtered query (SR2) and the forging guards (SR1, SR3); `FrontSettings` moving to `IOptions` must keep
+  Thruster's names, prefix and Go parsing (HS12) and the boot validation of `TLS_DOMAIN`; any change to `Web/Host.fs`, `Acme.fs` or `OutputCaching.fs` re-runs HS2/HS4
+  under `bin/linux-tests App`, AC11 and `pebble-image.sh`; the operator's staging run before a release that touches them. Remove the stale control images when the
+  orchestrator allows.

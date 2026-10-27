@@ -1,0 +1,1485 @@
+{
+  "info": {
+    "title": "Parity report",
+    "expected": "reference http://127.0.0.1:4111",
+    "actual": "candidate http://127.0.0.1:4112",
+    "startedAt": "2026-10-27T07:24:03.348Z",
+    "durationMs": 72519,
+    "unusedAllowlist": [
+      {
+        "state": "pwa/manifest",
+        "layers": [
+          "server"
+        ],
+        "reason": "The manifest is JSON-escaped, not HTML-escaped, so the small logo's URL reads `&v=` where Rails wrote `&amp;v=` (README, \"The web app manifest is valid JSON\")",
+        "owner": "views"
+      }
+    ],
+    "counts": {
+      "pass": 0,
+      "fail": 28,
+      "allowed": 0,
+      "error": 0
+    },
+    "flaky": 0,
+    "masks": {}
+  },
+  "results": [
+    {
+      "state": "auth/sign_in",
+      "cell": "firefox-desktop-light",
+      "status": "fail",
+      "layers": [
+        {
+          "layer": "pixels",
+          "equal": true,
+          "pixels": {
+            "equal": true,
+            "width": 1440,
+            "height": 900
+          }
+        },
+        {
+          "layer": "server",
+          "equal": false,
+          "added": 1,
+          "removed": 1
+        },
+        {
+          "layer": "live",
+          "equal": false,
+          "added": 1,
+          "removed": 1
+        },
+        {
+          "layer": "loose",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "aria",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "network",
+          "equal": false,
+          "added": 280,
+          "removed": 264
+        },
+        {
+          "layer": "cable",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        }
+      ]
+    },
+    {
+      "state": "auth/sign_in",
+      "cell": "chromium-desktop-dark",
+      "status": "fail",
+      "layers": [
+        {
+          "layer": "pixels",
+          "equal": true,
+          "pixels": {
+            "equal": true,
+            "width": 1440,
+            "height": 900
+          }
+        },
+        {
+          "layer": "server",
+          "equal": false,
+          "added": 1,
+          "removed": 1
+        },
+        {
+          "layer": "live",
+          "equal": false,
+          "added": 1,
+          "removed": 1
+        },
+        {
+          "layer": "loose",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "aria",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "network",
+          "equal": false,
+          "added": 280,
+          "removed": 264
+        },
+        {
+          "layer": "cable",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        }
+      ]
+    },
+    {
+      "state": "auth/sign_in",
+      "cell": "chromium-desktop-light",
+      "status": "fail",
+      "layers": [
+        {
+          "layer": "pixels",
+          "equal": true,
+          "pixels": {
+            "equal": true,
+            "width": 1440,
+            "height": 900
+          }
+        },
+        {
+          "layer": "server",
+          "equal": false,
+          "added": 1,
+          "removed": 1
+        },
+        {
+          "layer": "live",
+          "equal": false,
+          "added": 1,
+          "removed": 1
+        },
+        {
+          "layer": "loose",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "aria",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "network",
+          "equal": false,
+          "added": 280,
+          "removed": 264
+        },
+        {
+          "layer": "cable",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        }
+      ]
+    },
+    {
+      "state": "auth/sign_in",
+      "cell": "webkit-desktop-light",
+      "status": "fail",
+      "layers": [
+        {
+          "layer": "pixels",
+          "equal": true,
+          "pixels": {
+            "equal": true,
+            "width": 1440,
+            "height": 900
+          }
+        },
+        {
+          "layer": "server",
+          "equal": false,
+          "added": 1,
+          "removed": 1
+        },
+        {
+          "layer": "live",
+          "equal": false,
+          "added": 1,
+          "removed": 1
+        },
+        {
+          "layer": "loose",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "aria",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "network",
+          "equal": false,
+          "added": 282,
+          "removed": 266
+        },
+        {
+          "layer": "cable",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        }
+      ]
+    },
+    {
+      "state": "auth/sign_in",
+      "cell": "firefox-phone-light",
+      "status": "fail",
+      "layers": [
+        {
+          "layer": "pixels",
+          "equal": true,
+          "pixels": {
+            "equal": true,
+            "width": 1170,
+            "height": 2532
+          }
+        },
+        {
+          "layer": "server",
+          "equal": false,
+          "added": 1,
+          "removed": 1
+        },
+        {
+          "layer": "live",
+          "equal": false,
+          "added": 1,
+          "removed": 1
+        },
+        {
+          "layer": "loose",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "aria",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "network",
+          "equal": false,
+          "added": 280,
+          "removed": 264
+        },
+        {
+          "layer": "cable",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        }
+      ]
+    },
+    {
+      "state": "auth/sign_in",
+      "cell": "webkit-phone-light",
+      "status": "fail",
+      "layers": [
+        {
+          "layer": "pixels",
+          "equal": true,
+          "pixels": {
+            "equal": true,
+            "width": 1170,
+            "height": 2532
+          }
+        },
+        {
+          "layer": "server",
+          "equal": false,
+          "added": 1,
+          "removed": 1
+        },
+        {
+          "layer": "live",
+          "equal": false,
+          "added": 1,
+          "removed": 1
+        },
+        {
+          "layer": "loose",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "aria",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "network",
+          "equal": false,
+          "added": 282,
+          "removed": 266
+        },
+        {
+          "layer": "cable",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        }
+      ]
+    },
+    {
+      "state": "auth/sign_in",
+      "cell": "chromium-phone-light",
+      "status": "fail",
+      "layers": [
+        {
+          "layer": "pixels",
+          "equal": true,
+          "pixels": {
+            "equal": true,
+            "width": 1170,
+            "height": 2532
+          }
+        },
+        {
+          "layer": "server",
+          "equal": false,
+          "added": 1,
+          "removed": 1
+        },
+        {
+          "layer": "live",
+          "equal": false,
+          "added": 1,
+          "removed": 1
+        },
+        {
+          "layer": "loose",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "aria",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "network",
+          "equal": false,
+          "added": 280,
+          "removed": 264
+        },
+        {
+          "layer": "cable",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        }
+      ]
+    },
+    {
+      "state": "rooms/show/designers",
+      "cell": "firefox-desktop-light",
+      "status": "fail",
+      "layers": [
+        {
+          "layer": "pixels",
+          "equal": true,
+          "pixels": {
+            "equal": true,
+            "width": 1440,
+            "height": 900
+          }
+        },
+        {
+          "layer": "server",
+          "equal": false,
+          "added": 30,
+          "removed": 30
+        },
+        {
+          "layer": "live",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "loose",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "aria",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "network",
+          "equal": false,
+          "added": 332,
+          "removed": 321
+        },
+        {
+          "layer": "cable",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        }
+      ]
+    },
+    {
+      "state": "auth/sign_in",
+      "cell": "chromium-phone-dark",
+      "status": "fail",
+      "layers": [
+        {
+          "layer": "pixels",
+          "equal": true,
+          "pixels": {
+            "equal": true,
+            "width": 1170,
+            "height": 2532
+          }
+        },
+        {
+          "layer": "server",
+          "equal": false,
+          "added": 1,
+          "removed": 1
+        },
+        {
+          "layer": "live",
+          "equal": false,
+          "added": 1,
+          "removed": 1
+        },
+        {
+          "layer": "loose",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "aria",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "network",
+          "equal": false,
+          "added": 280,
+          "removed": 264
+        },
+        {
+          "layer": "cable",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        }
+      ]
+    },
+    {
+      "state": "rooms/show/designers",
+      "cell": "firefox-phone-light",
+      "status": "fail",
+      "layers": [
+        {
+          "layer": "pixels",
+          "equal": true,
+          "pixels": {
+            "equal": true,
+            "width": 1170,
+            "height": 2532
+          }
+        },
+        {
+          "layer": "server",
+          "equal": false,
+          "added": 30,
+          "removed": 30
+        },
+        {
+          "layer": "live",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "loose",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "aria",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "network",
+          "equal": false,
+          "added": 338,
+          "removed": 327
+        },
+        {
+          "layer": "cable",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        }
+      ]
+    },
+    {
+      "state": "rooms/show/designers",
+      "cell": "webkit-desktop-light",
+      "status": "fail",
+      "layers": [
+        {
+          "layer": "pixels",
+          "equal": true,
+          "pixels": {
+            "equal": true,
+            "width": 1440,
+            "height": 900
+          }
+        },
+        {
+          "layer": "server",
+          "equal": false,
+          "added": 30,
+          "removed": 30
+        },
+        {
+          "layer": "live",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "loose",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "aria",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "network",
+          "equal": false,
+          "added": 337,
+          "removed": 327
+        },
+        {
+          "layer": "cable",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        }
+      ]
+    },
+    {
+      "state": "auth/sign_in",
+      "cell": "chromium-bp799-light",
+      "status": "fail",
+      "layers": [
+        {
+          "layer": "pixels",
+          "equal": true,
+          "pixels": {
+            "equal": true,
+            "width": 799,
+            "height": 900
+          }
+        },
+        {
+          "layer": "server",
+          "equal": false,
+          "added": 1,
+          "removed": 1
+        },
+        {
+          "layer": "live",
+          "equal": false,
+          "added": 1,
+          "removed": 1
+        },
+        {
+          "layer": "loose",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "aria",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "network",
+          "equal": false,
+          "added": 280,
+          "removed": 264
+        },
+        {
+          "layer": "cable",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        }
+      ]
+    },
+    {
+      "state": "rooms/show/designers",
+      "cell": "webkit-phone-light",
+      "status": "fail",
+      "layers": [
+        {
+          "layer": "pixels",
+          "equal": true,
+          "pixels": {
+            "equal": true,
+            "width": 1170,
+            "height": 2532
+          }
+        },
+        {
+          "layer": "server",
+          "equal": false,
+          "added": 30,
+          "removed": 30
+        },
+        {
+          "layer": "live",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "loose",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "aria",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "network",
+          "equal": false,
+          "added": 335,
+          "removed": 323
+        },
+        {
+          "layer": "cable",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        }
+      ]
+    },
+    {
+      "state": "auth/sign_in",
+      "cell": "chromium-bp799-dark",
+      "status": "fail",
+      "layers": [
+        {
+          "layer": "pixels",
+          "equal": true,
+          "pixels": {
+            "equal": true,
+            "width": 799,
+            "height": 900
+          }
+        },
+        {
+          "layer": "server",
+          "equal": false,
+          "added": 1,
+          "removed": 1
+        },
+        {
+          "layer": "live",
+          "equal": false,
+          "added": 1,
+          "removed": 1
+        },
+        {
+          "layer": "loose",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "aria",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "network",
+          "equal": false,
+          "added": 280,
+          "removed": 264
+        },
+        {
+          "layer": "cable",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        }
+      ]
+    },
+    {
+      "state": "auth/sign_in",
+      "cell": "chromium-bp800-light",
+      "status": "fail",
+      "layers": [
+        {
+          "layer": "pixels",
+          "equal": true,
+          "pixels": {
+            "equal": true,
+            "width": 800,
+            "height": 900
+          }
+        },
+        {
+          "layer": "server",
+          "equal": false,
+          "added": 1,
+          "removed": 1
+        },
+        {
+          "layer": "live",
+          "equal": false,
+          "added": 1,
+          "removed": 1
+        },
+        {
+          "layer": "loose",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "aria",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "network",
+          "equal": false,
+          "added": 280,
+          "removed": 264
+        },
+        {
+          "layer": "cable",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        }
+      ]
+    },
+    {
+      "state": "auth/sign_in",
+      "cell": "chromium-bp800-dark",
+      "status": "fail",
+      "layers": [
+        {
+          "layer": "pixels",
+          "equal": true,
+          "pixels": {
+            "equal": true,
+            "width": 800,
+            "height": 900
+          }
+        },
+        {
+          "layer": "server",
+          "equal": false,
+          "added": 1,
+          "removed": 1
+        },
+        {
+          "layer": "live",
+          "equal": false,
+          "added": 1,
+          "removed": 1
+        },
+        {
+          "layer": "loose",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "aria",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "network",
+          "equal": false,
+          "added": 280,
+          "removed": 264
+        },
+        {
+          "layer": "cable",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        }
+      ]
+    },
+    {
+      "state": "auth/sign_in",
+      "cell": "chromium-bp801-light",
+      "status": "fail",
+      "layers": [
+        {
+          "layer": "pixels",
+          "equal": true,
+          "pixels": {
+            "equal": true,
+            "width": 801,
+            "height": 900
+          }
+        },
+        {
+          "layer": "server",
+          "equal": false,
+          "added": 1,
+          "removed": 1
+        },
+        {
+          "layer": "live",
+          "equal": false,
+          "added": 1,
+          "removed": 1
+        },
+        {
+          "layer": "loose",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "aria",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "network",
+          "equal": false,
+          "added": 280,
+          "removed": 264
+        },
+        {
+          "layer": "cable",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        }
+      ]
+    },
+    {
+      "state": "auth/sign_in",
+      "cell": "chromium-bp801-dark",
+      "status": "fail",
+      "layers": [
+        {
+          "layer": "pixels",
+          "equal": true,
+          "pixels": {
+            "equal": true,
+            "width": 801,
+            "height": 900
+          }
+        },
+        {
+          "layer": "server",
+          "equal": false,
+          "added": 1,
+          "removed": 1
+        },
+        {
+          "layer": "live",
+          "equal": false,
+          "added": 1,
+          "removed": 1
+        },
+        {
+          "layer": "loose",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "aria",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "network",
+          "equal": false,
+          "added": 280,
+          "removed": 264
+        },
+        {
+          "layer": "cable",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        }
+      ]
+    },
+    {
+      "state": "rooms/show/designers",
+      "cell": "chromium-desktop-light",
+      "status": "fail",
+      "layers": [
+        {
+          "layer": "pixels",
+          "equal": true,
+          "pixels": {
+            "equal": true,
+            "width": 1440,
+            "height": 900
+          }
+        },
+        {
+          "layer": "server",
+          "equal": false,
+          "added": 30,
+          "removed": 30
+        },
+        {
+          "layer": "live",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "loose",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "aria",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "network",
+          "equal": false,
+          "added": 337,
+          "removed": 329
+        },
+        {
+          "layer": "cable",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        }
+      ]
+    },
+    {
+      "state": "rooms/show/designers",
+      "cell": "chromium-desktop-dark",
+      "status": "fail",
+      "layers": [
+        {
+          "layer": "pixels",
+          "equal": true,
+          "pixels": {
+            "equal": true,
+            "width": 1440,
+            "height": 900
+          }
+        },
+        {
+          "layer": "server",
+          "equal": false,
+          "added": 30,
+          "removed": 30
+        },
+        {
+          "layer": "live",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "loose",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "aria",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "network",
+          "equal": false,
+          "added": 337,
+          "removed": 329
+        },
+        {
+          "layer": "cable",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        }
+      ]
+    },
+    {
+      "state": "rooms/show/designers",
+      "cell": "chromium-phone-light",
+      "status": "fail",
+      "layers": [
+        {
+          "layer": "pixels",
+          "equal": true,
+          "pixels": {
+            "equal": true,
+            "width": 1170,
+            "height": 2532
+          }
+        },
+        {
+          "layer": "server",
+          "equal": false,
+          "added": 30,
+          "removed": 30
+        },
+        {
+          "layer": "live",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "loose",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "aria",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "network",
+          "equal": false,
+          "added": 337,
+          "removed": 329
+        },
+        {
+          "layer": "cable",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        }
+      ]
+    },
+    {
+      "state": "rooms/show/designers",
+      "cell": "chromium-phone-dark",
+      "status": "fail",
+      "layers": [
+        {
+          "layer": "pixels",
+          "equal": true,
+          "pixels": {
+            "equal": true,
+            "width": 1170,
+            "height": 2532
+          }
+        },
+        {
+          "layer": "server",
+          "equal": false,
+          "added": 30,
+          "removed": 30
+        },
+        {
+          "layer": "live",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "loose",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "aria",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "network",
+          "equal": false,
+          "added": 337,
+          "removed": 329
+        },
+        {
+          "layer": "cable",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        }
+      ]
+    },
+    {
+      "state": "rooms/show/designers",
+      "cell": "chromium-bp799-light",
+      "status": "fail",
+      "layers": [
+        {
+          "layer": "pixels",
+          "equal": true,
+          "pixels": {
+            "equal": true,
+            "width": 799,
+            "height": 900
+          }
+        },
+        {
+          "layer": "server",
+          "equal": false,
+          "added": 30,
+          "removed": 30
+        },
+        {
+          "layer": "live",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "loose",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "aria",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "network",
+          "equal": false,
+          "added": 337,
+          "removed": 329
+        },
+        {
+          "layer": "cable",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        }
+      ]
+    },
+    {
+      "state": "rooms/show/designers",
+      "cell": "chromium-bp799-dark",
+      "status": "fail",
+      "layers": [
+        {
+          "layer": "pixels",
+          "equal": true,
+          "pixels": {
+            "equal": true,
+            "width": 799,
+            "height": 900
+          }
+        },
+        {
+          "layer": "server",
+          "equal": false,
+          "added": 30,
+          "removed": 30
+        },
+        {
+          "layer": "live",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "loose",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "aria",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "network",
+          "equal": false,
+          "added": 337,
+          "removed": 329
+        },
+        {
+          "layer": "cable",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        }
+      ]
+    },
+    {
+      "state": "rooms/show/designers",
+      "cell": "chromium-bp800-light",
+      "status": "fail",
+      "layers": [
+        {
+          "layer": "pixels",
+          "equal": true,
+          "pixels": {
+            "equal": true,
+            "width": 800,
+            "height": 900
+          }
+        },
+        {
+          "layer": "server",
+          "equal": false,
+          "added": 30,
+          "removed": 30
+        },
+        {
+          "layer": "live",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "loose",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "aria",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "network",
+          "equal": false,
+          "added": 337,
+          "removed": 329
+        },
+        {
+          "layer": "cable",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        }
+      ]
+    },
+    {
+      "state": "rooms/show/designers",
+      "cell": "chromium-bp800-dark",
+      "status": "fail",
+      "layers": [
+        {
+          "layer": "pixels",
+          "equal": true,
+          "pixels": {
+            "equal": true,
+            "width": 800,
+            "height": 900
+          }
+        },
+        {
+          "layer": "server",
+          "equal": false,
+          "added": 30,
+          "removed": 30
+        },
+        {
+          "layer": "live",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "loose",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "aria",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "network",
+          "equal": false,
+          "added": 337,
+          "removed": 329
+        },
+        {
+          "layer": "cable",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        }
+      ]
+    },
+    {
+      "state": "rooms/show/designers",
+      "cell": "chromium-bp801-light",
+      "status": "fail",
+      "layers": [
+        {
+          "layer": "pixels",
+          "equal": true,
+          "pixels": {
+            "equal": true,
+            "width": 801,
+            "height": 900
+          }
+        },
+        {
+          "layer": "server",
+          "equal": false,
+          "added": 30,
+          "removed": 30
+        },
+        {
+          "layer": "live",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "loose",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "aria",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "network",
+          "equal": false,
+          "added": 337,
+          "removed": 329
+        },
+        {
+          "layer": "cable",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        }
+      ]
+    },
+    {
+      "state": "rooms/show/designers",
+      "cell": "chromium-bp801-dark",
+      "status": "fail",
+      "layers": [
+        {
+          "layer": "pixels",
+          "equal": true,
+          "pixels": {
+            "equal": true,
+            "width": 801,
+            "height": 900
+          }
+        },
+        {
+          "layer": "server",
+          "equal": false,
+          "added": 30,
+          "removed": 30
+        },
+        {
+          "layer": "live",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "loose",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "aria",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "network",
+          "equal": false,
+          "added": 337,
+          "removed": 329
+        },
+        {
+          "layer": "cable",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        }
+      ]
+    }
+  ]
+}
