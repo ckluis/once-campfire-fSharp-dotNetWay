@@ -3494,3 +3494,26 @@ Evidence: `bench/results/dotnetway-p7/` (slim: logs, `report.json` per pixel sli
 - **KLOC:** `bin/kloc` 27,379 by upstream's rules, **27,834 corrected (27.8 KLOC)**; App 13,011, Views 5,219, Db 2,460, RichText 2,268, Storage 1,646. From 30.0 at Phase 6's close, -2.14; Rust's bar is 31.0. Unchanged by this unit.
 - **Differences recorded:** none new.
 - Disk: 17-32 GB free; `bin/clean-docker` and `bin/clean-parity` run, `fstrim` once in the VM; the control image, its candidate image and the Pebble container are removed. Still in colima from earlier units: `campfire-dotnetway:p7pre`, `p6ctl`, `campfire-candidate-p6ctl` (remove when the phase closes).
+
+### Phase 7: security review of the front server (2026-10-27)
+
+Opus reviewer, on `276219c`. Findings and method in `plans/design-front.md` section 11 ("Security review"); fix and tests in `0af3c67`. Evidence:
+`bench/results/dotnetway-p7-security/` (`tls-probe.txt`, `query-filter-micro.md`, `vulnerable-packages.txt`, `verify.log`, `kloc.md`).
+- **Read:** the phase's code whole (`Web/Host.fs`, `Web/Acme.fs`, `Web/HttpLog.fs`, `Web/OutputCaching.fs`, `Web/FrontSettings.fs`, `Web/Edge.fs`, `Web/Services.fs`' services and pipeline,
+  `Boot.fs`' `serve` and logger factory, the controllers' max-age constants), its tests (`HttpLogTests`, `HostTests`, `OutputCachingTests`), the README's Front server entry and the
+  harness's TLS mode, against Rails' `filter_parameter_logging.rb`, `active_storage*.rb` and the avatar, logo and QR controllers: 15 files of the phase plus 5 of the reference.
+- **R1 (Low, fixed):** the request log wrote the query as sent, so a value whose key Rails' `filter_parameters` names (`token`, `passw`, `email`, `_key`, `secret`, ...) reached it in clear;
+  Rails' own line logs `filtered_path`. The logging interceptor now logs Rails' `filtered_query_string` in place of `RequestQuery` when a key matches. SR2 failed before the fix
+  (`tok-secret` in the line) and passes after. Cost 28-49 ns a request on the bench's queries (tier 1, `query-filter-micro.md`): no `bench/quick` run, the change is under 0.01% of
+  the thinnest cell's CPU per request (post, about 1.5 ms).
+- **R2-R9 (info, holding), each pinned by a test:** log forging (path and query percent-encoded, user agent cleaned, the framework's own URL lines held at Warning: SR1, SR3); TLS
+  options at the platform's defaults with no renegotiation (SR7) and, in the image, TLS 1.0/1.1 refused, TLS 1.2 ECDHE-ECDSA AEAD and SHA-2 suites only, TLS 1.3 three suites, no SNI
+  refused, ALPN `h2` (`tls-probe.txt`); the ACME challenge answers only a pending token for a `TLS_DOMAIN` host on the HTTP port (SR5); key files 0600 through `O_EXCL` and rename in a 0700
+  directory (an existing directory is not tightened, as autocert); HSTS on every HTTPS response and never on the HTTP port, the redirect never leaves the `TLS_DOMAIN` name (SR4, the image);
+  the output cache stores no cookie, no non-200 and nothing for an `Authorization` request, and touches only the five public families (SR6, SR8); forwarded headers and limits as designed.
+  `dotnet list package --vulnerable --include-transitive` on the App: none.
+- **Gates:** `CAMPFIRE_REQUIRE_SEED=1 bin/verify` on the fix: **998 total, 992 passed, 0 failed, 6 skipped** (the environmental six, AC11 among them; 990 before, +8 SR tests), Release with
+  warnings as errors, lint self-test 39/39 and 327 files clean, Dapper and EF guards, H1. The image probe ran the image built from `607b31c` (no `src` change since) in the harness TLS mode,
+  then again with `DISABLE_SSL` empty for HSTS; both instances stopped. No pixel run (no response a page shows changed; the log line is not in the harness), no image rebuild.
+- **KLOC (`bin/kloc` after committing):** 27,406 by upstream's rules, **27,861 corrected (27.9 KLOC)**; App 13,038 (+27, the filter). 
+- **Differences recorded:** README class B, the request log: query values Rails filters are `[FILTERED]` (Thruster logged them as sent); paths are logged as sent, as Rails and Thruster log them.
