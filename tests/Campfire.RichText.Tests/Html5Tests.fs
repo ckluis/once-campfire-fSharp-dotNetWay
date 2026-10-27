@@ -397,7 +397,7 @@ let ``P5 an element-context parse of many top-level nodes is linear`` () =
     Assert.Equal(19_800, nodes.Length)
     Assert.True(elapsed < TimeSpan.FromMilliseconds 150.0, $"9,900 x<br> in a div context took {elapsed}")
 
-// P5-L4 below measure CPU time with the process's own timer (Support.CpuTimer), after one parse to compile everything.
+// P5-L4 below measure the calling thread's CPU time (Support.CpuTimer), after one parse to compile everything.
 
 let private warm () =
     Html5.parseBody "<p>see <b>x</b></p><table><tr><td>y</td></tr></table>" |> ignore
@@ -429,8 +429,8 @@ let ``P5 no step of parseBody is quadratic`` () =
 
 // --- L2-L4 -----------------------------------------------------------------------------------------------------------------------
 
-/// The error `html` is refused with, and the least CPU time in three tries (the process's CPU time takes in the runtime's background
-/// threads: tiered compilation, the collector after a 32 MB string).
+/// The error `html` is refused with, and the least CPU time in three tries (the collector after a 32 MB string can still land on the
+/// calling thread).
 let private refused (what: string) (limit: TimeSpan) (html: string) : ParseError =
     warm ()
     let mutable best = TimeSpan.MaxValue

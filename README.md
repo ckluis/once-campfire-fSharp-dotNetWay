@@ -219,7 +219,8 @@ specific to this port are listed below, each citing the reference file it depart
     where Ruby keeps the host's case and it is not. Ruby's URI parser
     (a port of it) is gone: its probes (no authority, an empty one, `[::1]`, a space, default ports, the scheme's case) are pinned as `System.Uri`'s
     answers by `OpengraphTests` "System.Uri reads the old URI probes", and the host's case by "a tweet url's host is read lower-cased".
-  - The `Net::HTTP` replica (`Http.fs`), its resolver-and-dialer plumbing and the hand-written web-push encryption are deleted (unit 8.9): the
+  - The `Net::HTTP` replica (`Http.fs`), its `Network` record and TLS trust, and the hand-written web-push encryption are deleted (unit 8.9; `Net.fs`
+    keeps only `IResolver` and `IDialer`, which the guard's connect callback and the tests use): the
     three named clients of `Integrations/Clients.fs` are the only way out, and `readLimited` (CL5) is the only body reader.
   - `FILES_AND_MEDIA_URL_REGEX` is .NET's regex engine (non-backtracking) where Rust uses the `regex` crate: `\b` and `\S` can differ from
     Rust's on characters that are only marks or letter numbers.
