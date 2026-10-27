@@ -215,6 +215,12 @@ specific to this port are listed below, each citing the reference file it depart
   - Class B, `mailto:`: an unfurl of `mailto:...` answers 204 and looks nothing up, where Rails raised `URI::InvalidComponentError` (a 500) in
     `Opengraph::Metadata#tweet_url?`. `System.Uri` parses `mailto:` and the URL is not http(s). Tested by `OpengraphTests` "a mailto url
     unfurls nothing" and the recorded case "mailto raises", whose expectation is changed there.
+  - Class B, tweet hosts: `System.Uri` lower-cases a URL's host, so `https://Twitter.com/x/status/1` is a tweet here (read through fxtwitter.com),
+    where Ruby keeps the host's case and it is not. Ruby's URI parser
+    (a port of it) is gone: its probes (no authority, an empty one, `[::1]`, a space, default ports, the scheme's case) are pinned as `System.Uri`'s
+    answers by `OpengraphTests` "System.Uri reads the old URI probes", and the host's case by "a tweet url's host is read lower-cased".
+  - The `Net::HTTP` replica (`Http.fs`), its resolver-and-dialer plumbing and the hand-written web-push encryption are deleted (unit 8.9): the
+    three named clients of `Integrations/Clients.fs` are the only way out, and `readLimited` (CL5) is the only body reader.
   - `FILES_AND_MEDIA_URL_REGEX` is .NET's regex engine (non-backtracking) where Rust uses the `regex` crate: `\b` and `\S` can differ from
     Rust's on characters that are only marks or letter numbers.
 

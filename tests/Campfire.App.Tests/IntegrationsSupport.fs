@@ -68,12 +68,6 @@ let testTlsRoots () : X509Certificate2Collection =
     roots.Add(X509Certificate2.CreateFromPem(File.ReadAllText(testdata "tls/ca.pem"))) |> ignore
     roots
 
-let network (resolver: IResolver) (dialer: IDialer) : Network =
-    { Resolver = resolver
-      Dialer = dialer
-      Tls = CustomRoots(testTlsRoots ())
-      Time = TimeProvider.System }
-
 type Route =
     { Method: string
       Host: string

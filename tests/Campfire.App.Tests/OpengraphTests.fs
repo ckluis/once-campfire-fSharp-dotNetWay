@@ -333,6 +333,39 @@ let ``a mailto url unfurls nothing`` () =
         Assert.Equal(Some(204, None), classBCases.TryFind "mailto raises")
     }
 
+/// The probes of Ruby's `URI.parse` that `UriTests` pinned (unit 8.9 deleted the port of it), as `System.Uri` answers them (J6): what an
+/// unfurl would look up (an http(s) URL with a host), and how the parts read.
+[<Fact>]
+let ``System.Uri reads the old URI probes`` () =
+    let lookup (url: string) : string option =
+        OpengraphUri.parse url
+        |> ValueOption.toOption
+        |> Option.filter OpengraphUri.isHttp
+        |> Option.bind OpengraphUri.host
+    let parsed (url: string) : Uri = (OpengraphUri.parse url).Value
+    Assert.Equal(Some "x.com", lookup "https://x.com/dhh/status/1?s=20")
+    Assert.Equal("?s=20", (parsed "https://x.com/dhh/status/1?s=20").Query)
+    // An invalid character, no authority, an empty authority: nothing to look up.
+    Assert.True((OpengraphUri.parse "http://exa mple.com/ ").IsNone)
+    Assert.Equal(None, lookup "https:/rooms/1")
+    Assert.Equal(None, lookup "https:rooms/1")
+    Assert.Equal(None, lookup "https://")
+    Assert.Equal(Some "[::1]", lookup "http://[::1]/x")
+    // `mailto:` has no host here, and is not http.
+    Assert.Equal(None, OpengraphUri.parse "mailto:a@b.com" |> ValueOption.toOption |> Option.bind OpengraphUri.host)
+    // Default ports drop, the scheme and (class B) the host fold to lower case.
+    Assert.Equal("https://x.com/a", (parsed "https://x.com:443/a").AbsoluteUri)
+    Assert.Equal("https", (parsed "HTTPS://x.com/a").Scheme)
+    Assert.Equal("http://x.com/a", (parsed "HTTP://X.com:80/a").AbsoluteUri)
+
+/// Class B (README, Integrations): tweet detection reads `System.Uri`'s lower-cased host, so `https://Twitter.com/x/status/1` is a tweet
+/// here and not in Rails, where Ruby keeps the host's case.
+[<Fact>]
+let ``a tweet url's host is read lower-cased`` () =
+    let host (url: string) = OpengraphUri.parse url |> ValueOption.toOption |> Option.bind OpengraphUri.host
+    Assert.Equal(Some "twitter.com", host "https://Twitter.com/x/status/1")
+    Assert.Equal(Some "x.com", host "https://X.COM/x/status/1")
+
 /// test/controllers/unfurl_links_controller_test.rb over plain HTTPS: the pinned address, with the certificate verified
 /// against the host name.
 [<Fact>]

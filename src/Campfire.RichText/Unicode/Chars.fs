@@ -41,7 +41,7 @@ let lastCodePoint (s: string) : struct (int * int) =
 /// invariant lowercasing agrees except for U+0130, which Rust turns into "i" and a combining dot,
 /// and a capital sigma at the end of a word, which Rust makes a final sigma. Callers only compare
 /// the result with ASCII, or with another string lowercased the same way (and hosts that reach it
-/// are ASCII: `RubyUri.parse` refuses anything else).
+/// are ASCII: the old Ruby URI port refused anything else).
 let toLowercase (s: string) : string =
     let lowered = s.ToLowerInvariant()
     if lowered.IndexOf 'İ' >= 0 then lowered.Replace("İ", "i̇") else lowered

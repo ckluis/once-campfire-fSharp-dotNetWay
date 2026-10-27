@@ -355,7 +355,7 @@ A new README entry **Integrations** (8.9 writes it; each line names its test):
   - A webhook reply that trickles is cut at the 60 s delivery deadline, not at 7 s between reads. The 7 s applies up to the response
     head (CL1).
   - Unfurls allow 16 requests at once rather than 16 unfurls (unchanged deadline).
-  - Malformed pages unfurl as an HTML5 parser reads them: the 13 probes of S6 (OG3).
+  - Malformed pages unfurl as an HTML5 parser reads them: the 14 probes of S6 (OG3).
   - A page nested deeper than 256 or holding more than 100,000 elements unfurls only the tags before that point (OG1, OG2; libxml2
     halts at 256 too).
   - `mailto:` URLs that Ruby's parser refuses answer 204 instead of Rails' 500 (the recorded case).

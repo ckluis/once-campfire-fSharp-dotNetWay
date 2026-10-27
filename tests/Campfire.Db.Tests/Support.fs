@@ -112,7 +112,7 @@ module Raw =
                   | other -> failwith $"unexpected SQLite value {other.GetType()}"
               r.GetName i, cell ]
 
-/// A `FakeTimeProvider` that starts at the real time, as `TestClock()` did (the fixtures date rows relative to now). It only moves
+/// A `FakeTimeProvider` that starts at the real time, as the old test clock did (the fixtures date rows relative to now). It only moves
 /// forward: a test that sets a date in the past starts its clock there (`TestDb(start = ...)`).
 let fakeTime () : FakeTimeProvider = FakeTimeProvider(DateTimeOffset.UtcNow)
 

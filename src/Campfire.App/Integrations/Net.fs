@@ -1,15 +1,12 @@
 // Port of rust/crates/campfire/src/integrations/net.rs
 //
-// What the three HTTP clients share: name resolution, connecting (to a pinned address when a policy
-// requires one), TLS, and a small HTTP/1.1 exchange (`Http.fs`) that behaves like `Net::HTTP`. Each client
-// keeps its own policy (see plans/rust-conversion.md, "HTTP clients: three distinct policies"); none of them
-// uses a proxy.
+// What the named clients share (`Clients.fs`): name resolution and connecting (to a pinned address when a policy
+// requires one). Everything else, TLS and the HTTP exchange, is `SocketsHttpHandler`'s; none of the clients uses a proxy.
 namespace Campfire.App.Integrations
 
 open System
 open System.Net
 open System.Net.Sockets
-open System.Security.Cryptography.X509Certificates
 open System.Threading
 open System.Threading.Tasks
 
@@ -49,26 +46,3 @@ type TcpDialer() =
                     socket.Dispose()
                     return raise e
             }
-
-/// Which certificate authorities a TLS peer is verified against.
-type TlsTrust =
-    /// The system's CA certificates, which `Net::HTTP` verifies peers against (OpenSSL's default store).
-    | SystemRoots
-    /// Only these (the tests' CA, or none).
-    | CustomRoots of X509Certificate2Collection
-
-/// The resolver, dialer and TLS trust the clients use. `Network.system` in production.
-type Network =
-    { Resolver: IResolver
-      Dialer: IDialer
-      Tls: TlsTrust
-      /// Deadlines (`CancellationTokenSource`) and the VAPID clock: the app's `TimeProvider`.
-      Time: TimeProvider }
-
-module Network =
-    /// The system resolver, real connections, and the system's CA certificates.
-    let system (time: TimeProvider) : Network =
-        { Resolver = SystemResolver()
-          Dialer = TcpDialer()
-          Tls = SystemRoots
-          Time = time }

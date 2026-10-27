@@ -9,7 +9,6 @@
     <Compile Include="../Shared/Testing.fs" Link="Testing.fs" />
     <Compile Include="Support.fs" />
     <Compile Include="TimeTests.fs" />
-    <Compile Include="UriTests.fs" />
     <Compile Include="UserAgentTests.fs" />
     <Compile Include="PlatformTests.fs" />
     <Compile Include="RouteTableTests.fs" />
@@ -38,7 +37,6 @@
     <Compile Include="PaginationTests.fs" />
     <Compile Include="IntegrationsSupport.fs" />
     <Compile Include="GuardTests.fs" />
-    <Compile Include="HttpTests.fs" />
     <Compile Include="ClientsTests.fs" />
     <Compile Include="WebhookTests.fs" />
     <Compile Include="WebPushTests.fs" />

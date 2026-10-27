@@ -22,12 +22,9 @@
     <Compile Include="Channels/Presence.fs" />
     <Compile Include="Channels/RoomMessages.fs" />
     <Compile Include="Channels/TypingNotifications.fs" />
-    <Compile Include="Integrations/RubyUri.fs" />
     <Compile Include="Integrations/Net.fs" />
     <Compile Include="Integrations/Guard.fs" />
-    <Compile Include="Integrations/Http.fs" />
     <Compile Include="Integrations/Clients.fs" />
-    <Compile Include="Integrations/WebPushEncryption.fs" />
     <Compile Include="Integrations/Vapid.fs" />
     <Compile Include="Integrations/WebPush.fs" />
     <Compile Include="Integrations/PushDeliveries.fs" />
