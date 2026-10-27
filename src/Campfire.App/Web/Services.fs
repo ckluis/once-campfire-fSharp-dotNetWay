@@ -129,6 +129,7 @@ module Services =
         // K11: gzip and Brotli at their fastest, what Rails compresses plus Turbo's streams; a body already smaller than
         // `Compression.MinimumLength` is not worth the CPU.
         services.AddResponseCompression(Compression.configure) |> ignore
+        Logging.add services app.Secrets
         if edge.LogRequests then HttpLog.add services
         if edge.CacheSize > 0L then
             services.AddOutputCache(OutputCaching.configure edge.CacheSize edge.MaxCacheItemSize) |> ignore

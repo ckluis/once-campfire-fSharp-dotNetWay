@@ -43,6 +43,7 @@
     <Compile Include="ClientsTests.fs" />
     <Compile Include="WebhookTests.fs" />
     <Compile Include="WebPushTests.fs" />
+    <Compile Include="RedactionTests.fs" />
     <Compile Include="OpengraphTests.fs" />
     <Compile Include="RqrcodeTests.fs" />
     <Compile Include="ControllerTests.fs" />

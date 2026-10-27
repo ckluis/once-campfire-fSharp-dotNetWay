@@ -187,6 +187,11 @@ specific to this port are listed below, each citing the reference file it depart
     `Accept-Encoding: gzip, deflate` (Net::HTTP sends `gzip;q=1.0,deflate;q=0.6,identity;q=0.3`) are .NET's, and the request target is
     `System.Uri`'s normalization (lower-case host, dot segments removed). A reply that trickles is cut at the 60 s delivery deadline; the 7 s
     timeout applies up to the response head, not between reads (`ClientsTests` CL1 pins that a POST is sent once on a 500, a reset and a timeout).
+  - Class B (Phase 8, unit 8.6; `plans/design-jobs.md` J11), redaction in the logs: the bot key in a bot API path (`/rooms/:id/:bot_key/messages...`)
+    and a webhook URL in a failed delivery's log line are logged as a keyed hash (`Microsoft.Extensions.Compliance.Redaction`'s HMAC redactor,
+    `<key id>:<base64>`, keyed from `secret_key_base` through the key generator: stable within an install, different between installs), where Rails
+    logs the path and the error as sent (only its parameters line is filtered). It covers the request line (`Path:`), the exception page's `path=`
+    and the job's `error=`; a dropped event is logged by its name and not its fields. `RedactionTests` RD1-RD6 and `WebPushTests` RD4 pin it.
   - Web Push's VAPID signature is ECDSA with a random nonce (`ECDsa`), where Rust's p256 signs deterministically
     (RFC 6979); both verify under the public key, which `WebPushTests` ("signs the vapid header like the gem") checks.
   - An unfurl, a webhook delivery and a push that run past their deadline have their connection closed under the read

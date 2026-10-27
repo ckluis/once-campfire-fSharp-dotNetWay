@@ -7,6 +7,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Config.fs" />
+    <Compile Include="Logging.fs" />
     <Compile Include="Concerns/UserAgent.fs" />
     <Compile Include="Concerns/Platform.fs" />
     <Compile Include="Platform/OpenFiles.fs" />
@@ -141,6 +142,7 @@
     <PackageReference Include="Certes" />
     <PackageReference Include="Microsoft.Extensions.Http.Resilience" />
     <PackageReference Include="Lib.Net.Http.WebPush" />
+    <PackageReference Include="Microsoft.Extensions.Compliance.Redaction" />
     <PackageReference Include="Falco" />
     <PackageReference Include="FsToolkit.ErrorHandling" />
   </ItemGroup>

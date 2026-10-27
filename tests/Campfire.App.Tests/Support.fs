@@ -395,13 +395,25 @@ let configFor (root: string) (extra: (string * string) list) : AppConfig =
     | Ok config -> config
     | Error message -> failwith message
 
-let private startWithServices time dbOptions (more: IServiceCollection -> unit) (config: AppConfig) (dir: string) : Task<Test> =
+/// `requestLog`: the production edge (`UseHttpLogging`, with the interceptor) over the capture, as `Boot.serve` has it.
+let private startWithServicesLogged (requestLog: bool) time dbOptions (more: IServiceCollection -> unit) (config: AppConfig) (dir: string) : Task<Test> =
     task {
         let logs = new CapturingLoggers()
-        let! booted = Boot.bootWithTime time dbOptions config logs
-        let! host = startPipelineWith (fun services -> booted.ConfigureServices services; booted.Workers services; more services) booted.Pipeline
+        let tune (edge: Campfire.App.Web.EdgeConfig) = if requestLog then { edge with LogRequests = true } else edge
+        let! booted = Boot.bootEdge tune time dbOptions config logs
+        let! host =
+            startPipelineWith
+                (fun services ->
+                    booted.ConfigureServices services
+                    booted.Workers services
+                    if requestLog then services.AddSingleton<ILoggerFactory>(logs) |> ignore
+                    more services)
+                booted.Pipeline
         return new Test(booted, dir, host, logs)
     }
+
+let private startWithServices time dbOptions (more: IServiceCollection -> unit) (config: AppConfig) (dir: string) : Task<Test> =
+    startWithServicesLogged false time dbOptions more config dir
 
 let private startWith time dbOptions (config: AppConfig) (dir: string) : Task<Test> = startWithServices time dbOptions ignore config dir
 
@@ -423,6 +435,27 @@ let bootSeededServices (time: TimeProvider option) dbOptions (more: IServiceColl
             let storage = Path.Combine(seed, "storage")
             if Directory.Exists storage then copyDir storage (Path.Combine(dir, "files"))
             let! test = startWithServices time dbOptions more (configFor dir extra) dir
+            let labels = Path.Combine(seed, "labels.json")
+            if File.Exists labels then test.Labels <- Some((JsonDocument.Parse(File.ReadAllText labels)).RootElement.Clone())
+            return test
+    }
+
+/// `bootSeeded` with the request log on and captured (unit 8.6's RD tests).
+let bootSeededRequestLog (name: string) : Task<Test> =
+    task {
+        match Repo.seed name with
+        | None ->
+            Assert.Skip $"parity seed {name} is not built (parity/bin/seed build {name}); CAMPFIRE_REQUIRE_SEED=1 fails it instead"
+            return Unchecked.defaultof<Test>
+        | Some seed ->
+            let dir = Directory.CreateTempSubdirectory("campfire-app-test").FullName
+            Directory.CreateDirectory(Path.Combine(dir, "db")) |> ignore
+            for file in [ "production.sqlite3"; "production.sqlite3-wal"; "production.sqlite3-shm" ] do
+                let from = Path.Combine(seed, "db", file)
+                if File.Exists from then File.Copy(from, Path.Combine(dir, "db", file))
+            let storage = Path.Combine(seed, "storage")
+            if Directory.Exists storage then copyDir storage (Path.Combine(dir, "files"))
+            let! test = startWithServicesLogged true None ignore ignore (configFor dir []) dir
             let labels = Path.Combine(seed, "labels.json")
             if File.Exists labels then test.Labels <- Some((JsonDocument.Parse(File.ReadAllText labels)).RootElement.Clone())
             return test

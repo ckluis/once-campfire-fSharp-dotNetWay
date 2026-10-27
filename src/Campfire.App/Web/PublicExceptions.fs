@@ -60,7 +60,12 @@ module PublicExceptions =
                     let logger = (http.RequestServices.GetRequiredService<AppState>()).Loggers.CreateLogger "campfire"
                     let level = if status >= 500 then LogLevel.Error else LogLevel.Information
                     if logger.IsEnabled level then
-                        let path = http.Request.Path.ToString()
+                        // J11: a bot API path carries the bot's key, so the line logs its keyed hash.
+                        let redactor =
+                            match http.RequestServices.GetService<Microsoft.Extensions.Compliance.Redaction.IRedactorProvider>() with
+                            | null -> null
+                            | provider -> Logging.redactor provider
+                        let path = Logging.redactBotPath redactor (http.Request.Path.ToString())
                         if status >= 500 then
                             logger.LogError("request failed error={Error} path=\"{Path}\"", Errors.display other, path)
                         else

@@ -46,6 +46,11 @@ type JobKind =
 module JobKind =
     let all: JobKind list = [ PushMessage; DeliverWebhook; RemoveBannedContent; PurgeBlob; AdHoc ]
 
+    /// An event's case name and nothing of its fields (a log line must not print a message body: J11).
+    let eventName (event: Event) : string =
+        let case, _ = Microsoft.FSharp.Reflection.FSharpValue.GetUnionFields(event, typeof<Event>)
+        case.Name
+
     /// `None` for an event that isn't a job.
     let ofEvent (event: Event) : JobKind option =
         match event with
@@ -145,7 +150,7 @@ type Jobs(capacity: int, logger: ILogger, ?cable: CableHandle) =
                 match cable |> Option.bind (fun handle -> handle.TryResolve<Cable>() |> ValueOption.toOption) with
                 | None -> ()
                 | Some cable -> Revocation.disconnectUser cable userId reconnect |> ignore
-            | None, event -> logger.LogWarning("not a job, dropping event {Event}", sprintf "%A" event)
+            | None, event -> logger.LogWarning("not a job, dropping event {Event}", JobKind.eventName event)
 
 module internal JobWorkers =
     /// `Error` carrying the exception's message and its causes, as `{error:#}` prints them.
@@ -168,7 +173,7 @@ module internal JobWorkers =
                     | EventWork(kind, event) ->
                         match registry.TryGet kind with
                         | ValueSome handler -> handler app event
-                        | ValueNone -> Task.FromResult(Error $"no handler registered for {event}")
+                        | ValueNone -> Task.FromResult(Error $"no handler registered for {JobKind.eventName event}")
                 match result with
                 | Ok() -> logger.LogInformation("performed job={Job}", name)
                 | Error error -> logger.LogError("job failed job={Job} error={Error}", name, error)

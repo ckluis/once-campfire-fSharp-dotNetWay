@@ -7,7 +7,9 @@ open System
 open System.Text.RegularExpressions
 open System.Threading.Tasks
 open Microsoft.AspNetCore.HttpLogging
+open Microsoft.Extensions.Compliance.Redaction
 open Microsoft.Extensions.DependencyInjection
+open Campfire.App
 
 module HttpLog =
     /// The six fields of the line (`CombineLogs`: request and response in one entry).
@@ -55,9 +57,18 @@ module HttpLog =
     /// Adds `remote_addr` (as the forwarded-headers middleware left it, an IPv4-mapped address written as IPv4) and `user_agent`,
     /// and logs the query with Rails' filtered values in place of `RequestQuery` when it has any (plans/design-front.md section 11,
     /// R1: a token or password in a query string reached the line in clear, where Rails' own request line filters it).
-    type Interceptor() =
+    type Interceptor(redactors: IRedactorProvider) =
+        let redactor = Logging.redactor redactors
+
         interface IHttpLoggingInterceptor with
             member _.OnRequestAsync(context: HttpLoggingInterceptorContext) : ValueTask =
+                // J11: the bot key in `/rooms/:id/:bot_key/messages...` is the bot API's credential; the line carries its keyed hash.
+                match context.HttpContext.Request.Path.Value with
+                | null -> ()
+                | path when Logging.isBotPath path ->
+                    context.Disable HttpLoggingFields.RequestPath
+                    context.AddParameter("Path", Logging.redactBotPath redactor path)
+                | _ -> ()
                 let query = context.HttpContext.Request.QueryString
                 if query.HasValue then
                     match filterQuery (nonNull query.Value) with
@@ -79,6 +90,9 @@ module HttpLog =
                 | agent -> context.AddParameter("user_agent", oneLine agent)
                 ValueTask.CompletedTask
 
+    /// The interceptor takes the app's redactor (`Logging.add`, which `Services.add` registers); a host without one gets a key of its own.
     let add (services: IServiceCollection) : unit =
+        if not (services |> Seq.exists (fun d -> d.ServiceType = typeof<IRedactorProvider>)) then
+            Logging.addWithKey services (System.Security.Cryptography.RandomNumberGenerator.GetBytes 64)
         services.AddHttpLogging(configure) |> ignore
         services.AddHttpLoggingInterceptor<Interceptor>() |> ignore

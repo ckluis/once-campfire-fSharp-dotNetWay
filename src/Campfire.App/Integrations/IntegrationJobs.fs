@@ -177,7 +177,9 @@ module IntegrationJobs =
                 | Ok None -> return Error "undefined method 'deliver' for nil (the bot has no webhook)"
                 | Ok(Some(bot, room, url, payload)) ->
                     match! WebhookClient.deliver app.Http app.Time (defaultArg url "") payload with
-                    | Error error -> return Error(WebhookError.message error)
+                    // J11: a bad URL's error quotes the URL, which often holds the secret in its path; the failure line logs its keyed hash.
+                    | Error error ->
+                        return Error(Logging.redactUrl (Logging.forSecrets app.Secrets) (defaultArg url "") (WebhookError.message error))
                     | Ok delivery ->
                         let! message =
                             task {

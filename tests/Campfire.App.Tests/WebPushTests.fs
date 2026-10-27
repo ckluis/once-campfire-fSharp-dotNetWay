@@ -598,3 +598,27 @@ let ``a panicking delivery frees its slot`` () =
         do! stopPool pool
         Assert.Equal(0, pool.Pending)
     }
+
+/// RD4 (unit 8.6): a push failure's log line names the host and never the endpoint's path (which holds the subscription's token).
+[<Fact>]
+let ``RD4 a push failure logs the host and not the endpoint's path`` () =
+    task {
+        let logs = new CapturingLoggers()
+        let receiver = Receiver()
+        let subscription = receiver.Subscription(1L, "https://fcm.googleapis.com/fcm/send/abc")
+        // A push service that refuses, and one that cannot be reached (the library's own message may carry the request URI).
+        let refusing = pushService 500 "Internal Server Error"
+        use _refusing = refusing.Server
+        let _, env =
+            pushEnv (FakeResolver([ "fcm.googleapis.com", [ PublicIp ] ])) (MappingDialer(HashSet [ IPAddress.Parse PublicIp ], IPEndPoint(IPAddress.Loopback, 1))) true
+        for net in [ refusing.Env; env ] do
+            let pool = new PushDeliveries(net, vapid (), (fun _ -> Task.FromResult(Ok())), logs.Logger "campfire.web_push")
+            do! (pool :> IHostedService).StartAsync CancellationToken.None
+            pool.DeliverLater(notification subscription)
+            do! stopPool pool
+        let text = logs.Text
+        Assert.Contains("Error in WebPush::Pool.deliver", text)
+        Assert.Contains("fcm.googleapis.com", text)
+        Assert.DoesNotContain("/fcm/send/abc", text)
+        Assert.DoesNotContain("abc", text.Replace("WebPush::Pool", ""))
+    }
