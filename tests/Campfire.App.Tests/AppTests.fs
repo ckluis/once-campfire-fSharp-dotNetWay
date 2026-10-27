@@ -618,12 +618,12 @@ let ``a request resolves the scoped CampfireDb and the TimeProvider from its Req
                 let gate = Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<WriteGate>(services)
                 let users = System.Linq.Queryable.Count(db.Users)
                 let sameGate = obj.ReferenceEquals(gate, test.App.Gate)
-                do! Microsoft.AspNetCore.Http.HttpResponseWritingExtensions.WriteAsync(http.Response, $"{users} {obj.ReferenceEquals(db, again)} {sameGate} {time.GetType().Name}")
+                do! Microsoft.AspNetCore.Http.HttpResponseWritingExtensions.WriteAsync(http.Response, $"{users} {obj.ReferenceEquals(db, again)} {sameGate} {obj.ReferenceEquals(time, test.App.Time)}")
             }
         use! host = startPipelineWith test.Booted.ConfigureServices (fun app -> Microsoft.AspNetCore.Builder.RunExtensions.Run(app, Microsoft.AspNetCore.Http.RequestDelegate handler))
         let! reply = host.Send(get "/")
         Assert.Equal(200, reply.Status)
         let! users = test.App.ReadEf(fun db -> System.Linq.Queryable.Count(db.Users))
-        Assert.Equal($"{(match users with Ok n -> n | Error e -> failwith (Campfire.App.Web.Errors.display e))} True True ClockTimeProvider", reply.Text)
+        Assert.Equal($"{(match users with Ok n -> n | Error e -> failwith (Campfire.App.Web.Errors.display e))} True True True", reply.Text)
         Assert.NotNull test.App.DbFactory
     }

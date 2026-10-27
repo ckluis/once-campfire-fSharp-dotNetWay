@@ -127,8 +127,6 @@ module WebPush =
                             "data", Value.Object [ "path", Value.String notification.Path; "badge", Value.Int notification.Badge ] ] ]
             )
 
-    let private unixNow () : int64 = DateTimeOffset.UtcNow.ToUnixTimeSeconds()
-
     /// `WebPush::Request#verify_response`
     let private verifyResponse (status: int) (reason: string) (host: string) : Result<int, DeliveryError> =
         let error kind = Error(Response(kind, host, status))
@@ -181,7 +179,7 @@ module WebPush =
                     let request =
                         Request.netHttp "POST" (Http.requestUri uri) None headers |> Request.transport true target
                     let request = { request with Body = payload }
-                    use deadline = new CancellationTokenSource(deliveryDeadline)
+                    use deadline = new CancellationTokenSource(deliveryDeadline, net.Time)
                     let! exchanged =
                         task {
                             try
@@ -216,7 +214,7 @@ module WebPush =
             | Some endpointIp ->
                 let endpoint = defaultArg (Option.ofObj notification.Subscription.Endpoint) ""
                 let message = Text.Encoding.UTF8.GetBytes(Notification.encodedMessage notification)
-                let! sent = payloadSend net vapid endpoint endpointIp notification.Subscription message (unixNow ())
+                let! sent = payloadSend net vapid endpoint endpointIp notification.Subscription message (net.Time.GetUtcNow().ToUnixTimeSeconds())
                 return sent |> Result.map Some
         }
 

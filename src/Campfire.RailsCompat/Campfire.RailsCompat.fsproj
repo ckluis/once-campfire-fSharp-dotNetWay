@@ -1,7 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
     <Compile Include="Timestamp.fs" />
-    <Compile Include="Clock.fs" />
     <Compile Include="Json.fs" />
     <Compile Include="Marshal.fs" />
     <Compile Include="RailsEncoding.fs" />

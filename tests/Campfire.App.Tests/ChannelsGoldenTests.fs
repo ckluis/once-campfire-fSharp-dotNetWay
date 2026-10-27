@@ -30,7 +30,6 @@ open Campfire.Cable
 open Microsoft.Extensions.DependencyInjection
 open Campfire.Db
 open Campfire.RailsCompat
-open Campfire.RailsCompat.Clock
 open Campfire.Tests
 
 /// How long a replay waits for a frame the recording says is coming.
@@ -172,7 +171,7 @@ let private ok (result: Result<'T, DbError>) : 'T =
 let private startOurs (recording: Recording) (dir: string) : Task<WriteGate * Cable * Broadcasts * Microsoft.AspNetCore.Builder.WebApplication * string * (Microsoft.EntityFrameworkCore.IDbContextFactory<Campfire.Db.Ef.CampfireDb> * Campfire.Db.Ef.Env)> =
     task {
         let sink = CableSink()
-        let clock = SystemClock()
+        let time = TimeProvider.System
         let gate = WriteGate()
         let path = Path.Combine(dir, "production.sqlite3")
         Testing.prepare path "production" |> ignore
@@ -189,14 +188,14 @@ let private startOurs (recording: Recording) (dir: string) : Task<WriteGate * Ca
             transaction.Commit()
 
         let secrets = Secrets.create (parityEnv "SECRET_KEY_BASE" |> Option.defaultWith (fun () -> failwith "parity/.env.reference has no SECRET_KEY_BASE"))
-        let factory = Campfire.Db.Ef.Data.factory (Campfire.Db.Ef.Data.options (Path.Combine(dir, "production.sqlite3")) (Campfire.Db.Ef.ClockTimeProvider clock) ignore)
+        let factory = Campfire.Db.Ef.Data.factory (Campfire.Db.Ef.Data.options (Path.Combine(dir, "production.sqlite3")) (time) ignore)
         let efEnv: Campfire.Db.Ef.Env =
-            { Time = Campfire.Db.Ef.ClockTimeProvider clock
+            { Time = time
               Sink = sink
               RichText = BasicRichText()
               BcryptCost = 4 }
         // The reference runs with DISABLE_SSL, so without assume_ssl.
-        let! host, authority, server = serveCable secrets (Campfire.Db.Ef.ClockTimeProvider clock) factory gate efEnv
+        let! host, authority, server = serveCable secrets (time) factory gate efEnv
         sink.Server <- server
         return gate, server, host.Services.GetRequiredService<Broadcasts>(), host, authority, (factory, efEnv)
     }

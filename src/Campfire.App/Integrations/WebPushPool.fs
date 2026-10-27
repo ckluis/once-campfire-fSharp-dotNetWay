@@ -104,9 +104,10 @@ type WebPushPool(net: Network, vapid: VapidConfig, invalidSubscriptionHandler: i
         task {
             Volatile.Write(&shutDown, true)
             // Every slot free means nothing is queued or running.
-            let deadline = DateTime.UtcNow.AddSeconds 1.0
-            while slots.CurrentCount < PoolLimits.QueueSlots && DateTime.UtcNow < deadline do
-                do! Task.Delay 5
+            let started = net.Time.GetTimestamp()
+            let wait = TimeSpan.FromSeconds 1.0
+            while slots.CurrentCount < PoolLimits.QueueSlots && (net.Time.GetElapsedTime started) < wait do
+                do! Task.Delay(TimeSpan.FromMilliseconds 5.0, net.Time)
             invalidations.CompleteAdding()
             do! Task.Run(fun () -> invalidator.Join())
         }

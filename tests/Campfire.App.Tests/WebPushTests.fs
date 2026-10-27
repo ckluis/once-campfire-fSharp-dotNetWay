@@ -549,7 +549,7 @@ type private GatedResolver() =
 let ``the pool drops deliveries past its queue`` () =
     task {
         let resolver = GatedResolver()
-        let net = { Resolver = resolver; Dialer = TcpDialer(); Tls = SystemRoots }
+        let net = { Resolver = resolver; Dialer = TcpDialer(); Tls = SystemRoots; Time = TimeProvider.System }
         let pool = WebPushPool(net, vapid (), (fun _ -> Ok()), NullLogger.Instance)
         let receiver = Receiver()
         let subscription = receiver.Subscription(1L, "https://fcm.googleapis.com/fcm/send/abc")
@@ -568,7 +568,7 @@ type private PanickingResolver() =
 [<Fact>]
 let ``a panicking delivery frees its slot`` () =
     task {
-        let net = { Resolver = PanickingResolver(); Dialer = TcpDialer(); Tls = SystemRoots }
+        let net = { Resolver = PanickingResolver(); Dialer = TcpDialer(); Tls = SystemRoots; Time = TimeProvider.System }
         let pool = WebPushPool(net, vapid (), (fun _ -> Ok()), NullLogger.Instance)
         pool.DeliverLater(notification ((Receiver()).Subscription(1L, "https://fcm.googleapis.com/fcm/send/abc")))
         do! pool.Shutdown()

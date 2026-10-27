@@ -11,16 +11,10 @@ open System.Threading
 open Microsoft.Data.Sqlite
 open Microsoft.EntityFrameworkCore
 open Xunit
-open Campfire.RailsCompat.Clock
 open Campfire.Db
 open Campfire.Db.Ef
 open Campfire.Db.Tests.Support
-
-/// A `TimeProvider` the test moves by hand (the harness's frozen clock reaches EF the same way, through a `TimeProvider`).
-type FixedTime(start: DateTimeOffset) =
-    inherit TimeProvider()
-    member val Now = start with get, set
-    override this.GetUtcNow() = this.Now
+open Microsoft.Extensions.Time.Testing
 
 let private at2026 = DateTimeOffset(2026, 10, 13, 12, 0, 0, TimeSpan.Zero).AddTicks(1_234_567L)
 
@@ -171,7 +165,7 @@ let ``D2 toUsec and toEpoch are Time#to_fs(usec) and to_fs(epoch)`` () =
 
 [<Fact>]
 let ``D2 now is the provider's UTC time truncated to microseconds`` () =
-    let time = FixedTime at2026
+    let time = FakeTimeProvider(at2026)
     Assert.Equal("2026-10-13 12:00:00.123456", RailsTime.toDb (RailsTime.now time))
 
 // ---- D3: created_at / updated_at ----
@@ -189,7 +183,7 @@ let private row (path: string) (sql: string) : string list =
 let ``D3 an Add of each entity with unset timestamps stores the provider's time in Rails' text`` () =
     use dir = new TempDir()
     let path = freshDatabase dir "stamps.sqlite3"
-    let time = FixedTime at2026
+    let time = FakeTimeProvider(at2026)
     use db = contextOver path time
     let unset = Unchecked.defaultof<DateTime>
     let add (entity: obj) =
@@ -226,7 +220,7 @@ let ``D3 an Add of each entity with unset timestamps stores the provider's time 
 let ``D3 SetValues with a change stamps updated_at, without one writes nothing`` () =
     use dir = new TempDir()
     let path = freshDatabase dir "set-values.sqlite3"
-    let time = FixedTime at2026
+    let time = FakeTimeProvider(at2026)
     use db = contextOver path time
     let user = { Id = 0L; Name = "Jason"; EmailAddress = "j@example.com"; PasswordDigest = null; Role = Role.Member; Status = Status.Active; Bio = null; BotToken = null; CreatedAt = Unchecked.defaultof<DateTime>; UpdatedAt = Unchecked.defaultof<DateTime> }
     db.Add user |> ignore
@@ -235,7 +229,7 @@ let ``D3 SetValues with a change stamps updated_at, without one writes nothing``
     db.ChangeTracker.Clear()
     Assert.Equal<string list>([ "2026-10-13 12:00:00.123456" ], row path "SELECT updated_at FROM users")
 
-    time.Now <- at2026.AddSeconds 60.0
+    time.Advance(TimeSpan.FromSeconds 60.0)
     // Unchanged: the entry is not Modified, so no UPDATE and no stamp.
     let entry = db.Attach stored
     entry.CurrentValues.SetValues { stored with Bio = null }
@@ -320,7 +314,7 @@ let ``D5 a DateTime hole in raw SQL throws and Rails' text runs`` () =
 let ``D6 Rooms::Closed and involvement everything round-trip as Rails' strings, an unknown type fails loudly`` () =
     use dir = new TempDir()
     let path = freshDatabase dir "enums.sqlite3"
-    use db = contextOver path (FixedTime at2026)
+    use db = contextOver path (FakeTimeProvider(at2026))
     let unset = Unchecked.defaultof<DateTime>
     db.Add { Id = 0L; Name = "Jason"; EmailAddress = "j@example.com"; PasswordDigest = null; Role = Role.Administrator; Status = Status.Deactivated; Bio = null; BotToken = null; CreatedAt = unset; UpdatedAt = unset } |> ignore
     db.SaveChanges() |> ignore

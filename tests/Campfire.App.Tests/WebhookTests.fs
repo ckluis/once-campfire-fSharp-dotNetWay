@@ -53,7 +53,7 @@ let ``delivers like the reference`` () =
                       Gzip = (match property c "gzip" with Some g -> g.GetBoolean() | None -> false)
                       Delay = TimeSpan.FromSeconds(match property c "delay" with Some d -> float (d.GetInt32()) | None -> 0.0) } ]
         use server = FakeServer.Start routes
-        let net = Network.system ()
+        let net = Network.system TimeProvider.System
 
         let! outcomes =
             cases
@@ -136,7 +136,7 @@ let ``gives up on a trickling reply`` () =
     task {
         let handle, address = trickleServer "HTTP/1.1 200 OK\r\nContent-Type: image/png\r\nConnection: close\r\n\r\n"
         use _server = handle
-        let! delivery = WebhookClient.deliverWithin (Network.system ()) $"http://{address}/hook" "{}" (TimeSpan.FromSeconds 1.0)
+        let! delivery = WebhookClient.deliverWithin (Network.system TimeProvider.System) $"http://{address}/hook" "{}" (TimeSpan.FromSeconds 1.0)
         match delivery with
         | Ok delivery -> Assert.Equal({ Status = None; Reply = ReplyText "Failed to respond within 1 seconds" }, delivery)
         | Error error -> failwith (WebhookError.message error)
@@ -153,7 +153,7 @@ let ``rejects replies over the limit`` () =
             |> Route.header "Content-Encoding" "gzip"
             |> Route.body bomb
         use server = FakeServer.Start [ route ]
-        let! outcome = WebhookClient.deliver (Network.system ()) $"http://{server.Addr}/hook" "{}"
+        let! outcome = WebhookClient.deliver (Network.system TimeProvider.System) $"http://{server.Addr}/hook" "{}"
         match outcome with
         | Error ReplyTooLarge -> ()
         | other -> failwith $"{other}"

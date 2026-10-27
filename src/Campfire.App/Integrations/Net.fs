@@ -61,11 +61,14 @@ type TlsTrust =
 type Network =
     { Resolver: IResolver
       Dialer: IDialer
-      Tls: TlsTrust }
+      Tls: TlsTrust
+      /// Deadlines (`CancellationTokenSource`) and the VAPID clock: the app's `TimeProvider`.
+      Time: TimeProvider }
 
 module Network =
     /// The system resolver, real connections, and the system's CA certificates.
-    let system () : Network =
+    let system (time: TimeProvider) : Network =
         { Resolver = SystemResolver()
           Dialer = TcpDialer()
-          Tls = SystemRoots }
+          Tls = SystemRoots
+          Time = time }

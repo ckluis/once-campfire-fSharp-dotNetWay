@@ -61,7 +61,7 @@ let ``P12 stopping the app's host closes the cable connections with server_resta
 let ``the heartbeat beats under the frozen harness clock with the frozen time`` () =
     task {
         let at = DateTimeOffset(2024, 6, 1, 12, 0, 0, TimeSpan.Zero)
-        use! test = bootSeededFrozen at "default"
+        use! test = bootSeededFrozen (Campfire.App.Platform.FrozenTimeProvider at) "default"
         use ws = new ClientWebSocket()
         ws.Options.AddSubProtocol "actioncable-v1-json"
         ws.Options.SetRequestHeader("Origin", $"http://127.0.0.1:{test.Port}")

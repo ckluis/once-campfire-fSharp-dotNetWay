@@ -9,6 +9,7 @@
     <Compile Include="../Shared/Testing.fs" Link="Testing.fs" />
     <Compile Include="Support.fs" />
     <Compile Include="ConfigTests.fs" />
+    <Compile Include="TimeTests.fs" />
     <Compile Include="UriTests.fs" />
     <Compile Include="UserAgentTests.fs" />
     <Compile Include="PlatformTests.fs" />
@@ -68,5 +69,7 @@
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="xunit.v3" />
+    <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" />
+    <PackageReference Include="Microsoft.Extensions.Diagnostics.Testing" />
   </ItemGroup>
 </Project>

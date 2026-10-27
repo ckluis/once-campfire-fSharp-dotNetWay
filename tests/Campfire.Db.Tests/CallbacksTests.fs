@@ -107,7 +107,7 @@ let ``session start and resume`` () =
     let resumed = t.WriteEf(fun tx -> Session.resume tx session (Some "ua2") (Some "9.9.9.9"))
     Assert.Equal("ua", (t.ReadEf(fun c -> Session.find c session.Id)).UserAgent)
 
-    t.Clock.Travel(TimeSpan.FromHours 1.0 + TimeSpan.FromSeconds 1.0)
+    t.Time.Advance(TimeSpan.FromHours 1.0 + TimeSpan.FromSeconds 1.0)
     t.WriteEf(fun tx -> Session.resume tx resumed (Some "ua2") (Some "9.9.9.9") |> ignore)
     let reloaded = t.ReadEf(fun c -> Session.find c session.Id)
     Assert.Equal(("ua2", "9.9.9.9"), (string reloaded.UserAgent, string reloaded.IpAddress))
@@ -140,18 +140,18 @@ let ``recording searches keeps the ten most recent`` () =
 [<Fact>]
 let ``timestamps are written like active record`` () =
     use t = new TestDb()
-    t.Clock.TravelTo(DateTimeOffset(RailsTime.ofDb "2026-09-26 12:34:56.123456"))
+    t.Time.SetUtcNow(DateTimeOffset(RailsTime.ofDb "2026-09-26 12:34:56.123456"))
     let attributes = { NewMessage.create (id "hq") (id "david") with Body = Some "x" }
     let message = t.WriteEf(fun tx -> Message.create tx attributes)
     let createdAt, typeofCreated =
         t.Sql(fun c -> Raw.row c "SELECT created_at, typeof(created_at) FROM messages WHERE id = ?" [ message.Id ] (fun r -> r.GetString 0, r.GetString 1))
     Assert.Equal(("2026-09-26 12:34:56.123456", "text"), (createdAt, typeofCreated))
 
-    t.Clock.TravelTo(DateTimeOffset(RailsTime.ofDb "2026-09-26 12:00:00"))
+    t.Time.SetUtcNow(DateTimeOffset(RailsTime.ofDb "2026-09-27 12:00:00"))
     let attributes = { NewMessage.create (id "hq") (id "david") with Body = Some "y" }
     let message = t.WriteEf(fun tx -> Message.create tx attributes)
     let createdAt = t.Sql(fun c -> Raw.row c "SELECT created_at FROM messages WHERE id = ?" [ message.Id ] (fun r -> r.GetString 0))
-    Assert.Equal("2026-09-26 12:00:00", createdAt) // no fraction when microseconds are zero
+    Assert.Equal("2026-09-27 12:00:00", createdAt) // (the fake clock only moves forward, hence the next day) no fraction when microseconds are zero
 
 [<Fact>]
 let ``async writes and reads`` () =

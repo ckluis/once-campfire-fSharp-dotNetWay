@@ -7,19 +7,19 @@
 // same context with the one resolver implementation the controllers use (`Presenters.DbResolver`).
 namespace Campfire.App
 
+open System
 open Microsoft.Extensions.Logging
 open Campfire.App.Presenters
 open Campfire.Db
 open Campfire.RailsCompat
-open Campfire.RailsCompat.Clock
 open Campfire.RichText
 
-type AppRichText(secrets: Secrets, clock: SharedClock, logger: ILogger) =
+type AppRichText(secrets: Secrets, time: TimeProvider, logger: ILogger) =
     /// The longest body that can't fail to parse (see `MentionedUserIds`).
     static member ParseSafeLength = 800
 
     member private _.WithContext(db: Ef.CampfireDb, f: RenderContext -> 'T) : 'T =
-        let resolver = DbResolver(db, secrets, clock.Now())
+        let resolver = DbResolver(db, secrets, time.GetUtcNow())
         f (resolver.RenderContext None)
 
     interface Campfire.Db.RichText with

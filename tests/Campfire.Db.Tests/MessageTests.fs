@@ -184,7 +184,7 @@ let ``create returns the row as stored`` () =
     |> List.iteri (fun n attributes ->
         if n = 1 then
             // A frozen clock with nanoseconds, which the columns don't keep.
-            t.Clock.TravelTo(System.DateTimeOffset.UnixEpoch.AddSeconds(1_900_000_000.0).AddTicks(1_234_567L))
+            t.Time.SetUtcNow(System.DateTimeOffset.UnixEpoch.AddSeconds(1_900_000_000.0).AddTicks(1_234_567L))
         let created = t.WriteEf(fun tx -> Message.create tx attributes)
         Assert.True((created = t.ReadEf(fun c -> Message.find c created.Id)), $"case {n}")
     )
@@ -237,7 +237,7 @@ let ``pagination`` () =
 let ``P1 post and boost with the clock frozen`` () =
     use t = new TestDb()
     let frozen = DateTimeOffset(2026, 3, 4, 10, 11, 12, 123, TimeSpan.Zero).AddTicks(4560L)
-    t.Clock.TravelTo frozen
+    t.Time.SetUtcNow frozen
     let now = t.Utc()
     let designers = id "designers"
     let posted =
@@ -264,7 +264,7 @@ let ``P1 post and boost with the clock frozen`` () =
     Assert.True(memberships |> List.forall (fun m -> m.UserId <> id "david" || not m.UnreadAt.HasValue))
     Assert.Equal<Event list>([ PushMessage(designers, posted.Id) ], t.Events())
 
-    t.Clock.TravelTo(frozen.AddSeconds 30.0)
+    t.Time.SetUtcNow(frozen.AddSeconds 30.0)
     let later = t.Utc()
     let boost = t.WriteEf(fun tx -> Boost.create tx posted.Id (id "jason") "hi")
     Assert.Equal((later, later), (boost.CreatedAt, boost.UpdatedAt))

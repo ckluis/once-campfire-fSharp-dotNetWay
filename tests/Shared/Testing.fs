@@ -8,7 +8,6 @@ namespace Campfire.Db
 open System
 open System.Text
 open System.Threading
-open Campfire.RailsCompat.Clock
 
 /// Drops every event.
 type NullSink() =

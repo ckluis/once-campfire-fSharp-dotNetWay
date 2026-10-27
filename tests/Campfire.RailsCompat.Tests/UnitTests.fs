@@ -6,36 +6,9 @@ open System
 open System.Text.Json
 open Xunit
 open Campfire.RailsCompat
-open Campfire.RailsCompat.Clock
 open Campfire.Tests
 
 let private ts (s: string) : Timestamp = (Timestamps.tryParse s).Value
-
-// clock.rs
-
-[<Fact>]
-let ``a frozen clock moves only when told`` () =
-    let t = ts "2024-06-01T12:00:00Z"
-    let clock = TestClock.FrozenAt t
-    Assert.Equal(t, clock.Now())
-    clock.Travel(TimeSpan.FromSeconds 60.0)
-    Assert.Equal(ts "2024-06-01T12:01:00Z", clock.Now())
-    Assert.Equal("2024-06-01T12:01:00.000Z", Metadata.iso8601Millis (clock.Now()))
-    clock.TravelTo t
-    Assert.Equal(t, clock.Now())
-    // Through the interface other crates take it by.
-    let shared: SharedClock = clock
-    Assert.Equal(t, shared.Now())
-
-[<Fact>]
-let ``travel shifts real time until travel back`` () =
-    let clock = TestClock()
-    clock.Travel(TimeSpan.FromHours 1.0)
-    let shifted = clock.Now() - DateTimeOffset.UtcNow
-    Assert.True(shifted > TimeSpan.FromMinutes 59.0 && shifted <= TimeSpan.FromHours 1.0, $"{shifted}")
-
-    clock.TravelBack()
-    Assert.True(clock.Now() - DateTimeOffset.UtcNow <= TimeSpan.Zero)
 
 // message_encryptor.rs
 

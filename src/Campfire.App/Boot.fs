@@ -27,7 +27,7 @@ open Campfire.App.Channels
 open Campfire.App.Integrations
 open Campfire.Db
 open Campfire.RailsCompat
-open Campfire.RailsCompat.Clock
+open Campfire.App.Platform
 open Campfire.Storage
 open Campfire.Views
 
@@ -55,23 +55,12 @@ module Boot =
 
     // --- Boot ----------------------------------------------------------------------------------------------
 
-    /// The process clock: frozen at `CAMPFIRE_FROZEN_TIME` (an RFC 3339 timestamp such as `2024-06-01T12:00:00Z`) when set, the
-    /// system clock otherwise. The parity runs pin it.
-    let private clockFromEnv () : Result<SharedClock, string> =
-        match Environment.GetEnvironmentVariable "CAMPFIRE_FROZEN_TIME" with
-        | null -> Ok(SystemClock())
-        | value when String.IsNullOrWhiteSpace value -> Ok(SystemClock())
-        | value ->
-            match Timestamps.tryParse (value.Trim()) with
-            | Some now -> Ok(TestClock.FrozenAt now)
-            | None -> Error $"CAMPFIRE_FROZEN_TIME={value} is not an RFC 3339 timestamp"
-
     /// Boots the app from `config`: prepares the database, restores the reference's boot-time side
     /// effects, and builds the HTTP stack.
-    /// `bootWith` on a given clock (tests hand in a frozen one instead of setting the process-wide environment variable).
+    /// `bootWith` on a given `TimeProvider` (tests hand in a `FakeTimeProvider` instead of setting the process-wide environment variable).
     let bootEdge
         (tune: Web.EdgeConfig -> Web.EdgeConfig)
-        (clockOverride: SharedClock option)
+        (timeOverride: TimeProvider option)
         (dbOptions: Microsoft.EntityFrameworkCore.DbContextOptionsBuilder<Campfire.Db.Ef.CampfireDb> -> unit)
         (config: AppConfig)
         (loggers: ILoggerFactory)
@@ -79,18 +68,18 @@ module Boot =
         task {
             StoragePaths.createDirs config.Storage
             let secrets = Secrets.create config.SecretKeyBase
-            let clock =
-                match clockOverride with
-                | Some clock -> clock
+            // The process clock: `CAMPFIRE_FROZEN_TIME` freezes `Time.current` (the parity runs pin it), the system clock otherwise.
+            let time =
+                match timeOverride with
+                | Some time -> time
                 | None ->
-                    match clockFromEnv () with
-                    | Ok clock -> clock
+                    match HarnessClock.fromEnvironment () with
+                    | Ok time -> time
                     | Error message -> failwith message
 
             let cableHandle = CableHandle()
             let jobs = Jobs(JobLimits.QueueCapacity, loggers.CreateLogger "campfire.jobs", cableHandle)
-            let richText = AppRichText(secrets, clock, loggers.CreateLogger "campfire.rich_text")
-            let time = Campfire.Db.Ef.ClockTimeProvider clock
+            let richText = AppRichText(secrets, time, loggers.CreateLogger "campfire.rich_text")
             let dbFactory = Campfire.Db.Ef.Data.factory (Campfire.Db.Ef.Data.options config.Storage.Database time dbOptions)
             // `db:prepare` (E15): the schema goes in through EF before anything else opens the file.
             do!
@@ -126,11 +115,11 @@ module Boot =
             // config/initializers/web_push.rb: off without a valid VAPID key pair.
             let webPush = IntegrationJobs.webPushPool config dbFactory gate efEnv (loggers.CreateLogger "campfire.web_push")
             let app =
-                AppState(config, secrets, clock, gate, dbFactory, efEnv, storage, cableHandle, jobs, webPush, fragments, loggers)
+                AppState(config, secrets, time, gate, dbFactory, efEnv, storage, cableHandle, jobs, webPush, fragments, loggers)
 
             let registry = CoreJobs.withCoreJobs ()
             IntegrationJobs.registerJobs registry
-            let runner = JobRunner.start jobs app registry config.JobConcurrency
+            let runner = JobRunner.start jobs app registry config.JobConcurrency time
 
             return
                 { App = app
@@ -145,10 +134,10 @@ module Boot =
         }
 
     /// `bootEdge` with no request log: the test hosts' (the log is `LOG_REQUESTS`'s, read by `serve`).
-    let bootWithClock clockOverride dbOptions config loggers : Task<Booted> = bootEdge id clockOverride dbOptions config loggers
+    let bootWithTime timeOverride dbOptions config loggers : Task<Booted> = bootEdge id timeOverride dbOptions config loggers
 
     /// Boots the app on the process clock (`CAMPFIRE_FROZEN_TIME` or the system clock).
-    let bootWith dbOptions config loggers : Task<Booted> = bootWithClock None dbOptions config loggers
+    let bootWith dbOptions config loggers : Task<Booted> = bootWithTime None dbOptions config loggers
 
     /// `bootWith` with no extra context options (production).
     let boot (config: AppConfig) (loggers: ILoggerFactory) : Task<Booted> = bootWith ignore config loggers

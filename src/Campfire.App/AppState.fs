@@ -14,7 +14,6 @@ open Campfire.App.Channels
 open Campfire.App.Integrations
 open Campfire.Db
 open Campfire.RailsCompat
-open Campfire.RailsCompat.Clock
 open Campfire.Storage
 open Campfire.Views
 
@@ -35,7 +34,7 @@ type AppState
     (
         config: AppConfig,
         secrets: Secrets,
-        clock: SharedClock,
+        time: TimeProvider,
         gate: WriteGate,
         dbFactory: IDbContextFactory<Campfire.Db.Ef.CampfireDb>,
         env: Campfire.Db.Ef.Env,
@@ -48,7 +47,7 @@ type AppState
     ) =
     member _.Config = config
     member _.Secrets = secrets
-    member _.Clock = clock
+    member _.Time: TimeProvider = time
 
     /// EF Core: `Writes.run app.Gate app.Env ctx` for jobs, channels and integrations
     /// (`use ctx = app.DbFactory.CreateDbContext()`), a scoped `CampfireDb` from `c.Db` in actions.

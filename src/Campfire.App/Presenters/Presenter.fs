@@ -81,7 +81,7 @@ type Presenter(db: Ef.CampfireDb, app: AppState, requestHost: string option) =
     let secrets = app.Secrets
     let storage = app.Storage
     let richText = app.Env.RichText
-    let now = app.Clock.Now()
+    let now = app.Time.GetUtcNow()
     let users = Dictionary<int64, User>()
     let roomNames = Dictionary<int64, Room * string>()
 

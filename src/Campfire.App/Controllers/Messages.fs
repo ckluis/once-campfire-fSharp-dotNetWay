@@ -42,7 +42,7 @@ module MessageStaging =
     /// Assigning a String to a rich text attribute stores the canonicalized content
     /// (`ActionText::Content.new(body, canonicalize: true).to_html`).
     let canonicalBody (db: Ef.CampfireDb) (app: AppState) (body: string) (requestHost: string option) : string =
-        let resolver = DbResolver(db, app.Secrets, app.Clock.Now())
+        let resolver = DbResolver(db, app.Secrets, app.Time.GetUtcNow())
         let ctx = resolver.RenderContext requestHost
         match Content.load body ctx with
         | Ok content -> Content.toHtml content

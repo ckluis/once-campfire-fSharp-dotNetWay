@@ -10,6 +10,7 @@
     <Compile Include="Concerns/UserAgent.fs" />
     <Compile Include="Concerns/Platform.fs" />
     <Compile Include="Platform/OpenFiles.fs" />
+    <Compile Include="Platform/HarnessClock.fs" />
     <Compile Include="Channels/Identity.fs" />
     <Compile Include="Channels/Publish.fs" />
     <Compile Include="Channels/Revocation.fs" />

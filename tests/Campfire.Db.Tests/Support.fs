@@ -4,7 +4,7 @@ module Campfire.Db.Tests.Support
 
 open System
 open System.IO
-open Campfire.RailsCompat.Clock
+open Microsoft.Extensions.Time.Testing
 open Campfire.Db
 
 // D4 counts physical connections through a process-wide counter, so no other test may open one meanwhile; the suite is a few
@@ -115,9 +115,10 @@ module Raw =
 type TestDb(?fixtures: bool) =
     let dir = new TempDir()
     let sink = RecordingSink()
-    let clock = TestClock()
+    // Starts before every date the tests travel to; the fake clock only moves forward.
+    let clock = FakeTimeProvider(DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero))
     let path = dir.File "test.sqlite3"
-    let time = Ef.ClockTimeProvider clock
+    let time : TimeProvider = clock
     let factory = Ef.Data.factory (Ef.Data.options path time ignore)
     let efEnv : Ef.Env = { Time = time; Sink = sink; RichText = BasicRichText(); BcryptCost = 4 }
     let gate = WriteGate()
@@ -137,7 +138,7 @@ type TestDb(?fixtures: bool) =
     member _.Factory : Microsoft.EntityFrameworkCore.IDbContextFactory<Ef.CampfireDb> = factory
     member _.EfEnv : Ef.Env = efEnv
     member _.Sink : RecordingSink = sink
-    member _.Clock : TestClock = clock
+    member _.Time : FakeTimeProvider = clock
     member _.Dir : TempDir = dir
 
     /// `Writes.run` on a leased context.
@@ -161,7 +162,7 @@ type TestDb(?fixtures: bool) =
     member _.Events() : Event list = sink.Events()
 
     /// `travel_to Membership::Connectable::CONNECTION_TTL.from_now + 1`
-    member _.Travel(seconds: int64) : unit = clock.Travel(TimeSpan.FromSeconds(float seconds))
+    member _.Travel(seconds: int64) : unit = clock.Advance(TimeSpan.FromSeconds(float seconds))
 
     interface IDisposable with
         member _.Dispose() =

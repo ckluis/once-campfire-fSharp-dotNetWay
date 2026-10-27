@@ -36,7 +36,7 @@ module Opengraph =
 
     let unfurlWithin (net: Network) (url: string) (deadline: TimeSpan) (logger: ILogger) : Task<Result<Unfurl, UnfurlError>> =
         task {
-            use cancellation = new CancellationTokenSource(deadline)
+            use cancellation = new CancellationTokenSource(deadline, net.Time)
             let token = cancellation.Token
             let unfurling =
                 task {

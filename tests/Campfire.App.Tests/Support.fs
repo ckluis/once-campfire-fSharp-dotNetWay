@@ -28,6 +28,7 @@ open Microsoft.AspNetCore.Server.Kestrel.Core
 open Microsoft.Extensions.DependencyInjection
 open Microsoft.Extensions.Logging
 open Microsoft.Extensions.Logging.Abstractions
+open Microsoft.Extensions.Logging.Testing
 open Xunit
 open Campfire.App
 open Campfire.Tests
@@ -256,26 +257,24 @@ let startPipelineWith (configureServices: IServiceCollection -> unit) (pipeline:
 /// Serve `pipeline` on a free loopback port.
 let startPipeline (pipeline: IApplicationBuilder -> unit) : Task<Host> = startPipelineWith ignore pipeline
 
-/// Log lines written to a factory, formatted as the console would (without its timestamp).
+/// Log lines written to a factory: a `FakeLoggerProvider` over a `FakeLogCollector` (Microsoft.Extensions.Diagnostics.Testing),
+/// with `Text` over the snapshot, formatted as `Level category: message` (the console's without its timestamp).
 type CapturingLoggers() =
-    let lines = List<string>()
+    let collector = FakeLogCollector()
+    let factory =
+        LoggerFactory.Create(fun builder -> builder.SetMinimumLevel(LogLevel.Trace).AddProvider(new FakeLoggerProvider(collector)) |> ignore)
 
-    member _.Text: string = lock lines (fun () -> String.Join('\n', lines))
+    member _.Collector: FakeLogCollector = collector
+
+    member _.Text: string =
+        String.Join('\n', collector.GetSnapshot() |> Seq.map (fun record -> $"{record.Level} {record.Category}: {record.Message}"))
 
     member this.Logger(category: string) : ILogger = (this :> ILoggerFactory).CreateLogger category
 
     interface ILoggerFactory with
-        member _.AddProvider(_: ILoggerProvider) = ()
-
-        member _.CreateLogger(category: string) : ILogger =
-            { new ILogger with
-                member _.BeginScope<'S when 'S: not null>(_: 'S) : IDisposable | null = null
-                member _.IsEnabled(_: LogLevel) = true
-
-                member _.Log<'S>(level: LogLevel, _: EventId, state: 'S, ex: exn | null, formatter: Func<'S, exn | null, string>) =
-                    lock lines (fun () -> lines.Add $"{level} {category}: {formatter.Invoke(state, ex)}") }
-
-        member _.Dispose() = ()
+        member _.AddProvider(provider: ILoggerProvider) = factory.AddProvider provider
+        member _.CreateLogger(category: string) : ILogger = factory.CreateLogger category
+        member _.Dispose() = factory.Dispose()
 
 // --- A booted app ------------------------------------------------------------------------------------------
 
@@ -397,20 +396,20 @@ let configFor (root: string) (extra: (string * string) list) : AppConfig =
     | Ok config -> config
     | Error message -> failwith message
 
-let private startWithServices clock dbOptions (more: IServiceCollection -> unit) (config: AppConfig) (dir: string) : Task<Test> =
+let private startWithServices time dbOptions (more: IServiceCollection -> unit) (config: AppConfig) (dir: string) : Task<Test> =
     task {
         let logs = new CapturingLoggers()
-        let! booted = Boot.bootWithClock clock dbOptions config logs
+        let! booted = Boot.bootWithTime time dbOptions config logs
         let! host = startPipelineWith (fun services -> booted.ConfigureServices services; more services) booted.Pipeline
         return new Test(booted, dir, host, logs)
     }
 
-let private startWith clock dbOptions (config: AppConfig) (dir: string) : Task<Test> = startWithServices clock dbOptions ignore config dir
+let private startWith time dbOptions (config: AppConfig) (dir: string) : Task<Test> = startWithServices time dbOptions ignore config dir
 
 let private start (config: AppConfig) (dir: string) : Task<Test> = startWith None ignore config dir
 
 /// An app booted over a private copy of seed `name`, with `dbOptions` applied to the EF context options (tests: `LogTo`).
-let bootSeededServices (clock: Campfire.RailsCompat.Clock.SharedClock option) dbOptions (more: IServiceCollection -> unit) (extra: (string * string) list) (name: string) : Task<Test> =
+let bootSeededServices (time: TimeProvider option) dbOptions (more: IServiceCollection -> unit) (extra: (string * string) list) (name: string) : Task<Test> =
     task {
         match Repo.seed name with
         | None ->
@@ -424,21 +423,21 @@ let bootSeededServices (clock: Campfire.RailsCompat.Clock.SharedClock option) db
                 if File.Exists from then File.Copy(from, Path.Combine(dir, "db", file))
             let storage = Path.Combine(seed, "storage")
             if Directory.Exists storage then copyDir storage (Path.Combine(dir, "files"))
-            let! test = startWithServices clock dbOptions more (configFor dir extra) dir
+            let! test = startWithServices time dbOptions more (configFor dir extra) dir
             let labels = Path.Combine(seed, "labels.json")
             if File.Exists labels then test.Labels <- Some((JsonDocument.Parse(File.ReadAllText labels)).RootElement.Clone())
             return test
     }
 
-let bootSeededClocked (clock: Campfire.RailsCompat.Clock.SharedClock option) dbOptions (extra: (string * string) list) (name: string) : Task<Test> =
-    bootSeededServices clock dbOptions ignore extra name
+let bootSeededTimed (time: TimeProvider option) dbOptions (extra: (string * string) list) (name: string) : Task<Test> =
+    bootSeededServices time dbOptions ignore extra name
 
 let bootSeededConfigured dbOptions (extra: (string * string) list) (name: string) : Task<Test> =
-    bootSeededClocked None dbOptions extra name
+    bootSeededTimed None dbOptions extra name
 
-/// An app booted over seed `name` on a harness clock frozen at `at` (the parity harness's `CAMPFIRE_FROZEN_TIME`, per test).
-let bootSeededFrozen (at: DateTimeOffset) (name: string) : Task<Test> =
-    bootSeededClocked (Some(Campfire.RailsCompat.Clock.TestClock.FrozenAt at :> Campfire.RailsCompat.Clock.SharedClock)) ignore [] name
+/// An app booted over seed `name` on `time` (the parity harness's `FrozenTimeProvider`, or a `FakeTimeProvider` the test moves).
+let bootSeededFrozen (time: TimeProvider) (name: string) : Task<Test> =
+    bootSeededTimed (Some time) ignore [] name
 
 /// `bootSeededConfigured` with no environment of its own.
 let bootSeededWith dbOptions (name: string) : Task<Test> = bootSeededConfigured dbOptions [] name

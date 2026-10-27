@@ -40,7 +40,7 @@ let ``a busy or full kind doesnt hold up the others`` () =
         registry.Handle(JobKind.DeliverWebhook, reporting performed.Writer (Some slowBot))
         registry.Handle(JobKind.PurgeBlob, reporting performed.Writer None)
         let jobs = Jobs(2, logs.Logger "jobs")
-        let runner = JobRunner.start jobs test.App registry 1
+        let runner = JobRunner.start jobs test.App registry 1 test.App.Time
         let sink = jobs :> EventSink
 
         // One webhook runs (stuck on the slow bot), two wait, and the rest are dropped.
@@ -69,7 +69,7 @@ let ``a panicking job is logged and its worker carries on`` () =
         use! test = bootEmpty ()
         use logs = new CapturingLoggers()
         let jobs = Jobs(JobLimits.QueueCapacity, logs.Logger "jobs")
-        let runner = JobRunner.start jobs test.App (Registry<AppState>()) 1
+        let runner = JobRunner.start jobs test.App (Registry<AppState>()) 1 test.App.Time
 
         let finished = TaskCompletionSource()
         jobs.PerformLater("Exploding", fun () -> failwith "kaboom")
@@ -87,7 +87,7 @@ let ``a failed job is logged with its cause`` () =
         use! test = bootEmpty ()
         use logs = new CapturingLoggers()
         let jobs = Jobs(JobLimits.QueueCapacity, logs.Logger "jobs")
-        let runner = JobRunner.start jobs test.App (Registry<AppState>()) 1
+        let runner = JobRunner.start jobs test.App (Registry<AppState>()) 1 test.App.Time
 
         let finished = TaskCompletionSource()
         jobs.PerformLater("Failing", fun () -> Task.FromResult(Error "purging the blob: disk full"))
@@ -108,7 +108,7 @@ let ``shutdown performs what is queued and then takes no more`` () =
         let registry = Registry<AppState>()
         registry.Handle(JobKind.DeliverWebhook, reporting performed.Writer None)
         let jobs = Jobs(JobLimits.QueueCapacity, logs.Logger "jobs")
-        let runner = JobRunner.start jobs test.App registry 2
+        let runner = JobRunner.start jobs test.App registry 2 test.App.Time
         let sink = jobs :> EventSink
 
         for messageId in 1L .. 5L do

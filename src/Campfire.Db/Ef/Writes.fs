@@ -1,4 +1,4 @@
-// Design: plans/design-data-ef.md section 3.3 (the write path), E14 (ClockTimeProvider) and section 3.5 (Data.addServices).
+// Design: plans/design-data-ef.md section 3.3 (the write path), section 3.5 (Data.addServices).
 namespace Campfire.Db.Ef
 
 open System
@@ -6,13 +6,6 @@ open System.Threading.Tasks
 open Microsoft.Data.Sqlite
 open Microsoft.EntityFrameworkCore
 open Campfire.Db
-open Campfire.RailsCompat.Clock
-
-/// The harness's clock as a `TimeProvider`, so a frozen `CAMPFIRE_FROZEN_TIME` reaches EF's timestamps (E14).
-[<Sealed>]
-type ClockTimeProvider(clock: SharedClock) =
-    inherit TimeProvider()
-    override _.GetUtcNow() : DateTimeOffset = clock.Now()
 
 /// Everything a model needs besides the context: the clock, where side effects go, the Action Text adapter (over
 /// `CampfireDb`) and BCrypt's cost.

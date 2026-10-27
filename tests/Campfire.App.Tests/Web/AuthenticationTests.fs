@@ -163,7 +163,7 @@ let ``A4 padding is percent-encoded on the wire both ways`` () =
 [<Fact>]
 let ``A5 an hour old activity is refreshed and the cookie re-issued, a recent one is left alone`` () =
     task {
-        use! test = bootSeededFrozen frozenNow "default"
+        use! test = bootSeededFrozen (Campfire.App.Platform.FrozenTimeProvider frozenNow) "default"
         let cookie = davidCookie ()
         do! ageSessionFrom frozenNow.UtcDateTime test (TimeSpan.FromMinutes 30.0)
         let before = sessionRow test davidSessionId

@@ -84,7 +84,7 @@ module IntegrationJobs =
                 | Ok()
                 | Error(RecordNotFound _) -> Ok()
                 | Error error -> Error(failure error)
-            Some(WebPushPool(Network.system (), vapid, invalidSubscriptionHandler, logger))
+            Some(WebPushPool(Network.system env.Time, vapid, invalidSubscriptionHandler, logger))
 
     /// `room.messages.create!(body: text, creator: user)`: the text is assigned to the rich text body, which stores
     /// it canonicalized (as `MessagesController` does; there's no request host in a job).
@@ -175,7 +175,7 @@ module IntegrationJobs =
                 | Error error -> return Error(failure error)
                 | Ok None -> return Error "undefined method 'deliver' for nil (the bot has no webhook)"
                 | Ok(Some(bot, room, url, payload)) ->
-                    match! WebhookClient.deliver (Network.system ()) (defaultArg url "") payload with
+                    match! WebhookClient.deliver (Network.system app.Time) (defaultArg url "") payload with
                     | Error error -> return Error(WebhookError.message error)
                     | Ok delivery ->
                         let! message =

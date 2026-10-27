@@ -15,7 +15,7 @@ open System.Text.Json
 open Xunit
 open Campfire.Db
 open Campfire.Db.Tests.Support
-open Campfire.RailsCompat.Clock
+open Microsoft.Extensions.Time.Testing
 
 /// Copies seed `name` into a temporary directory and runs `f` with the copy's database path and that
 /// directory (so that `f` can find the seed's other files). Skips when the seed isn't built.
@@ -45,16 +45,16 @@ let private efRead (path: string) (f: Ef.CampfireDb -> 'T) : 'T =
     unwrap (Ef.Reads.run context f)
 
 /// `Writes.run` on the copy, under `gate` (the one the app holds).
-let private efWrite (path: string) (gate: WriteGate) (sink: RecordingSink) (clock: TestClock) (f: Ef.Tx -> 'T) : 'T =
+let private efWrite (path: string) (gate: WriteGate) (sink: RecordingSink) (clock: FakeTimeProvider) (f: Ef.Tx -> 'T) : 'T =
     // Its own factory: the timestamps interceptor reads the test's clock, not the system's.
-    let time = Ef.ClockTimeProvider clock
+    let time = clock
     use context = (Ef.Data.factory (Ef.Data.options path time ignore)).CreateDbContext()
     let env : Ef.Env = { Time = time; Sink = sink; RichText = BasicRichText(); BcryptCost = 4 }
     unwrap ((Ef.Writes.run gate env context f).GetAwaiter().GetResult())
 
 /// Boots the copy as the app does (`Schema.prepare`, with the clock the test controls), and returns the write gate the app would hold.
-let private openSeed (path: string) (clock: TestClock) (_sink: RecordingSink) : WriteGate =
-    Schema.prepareFile path "production" (Ef.ClockTimeProvider clock) |> ignore
+let private openSeed (path: string) (clock: FakeTimeProvider) (_sink: RecordingSink) : WriteGate =
+    Schema.prepareFile path "production" (clock) |> ignore
     WriteGate()
 
 [<Fact>]
@@ -66,7 +66,7 @@ let ``a database Rails wrote opens as up to date and gains only the paging index
         let before = indexes ()
         Assert.DoesNotContain("index_messages_on_room_id_and_created_at", before)
 
-        let _ = openSeed path (TestClock()) (RecordingSink())
+        let _ = openSeed path (FakeTimeProvider(DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero))) (RecordingSink())
         let after = indexes ()
         Assert.Equal<string list>([ "index_messages_on_room_id_and_created_at" ], Set.difference after before |> Set.toList)
         Assert.Equal(Schema.UpToDate, Schema.prepareFile path "production" TimeProvider.System))
@@ -91,7 +91,7 @@ let ``the schema Rails created is the schema we load`` () =
 [<Fact>]
 let ``every model reads the rows Rails wrote`` () =
     withSeed "default" (fun path seed ->
-        let _ = openSeed path (TestClock()) (RecordingSink())
+        let _ = openSeed path (FakeTimeProvider(DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero))) (RecordingSink())
 
         Assert.Equal(10L, efRead path User.count)
         Assert.Equal(11, List.length (efRead path Room.all))
@@ -148,7 +148,7 @@ let ``every datetime Rails wrote reads and writes back as the same text`` () =
 [<Fact>]
 let ``messages page, search and read their bodies and attachments as Rails stored them`` () =
     withSeed "default" (fun path seed ->
-        let _ = openSeed path (TestClock()) (RecordingSink())
+        let _ = openSeed path (FakeTimeProvider(DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero))) (RecordingSink())
         use raw = Raw.openFile path
         let richText = BasicRichText() :> RichText
 
@@ -201,7 +201,7 @@ let ``messages page, search and read their bodies and attachments as Rails store
 [<Fact>]
 let ``memberships Rails wrote read with every involvement and connection state`` () =
     withSeed "default" (fun path _ ->
-        let _ = openSeed path (TestClock()) (RecordingSink())
+        let _ = openSeed path (FakeTimeProvider(DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero))) (RecordingSink())
         let memberships = efRead path (fun c -> c.Memberships.OrderBy(fun m -> m.Id).ToList() |> List.ofSeq)
         let involvements = memberships |> List.map (fun m -> Option.ofNullable m.Involvement) |> List.distinct |> Set.ofList
         Assert.Equal<Involvement option Set>(
@@ -217,8 +217,8 @@ let ``memberships Rails wrote read with every involvement and connection state``
 [<Fact>]
 let ``writes land beside the rows Rails wrote`` () =
     withSeed "default" (fun path seed ->
-        let clock = TestClock()
-        clock.TravelTo(DateTimeOffset(RailsTime.ofDb "2026-03-03 09:30:15.123456"))
+        let clock = FakeTimeProvider(DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero))
+        clock.SetUtcNow(DateTimeOffset(RailsTime.ofDb "2026-03-03 09:30:15.123456"))
         let sink = RecordingSink()
         let gate = openSeed path clock sink
         let david, designers = label seed "users.david", label seed "rooms.designers"
@@ -252,27 +252,27 @@ let ``writes land beside the rows Rails wrote`` () =
 [<Fact>]
 let ``an account with restricted room creation and an account with custom styles read their settings`` () =
     withSeed "restricted" (fun path _ ->
-        let _ = openSeed path (TestClock()) (RecordingSink())
+        let _ = openSeed path (FakeTimeProvider(DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero))) (RecordingSink())
         let account = efRead path (fun c -> (Account.first c).Value)
         Assert.True(AccountSettings.restrictRoomCreationToAdministrators (Account.settings account))
         Assert.Equal("""{"restrict_room_creation_to_administrators":true}""", account.Settings))
     withSeed "custom_styles" (fun path _ ->
-        let gate = openSeed path (TestClock()) (RecordingSink())
+        let gate = openSeed path (FakeTimeProvider(DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero))) (RecordingSink())
         let account = efRead path (fun c -> (Account.first c).Value)
         Assert.False(AccountSettings.restrictRoomCreationToAdministrators (Account.settings account))
         Assert.False(String.IsNullOrEmpty account.CustomStyles)
         // Updating the styles leaves the settings JSON as Rails wrote it, and writes only what changed.
-        let updated = efWrite path gate (RecordingSink()) (TestClock()) (fun tx -> Account.update tx account None (Some(Some "body { color: red }")) None)
+        let updated = efWrite path gate (RecordingSink()) (FakeTimeProvider(DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero))) (fun tx -> Account.update tx account None (Some(Some "body { color: red }")) None)
         Assert.Equal(account.Settings, updated.Settings)
         Assert.Equal("body { color: red }", (efRead path (fun c -> (Account.first c).Value)).CustomStyles))
 
 [<Fact>]
 let ``the first run seed has no account and FirstRun creates one`` () =
     withSeed "first_run" (fun path _ ->
-        let gate = openSeed path (TestClock()) (RecordingSink())
+        let gate = openSeed path (FakeTimeProvider(DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero))) (RecordingSink())
         Assert.Equal(0L, efRead path Account.count)
         let digest = PasswordDigest.create "secret123456" 4
-        let admin = efWrite path gate (RecordingSink()) (TestClock()) (fun tx -> FirstRun.create tx "First" "first@example.com" digest)
+        let admin = efWrite path gate (RecordingSink()) (FakeTimeProvider(DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero))) (fun tx -> FirstRun.create tx "First" "first@example.com" digest)
         Assert.True(User.isAdministrator admin)
         let rooms = efRead path (fun c -> Room.forUser c admin.Id)
         Assert.Equal<string list>([ "All Talk" ], rooms |> List.map (fun r -> string r.Name))
@@ -281,14 +281,14 @@ let ``the first run seed has no account and FirstRun creates one`` () =
 [<Fact>]
 let ``a crowd of users all join a new open room`` () =
     withSeed "crowd" (fun path seed ->
-        let gate = openSeed path (TestClock()) (RecordingSink())
+        let gate = openSeed path (FakeTimeProvider(DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero))) (RecordingSink())
         let users = efRead path User.count
         Assert.True(users > 500L, $"{users} users")
         let active = efRead path (fun c -> List.length (User.active c))
-        let room = efWrite path gate (RecordingSink()) (TestClock()) (fun tx -> Room.create tx RoomType.Open (Some "Everyone") (label seed "users.david"))
+        let room = efWrite path gate (RecordingSink()) (FakeTimeProvider(DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero))) (fun tx -> Room.create tx RoomType.Open (Some "Everyone") (label seed "users.david"))
         let members = efRead path (fun c -> Room.userIds c room)
         Assert.Equal(active, List.length members)
         // A new user is granted every open room, in one statement per batch.
-        let user = efWrite path gate (RecordingSink()) (TestClock()) (fun tx -> User.create tx (NewUser.create "Latecomer"))
+        let user = efWrite path gate (RecordingSink()) (FakeTimeProvider(DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero))) (fun tx -> User.create tx (NewUser.create "Latecomer"))
         let openRooms = efRead path (fun c -> Room.countOfType c RoomType.Open)
         Assert.Equal(openRooms, int64 (List.length (efRead path (fun c -> Membership.forUser c user.Id)))))

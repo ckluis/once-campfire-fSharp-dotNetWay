@@ -13,7 +13,6 @@ namespace Campfire.App.Channels
 open Campfire.Cable
 open Campfire.Db
 open Campfire.RailsCompat
-open Campfire.RailsCompat.Clock
 
 /// `identified_by :current_user`: the user as loaded when the connection opened.
 type CableUser = { Id: int64; Name: string }

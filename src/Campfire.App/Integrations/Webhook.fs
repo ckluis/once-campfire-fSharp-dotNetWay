@@ -211,7 +211,7 @@ module WebhookClient =
 
     let deliverWithin (net: Network) (url: string) (payload: string) (deadline: TimeSpan) : Task<Result<WebhookDelivery, WebhookError>> =
         task {
-            use cancellation = new CancellationTokenSource(deadline)
+            use cancellation = new CancellationTokenSource(deadline, net.Time)
             let! posted =
                 task {
                     try

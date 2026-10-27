@@ -12,7 +12,6 @@ open Campfire.App.Controllers
 open Campfire.App.Tests.Support
 open Campfire.Db
 open Campfire.RailsCompat
-open Campfire.RailsCompat.Clock
 open Campfire.Storage
 
 // --- rich_text.rs --------------------------------------------------------------------------------------------
@@ -24,7 +23,7 @@ let private noDb () : Ef.CampfireDb =
 [<Fact>]
 let ``a body whose plain text raises has none`` () =
     use loggers = new CapturingLoggers()
-    let richText = AppRichText(Secrets.create "test-secret", SystemClock(), loggers.Logger "rich_text") :> Campfire.Db.RichText
+    let richText = AppRichText(Secrets.create "test-secret", TimeProvider.System, loggers.Logger "rich_text") :> Campfire.Db.RichText
     use db = noDb ()
     // Rails raises `ArgumentError: invalid base64` reading the mention.
     let html = """Hey <action-text-attachment sgid="!!!" content-type="application/vnd.campfire.mention"></action-text-attachment> there"""
@@ -39,7 +38,7 @@ let private manyAttributesBody = "<p " + String.Join(" ", [ for i in 1..450 -> $
 [<Fact>]
 let ``a body without attachments that fails to parse still logs the mentions error`` () =
     use loggers = new CapturingLoggers()
-    let richText = AppRichText(Secrets.create "test-secret", SystemClock(), loggers.Logger "rich_text") :> Campfire.Db.RichText
+    let richText = AppRichText(Secrets.create "test-secret", TimeProvider.System, loggers.Logger "rich_text") :> Campfire.Db.RichText
     use db = noDb ()
     for body in [ deepBody; manyAttributesBody ] do
         Assert.True(body.Length > AppRichText.ParseSafeLength)
@@ -50,7 +49,7 @@ let ``a body without attachments that fails to parse still logs the mentions err
 [<Fact>]
 let ``a plain body parses nothing and logs nothing`` () =
     use loggers = new CapturingLoggers()
-    let richText = AppRichText(Secrets.create "test-secret", SystemClock(), loggers.Logger "rich_text") :> Campfire.Db.RichText
+    let richText = AppRichText(Secrets.create "test-secret", TimeProvider.System, loggers.Logger "rich_text") :> Campfire.Db.RichText
     use db = noDb ()
     for body in [ ""; "hello"; "<div>hi <b>there</b></div>"; String('x', 5000) ] do
         Assert.Equal<int64 list>([], richText.MentionedUserIds(db, body))

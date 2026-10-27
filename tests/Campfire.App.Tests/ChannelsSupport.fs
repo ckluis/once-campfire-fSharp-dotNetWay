@@ -24,7 +24,7 @@ open Campfire.App.Channels
 open Campfire.Cable
 open Campfire.Db
 open Campfire.RailsCompat
-open Campfire.RailsCompat.Clock
+open Microsoft.Extensions.Time.Testing
 
 [<Literal>]
 let SecretKeyBase = "channels-test-secret-key-base"
@@ -242,7 +242,7 @@ type TestApp
         server: Cable,
         broadcasts: Broadcasts,
         secrets: Secrets,
-        clock: TestClock,
+        clock: FakeTimeProvider,
         host: WebApplication,
         url: string,
         origin: string,
@@ -283,14 +283,14 @@ type TestApp
     member _.Server = server
     member _.Broadcasts = broadcasts
     member _.Secrets = secrets
-    member _.Clock = clock
+    member _.Time = clock
     member _.Url = url
     member _.Origin = origin
 
     /// `Now` as the UTC `DateTime` the EF entities carry.
-    member _.Utc() : System.DateTime = Campfire.Db.RailsTime.truncate (clock.Now().UtcDateTime)
+    member _.Utc() : System.DateTime = Campfire.Db.RailsTime.truncate (clock.GetUtcNow().UtcDateTime)
 
-    member _.NowOffset() : Campfire.RailsCompat.Timestamp = clock.Now()
+    member _.NowOffset() : Campfire.RailsCompat.Timestamp = clock.GetUtcNow()
 
     /// A session cookie for the fixture user (`cookies.signed[:session_token]`).
     member this.CookieFor(user: string) : Task<string> =
@@ -405,12 +405,12 @@ let start () : Task<TestApp> =
     task {
         let dir = Directory.CreateTempSubdirectory("campfire-channels-test").FullName
         let sink = CableSink()
-        let clock = TestClock()
+        let clock = FakeTimeProvider(DateTimeOffset.UtcNow)
         let secrets = Secrets.create SecretKeyBase
         let richText = AppRichText(secrets, clock, NullLogger.Instance)
         let gate = WriteGate()
         let path = Path.Combine(dir, "test.sqlite3")
-        let time = Campfire.Db.Ef.ClockTimeProvider clock
+        let time : TimeProvider = clock
         Schema.prepareFile path "test" time |> ignore
         let factory = Campfire.Db.Ef.Data.factory (Campfire.Db.Ef.Data.options path time ignore)
         let efEnv: Campfire.Db.Ef.Env =

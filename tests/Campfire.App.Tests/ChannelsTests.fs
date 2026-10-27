@@ -55,7 +55,7 @@ let ``rejects a session cookie once it expires`` () =
         let! welcome = client.NextText()
         Assert.Equal("""{"type":"welcome"}""", welcome)
 
-        app.Clock.Travel(TimeSpan.FromSeconds 61.0)
+        app.Time.Advance(TimeSpan.FromSeconds 61.0)
         use! client = app.ConnectWithCookie(Some cookie)
         let! frames = client.UntilClosed()
         Assert.Equal<string list>([ """{"type":"disconnect","reason":"unauthorized","reconnect":false}""" ], frames)
@@ -153,7 +153,7 @@ let ``presence counts connections and refreshes`` () =
         Assert.Equal(2L, membership.Value.Connections)
 
         // `refresh` reconnects a membership that timed out.
-        app.Clock.Travel(TimeSpan.FromSeconds 61.0)
+        app.Time.Advance(TimeSpan.FromSeconds 61.0)
         let! membership = app.Membership("designers", "david")
         Assert.False(Membership.isConnected membership.Value (app.Utc()))
         do! first.Perform(presence, obj' [ "action", Value.String "refresh" ])

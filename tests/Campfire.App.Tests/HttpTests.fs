@@ -17,7 +17,7 @@ let private Limit = 5242880
 let private readGzipped (body: byte[]) : Task<Result<Body, HttpError>> =
     task {
         use server = FakeServer.Start [ Route.create "GET" "*" "/bomb" 200 |> Route.header "Content-Encoding" "gzip" |> Route.body body ]
-        let net = Network.system ()
+        let net = Network.system TimeProvider.System
         let endpoint: Endpoint =
             { Https = false
               Host = "127.0.0.1"

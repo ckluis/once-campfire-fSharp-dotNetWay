@@ -8,7 +8,6 @@ open Microsoft.EntityFrameworkCore
 open Microsoft.EntityFrameworkCore.Diagnostics
 open Microsoft.Extensions.Logging
 open Xunit
-open Campfire.RailsCompat.Clock
 open Campfire.Db
 open Campfire.Db.Ef
 open Campfire.Db.Tests.Support

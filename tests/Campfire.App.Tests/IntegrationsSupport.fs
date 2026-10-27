@@ -20,7 +20,7 @@ open Campfire.App
 open Campfire.App.Integrations
 open Campfire.Db
 open Campfire.RailsCompat
-open Campfire.RailsCompat.Clock
+open Microsoft.Extensions.Time.Testing
 
 /// Fixed answers per host. A host with several answer lists gives the next one on each lookup and then keeps giving the
 /// last (like the Ruby tests' `Resolv.stubs(...).returns(a, b)`).
@@ -70,7 +70,8 @@ let testTlsRoots () : X509Certificate2Collection =
 let network (resolver: IResolver) (dialer: IDialer) : Network =
     { Resolver = resolver
       Dialer = dialer
-      Tls = CustomRoots(testTlsRoots ()) }
+      Tls = CustomRoots(testTlsRoots ())
+      Time = TimeProvider.System }
 
 type Route =
     { Method: string
@@ -320,9 +321,9 @@ let private SecretKeyBase = "integrations-test-secret-key-base"
 /// The reference fixtures in a fresh database (like `fixtures :all`), with the app's rich text.
 type TestDb() =
     let dir = Directory.CreateTempSubdirectory("campfire-integrations").FullName
-    let clock = TestClock()
+    let clock = FakeTimeProvider(DateTimeOffset.UtcNow)
     let richText = AppRichText(Secrets.create SecretKeyBase, clock, NullLogger.Instance) :> Campfire.Db.RichText
-    let time = Campfire.Db.Ef.ClockTimeProvider clock
+    let time : TimeProvider = clock
     let path = Path.Combine(dir, "test.sqlite3")
     let factory = Campfire.Db.Ef.Data.factory (Campfire.Db.Ef.Data.options path time ignore)
     let efEnv: Campfire.Db.Ef.Env = { Time = time; Sink = NullSink(); RichText = richText; BcryptCost = 4 }

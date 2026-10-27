@@ -147,14 +147,14 @@ type Jobs(capacity: int, logger: ILogger, ?cable: CableHandle) =
 
 /// The running job runner.
 [<Sealed>]
-type Runner internal (jobs: Jobs, workers: Task list) =
+type Runner internal (jobs: Jobs, workers: Task list, time: TimeProvider) =
     /// Stops taking new work, performs what's already queued, and waits for running jobs until
     /// `deadline`, after which they're abandoned (logged).
     member _.Shutdown(deadline: TimeSpan) : Task =
         task {
             jobs.Close()
             let finished = Task.WhenAll workers
-            let! first = Task.WhenAny(finished, Task.Delay deadline)
+            let! first = Task.WhenAny(finished, Task.Delay(deadline, time))
             if not (obj.ReferenceEquals(first, finished)) then jobs.Logger.LogWarning "jobs still running at shutdown were abandoned"
         }
 
@@ -204,10 +204,10 @@ module JobRunner =
         }
 
     /// Starts performing queued jobs: `concurrency` workers for each kind of job.
-    let start (jobs: Jobs) (app: 'App) (registry: Registry<'App>) (concurrency: int) : Runner =
+    let start (jobs: Jobs) (app: 'App) (registry: Registry<'App>) (concurrency: int) (time: TimeProvider) : Runner =
         let workers =
             [ for kind in JobKind.all do
                   for _ in 1 .. max concurrency 1 do
                       // Each worker runs on the pool; the queue hands every job to exactly one.
                       Task.Run(fun () -> work (jobs.Queue kind) app registry jobs.Logger) ]
-        Runner(jobs, workers)
+        Runner(jobs, workers, time)

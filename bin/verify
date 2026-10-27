@@ -40,6 +40,9 @@ if awk '/^[[:space:]]*let (private |mutable )*[a-z][A-Za-z]*Sql[[:space:]]*=/ { 
      END { exit bad ? 0 : 1 }' src/Campfire.Db/Ef/FastReads.fs; then
   echo "verify: a ...Sql value in src/Campfire.Db/Ef/FastReads.fs that is not one plain string literal" >&2; exit 1
 fi
+# The clock (plans/design-jobs.md J10): `TimeProvider` is the only one. No DateTime(Offset).(Utc)Now in src except the `Date` response
+# header (Respond.fs: Thruster's and Puma's real clock, never the harness's frozen one). The request duration is a Stopwatch.
+guard 'DateTime(Offset).(Utc)Now' 'DateTime(Offset)?\.(Utc)?Now' '^src/Campfire\.App/Web/Respond\.fs:.*Headers\.Date <-'
 # The Falco.Markup views (plans/design-views.md V3): Falco writes attribute values and Text.raw unescaped, so the lint requires every
 # non-literal to go through Core/Html.fs. The self-test proves it bites (a planted file per rule must be caught, the clean file passes).
 bin/lint-markup --self-test

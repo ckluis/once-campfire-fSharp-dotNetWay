@@ -33,9 +33,8 @@ CREATE UNIQUE INDEX index_active_storage_variant_records_uniqueness ON active_st
 """
 
     /// A clock fixed at 2026-09-26 12:00:00 UTC, as EF's `TimeProvider`.
-    type FixedTime() =
-        inherit TimeProvider()
-        override _.GetUtcNow() = DateTimeOffset(2026, 9, 26, 12, 0, 0, TimeSpan.Zero)
+    let fixedTime () : TimeProvider =
+        Microsoft.Extensions.Time.Testing.FakeTimeProvider(DateTimeOffset(2026, 9, 26, 12, 0, 0, TimeSpan.Zero)) :> TimeProvider
 
     /// The context over a file holding them, in a directory of its own that goes with the context.
     type TestDb private (options: DbContextOptions<CampfireDb>, dir: TempDir) =
@@ -52,7 +51,7 @@ CREATE UNIQUE INDEX index_active_storage_variant_records_uniqueness ON active_st
                 use command = conn.CreateCommand()
                 command.CommandText <- schema
                 command.ExecuteNonQuery() |> ignore
-            new TestDb(Data.options path (FixedTime()) ignore, dir)
+            new TestDb(Data.options path (fixedTime ()) ignore, dir)
 
         override this.Dispose() =
             base.Dispose()
