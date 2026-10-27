@@ -1,0 +1,514 @@
+{
+ "app": "dotnetway",
+ "rep": 2,
+ "cold_start_ms": 574,
+ "memory": {
+  "idle_current_mb": 83,
+  "idle_anon_mb": 57,
+  "peak_current_mb": 186,
+  "peak_anon_mb": 142,
+  "cgroup_peak_mb": 187
+ },
+ "http": [
+  {
+   "avg_bytes": 3364,
+   "conc": 1,
+   "errors": 0,
+   "gzip": true,
+   "latency": {
+    "max_ms": 31.327,
+    "mean_ms": 0.09,
+    "n": 86086,
+    "p50_ms": 0.082,
+    "p90_ms": 0.121,
+    "p99_ms": 0.307
+   },
+   "ok": 86086,
+   "path": "/users/eyJfcmFpbHMiOnsiZGF0YSI6MTQ5MDg3NjU5LCJwdXIiOiJ1c2VyL2F2YXRhciJ9fQ--3717de512c048bb2a011a08236969887ee56ae9f8bd2fb510959b9915f449e17/avatar",
+   "rps": 10760.5,
+   "secs": 8.0,
+   "statuses": {
+    "200": 86086
+   },
+   "cost": {
+    "wall_s": 8.0,
+    "server_usage_us": 14735851,
+    "server_user_us": 11415018,
+    "server_system_us": 3320833,
+    "loadgen_user_us": 1032799,
+    "loadgen_system_us": 1321561,
+    "n": 86086,
+    "server_cpu_us_per_req": 171.2,
+    "server_user_us_per_req": 132.6,
+    "server_system_us_per_req": 38.6,
+    "loadgen_cpu_us_per_req": 27.3,
+    "server_cores_busy": 1.84,
+    "loadgen_cores_busy": 0.29
+   },
+   "route": "avatar",
+   "warmup": {
+    "secs": 48.0,
+    "windows_rps": [
+     5473.3,
+     6570.7,
+     10953.3,
+     12049.3,
+     12323.4,
+     12465.7,
+     11624.8,
+     3625.3,
+     2836.1,
+     2667.4,
+     2909.1,
+     2703.8,
+     2858.5,
+     3055.3,
+     3055.8,
+     4961.3,
+     9121.2,
+     10652.7,
+     12011.7,
+     11836.0,
+     12626.7,
+     12072.7,
+     12783.8,
+     12530.4
+    ],
+    "reason": "settled",
+    "window_secs": 2.0,
+    "settled": true,
+    "tail_rps": 12462.3
+   },
+   "host_probe_after": {
+    "spin_ms": 60.24,
+    "spin_ms_max_cpu": 63.2,
+    "cpus": "0-3,4-7",
+    "baseline_ms": 55.57,
+    "ratio": 1.084
+   }
+  },
+  {
+   "avg_bytes": 3364,
+   "conc": 16,
+   "errors": 0,
+   "gzip": true,
+   "latency": {
+    "max_ms": 5.867,
+    "mean_ms": 0.17,
+    "n": 743554,
+    "p50_ms": 0.143,
+    "p90_ms": 0.29,
+    "p99_ms": 0.503
+   },
+   "ok": 743554,
+   "path": "/users/eyJfcmFpbHMiOnsiZGF0YSI6MTQ5MDg3NjU5LCJwdXIiOiJ1c2VyL2F2YXRhciJ9fQ--3717de512c048bb2a011a08236969887ee56ae9f8bd2fb510959b9915f449e17/avatar",
+   "rps": 92936.6,
+   "secs": 8.0,
+   "statuses": {
+    "200": 743554
+   },
+   "cost": {
+    "wall_s": 8.0,
+    "server_usage_us": 20877365,
+    "server_user_us": 13980869,
+    "server_system_us": 6896495,
+    "loadgen_user_us": 6228036,
+    "loadgen_system_us": 6988603,
+    "n": 743554,
+    "server_cpu_us_per_req": 28.1,
+    "server_user_us_per_req": 18.8,
+    "server_system_us_per_req": 9.3,
+    "loadgen_cpu_us_per_req": 17.8,
+    "server_cores_busy": 2.61,
+    "loadgen_cores_busy": 1.65
+   },
+   "route": "avatar",
+   "warmup": {
+    "secs": 30.0,
+    "windows_rps": [
+     84428.5,
+     91532.7,
+     92862.3,
+     90712.2,
+     89571.8,
+     88889.3,
+     90647.0,
+     96695.7,
+     93631.9,
+     96182.8,
+     96011.5,
+     94947.7,
+     99159.5,
+     100344.4,
+     94189.7
+    ],
+    "reason": "settled",
+    "window_secs": 2.0,
+    "settled": true,
+    "tail_rps": 97897.9
+   },
+   "host_probe_after": {
+    "spin_ms": 59.84,
+    "spin_ms_max_cpu": 62.84,
+    "cpus": "0-3,4-7",
+    "baseline_ms": 55.57,
+    "ratio": 1.077
+   }
+  },
+  {
+   "avg_bytes": 648,
+   "conc": 1,
+   "errors": 0,
+   "gzip": true,
+   "latency": {
+    "max_ms": 0.972,
+    "mean_ms": 0.1,
+    "n": 77718,
+    "p50_ms": 0.099,
+    "p90_ms": 0.136,
+    "p99_ms": 0.176
+   },
+   "ok": 77718,
+   "path": "/assets/_reset.ggeau7dgmv.css",
+   "rps": 9714.6,
+   "secs": 8.0,
+   "statuses": {
+    "200": 77718
+   },
+   "cost": {
+    "wall_s": 8.0,
+    "server_usage_us": 15177507,
+    "server_user_us": 11558843,
+    "server_system_us": 3618664,
+    "loadgen_user_us": 982677,
+    "loadgen_system_us": 1293840,
+    "n": 77718,
+    "server_cpu_us_per_req": 195.3,
+    "server_user_us_per_req": 148.7,
+    "server_system_us_per_req": 46.6,
+    "loadgen_cpu_us_per_req": 29.3,
+    "server_cores_busy": 1.9,
+    "loadgen_cores_busy": 0.28
+   },
+   "route": "static_css",
+   "warmup": {
+    "secs": 34.0,
+    "windows_rps": [
+     8663.9,
+     8878.0,
+     10029.2,
+     9049.5,
+     9027.5,
+     9529.4,
+     9300.0,
+     9319.7,
+     9313.6,
+     9344.5,
+     9572.3,
+     10963.4,
+     11743.6,
+     11724.8,
+     11479.5,
+     11650.4,
+     11084.9
+    ],
+    "reason": "settled",
+    "window_secs": 2.0,
+    "settled": true,
+    "tail_rps": 11404.9
+   },
+   "host_probe_after": {
+    "spin_ms": 60.45,
+    "spin_ms_max_cpu": 62.52,
+    "cpus": "0-3,4-7",
+    "baseline_ms": 55.57,
+    "ratio": 1.088
+   }
+  },
+  {
+   "avg_bytes": 648,
+   "conc": 16,
+   "errors": 0,
+   "gzip": true,
+   "latency": {
+    "max_ms": 8.823,
+    "mean_ms": 0.24,
+    "n": 539177,
+    "p50_ms": 0.212,
+    "p90_ms": 0.377,
+    "p99_ms": 0.888
+   },
+   "ok": 539177,
+   "path": "/assets/_reset.ggeau7dgmv.css",
+   "rps": 67392.9,
+   "secs": 8.0,
+   "statuses": {
+    "200": 539177
+   },
+   "cost": {
+    "wall_s": 8.0,
+    "server_usage_us": 21286489,
+    "server_user_us": 12734168,
+    "server_system_us": 8552320,
+    "loadgen_user_us": 4335942,
+    "loadgen_system_us": 5448895,
+    "n": 539177,
+    "server_cpu_us_per_req": 39.5,
+    "server_user_us_per_req": 23.6,
+    "server_system_us_per_req": 15.9,
+    "loadgen_cpu_us_per_req": 18.1,
+    "server_cores_busy": 2.66,
+    "loadgen_cores_busy": 1.22
+   },
+   "route": "static_css",
+   "warmup": {
+    "secs": 30.0,
+    "windows_rps": [
+     89778.3,
+     87758.2,
+     79649.2,
+     80285.6,
+     85533.0,
+     84156.0,
+     88272.4,
+     82888.9,
+     80621.9,
+     86072.3,
+     87890.1,
+     85204.2,
+     85109.9,
+     86057.4,
+     84606.0
+    ],
+    "reason": "settled",
+    "window_secs": 2.0,
+    "settled": true,
+    "tail_rps": 85257.8
+   },
+   "host_probe_after": {
+    "spin_ms": 59.92,
+    "spin_ms_max_cpu": 61.29,
+    "cpus": "0-3,4-7",
+    "baseline_ms": 55.57,
+    "ratio": 1.078
+   }
+  },
+  {
+   "avg_bytes": 73,
+   "conc": 1,
+   "errors": 0,
+   "gzip": true,
+   "latency": {
+    "max_ms": 1.32,
+    "mean_ms": 0.09,
+    "n": 90375,
+    "p50_ms": 0.085,
+    "p90_ms": 0.116,
+    "p99_ms": 0.165
+   },
+   "ok": 90375,
+   "path": "/up",
+   "rps": 11296.7,
+   "secs": 8.0,
+   "statuses": {
+    "200": 90375
+   },
+   "cost": {
+    "wall_s": 8.0,
+    "server_usage_us": 16460571,
+    "server_user_us": 13480735,
+    "server_system_us": 2979837,
+    "loadgen_user_us": 979948,
+    "loadgen_system_us": 1135240,
+    "n": 90375,
+    "server_cpu_us_per_req": 182.1,
+    "server_user_us_per_req": 149.2,
+    "server_system_us_per_req": 33.0,
+    "loadgen_cpu_us_per_req": 23.4,
+    "server_cores_busy": 2.06,
+    "loadgen_cores_busy": 0.26
+   },
+   "route": "up",
+   "warmup": {
+    "secs": 30.0,
+    "windows_rps": [
+     8281.4,
+     9455.0,
+     11512.9,
+     11781.4,
+     11642.4,
+     11801.7,
+     11732.6,
+     11408.6,
+     11841.5,
+     11800.2,
+     11681.1,
+     11828.7,
+     11613.8,
+     11509.9,
+     11538.5
+    ],
+    "reason": "settled",
+    "window_secs": 2.0,
+    "settled": true,
+    "tail_rps": 11554.1
+   },
+   "host_probe_after": {
+    "spin_ms": 59.43,
+    "spin_ms_max_cpu": 61.88,
+    "cpus": "0-3,4-7",
+    "baseline_ms": 55.57,
+    "ratio": 1.069
+   }
+  },
+  {
+   "avg_bytes": 73,
+   "conc": 16,
+   "errors": 0,
+   "gzip": true,
+   "latency": {
+    "max_ms": 8.351,
+    "mean_ms": 0.2,
+    "n": 641431,
+    "p50_ms": 0.165,
+    "p90_ms": 0.317,
+    "p99_ms": 0.626
+   },
+   "ok": 641431,
+   "path": "/up",
+   "rps": 80174.1,
+   "secs": 8.0,
+   "statuses": {
+    "200": 641431
+   },
+   "cost": {
+    "wall_s": 8.0,
+    "server_usage_us": 23250460,
+    "server_user_us": 17495006,
+    "server_system_us": 5755455,
+    "loadgen_user_us": 5823346,
+    "loadgen_system_us": 6843265,
+    "n": 641431,
+    "server_cpu_us_per_req": 36.2,
+    "server_user_us_per_req": 27.3,
+    "server_system_us_per_req": 9.0,
+    "loadgen_cpu_us_per_req": 19.7,
+    "server_cores_busy": 2.91,
+    "loadgen_cores_busy": 1.58
+   },
+   "route": "up",
+   "warmup": {
+    "secs": 30.0,
+    "windows_rps": [
+     74738.0,
+     76048.1,
+     77310.5,
+     76152.1,
+     75792.2,
+     76030.7,
+     77800.1,
+     75093.5,
+     76551.8,
+     77134.6,
+     76525.4,
+     79520.4,
+     79226.2,
+     74865.2,
+     80965.5
+    ],
+    "reason": "settled",
+    "window_secs": 2.0,
+    "settled": true,
+    "tail_rps": 78352.3
+   },
+   "host_probe_after": {
+    "spin_ms": 59.27,
+    "spin_ms_max_cpu": 60.41,
+    "cpus": "0-3,4-7",
+    "baseline_ms": 55.57,
+    "ratio": 1.066
+   }
+  }
+ ],
+ "cable": [],
+ "upload": {},
+ "loadavg_start": "1.29 3.13 3.19 1/206 2032990",
+ "loadavg_end": "5.16 3.80 3.41 1/234 2041866",
+ "post_rows": [],
+ "probe": [
+  {
+   "route": "avatar",
+   "path": "/users/eyJfcmFpbHMiOnsiZGF0YSI6MTQ5MDg3NjU5LCJwdXIiOiJ1c2VyL2F2YXRhciJ9fQ--3717de512c048bb2a011a08236969887ee56ae9f8bd2fb510959b9915f449e17/avatar",
+   "gzip": {
+    "status": 200,
+    "content_encoding": null,
+    "content_type": "image/webp",
+    "wire_bytes": 3364,
+    "decoded_bytes": 3364,
+    "etag": true
+   },
+   "identity": {
+    "status": 200,
+    "content_encoding": null,
+    "content_type": "image/webp",
+    "wire_bytes": 3364,
+    "decoded_bytes": 3364,
+    "etag": true
+   }
+  },
+  {
+   "route": "static_css",
+   "path": "/assets/_reset.ggeau7dgmv.css",
+   "gzip": {
+    "status": 200,
+    "content_encoding": "gzip",
+    "content_type": "text/css",
+    "wire_bytes": 648,
+    "decoded_bytes": 1218,
+    "etag": true
+   },
+   "identity": {
+    "status": 200,
+    "content_encoding": null,
+    "content_type": "text/css",
+    "wire_bytes": 1218,
+    "decoded_bytes": 1218,
+    "etag": true
+   }
+  },
+  {
+   "route": "up",
+   "path": "/up",
+   "gzip": {
+    "status": 200,
+    "content_encoding": null,
+    "content_type": "text/html; charset=utf-8",
+    "wire_bytes": 73,
+    "decoded_bytes": 73,
+    "etag": false
+   },
+   "identity": {
+    "status": 200,
+    "content_encoding": null,
+    "content_type": "text/html; charset=utf-8",
+    "wire_bytes": 73,
+    "decoded_bytes": 73,
+    "etag": false
+   }
+  }
+ ],
+ "host_probe_start": {
+  "spin_ms": 60.74,
+  "spin_ms_max_cpu": 62.0,
+  "cpus": "0-3,4-7",
+  "baseline_ms": 55.57,
+  "ratio": 1.093
+ },
+ "host_probe_end": {
+  "spin_ms": 59.52,
+  "spin_ms_max_cpu": 60.84,
+  "cpus": "0-3,4-7",
+  "baseline_ms": 55.57,
+  "ratio": 1.071
+ }
+}

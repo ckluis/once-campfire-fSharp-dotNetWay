@@ -1,0 +1,209 @@
+{
+ "app": "dotnetway",
+ "rep": 1,
+ "cold_start_ms": 555,
+ "memory": {
+  "idle_current_mb": 84,
+  "idle_anon_mb": 57,
+  "peak_current_mb": 180,
+  "peak_anon_mb": 139,
+  "cgroup_peak_mb": 181
+ },
+ "http": [
+  {
+   "avg_bytes": 648,
+   "conc": 1,
+   "errors": 0,
+   "gzip": true,
+   "latency": {
+    "max_ms": 0.782,
+    "mean_ms": 0.08,
+    "n": 95573,
+    "p50_ms": 0.081,
+    "p90_ms": 0.11,
+    "p99_ms": 0.141
+   },
+   "ok": 95573,
+   "path": "/assets/_reset.ggeau7dgmv.css",
+   "rps": 11946.5,
+   "secs": 8.0,
+   "statuses": {
+    "200": 95573
+   },
+   "cost": {
+    "wall_s": 8.0,
+    "server_usage_us": 17553724,
+    "server_user_us": 13711572,
+    "server_system_us": 3842152,
+    "loadgen_user_us": 960285,
+    "loadgen_system_us": 1310544,
+    "n": 95573,
+    "server_cpu_us_per_req": 183.7,
+    "server_user_us_per_req": 143.5,
+    "server_system_us_per_req": 40.2,
+    "loadgen_cpu_us_per_req": 23.8,
+    "server_cores_busy": 2.19,
+    "loadgen_cores_busy": 0.28
+   },
+   "route": "static_css",
+   "warmup": {
+    "secs": 30.0,
+    "windows_rps": [
+     6751.2,
+     8556.7,
+     10611.2,
+     11401.6,
+     12137.5,
+     11935.5,
+     9780.1,
+     12083.7,
+     12112.6,
+     12121.9,
+     12234.3,
+     11920.6,
+     11897.2,
+     12219.0,
+     12019.4
+    ],
+    "reason": "settled",
+    "window_secs": 2.0,
+    "settled": true,
+    "tail_rps": 12045.2
+   },
+   "host_probe_after": {
+    "spin_ms": 58.92,
+    "spin_ms_max_cpu": 59.88,
+    "cpus": "0-3,4-7",
+    "baseline_ms": 55.57,
+    "ratio": 1.06
+   }
+  },
+  {
+   "avg_bytes": 648,
+   "conc": 16,
+   "errors": 0,
+   "gzip": true,
+   "latency": {
+    "max_ms": 9.055,
+    "mean_ms": 0.17,
+    "n": 743437,
+    "p50_ms": 0.145,
+    "p90_ms": 0.281,
+    "p99_ms": 0.533
+   },
+   "ok": 743437,
+   "path": "/assets/_reset.ggeau7dgmv.css",
+   "rps": 92924.9,
+   "secs": 8.0,
+   "statuses": {
+    "200": 743437
+   },
+   "cost": {
+    "wall_s": 8.0,
+    "server_usage_us": 20896984,
+    "server_user_us": 12130151,
+    "server_system_us": 8766832,
+    "loadgen_user_us": 5012520,
+    "loadgen_system_us": 5618073,
+    "n": 743437,
+    "server_cpu_us_per_req": 28.1,
+    "server_user_us_per_req": 16.3,
+    "server_system_us_per_req": 11.8,
+    "loadgen_cpu_us_per_req": 14.3,
+    "server_cores_busy": 2.61,
+    "loadgen_cores_busy": 1.33
+   },
+   "route": "static_css",
+   "warmup": {
+    "secs": 66.0,
+    "windows_rps": [
+     92896.8,
+     96921.1,
+     98793.5,
+     95244.8,
+     93878.3,
+     94016.3,
+     95977.4,
+     95402.3,
+     97094.1,
+     94721.3,
+     95459.4,
+     94135.2,
+     95252.1,
+     95490.7,
+     86311.5,
+     87327.4,
+     86071.6,
+     89477.1,
+     91257.0,
+     92710.2,
+     94045.1,
+     89484.4,
+     93597.9,
+     92552.5,
+     92689.4,
+     92288.3,
+     93137.0,
+     92638.8,
+     93938.7,
+     93101.6,
+     92142.7,
+     94292.4,
+     96133.6
+    ],
+    "reason": "settled",
+    "window_secs": 2.0,
+    "settled": true,
+    "tail_rps": 94189.6
+   },
+   "host_probe_after": {
+    "spin_ms": 59.22,
+    "spin_ms_max_cpu": 60.88,
+    "cpus": "0-3,4-7",
+    "baseline_ms": 55.57,
+    "ratio": 1.066
+   }
+  }
+ ],
+ "cable": [],
+ "upload": {},
+ "loadavg_start": "1.48 1.98 2.14 1/211 2083125",
+ "loadavg_end": "4.39 2.79 2.40 1/240 2087145",
+ "post_rows": [],
+ "probe": [
+  {
+   "route": "static_css",
+   "path": "/assets/_reset.ggeau7dgmv.css",
+   "gzip": {
+    "status": 200,
+    "content_encoding": "gzip",
+    "content_type": "text/css",
+    "wire_bytes": 648,
+    "decoded_bytes": 1218,
+    "etag": true
+   },
+   "identity": {
+    "status": 200,
+    "content_encoding": null,
+    "content_type": "text/css",
+    "wire_bytes": 1218,
+    "decoded_bytes": 1218,
+    "etag": true
+   }
+  }
+ ],
+ "host_probe_start": {
+  "spin_ms": 60.43,
+  "spin_ms_max_cpu": 61.75,
+  "cpus": "0-3,4-7",
+  "baseline_ms": 55.57,
+  "ratio": 1.087
+ },
+ "host_probe_end": {
+  "spin_ms": 59.46,
+  "spin_ms_max_cpu": 61.58,
+  "cpus": "0-3,4-7",
+  "baseline_ms": 55.57,
+  "ratio": 1.07
+ }
+}

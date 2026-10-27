@@ -1,0 +1,226 @@
+{
+ "app": "dotnetway",
+ "rep": 2,
+ "cold_start_ms": 630,
+ "memory": {
+  "idle_current_mb": 84,
+  "idle_anon_mb": 57,
+  "peak_current_mb": 181,
+  "peak_anon_mb": 139,
+  "cgroup_peak_mb": 181
+ },
+ "http": [
+  {
+   "avg_bytes": 648,
+   "conc": 1,
+   "errors": 0,
+   "gzip": true,
+   "latency": {
+    "max_ms": 0.84,
+    "mean_ms": 0.11,
+    "n": 72705,
+    "p50_ms": 0.105,
+    "p90_ms": 0.144,
+    "p99_ms": 0.192
+   },
+   "ok": 72705,
+   "path": "/assets/_reset.ggeau7dgmv.css",
+   "rps": 9088.0,
+   "secs": 8.0,
+   "statuses": {
+    "200": 72705
+   },
+   "cost": {
+    "wall_s": 8.0,
+    "server_usage_us": 15577266,
+    "server_user_us": 11711933,
+    "server_system_us": 3865333,
+    "loadgen_user_us": 955862,
+    "loadgen_system_us": 1314995,
+    "n": 72705,
+    "server_cpu_us_per_req": 214.3,
+    "server_user_us_per_req": 161.1,
+    "server_system_us_per_req": 53.2,
+    "loadgen_cpu_us_per_req": 31.2,
+    "server_cores_busy": 1.95,
+    "loadgen_cores_busy": 0.28
+   },
+   "route": "static_css",
+   "warmup": {
+    "secs": 90.0,
+    "windows_rps": [
+     6440.2,
+     6325.7,
+     8453.2,
+     9331.7,
+     10163.7,
+     11548.5,
+     11397.5,
+     10487.6,
+     8798.2,
+     11121.9,
+     10045.7,
+     9732.8,
+     9708.1,
+     9656.6,
+     9867.9,
+     9340.0,
+     8454.8,
+     7426.7,
+     5518.5,
+     2775.6,
+     2057.5,
+     2624.6,
+     2680.3,
+     2481.5,
+     2610.8,
+     2653.2,
+     2746.0,
+     2773.3,
+     4514.8,
+     7150.2,
+     8464.4,
+     9139.4,
+     4283.6,
+     6971.0,
+     7559.8,
+     7801.3,
+     7890.8,
+     7835.6,
+     7914.9,
+     7785.2,
+     8007.4,
+     8508.5,
+     9189.6,
+     9170.6,
+     9169.9
+    ],
+    "reason": "reached the maximum",
+    "window_secs": 2.0,
+    "settled": false,
+    "tail_rps": 9176.7
+   },
+   "host_probe_after": {
+    "spin_ms": 61.23,
+    "spin_ms_max_cpu": 63.87,
+    "cpus": "0-3,4-7",
+    "baseline_ms": 55.57,
+    "ratio": 1.102
+   }
+  },
+  {
+   "avg_bytes": 648,
+   "conc": 16,
+   "errors": 0,
+   "gzip": true,
+   "latency": {
+    "max_ms": 9.479,
+    "mean_ms": 0.18,
+    "n": 709236,
+    "p50_ms": 0.151,
+    "p90_ms": 0.294,
+    "p99_ms": 0.589
+   },
+   "ok": 709236,
+   "path": "/assets/_reset.ggeau7dgmv.css",
+   "rps": 88645.2,
+   "secs": 8.0,
+   "statuses": {
+    "200": 709236
+   },
+   "cost": {
+    "wall_s": 8.0,
+    "server_usage_us": 20716763,
+    "server_user_us": 12012916,
+    "server_system_us": 8703848,
+    "loadgen_user_us": 5001473,
+    "loadgen_system_us": 5537866,
+    "n": 709236,
+    "server_cpu_us_per_req": 29.2,
+    "server_user_us_per_req": 16.9,
+    "server_system_us_per_req": 12.3,
+    "loadgen_cpu_us_per_req": 14.9,
+    "server_cores_busy": 2.59,
+    "loadgen_cores_busy": 1.32
+   },
+   "route": "static_css",
+   "warmup": {
+    "secs": 40.0,
+    "windows_rps": [
+     84324.2,
+     85476.8,
+     84705.3,
+     83975.3,
+     83478.4,
+     81816.5,
+     82798.5,
+     85056.0,
+     85914.3,
+     88681.5,
+     86668.9,
+     87564.5,
+     85871.5,
+     77217.6,
+     81742.2,
+     87726.2,
+     90223.8,
+     86314.6,
+     86060.3,
+     87657.8
+    ],
+    "reason": "settled",
+    "window_secs": 2.0,
+    "settled": true,
+    "tail_rps": 86677.6
+   },
+   "host_probe_after": {
+    "spin_ms": 58.24,
+    "spin_ms_max_cpu": 62.21,
+    "cpus": "0-3,4-7",
+    "baseline_ms": 55.57,
+    "ratio": 1.048
+   }
+  }
+ ],
+ "cable": [],
+ "upload": {},
+ "loadavg_start": "0.43 1.20 1.99 1/209 2074716",
+ "loadavg_end": "4.95 2.44 2.31 1/238 2079806",
+ "post_rows": [],
+ "probe": [
+  {
+   "route": "static_css",
+   "path": "/assets/_reset.ggeau7dgmv.css",
+   "gzip": {
+    "status": 200,
+    "content_encoding": "gzip",
+    "content_type": "text/css",
+    "wire_bytes": 648,
+    "decoded_bytes": 1218,
+    "etag": true
+   },
+   "identity": {
+    "status": 200,
+    "content_encoding": null,
+    "content_type": "text/css",
+    "wire_bytes": 1218,
+    "decoded_bytes": 1218,
+    "etag": true
+   }
+  }
+ ],
+ "host_probe_start": {
+  "spin_ms": 59.4,
+  "spin_ms_max_cpu": 62.08,
+  "cpus": "0-3,4-7",
+  "baseline_ms": 55.57,
+  "ratio": 1.069
+ },
+ "host_probe_end": {
+  "spin_ms": 59.36,
+  "spin_ms_max_cpu": 62.67,
+  "cpus": "0-3,4-7",
+  "baseline_ms": 55.57,
+  "ratio": 1.068
+ }
+}

@@ -3841,3 +3841,57 @@ Sonnet builder, `plans/design-jobs.md` J7. `bin/kloc` 27,417 / **27,860 correcte
 - **Left for later units:** 8.6 (redaction), 8.7a/b (production Boot, `IResolver` from DI in `UnfurlLinks`, the `StopAsync`-versus-`ExecuteAsync` check of `Heartbeat.fs` and `Acme.fs`), 8.8, 8.9 (delete
   `Http.fs`, `Net.fs`'s `Network`, `RubyUri.fs`, `WebPushEncryption.fs`; the class B tweet-host note). The checkpoint's test-flake item (RichText `CpuTimer`, Cable L7) is still open for before the phase
   gate; it did not fire in this unit's `bin/verify`.
+
+### Phase 8, unit 8.6 Logging (2026-10-27)
+
+Sonnet builder, `plans/design-jobs.md` J11 and J12. `bin/kloc` 27,503 / **27,946 corrected (27.9)**, from 27,860 after 8.5 (+86: `Logging.fs` 100 lines with its comments, the interceptor's bot branch, the tests are not counted).
+
+- **Code:** `Logging.fs` (after `Config.fs`): `Logging.add services secrets` registers `AddRedaction` with the HMAC redactor for `DataClassification("campfire", "secret")` keyed with
+  `KeyGenerator.GenerateKey("campfire log redaction", 64)` (base64, key id 1; the erasing redactor is the fallback); `Logging.forSecrets` builds the same redactor once per `Secrets`
+  for code with no request services (jobs); `redactBotPath` replaces the key segment of `/rooms/:id/:bot_key/messages...` with its hash and `redactUrl` replaces a URL (as written and in
+  the JSON quoting Ruby's URI error uses) in a message. `HttpLog.Interceptor` takes `IRedactorProvider`: on a bot API path it disables `RequestPath` and adds the redacted `Path`
+  parameter, as R1 does for the query (a host without a redactor registered gets one with a random key from `HttpLog.add`). `PublicExceptions` logs `path=` through `redactBotPath`
+  (`[FILTERED]` when no redactor is registered). `IntegrationJobs.deliverWebhook` redacts the webhook URL in the error it returns, so `job failed ... error=` carries the hash.
+  `Jobs.fs` logs a dropped event and a missing handler by `JobKind.eventName` (the union case) and no longer prints the event's fields (`%A` could print a message body).
+  `Microsoft.Extensions.Compliance.Redaction` 10.11.0 is in `Directory.Packages.props` and the App.
+- **Opus checkpoint notes:** "no client logs a request's URL" stays green (`ClientsTests`, unchanged); the InvalidUrl text is the redaction target (RD3); the `%A` dropped-event line is
+  covered by RD3's `eventName` check (no `Event` case is unhandled today, so the branch is not reachable from a test; the helper is what it calls).
+- **Tests:** `RedactionTests` RD1-RD3, RD5, RD6 and `WebPushTests` RD4, over the `FakeLogCollector` (`CapturingLoggers`), filtered to what production writes (`Boot.createLoggerFactory`'s
+  levels: the capture records every framework category at Trace, whose routing lines carry the raw path and are not shipped). RD1 a bot POST's request line has `Path: /rooms/N/<hash>/messages`
+  and no key, the other fields (method, status, `remote_addr`) stay, and a page's path is unchanged; RD2 a throwing handler behind `PublicExceptions` logs `request failed ... path=` with the hash,
+  and with no redactor registered with `[FILTERED]`; RD3 a webhook with `http://exa mple.com/hooks/<secret>?k=v` fails with the hash of the URL in the error and in the `job failed` line;
+  RD4 a push that the service refuses (500) and one that cannot connect log the host and no part of the endpoint's path; RD5 twelve failed sign-ins (throttled), a join page and a join post
+  log no e-mail address, password or join code; RD6 the hash is stable within an app, equal for a second app on the same `secret_key_base`, and different for another. `Support.fs` has
+  `bootSeededRequestLog` (the production edge with `LogRequests` on, over the capture). SR1-SR8 and LG1-LG4 are unchanged and green.
+- **README:** a class B line (Known differences) for the bot key and webhook URLs in the logs.
+- **Gates:** `CAMPFIRE_REQUIRE_SEED=1 bin/verify`: the first run had 2 failures in `Campfire.RichText.Tests` (`ContentTests` "wide bodies cost linear time", `Html5Tests` L3), the checkpoint's
+  known `CpuTimer` flake (process CPU time, parallel tests) with the host at load 53 from other sessions; the second run was green: 1,026 tests, 1,020 passed, 6 skipped (the environmental six),
+  0 failed, 0 warnings; H1, the markup lint and the Dapper guard in it. Image rebuilt at `23eea9b` (label checked), `bin/clean-docker` run. `bench/lib/logcount 20000` (colima): **sent 20,000
+  requests (+1 probe), logged 20,001 lines: OK**.
+- **The c=1 ladder (J12), measured, nothing kept.** A throwaway build (`/var/tmp/campfire-ladder`, mounted over the image; the switches were environment variables, not committed) ran
+  `bench/quick --mounted ... --routes avatar,static_css,up` (2 reps, c=1 and 16; host probe 1.05-1.10, `bench/results/quick-86-e0` ... `quick-86-e4`, `quick-86-q*`). req/s (median [range]) and
+  CPU us/request at c=1:
+
+  | Rung | avatar c=1 | static_css c=1 | up c=1 | static_css c=16 | CPU us avatar / static_css c=1 | kept |
+  |---|---|---|---|---|---|---|
+  | e0 as built (queue 2,500, microsecond timestamp, both fields) | 12,238 | 11,464 | 11,092 | 85,876 | 162 / 188 | - |
+  | e1 `MaxQueueLength` 65,536 (`QueueFullMode` stays `Wait`: no line dropped) | 12,534 | 11,865 | 11,510 | 89,919 | 158 / 183 | **no** (below) |
+  | e2 no timestamp (a bound: drops a field) | 12,821 | 12,112 | 11,542 | 94,419 | 155 / 182 | no: drops a field |
+  | e3 no `remote_addr`/`user_agent` (a bound: drops two fields) | 11,427 | 11,084 | 10,601 | 84,194 | 169 / 192 | no: no gain, drops fields |
+  | e4 `LOG_REQUESTS=false` (the whole line, a bound) | 20,226 | 18,340 | 17,415 | 107,924 | 109 / 125 | - |
+
+  The queue rung looked like +3-4% in that run (CPU 162 to 158, 188 to 183) and I re-measured it paired (`static_css` only, 3 reps each, `q1`/`q0`/`q1b`/`q0b` alternating): the host turned noisy
+  (load 40-50 from other sessions; probe ratios up to 1.65 in e0b; `q0` ranged 4,035-11,883 at c=1), the best reps were equal (queue 65,536: 11,728 and 12,077; default: 11,883 and 11,946) and the
+  CPU medians do not separate (192, 214 against 241, 184). It does not pay reliably, so it is not kept. The timestamp costs about 6-7 us a request (4-5%) and the two fields nothing measurable
+  (e3 is slower than e0 inside the noise), so no rung of the ladder changes the line. What the line costs is the framework's: the whole request line is **53-63 us of CPU a request** at c=1
+  (avatar 162 to 109, `static_css` 188 to 125) and `static_css` reaches 18,340 req/s without it. A writer of our own is not on the ladder (J12), so the cost stays.
+- **`static_css` against Rails (15,167 / 98,776 req/s), final image** (`bench/results/quick-86`, `bench/quick --reps 2 --apps fsharp,dotnetway` with `FSHARP_IMAGE=campfire-dotnetway:p8ctl` as the control, interleaved, all 2xx,
+  0 errors, host probe 1.06-1.07): c=1 **11,868** [11,484-12,252] (0.78x Rails), c=16 **85,971** [81,635-90,307] (0.87x Rails). It does not get back to Rails' level: the request line costs
+  about 60 us a request at c=1, which alone is the gap (15,167 req/s is 66 us a request, ours is 84 us with the line and 55 us without it; with the line off it is 18,340 and 107,924, above Rails). The static rows carry
+  no Rails floor (plan section 4); they are the cost of a logged request through the host.
+- **Bench, new / control (`p8ctl`)** req/s medians (c=1, c=16): avatar 12,896 / 11,211 and 100,350 / 94,024; `static_css` 11,868 / 10,682 and 85,971 / 81,564; `up` 11,540 / 10,116 and 76,280 / 75,736; room page 2,085 / 2,026 and 6,945 / 6,615;
+  post 1,029 / 1,019 and 2,081 / 2,071 (the control's ranges are wide: the host was noisy). No cell is below the control's median, so the redaction (a path-prefix test per request, a hash only on a bot path or a failure line)
+  costs nothing measurable on the room page and the post (risk 11). **vs Rails** (stored medians): room page 29.0x (c16) / 19.5x (c1), post **6.31x** (c16) / **6.17x** (c1): no cell under 5x.
+- **Left for later units:** 8.7a/b (production Boot, `IResolver` from DI in `UnfurlLinks`, the `StopAsync`-versus-`ExecuteAsync` check of `Heartbeat.fs` and `Acme.fs`), 8.8, 8.9 (delete `Http.fs`, `Net.fs`'s `Network`,
+  `RubyUri.fs`, `WebPushEncryption.fs`; the class B tweet-host note, with the probe count 14). The checkpoint's test-flake item (RichText `CpuTimer`, Cable L7) is still open for before the phase gate and fired twice in this
+  unit's first `bin/verify` (L3 and the "wide bodies" timing test): fix it (non-parallel collection or thread CPU time) before 8.9. The Moved-to-Logging console options (`Boot.configureConsole`) stay in `Boot.fs` until 8.7a.

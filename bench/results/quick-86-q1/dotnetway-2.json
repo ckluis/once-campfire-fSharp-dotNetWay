@@ -1,0 +1,205 @@
+{
+ "app": "dotnetway",
+ "rep": 2,
+ "cold_start_ms": 574,
+ "memory": {
+  "idle_current_mb": 84,
+  "idle_anon_mb": 57,
+  "peak_current_mb": 180,
+  "peak_anon_mb": 139,
+  "cgroup_peak_mb": 181
+ },
+ "http": [
+  {
+   "avg_bytes": 648,
+   "conc": 1,
+   "errors": 0,
+   "gzip": true,
+   "latency": {
+    "max_ms": 2.309,
+    "mean_ms": 0.1,
+    "n": 80988,
+    "p50_ms": 0.092,
+    "p90_ms": 0.137,
+    "p99_ms": 0.22
+   },
+   "ok": 80988,
+   "path": "/assets/_reset.ggeau7dgmv.css",
+   "rps": 10123.3,
+   "secs": 8.0,
+   "statuses": {
+    "200": 80988
+   },
+   "cost": {
+    "wall_s": 8.0,
+    "server_usage_us": 16131785,
+    "server_user_us": 12445297,
+    "server_system_us": 3686488,
+    "loadgen_user_us": 955254,
+    "loadgen_system_us": 1291968,
+    "n": 80988,
+    "server_cpu_us_per_req": 199.2,
+    "server_user_us_per_req": 153.7,
+    "server_system_us_per_req": 45.5,
+    "loadgen_cpu_us_per_req": 27.7,
+    "server_cores_busy": 2.02,
+    "loadgen_cores_busy": 0.28
+   },
+   "route": "static_css",
+   "warmup": {
+    "secs": 30.0,
+    "windows_rps": [
+     5799.6,
+     6433.1,
+     8149.8,
+     8888.6,
+     9421.2,
+     9560.4,
+     8470.9,
+     8901.1,
+     9178.0,
+     9333.8,
+     9268.9,
+     9202.1,
+     9446.2,
+     9460.1,
+     9130.7
+    ],
+    "reason": "settled",
+    "window_secs": 2.0,
+    "settled": true,
+    "tail_rps": 9345.7
+   },
+   "host_probe_after": {
+    "spin_ms": 60.9,
+    "spin_ms_max_cpu": 62.06,
+    "cpus": "0-3,4-7",
+    "baseline_ms": 55.57,
+    "ratio": 1.096
+   }
+  },
+  {
+   "avg_bytes": 648,
+   "conc": 16,
+   "errors": 0,
+   "gzip": true,
+   "latency": {
+    "max_ms": 7.647,
+    "mean_ms": 0.19,
+    "n": 682767,
+    "p50_ms": 0.156,
+    "p90_ms": 0.306,
+    "p99_ms": 0.674
+   },
+   "ok": 682767,
+   "path": "/assets/_reset.ggeau7dgmv.css",
+   "rps": 85340.9,
+   "secs": 8.0,
+   "statuses": {
+    "200": 682767
+   },
+   "cost": {
+    "wall_s": 8.0,
+    "server_usage_us": 21421081,
+    "server_user_us": 12525153,
+    "server_system_us": 8895928,
+    "loadgen_user_us": 5143830,
+    "loadgen_system_us": 6314530,
+    "n": 682767,
+    "server_cpu_us_per_req": 31.4,
+    "server_user_us_per_req": 18.3,
+    "server_system_us_per_req": 13.0,
+    "loadgen_cpu_us_per_req": 16.8,
+    "server_cores_busy": 2.68,
+    "loadgen_cores_busy": 1.43
+   },
+   "route": "static_css",
+   "warmup": {
+    "secs": 58.0,
+    "windows_rps": [
+     90612.6,
+     76594.0,
+     78856.7,
+     66170.3,
+     73253.0,
+     78171.9,
+     65758.5,
+     79883.5,
+     64418.7,
+     75416.0,
+     73093.1,
+     77728.0,
+     74740.8,
+     76377.7,
+     88853.2,
+     92538.9,
+     90232.3,
+     85500.2,
+     86626.5,
+     69025.4,
+     63873.6,
+     64473.1,
+     69683.9,
+     88460.3,
+     89202.2,
+     85716.4,
+     86223.4,
+     89434.1,
+     90384.6
+    ],
+    "reason": "settled",
+    "window_secs": 2.0,
+    "settled": true,
+    "tail_rps": 88680.7
+   },
+   "host_probe_after": {
+    "spin_ms": 60.54,
+    "spin_ms_max_cpu": 62.83,
+    "cpus": "0-3,4-7",
+    "baseline_ms": 55.57,
+    "ratio": 1.089
+   }
+  }
+ ],
+ "cable": [],
+ "upload": {},
+ "loadavg_start": "1.41 2.40 2.83 1/204 2046078",
+ "loadavg_end": "5.11 3.30 3.10 1/235 2049816",
+ "post_rows": [],
+ "probe": [
+  {
+   "route": "static_css",
+   "path": "/assets/_reset.ggeau7dgmv.css",
+   "gzip": {
+    "status": 200,
+    "content_encoding": "gzip",
+    "content_type": "text/css",
+    "wire_bytes": 648,
+    "decoded_bytes": 1218,
+    "etag": true
+   },
+   "identity": {
+    "status": 200,
+    "content_encoding": null,
+    "content_type": "text/css",
+    "wire_bytes": 1218,
+    "decoded_bytes": 1218,
+    "etag": true
+   }
+  }
+ ],
+ "host_probe_start": {
+  "spin_ms": 59.58,
+  "spin_ms_max_cpu": 62.68,
+  "cpus": "0-3,4-7",
+  "baseline_ms": 55.57,
+  "ratio": 1.072
+ },
+ "host_probe_end": {
+  "spin_ms": 59.51,
+  "spin_ms_max_cpu": 61.53,
+  "cpus": "0-3,4-7",
+  "baseline_ms": 55.57,
+  "ratio": 1.071
+ }
+}
