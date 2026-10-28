@@ -53,6 +53,15 @@ let ``dapper reads return the same records as EF for every row of the default se
             Assert.Equal(Some r, FastReads.roomById db r.Id)
         Assert.Equal(None, FastReads.roomById db -1L)
         Assert.Equal(Some(db.Rooms.OrderBy(fun r -> r.CreatedAt).First()), FastReads.originalRoom db)
+        // `user.rooms.original` (10.3): the user's oldest room (a tie in `created_at` may answer with either), None without memberships.
+        for u in users do
+            let mine = memberships |> Seq.filter (fun m -> m.UserId = u.Id) |> Seq.map (fun m -> rooms.First(fun r -> r.Id = m.RoomId)) |> List.ofSeq
+            match FastReads.originalRoomForUser db u.Id with
+            | None -> Assert.Empty mine
+            | Some found ->
+                Assert.Contains(found, mine)
+                Assert.Equal((mine |> List.map (fun r -> r.CreatedAt) |> List.min), found.CreatedAt)
+        Assert.Equal(None, FastReads.originalRoomForUser db -1L)
         for u in users do
             for r in rooms do
                 let expected = memberships.FirstOrDefault(fun m -> m.UserId = u.Id && m.RoomId = r.Id)

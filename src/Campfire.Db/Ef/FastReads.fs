@@ -66,17 +66,22 @@ module FastReads =
     // The log hook: EF's command log does not see Dapper, so a sink registered for a database (its Data Source) is told each
     // statement's text (parameters are placeholders, never values). Tests register one; production registers none.
     let private sinks = ConcurrentDictionary<string, Action<string>>()
+    // `SqliteConnection.DataSource` is the path as written while the connection is closed and the resolved absolute path once it is open
+    // (the request's connection is, since P3: macOS resolves /var to /private/var), so a sink is keyed by the last two segments.
+    let private sinkKey (dataSource: string) : string =
+        let parts = dataSource.Replace('\\', '/').Split('/', StringSplitOptions.RemoveEmptyEntries)
+        String.Join("/", parts |> Array.skip (max 0 (parts.Length - 2)))
     let mutable private sinkCount = 0
 
     /// Lists every Dapper statement run against the database at `dataSource` (as `RelationalEventId.CommandExecuted` lists EF's).
     let logTo (dataSource: string) (sink: Action<string>) : unit =
-        sinks[dataSource] <- sink
+        sinks[sinkKey dataSource] <- sink
         Volatile.Write(&sinkCount, sinks.Count)
 
     let private note (db: CampfireDb) (sql: string) : unit =
         if Volatile.Read(&sinkCount) > 0 then
             let mutable sink = Unchecked.defaultof<Action<string>>
-            if sinks.TryGetValue(db.Database.GetDbConnection().DataSource, &sink) then sink.Invoke sql
+            if sinks.TryGetValue(sinkKey (db.Database.GetDbConnection().DataSource), &sink) then sink.Invoke sql
 
     /// Runs `f` on the context's connection, opened and closed through EF so its interceptors (the pragmas) run as for an EF query;
     /// inside a write the context's transaction is passed explicitly.
@@ -97,6 +102,8 @@ module FastReads =
     let private accountSql = "SELECT id, name, join_code, custom_styles, settings, singleton_guard, created_at, updated_at FROM accounts ORDER BY id LIMIT 1"
     let private roomForUserSql =
         "SELECT rooms.id, rooms.name, rooms.type, rooms.creator_id, rooms.created_at, rooms.updated_at FROM rooms INNER JOIN memberships ON rooms.id = memberships.room_id WHERE memberships.user_id = @userId AND rooms.id = @roomId LIMIT 1"
+    let private originalRoomForUserSql =
+        "SELECT rooms.id, rooms.name, rooms.type, rooms.creator_id, rooms.created_at, rooms.updated_at FROM rooms INNER JOIN memberships ON rooms.id = memberships.room_id WHERE memberships.user_id = @userId ORDER BY rooms.created_at LIMIT 1"
     let private roomByIdSql = "SELECT id, name, type, creator_id, created_at, updated_at FROM rooms WHERE id = @id LIMIT 1"
     let private originalRoomSql = "SELECT id, name, type, creator_id, created_at, updated_at FROM rooms ORDER BY created_at LIMIT 1"
     let private membershipSql =
@@ -144,6 +151,11 @@ module FastReads =
     /// `Room.original`: the oldest room.
     let originalRoom (db: CampfireDb) : Room option =
         onConnection db originalRoomSql (fun c t -> c.QueryFirstOrDefault<RoomRow>(originalRoomSql, null, t) |> ofRoomRow)
+
+    /// `user.rooms.original`: the oldest of the user's rooms. (Hybrid since 10.3: the EF LINQ form converted its F# lambdas to expression
+    /// trees on every call, FSharp.Core's quotation reflection, about 3% of a page's CPU.)
+    let originalRoomForUser (db: CampfireDb) (userId: int64) : Room option =
+        onConnection db originalRoomForUserSql (fun c t -> c.QueryFirstOrDefault<RoomRow>(originalRoomForUserSql, {| userId = userId |}, t) |> ofRoomRow)
 
     /// `room.memberships.find_by(user:)`
     let membershipByRoomAndUser (db: CampfireDb) (roomId: int64) (userId: int64) : Membership option =

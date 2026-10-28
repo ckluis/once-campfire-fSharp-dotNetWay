@@ -621,7 +621,7 @@ module Room =
 
     /// `user.rooms.original`
     let originalForUser (db: Ef.CampfireDb) (userId: int64) : Room option =
-        (ofUser db userId).OrderBy(fun r -> r.CreatedAt) |> Ef.Data.tryFirst
+        Ef.FastReads.originalRoomForUser db userId
 
     /// `user.rooms.last`
     let lastForUser (db: Ef.CampfireDb) (userId: int64) : Room option =
