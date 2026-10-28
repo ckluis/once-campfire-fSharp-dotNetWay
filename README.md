@@ -46,29 +46,33 @@ The settings are in [`Config.fs`](src/Campfire.App/Config.fs) (the app's) and
 
 Measured with `bench/quick` in a Linux VM (colima, 8 vCPUs) on an Apple M4, against the reference Rails app's stored medians
 ([`bench/results/phase7-final.md`](bench/results/phase7-final.md)), 3 repetitions interleaved with a control build of the previous
-phase. Every response was 2xx, every post's row was counted and the decoded bodies equal the stored sizes. The Phase 8 gate
-([`plans/dotnetway.md`](plans/dotnetway.md), "Phase 8: gate", build `0e46e8b`), the five workloads at 16 and at 1 concurrent
-clients, requests per second:
+phase, and Rails measured again in the same session (its medians agree with the stored ones within 8%). Every response was 2xx,
+every post's row was counted and the decoded bodies equal the stored sizes. The Phase 9 gate
+([`plans/dotnetway.md`](plans/dotnetway.md), "Phase 9: gate", evidence in [`bench/results/dotnetway-p9/`](bench/results/dotnetway-p9/)),
+requests per second at 16 and at 1 concurrent clients:
 
 | HTTP workload | c | Rails | theDotNetWay | x Rails | CPU per request |
 |---|---:|---:|---:|---:|---:|
-| Room page | 16 | 239 | 7,202 | 30.1x | 458 us |
-| Room page | 1 | 107 | 2,232 | 20.8x | 564 us |
-| Messages page | 16 | 381 | 7,083 | 18.6x | 474 us |
-| Messages page | 1 | 218 | 2,072 | 9.5x | 597 us |
-| Sidebar | 16 | 599 | 7,373 | 12.3x | 451 us |
-| Sidebar | 1 | 287 | 2,240 | 7.8x | 561 us |
-| Search | 16 | 408 | 6,856 | 16.8x | 499 us |
-| Search | 1 | 193 | 1,910 | 9.9x | 635 us |
-| Post a message | 16 | 330 | 2,135 | 6.5x | 1,519 us |
-| Post a message | 1 | 167 | 1,028 | 6.2x | 1,828 us |
+| Room page | 16 | 239 | 7,215 | 30.2x | 454 us |
+| Room page | 1 | 107 | 2,232 | 20.9x | 572 us |
+| Messages page | 16 | 381 | 7,062 | 18.5x | 476 us |
+| Messages page | 1 | 218 | 2,079 | 9.5x | 598 us |
+| Sidebar | 16 | 599 | 7,337 | 12.2x | 452 us |
+| Sidebar | 1 | 287 | 2,175 | 7.6x | 576 us |
+| Search | 16 | 408 | 6,887 | 16.9x | 495 us |
+| Search | 1 | 193 | 1,980 | 10.3x | 622 us |
+| Post a message | 16 | 330 | 2,150 | 6.5x | 1,508 us |
+| Post a message | 1 | 167 | 1,065 | 6.4x | 1,707 us |
+| Static stylesheet | 16 | 98,776 | 107,808 | 1.09x | 26 us |
+| Static stylesheet | 1 | 15,167 | 18,192 | 1.20x | 133 us |
+| Avatar | 16 | 69,481 | 116,916 | 1.68x | 23 us |
+| Avatar | 1 | 12,838 | 21,987 | 1.71x | 108 us |
+| `/up` | 16 | 4,229 | 95,705 | 22.6x | 30 us |
+| `/up` | 1 | 2,101 | 16,995 | 8.1x | 131 us |
 
-**This table is the Phase 8 gate's and is replaced by the final benchmark** (the "Campfire, six ways" table, which re-measures Rails
-in the same session) when Phase 9 closes. Since the gate: the request log skips the static asset endpoints, the avatar family and
-`/up` (unit 9.3), which put `static_css` at 1.19x (c=1) and 1.06x (c=16) Rails and avatars at 1.67x and 1.69x, where they had been
-at or under 1.0x; and the job and push readers wait on their channel with `ReadAsync` (unit 9.4), which took post a message
-to 6.3-6.7x. Post a message is the thinnest cell. The floor is 5x Rails per workload; the Rust port's throughput was a stretch
-goal that this build does not claim.
+Post a message is the thinnest cell (6.0x to 6.5x against the same-session Rails). The floor is 5x Rails per workload on the
+five workloads; the static rows are there to show the request log's cost, not to meet a floor. The Rust port's throughput was a
+stretch goal that this build does not claim.
 
 ## Development
 

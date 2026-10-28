@@ -1,0 +1,58 @@
+=== restricted seed restricted attempt 1 21:25:56 df 22Gi
+restricted rc=0 attempt=1 21:27:40
+=== crowd seed crowd attempt 1 21:27:41 df 22Gi
+crowd rc=0 attempt=1 21:34:34
+=== custom_styles seed custom_styles attempt 1 21:34:35 df 21Gi
+custom_styles rc=1 attempt=1 21:42:27
+=== first_run seed first_run attempt 1 21:42:28 df 22Gi
+first_run rc=0 attempt=1 21:47:35
+=== errors seed default attempt 1 21:47:35 df 22Gi
+errors rc=0 attempt=1 21:51:09
+=== pwa seed default attempt 1 21:51:09 df 22Gi
+pwa rc=0 attempt=1 22:04:10
+=== welcome seed default attempt 1 22:04:10 df 20Gi
+welcome rc=0 attempt=1 22:05:45
+=== bot_api seed default attempt 1 22:05:45 df 20Gi
+bot_api rc=0 attempt=1 22:05:56
+=== search seed default attempt 1 22:05:56 df 20Gi
+search rc=1 attempt=1 22:12:27
+=== account seed default attempt 1 22:12:27 df 20Gi
+account rc=0 attempt=1 22:20:47
+=== users seed default attempt 1 22:20:47 df 21Gi
+users rc=0 attempt=1 22:35:41
+=== autocompletable seed default attempt 1 22:35:42 df 20Gi
+autocompletable rc=0 attempt=1 22:35:50
+=== auth seed default attempt 1 22:35:50 df 20Gi
+auth rc=0 attempt=1 22:56:14
+=== messages seed default attempt 1 22:56:14 df 19Gi
+messages rc=0 attempt=1 23:28:43
+=== interactions seed default attempt 1 23:28:43 df 12Gi
+interactions rc=0 attempt=1 00:34:31
+=== rooms seed default attempt 1 00:34:32 df 18Gi
+rooms rc=0 attempt=1 01:20:47
+=== rt-message_sent seed default attempt 1 01:20:47 df 17Gi
+rt-message_sent rc=0 attempt=1 01:25:06
+=== rt-attachment_sent seed default attempt 1 01:25:07 df 18Gi
+rt-attachment_sent rc=0 attempt=1 01:29:31
+=== rt-message_edited seed default attempt 1 01:29:31 df 18Gi
+rt-message_edited rc=0 attempt=1 01:34:16
+=== rt-message_deleted seed default attempt 1 01:34:16 df 18Gi
+rt-message_deleted rc=0 attempt=1 01:38:50
+=== rt-boosted seed default attempt 1 01:38:50 df 17Gi
+rt-boosted rc=0 attempt=1 01:43:03
+=== rt-boost_removed seed default attempt 1 01:43:03 df 17Gi
+rt-boost_removed rc=0 attempt=1 01:47:17
+=== rt-typing_one seed default attempt 1 01:47:17 df 17Gi
+rt-typing_one rc=0 attempt=1 01:51:25
+=== rt-typing_many seed default attempt 1 01:51:25 df 17Gi
+rt-typing_many rc=0 attempt=1 01:56:50
+=== rt-unread_in_sidebar seed default attempt 1 01:56:50 df 17Gi
+rt-unread_in_sidebar rc=0 attempt=1 02:01:39
+=== rt-new_room_in_sidebar seed default attempt 1 02:01:39 df 17Gi
+rt-new_room_in_sidebar rc=0 attempt=1 02:06:21
+=== rt-removed_from_room seed default attempt 1 02:06:21 df 16Gi
+rt-removed_from_room rc=0 attempt=1 02:15:49
+=== rt-room_deleted_then_send seed default attempt 1 02:15:49 df 16Gi
+rt-room_deleted_then_send rc=0 attempt=1 02:20:43
+=== rt-presence_read seed default attempt 1 02:20:43 df 16Gi
+rt-presence_read rc=0 attempt=1 02:25:03

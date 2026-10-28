@@ -1,0 +1,7 @@
+pixel-parity: dotnetway vs the Rails reference, layers pixels,aria,loose, seeds default
+pixel-parity: VM free 36G, parity/out 113M
+seed default: 156/158 screenshots pixel-equal, 2 DIFFERENT; 158/158 aria equal; 158/158 loose equal  [391s]
+    DIFF search/results/many @ webkit-tablet-dark: 655 pixels  (diff image: /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/parity/out/p9full-search/default/diff/candidate/search/results/many/webkit-tablet-dark.png)
+    DIFF search/results/many @ webkit-phone-dark: 754 pixels  (diff image: /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/parity/out/p9full-search/default/diff/candidate/search/results/many/webkit-phone-dark.png)
+pixel-parity: FAILED in 391s; reports under /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/parity/out/p9full-search
+time="2026-10-27T22:12:27-04:00" level=fatal msg="exit status 1"

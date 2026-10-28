@@ -4419,3 +4419,57 @@ Carried out of Phase 9 (not in the note's list; found by its units, still open):
 | The README's Performance table is the Phase 8 gate's, marked as replaced by the final bench | 9.6 | open for the orchestrator's final gate: the final `bench/quick` against the stored Rails medians replaces it (post a message is the thinnest cell, 6.2-6.7x against the 5x floor in 9.3 and 9.4) |
 | The full 3-engine pixel gate and HS2/HS4, AC11 and pebble on the closing HEAD | the Phase 9 gate | not run in a unit: no unit touched `Host.fs`, `Acme.fs` or `OutputCaching.fs`; the gate does |
 | Operator step, Let's Encrypt staging (AGENTS.md, TLS end to end) | Phase 7 | human-gated, not run by any agent |
+
+### Phase 9: gate (2026-10-28)
+
+Gate runner, on `dcc9434` (HEAD; the image `campfire-dotnetway:app` was rebuilt from it, label `org.opencontainers.image.revision` = `dcc9434d3afaed16c1976e817334661c245fa36e` = `git rev-parse HEAD`, checked). No code change. Evidence:
+`bench/results/dotnetway-p9/` (`driverA.sh`/`driverB.sh`/`driverC.sh` and their logs, `full/` with a `report.json` per pixel slice, `tls/`, `quick/` with a JSON per rep and `summary.md` from `summ.py`, `kloc.md`).
+- **`CAMPFIRE_REQUIRE_SEED=1 bin/verify`:** 1,044 total, 1,038 passed, 0 failed, 6 skipped (the same environmental six), 0 warnings, lint self-test 39/39 and 320 files clean, the Dapper/EF/DateTime guards and H1 in it.
+  **`bin/linux-tests App`:** 445 total, 444 passed, 1 skipped (AC11 without Pebble; HS2, HS4 and the THP test ran). **AC11 on Pebble:** 1/1. **`reference-tools/front/pebble-image.sh`:** PASSED (one order at boot, 0600/0700, 2-certificate chain, the restart loads the cache, still one order).
+- **Full pixel gate** (`--matrix full`: 3 engines x 4 viewports x light/dark x the breakpoint sweep; the other four seeds whole, default by group, the 13 `realtime/**` states one at a time; 29 slices; detached and polled; `fstrim` twice, Mac free space 12-26 GB). **Cells with a screenshot, every seed:**
+
+| seed | cells | screenshots | aria | loose DOM | not captured |
+|---|---:|---:|---:|---:|---:|
+| default | 4,438 | 4,436 equal at first, 4,438 after the re-runs | 4,438/4,438 | 4,438/4,438 | 0 |
+| crowd | 144 | 144/144 | 144/144 | 144/144 | 0 |
+| custom_styles | 192 | 191/192 at first, 192/192 after | 192/192 | 192/192 | 0 |
+| first_run | 96 | 96/96 | 96/96 | 96/96 | 0 |
+| restricted | 48 | 48/48 | 48/48 | 48/48 | 0 |
+
+  Default by slice: errors 120, auth 326, pwa 276, welcome 38, search 158 (156 at first), account 206, users 388, messages 720, interactions 964, rooms 930, `realtime/**` 13 x 24 = 312; `bot_api` and `autocompletable` are 0/0 (fragment states, no screenshot). aria and loose were equal in every cell of every slice.
+  Phase 4's 8 uncaptured `auth` cells and the 8 uncaptured `restricted` cells are captured and equal now, and the Firefox empty-404 pair (`auth/join/invalid_code`, `rooms/opens/new/restricted_member`, 16 cells) is equal inside the `auth` and `rooms` slices.
+  **Three cells differed at first, all WebKit dark, all `search`:** `search/results/many` tablet-dark (655 px) and phone-dark (754 px), and `search/custom_styles` tablet-dark (1,424 px); aria and loose equal. This is the WebKit WebP avatar decode flake carried since Phase 4, not a cell of ours: re-run
+  as whole states on WebKit, the cells that differed move (`search/custom_styles` run 1: 8/8, run 2: one cell, desktop-dark, 581 px; `search/results/many` run 1: 8/8, run 2: one cell, phone-dark, 283 px), and each of the three original cells alone (webkit, dark, its viewport), three runs each: **9/9 equal** on all three layers.
+  Not a regression, not fixed; it stays on the open list. **Every cell is equal.**
+- **TLS states** (`bin/pixel-parity --seeds default --candidate-tls --only 'auth/sign_in,rooms/show/designers'`, lean matrix): **28/28** screenshots, aria and loose equal.
+- **`bin/cookie-roundtrip`:** 20/20. **`bin/db-differential`:** rc 0 (schemas agree, the reference boots on the database we wrote, rollback ok). **`bin/asset-check`:** 1,806 checks, 0 failed.
+- **Speed** (`bench/quick --reps 3`, the five workloads and `static_css`, `avatar`, `up`, c=1 and c=16, theDotNetWay F# only, interleaved new/ctl/ctl/new/new/ctl in three parts per rep; Rails re-measured afterwards in the same session, 3 reps, same routes). New = HEAD image
+  (`dcc9434`); control = Phase 8's closing image (`campfire-dotnetway:p9ctl`, built from `7d58f54`; `git diff 7d58f54 c8cce8f -- src` is empty and its tests diff is three comment lines, so it is the closing image's source; not rebuilt, removed after). Host probe 1.034-1.098 over 144 runs (0 above 1.10), Mac load 2.7-5.0
+  (other sessions); all 144 runs 2xx with 0 connection errors; post rows equal the 2xx answers; decoded bytes equal. Medians req/s [range], x Rails with this session's Rails (stored in parentheses), CPU per request us new / control:
+
+| route | c | new | control | new vs control | x Rails (session / stored) | CPU new / ctl |
+|---|---:|---|---:|---:|---|---|
+| room page | 16 | 7,215 [7,161-7,244] | 7,168 | +0.7% | 30.0x / 30.2x | 454 / 460 |
+| room page | 1 | 2,232 [2,196-2,240] | 2,190 | +1.9% | 20.1x / 20.9x | 572 / 568 |
+| messages page | 16 | 7,062 [7,039-7,083] | 7,061 | +0.0% | 17.2x / 18.5x | 476 / 476 |
+| messages page | 1 | 2,079 [2,065-2,094] | 2,090 | -0.6% | 9.4x / 9.5x | 598 / 592 |
+| sidebar | 16 | 7,337 [7,336-7,348] | 7,296 | +0.6% | 12.4x / 12.2x | 452 / 454 |
+| sidebar | 1 | 2,175 [2,164-2,188] | 2,159 | +0.7% | 7.8x / 7.6x | 576 / 576 |
+| search | 16 | 6,887 [6,860-6,950] | 6,859 | +0.4% | 16.9x / 16.9x | 495 / 499 |
+| search | 1 | 1,980 [1,942-1,989] | 1,976 | +0.2% | 9.8x / 10.3x | 622 / 619 |
+| post a message | 16 | 2,150 [2,139-2,165] | 2,110 | +1.9% | **6.50x** / 6.52x | 1,508 / 1,532 |
+| post a message | 1 | 1,065 [1,038-1,078] | 1,051 | +1.3% | **6.01x** / 6.38x | 1,707 / 1,797 |
+| static_css | 16 | 107,808 | 90,344 | +19.3% | 1.10x / 1.09x | 26 / 30 |
+| static_css | 1 | 18,192 | 11,818 | +53.9% | 1.20x / 1.20x | 133 / 192 |
+| avatar | 16 | 116,916 | 107,633 | +8.6% | 1.58x / 1.68x | 23 / 25 |
+| avatar | 1 | 21,987 | 12,617 | +74.3% | 1.75x / 1.71x | 108 / 161 |
+| up | 16 | 95,705 | 80,124 | +19.4% | 22.7x / 22.6x | 30 / 35 |
+| up | 1 | 16,995 | 11,291 | +50.5% | 8.0x / 8.1x | 131 / 186 |
+
+  **Floor check: no workload under 5x Rails.** The thinnest cell is post a message at c=1, 6.01x against this session's Rails (177 req/s, 6.38x against the stored 167), then c=16 at 6.50x. The page and post rows are within +-2% of the control (the cost of the phase's units against Phase 8: none
+  on the pages, CPU per post -4.8% at c=1 and -1.6% at c=16), and the static rows are the Phase 9.3 gain (static_css and avatar above Rails at both concurrencies, 1.09-1.75x; `up` 8-23x). `avatar` c=16 reported "warm-up did not settle (reached the maximum)", as the static rows do at these rates. The README's Performance table is now this table (the ledger's open item, closed).
+- **KLOC** (`bin/kloc`, final): **26,210 corrected (25,763 cloc, 25.8 KLOC)**: App 12,232, Cable 1,051, Db 2,455, Rails 1,533, RichText 2,268, Storage 1,452, Views 5,219; static data left out 4,512 (corrected 4,815). Rust f9dca47 is 31.0 KLOC and Rails 5.5. Phase 8 closed at 27,114; Phase 9 is -904.
+- **Disk and images:** Mac free 12-33 GB (fstrim in the VM recovered it); `bin/clean-docker` and `bin/clean-parity` run; `campfire-dotnetway:p9ctl` removed, so `docker images 'campfire-dotnetway:*'` lists `app` only.
+- **Failures:** none open. Differences recorded: none new.
+- **Open, none blocking** (unchanged): the WebKit WebP avatar flake on `search` states (three cells in this gate, all equal alone), the `AddCustomAttributes` cost in the data layer's connection handling, the 302 flake in `Campfire.App.Tests` (not seen in this gate's `bin/verify`
+  or `bin/linux-tests`), Q1 (AngleSharp upstream), the operator's Let's Encrypt staging run.
