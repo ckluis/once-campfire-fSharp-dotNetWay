@@ -4268,3 +4268,43 @@ and D1-D9. Fix in `c8f739f`.
   `Campfire.Rails`; `[Campfire.Ruby]`/`[Campfire.Routes]` frames become `Campfire.Rails.Ruby`/`Campfire.Rails.Routes` namespaces inside it.
   (3) 9.7's `WaitToReadAsync` grep will find Cable's `Connection.fs` writer and the push invalidation reader: single readers C6 keeps.
   (4) Design note section 8 still says `bytes= 1-2`; 9.6 takes README's wording.
+
+### Phase 9.4: post c=1 CPU and the bench's buckets (C9, C6)
+
+- **C9 (`bench/lib/layers.py`, `perf_layers.py`):** the `Campfire.Kit` buckets are gone (`git grep -n 'Campfire\.Kit' bench/lib` is empty). New buckets:
+  request log middleware (HttpLogging), output caching, response compression and gzip, the console logger, channels (`System.Threading.Channels`),
+  the request layer (`Campfire.App.Web`), and `Campfire.Rails` split by namespace: `Campfire.Rails.Ruby` is templates, `Campfire.Rails.Routes` is the
+  route table, the rest of the assembly is cookies, session and crypto. The framework middleware rules sit ahead of Kestrel's, whose
+  `Microsoft.AspNetCore.Http` prefix also matches `HttpLogging`. Two latent defects found while matching frames: the app's assembly is `campfire`
+  (the old `Campfire.App!` and `\[Campfire\.App\]` patterns never matched, so every App frame had fallen into "other"; controllers now match
+  `[campfire]` and `[Campfire.App]`). `bench/breakdown`'s header comment follows the new layers.
+- **Diagnosis, before changing the readers** (`bench/breakdown perf --apps fsharp --routes post_message --conc 1`, one window each, host probe 1.04-1.08,
+  `bench/results/dotnetway-9-4/perf-*`; images `p8ctl` rebuilt from `6da5ef7`, label checked, `p9pre` = `c81aeb1` = HEAD before C6, `app` = C6):
+  unprofiled CPU per post 1,773 us (`p8ctl`), 1,808 us (`p9pre`, +1.9%), 1,707 us (C6). The profile with the old rules shows no "channels" cost to read; the
+  herd is a wake-up cost spread across thread-pool frames, so the confirmation is the bench below, not a bucket. Nothing else in the layers moved by
+  more than noise (Db 605/613/597 us, SQLite engine 277/321/321, Kestrel 91/79/77).
+- **Other cause, recorded, not fixed:** `System.Reflection.CustomAttribute::AddCustomAttributes` is 5.2-5.6% of the post's CLR-native time in all three
+  images (`p8ctl`, `p9pre`, C6), with `GetCustomAttributeRecords`, `SqliteConnection::Open`, `Deactivate` and `SQLitePCL` `create_function` frames around it:
+  it looks like a per-connection function registration through a delegate marshal in Microsoft.Data.Sqlite. It is not part of the gap (equal in the
+  control) and the fix is in the data layer's connection handling, not 30 lines; left for 9.7's list.
+- **C6:** `JobWorkers.work` and `PushDeliveries.ReadDeliveries` are `ReadAsync` loops ended by one `ChannelClosedException` catch; neither takes the
+  stopping token, so a closed queue still drains first. `PushDeliveries.Wakeups` is the test hook. The push invalidation reader and Cable's
+  `Connection.fs` writer stay single `WaitToReadAsync` readers (9.7's grep lists both as kept by C6). Tests: CH1 (1,000 notifications 1 ms apart with 50
+  readers: `Wakeups` is between 1,000 and 2,000; the old loop would be about 50,000), CH2 (a closed queue of 10,050 is delivered whole, `Wakeups` 10,050, `Pending`
+  0, `ExecuteTask` completed successfully), CH3 (job workers drain 8 jobs held by a gate, `ExecuteTask` completed successfully). `nonNull` on `ExecuteTask`.
+- **Gates:** `CAMPFIRE_REQUIRE_SEED=1 bin/verify` green: 1,044 total, 1,038 passed, 6 skipped (the same six), 0 warnings, lint self-test and guards in it;
+  CH1-CH3, JB1-JB6, the pool facts (50 running, 10,000 queued, 5 dropped, stop right after start) and WP8 run in it. `bin/kloc`: 26,211 corrected
+  (25,764 cloc). `bench/lib/logcount 20000` (colima): sent 20,000 (+1 probe), logged 20,001 lines after SIGTERM, OK. Image rebuilt at `979d360` (label checked).
+  `bin/pixel-parity --fast --only 'bot_api/**'`: PASSED (fragment states, 0/0 screenshots on every seed, as before); `--seeds default --only realtime/message_sent`:
+  2/2 screenshots, aria and loose equal, PASSED. `bin/clean-parity`, `bin/clean-docker` run. `Host.fs`, `Acme.fs`, `OutputCaching.fs` untouched, so HS2/HS4,
+  AC11 and pebble did not re-run.
+- **Every bucket matches a frame** (`perf-all-c1`: all eight routes at c=1 on the C6 image, new rules): HttpLogging 0.4%, output caching 2.6% (avatar), response
+  compression and gzip 0.8%, console logger 3.1%, channels 1.0% (post), request layer 0.8%, Campfire.Rails cookies/crypto 6.4%, templates 5.7%, route table 0.6%.
+  "Other" for post at c=16 is 1.7% of the profile (the last fsharp post profile at c=16, `phase7-runs/7.1-05-perf-post`, was 12.5%); at c=1 it is
+  16.7-18.2% against 19.5% on `p8ctl` and 18.7% on `p9pre`. The static rows' "other" (73-80%) is epoll and syscall time under Kestrel with no managed Campfire frame.
+- **Bench** (`bench/quick --reps 5 --apps fsharp,dotnetway --routes post_message`, `FSHARP_IMAGE` the control, interleaved, all 2xx, 0 errors, host probe
+  1.04-1.09; `bench/results/quick-94a` against `p8ctl`, `quick-94b` against `p9ctl`; medians, `bench/results/dotnetway-9-4/summ.py`). CPU per post at c=1:
+  C6 1,665 us against `p8ctl` 1,673 us (-0.4%); C6 1,646 us against `p9ctl` 1,750 us (-5.9%). So the +3-5% gap the note named is the herd's, and it is gone: HEAD
+  is at `p8ctl` (inside 2%). Throughput c=1: 1,107 / 1,122 req/s (control 1,121 / 1,094); c=16: 2,199 / 2,198 (control 2,179 / 2,166). Against Rails' stored medians
+  (167 / 330 req/s): **post a message 6.63-6.72x at c=1, 6.66x at c=16, above the 5x floor.**
+- **Removed:** `campfire-dotnetway:p8ctl`, the scratch image `p9pre` and the `/private/tmp` worktrees. `p9ctl` stays for the checkpoint. Free disk 21 GB.

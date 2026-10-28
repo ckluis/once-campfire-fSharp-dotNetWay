@@ -1,0 +1,4 @@
+[19:44:48] load before run: 1.29 1.75 1.73 (waited 0s)
+[19:44:51] host probe before run: {"spin_ms": 57.59, "spin_ms_max_cpu": 59.57, "cpus": "0-3,4-7", "baseline_ms": 55.57, "ratio": 1.036} (waited 0s)
+[19:45:44] profile post_message: busy 48110 ms;  data (EF Core, Dapper, SQLite reads) 35.5%, controllers and presenters 20.7%, request log line (console logger) 17.0%, GC suspension 14.1%, thread-pool spin and hand-off 8.9%, Kestrel and ASP.NET Core HTTP 1.2%
+[19:46:31] profile room_show: busy 48610 ms;  data (EF Core, Dapper, SQLite reads) 42.8%, request log line (console logger) 17.3%, controllers and presenters 16.7%, GC suspension 15.6%, cookies, session, crypto (Campfire.Rails) 2.6%, Kestrel and ASP.NET Core HTTP 2.3%

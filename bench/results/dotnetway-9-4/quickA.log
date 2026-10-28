@@ -1,0 +1,254 @@
+date: 2026-10-27T19:49:21-04:00
+host: 6.8.0-117-generic, , 8 threads, 5GB
+server cpus: 0-3 (nproc 4); loadgen cpus: 4-7; network: host
+env: WEB_CONCURRENCY=3 JOB_CONCURRENCY=3 RAILS_MAX_THREADS=5 
+rust extra env: 
+fsharp extra env: 
+dotnetway extra env: 
+user agent: (none)
+fsharp image: campfire-dotnetway:p8ctl sha256:9331c8d49e17964fb0e5418b9029af31b7b76faaf03209792d02df4af6e10777 2026-10-27T19:17:45.913376821-04:00 built from commit: 6da5ef7ca37f4a07b9f25af708e2da299bfca1db
+dotnetway image: campfire-dotnetway:app sha256:a7e4bd51d3f72e24f3cb0ae7b01ad2b1c2f8357905e1d31695b36ffa6c8f73e8 2026-10-27T19:18:27.415914824-04:00 built from commit: 979d360b202c02e910b219b6f2ff9da44ed5813e
+repo HEAD: 979d360 (dirty: 0 files under src/ and rust/)
+work dir (seed copies): /var/tmp/campfire-bench-work (ext4)
+loadgen: /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/target/rust/aarch64-unknown-linux-gnu/release/loadgen (2026-10-13 18:47:07), built with rust:1.98.1-trixie
+schedule: apps fsharp,dotnetway, reps 5; suites: http; http secs 8, concs 1 16, routes post_message, warm-up 30s at each route and concentration, idle 5s
+log retention: 2 x 10m (json-file)
+[19:49:22] load before run: 1.37 1.90 1.85 (waited 0s)
+[19:49:24] host probe before run: {"spin_ms": 58.3, "spin_ms_max_cpu": 64.28, "cpus": "0-3,4-7", "baseline_ms": 55.57, "ratio": 1.049} (waited 0s)
+[19:49:24] fsharp rep 1: starting (load: 1.34 1.88 1.85)
+[19:49:30] fsharp rep 1: cold start 698ms, idle 154MB (anon 57MB)
+[19:50:11] fsharp rep 1: post_message c=1 1089.6 rps p50 0.798 p99 4.723 {'200': 8718} err 0 cpu 1682.6 us/req; warm-up 30.0 s settled tail 1097.5 host 1.07
+[19:50:52] fsharp rep 1: post_message c=16 2176.5 rps p50 5.843 p99 14.919 {'200': 17423} err 0 cpu 1472.1 us/req; warm-up 30.1 s settled tail 2179.3 host 1.07
+[19:50:55] fsharp rep 1: done -> bench/results/quick-94a/fsharp-1.json
+[19:51:35] load before run: 1.32 1.85 1.85 (waited 40s)
+[19:51:38] host probe before run: {"spin_ms": 58.04, "spin_ms_max_cpu": 60.5, "cpus": "0-3,4-7", "baseline_ms": 55.57, "ratio": 1.044} (waited 40s)
+[19:51:38] dotnetway rep 1: starting (load: 1.30 1.84 1.84)
+[19:51:43] dotnetway rep 1: cold start 498ms, idle 90MB (anon 62MB)
+[19:52:25] dotnetway rep 1: post_message c=1 1119.1 rps p50 0.789 p99 4.043 {'200': 8954} err 0 cpu 1651.7 us/req; warm-up 30.0 s settled tail 1119.8 host 1.07
+[19:53:06] dotnetway rep 1: post_message c=16 2205.9 rps p50 5.795 p99 14.391 {'200': 17669} err 0 cpu 1464.0 us/req; warm-up 30.1 s settled tail 2225.3 host 1.063
+[19:53:09] dotnetway rep 1: done -> bench/results/quick-94a/dotnetway-1.json
+[19:53:49] load before run: 1.45 1.95 1.90 (waited 40s)
+[19:53:51] host probe before run: {"spin_ms": 58.28, "spin_ms_max_cpu": 61.66, "cpus": "0-3,4-7", "baseline_ms": 55.57, "ratio": 1.049} (waited 40s)
+[19:53:51] dotnetway rep 2: starting (load: 1.45 1.95 1.90)
+[19:53:57] dotnetway rep 2: cold start 461ms, idle 89MB (anon 62MB)
+[19:54:38] dotnetway rep 2: post_message c=1 1095.0 rps p50 0.808 p99 4.077 {'200': 8761} err 0 cpu 1679.9 us/req; warm-up 30.0 s settled tail 1103.3 host 1.073
+[19:55:19] dotnetway rep 2: post_message c=16 2187.3 rps p50 5.875 p99 14.479 {'200': 17516} err 0 cpu 1481.6 us/req; warm-up 30.1 s settled tail 2199.0 host 1.058
+[19:55:22] dotnetway rep 2: done -> bench/results/quick-94a/dotnetway-2.json
+[19:56:12] load before run: 1.32 1.93 1.91 (waited 50s)
+[19:56:15] host probe before run: {"spin_ms": 58.89, "spin_ms_max_cpu": 61.57, "cpus": "0-3,4-7", "baseline_ms": 55.57, "ratio": 1.06} (waited 50s)
+[19:56:15] fsharp rep 2: starting (load: 1.30 1.91 1.91)
+[19:56:20] fsharp rep 2: cold start 463ms, idle 83MB (anon 57MB)
+[19:57:01] fsharp rep 2: post_message c=1 1131.6 rps p50 0.782 p99 4.005 {'200': 9053} err 0 cpu 1653.1 us/req; warm-up 30.0 s settled tail 1131.3 host 1.047
+[19:57:42] fsharp rep 2: post_message c=16 2160.5 rps p50 5.947 p99 14.855 {'200': 17295} err 0 cpu 1480.6 us/req; warm-up 30.1 s settled tail 2196.0 host 1.087
+[19:57:45] fsharp rep 2: done -> bench/results/quick-94a/fsharp-2.json
+[19:58:25] load before run: 1.41 1.88 1.90 (waited 40s)
+[19:58:28] host probe before run: {"spin_ms": 57.99, "spin_ms_max_cpu": 61.51, "cpus": "0-3,4-7", "baseline_ms": 55.57, "ratio": 1.044} (waited 40s)
+[19:58:28] fsharp rep 3: starting (load: 1.38 1.86 1.90)
+[19:58:34] fsharp rep 3: cold start 482ms, idle 84MB (anon 57MB)
+[19:59:15] fsharp rep 3: post_message c=1 1120.5 rps p50 0.791 p99 4.065 {'200': 8964} err 0 cpu 1672.8 us/req; warm-up 30.0 s settled tail 1119.3 host 1.083
+[19:59:56] fsharp rep 3: post_message c=16 2179.0 rps p50 5.887 p99 14.727 {'200': 17446} err 0 cpu 1474.1 us/req; warm-up 30.1 s settled tail 2170.3 host 1.085
+[19:59:59] fsharp rep 3: done -> bench/results/quick-94a/fsharp-3.json
+[20:00:29] load before run: 1.40 1.80 1.87 (waited 30s)
+[20:00:32] host probe before run: {"spin_ms": 59.25, "spin_ms_max_cpu": 63.9, "cpus": "0-3,4-7", "baseline_ms": 55.57, "ratio": 1.066} (waited 30s)
+[20:00:32] dotnetway rep 3: starting (load: 1.40 1.80 1.87)
+[20:00:37] dotnetway rep 3: cold start 487ms, idle 90MB (anon 62MB)
+[20:01:18] dotnetway rep 3: post_message c=1 1124.2 rps p50 0.787 p99 4.037 {'200': 8994} err 0 cpu 1656.0 us/req; warm-up 30.0 s settled tail 1117.4 host 1.066
+[20:01:59] dotnetway rep 3: post_message c=16 2213.1 rps p50 5.783 p99 14.199 {'200': 17723} err 0 cpu 1466.1 us/req; warm-up 30.1 s settled tail 2219.5 host 1.056
+[20:02:02] dotnetway rep 3: done -> bench/results/quick-94a/dotnetway-3.json
+[20:02:22] load before run: 1.42 1.73 1.84 (waited 20s)
+[20:02:25] host probe before run: {"spin_ms": 58.19, "spin_ms_max_cpu": 61.47, "cpus": "0-3,4-7", "baseline_ms": 55.57, "ratio": 1.047} (waited 20s)
+[20:02:25] dotnetway rep 4: starting (load: 1.39 1.72 1.84)
+[20:02:31] dotnetway rep 4: cold start 467ms, idle 89MB (anon 62MB)
+[20:03:12] dotnetway rep 4: post_message c=1 1100.7 rps p50 0.799 p99 3.995 {'200': 8806} err 0 cpu 1665.4 us/req; warm-up 30.0 s settled tail 1097.5 host 1.054
+[20:03:53] dotnetway rep 4: post_message c=16 2199.2 rps p50 5.839 p99 14.247 {'200': 17611} err 0 cpu 1467.9 us/req; warm-up 30.1 s settled tail 2202.3 host 1.045
+[20:03:56] dotnetway rep 4: done -> bench/results/quick-94a/dotnetway-4.json
+[20:04:36] load before run: 1.30 1.72 1.83 (waited 40s)
+[20:04:38] host probe before run: {"spin_ms": 59.28, "spin_ms_max_cpu": 63.54, "cpus": "0-3,4-7", "baseline_ms": 55.57, "ratio": 1.067} (waited 40s)
+[20:04:38] fsharp rep 4: starting (load: 1.28 1.71 1.82)
+[20:04:44] fsharp rep 4: cold start 492ms, idle 83MB (anon 57MB)
+[20:05:25] fsharp rep 4: post_message c=1 1122.6 rps p50 0.79 p99 4.009 {'200': 8981} err 0 cpu 1661.3 us/req; warm-up 30.0 s settled tail 1124.9 host 1.092
+[20:06:06] fsharp rep 4: post_message c=16 2181.0 rps p50 5.883 p99 14.631 {'200': 17467} err 0 cpu 1469.7 us/req; warm-up 30.1 s settled tail 2189.7 host 1.074
+[20:06:09] fsharp rep 4: done -> bench/results/quick-94a/fsharp-4.json
+[20:06:49] load before run: 1.27 1.71 1.82 (waited 40s)
+[20:06:52] host probe before run: {"spin_ms": 56.83, "spin_ms_max_cpu": 60.43, "cpus": "0-3,4-7", "baseline_ms": 55.57, "ratio": 1.023} (waited 40s)
+[20:06:52] fsharp rep 5: starting (load: 1.27 1.71 1.82)
+[20:06:57] fsharp rep 5: cold start 469ms, idle 83MB (anon 57MB)
+[20:07:38] fsharp rep 5: post_message c=1 1112.6 rps p50 0.798 p99 3.993 {'200': 8901} err 0 cpu 1692.5 us/req; warm-up 30.0 s settled tail 1114.4 host 1.077
+[20:08:19] fsharp rep 5: post_message c=16 2188.9 rps p50 5.907 p99 14.311 {'200': 17533} err 0 cpu 1478.4 us/req; warm-up 30.1 s settled tail 2189.8 host 1.078
+[20:08:22] fsharp rep 5: done -> bench/results/quick-94a/fsharp-5.json
+[20:09:03] load before run: 1.45 1.79 1.84 (waited 40s)
+[20:09:05] host probe before run: {"spin_ms": 58.96, "spin_ms_max_cpu": 60.0, "cpus": "0-3,4-7", "baseline_ms": 55.57, "ratio": 1.061} (waited 40s)
+[20:09:05] dotnetway rep 5: starting (load: 1.33 1.76 1.83)
+[20:09:11] dotnetway rep 5: cold start 475ms, idle 90MB (anon 62MB)
+[20:09:52] dotnetway rep 5: post_message c=1 1107.0 rps p50 0.802 p99 3.971 {'200': 8859} err 0 cpu 1680.0 us/req; warm-up 30.0 s settled tail 1099.1 host 1.06
+[20:10:33] dotnetway rep 5: post_message c=16 2186.6 rps p50 5.911 p99 14.207 {'200': 17510} err 0 cpu 1486.7 us/req; warm-up 30.1 s settled tail 2194.3 host 1.043
+[20:10:36] dotnetway rep 5: done -> bench/results/quick-94a/dotnetway-5.json
+```
+date: 2026-10-27T19:49:21-04:00
+host: 6.8.0-117-generic, , 8 threads, 5GB
+server cpus: 0-3 (nproc 4); loadgen cpus: 4-7; network: host
+env: WEB_CONCURRENCY=3 JOB_CONCURRENCY=3 RAILS_MAX_THREADS=5 
+rust extra env: 
+fsharp extra env: 
+dotnetway extra env: 
+user agent: (none)
+fsharp image: campfire-dotnetway:p8ctl sha256:9331c8d49e17964fb0e5418b9029af31b7b76faaf03209792d02df4af6e10777 2026-10-27T19:17:45.913376821-04:00 built from commit: 6da5ef7ca37f4a07b9f25af708e2da299bfca1db
+dotnetway image: campfire-dotnetway:app sha256:a7e4bd51d3f72e24f3cb0ae7b01ad2b1c2f8357905e1d31695b36ffa6c8f73e8 2026-10-27T19:18:27.415914824-04:00 built from commit: 979d360b202c02e910b219b6f2ff9da44ed5813e
+repo HEAD: 979d360 (dirty: 0 files under src/ and rust/)
+work dir (seed copies): /var/tmp/campfire-bench-work (ext4)
+loadgen: /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/target/rust/aarch64-unknown-linux-gnu/release/loadgen (2026-10-13 18:47:07), built with rust:1.98.1-trixie
+schedule: apps fsharp,dotnetway, reps 5; suites: http; http secs 8, concs 1 16, routes post_message, warm-up 30s at each route and concentration, idle 5s
+log retention: 2 x 10m (json-file)
+```
+
+Reps: fsharp 5, dotnetway 5. Cells: median [min–max].
+
+### Startup and memory
+
+| Metric | F# | theDotNetWay |
+|---|---|---|
+| cold start: docker run → /up 200 (ms) | 482 [463–698] | 475 [461–498] |
+| idle memory.current (MB) | 83.0 [83.0–154.0] | 90.0 [89.0–90.0] |
+| idle anon (MB) | 57.0 [57.0–57.0] | 62.0 [62.0–62.0] |
+| peak memory.current under load (MB) | 378 [376–454] | 377 [375–378] |
+| peak anon under load (MB) | 284 [284–285] | 283 [282–286] |
+
+### HTTP (signed in as david; keep-alive; c = concurrent connections)
+
+`CPU µs/req` is the container's CPU (cgroup cpu.stat, user + system, unprofiled) over the run divided by its requests; for CPU a ratio below 1 means the first app spends more per request.
+
+| Metric | F# | theDotNetWay |
+|---|---|---|
+| post_message c=1 req/s | 1,120 [1,090–1,132] | 1,107 [1,095–1,124] |
+| post_message c=1 CPU µs/req | 1,673 [1,653–1,692] | 1,665 [1,652–1,680] |
+| post_message c=1 p50 ms | 0.79 [0.78–0.80] | 0.80 [0.79–0.81] |
+| post_message c=1 p99 ms | 4.01 [3.99–4.72] | 4.04 [3.97–4.08] |
+| post_message c=16 req/s | 2,179 [2,160–2,189] | 2,199 [2,187–2,213] |
+| post_message c=16 CPU µs/req | 1,474 [1,470–1,481] | 1,468 [1,464–1,487] |
+| post_message c=16 p50 ms | 5.89 [5.84–5.95] | 5.84 [5.78–5.91] |
+| post_message c=16 p99 ms | 14.7 [14.3–14.9] | 14.2 [14.2–14.5] |
+
+## Validity
+
+### Load average before each run (1, 5, 15 minutes; the run waited for the 1-minute figure to fall below LOAD_MAX)
+
+| App | Rep | Before | After |
+|---|---|---|---|
+| F# | 1 | 1.34 1.88 1.85 | 2.58 2.12 1.93 |
+| F# | 2 | 1.30 1.91 1.91 | 2.75 2.15 1.99 |
+| F# | 3 | 1.38 1.86 1.90 | 2.42 2.01 1.94 |
+| F# | 4 | 1.28 1.71 1.82 | 2.60 1.97 1.90 |
+| F# | 5 | 1.27 1.71 1.82 | 2.82 2.05 1.92 |
+| theDotNetWay | 1 | 1.30 1.84 1.84 | 2.99 2.25 1.99 |
+| theDotNetWay | 2 | 1.45 1.95 1.90 | 3.05 2.29 2.02 |
+| theDotNetWay | 3 | 1.40 1.80 1.87 | 1.99 1.85 1.88 |
+| theDotNetWay | 4 | 1.39 1.72 1.84 | 2.54 1.97 1.91 |
+| theDotNetWay | 5 | 1.33 1.76 1.83 | 2.73 2.05 1.92 |
+
+### Host CPU probe (a fixed spin timed on every pinned CPU, against the quietest this VM has shown; bench/lib/hostprobe.py)
+
+The VM's load average cannot see another program on the Mac taking the cores its vCPUs run on; this can. A ratio of 1.00 is a quiet host, above 1.10 the pinned server and load generator were slowed by something outside the run. `After each window` probes the machine right after every measured run of the rep.
+
+| App | Rep | Before the run | After the run | Windows probed above 1.10 | Highest after a window |
+|---|---|---|---|---|---|
+| F# | 1 | 1.05 | 1.05 | 0/2 | 1.07 |
+| F# | 2 | 1.06 | 1.04 | 0/2 | 1.09 |
+| F# | 3 | 1.04 | 1.06 | 0/2 | 1.08 |
+| F# | 4 | 1.07 | 1.08 | 0/2 | 1.09 |
+| F# | 5 | 1.02 | 1.05 | 0/2 | 1.08 |
+| theDotNetWay | 1 | 1.04 | 1.04 | 0/2 | 1.07 |
+| theDotNetWay | 2 | 1.05 | 1.08 | 0/2 | 1.07 |
+| theDotNetWay | 3 | 1.07 | 1.08 | 0/2 | 1.07 |
+| theDotNetWay | 4 | 1.05 | 1.07 | 0/2 | 1.05 |
+| theDotNetWay | 5 | 1.06 | 1.07 | 0/2 | 1.06 |
+
+### Responses by status class, every HTTP run of every rep
+
+| App | Route | 2xx | 3xx | 4xx | 5xx | Errors (no response) |
+|---|---|---|---|---|---|---|
+| F# | post_message | 131,781 | 0 | 0 | 0 | 0 |
+| theDotNetWay | post_message | 132,403 | 0 | 0 | 0 | 0 |
+
+### Warm-up before each measured run (the app runs the route at the measured concurrency until its throughput is flat; bench/lib/warmup.py)
+
+`measured / warm-up tail` is the measured run's requests a second over the mean of the last three 2 s warm-up windows: well above 1 would mean the app was still speeding up when measurement began, well below 1 that it was slowing down.
+
+| App | Route | c | warm-up seconds | settled | measured / warm-up tail |
+|---|---|---|---|---|---|
+| F# | post_message | 1 | 30.0 [30.0–30.0] | 5/5 | 1.00 |
+| F# | post_message | 16 | 30.1 [30.1–30.1] | 5/5 | 1.00 |
+| theDotNetWay | post_message | 1 | 30.0 [30.0–30.0] | 5/5 | 1.00 |
+| theDotNetWay | post_message | 16 | 30.1 [30.1–30.1] | 5/5 | 1.00 |
+
+### Rows written by `post_message` (messages of the write room counted in the app's SQLite file around each run)
+
+| App | Rep | Phase | Posts answered below 400 | Rows written | Match |
+|---|---|---|---|---|---|
+| F# | 1 | warm-up c=1 | 24,591 | 24,591 | yes |
+| F# | 1 | run c=1 | 8,718 | 8,718 | yes |
+| F# | 1 | warm-up c=16 | 65,041 | 65,041 | yes |
+| F# | 1 | run c=16 | 17,423 | 17,423 | yes |
+| F# | 1 | **all** | 115,773 | 115,773 | yes |
+| F# | 2 | warm-up c=1 | 24,992 | 24,992 | yes |
+| F# | 2 | run c=1 | 9,053 | 9,053 | yes |
+| F# | 2 | warm-up c=16 | 66,090 | 66,090 | yes |
+| F# | 2 | run c=16 | 17,295 | 17,295 | yes |
+| F# | 2 | **all** | 117,430 | 117,430 | yes |
+| F# | 3 | warm-up c=1 | 25,029 | 25,029 | yes |
+| F# | 3 | run c=1 | 8,964 | 8,964 | yes |
+| F# | 3 | warm-up c=16 | 65,541 | 65,541 | yes |
+| F# | 3 | run c=16 | 17,446 | 17,446 | yes |
+| F# | 3 | **all** | 116,980 | 116,980 | yes |
+| F# | 4 | warm-up c=1 | 24,884 | 24,884 | yes |
+| F# | 4 | run c=1 | 8,981 | 8,981 | yes |
+| F# | 4 | warm-up c=16 | 65,936 | 65,936 | yes |
+| F# | 4 | run c=16 | 17,467 | 17,467 | yes |
+| F# | 4 | **all** | 117,268 | 117,268 | yes |
+| F# | 5 | warm-up c=1 | 24,590 | 24,590 | yes |
+| F# | 5 | run c=1 | 8,901 | 8,901 | yes |
+| F# | 5 | warm-up c=16 | 65,928 | 65,928 | yes |
+| F# | 5 | run c=16 | 17,533 | 17,533 | yes |
+| F# | 5 | **all** | 116,952 | 116,952 | yes |
+| theDotNetWay | 1 | warm-up c=1 | 25,168 | 25,168 | yes |
+| theDotNetWay | 1 | run c=1 | 8,954 | 8,954 | yes |
+| theDotNetWay | 1 | warm-up c=16 | 66,492 | 66,492 | yes |
+| theDotNetWay | 1 | run c=16 | 17,669 | 17,669 | yes |
+| theDotNetWay | 1 | **all** | 118,283 | 118,283 | yes |
+| theDotNetWay | 2 | warm-up c=1 | 24,541 | 24,541 | yes |
+| theDotNetWay | 2 | run c=1 | 8,761 | 8,761 | yes |
+| theDotNetWay | 2 | warm-up c=16 | 66,037 | 66,037 | yes |
+| theDotNetWay | 2 | run c=16 | 17,516 | 17,516 | yes |
+| theDotNetWay | 2 | **all** | 116,855 | 116,855 | yes |
+| theDotNetWay | 3 | warm-up c=1 | 24,771 | 24,771 | yes |
+| theDotNetWay | 3 | run c=1 | 8,994 | 8,994 | yes |
+| theDotNetWay | 3 | warm-up c=16 | 66,546 | 66,546 | yes |
+| theDotNetWay | 3 | run c=16 | 17,723 | 17,723 | yes |
+| theDotNetWay | 3 | **all** | 118,034 | 118,034 | yes |
+| theDotNetWay | 4 | warm-up c=1 | 24,483 | 24,483 | yes |
+| theDotNetWay | 4 | run c=1 | 8,806 | 8,806 | yes |
+| theDotNetWay | 4 | warm-up c=16 | 66,474 | 66,474 | yes |
+| theDotNetWay | 4 | run c=16 | 17,611 | 17,611 | yes |
+| theDotNetWay | 4 | **all** | 117,374 | 117,374 | yes |
+| theDotNetWay | 5 | warm-up c=1 | 24,709 | 24,709 | yes |
+| theDotNetWay | 5 | run c=1 | 8,859 | 8,859 | yes |
+| theDotNetWay | 5 | warm-up c=16 | 65,998 | 65,998 | yes |
+| theDotNetWay | 5 | run c=16 | 17,510 | 17,510 | yes |
+| theDotNetWay | 5 | **all** | 117,076 | 117,076 | yes |
+
+### Response bytes, one request per route (gzip: wire / decoded; identity: bytes) and the average over the c=16 run
+
+The probe is a single request after sign-in, before any load. Bodies carry per-request tokens and the clock, so sizes of two apps agree to within a few bytes when they render the same page. "c=16 avg" is what the load generator received per request on the wire (gzip unless the column says otherwise).
+
+| Route | F# gzip wire / decoded | theDotNetWay gzip wire / decoded | F# identity | theDotNetWay identity | F# c=16 avg | theDotNetWay c=16 avg | F# vs Rust |
+|---|---|---|---|---|---|---|---|
+| post_message | – | – | – | – | 2,494 | 2,494 | – |
+theDotNetWay in bench/results/quick-94a against the stored medians of bench/results/phase7-final (Rails, Rust and the F# port, 3 reps each, one session)
+
+| Workload | c | theDotNetWay req/s | F# port stored | vs port | Rust stored | **theDotNetWay / Rust (vs stored Rust baseline)** | Rails stored | **theDotNetWay / Rails** | CPU us/req | port | Rust stored |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| post a message | 16 | 2,199 [2,187-2,213] | 8,905 | 0.247x | 7,174 | **0.307x** | 330 | **6.662x** | 1,467.9 [1,464-1,487] | 353.0 | 385.6 |
+| post a message | 1 | 1,107 [1,095-1,124] | 3,052 | 0.363x | 2,779 | **0.398x** | 167 | **6.633x** | 1,665.4 [1,652-1,680] | 629.1 | 403.7 |
+
+Checks:
+  responses: every one 2xx with 0 connection errors in 10 runs
+  decoded bytes equal the stored expected size (Rust's where the page is unchanged) on every probed route; post rows written equal the 2xx answers in every phase

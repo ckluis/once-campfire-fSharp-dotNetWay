@@ -1,0 +1,20 @@
+libcoreclr symbols (8daecad51b3a88668e81b6e27326a9f47a49b57f): installed
+libc symbols (5f3926d9963ff284b8173bf3601bbb00c3abad16): installed
+[19:34:24] load before run: 1.13 1.60 1.68 (waited 0s)
+[19:34:27] host probe before run: {"spin_ms": 59.54, "spin_ms_max_cpu": 62.7, "cpus": "0-3,4-7", "baseline_ms": 55.57, "ratio": 1.071} (waited 0s)
+[19:35:30] perf fsharp room_show: recorded; host probe after the unprofiled / perf windows: 1.053 / 1.059; unprofiled 541.1 us/req, 1.24 cores
+[19:36:27] perf fsharp messages_page: recorded; host probe after the unprofiled / perf windows: 1.071 / 1.076; unprofiled 580.6 us/req, 1.26 cores
+[19:37:25] perf fsharp sidebar: recorded; host probe after the unprofiled / perf windows: 1.051 / 1.048; unprofiled 592.2 us/req, 1.25 cores
+[19:38:22] perf fsharp search: recorded; host probe after the unprofiled / perf windows: 1.063 / 1.059; unprofiled 618.4 us/req, 1.23 cores
+[19:39:19] perf fsharp post_message: recorded; host probe after the unprofiled / perf windows: 1.067 / 1.05; unprofiled 1691.8 us/req, 1.81 cores
+[19:40:16] perf fsharp up: recorded; host probe after the unprofiled / perf windows: 1.066 / 1.073; unprofiled 129.5 us/req, 2.23 cores
+[19:41:14] perf fsharp static_css: recorded; host probe after the unprofiled / perf windows: 1.056 / 1.057; unprofiled 132.8 us/req, 2.47 cores
+[19:42:11] perf fsharp avatar: recorded; host probe after the unprofiled / perf windows: 1.058 / 1.083; unprofiled 109.0 us/req, 2.38 cores
+[19:42:13] perf fsharp room_show: 541.1 us/req unprofiled (perf 537.6 ); runtime and BCL with no Campfire caller on the stack 23.7%, Campfire.Db (queries, row mapping, connection pool) 21.1%, SQLite engine (libe_sqlite3) 15.4%, Microsoft.Data.Sqlite and P/Invoke stubs 11.3%
+[19:42:15] perf fsharp messages_page: 580.6 us/req unprofiled (perf 580.0 ); Campfire.Db (queries, row mapping, connection pool) 29.3%, runtime and BCL with no Campfire caller on the stack 23.3%, SQLite engine (libe_sqlite3) 14.6%, Microsoft.Data.Sqlite and P/Invoke stubs 10.4%
+[19:42:16] perf fsharp sidebar: 592.2 us/req unprofiled (perf 555.6 ); runtime and BCL with no Campfire caller on the stack 24.2%, Campfire.Db (queries, row mapping, connection pool) 20.5%, SQLite engine (libe_sqlite3) 19.0%, Microsoft.Data.Sqlite and P/Invoke stubs 10.8%
+[19:42:18] perf fsharp search: 618.4 us/req unprofiled (perf 607.0 ); Campfire.Db (queries, row mapping, connection pool) 32.1%, runtime and BCL with no Campfire caller on the stack 22.0%, SQLite engine (libe_sqlite3) 16.4%, Microsoft.Data.Sqlite and P/Invoke stubs 8.3%
+[19:42:21] perf fsharp post_message: 1691.8 us/req unprofiled (perf 1698.1 ); Campfire.Db (queries, row mapping, connection pool) 34.2%, SQLite engine (libe_sqlite3) 18.7%, runtime and BCL with no Campfire caller on the stack 18.2%, Microsoft.Data.Sqlite and P/Invoke stubs 10.3%
+[19:42:23] perf fsharp up: 129.5 us/req unprofiled (perf 127.2 ); runtime and BCL with no Campfire caller on the stack 73.6%, Kestrel and ASP.NET Core HTTP 17.6%, cookies, session, HMAC and key derivation (Campfire.Rails) 6.4%, request layer (Campfire.App.Web) 0.7%
+[19:42:25] perf fsharp static_css: 132.8 us/req unprofiled (perf 130.8 ); runtime and BCL with no Campfire caller on the stack 78.7%, Kestrel and ASP.NET Core HTTP 20.7%, request layer (Campfire.App.Web) 0.3%, allocation: reclamation (F#: GC collections and threads; Rust: none) 0.1%
+[19:42:26] perf fsharp avatar: 109.0 us/req unprofiled (perf 105.7 ); runtime and BCL with no Campfire caller on the stack 80.5%, Kestrel and ASP.NET Core HTTP 16.2%, output caching 2.6%, request layer (Campfire.App.Web) 0.5%

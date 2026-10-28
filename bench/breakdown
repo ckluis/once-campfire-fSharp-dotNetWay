@@ -30,9 +30,9 @@
 # reachable from a tool container sharing its PID namespace, where dotnet-trace samples every managed
 # thread (profile dotnet-sampled-thread-time) while the load generator holds c=16 and dotnet-counters
 # records System.Runtime (GC, allocation, thread pool, lock contention). bench/lib/layers.py turns the
-# trace into time per layer (Kestrel, the front server, Falco and routing, the kit adapter and Ctx, cookies
-# and sessions, authentication, SQLite, rich text, templates and the fragment cache, gzip and the splice,
-# GC suspension, lock contention, thread-pool hand-offs). The tools are installed once into TOOLS_DIR
+# trace into time per layer (HttpLogging, OutputCaching, ResponseCompression, Kestrel, Falco and routing, the
+# request layer Campfire.App.Web, Campfire.Rails cookies and sessions, authentication, SQLite, rich text, templates
+# and the fragment cache, the console logger, Channels, GC suspension, lock contention, thread-pool hand-offs). The tools are installed once into TOOLS_DIR
 # (default /var/tmp/dotnet-tools) from the toolchain image:
 #   docker run --rm -v /var/tmp/dotnet-tools:/tools -e HOME=/tmp campfire-fsharp-toolchain:latest \
 #     bash -c 'export PATH=$PATH:/opt/dotnet; dotnet tool install --tool-path /tools dotnet-trace; dotnet tool install --tool-path /tools dotnet-counters'

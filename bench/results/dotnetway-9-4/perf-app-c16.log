@@ -1,0 +1,6 @@
+libcoreclr symbols (8daecad51b3a88668e81b6e27326a9f47a49b57f): installed
+libc symbols (5f3926d9963ff284b8173bf3601bbb00c3abad16): installed
+[19:43:00] load before run: 1.19 1.76 1.73 (waited 0s)
+[19:43:02] host probe before run: {"spin_ms": 58.77, "spin_ms_max_cpu": 59.28, "cpus": "0-3,4-7", "baseline_ms": 55.57, "ratio": 1.058} (waited 0s)
+[19:44:06] perf fsharp post_message: recorded; host probe after the unprofiled / perf windows: 1.063 / 1.063; unprofiled 1538.3 us/req, 3.24 cores
+[19:44:10] perf fsharp post_message: 1538.3 us/req unprofiled (perf 1534.6 ); Campfire.Db (queries, row mapping, connection pool) 41.6%, SQLite engine (libe_sqlite3) 21.2%, Microsoft.Data.Sqlite and P/Invoke stubs 15.0%, allocation: reclamation (F#: GC collections and threads; Rust: none) 5.1%

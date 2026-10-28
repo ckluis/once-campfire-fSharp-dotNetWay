@@ -39,23 +39,27 @@ from collections import Counter
 
 # (layer, patterns on the frame text). Frame text: "<symbol> (<dso>)", managed symbols "ret [Assembly] Type::Method(args)".
 RULES = [
+    # The framework middleware first: Kestrel's `[Microsoft.AspNetCore.Http` prefix would otherwise take HttpLogging.
+    ("request log middleware (HttpLogging)", [r"\[Microsoft\.AspNetCore\.HttpLogging\]", r"/Microsoft\.AspNetCore\.HttpLogging\.dll\)"]),
+    ("output caching", [r"\[Microsoft\.AspNetCore\.OutputCaching\]", r"/Microsoft\.AspNetCore\.OutputCaching\.dll\)"]),
+    ("response compression and gzip", [r"\[Microsoft\.AspNetCore\.ResponseCompression\]", r"\[System\.IO\.Compression\]", r"/Microsoft\.AspNetCore\.ResponseCompression\.dll\)",
+                                       r"/System\.IO\.Compression[^/]*\.dll\)", r"libz\.so", r"System\.IO\.Compression\.Native"]),
     ("Kestrel and ASP.NET Core HTTP", [r"\[Microsoft\.AspNetCore\.Server\.Kestrel", r"\[System\.IO\.Pipelines\]", r"\[System\.Net\.Sockets\]", r"\[System\.Net\.Security\]",
                                        r"\[Microsoft\.AspNetCore\.(Http|Hosting|Http\.Abstractions|Http\.Features|Connections)", r"/(Microsoft\.AspNetCore\.Server\.Kestrel[^/]*|System\.Net\.Sockets|System\.IO\.Pipelines)\.dll\)"]),
     ("Falco and routing", [r"\[Falco\]", r"\[Microsoft\.AspNetCore\.Routing\]", r"/(Falco|Microsoft\.AspNetCore\.Routing)\.dll\)"]),
     ("SQLite engine (libe_sqlite3)", [r"\(/opt/campfire/libe_sqlite3\.so\)"]),
     ("Microsoft.Data.Sqlite and P/Invoke stubs", [r"\[Microsoft\.Data\.Sqlite\]", r"\[SQLitePCLRaw", r"SQLitePCL\.", r"/(Microsoft\.Data\.Sqlite|SQLitePCLRaw[^/]*)\.dll\)"]),
     ("Campfire.Db (queries, row mapping, connection pool)", [r"\[Campfire\.Db\]", r"/Campfire\.Db\.dll\)"]),
-    ("gzip and the page splice", [r"\[System\.IO\.Compression\]", r"Campfire\.Kit\.(Deflater|Splice|PageParts|Crc|Generations)", r"/System\.IO\.Compression[^/]*\.dll\)", r"libz\.so", r"System\.IO\.Compression\.Native"]),
     ("rich text", [r"\[Campfire\.RichText\]", r"/Campfire\.RichText\.dll\)"]),
-    ("templates, escaping and fragment cache", [r"\[Campfire\.Views\]", r"\[Campfire\.Ruby\]", r"FragmentGlue", r"/Campfire\.(Views|Ruby)\.dll\)"]),
-    ("cookies, session, HMAC and key derivation", [r"\[Campfire\.RailsCompat\]", r"\[System\.Security\.Cryptography\]", r"Campfire\.Kit\.(CookieJar|Cookies|Session|Secrets)", r"libcrypto", r"Cryptography\.Native",
-                                                    r"/(Campfire\.RailsCompat|System\.Security\.Cryptography)\.dll\)"]),
+    ("templates, escaping and fragment cache", [r"\[Campfire\.Views\]", r"\[Campfire\.Rails\] Campfire\.Rails\.Ruby\.", r"FragmentGlue", r"/Campfire\.Views\.dll\)"]),
+    ("cookies, session, HMAC and key derivation (Campfire.Rails)", [r"\[Campfire\.Rails\] Campfire\.Rails\.(?!Ruby\.|Routes\.)", r"\[System\.Security\.Cryptography\]", r"libcrypto", r"Cryptography\.Native",
+                                                                    r"/(Campfire\.Rails|System\.Security\.Cryptography)\.dll\)"]),
     ("authentication and current-user concerns", [r"Campfire\.App\.Concerns", r"Campfire\.App\.Current"]),
     ("request log line (console logger)", [r"\[Microsoft\.Extensions\.Logging", r"\[System\.Console\]", r"/Microsoft\.Extensions\.Logging[^/]*\.dll\)", r"/System\.Console\.dll\)"]),
-    ("front server (cache, headers, timeouts)", [r"Campfire\.Kit\.Front"]),
-    ("route table", [r"Campfire\.App\.(RouteTable|Controllers\b)", r"\[Campfire\.Routes\]"]),
-    ("kit adapter, Ctx, params, response", [r"\[Campfire\.Kit\]", r"/Campfire\.Kit\.dll\)"]),
-    ("controllers and presenters", [r"\[campfire\]", r"\[Campfire\.(Storage|Assets|Cable)\]", r"/(campfire|Campfire\.Storage|Campfire\.Assets|Campfire\.Cable)\.dll\)"]),
+    ("channels (System.Threading.Channels)", [r"\[System\.Threading\.Channels\]", r"/System\.Threading\.Channels\.dll\)"]),
+    ("route table", [r"Campfire\.App\.(RouteTable|Controllers\b)", r"\[Campfire\.Rails\] Campfire\.Rails\.Routes\."]),
+    ("request layer (Campfire.App.Web)", [r"\[(Campfire\.App|campfire)\] Campfire\.App\.Web\."]),
+    ("controllers and presenters", [r"\[campfire\]", r"\[Campfire\.(App|Storage|Assets|Cable)\]", r"/(campfire|Campfire\.App|Campfire\.Storage|Campfire\.Assets|Campfire\.Cable)\.dll\)"]),
 ]
 COMPILED = [(n, [re.compile(p) for p in ps]) for n, ps in RULES]
 UNOWNED = "runtime and BCL with no Campfire caller on the stack"

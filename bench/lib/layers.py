@@ -12,7 +12,7 @@ did make the transition). Idle time is left out: an `UNMANAGED_CODE_TIME` sample
 (thread pool parking, a Monitor.Wait, the reader threads' queue, the logger's dequeue, the file
 watcher's read, epoll). What is left is busy time, in thread-milliseconds, and each sample is given to the
 first layer in RULES that owns a frame of its stack, searching from the leaf towards the root: a sample inside
-Kestrel's parser is Kestrel's even though the kit's adapter called it, one inside System.Text.Json called
+Kestrel's parser is Kestrel's even though the request layer called it, one inside System.Text.Json called
 by a controller is the controller's.
 
 It measures where threads are, not CPU exactly: a thread that spins, waits for a core or waits for a GC
@@ -27,24 +27,25 @@ from collections import Counter
 # within a layer any pattern matches.
 RULES = [
     # runtime-state layers, tested on the few frames next to the leaf only (see classify)
-    # layers by owner
+    # layers by owner. The framework middleware comes before Kestrel's rule, whose `Microsoft.AspNetCore.Http` prefix also matches HttpLogging.
+    ("request log middleware (HttpLogging)", [r"^Microsoft\.AspNetCore\.HttpLogging"]),
+    ("output caching", [r"^Microsoft\.AspNetCore\.OutputCaching"]),
+    ("response compression and gzip", [r"^Microsoft\.AspNetCore\.ResponseCompression", r"^System\.IO\.Compression"]),
     ("Kestrel and ASP.NET Core HTTP", [r"^Microsoft\.AspNetCore\.Server\.Kestrel", r"^System\.IO\.Pipelines", r"^System\.Net\.Sockets",
                                        r"^System\.Net\.Security", r"^System\.Net\.Primitives", r"^System\.Net\.Http", r"^System\.IO\.FileSystem\.Watcher",
                                        r"^Microsoft\.AspNetCore\.(Http|Hosting|Http\.Features|Http\.Abstractions|Connections|WebUtilities)"]),
     ("Falco and routing", [r"^Falco", r"^Microsoft\.AspNetCore\.Routing"]),
     ("SQLite reads", [r"^Campfire\.Db!", r"^Microsoft\.Data\.Sqlite", r"^SQLitePCL"]),
-    ("gzip and the page splice", [r"^System\.IO\.Compression", r"Campfire\.Kit!Campfire\.Kit\.(Deflater|Splice|PageParts|Crc|Fragment|Generations)",
-                                  r"Campfire\.Kit!Campfire\.Kit\.Front\.Compression"]),
     ("rich text", [r"^Campfire\.RichText"]),
-    ("templates and fragment cache", [r"^Campfire\.Views", r"Campfire\.App!Campfire\.App\.FragmentGlue", r"FragmentCache"]),
-    ("cookies, session, crypto", [r"Campfire\.Kit!Campfire\.Kit\.(CookieJar|Cookies|Session|Secrets)", r"^Campfire\.RailsCompat",
-                                  r"^System\.Security\.Cryptography", r"^BCrypt"]),
-    ("authentication", [r"Campfire\.App!Campfire\.App\.Concerns", r"Campfire\.App!Campfire\.App\.Current"]),
+    ("templates and fragment cache", [r"^Campfire\.Views", r"^Campfire\.Rails!Campfire\.Rails\.Ruby\.", r"(Campfire\.App|campfire)!Campfire\.App\.FragmentGlue", r"FragmentCache"]),
+    ("cookies, session, crypto (Campfire.Rails)", [r"^Campfire\.Rails!(?!Campfire\.Rails\.(Ruby|Routes)\.)",
+                                                   r"^System\.Security\.Cryptography", r"^BCrypt"]),
+    ("authentication", [r"(Campfire\.App|campfire)!Campfire\.App\.(Concerns|Current)"]),
     ("request log line (console logger)", [r"^Microsoft\.Extensions\.Logging", r"System\.Console!"]),
-    ("front server (cache, headers, timeouts)", [r"Campfire\.Kit!Campfire\.Kit\.Front"]),
-    ("route table", [r"Campfire\.App!Campfire\.App\.(RouteTable|Controllers\b|ControllersModule)", r"Campfire\.Routes"]),
-    ("kit adapter, Ctx, params, response", [r"^Campfire\.Kit"]),
-    ("controllers and presenters", [r"^Campfire\.App", r"^Campfire\.Storage", r"^Campfire\.Assets", r"^Campfire\.Cable", r"^Campfire\.Ruby", r"^campfire!"]),
+    ("channels (System.Threading.Channels)", [r"^System\.Threading\.Channels"]),
+    ("route table", [r"(Campfire\.App|campfire)!Campfire\.App\.(RouteTable|Controllers\b|ControllersModule)", r"^Campfire\.Rails!Campfire\.Rails\.Routes\."]),
+    ("request layer (Campfire.App.Web)", [r"(Campfire\.App|campfire)!Campfire\.App\.Web\."]),
+    ("controllers and presenters", [r"^Campfire\.App", r"^Campfire\.Storage", r"^Campfire\.Assets", r"^Campfire\.Cable", r"^campfire!"]),
 ]
 COMPILED = [(name, [re.compile(p) for p in pats]) for name, pats in RULES]
 
