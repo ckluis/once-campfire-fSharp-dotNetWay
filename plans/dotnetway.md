@@ -4384,7 +4384,7 @@ and D1-D9. Fix in `c8f739f`.
 - **AGENTS.md** is theDotNetWay's guide: the seven-project table (no Rust crate column), the sources of truth (Rails, then the plan and notes, then the differences policy), F# conventions
   without "match Rust" and "cite the Rust file", performance rules without the UTF-8 pooled rendering, the "no markup library" and the Rust-caches rules (the 5x floor and the hybrid reads
   stay), and every tool section kept (hybrid reads, integrations, rich text, assets, views, front server, ACME and Pebble, TLS, Phase 7 measuring, Cable bench, storage tools, Dockerfile,
-  controllers, replay, parity gates, cookie round trip, toolchain, colima). 292 lines before, 266 after.
+  controllers, replay, parity gates, cookie round trip, toolchain, colima). 292 lines before, 268 after.
 - **Plan:** the status line reads "built, Phases 0-9 closed"; section 6's "Target .NET 10 (LTS)" line says .NET 11, superseded in Phase 1 unit 1.0 (`27c98c8`), with `global.json` and
   `Directory.Build.props` as the evidence.
 - **Build outputs:** `find` over the repo finds no `Campfire.Kit`, `Campfire.Ruby`, `Campfire.Routes`, `Campfire.RailsCompat` or `Campfire.Assets` directory (the removed projects' `obj` and `bin`
