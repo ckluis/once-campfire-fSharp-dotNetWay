@@ -1,0 +1,42 @@
+date: 2026-10-28T08:51:57-04:00
+host: 6.8.0-117-generic, , 8 threads, 5GB
+server cpus: 0-3 (nproc 4); loadgen cpus: 4-7; network: host
+env: WEB_CONCURRENCY=3 JOB_CONCURRENCY=3 RAILS_MAX_THREADS=5 
+rust extra env: 
+fsharp extra env: 
+dotnetway extra env: 
+user agent: (none)
+fsharp image: campfire-dotnetway:p10ctl sha256:acdc23f914c76f25f3ab79e1fc080654db6bf227a553c70251774e8384942dc3 2026-10-27T21:21:02.50663358-04:00 built from commit: dcc9434d3afaed16c1976e817334661c245fa36e
+dotnetway image: campfire-dotnetway:app sha256:70f68019388351aacf95e18476ecee921bf0e7201699d3cc4d6d9942bd90cbb9 2026-10-28T08:45:16.992114194-04:00 built from commit: fd285c9f437bacc2528eb96c38159b0c536eeef0
+repo HEAD: fd285c9 (dirty: 0 files under src/ and rust/)
+work dir (seed copies): /var/tmp/campfire-bench-work (ext4)
+loadgen: /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/target/rust/aarch64-unknown-linux-gnu/release/loadgen (2026-10-13 18:47:07), built with rust:1.98.1-trixie
+schedule: apps fsharp,dotnetway, reps 3; suites: http; http secs 8, concs 1 16, routes room_show messages_page sidebar search post_message (in parts, --part 1/2 is one slice of them), warm-up 30s at each route and concentration, idle 5s
+log retention: 2 x 10m (json-file)
+[09:06:35] load before run: 1.34 2.32 2.15 (waited 60s)
+[09:06:38] host probe before run: {"spin_ms": 59.23, "spin_ms_max_cpu": 62.75, "cpus": "0-3,4-7", "baseline_ms": 55.57, "ratio": 1.066} (waited 60s)
+[09:06:38] dotnetway rep 1: starting (load: 1.31 2.30 2.15)
+[09:06:43] dotnetway rep 1: cold start 512ms, idle 112MB (anon 78MB)
+[09:07:24] dotnetway rep 1: search c=1 2132.2 rps p50 0.458 p99 0.616 {'200': 17058} err 0 cpu 587.4 us/req; warm-up 30.0 s settled tail 2128.7 host 1.042
+[09:08:05] dotnetway rep 1: search c=16 8611.0 rps p50 1.61 p99 4.447 {'200': 68901} err 0 cpu 418.5 us/req; warm-up 30.0 s settled tail 8674.1 host 1.078
+[09:08:46] dotnetway rep 1: post_message c=1 1236.0 rps p50 0.712 p99 3.605 {'200': 9888} err 0 cpu 1544.6 us/req; warm-up 30.0 s settled tail 1245.9 host 1.067
+[09:09:41] dotnetway rep 1: post_message c=16 2433.4 rps p50 5.479 p99 12.951 {'200': 19493} err 0 cpu 1317.5 us/req; warm-up 44.2 s settled tail 2428.9 host 1.089
+[09:09:44] dotnetway rep 1: done -> /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/bench/results/phase10-unit-10.2/quick/dotnetway-1.json
+theDotNetWay in /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/bench/results/phase10-unit-10.2/quick against the stored medians of bench/results/phase7-final (Rails, Rust and the F# port, 3 reps each, one session)
+
+| Workload | c | theDotNetWay req/s | F# port stored | vs port | Rust stored | **theDotNetWay / Rust (vs stored Rust baseline)** | Rails stored | **theDotNetWay / Rails** | CPU us/req | port | Rust stored |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| room page | 16 | 9,962 | 40,422 | 0.246x | 28,623 | **0.348x** | 239 | **41.631x** | 349.5 | 93.6 | 122.4 |
+| room page | 1 | 2,506 | 7,617 | 0.329x | 6,481 | **0.387x** | 107 | **23.401x** | 515.5 | 208.7 | 142.1 |
+| messages page | 16 | 9,613 | 37,836 | 0.254x | 30,063 | **0.320x** | 381 | **25.258x** | 372.2 | 102.2 | 114.2 |
+| messages page | 1 | 2,304 | 8,312 | 0.277x | 6,822 | **0.338x** | 218 | **10.572x** | 550.9 | 199.3 | 139.2 |
+| sidebar | 16 | 10,419 | 37,555 | 0.277x | 28,238 | **0.369x** | 599 | **17.405x** | 340.8 | 101.8 | 123.2 |
+| sidebar | 1 | 2,452 | 8,000 | 0.306x | 6,196 | **0.396x** | 287 | **8.554x** | 524.2 | 181.0 | 149.0 |
+| search | 16 | 8,611 | 34,070 | 0.253x | 26,606 | **0.324x** | 408 | **21.111x** | 418.5 | 107.3 | 123.9 |
+| search | 1 | 2,132 | 6,055 | 0.352x | 5,646 | **0.378x** | 193 | **11.065x** | 587.4 | 315.1 | 158.3 |
+| post a message | 16 | 2,433 | 8,905 | 0.273x | 7,174 | **0.339x** | 330 | **7.372x** | 1,317.5 | 353.0 | 385.6 |
+| post a message | 1 | 1,236 | 3,052 | 0.405x | 2,779 | **0.445x** | 167 | **7.406x** | 1,544.6 | 629.1 | 403.7 |
+
+Checks:
+  responses: every one 2xx with 0 connection errors in 10 runs
+  decoded bytes equal the stored expected size (Rust's where the page is unchanged) on every probed route; post rows written equal the 2xx answers in every phase

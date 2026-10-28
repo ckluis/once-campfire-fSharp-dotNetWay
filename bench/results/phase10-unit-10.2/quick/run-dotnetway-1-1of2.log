@@ -1,0 +1,40 @@
+date: 2026-10-28T08:51:57-04:00
+host: 6.8.0-117-generic, , 8 threads, 5GB
+server cpus: 0-3 (nproc 4); loadgen cpus: 4-7; network: host
+env: WEB_CONCURRENCY=3 JOB_CONCURRENCY=3 RAILS_MAX_THREADS=5 
+rust extra env: 
+fsharp extra env: 
+dotnetway extra env: 
+user agent: (none)
+fsharp image: campfire-dotnetway:p10ctl sha256:acdc23f914c76f25f3ab79e1fc080654db6bf227a553c70251774e8384942dc3 2026-10-27T21:21:02.50663358-04:00 built from commit: dcc9434d3afaed16c1976e817334661c245fa36e
+dotnetway image: campfire-dotnetway:app sha256:70f68019388351aacf95e18476ecee921bf0e7201699d3cc4d6d9942bd90cbb9 2026-10-28T08:45:16.992114194-04:00 built from commit: fd285c9f437bacc2528eb96c38159b0c536eeef0
+repo HEAD: fd285c9 (dirty: 0 files under src/ and rust/)
+work dir (seed copies): /var/tmp/campfire-bench-work (ext4)
+loadgen: /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/target/rust/aarch64-unknown-linux-gnu/release/loadgen (2026-10-13 18:47:07), built with rust:1.98.1-trixie
+schedule: apps fsharp,dotnetway, reps 3; suites: http; http secs 8, concs 1 16, routes room_show messages_page sidebar search post_message (in parts, --part 1/2 is one slice of them), warm-up 30s at each route and concentration, idle 5s
+log retention: 2 x 10m (json-file)
+[09:01:19] load before run: 1.37 2.13 1.99 (waited 50s)
+[09:01:21] host probe before run: {"spin_ms": 59.55, "spin_ms_max_cpu": 61.29, "cpus": "0-3,4-7", "baseline_ms": 55.57, "ratio": 1.072} (waited 50s)
+[09:01:21] dotnetway rep 1: starting (load: 1.37 2.13 1.99)
+[09:01:27] dotnetway rep 1: cold start 557ms, idle 112MB (anon 78MB)
+[09:02:08] dotnetway rep 1: room_show c=1 2506.2 rps p50 0.388 p99 0.529 {'200': 20050} err 0 cpu 515.5 us/req; warm-up 30.0 s settled tail 2493.9 host 1.075
+[09:02:49] dotnetway rep 1: room_show c=16 9962.4 rps p50 1.345 p99 4.155 {'200': 79718} err 0 cpu 349.5 us/req; warm-up 30.0 s settled tail 9945.3 host 1.036
+[09:03:30] dotnetway rep 1: messages_page c=1 2303.6 rps p50 0.42 p99 0.554 {'200': 18429} err 0 cpu 550.9 us/req; warm-up 30.0 s settled tail 2314.7 host 1.052
+[09:04:10] dotnetway rep 1: messages_page c=16 9613.2 rps p50 1.425 p99 4.327 {'200': 76920} err 0 cpu 372.2 us/req; warm-up 30.0 s settled tail 9551.0 host 1.07
+[09:04:51] dotnetway rep 1: sidebar c=1 2451.6 rps p50 0.392 p99 0.534 {'200': 19613} err 0 cpu 524.2 us/req; warm-up 30.0 s settled tail 2430.0 host 1.057
+[09:05:32] dotnetway rep 1: sidebar c=16 10418.6 rps p50 1.306 p99 4.017 {'200': 83385} err 0 cpu 340.8 us/req; warm-up 30.0 s settled tail 10435.4 host 1.074
+[09:05:35] dotnetway rep 1: done -> /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/bench/results/phase10-unit-10.2/quick/dotnetway-1.json
+theDotNetWay in /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/bench/results/phase10-unit-10.2/quick against the stored medians of bench/results/phase7-final (Rails, Rust and the F# port, 3 reps each, one session)
+
+| Workload | c | theDotNetWay req/s | F# port stored | vs port | Rust stored | **theDotNetWay / Rust (vs stored Rust baseline)** | Rails stored | **theDotNetWay / Rails** | CPU us/req | port | Rust stored |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| room page | 16 | 9,962 | 40,422 | 0.246x | 28,623 | **0.348x** | 239 | **41.631x** | 349.5 | 93.6 | 122.4 |
+| room page | 1 | 2,506 | 7,617 | 0.329x | 6,481 | **0.387x** | 107 | **23.401x** | 515.5 | 208.7 | 142.1 |
+| messages page | 16 | 9,613 | 37,836 | 0.254x | 30,063 | **0.320x** | 381 | **25.258x** | 372.2 | 102.2 | 114.2 |
+| messages page | 1 | 2,304 | 8,312 | 0.277x | 6,822 | **0.338x** | 218 | **10.572x** | 550.9 | 199.3 | 139.2 |
+| sidebar | 16 | 10,419 | 37,555 | 0.277x | 28,238 | **0.369x** | 599 | **17.405x** | 340.8 | 101.8 | 123.2 |
+| sidebar | 1 | 2,452 | 8,000 | 0.306x | 6,196 | **0.396x** | 287 | **8.554x** | 524.2 | 181.0 | 149.0 |
+
+Checks:
+  responses: every one 2xx with 0 connection errors in 6 runs
+  decoded bytes equal the stored expected size (Rust's where the page is unchanged) on every probed route; post rows written equal the 2xx answers in every phase

@@ -4532,3 +4532,34 @@ Tooling only: `bench/upstream-quick` (bash, runs in colima, detached, `OUT/STATU
   failed in the harness ("use at least two rounds"), which added the guard.
 - **Gates:** `CAMPFIRE_REQUIRE_SEED=1 bin/verify` green (1,038 passed, 6 skipped; lint and its self-test clean). No pixel slice (no app code changed).
 - **Afterwards:** `mount` and `docker images` in colima show no `/mnt/upstream-quick` and no `uq-*`; the harness's `raw/` per-sample JSON is gitignored.
+
+### Phase 10.2: configuration and connections (P2, P3) (2026-10-28)
+
+Built at `fd285c9` (this entry's commit follows it). `Dockerfile`: `DOTNET_TC_CallCountingDelayMs=0` beside the two runtime settings, with its measurement
+comment. `Web/Data.fs`: `Data.db` opens the request's `CampfireDb` connection once, on first use (`Database.OpenConnection()` when the connection is
+not open), never at scope creation; EF counts opens, so the hybrid reads' own open/close pair and `Writes.transact`'s transaction nest inside it, and the
+scope's disposal of the context closes it. Cable and job scopes do not pass through `Data.db`: unchanged. Tests (`ConnectionTests.fs`): DC1 (the request's
+context opens exactly once on the room page, messages page, sidebar and search, and on a post; EF's `ConnectionOpened` by context id; sabotaged by
+removing the open: fails on the room page) and DC2 (four idle WebSockets hold no outstanding connection). KLOC (`bin/kloc`): 25.8 (26.2 corrected), the
+test project is not counted.
+- **Gates:** `CAMPFIRE_REQUIRE_SEED=1 bin/verify` green (1,046 tests: 1,040 passed, 6 skipped; H1 steady state, H2, H3 16 concurrent posts, the guards and the lint
+  included). `bin/cookie-roundtrip` 20/20. Image rebuilt from `fd285c9` (label checked; `DOTNET_TC_CallCountingDelayMs=0` in its env). Lean pixel slices on `default`,
+  all equal in pixels, aria and loose DOM: `rooms/show/*` 48/48, `messages/*` 96/96, `search/*` 26/26, `interactions/sidebar/*` + `interactions/phone_sidebar` 12/12
+  (the brief's `users/sidebars/*` and `searches/*` are template names, not state ids: they matched 0 cells; the states that render those templates are `search/*`
+  and the sidebar interactions; `rooms/show/*` and `messages/*` render the sidebar too). Evidence: `bench/results/phase10-unit-10.2/`.
+- **upstream-quick vs same-session Rails** (`--image campfire-dotnetway:app`, 2 rounds, c=16, probe 1.038 before, 1.076 after; req/s median, x Rails):
+  room **10,368** (**2.10x**; Rails 4,932; floor 9,000), messages **10,035** (2.02x; 4,959; 8,500), sidebar **10,754** (2.02x; 5,322; 8,500), search **8,932** (1.71x;
+  5,218; 8,500), post **2,888** (7.33x; 394; 2,300). All acceptance floors met. The port in the same session: 7.18x / 8.50x / 7.09x / 6.47x / 23.98x. Against the
+  baseline (3,396 / 7,340 / 7,656 / 7,191 / 2,275): room x3.05, messages x1.37, sidebar x1.40, search x1.24, post x1.27. The 5x floor against Rails still fails on
+  the four reads (room 2.10x ... search 1.71x); the cache (10.4+) is what closes it.
+- **bench/quick, 3 reps, five workloads, c=1 and 16, interleaved with the control** (control = the previous `:app`, label `dcc9434`, run as `fsharp` with
+  `FSHARP_IMAGE`; order fsharp, dotnetway, dotnetway, fsharp, fsharp, dotnetway; each rep in two parts; `bench/results/phase10-unit-10.2/quick/vs-control.md`):
+  no cell below the control's range, and none below its median: new/control 1.06x-1.42x. c=16 medians, new vs control: room 9,811 vs 7,083, messages 9,613 vs 6,949,
+  sidebar 10,226 vs 7,224, search 8,566 vs 7,002, post 2,400 vs 2,156. c=1: room 2,466 vs 2,165, messages 2,289 vs 1,992, sidebar 2,422 vs 2,090, search 2,125 vs
+  2,005, post 1,246 vs 1,089. So the steady state did not lose to P2 (design risk 4 did not occur). The control's c=16 ranges are wide on room, messages and sidebar
+  (4,126-7,246 and so on): a rep in which the control's warm-up did not settle; the new image's ranges are within 3%.
+- **Differences recorded:** none in the UI. `bench/quick`'s post c=16 (2,400) is under `upstream-quick`'s (2,888): the harness's post route is lighter; both are
+  above the control.
+- **Control image:** `campfire-dotnetway:p10ctl` was removed by mistake at the end of this unit (its label `dcc9434` image had no other tag). 10.3 needs no control
+  (upstream-quick against the baseline in `bench/results/phase10-baseline/`); rebuild it with `bench/upstream-quick --commit dcc9434`-style clean clone and
+  `docker build` if a later unit wants one.
