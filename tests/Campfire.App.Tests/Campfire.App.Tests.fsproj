@@ -12,7 +12,6 @@
     <Compile Include="UserAgentTests.fs" />
     <Compile Include="PlatformTests.fs" />
     <Compile Include="RouteTableTests.fs" />
-    <Compile Include="Web/SeamTests.fs" />
     <Compile Include="Web/AuthenticationTests.fs" />
     <Compile Include="Web/BotKeyTests.fs" />
     <Compile Include="Web/CsrfTests.fs" />
@@ -26,10 +25,10 @@
     <Compile Include="Web/OutputCachingTests.fs" />
     <Compile Include="Web/AcmeTests.fs" />
     <Compile Include="Web/HostTests.fs" />
-    <Compile Include="Web/ControllersATests.fs" />
-    <Compile Include="Web/ControllersBTests.fs" />
-    <Compile Include="Web/ControllersCTests.fs" />
-    <Compile Include="Web/ControllersDTests.fs" />
+    <Compile Include="Web/SessionControllerTests.fs" />
+    <Compile Include="Web/AccountControllerTests.fs" />
+    <Compile Include="Web/LookupControllerTests.fs" />
+    <Compile Include="Web/RoomControllerTests.fs" />
     <Compile Include="AppTests.fs" />
     <Compile Include="FileResultTests.fs" />
     <Compile Include="JobsTests.fs" />

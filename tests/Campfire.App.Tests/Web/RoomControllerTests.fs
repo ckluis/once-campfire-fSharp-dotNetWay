@@ -2,7 +2,7 @@
 // Web actions, over the whole app on the `default` parity seed. D1-D5 check what the move to `HttpContext` could change: the raw
 // request body of a bot (a form post is read by the method override first), `set_room`'s alert, the `last_room` cookie, the refresh
 // and involvement params, and the pages with no body hash (K14).
-module Campfire.App.Tests.Web.ControllersDTests
+module Campfire.App.Tests.Web.RoomControllerTests
 
 open System
 open Xunit

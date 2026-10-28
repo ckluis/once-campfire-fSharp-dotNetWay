@@ -1,0 +1,1068 @@
+Discovering tests from /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/bin/Release/net11.0/Campfire.App.Tests.dll (net11.0|arm64)
+Discovering tests from /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.RichText.Tests/bin/Release/net11.0/Campfire.RichText.Tests.dll (net11.0|arm64)
+Discovering tests from /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.Cable.Tests/bin/Release/net11.0/Campfire.Cable.Tests.dll (net11.0|arm64)
+Discovering tests from /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.Storage.Tests/bin/Release/net11.0/Campfire.Storage.Tests.dll (net11.0|arm64)
+Discovering tests from /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.Db.Tests/bin/Release/net11.0/Campfire.Db.Tests.dll (net11.0|arm64)
+Discovering tests from /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.Rails.Tests/bin/Release/net11.0/Campfire.Rails.Tests.dll (net11.0|arm64)
+Discovering tests from /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.Views.Tests/bin/Release/net11.0/Campfire.Views.Tests.dll (net11.0|arm64)
+
+Discovered 445 tests in assembly - /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/bin/Release/net11.0/Campfire.App.Tests.dll (net11.0|arm64)
+  Campfire.App.Tests.AssetsTests.S1 the staged web root holds Rails' manifest minus the lexxy compressed files plus install-edge.svg, with the sources' bytes
+  Campfire.App.Tests.AssetsTests.no SVG or HTML among the assets carries script
+  Campfire.App.Tests.AssetsTests.H1 every table route answers 200 with the source's bytes, gzip with Accept-Encoding, HEAD without a body
+  Campfire.App.Tests.AssetsTests.H2 the ETag of a fingerprinted URL gives 304, and Range on a sound gives 206 with 10 bytes
+  Campfire.App.Tests.AssetsTests.H3 an asset response has no x-request-id and no x-runtime, a page response has both
+  Campfire.App.Tests.AssetsTests.H4 an unknown asset is the app's 404 and POST to an asset URL is 405 (class B)
+  Campfire.App.Tests.AssetsTests.nothing outside the asset table is served: encoded dots and backslashes, the build output, the web root by name
+  Campfire.App.Tests.AssetsTests.H9 asset and public routes ignore letter case (class B); a trailing slash answers the file, as in Rails
+  Campfire.App.Tests.AssetsTests.a host built without configureHost fails at boot, naming the cause
+  Campfire.App.Tests.AssetsTests.T1 the table's logical paths are the staged set, every route has the fingerprint form, path raises MissingAsset
+  Campfire.App.Tests.AssetsTests.T2 the bytes equal Rails' compiled files except exactly A12's 11
+  Campfire.App.Tests.AssetsTests.T3 stylesheetTags are Rails' 31 stylesheets in Rails' order, equal line for line after the mask
+  Campfire.App.Tests.AssetsTests.T4 importmapTags have Rails' 89 pins and modulepreloads in Rails' order and targets, the same text after the mask
+  Campfire.App.Tests.AssetsTests.T5 preloadLinks name Rails' first stylesheets, fit 1,000 bytes and stop at the first link that would not
+  Campfire.App.Tests.AssetsTests.T6 Importmap.pins on small sources
+  Campfire.App.Tests.AssetsTests.H7 the web app manifest's icons, screenshots and shortcuts are fingerprinted URLs of the logical paths Rails names
+  Campfire.App.Tests.AssetsTests.H8 a message with a sound renders the fingerprinted mp3 and image URLs
+  Campfire.App.Tests.AssetsTests.H5 the public files are served with Rails' bytes, a 404 the app renders has 404.html's bytes, and /404 is the app's 404 (class B)
+  Campfire.App.Tests.AssetsTests.H6 a bot without an avatar gets default-bot-avatar.svg's bytes as image/svg+xml
+  Campfire.App.Tests.FastReadsTests.dapper reads return the same records as EF for every row of the default seed
+  Campfire.App.Tests.FastReadsTests.a dapper read inside a write sees the write's own rows
+  Campfire.App.Tests.FastReadsTests.dapper sidebar and search reads equal EF's answers
+  Campfire.App.Tests.OptionsTests.OP1 requires a secret key base, and the dummy makes a throwaway one
+  Campfire.App.Tests.OptionsTests.OP1 production defaults
+  Campfire.App.Tests.OptionsTests.OP1 fragment cache size in megabytes
+  Campfire.App.Tests.OptionsTests.OP1 a number that is not one names the variable and quotes the value, as Ruby's parse does
+  Campfire.App.Tests.OptionsTests.OP1 the secret is the first problem reported
+  Campfire.App.Tests.OptionsTests.OP1 version falls back to the revision
+  Campfire.App.Tests.OptionsTests.OP1 disable ssl is any non blank value
+  Campfire.App.Tests.OptionsTests.OP1 vapid keys must not be blank
+  Campfire.App.Tests.OptionsTests.OP1 vapid subject defaults to the tls domain
+  Campfire.App.Tests.OptionsTests.OP1 storage overrides
+  Campfire.App.Tests.OptionsTests.OP2 a missing SECRET_KEY_BASE fails StartAsync with Rails' message before a listener binds
+  Campfire.App.Tests.OptionsTests.OP2 a non-number JOB_CONCURRENCY fails StartAsync with the variable and the value
+  Campfire.App.Tests.OptionsTests.OP3 THRUSTER_HTTP_PORT wins over HTTP_PORT, and Go's ParseBool and Atoi apply
+  Campfire.App.Tests.OptionsTests.OP4 TLS_DOMAIN with no usable name fails at start, before a listener binds
+  Campfire.App.Tests.OptionsTests.OP4 a list with one usable name is valid
+  Campfire.App.Tests.OptionsTests.OP5 a bad CAMPFIRE_FROZEN_TIME fails at start
+  Campfire.App.Tests.OptionsTests.OP5 a good one freezes the clock
+  Campfire.App.Tests.OptionsTests.OP6 invalid VAPID keys do not fail: the host boots, logs that Web Push is off and serves /up
+  Campfire.App.Tests.OptionsTests.OP7 the options are one singleton, read once, not per request or per scope
+  Campfire.App.Tests.OptionsTests.OP8 the option records never print a secret
+  Campfire.App.Tests.BuildTests.BB1 the database is prepared before Kestrel binds, and /up answers on HTTP_PORT and on TARGET_PORT
+  Campfire.App.Tests.BuildTests.BB2 the app's services are the host's: one AppState, one client factory, the cable from the same provider
+  Campfire.App.Tests.BuildTests.BB3 a bad configuration builds, and fails the start before a listener exists
+  Campfire.App.Tests.HotPathTests.H1 steady state compiles no query on the five workloads
+  Campfire.App.Tests.HotPathTests.H2 each workload's statements are listed and carry no literal user value
+  Campfire.App.Tests.HotPathTests.H3 sixteen concurrent posts all land
+  Campfire.App.Tests.CableAuthTests.A1 the Rails minted session cookie opens the cable; no cookie, a forged one and a flipped digit get the unauthorized frame and a close
+  Campfire.App.Tests.CableAuthTests.cross-origin upgrades carrying a valid session cookie get Rails 404 and no socket
+  Campfire.App.Tests.CableAuthTests.A2 an upgrade writes no sessions row and sets no cookie, even for a session two hours stale
+  Campfire.App.Tests.CableAuthTests.A3 a session deleted between the first lookup and the registration is heard by the re-check
+  Campfire.App.Tests.CableAuthTests.A5 publishing inside a write throws; a posted message reaches the room's subscriber only after its row is committed
+  Campfire.App.Tests.CableHostTests.P12 stopping the app's host closes the cable connections with server_restart
+  Campfire.App.Tests.CableHostTests.the heartbeat beats under the frozen harness clock with the frozen time
+  Campfire.App.Tests.ChannelsGoldenTests.replays reference frames
+  Campfire.App.Tests.RevocationTests.removing the membership disconnects and resubscribing is rejected
+  Campfire.App.Tests.RevocationTests.deactivating disconnects for good
+  Campfire.App.Tests.RevocationTests.banning disconnects for good
+  Campfire.App.Tests.RevocationTests.only the revoked users connections are closed
+  Campfire.App.Tests.RevocationTests.JB6 DisconnectUser is not queued and reaches the cable directly
+  Campfire.App.Tests.BroadcastsTests.message broadcasts
+  Campfire.App.Tests.BroadcastsTests.boost broadcasts
+  Campfire.App.Tests.BroadcastsTests.room list broadcasts
+  Campfire.App.Tests.BroadcastsTests.direct room and involvement broadcasts
+  Campfire.App.Tests.BroadcastsTests.broadcast frames decode to active support json
+  Campfire.App.Tests.ChannelsTests.connects with a valid session cookie
+  Campfire.App.Tests.ChannelsTests.rejects a connection without or with a bad session cookie
+  Campfire.App.Tests.ChannelsTests.rejects a session cookie once it expires
+  Campfire.App.Tests.ChannelsTests.heartbeat and base channels confirm
+  Campfire.App.Tests.ChannelsTests.room channel streams for member rooms only
+  Campfire.App.Tests.ChannelsTests.presence subscribes and marks the membership connected
+  Campfire.App.Tests.ChannelsTests.presence counts connections and refreshes
+  Campfire.App.Tests.ChannelsTests.presence rejects rooms the user is not in without touching memberships
+  Campfire.App.Tests.ChannelsTests.unread rooms streams only the subscribers own stream
+  Campfire.App.Tests.ChannelsTests.read rooms streams the users reads
+  Campfire.App.Tests.ChannelsTests.typing notifications broadcast start and stop to the room
+  Campfire.App.Tests.ChannelsTests.typing notifications reach the room however the channel is spelled
+  Campfire.App.Tests.ChannelsTests.typing on a failed subscription leaves the connection up
+  Campfire.App.Tests.ChannelsTests.typing notifications reject non members
+  Campfire.App.Tests.ChannelsTests.a member may subscribe to a rooms message stream
+  Campfire.App.Tests.ChannelsTests.room message streams are rejected for everyone else
+  Campfire.App.Tests.ChannelsTests.a revoked member may not resubscribe with a harvested stream name
+  Campfire.App.Tests.ChannelsTests.the stock turbo channel refuses room message streams but serves the room list
+  Campfire.App.Tests.ChannelsTests.performing subscribed streams twice like ruby
+  Campfire.App.Tests.ChannelsTests.casts ids like active record
+  Campfire.App.Tests.ChannelsTests.guards only message streams
+  Campfire.App.Tests.SearchesTests.searching records and clears recent searches
+  Campfire.App.Tests.SearchesTests.the index shows results recent searches and the way back
+  Campfire.App.Tests.SearchesTests.non word characters become spaces
+  Campfire.App.Tests.SearchesTests.keeps only word characters like ruby
+  Campfire.App.Tests.SearchesTests.classifies like onigmo
+  Campfire.App.Tests.MessagesTests.index pages with conditional gets
+  Campfire.App.Tests.MessagesTests.create appends the message as a turbo stream
+  Campfire.App.Tests.MessagesTests.a body the parser throws on fails neither the post nor the pages that show it
+  Campfire.App.Tests.MessagesTests.F3 a text message is answered and broadcast as it was stored
+  Campfire.App.Tests.MessagesTests.create in a room you left renders room not found
+  Campfire.App.Tests.MessagesTests.uploads attach and process the file
+  Campfire.App.Tests.MessagesTests.a message whose plain text raises goes out without one
+  Campfire.App.Tests.MessagesTests.show edit update and destroy
+  Campfire.App.Tests.MessagesTests.boosts are listed created and removed
+  Campfire.App.Tests.MessagesTests.a forged host stays out of the caches
+  Campfire.App.Tests.MessagesTests.the bot api
+  Campfire.App.Tests.MessagesTests.V4 cached fragments show a change on the next render and nothing of another viewer
+  Campfire.App.Tests.RoomsTests.show renders the room and remembers it
+  Campfire.App.Tests.RoomsTests.show at a message pages around it
+  Campfire.App.Tests.RoomsTests.inaccessible rooms redirect home with an alert
+  Campfire.App.Tests.RoomsTests.a membership of a missing room is a server error
+  Campfire.App.Tests.RoomsTests.index redirects to the last room
+  Campfire.App.Tests.RoomsTests.undeclared actions
+  Campfire.App.Tests.RoomsTests.open rooms are created edited and updated
+  Campfire.App.Tests.RoomsTests.closed rooms are created with the selected users
+  Campfire.App.Tests.RoomsTests.only administrators or creators update rooms
+  Campfire.App.Tests.RoomsTests.direct rooms are found or created
+  Campfire.App.Tests.RoomsTests.refresh streams messages since a time
+  Campfire.App.Tests.RoomsTests.involvement is shown and changed
+  Campfire.App.Tests.RoomsTests.rooms are destroyed by administrators
+  Campfire.App.Tests.RoomsTests.cross site writes are refused
+  Campfire.App.Tests.RoomsTests.the last room cookie is set only when it changes
+  Campfire.App.Tests.RoomsTests.back links go to the last room visited
+  Campfire.App.Tests.RoomsTests.a room page has the same etag cold and warm
+  Campfire.App.Tests.RoomsTests.pages of messages go out in parts
+  Campfire.App.Tests.AttachmentTests.uploads and removes an avatar
+  Campfire.App.Tests.AttachmentTests.uploads and removes the account logo
+  Campfire.App.Tests.AttachmentTests.creates a bot with an avatar
+  Campfire.App.Tests.PresenterAccountsTests.signs in with a password and out again
+  Campfire.App.Tests.PresenterAccountsTests.rejects bad passwords and rate limits sign ins
+  Campfire.App.Tests.PresenterAccountsTests.a rails issued session cookie continues on rust
+  Campfire.App.Tests.PresenterAccountsTests.direct uploads are refused past the body limit
+  Campfire.App.Tests.PresenterAccountsTests.edge gets its install instructions
+  Campfire.App.Tests.PresenterAccountsTests.transfers sign in on another device
+  Campfire.App.Tests.PresenterAccountsTests.joins with the join code
+  Campfire.App.Tests.PresenterAccountsTests.first run sets up the account
+  Campfire.App.Tests.PresenterAccountsTests.administers the account
+  Campfire.App.Tests.PresenterAccountsTests.manages bots
+  Campfire.App.Tests.PresenterAccountsTests.serves the account logo and avatars
+  Campfire.App.Tests.PresenterAccountsTests.profile sidebar and user pages
+  Campfire.App.Tests.PresenterAccountsTests.bans and unbans
+  Campfire.App.Tests.PresenterAccountsTests.a ban from a private address is unprocessable
+  Campfire.App.Tests.PresenterAccountsTests.autocompletes users
+  Campfire.App.Tests.PresenterAccountsTests.qr codes and the pwa
+  Campfire.App.Tests.ControllerTests.unfurls nothing from private addresses and needs a url
+  Campfire.App.Tests.ControllerTests.decodes like ruby urlsafe decode64
+  Campfire.App.Tests.RqrcodeTests.matches rqrcode
+  Campfire.App.Tests.RqrcodeTests.data too long for version 40 is none
+  Campfire.App.Tests.OpengraphTests.OG3 decodes references like libxml2 but for the class B probes
+  Campfire.App.Tests.OpengraphTests.OG3 tokenizes like libxml2 but for the class B probes
+  Campfire.App.Tests.OpengraphTests.OG3 the class B probes are listed
+  Campfire.App.Tests.OpengraphTests.decodes bytes like libxml2 reading utf8
+  Campfire.App.Tests.OpengraphTests.finds the meta encoding like nokogiri
+  Campfire.App.Tests.OpengraphTests.extracts opengraph tags
+  Campfire.App.Tests.OpengraphTests.parses pathological pages quickly
+  Campfire.App.Tests.OpengraphTests.strips tags like rails
+  Campfire.App.Tests.OpengraphTests.unfurls like the reference
+  Campfire.App.Tests.OpengraphTests.a mailto url unfurls nothing
+  Campfire.App.Tests.OpengraphTests.System.Uri reads the old URI probes
+  Campfire.App.Tests.OpengraphTests.a tweet url's host is read lower-cased
+  Campfire.App.Tests.OpengraphTests.unfurls over https
+  Campfire.App.Tests.OpengraphTests.stops reading a gzip bomb at the limit
+  Campfire.App.Tests.OpengraphTests.gives up on a trickling page
+  Campfire.App.Tests.OpengraphTests.unfurls past the limit wait while bodies are read
+  Campfire.App.Tests.OpengraphTests.OG1 hostile pages are stopped by the caps
+  Campfire.App.Tests.OpengraphTests.OG2 a deep body still unfurls the head
+  Campfire.App.Tests.OpengraphTests.OG4 each redirect hop is guarded
+  Campfire.App.Tests.OpengraphTests.SR-J1 a name server that never answers does not hold an unfurl past its deadline
+  Campfire.App.Tests.OpengraphTests.SR-J2 private addresses in every URL form connect nowhere
+  Campfire.App.Tests.RedactionTests.RD1 a bot API request's log line holds the HMAC form of the key and not the key
+  Campfire.App.Tests.RedactionTests.RD2 a failure on a bot path logs no key
+  Campfire.App.Tests.RedactionTests.RD3 a webhook job failing on a bad URL logs no part of the URL
+  Campfire.App.Tests.RedactionTests.RD5 sign-in, throttle and join log no e-mail address and no token
+  Campfire.App.Tests.RedactionTests.RD6 the same key gives the same hash within an install and other secrets give other hashes
+  Campfire.App.Tests.RedactionTests.RD7 a bot API path in another letter case logs no key
+  Campfire.App.Tests.WebPushTests.encodes the message like json generate
+  Campfire.App.Tests.WebPushTests.WP1 the payload decrypts to the message
+  Campfire.App.Tests.WebPushTests.WP1 the longest payload fits a push message
+  Campfire.App.Tests.WebPushTests.WP2 delivers to the pinned address with the vapid headers
+  Campfire.App.Tests.WebPushTests.signs with the configured subject
+  Campfire.App.Tests.WebPushTests.rejects bad vapid keys up front
+  Campfire.App.Tests.WebPushTests.WP6 web push is off without a valid key pair
+  Campfire.App.Tests.WebPushTests.WP5 skips endpoints it may not deliver to
+  Campfire.App.Tests.WebPushTests.WP3 raises what the gem raises
+  Campfire.App.Tests.WebPushTests.WP4 a 429 with retry after is sent once
+  Campfire.App.Tests.WebPushTests.WP3 only the subscriptions own faults invalidate it
+  Campfire.App.Tests.WebPushTests.WP7 test notification
+  Campfire.App.Tests.WebPushTests.pushes messages and destroys expired subscriptions
+  Campfire.App.Tests.WebPushTests.WP8 the pool keeps subscriptions it failed to reach
+  Campfire.App.Tests.WebPushTests.WP8 the pool drops deliveries past its queue
+  Campfire.App.Tests.WebPushTests.CH1 one queued notification wakes one reader
+  Campfire.App.Tests.WebPushTests.CH2 a closed queue is delivered whole and every reader ends once
+  Campfire.App.Tests.WebPushTests.WP8 a stop right after the start still delivers and invalidates
+  Campfire.App.Tests.WebPushTests.WP8 a panicking delivery frees its slot
+  Campfire.App.Tests.WebPushTests.RD4 a push failure logs the host and not the endpoint's path
+  Campfire.App.Tests.WebPushTests.SR-J5 a push service's error body is capped
+  Campfire.App.Tests.WebhookTests.delivers like the reference
+  Campfire.App.Tests.WebhookTests.reaches internal services
+  Campfire.App.Tests.WebhookTests.gives up on a trickling reply
+  Campfire.App.Tests.WebhookTests.rejects replies over the limit
+  Campfire.App.Tests.WebhookTests.looks up mime types like rails
+  Campfire.App.Tests.ClientsTests.CL1 a webhook POST is sent once on a 500
+  Campfire.App.Tests.ClientsTests.CL1 a webhook POST is sent once on a reset
+  Campfire.App.Tests.ClientsTests.CL1 a webhook POST is sent once on a timeout
+  Campfire.App.Tests.ClientsTests.CL2 no client follows a redirect
+  Campfire.App.Tests.ClientsTests.CL3 proxy variables are ignored
+  Campfire.App.Tests.ClientsTests.CL2 CL3 every handler is configured without redirects, proxy or cookies
+  Campfire.App.Tests.ClientsTests.CL4 requests carry Net::HTTP's Accept and User-Agent
+  Campfire.App.Tests.ClientsTests.no client logs a request's URL
+  Campfire.App.Tests.ClientsTests.CL5 readLimited stops a gzip bomb at the limit
+  Campfire.App.Tests.ClientsTests.contentType reads the raw header like Net::HTTP
+  Campfire.App.Tests.ClientsTests.GD1 an unpinned request to a private host is refused at connect
+  Campfire.App.Tests.ClientsTests.GD2 a pinned private address is refused at connect
+  Campfire.App.Tests.ClientsTests.GD3 the IPNetwork lists are the old lists
+  Campfire.App.Tests.ClientsTests.GD4 an IPv4-mapped answer is classified as its IPv4 address
+  Campfire.App.Tests.ClientsTests.a timed out webhook's resilience event logs no URL
+  Campfire.App.Tests.GuardTests.classifies addresses like surfguard
+  Campfire.App.Tests.GuardTests.inet aton forms
+  Campfire.App.Tests.GuardTests.resolves hosts like the private network guard
+  Campfire.App.Tests.PaginationTests.offsets with one ratio
+  Campfire.App.Tests.PaginationTests.offsets with default ratios
+  Campfire.App.Tests.PaginationTests.huge page numbers are capped
+  Campfire.App.Tests.PaginationTests.page params like ruby to i
+  Campfire.App.Tests.PaginationTests.next links merge the page into sorted query values
+  Campfire.App.Tests.PaginationTests.plus is a space only before unencoding
+  Campfire.App.Tests.PresentersTests.cache versions use usec
+  Campfire.App.Tests.PresentersTests.all emoji matches ruby
+  Campfire.App.Tests.MiscTests.a body whose plain text raises has none
+  Campfire.App.Tests.MiscTests.a body without attachments that fails to parse still logs the mentions error
+  Campfire.App.Tests.MiscTests.a plain body parses nothing and logs nothing
+  Campfire.App.Tests.MiscTests.no body of the safe length fails to parse
+  Campfire.App.Tests.MiscTests.json times have milliseconds
+  Campfire.App.Tests.MiscTests.transparent huge pages are disabled
+  Campfire.App.Tests.JobsTests.JB1 a job of each kind runs once on its kind's worker
+  Campfire.App.Tests.JobsTests.JB2 JB3 a busy or full kind doesnt hold up the others
+  Campfire.App.Tests.JobsTests.JB4 a panicking job is logged and its worker carries on
+  Campfire.App.Tests.JobsTests.a failed job is logged with its cause
+  Campfire.App.Tests.JobsTests.CH3 the job workers drain a closed queue and end without an exception
+  Campfire.App.Tests.JobsTests.JB5 shutdown performs what is queued and then takes no more
+  Campfire.App.Tests.FileResultTests.FR1 byte ranges answer as rack does except the listed cases
+  Campfire.App.Tests.FileResultTests.a relative path is served
+  Campfire.App.Tests.FileResultTests.a missing file is not answered as an empty 200
+  Campfire.App.Tests.FileResultTests.FR2 disk show answers whole, ranged, conditional and missing
+  Campfire.App.Tests.FileResultTests.FR3 proxy ranges answer with rails headers
+  Campfire.App.Tests.FileResultTests.FR4 an empty file is served whole and refuses a range
+  Campfire.App.Tests.AppTests.health check
+  Campfire.App.Tests.AppTests.unknown and unported routes
+  Campfire.App.Tests.AppTests.database errors answer as active record rescues them
+  Campfire.App.Tests.AppTests.a rails issued session cookie authenticates
+  Campfire.App.Tests.AppTests.the application chain blocks banned ips forgeries and old browsers
+  Campfire.App.Tests.AppTests.allow browser keeps the platform it parsed for the layout
+  Campfire.App.Tests.AppTests.blob redirects to a signed disk url
+  Campfire.App.Tests.AppTests.disk uploads require a session
+  Campfire.App.Tests.AppTests.cable handshake with a rails session cookie
+  Campfire.App.Tests.AppTests.backup snapshots the live database
+  Campfire.App.Tests.AppTests.jobs run ad hoc work and purge unattached blobs
+  Campfire.App.Tests.AppTests.writes proceed while a variant is transformed
+  Campfire.App.Tests.AppTests.blob byte ranges are served from the file
+  Campfire.App.Tests.AppTests.proxied blobs name their file like rails
+  Campfire.App.Tests.AppTests.proxied blobs write odd dispositions as puma does
+  Campfire.App.Tests.AppTests.concurrent message posts all complete
+  Campfire.App.Tests.AppTests.backup retries a busy source until it is free
+  Campfire.App.Tests.AppTests.backup gives up on a source that stays busy
+  Campfire.App.Tests.AppTests.a failed backup prints the error and exits 1 instead of throwing
+  Campfire.App.Tests.AppTests.the console logger never colours its lines
+  Campfire.App.Tests.AppTests.a request resolves the scoped CampfireDb and the TimeProvider from its RequestServices
+  Campfire.App.Tests.Web.RoomControllerTests.D1 a bot's raw body survives the form reader and the method override
+  Campfire.App.Tests.Web.RoomControllerTests.D2 set_room sends a missing room back to the root with an alert
+  Campfire.App.Tests.Web.RoomControllerTests.D3 the last_room cookie is set on a room page and only when it changes
+  Campfire.App.Tests.Web.RoomControllerTests.D4 refresh reads since as an integer and rejects a hash
+  Campfire.App.Tests.Web.RoomControllerTests.D5 involvement: blank clears it, a name sets it, anything else is a 500
+  Campfire.App.Tests.Web.LookupControllerTests.K1 the mention list: formats, headers, the room filter and sign-in
+  Campfire.App.Tests.Web.LookupControllerTests.K2 the QR code is public, cached for a year, and refuses what it cannot encode
+  Campfire.App.Tests.Web.LookupControllerTests.K3 searches: record, show, clear, and the params Rails would choke on
+  Campfire.App.Tests.Web.LookupControllerTests.K4 unfurling needs a url, and a hash for one is no metadata
+  Campfire.App.Tests.Web.LookupControllerTests.K5 the Active Storage writes need a session and a same-origin request
+  Campfire.App.Tests.Web.LookupControllerTests.K6 a direct upload read back: disk PUT, redirect, proxy, ranges and the disk cache header
+  Campfire.App.Tests.Web.AccountControllerTests.J1 the administrator-only writes answer 403 to a member, and run for an administrator
+  Campfire.App.Tests.Web.AccountControllerTests.J2 the account form reads its name and its settings hash
+  Campfire.App.Tests.Web.AccountControllerTests.J3 the people list's next pages are a Turbo Stream, and only that
+  Campfire.App.Tests.Web.AccountControllerTests.J4 a role change and a removal
+  Campfire.App.Tests.Web.AccountControllerTests.J5 bots: list, create, change, new key and remove
+  Campfire.App.Tests.Web.AccountControllerTests.J6 joining with the account's code
+  Campfire.App.Tests.Web.AccountControllerTests.J7 avatars answer a signed-in user, with conditional GETs, and their owner can remove one
+  Campfire.App.Tests.Web.AccountControllerTests.J8 profile: the page, a name change, and the sidebar frame
+  Campfire.App.Tests.Web.AccountControllerTests.J9 push subscriptions: list, params, removal and test notifications
+  Campfire.App.Tests.Web.AccountControllerTests.J10 the logo is a public image with a conditional GET
+  Campfire.App.Tests.Web.SessionControllerTests.N1 a page of a Web action has Rails' default headers, the version headers and no body digest
+  Campfire.App.Tests.Web.SessionControllerTests.N2 a redirect and a bare head answer no-cache with the default headers
+  Campfire.App.Tests.Web.SessionControllerTests.N3 the health check answers HTML and JSON, without the chain
+  Campfire.App.Tests.Web.SessionControllerTests.N4 Turbo Native navigation answers its text
+  Campfire.App.Tests.Web.SessionControllerTests.N5 the conductor checks the request's origin before it refuses
+  Campfire.App.Tests.Web.SessionControllerTests.N6 the PWA files are open to anyone and their bodies are Rails'
+  Campfire.App.Tests.Web.SessionControllerTests.N7 the root goes to the last room, and to sign in for a visitor
+  Campfire.App.Tests.Web.SessionControllerTests.N8 the sign in limit is per client address
+  Campfire.App.Tests.Web.SessionControllerTests.N9 an error page carries none of the chain's headers and no cache control
+  Campfire.App.Tests.Web.HostTests.HS1 /up answers on HTTP_PORT and on TARGET_PORT, which is bound to loopback
+  Campfire.App.Tests.Web.HostTests.HS3 without TLS the HTTP port serves the app
+  Campfire.App.Tests.Web.HostTests.HS5 HSTS is on an HTTPS page, an asset, an error page and any host, and absent with DISABLE_SSL
+  Campfire.App.Tests.Web.HostTests.HS5 without force_ssl (DISABLE_SSL) there is no HSTS
+  Campfire.App.Tests.Web.HostTests.HS6 the head limits of Puma and hyper through Host.build
+  Campfire.App.Tests.Web.HostTests.HS7 remote_ip follows FORWARD_HEADERS: Rails' proxies when on, the peer when off
+  Campfire.App.Tests.Web.HostTests.HS8 HTTP_IDLE_TIMEOUT closes an idle keep-alive connection, HTTP_READ_TIMEOUT a slow request
+  Campfire.App.Tests.Web.HostTests.HS9 MAX_REQUEST_BODY below 16 MiB is the app's 413, above it the 16 MiB cap stays
+  Campfire.App.Tests.Web.HostTests.HS10 a large value of a timeout means none, and the host starts
+  Campfire.App.Tests.Web.HostTests.HS11 stopping the host closes the cable sockets with server_restart first, then the host stops within the grace
+  Campfire.App.Tests.Web.HostTests.HS12 FrontSettings.fromLookup reads Thruster's variables: the THRUSTER_ prefix, Go's booleans and integers, the defaults
+  Campfire.App.Tests.Web.HostTests.the open-file limit is raised to the hard one
+  Campfire.App.Tests.Web.HostTests.HS2 with TLS_DOMAIN the HTTP port answers the ACME challenge for its names, 421s others, and 301s the rest to HTTPS
+  Campfire.App.Tests.Web.HostTests.HS4 the HTTPS port hands each TLS_DOMAIN name its own certificate, refuses every other name, and serves the app
+  Campfire.App.Tests.Web.HostTests.HS4 the first handshake of a name with no certificate yet fails within HTTP_READ_TIMEOUT, and is bounded when that is none
+  Campfire.App.Tests.Web.HostTests.TLS_DOMAIN names that normalize refuses are logged, and a list with none usable fails the boot
+  Campfire.App.Tests.Web.HostTests.SR4 the HTTP port's redirect never leaves the TLS_DOMAIN name, whatever the target or the Host
+  Campfire.App.Tests.Web.HostTests.SR5 the ACME challenge answers only a pending token, by exact name, on the HTTP port of a TLS install
+  Campfire.App.Tests.Web.HostTests.SR7 the TLS options leave protocols and cipher suites to the platform, ask for no client certificate and never renegotiate
+  Campfire.App.Tests.Web.AcmeTests.AC1 DirCache write then read round trips: SEC1 key, chain order kept, 0600 file in a 0700 directory, no temporary left
+  Campfire.App.Tests.Web.AcmeTests.AC2 DirCache read refuses an expired, a not yet valid, a mismatched key and a wrong name file, and accepts a wildcard
+  Campfire.App.Tests.Web.AcmeTests.AC3 a cache file written by the deleted port reads, and its SEC1 key is written back byte for byte
+  Campfire.App.Tests.Web.AcmeTests.AC4 Renewal due is 30 days before NotAfter for a 90 day certificate and two days before for a 6 day one, less the jitter
+  Campfire.App.Tests.Web.AcmeTests.AC5 ServerNames normalize lower-cases, drops a trailing dot, punycodes, and refuses an IP, a single label and a slash
+  Campfire.App.Tests.Web.AcmeTests.AC6 the handshake gives the stored options, fails for a name outside TLS_DOMAIN, and waits for a first certificate until Set
+  Campfire.App.Tests.Web.AcmeTests.AC7 accountKeyPem creates a SEC1 key once and returns the same text after
+  Campfire.App.Tests.Web.AcmeTests.AC8 the challenge endpoint answers a stored token as text plain, 404 otherwise, and only under the well-known path
+  Campfire.App.Tests.Web.AcmeTests.AC9 a pass with every domain loaded and not due makes no HTTP request and returns the earliest due time
+  Campfire.App.Tests.Web.AcmeTests.AC10 a failing order leaves the store unchanged, logs the domain and returns now plus 30 to 60 minutes
+  Campfire.App.Tests.Web.AcmeTests.AC11 Pebble: a certificate is ordered at start over HTTP-01, cached, served with its intermediate, and a second host loads it without ordering
+  Campfire.App.Tests.Web.OutputCachingTests.OC1 an avatar is served once by the app and then from the cache, with Age
+  Campfire.App.Tests.Web.OutputCachingTests.OC2 each family's lifetime is its controller's constant, and an entry expires
+  Campfire.App.Tests.Web.OutputCachingTests.OC3 a different query and a different case of the path are misses
+  Campfire.App.Tests.Web.OutputCachingTests.OC4 a Range request bypasses the cache and gets 206 from the app
+  Campfire.App.Tests.Web.OutputCachingTests.OC5 If-None-Match with the entry's ETag gets 304 without the app
+  Campfire.App.Tests.Web.OutputCachingTests.OC6 a room page is never looked up, stored or locked
+  Campfire.App.Tests.Web.OutputCachingTests.OC7 a response that sets a cookie is not stored and the next request reaches the app
+  Campfire.App.Tests.Web.OutputCachingTests.OC8 gzip, identity and br clients each get their encoding from their own entry
+  Campfire.App.Tests.Web.OutputCachingTests.OC9 each family's predicate matches Rails' route shapes and not a page that shares a prefix
+  Campfire.App.Tests.Web.OutputCachingTests.SR6 a cookie added as the response starts is never stored or replayed to another client, for GET or HEAD
+  Campfire.App.Tests.Web.OutputCachingTests.SR8 a request with Authorization neither reads nor fills the cache, and only a 200 is ever stored
+  Campfire.App.Tests.Web.HttpLogTests.LG1 one combined line per request with the method, path, query, protocol, status and duration
+  Campfire.App.Tests.Web.HttpLogTests.LG2 remote_addr and user_agent are present, an IPv4-mapped peer is written as IPv4 and a trusted proxy's X-Forwarded-For is reflected
+  Campfire.App.Tests.Web.HttpLogTests.LG3 no request or response header value but the user agent appears in the line
+  Campfire.App.Tests.Web.HttpLogTests.LG4 the pipeline logs only with LogRequests (LOG_REQUESTS=false leaves the middleware out)
+  Campfire.App.Tests.Web.HttpLogTests.LS1 a page, a post, a 404 under /assets that is not a table route and a bot call each log one line
+  Campfire.App.Tests.Web.HttpLogTests.LS2 a fingerprinted asset, a public file, an avatar hit and miss and /up log none
+  Campfire.App.Tests.Web.HttpLogTests.LS3 an avatar request whose handler throws logs PublicExceptions' line with status 500
+  Campfire.App.Tests.Web.HttpLogTests.LS4 the HTTP logging middleware does not run for an asset request
+  Campfire.App.Tests.Web.HttpLogTests.LS5 before the asset table is loaded logged answers false only for /up and avatars, and nothing throws
+  Campfire.App.Tests.Web.HttpLogTests.CZ1 Accept-Encoding zstd gets zstd that decompresses to the identity body
+  Campfire.App.Tests.Web.HttpLogTests.CZ2 Chrome's encodings get br, gzip gets gzip, none gets identity
+  Campfire.App.Tests.Web.HttpLogTests.CZ3 a response under 256 bytes and an image are not compressed and carry no Vary
+  Campfire.App.Tests.Web.HttpLogTests.SR1 a client's control characters in the path, query or user agent never reach the log line raw
+  Campfire.App.Tests.Web.HttpLogTests.SR2 query values Rails' filter_parameters names are logged as [FILTERED], as Rails' request line logs them
+  Campfire.App.Tests.Web.HttpLogTests.SR3 the production loggers write the HTTP logging line but not the framework's own request lines, which carry the unfiltered URL
+  Campfire.App.Tests.Web.PagesTests.P1 a page in parts has its Content-Length, HEAD keeps it, and the compressed page is made once per encoding
+  Campfire.App.Tests.Web.PagesTests.P1 the kept page is made once for concurrent requests, and a page with another byte is another page
+  Campfire.App.Tests.Web.RespondTests.X1b redirect_back refuses a Referer that backslash, userinfo or protocol-relative forms point at another host
+  Campfire.App.Tests.Web.RespondTests.X1 redirects: paths and same-host URLs pass, another host or a relative path is an UnsafeRedirect
+  Campfire.App.Tests.Web.RespondTests.X2 fresh_when answers 304 for a matching ETag or a recent enough Last-Modified
+  Campfire.App.Tests.Web.RespondTests.X3 expires_in writes Rails' Cache-Control, public and stale-while-revalidate
+  Campfire.App.Tests.Web.RespondTests.X4 HTML and turbo-stream responses are gzipped or Brotli'd once, with Vary, and small ones are not
+  Campfire.App.Tests.Web.RespondTests.X4b an empty error response is compressed when the client takes it
+  Campfire.App.Tests.Web.RespondTests.X5 send_file answers ranges, with Rails' Content-Disposition
+  Campfire.App.Tests.Web.FormatsTests.browser accept falls back to html
+  Campfire.App.Tests.Web.FormatsTests.turbo form submission
+  Campfire.App.Tests.Web.FormatsTests.quality ordering
+  Campfire.App.Tests.Web.FormatsTests.q values the framework reads are Rails' q values
+  Campfire.App.Tests.Web.FormatsTests.q values Ruby reads and the framework does not are class B
+  Campfire.App.Tests.Web.FormatsTests.single types
+  Campfire.App.Tests.Web.FormatsTests.wildcards expand in registration order
+  Campfire.App.Tests.Web.FormatsTests.xml: text xml is application xml, and folding is class B
+  Campfire.App.Tests.Web.FormatsTests.path extension and format param
+  Campfire.App.Tests.Web.FormatsTests.xhr defaults to js
+  Campfire.App.Tests.Web.FormatsTests.negotiation
+  Campfire.App.Tests.Web.FormatsTests.respond_to answers 406 for a format nobody offers, and turbo frames are the header
+  Campfire.App.Tests.Web.ParamsTests.P1 route values win over the body, which wins over the query
+  Campfire.App.Tests.Web.ParamsTests.P2 message[body] reads from a form, a query string and JSON
+  Campfire.App.Tests.Web.ParamsTests.P3 wrap_parameters nests a JSON body under the controller's key
+  Campfire.App.Tests.Web.ParamsTests.P4 a missing or blank key is ParameterMissing, a malformed body a bad request
+  Campfire.App.Tests.Web.RequestsTests.R1 X-Forwarded-For from a trusted proxy sets remote_ip, from another peer it is ignored
+  Campfire.App.Tests.Web.RequestsTests.R2 X-Forwarded-Proto and -Host from a trusted proxy make https URLs and secure cookies
+  Campfire.App.Tests.Web.RequestsTests.R2 assume_ssl makes every request https
+  Campfire.App.Tests.Web.RequestsTests.R3b a post that _method turned into a head sends no body and announces none
+  Campfire.App.Tests.Web.RequestsTests.R3 a form's _method reaches the DELETE and PATCH rows
+  Campfire.App.Tests.Web.RequestsTests.R4 a body over 16 MiB is 413, whatever its form
+  Campfire.App.Tests.Web.RequestsTests.R4 a chunked body over 16 MiB is 413 with the public page
+  Campfire.App.Tests.Web.RequestsTests.R5 X-Request-Id is echoed sanitized or generated, default headers go on pages only
+  Campfire.App.Tests.Web.RequestsTests.R6 an exception outside an action is the public 500 page, JSON for a JSON client
+  Campfire.App.Tests.Web.RequestsTests.R7 a request head as large as puma and hyper accept is served
+  Campfire.App.Tests.Web.RequestsTests.R8 kestrel's request line rules differ from puma's and hyper's in three recorded ways
+  Campfire.App.Tests.Web.RequestsTests.R9 a multipart body cut short is an empty 400, not a 500
+  Campfire.App.Tests.Web.FlashTests.F1 a notice renders once
+  Campfire.App.Tests.Web.FlashTests.F2 a failed sign in shows the alert on that page only
+  Campfire.App.Tests.Web.FlashTests.F3 a response that never loads the flash does not consume it
+  Campfire.App.Tests.Web.FlashTests.F4 return_to sends the signed out visitor back to the absolute URL
+  Campfire.App.Tests.Web.FlashTests.F5 rails own session cookie is neither read nor rewritten and logs no warning
+  Campfire.App.Tests.Web.FlashTests.F6 last_room is set as Rails does and only when it changes
+  Campfire.App.Tests.Web.FlashTests.F7 the eleventh sign in attempt within the window is 429
+  Campfire.App.Tests.Web.FlashTests.F8 pages without a session cookie do not touch the store
+  Campfire.App.Tests.Web.CsrfTests.C1 same-origin writes pass
+  Campfire.App.Tests.Web.CsrfTests.C2 user-initiated (none) writes pass
+  Campfire.App.Tests.Web.CsrfTests.C3 cross-site writes are 422 with the public page
+  Campfire.App.Tests.Web.CsrfTests.C4 same-site writes (another subdomain) are 422
+  Campfire.App.Tests.Web.CsrfTests.C5 without Fetch Metadata a matching Origin passes
+  Campfire.App.Tests.Web.CsrfTests.C6 without Fetch Metadata another Origin is 422
+  Campfire.App.Tests.Web.CsrfTests.C7 neither header (not a browser) passes
+  Campfire.App.Tests.Web.CsrfTests.C8 a GET is never checked
+  Campfire.App.Tests.Web.CsrfTests.C9 a cross-site write that reads no form is still refused
+  Campfire.App.Tests.Web.CsrfTests.C10 a sec-fetch-site the framework does not know is refused
+  Campfire.App.Tests.Web.CsrfTests.C11 a bot key skips the check
+  Campfire.App.Tests.Web.CsrfTests.C12 under assume_ssl a browser's https Origin matches
+  Campfire.App.Tests.Web.CsrfTests.C13 Origin null is refused
+  Campfire.App.Tests.Web.BotKeyTests.B1 a valid key creates a message as the bot
+  Campfire.App.Tests.Web.BotKeyTests.B2 a wrong or blank key is sent to sign in
+  Campfire.App.Tests.Web.BotKeyTests.B3 a valid key in the query of a non-bot page is forbidden
+  Campfire.App.Tests.Web.BotKeyTests.B4 a cross-site bot request is not a forgery
+  Campfire.App.Tests.Web.BotKeyTests.B5 a key that is not a string is a server error, as Rails' strip is
+  Campfire.App.Tests.Web.BotKeyTests.B6 a key authenticates nothing outside the before-action chain
+  Campfire.App.Tests.Web.AuthenticationTests.A1 a rails minted cookie signs David in without a new cookie
+  Campfire.App.Tests.Web.AuthenticationTests.A2 a forged or tampered cookie is sent to sign in and is not deleted
+  Campfire.App.Tests.Web.AuthenticationTests.A3 sign in sets the cookie Rails reads, dated 20 calendar years out
+  Campfire.App.Tests.Web.AuthenticationTests.A3 the cookie is secure under assume_ssl
+  Campfire.App.Tests.Web.AuthenticationTests.A4 padding is percent-encoded on the wire both ways
+  Campfire.App.Tests.Web.AuthenticationTests.A5 an hour old activity is refreshed and the cookie re-issued, a recent one is left alone
+  Campfire.App.Tests.Web.AuthenticationTests.A6 sign out removes the row and the cookie and leaves the user's other session
+  Campfire.App.Tests.Web.AuthenticationTests.A7 requests that do not authenticate never read the cookie
+  Campfire.App.Tests.Web.AuthenticationTests.A8 a session whose user is gone is not signed in
+  Campfire.App.Tests.Web.AuthenticationTests.a request resolves ICsrfProtection, IAuthenticationSchemeProvider and ISessionStore on net11
+  Campfire.App.Tests.Web.AuthenticationTests.no authentication scheme is the default, so nothing authenticates unasked
+  Campfire.App.Tests.Web.AuthenticationTests.Current is one object per request
+  Campfire.App.Tests.RouteTableTests.the table is rails routes in order
+  Campfire.App.Tests.RouteTableTests.recognizes paths like rails
+  Campfire.App.Tests.RouteTableTests.recognizes like a first match scan
+  Campfire.App.Tests.RouteTableTests.normalizes paths
+  Campfire.App.Tests.RouteTableTests.times recognition
+  Campfire.App.Tests.RouteTableTests.Action.run sends the handler an action returns, a halt as it is, and an error as the kit renders it
+  Campfire.App.Tests.RouteTableTests.every row of the route table is a wrapped Web action and the table dispatches through them
+  Campfire.App.Tests.PlatformTests.matches application platform and allow browser
+  Campfire.App.Tests.PlatformTests.view platform uses empty strings for nil
+  Campfire.App.Tests.UserAgentTests.matches the gem
+  Campfire.App.Tests.UserAgentTests.versions match the gem
+  Campfire.App.Tests.UserAgentTests.blank user agents parse as the default
+  Campfire.App.Tests.UserAgentTests.scans products like the char by char matcher
+  Campfire.App.Tests.UserAgentTests.compares ignoring case like lowercasing both
+  Campfire.App.Tests.UserAgentTests.searches ignoring case like lowercasing the haystack
+  Campfire.App.Tests.UserAgentTests.reads webkit comment versions like lowercasing the name
+  Campfire.App.Tests.TimeTests.TM1 HarnessClock.fromValue: unset and blank are the system clock, a timestamp freezes, nonsense names the variable
+  Campfire.App.Tests.TimeTests.TM2 a PeriodicTimer on the frozen provider ticks
+  Campfire.App.Tests.TimeTests.TM3 a message takes created_at from the provider to the microsecond, and an edit takes updated_at from it
+  Campfire.App.Tests.TimeTests.TM4 the session cookie's and the transfer link's expiry follow the provider
+
+Discovered 80 tests in assembly - /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.Cable.Tests/bin/Release/net11.0/Campfire.Cable.Tests.dll (net11.0|arm64)
+  Campfire.Cable.Tests.GoldenTests.replays reference frames
+  Campfire.Cable.Tests.GoldenTests.record_reference
+  Campfire.Cable.Tests.JsonFramesTests.G1 Rails escaping and relaxed escaping compare equal
+  Campfire.Cable.Tests.JsonFramesTests.G1 a changed value, swapped keys or another number form compare unequal
+  Campfire.Cable.Tests.JsonFramesTests.G1 harness lines pass through unchanged
+  Campfire.Cable.Tests.MemoryTests+L7.L7 an idle connection costs the host's floor plus under 5 KB of Cable, with no receive buffer
+  Campfire.Cable.Tests.LimitTests.C13 a broadcast made as soon as the confirmation is read reaches the subscriber, every time
+  Campfire.Cable.Tests.LimitTests.L1 a client that never reads is aborted when its queue fills, and another client on the stream gets every frame
+  Campfire.Cable.Tests.LimitTests.L2 a send that stalls longer than SendTimeout aborts the connection, with less than a full queue behind it
+  Campfire.Cable.Tests.LimitTests.L4 a message of exactly 1 MiB is processed, whole or in four fragments
+  Campfire.Cable.Tests.LimitTests.L4 a message of 1 MiB and one byte closes the connection with 1009
+  Campfire.Cable.Tests.LimitTests.L4 a message of 1 MiB and one byte in four fragments closes the connection with 1009
+  Campfire.Cable.Tests.LimitTests.L5 a binary message is logged and ignored, and the connection stays open
+  Campfire.Cable.Tests.TransportTests.P1 the subprotocol is the first of the client's list that Action Cable speaks, and no extension is negotiated
+  Campfire.Cable.Tests.TransportTests.P8 a subscribe transmits, then confirms, then the stream's broadcasts arrive in order with no gap
+  Campfire.Cable.Tests.TransportTests.P8 with a 10 ms heartbeat logs no outstanding SendAsync error
+  Campfire.Cable.Tests.TransportTests.P11 a client that closes is answered and the connection leaves the registries
+  Campfire.Cable.Tests.TransportTests.an empty message is a message of its own, and a close after it is still echoed
+  Campfire.Cable.Tests.TransportTests.P11 a client that never answers the server's close is cut within CloseTimeout
+  Campfire.Cable.Tests.TransportTests.P12 stopping the host closes every connection with server_restart
+  Campfire.Cable.Tests.TransportTests.P12 a connection accepted after the host began stopping is sent server_restart right after its welcome
+  Campfire.Cable.Tests.TransportTests.A3 the re-check hears a session that went between the first lookup and the registration
+  Campfire.Cable.Tests.TransportTests.A4 every command, and every unsubscribed on close, gets a scope of its own, disposed when it ends
+  Campfire.Cable.Tests.ProtocolTests.non-websocket requests get Rails 404
+  Campfire.Cable.Tests.ProtocolTests.cross-origin upgrades get Rails 404
+  Campfire.Cable.Tests.ProtocolTests.same-origin under assume_ssl means https
+  Campfire.Cable.Tests.ProtocolTests.negotiates the actioncable subprotocol and welcomes
+  Campfire.Cable.Tests.ProtocolTests.unauthorized connections are told not to reconnect and closed
+  Campfire.Cable.Tests.ProtocolTests.subscribe confirms and duplicates are ignored
+  Campfire.Cable.Tests.ProtocolTests.rejection runs unsubscribed and can be retried
+  Campfire.Cable.Tests.ProtocolTests.unknown channels and malformed commands get no reply
+  Campfire.Cable.Tests.ProtocolTests.leading colons resolve like safe_constantize
+  Campfire.Cable.Tests.ProtocolTests.leading colons stream and broadcast under the class name
+  Campfire.Cable.Tests.ProtocolTests.broadcasts reach subscribers as JSON
+  Campfire.Cable.Tests.ProtocolTests.perform dispatches actions and defaults to receive
+  Campfire.Cable.Tests.ProtocolTests.unsubscribe stops delivery silently
+  Campfire.Cable.Tests.ProtocolTests.remote disconnect closes every connection for the identifier
+  Campfire.Cable.Tests.ProtocolTests.restart closes with server_restart
+  Campfire.Cable.Tests.ProtocolTests.L1 (capacity 2) a subscriber that cannot keep up is cut, not waited for
+  Campfire.Cable.Tests.ProtocolTests.pings every three seconds with a unix timestamp
+  Campfire.Cable.Tests.ProtocolTests.turbo streams channel verifies and guards stream names
+  Campfire.Cable.Tests.ProtocolTests.P3 welcome is the first frame, then one ping per beat
+  Campfire.Cable.Tests.ProtocolTests.a client close is answered with its code
+  Campfire.Cable.Tests.ProtocolTests.L5 an invalid UTF-8 text message closes 1007, websocket-driver's code and not a blanket 1002
+  Campfire.Cable.Tests.ProtocolTests.L3 a connection holds a bounded number of subscriptions and identifiers of bounded size
+  Campfire.Cable.Tests.ProtocolTests.L6 a client's ping is answered with a pong
+  Campfire.Cable.Tests.ProtocolTests.a stream that stops after the connection closes is released from the hub
+  Campfire.Cable.Tests.ProtocolTests.origins: the allowed list, the forwarded protocol and disabling the check
+  Campfire.Cable.Tests.ProtocolTests.a connection's request is what the authenticator sees
+  Campfire.Cable.Tests.ProtocolTests.turbo streams channel verifies names signed with the app's secret
+  Campfire.Cable.Tests.ProtocolTests.a message of many keys is read in linear time
+  Campfire.Cable.Tests.ProtocolTests.the 101 answers as websocket-driver does, plus the host's Date
+  Campfire.Cable.Tests.ProtocolTests.commands sent after the server began closing are not processed
+  Campfire.Cable.Tests.TurboTests.append tag
+  Campfire.Cable.Tests.TurboTests.remove tag has no template
+  Campfire.Cable.Tests.TurboTests.attributes come before action and are not dasherized
+  Campfire.Cable.Tests.TurboTests.targets and escaping
+  Campfire.Cable.Tests.TurboTests.refresh tags
+  Campfire.Cable.Tests.TurboTests.broadcast helpers send the tag as a JSON string, to the joined stream name
+  Campfire.Cable.Tests.TurboTests.blank streamables are dropped, and nothing is sent when none are left
+  Campfire.Cable.Tests.StreamsTests.R1 same identifier shares one frame instance, two identifiers get two frames
+  Campfire.Cable.Tests.StreamsTests.R1 subscribers are kept sorted by identifier, ordinal
+  Campfire.Cable.Tests.StreamsTests.R2 removing the last subscriber removes the broadcasting
+  Campfire.Cable.Tests.StreamsTests.R2 concurrent add, remove and broadcast lose no subscriber
+  Campfire.Cable.Tests.StreamsTests.R3 broadcast counts the subscribers written and a refusing one does not stop the rest
+  Campfire.Cable.Tests.StreamsTests.R4 ConnectionIndex by identifier after adds and removes
+  Campfire.Cable.Tests.StreamsTests.R5 a broadcast to a stream with no subscribers is 0 and builds no frame
+  Campfire.Cable.Tests.StreamsTests.R6 ten thousand writes to a full outbound cost under 10 ms
+  Campfire.Cable.Tests.FramesTests.F1 frames equal the recorded ones under canonical
+  Campfire.Cable.Tests.FramesTests.F1 every recorded welcome, disconnect, confirmation and rejection is rebuilt exactly
+  Campfire.Cable.Tests.FramesTests.F2 an identifier with quotes, angle brackets, non-ASCII and an emoji decodes back exactly
+  Campfire.Cable.Tests.FramesTests.F3 an anonymous record writes action before user
+  Campfire.Cable.Tests.FramesTests.F4 a Turbo tag with quotes, angle brackets, ampersand and U+2028 decodes to the tag
+  Campfire.Cable.Tests.ChannelTests.C1 params are the decoded identifier and Param reads one value
+  Campfire.Cable.Tests.ChannelTests.C2 Services is a scope of the server's provider (3.5) and Broadcaster is the server
+  Campfire.Cable.Tests.ChannelTests.C3 an exception in subscribed or perform is logged and sends nothing
+  Campfire.Cable.Tests.ChannelTests.C4 perform gets the action, receive when it is null or blank, and the data element
+  Campfire.Cable.Tests.ChannelTests.C5 the registry resolves a class name, with or without the leading colons
+  Campfire.Cable.Tests.NamingTests.channel names
+  Campfire.Cable.Tests.NamingTests.broadcastings
+
+Discovered 162 tests in assembly - /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.Db.Tests/bin/Release/net11.0/Campfire.Db.Tests.dll (net11.0|arm64)
+  Campfire.Db.Tests.WritesTests.W1 Writes.run holds BEGIN IMMEDIATE: a second connection's BEGIN IMMEDIATE is busy inside the body
+  Campfire.Db.Tests.WritesTests.W2 hooks and events run in queue order after the commit, outside the transaction, and a nested hook runs at once
+  Campfire.Db.Tests.WritesTests.W3 an exception in the body rolls back, drops the queue and clears the tracker
+  Campfire.Db.Tests.WritesTests.W3 a DbException is an Error, and a unique index violation maps to isRecordNotUnique
+  Campfire.Db.Tests.WritesTests.W4 a failing hook is logged, the later hooks run and the write is still Ok (the data committed)
+  Campfire.Db.Tests.WritesTests.W5 InWrite is true across the body and the commit, false in the hooks, the sink, after run and in a concurrent read
+  Campfire.Db.Tests.WritesTests.W6 16 concurrent Writes.run posts all commit, never two bodies at once, no SQLITE_BUSY
+  Campfire.Db.Tests.WritesTests.W8 a write statement outside the gate is refused; reads, Writes.run, its hooks and Exempt pass
+  Campfire.Db.Tests.LinqTests.L1 a captured local is a constant: every new value compiles a query
+  Campfire.Db.Tests.LinqTests.L1 EF.Parameter around a captured value keeps the cache hitting
+  Campfire.Db.Tests.LinqTests.L1 a record field keeps the cache hitting
+  Campfire.Db.Tests.LinqTests.L2 an ExecuteUpdate setter value is a parameter, not a constant
+  Campfire.Db.Tests.LinqTests.L3 ban and push queries keep the cache hitting with new values
+  Campfire.Db.Tests.EfTests.D1 every row of the 15 tables of the default seed survives a round trip through EF
+  Campfire.Db.Tests.EfTests.D1 every row of the 15 tables of the crowd seed survives a round trip through EF
+  Campfire.Db.Tests.EfTests.D2 toDb writes the fraction only when it is not zero, truncated to microseconds
+  Campfire.Db.Tests.EfTests.D2 ofDb reads zero to nine fraction digits
+  Campfire.Db.Tests.EfTests.D2 toUsec and toEpoch are Time#to_fs(usec) and to_fs(epoch)
+  Campfire.Db.Tests.EfTests.D2 now is the provider's UTC time truncated to microseconds
+  Campfire.Db.Tests.EfTests.D3 an Add of each entity with unset timestamps stores the provider's time in Rails' text
+  Campfire.Db.Tests.EfTests.D3 SetValues with a change stamps updated_at, without one writes nothing
+  Campfire.Db.Tests.EfTests.D4 every pooled connection has Rails' pragmas and the counter equals the physical connections
+  Campfire.Db.Tests.EfTests.D5 a DateTime hole in raw SQL throws and Rails' text runs
+  Campfire.Db.Tests.EfTests.D6 Rooms::Closed and involvement everything round-trip as Rails' strings, an unknown type fails loudly
+  Campfire.Db.Tests.SeedTests.a database Rails wrote opens as up to date and gains only the paging index
+  Campfire.Db.Tests.SeedTests.the schema Rails created is the schema we load
+  Campfire.Db.Tests.SeedTests.every model reads the rows Rails wrote
+  Campfire.Db.Tests.SeedTests.every datetime Rails wrote reads and writes back as the same text
+  Campfire.Db.Tests.SeedTests.messages page, search and read their bodies and attachments as Rails stored them
+  Campfire.Db.Tests.SeedTests.memberships Rails wrote read with every involvement and connection state
+  Campfire.Db.Tests.SeedTests.writes land beside the rows Rails wrote
+  Campfire.Db.Tests.SeedTests.an account with restricted room creation and an account with custom styles read their settings
+  Campfire.Db.Tests.SeedTests.the first run seed has no account and FirstRun creates one
+  Campfire.Db.Tests.SeedTests.a crowd of users all join a new open room
+  Campfire.Db.Tests.UserTests.user does not prevent very long passwords
+  Campfire.Db.Tests.UserTests.creating users grants membership to the open rooms
+  Campfire.Db.Tests.UserTests.creating subsequent users makes them members
+  Campfire.Db.Tests.UserTests.deactivating a user deletes push subscriptions searches memberships for non direct rooms and changes their email address
+  Campfire.Db.Tests.UserTests.deactivating a user deletes their sessions
+  Campfire.Db.Tests.UserTests.initials and title
+  Campfire.Db.Tests.UserTests.create bot
+  Campfire.Db.Tests.UserTests.create bot with webhook
+  Campfire.Db.Tests.UserTests.reset bot key
+  Campfire.Db.Tests.UserTests.authenticate bot
+  Campfire.Db.Tests.UserTests.deliver message by webhook
+  Campfire.Db.Tests.UserTests.webhook payload
+  Campfire.Db.Tests.UserTests.webhook payload escapes html entities
+  Campfire.Db.Tests.UserTests.can administer
+  Campfire.Db.Tests.UserTests.ban creates bans from session ips and removes sessions
+  Campfire.Db.Tests.UserTests.ban rejects private session ips
+  Campfire.Db.Tests.UserTests.remove banned content
+  Campfire.Db.Tests.RoomTests.grant membership to user
+  Campfire.Db.Tests.RoomTests.revoke membership from user
+  Campfire.Db.Tests.RoomTests.revise memberships
+  Campfire.Db.Tests.RoomTests.create for users by giving them immediate membership
+  Campfire.Db.Tests.RoomTests.type predicates
+  Campfire.Db.Tests.RoomTests.default involvement for new users
+  Campfire.Db.Tests.RoomTests.granted memberships are stamped by sqlite
+  Campfire.Db.Tests.RoomTests.direct rooms keep their type
+  Campfire.Db.Tests.RoomTests.destroying a room destroys its messages and memberships
+  Campfire.Db.Tests.RoomTests.create direct room for same users
+  Campfire.Db.Tests.RoomTests.only one direct room will exist for the same users
+  Campfire.Db.Tests.RoomTests.direct default involvement for new users
+  Campfire.Db.Tests.RoomTests.open room grants access to all users after creation
+  Campfire.Db.Tests.RoomTests.open room grants access to all users after becoming open
+  Campfire.Db.Tests.RoomTests.user room scopes
+  Campfire.Db.Tests.RoomTests.the sidebar's memberships and rooms are the entities LINQ reads
+  Campfire.Db.Tests.RoomTests.a direct room is found by its members in any order
+  Campfire.Db.Tests.RoomTests.granting more users than one batch holds
+  Campfire.Db.Tests.PushTests.deliver new message to other room users with push subscriptions
+  Campfire.Db.Tests.PushTests.notifies subscribed users
+  Campfire.Db.Tests.PushTests.does not notify for connected rooms
+  Campfire.Db.Tests.PushTests.does not notify for invisible rooms
+  Campfire.Db.Tests.PushTests.payloads
+  Campfire.Db.Tests.PushTests.long payloads are cut short to fit a push message
+  Campfire.Db.Tests.PushTests.valid subscription with permitted endpoint
+  Campfire.Db.Tests.PushTests.rejects endpoint with non https scheme
+  Campfire.Db.Tests.PushTests.rejects endpoint with non permitted host
+  Campfire.Db.Tests.PushTests.rejects endpoint whose host only suffix matches a permitted host
+  Campfire.Db.Tests.PushTests.rejects blank endpoint
+  Campfire.Db.Tests.PushTests.rejects endpoint on a non default port
+  Campfire.Db.Tests.PushTests.rejects endpoint that resolves to private ip
+  Campfire.Db.Tests.PushTests.resolved endpoint ip returns the pinned public ip
+  Campfire.Db.Tests.PushTests.delivery is skipped for a non permitted host or port
+  Campfire.Db.Tests.PushTests.accepts all permitted push service domains
+  Campfire.Db.Tests.PushTests.create validates
+  Campfire.Db.Tests.PushTests.truncates by json escaped length
+  Campfire.Db.Tests.MessageTests.creating a message enqueues to push later
+  Campfire.Db.Tests.MessageTests.mentionees
+  Campfire.Db.Tests.MessageTests.message body is indexed and searchable
+  Campfire.Db.Tests.MessageTests.search words are never query syntax
+  Campfire.Db.Tests.MessageTests.search results are returned in message order
+  Campfire.Db.Tests.MessageTests.rich text body is converted to plain text for indexing
+  Campfire.Db.Tests.MessageTests.search reachable only finds messages in the users rooms
+  Campfire.Db.Tests.MessageTests.search reachable equals the ports query for a word a quoted phrase a nul separated query and nothing
+  Campfire.Db.Tests.MessageTests.creating a blank message with attachment uses filename as plain text body
+  Campfire.Db.Tests.MessageTests.sound messages
+  Campfire.Db.Tests.MessageTests.create returns the row as stored
+  Campfire.Db.Tests.MessageTests.client message id defaults to a uuid
+  Campfire.Db.Tests.MessageTests.pagination
+  Campfire.Db.Tests.MessageTests.P1 post and boost with the clock frozen
+  Campfire.Db.Tests.MessageTests.reachable messages are those of the user's rooms
+  Campfire.Db.Tests.MessageTests.destroying a message removes its boosts, body and attachment and touches the room
+  Campfire.Db.Tests.MembershipTests.connected scope
+  Campfire.Db.Tests.MembershipTests.disconnected scope
+  Campfire.Db.Tests.MembershipTests.connected is false when connection is stale
+  Campfire.Db.Tests.MembershipTests.connecting
+  Campfire.Db.Tests.MembershipTests.connecting resets stale connection count
+  Campfire.Db.Tests.MembershipTests.disconnecting
+  Campfire.Db.Tests.MembershipTests.disconnecting resets stale connection count
+  Campfire.Db.Tests.MembershipTests.refreshing the connection
+  Campfire.Db.Tests.MembershipTests.present marks read and counts connections
+  Campfire.Db.Tests.MembershipTests.disconnect all resets connected memberships
+  Campfire.Db.Tests.MembershipTests.removing a membership resets the users connections
+  Campfire.Db.Tests.MembershipTests.reading is a noop when already read
+  Campfire.Db.Tests.FixturesTests.ids are label crcs
+  Campfire.Db.Tests.FixturesTests.associations enums and defaults
+  Campfire.Db.Tests.FixturesTests.erb times are whole seconds and default timestamps are now
+  Campfire.Db.Tests.FixturesTests.passwords are bcrypt of secret123456
+  Campfire.Db.Tests.FixturesTests.fixtures match ruby row for row
+  Campfire.Db.Tests.FixturesTests.export database for rails
+  Campfire.Db.Tests.FixturesTests.a fixture naming a table or column the schema lacks is refused and rolls back
+  Campfire.Db.Tests.FirstRunTests.creating makes first user an administrator
+  Campfire.Db.Tests.FirstRunTests.first user has access to first room
+  Campfire.Db.Tests.FirstRunTests.first room is an open room
+  Campfire.Db.Tests.FirstRunTests.first user can sign in
+  Campfire.Db.Tests.DifferentialTests.scenario matches ruby
+  Campfire.Db.Tests.CallbacksTests.creating a message touches the room marks disconnected members unread and indexes after commit
+  Campfire.Db.Tests.CallbacksTests.invisible members are not marked unread
+  Campfire.Db.Tests.CallbacksTests.rolled back writes emit nothing after commit
+  Campfire.Db.Tests.CallbacksTests.boosting touches the message and room and reindexes
+  Campfire.Db.Tests.CallbacksTests.boosts are ordered by creation
+  Campfire.Db.Tests.CallbacksTests.session start and resume
+  Campfire.Db.Tests.CallbacksTests.fixture session resumes because it is two hours old
+  Campfire.Db.Tests.CallbacksTests.recording searches keeps the ten most recent
+  Campfire.Db.Tests.CallbacksTests.timestamps are written like active record
+  Campfire.Db.Tests.CallbacksTests.async writes and reads
+  Campfire.Db.Tests.AccountTests.settings
+  Campfire.Db.Tests.AccountTests.updating other attributes leaves null settings alone
+  Campfire.Db.Tests.AccountTests.unknown settings are rejected
+  Campfire.Db.Tests.AccountTests.new accounts get a joinable code
+  Campfire.Db.Tests.AccountTests.only one account can exist
+  Campfire.Db.Tests.AccountTests.accounts can reset join code
+  Campfire.Db.Tests.UnitTests.public addresses are valid
+  Campfire.Db.Tests.UnitTests.internal addresses are rejected
+  Campfire.Db.Tests.UnitTests.garbage is invalid
+  Campfire.Db.Tests.UnitTests.builtin sounds match reference
+  Campfire.Db.Tests.UnitTests.plain text strips tags
+  Campfire.Db.Tests.UnitTests.plain text renders mentions by name
+  Campfire.Db.Tests.UnitTests.reports no mentions
+  Campfire.Db.Tests.UnitTests.identify matches rails
+  Campfire.Db.Tests.UnitTests.table names
+  Campfire.Db.Tests.UnitTests.erb ago renders whole seconds
+  Campfire.Db.Tests.SchemaTests.schema sha1 matches reference schema rb
+  Campfire.Db.Tests.SchemaTests.migration versions match reference migrations
+  Campfire.Db.Tests.SchemaTests.prepare loads then is idempotent
+  Campfire.Db.Tests.SchemaTests.prepare adds the room paging index to new and existing databases
+  Campfire.Db.Tests.SchemaTests.prepare reports pending migrations and leaves the file free
+  Campfire.Db.Tests.SchemaTests.prepare rolls the schema back when it fails partway
+  Campfire.Db.Tests.ErrorTests.other errors keep their type and message
+  Campfire.Db.Tests.ErrorTests.unique violations are record not unique
+  Campfire.Db.Tests.ErrorTests.errors are messages in the order they were added
+
+Discovered 82 tests in assembly - /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.Rails.Tests/bin/Release/net11.0/Campfire.Rails.Tests.dll (net11.0|arm64)
+  Campfire.Rails.Tests.RoutesTests.the vector has every row of bin/rails routes
+  Campfire.Rails.Tests.RoutesTests.path helpers build the paths of config/routes.rb
+  Campfire.Rails.Tests.RoutesTests.every path helper is a route in the reference table
+  Campfire.Rails.Tests.RoutesTests.direct helpers build cache-busting urls
+  Campfire.Rails.Tests.RoutesTests.recognition samples name routes in the table
+  Campfire.Rails.Tests.RubyCoreTests.to_i
+  Campfire.Rails.Tests.RubyCoreTests.integer_cast
+  Campfire.Rails.Tests.RubyCoreTests.strip
+  Campfire.Rails.Tests.RubyCoreTests.html_escape
+  Campfire.Rails.Tests.RubyCoreTests.cgi_escape
+  Campfire.Rails.Tests.RubyCoreTests.url_encode
+  Campfire.Rails.Tests.RubyCoreTests.float_to_s
+  Campfire.Rails.Tests.RubyUnitTests.erb escapes like erb util
+  Campfire.Rails.Tests.RubyUnitTests.strips nul and ascii whitespace
+  Campfire.Rails.Tests.RubyUnitTests.uri escapes like ruby
+  Campfire.Rails.Tests.RubyUnitTests.to_i like ruby
+  Campfire.Rails.Tests.RubyUnitTests.casts like active record
+  Campfire.Rails.Tests.RubyUnitTests.float_to_s like ruby 3.4
+  Campfire.Rails.Tests.RubyUnitTests.float_to_s breaks ties to even like ruby
+  Campfire.Rails.Tests.RubyUnitTests.to_i without 128-bit arithmetic gives the answers of the general one
+  Campfire.Rails.Tests.GoldenTests.key_generator
+  Campfire.Rails.Tests.GoldenTests.cookie_escaping
+  Campfire.Rails.Tests.GoldenTests.cookie_escaping_is_rack_escape
+  Campfire.Rails.Tests.GoldenTests.signed_cookies_are_generated_byte_for_byte
+  Campfire.Rails.Tests.GoldenTests.permanent_cookies_expire_in_twenty_years
+  Campfire.Rails.Tests.GoldenTests.signed_cookies_verify_like_rails
+  Campfire.Rails.Tests.GoldenTests.encrypted_cookies_decrypt_like_rails
+  Campfire.Rails.Tests.GoldenTests.encrypted_cookie_plaintext_matches_rails
+  Campfire.Rails.Tests.GoldenTests.rails_session_and_its_forms_are_accepted
+  Campfire.Rails.Tests.GoldenTests.signed_ids
+  Campfire.Rails.Tests.GoldenTests.global_ids
+  Campfire.Rails.Tests.GoldenTests.sgids
+  Campfire.Rails.Tests.GoldenTests.forged_sgids_are_rejected
+  Campfire.Rails.Tests.GoldenTests.turbo_stream_names
+  Campfire.Rails.Tests.GoldenTests.app_verifiers
+  Campfire.Rails.Tests.GoldenTests.passwords
+  Campfire.Rails.Tests.GoldenTests.write_rust_output_for_rails_to_verify
+  Campfire.Rails.Tests.StandInTests.json parse keeps key order and the last of a repeated key
+  Campfire.Rails.Tests.StandInTests.json parse reads numbers as serde_json does
+  Campfire.Rails.Tests.StandInTests.json parse refuses what serde_json refuses
+  Campfire.Rails.Tests.StandInTests.strict base64 decode is canonical
+  Campfire.Rails.Tests.StandInTests.timestamps parse rfc 3339 with an offset
+  Campfire.Rails.Tests.StandInTests.json parse keeps first position and last value past the scan limit
+  Campfire.Rails.Tests.StandInTests.json parse reads an object of many keys in linear time
+  Campfire.Rails.Tests.FastPathTests.the millisecond timestamp fast path agrees with the pattern on generated strings
+  Campfire.Rails.Tests.FastPathTests.the millisecond timestamp fast path agrees with the pattern on edge cases(text: "2046-01-01T12:00:00.000Z")
+  Campfire.Rails.Tests.FastPathTests.the millisecond timestamp fast path agrees with the pattern on edge cases(text: "2024-04-30T00:00:00Z")
+  Campfire.Rails.Tests.FastPathTests.the millisecond timestamp fast path agrees with the pattern on edge cases(text: "2024-04-30T00:00:00.00Z")
+  Campfire.Rails.Tests.FastPathTests.the millisecond timestamp fast path agrees with the pattern on edge cases(text: "2024-04-30T00:00:00.000+00:00")
+  Campfire.Rails.Tests.FastPathTests.the millisecond timestamp fast path agrees with the pattern on edge cases(text: "2024-04-30T00:00:00.000z")
+  Campfire.Rails.Tests.FastPathTests.the millisecond timestamp fast path agrees with the pattern on edge cases(text: "2024-04-30 00:00:00.000Z")
+  Campfire.Rails.Tests.FastPathTests.the millisecond timestamp fast path agrees with the pattern on edge cases(text: "2024-04-30t00:00:00.000Z")
+  Campfire.Rails.Tests.FastPathTests.the millisecond timestamp fast path agrees with the pattern on edge cases(text: "2024-04-30T00:60:00.000Z")
+  Campfire.Rails.Tests.FastPathTests.the millisecond timestamp fast path agrees with the pattern on edge cases(text: "2024-04-31T00:00:00.000Z")
+  Campfire.Rails.Tests.FastPathTests.the millisecond timestamp fast path agrees with the pattern on edge cases(text: "2024-13-01T00:00:00.000Z")
+  Campfire.Rails.Tests.FastPathTests.the millisecond timestamp fast path agrees with the pattern on edge cases(text: "9999-12-31T23:59:59.999Z")
+  Campfire.Rails.Tests.FastPathTests.the millisecond timestamp fast path agrees with the pattern on edge cases(text: "0001-01-01T00:00:00.000Z")
+  Campfire.Rails.Tests.FastPathTests.the millisecond timestamp fast path agrees with the pattern on edge cases(text: "0000-01-01T00:00:00.000Z")
+  Campfire.Rails.Tests.FastPathTests.the millisecond timestamp fast path agrees with the pattern on edge cases(text: "2024-02-29T24:00:00.000Z")
+  Campfire.Rails.Tests.FastPathTests.the millisecond timestamp fast path agrees with the pattern on edge cases(text: "2024-02-29T23:59:60.999Z")
+  Campfire.Rails.Tests.FastPathTests.the millisecond timestamp fast path agrees with the pattern on edge cases(text: "2026-02-29T12:00:00.000Z")
+  Campfire.Rails.Tests.FastPathTests.the millisecond timestamp fast path agrees with the pattern on edge cases(text: "")
+  Campfire.Rails.Tests.FastPathTests.the millisecond timestamp fast path agrees with the pattern on edge cases(text: "2024-04-30T00:00:00.000Z ")
+  Campfire.Rails.Tests.FastPathTests.both Base64 decoders agree with the array decoder they replaced
+  Campfire.Rails.Tests.FastPathTests.url safe encoders match the replace based ones
+  Campfire.Rails.Tests.FastPathTests.the legacy envelope fast path agrees with the JSON parser
+  Campfire.Rails.Tests.FastPathTests.signing and verifying on many threads is the same as on one
+  Campfire.Rails.Tests.FastPathTests.a key array that is overwritten signs with its new contents
+  Campfire.Rails.Tests.FastPathTests.the shared key is the generated key
+  Campfire.Rails.Tests.FastPathTests.remembered tokens are the tokens a fresh signature makes
+  Campfire.Rails.Tests.FastPathTests.a full memo is emptied and goes on making the same tokens
+  Campfire.Rails.Tests.UnitTests.encryptor round trips and rejects tampering
+  Campfire.Rails.Tests.UnitTests.urlsafe decode is lenient like ruby
+  Campfire.Rails.Tests.UnitTests.iso8601 truncates to milliseconds
+  Campfire.Rails.Tests.UnitTests.escapes html entities but not separators or slashes
+  Campfire.Rails.Tests.UnitTests.escapes control characters like the json gem
+  Campfire.Rails.Tests.UnitTests.floats match the json gem
+  Campfire.Rails.Tests.UnitTests.loads marshal strings
+  Campfire.Rails.Tests.UnitTests.combines purposes
+  Campfire.Rails.Tests.UnitTests.global id parses and formats
+  Campfire.Rails.Tests.UnitTests.content disposition formats like rails
+  Campfire.Rails.Tests.UnitTests.content disposition transliterates beyond latin 1
+
+Discovered 116 tests in assembly - /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.RichText.Tests/bin/Release/net11.0/Campfire.RichText.Tests.dll (net11.0|arm64)
+  Campfire.RichText.Tests.CorpusTests.port_divergences_apply_to_attribute_values_only
+  Campfire.RichText.Tests.CorpusTests.corpus_matches_rails
+  Campfire.RichText.Tests.CorpusTests.rails_outputs_pass_security_assertions
+  Campfire.RichText.Tests.CorpusTests.security_assertions_catch_planted_defects
+  Campfire.RichText.Tests.CorpusTests.C1 the corpus's presentations equal Rails' through known-differences.json, both ways
+  Campfire.RichText.Tests.CorpusTests.N1 nothing Loofah strips survives in the new presentations
+  Campfire.RichText.Tests.CorpusTests.N1 catches planted survivors
+  Campfire.RichText.Tests.CorpusTests.N2 the security assertions hold for every new presentation and body.html
+  Campfire.RichText.Tests.CorpusTests.S7 fuzzed bodies present with no disallowed markup
+  Campfire.RichText.Tests.AutolinkTests.A1 urls and addresses in text become links
+  Campfire.RichText.Tests.AutolinkTests.A1 urls inside pre and code are linked, as rails_autolink links them
+  Campfire.RichText.Tests.AutolinkTests.A1 nothing inside an a is linked
+  Campfire.RichText.Tests.AutolinkTests.A1 trailing punctuation and brackets stay outside the link as in rails_autolink
+  Campfire.RichText.Tests.AutolinkTests.A1 a url may hold an ampersand, a non-breaking space and a quote mark
+  Campfire.RichText.Tests.AutolinkTests.A1 addresses need a local part, an at sign and a dotted domain
+  Campfire.RichText.Tests.AutolinkTests.A1 the sanitizer runs first, so a forbidden element is gone and its text still links
+  Campfire.RichText.Tests.AutolinkTests.A2 a url after a greater-than sign in an attribute cannot break out of it
+  Campfire.RichText.Tests.AutolinkTests.A2 an address after a greater-than sign in an attribute cannot break out of it
+  Campfire.RichText.Tests.AutolinkTests.A2 a title holding a quote, a tag and a url keeps its value
+  Campfire.RichText.Tests.AutolinkTests.A2 text that looks like markup is text, and a link text cannot carry markup
+  Campfire.RichText.Tests.AutolinkTests.A3 linking adds no parse
+  Campfire.RichText.Tests.AutolinkTests.A3 linking a seed body costs the parses of its render and no more
+  Campfire.RichText.Tests.AutolinkTests.linkText cuts an escaped text into decoded text and links
+  Campfire.RichText.Tests.AutolinkTests.a lone surrogate or NUL in a link goes through the sanitizer
+  Campfire.RichText.Tests.AutolinkTests.wide bodies link every url and address within the bound
+  Campfire.RichText.Tests.ContentTests.C4 a deleted user's mention leaves the editor
+  Campfire.RichText.Tests.ContentTests.Nested content attachments render alike, to the same depth
+  Campfire.RichText.Tests.ContentTests.Attachables resolves every attachment of the corpus through the attributes of its node
+  Campfire.RichText.Tests.ContentTests.S6 cost per seed body: canonical load with toHtml and plain text
+  Campfire.RichText.Tests.ContentTests.wide bodies cost linear time through load, plain text, render and filters
+  Campfire.RichText.Tests.HardeningTests.a_url_after_a_greater_than_sign_in_an_attribute_cannot_break_out_of_it
+  Campfire.RichText.Tests.HardeningTests.an_email_address_after_a_greater_than_sign_in_an_attribute_cannot_break_out_of_it
+  Campfire.RichText.Tests.HardeningTests.name_attributes_cant_clobber_the_pages_globals
+  Campfire.RichText.Tests.HardeningTests.urls_in_text_are_still_linked
+  Campfire.RichText.Tests.HardeningTests.many_bare_domains_autolink_in_linear_time
+  Campfire.RichText.Tests.HardeningTests.content_attachments_render_eight_levels_deep
+  Campfire.RichText.Tests.HardeningTests.deeply_nested_content_attachments_render_quickly
+  Campfire.RichText.Tests.HardeningTests.deeply_nested_elements_are_refused_quickly
+  Campfire.RichText.Tests.HardeningTests.the_rest_of_a_body_is_not_read_once_it_is_too_deep
+  Campfire.RichText.Tests.HardeningTests.a_tag_with_too_many_attributes_is_refused_quickly
+  Campfire.RichText.Tests.HardeningTests.html_tags_in_the_body_parse_in_linear_time
+  Campfire.RichText.Tests.HardeningTests.elements_misplaced_in_a_table_parse_in_linear_time
+  Campfire.RichText.Tests.HardeningTests.a_mention_of_a_deleted_user_leaves_the_rest_of_the_message
+  Campfire.RichText.Tests.HardeningTests.a_mention_of_a_deleted_user_leaves_the_editor
+  Campfire.RichText.Tests.HardeningTests.markup_the_parser_throws_on_is_refused_not_raised
+  Campfire.RichText.Tests.HardeningTests.markup_the_parser_throws_on_inside_an_attachment_is_refused_not_raised
+  Campfire.RichText.Tests.HardeningTests.CpuTimer counts the calling thread's CPU time, not the process's
+  Campfire.RichText.Tests.ReferenceTests.entire_message_contains_an_unfurled_url
+  Campfire.RichText.Tests.ReferenceTests.entire_message_contains_an_unfurled_url_in_a_lexxy_body
+  Campfire.RichText.Tests.ReferenceTests.message_includes_additional_text_besides_an_unfurled_url
+  Campfire.RichText.Tests.ReferenceTests.unfurled_tweet_with_an_avatar_image_gets_the_twitter_avatar_treatment
+  Campfire.RichText.Tests.ReferenceTests.unfurled_tweet_with_an_avatar_image_in_a_lexxy_body_gets_the_twitter_avatar_treatment
+  Campfire.RichText.Tests.ReferenceTests.unfurled_tweet_with_a_content_image_is_not_styled_as_an_avatar
+  Campfire.RichText.Tests.ReferenceTests.entire_message_contains_an_unfurled_url_from_x_com_but_unfurls_to_twitter_com
+  Campfire.RichText.Tests.ReferenceTests.message_keeps_strikethrough_underline_and_code_block_formatting
+  Campfire.RichText.Tests.ReferenceTests.message_contains_a_forbidden_tag
+  Campfire.RichText.Tests.ReferenceTests.message_with_a_link_using_an_unsafe_uri_scheme
+  Campfire.RichText.Tests.ReferenceTests.message_with_an_event_handler_attribute_on_an_allowed_tag
+  Campfire.RichText.Tests.ReferenceTests.message_with_a_data_uri_link
+  Campfire.RichText.Tests.ReferenceTests.message_with_a_safe_link_and_formatting_is_preserved
+  Campfire.RichText.Tests.ReferenceTests.sanitize_attributes_neutralizes_unsafe_input_and_preserves_benign_content
+  Campfire.RichText.Tests.ReferenceTests.message_with_formatting_saved_under_trix_renders_unchanged
+  Campfire.RichText.Tests.ReferenceTests.message_with_a_table_keeps_the_table
+  Campfire.RichText.Tests.ReferenceTests.message_with_a_mention_attachment
+  Campfire.RichText.Tests.ReferenceTests.message_presentation_neutralizes_unsafe_uri_schemes_in_links
+  Campfire.RichText.Tests.ReferenceTests.message_presentation_strips_event_handler_attributes_from_allowed_tags
+  Campfire.RichText.Tests.ReferenceTests.message_presentation_preserves_safe_links_and_formatting
+  Campfire.RichText.Tests.ReferenceTests.editable_body_renders_legacy_opengraph_embeds_into_the_content_attribute
+  Campfire.RichText.Tests.ReferenceTests.editable_body_rebuilds_a_hand_written_embed_from_its_validated_details
+  Campfire.RichText.Tests.ReferenceTests.editable_body_restores_the_content_type_of_a_mention_edited_under_trix
+  Campfire.RichText.Tests.ReferenceTests.editable_body_leaves_bodies_without_attachments_unchanged
+  Campfire.RichText.Tests.ReferenceTests.from_node_with_a_valid_sgid
+  Campfire.RichText.Tests.ReferenceTests.from_node_with_a_rails_7_sgid
+  Campfire.RichText.Tests.ReferenceTests.lookup_user_attachable_with_invalid_signature
+  Campfire.RichText.Tests.ReferenceTests.lookup_invalid_sgid_for_an_attachable_requiring_a_valid_sgid
+  Campfire.RichText.Tests.ReferenceTests.lookup_attachable_with_nil_sgid
+  Campfire.RichText.Tests.ReferenceTests.keeps_absolute_http_and_https_links_and_images
+  Campfire.RichText.Tests.ReferenceTests.drops_a_link_and_an_image_that_arent_web_urls
+  Campfire.RichText.Tests.ReferenceTests.drops_a_link_and_an_image_on_this_campfires_own_host_however_it_is_spelled
+  Campfire.RichText.Tests.ReferenceTests.drops_a_link_and_an_image_on_a_bare_address_rather_than_a_domain_name
+  Campfire.RichText.Tests.ReferenceTests.keeps_an_internationalized_domain_written_in_punycode
+  Campfire.RichText.Tests.ReferenceTests.renders_the_title_and_the_description_as_text
+  Campfire.RichText.Tests.ReferenceTests.rich_text_body_is_converted_to_plain_text_for_indexing
+  Campfire.RichText.Tests.ReferenceTests.mentionees_are_the_mentioned_users_once_each
+  Campfire.RichText.Tests.ReferenceTests.webhook_plain_body_drops_the_recipients_mentions
+  Campfire.RichText.Tests.FiltersTests.normalizes_tweet_urls_like_rails
+  Campfire.RichText.Tests.AttachablesTests.possibly_expired_sgids_find_users_like_rails
+  Campfire.RichText.Tests.AttachablesTests.web_url on System.Uri keeps Ruby's verdicts on the character rules
+  Campfire.RichText.Tests.RubyTests.matches_ruby
+  Campfire.RichText.Tests.SanitizerVerdictTests.S3 URI verdicts: the WebUtility.HtmlDecode trial is counted
+  Campfire.RichText.Tests.SanitizerVerdictTests.isindex expands as in the 2008 standard: recorded difference
+  Campfire.RichText.Tests.SanitizerTests.checks_uris_like_loofah
+  Campfire.RichText.Tests.SanitizerTests.unescapes_html_like_cgi
+  Campfire.RichText.Tests.SanitizerTests.scrubs_like_rails
+  Campfire.RichText.Tests.SanitizerTests.re_escapes_url_attributes_as_each_attribute_is_scrubbed
+  Campfire.RichText.Tests.SanitizerTests.keeps_only_lexxys_highlight_colors_in_style
+  Campfire.RichText.Tests.Html5Tests.P1 trees with namespaces equal the frozen old-parser trees on the 1,479 inputs, S2's named list apart
+  Campfire.RichText.Tests.Html5Tests.L1 Gumbo's truth table, a named list of boundary cases apart
+  Campfire.RichText.Tests.Html5Tests.P2 a template's contents are its children
+  Campfire.RichText.Tests.Html5Tests.P2 a leading byte order mark is dropped, one later is kept
+  Campfire.RichText.Tests.Html5Tests.P2 a leading frameset parses as the fragment algorithm does
+  Campfire.RichText.Tests.Html5Tests.P2 html and body tags add nothing
+  Campfire.RichText.Tests.Html5Tests.P2 comments after body and html stay in the container
+  Campfire.RichText.Tests.Html5Tests.P2 the document algorithm's remaining differences from Gumbo are the ones recorded
+  Campfire.RichText.Tests.Html5Tests.P3 the serializer is Nokogiri's
+  Campfire.RichText.Tests.Html5Tests.P3 serializer rules
+  Campfire.RichText.Tests.Html5Tests.P3 the deduplicated attributes are kept as the tokenizer left them
+  Campfire.RichText.Tests.Html5Tests.P4 element-context parses give the frozen old ParseNodes' trees for the markup the pipeline builds
+  Campfire.RichText.Tests.Html5Tests.P4 an element-context parse breaks HTML out of foreign content as Gumbo does, except in a table cell
+  Campfire.RichText.Tests.Html5Tests.P5 an element-context parse of many top-level nodes is linear
+  Campfire.RichText.Tests.Html5Tests.P5 no step of parseBody is quadratic
+  Campfire.RichText.Tests.Html5Tests.L2 the port's hostile shapes are refused or parsed within its bounds
+  Campfire.RichText.Tests.Html5Tests.L3 the caps
+  Campfire.RichText.Tests.Html5Tests.L3 the other shapes AngleSharp could be slow on stay bounded
+  Campfire.RichText.Tests.Html5Tests.L4 the shared parser gives single-threaded results on 8 threads and keeps no document
+  Campfire.RichText.Tests.Html5Tests.the DOM helpers
+
+Discovered 35 tests in assembly - /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.Storage.Tests/bin/Release/net11.0/Campfire.Storage.Tests.dll (net11.0|arm64)
+  Campfire.Storage.Tests.VectorTests.variation digests and keys
+  Campfire.Storage.Tests.VectorTests.verifier messages and disk urls
+  Campfire.Storage.Tests.VectorTests.marcel identification
+  Campfire.Storage.Tests.VectorTests.filenames and dispositions
+  Campfire.Storage.Tests.VectorTests.route paths
+  Campfire.Storage.Tests.VectorTests.pipeline matches the reference
+  Campfire.Storage.Tests.VectorTests.posters are made from the reference frame as the reference made them
+  Campfire.Storage.Tests.VectorTests.staging a file unfurls it as its bytes would
+  Campfire.Storage.Tests.VectorTests.a staged file is deleted unless kept
+  Campfire.Storage.Tests.ProcessTests.a failing variant reports its own error after many variants
+  Campfire.Storage.Tests.ProcessTests.resize arguments must fit libvips
+  Campfire.Storage.Tests.ProcessTests.output_within captures a quick child
+  Campfire.Storage.Tests.ProcessTests.output_within reports a program that is not there
+  Campfire.Storage.Tests.ProcessTests.output_within returns soon after the child exits
+  Campfire.Storage.Tests.ProcessTests.output_within kills a child that overruns
+  Campfire.Storage.Tests.ProcessTests.page goes only to loaders that take it
+  Campfire.Storage.Tests.UnitTests.filename matches ruby file semantics
+  Campfire.Storage.Tests.UnitTests.an upload with a checksum is verified
+  Campfire.Storage.Tests.UnitTests.FR5 a temp file lives in a directory of its own and goes with it
+  Campfire.Storage.Tests.UnitTests.FR6 set and merge keep Ruby's hash order
+  Campfire.Storage.Tests.UnitTests.json leaves js line separators raw
+  Campfire.Storage.Tests.UnitTests.json preserves order and escapes like active support
+  Campfire.Storage.Tests.UnitTests.video metadata matches the analyzer
+  Campfire.Storage.Tests.UnitTests.rotated video swaps dimensions
+  Campfire.Storage.Tests.UnitTests.a copy that fails leaves no file behind
+  Campfire.Storage.Tests.UnitTests.opening a blob whose file is missing is file not found
+  Campfire.Storage.Tests.UnitTests.opening a blob whose file changed is an integrity error
+  Campfire.Storage.Tests.UnitTests.an opened blob is a copy named for its id and extension
+  Campfire.Storage.Tests.UnitTests.a blob is stored by its key and described by its row
+  Campfire.Storage.Tests.UnitTests.a variant record is inserted once
+  Campfire.Storage.Tests.UnitTests.folders come from the first four characters of the key
+  Campfire.Storage.Tests.UnitTests.deleting a prefix removes what starts with it
+  Campfire.Storage.Tests.UnitTests.an attached blob is the first attachment's, by id
+  Campfire.Storage.Tests.UnitTests.updating a blob's metadata saves it and keeps the rest
+  Campfire.Storage.Tests.UnitTests.a blob row is stamped with the clock's time as Active Record writes it
+
+Discovered 124 tests in assembly - /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.Views.Tests/bin/Release/net11.0/Campfire.Views.Tests.dll (net11.0|arm64)
+  Campfire.Views.Tests.DifferentialTests.the views render as the rust views did
+  Campfire.Views.Tests.SearchesViewsTests.index with results
+  Campfire.Views.Tests.SearchesViewsTests.index without query
+  Campfire.Views.Tests.RoomsViewsTests.show keeps every message as a fragment
+  Campfire.Views.Tests.RoomsViewsTests.show closed room
+  Campfire.Views.Tests.RoomsViewsTests.show original room with invitation
+  Campfire.Views.Tests.RoomsViewsTests.show direct room
+  Campfire.Views.Tests.RoomsViewsTests.show room as member
+  Campfire.Views.Tests.RoomsViewsTests.show room around message
+  Campfire.Views.Tests.RoomsViewsTests.new open room
+  Campfire.Views.Tests.RoomsViewsTests.edit open room
+  Campfire.Views.Tests.RoomsViewsTests.new closed room
+  Campfire.Views.Tests.RoomsViewsTests.edit closed room
+  Campfire.Views.Tests.RoomsViewsTests.new direct room
+  Campfire.Views.Tests.RoomsViewsTests.edit direct room
+  Campfire.Views.Tests.RoomsViewsTests.involvement
+  Campfire.Views.Tests.RoomsViewsTests.refresh stream
+  Campfire.Views.Tests.MessagesViewsTests.show text message
+  Campfire.Views.Tests.MessagesViewsTests.message partial is the same on every host
+  Campfire.Views.Tests.MessagesViewsTests.show image message
+  Campfire.Views.Tests.MessagesViewsTests.index
+  Campfire.Views.Tests.MessagesViewsTests.edit text message
+  Campfire.Views.Tests.MessagesViewsTests.edit attachment message
+  Campfire.Views.Tests.MessagesViewsTests.create stream
+  Campfire.Views.Tests.MessagesViewsTests.destroy stream
+  Campfire.Views.Tests.MessagesViewsTests.room not found
+  Campfire.Views.Tests.MessagesViewsTests.boosts index
+  Campfire.Views.Tests.MessagesViewsTests.new boost
+  Campfire.Views.Tests.MessagesViewsTests.by bots index json
+  Campfire.Views.Tests.MessagesViewsTests.by bots show json
+  Campfire.Views.Tests.MessagesViewsTests.boosts by bots show json
+  Campfire.Views.Tests.MessagesViewsTests.T1 an edit form value survives a newline, a closing textarea and an entity
+  Campfire.Views.Tests.ParityATests.pwa partials
+  Campfire.Views.Tests.ParityATests.users partials
+  Campfire.Views.Tests.ParityATests.welcome show
+  Campfire.Views.Tests.ParityATests.a flash notice and a flash alert render in the layout
+  Campfire.Views.Tests.ParityATests.users sidebars show
+  Campfire.Views.Tests.ParityATests.autocompletable users
+  Campfire.Views.Tests.ParityATests.sessions new
+  Campfire.Views.Tests.ParityATests.sessions incompatible browser
+  Campfire.Views.Tests.ParityATests.sessions transfer
+  Campfire.Views.Tests.ParityATests.accounts edit
+  Campfire.Views.Tests.ParityATests.accounts bots
+  Campfire.Views.Tests.ParityATests.accounts custom styles
+  Campfire.Views.Tests.ParityATests.first runs show
+  Campfire.Views.Tests.ParityATests.users new
+  Campfire.Views.Tests.ParityATests.users show
+  Campfire.Views.Tests.ParityATests.users profiles show
+  Campfire.Views.Tests.ParityATests.users push subscriptions
+  Campfire.Views.Tests.ParityATests.users avatars show
+  Campfire.Views.Tests.ParityATests.pwa manifest and service worker
+  Campfire.Views.Tests.ParityATests.pwa manifest is valid json whatever the account is called
+  Campfire.Views.Tests.ParityATests.accounts users index turbo stream
+  Campfire.Views.Tests.SessionsViewsTests.the sign in email is attribute data
+  Campfire.Views.Tests.SessionsViewsTests.the transfer form is left open and encodes its action
+  Campfire.Views.Tests.SessionsViewsTests.unclosed refuses what is not the element it was told
+  Campfire.Views.Tests.SessionsViewsTests.the welcome page encodes the user's name
+  Campfire.Views.Tests.SessionsViewsTests.the incompatible browser page is titled for the platform
+  Campfire.Views.Tests.SessionsViewsTests.the first run form is multipart and model scoped
+  Campfire.Views.Tests.SessionsViewsTests.the pwa partials follow the platform
+  Campfire.Views.Tests.SessionsViewsTests.the manifest keeps its key order and escapes only what JSON needs
+  Campfire.Views.Tests.AccountsViewsTests.T1 the custom styles textarea survives a newline, a closing textarea and an entity
+  Campfire.Views.Tests.AccountsViewsTests.the bot form encodes the name and webhook as data
+  Campfire.Views.Tests.AccountsViewsTests.a person's name is text on the account page
+  Campfire.Views.Tests.UsersViewsTests.T1 the profile bio survives a newline, a closing textarea and an entity
+  Campfire.Views.Tests.UsersViewsTests.the profile forms name their fields and encode the user's name
+  Campfire.Views.Tests.UsersViewsTests.the avatar SVG is well-formed XML for hostile initials
+  Campfire.Views.Tests.UsersTests.a name splits on ascii whitespace only
+  Campfire.Views.Tests.UsersTests.a user knows its role and status
+  Campfire.Views.Tests.UsersTests.a user title and initials come from the helpers
+  Campfire.Views.Tests.UsersTests.a direct room in the sidebar names its members by their initials
+  Campfire.Views.Tests.UsersTests.a shared room in the sidebar is unread or not
+  Campfire.Views.Tests.MessagesTests.epoch truncates through a float like ruby
+  Campfire.Views.Tests.MessagesTests.epoch by integer arithmetic is the float of the decimal string
+  Campfire.Views.Tests.MessagesTests.formats numbers like ruby
+  Campfire.Views.Tests.MessagesTests.formats json times with milliseconds
+  Campfire.Views.Tests.MessagesTests.search paths escape the query like cgi escape
+  Campfire.Views.Tests.MessagesTests.display names
+  Campfire.Views.Tests.MessagesTests.a room knows its dom id and where it is edited
+  Campfire.Views.Tests.FragmentsTests.F1 a hit returns the same instance
+  Campfire.Views.Tests.FragmentsTests.F1 sixty-four concurrent misses on one key render once
+  Campfire.Views.Tests.FragmentsTests.F1 the size limit is honoured
+  Campfire.Views.Tests.FragmentsTests.F1 entries live seven days
+  Campfire.Views.Tests.FragmentsTests.F2 keys match Rails' cache key with version byte for byte
+  Campfire.Views.Tests.FragmentsTests.F2 the key vectors are Rails'
+  Campfire.Views.Tests.FragmentsTests.F2 a message's key changes with its updated_at and a boost's change touches the message
+  Campfire.Views.Tests.HelpersTests.truncates like rails
+  Campfire.Views.Tests.HelpersTests.capitalizes like rust
+  Campfire.Views.Tests.HelpersTests.builds sentences
+  Campfire.Views.Tests.HelpersTests.qr code links take the url urlsafe base64 encoded
+  Campfire.Views.Tests.HelpersTests.body classes join the page the admin and the logo
+  Campfire.Views.Tests.HelpersTests.computes initials like ruby
+  Campfire.Views.Tests.HelpersTests.avatar colors like zlib crc32
+  Campfire.Views.Tests.HelpersTests.a title is the name and the bio unless the bio is blank
+  Campfire.Views.Tests.HelpersTests.involvement cycles through its states
+  Campfire.Views.Tests.HelpersTests.every translation key has its popup and an unknown key is a bug
+  Campfire.Views.Tests.HelpersTests.to_lowercase maps a capital sigma by where the word ends
+  Campfire.Views.Tests.HelpersTests.to_lowercase lowercases the way char::to_lowercase does
+  Campfire.Views.Tests.FormsTests.sanitizes nested object names
+  Campfire.Views.Tests.FormsTests.a character that is not allowed in an id is one underscore, not one per UTF-16 unit
+  Campfire.Views.Tests.LayoutsTests.O3 the frame layout holds the head and the content, the application layout starts with the doctype
+  Campfire.Views.Tests.LayoutsTests.a page's fragments stay fragments in the application layout and the frame layout
+  Campfire.Views.Tests.LayoutsTests.the stylesheet and import map tags are written as given
+  Campfire.Views.Tests.LayoutsTests.hostile custom styles land inside the style element
+  Campfire.Views.Tests.LayoutsTests.a flash is text in the live region
+  Campfire.Views.Tests.HtmlOutputTests.O4 a page in parts is its text and its fragments in order
+  Campfire.Views.Tests.HtmlOutputTests.O4 U+E000 and a typed slot in text or an attribute value leave the part count unchanged
+  Campfire.Views.Tests.HtmlOutputTests.O4 a typed slot inside trusted rich text or account styles is not read as a slot
+  Campfire.Views.Tests.HtmlOutputTests.O4 a fragment placed and not passed, passed and not placed, or placed twice throws
+  Campfire.Views.Tests.HtmlOutputTests.O4 the digest differs when one byte of one part or one fragment differs
+  Campfire.Views.Tests.HtmlOutputTests.O4 Layouts.page keeps the fragments of a Falco page in both layouts
+  Campfire.Views.Tests.HtmlOutputTests.P2 a warm room page of forty fragments is rendered and written in under 300 KB
+  Campfire.Views.Tests.HtmlTests.falco writes an attribute value raw and Html.attr encodes it
+  Campfire.Views.Tests.HtmlTests.text is encoded with the same rule
+  Campfire.Views.Tests.HtmlTests.integers, spaces and newlines
+  Campfire.Views.Tests.HtmlTests.trusted text is written as it is
+  Campfire.Views.Tests.LooseDomTests.loose dom of every rails golden page equals loose.ts
+  Campfire.Views.Tests.LooseDomTests.loose dom of the stored oracle answers equals loose.ts
+  Campfire.Views.Tests.LooseDomTests.a lost or changed hook is a difference
+  Campfire.Views.Tests.LooseDomTests.byte level differences are not differences
+  Campfire.Views.Tests.LooseDomTests.whitespace that renders is a difference and whitespace that does not is not
+  Campfire.Views.Tests.LooseDomTests.children of a custom element stay inside it
+  Campfire.Views.Tests.LooseDomTests.forgery tokens are left out and volatile values masked
+  Campfire.Views.Tests.LooseDomTests.A15 fingerprints mask like Propshaft digests and a plain asset URL stays plain
+
+Discovered 1044 tests in 7 assemblies.
+

@@ -34,9 +34,9 @@ let private startUntrusting (test: Test) : Task<Host> =
         options.KnownIPNetworks.Add(System.Net.IPNetwork(System.Net.IPAddress.Parse "192.0.2.0", 24))
     startPipelineWith
         (fun (services: IServiceCollection) ->
-            test.Booted.ConfigureServices services
+            test.Wiring.ConfigureServices services
             services.Configure<ForwardedHeadersOptions>(distrust) |> ignore)
-        test.Booted.Pipeline
+        test.Wiring.Pipeline
 
 [<Fact>]
 let ``R1 X-Forwarded-For from a trusted proxy sets remote_ip, from another peer it is ignored`` () =
@@ -290,7 +290,7 @@ let ``R6 an exception outside an action is the public 500 page, JSON for a JSON 
         let page = File.ReadAllBytes(Campfire.Tests.Repo.path "reference/public/500.html")
         // The app's own handler, in front of a terminal that throws (as the session store or a framework piece could).
         use! host =
-            startPipelineWith test.Booted.ConfigureServices (fun builder ->
+            startPipelineWith test.Wiring.ConfigureServices (fun builder ->
                 builder.UseExceptionHandler(ExceptionHandlerOptions(ExceptionHandler = Campfire.App.Web.PublicExceptions.exceptionHandler)) |> ignore
                 builder.Run(fun _ -> failwith "boom"))
         let! html = host.Send((get "/anything").With("accept", "text/html"))

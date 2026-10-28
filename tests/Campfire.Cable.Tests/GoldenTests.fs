@@ -135,14 +135,17 @@ let private normalizePing (text: string) : string =
 
 /// Frames until the socket has been quiet for a moment (or, when awaiting a ping, the first ping).
 /// Pings are dropped otherwise, since when they land is timing, not protocol.
-let private collect (client: Client) (awaitPing: bool) : Task<string list> =
+/// The recorded exchange says how many frames to wait for: until `expected` have arrived the wait is a generous deadline, not the quiet
+/// moment, so a loaded host delays the replay and never shortens it (the quiet moment only decides that nothing *more* comes).
+let private collect (client: Client) (awaitPing: bool) (expected: int) : Task<string list> =
     task {
         let frames = List<string>()
         let quiet = if awaitPing then TimeSpan.FromSeconds 4.0 else TimeSpan.FromMilliseconds 400.0
         let mutable collecting = true
         while collecting do
             let next = client.NextIncludingPings()
-            let! first = Task.WhenAny(next, Task.Delay quiet)
+            let wait = if not awaitPing && frames.Count < expected then TimeSpan.FromSeconds 15.0 else quiet
+            let! first = Task.WhenAny(next, Task.Delay wait)
             if not (obj.ReferenceEquals(first, next)) then
                 collecting <- false
             else
@@ -205,13 +208,14 @@ let private signOut (target: Target) (roomId: string) : Task =
         )
     }
 
-let private runScript (target: Target) (tokens: Map<string, string>) : Task<Map<string, Exchange list>> =
+let private runScript (target: Target) (tokens: Map<string, string>) (expectedFrames: string -> string -> int) : Task<Map<string, Exchange list>> =
     task {
         let sessions = Dictionary<string, Exchange list>()
         for (session, steps) in script tokens do
             let mutable client: Client option = None
             let exchanges = List<Exchange>()
             for (name, step) in steps do
+                let expected = expectedFrames session name
                 let! frames =
                     task {
                         match step with
@@ -223,7 +227,7 @@ let private runScript (target: Target) (tokens: Map<string, string>) : Task<Map<
                             match! Client.Open(target.Authority, headers) with
                             | Choice1Of2 opened ->
                                 client <- Some opened
-                                let! frames = collect opened false
+                                let! frames = collect opened false (expected - 1)
                                 let protocol = defaultArg opened.Protocol ""
                                 return $"upgrade 101 protocol={protocol}" :: frames
                             | Choice2Of2 response -> return [ $"http {response.Status} {response.Body}" ]
@@ -233,15 +237,15 @@ let private runScript (target: Target) (tokens: Map<string, string>) : Task<Map<
                             return [ $"http {response.Status} {contentType} {response.Body}" ]
                         | Send text ->
                             do! client.Value.SendText text
-                            return! collect client.Value false
-                        | AwaitPing -> return! collect client.Value true
+                            return! collect client.Value false expected
+                        | AwaitPing -> return! collect client.Value true expected
                         | RemoteDisconnect ->
                             match target.Server with
                             | Some server ->
                                 let userId = tokens["USER_ID"]
                                 server.Disconnect($"gid://campfire/User/{userId}", true) |> ignore
                             | None -> do! signOut target tokens["ROOM_ID"]
-                            return! collect client.Value false
+                            return! collect client.Value false expected
                     }
                 exchanges.Add { Step = name; Frames = frames }
             sessions[session] <- List.ofSeq exchanges
@@ -345,7 +349,7 @@ let ``replays reference frames`` () =
         let golden = read (goldenPath ())
         let! target, handle = startCampfireLikeServer golden.Tokens
         try
-            let! sessions = (runScript target golden.Tokens).WaitAsync(TimeSpan.FromSeconds 60.0)
+            let! sessions = (runScript target golden.Tokens (fun session step -> golden.Sessions[session] |> List.find (fun e -> e.Step = step) |> fun e -> e.Frames.Length)).WaitAsync(TimeSpan.FromSeconds 60.0)
             for KeyValue(session, expected) in golden.Sessions do
                 let actual = sessions[session]
                 for (expected, actual) in List.zip expected actual do
@@ -381,7 +385,7 @@ let ``record_reference`` () =
               Origin = $"http://{authority}"
               Cookie = fixtures.RootElement.GetProperty("cookie").GetString() |> nonNull
               Server = None }
-        let! sessions = runScript target tokens
+        let! sessions = runScript target tokens (fun _ _ -> 0)
         let json =
             JsonSerializer.Serialize(
                 {| tokens = tokens

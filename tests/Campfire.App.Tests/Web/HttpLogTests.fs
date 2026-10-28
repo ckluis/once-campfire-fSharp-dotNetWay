@@ -26,7 +26,7 @@ let private write (http: HttpContext) (text: string) : Task =
 
 /// `UseHttpLogging` first, then the forwarded headers, as `Services.pipeline` orders them, over a handler that answers 200; the
 /// log goes to `logs`.
-let private startLogging (logs: CapturingLoggers) : Task<Host> =
+let private startLogging (logs: LogCapture) : Task<Host> =
     startPipelineOn
         (WebApplicationOptions())
         ignore
@@ -38,11 +38,11 @@ let private startLogging (logs: CapturingLoggers) : Task<Host> =
             app.UseHttpLogging().UseForwardedHeaders() |> ignore
             app.Run(RequestDelegate(fun http -> write http "ok")))
 
-let private httpLines (logs: CapturingLoggers) : string list =
+let private httpLines (logs: LogCapture) : string list =
     logs.Text.Split('\n') |> Array.filter (fun line -> line.Contains "Microsoft.AspNetCore.HttpLogging") |> List.ofArray
 
 /// A log entry is several lines (`Path: ...`); the capture joins entries with a newline too, so cut at each category.
-let private entries (logs: CapturingLoggers) : string list =
+let private entries (logs: LogCapture) : string list =
     let text = logs.Text
     text.Split("Information Microsoft.AspNetCore.HttpLogging.HttpLoggingMiddleware: ", StringSplitOptions.RemoveEmptyEntries)
     |> Array.filter (fun e -> e.Contains "Path:")
@@ -51,7 +51,7 @@ let private entries (logs: CapturingLoggers) : string list =
 [<Fact>]
 let ``LG1 one combined line per request with the method, path, query, protocol, status and duration`` () =
     task {
-        let logs = new CapturingLoggers()
+        let logs = new LogCapture()
         use! host = startLogging logs
         for i in 1..3 do
             let! reply = host.Send(get $"/things/{i}?x=1&y=two")
@@ -66,7 +66,7 @@ let ``LG1 one combined line per request with the method, path, query, protocol, 
 [<Fact>]
 let ``LG2 remote_addr and user_agent are present, an IPv4-mapped peer is written as IPv4 and a trusted proxy's X-Forwarded-For is reflected`` () =
     task {
-        let logs = new CapturingLoggers()
+        let logs = new LogCapture()
         use! host = startLogging logs
         let! _ = host.Send((get "/a").With("user-agent", "probe/1.0"))
         // The proxy (loopback is a trusted one) says the client is an IPv4-mapped IPv6 address.
@@ -86,7 +86,7 @@ let ``LG2 remote_addr and user_agent are present, an IPv4-mapped peer is written
 [<Fact>]
 let ``LG3 no request or response header value but the user agent appears in the line`` () =
     task {
-        let logs = new CapturingLoggers()
+        let logs = new LogCapture()
         use! host = startLogging logs
         let! _ =
             host.Send(
@@ -356,7 +356,7 @@ let private printable (text: string) : bool =
 [<Fact>]
 let ``SR1 a client's control characters in the path, query or user agent never reach the log line raw`` () =
     task {
-        let logs = new CapturingLoggers()
+        let logs = new LogCapture()
         use! host = startLogging logs
         // Percent-encoded line breaks, an escape (a terminal sequence), NEL and LINE SEPARATOR, in the path and the query.
         let! status = sendRaw host "/a%0D%0Ab%1B%5B31m%C2%85%E2%80%A8c?x=%0D%0Ay%1B"
@@ -381,7 +381,7 @@ let ``SR1 a client's control characters in the path, query or user agent never r
 [<Fact>]
 let ``SR2 query values Rails' filter_parameters names are logged as [FILTERED], as Rails' request line logs them`` () =
     task {
-        let logs = new CapturingLoggers()
+        let logs = new LogCapture()
         use! host = startLogging logs
         let! reply = host.Send(get "/x?q=hello&token=tok-secret&user%5Bpassword%5D=pw-secret&Email_Address=mail-secret&before=12;otp=otp-secret&message.body=body-secret")
         Assert.Equal(200, reply.Status)

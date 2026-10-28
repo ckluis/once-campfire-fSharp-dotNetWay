@@ -65,7 +65,7 @@ let private referenceProbes: (string * string) list =
           "&#x;", "a" ]
 
 [<Fact>]
-let ``decodes references like libxml2 but for the class B probes`` () =
+let ``OG3 decodes references like libxml2 but for the class B probes`` () =
     let classB = Map.ofList classBReferences
     for (reference, expected) in referenceProbes do
         match classB.TryFind reference with
@@ -116,7 +116,7 @@ let private tokenizerProbes: (string * string option) list =
 
 /// OG3, as above, for the tokenizer: libxml2's answers are the expectations, AngleSharp's are the listed ones.
 [<Fact>]
-let ``tokenizes like libxml2 but for the class B probes`` () =
+let ``OG3 tokenizes like libxml2 but for the class B probes`` () =
     let classB = Map.ofList classBTokens
     for (html, expected) in tokenizerProbes do
         match classB.TryFind html with
@@ -127,7 +127,7 @@ let ``tokenizes like libxml2 but for the class B probes`` () =
 
 /// OG3: the class B list is the 14 probes that differ (13 when `&#x;` was not yet a probe).
 [<Fact>]
-let ``the class B probes are listed`` () =
+let ``OG3 the class B probes are listed`` () =
     Assert.Equal(7, classBReferences.Length)
     Assert.Equal(7, classBTokens.Length)
 
@@ -494,7 +494,7 @@ let ``unfurls past the limit wait while bodies are read`` () =
 /// OG1: pages as large as a fetch allows, built to make a parser nest or multiply elements, stop at the caps (no more than
 /// `MaxElements` are created, and a hostile page is reported as stopped) and in a bounded time.
 [<Fact>]
-let ``hostile pages are stopped by the caps`` () =
+let ``OG1 hostile pages are stopped by the caps`` () =
     let limit = OpengraphFetch.MaxBodySize
     let repeated (unit': string) = String.replicate (limit / unit'.Length) unit'
     let pages =
@@ -516,7 +516,7 @@ let ``hostile pages are stopped by the caps`` () =
 
 /// OG2: a head of metas, then 300 nested divs: the head still unfurls.
 [<Fact>]
-let ``a deep body still unfurls the head`` () =
+let ``OG2 a deep body still unfurls the head`` () =
     task {
         let page =
             "<html><head><meta property=\"og:url\" content=\"http://www.example.com/\"><meta property=\"og:title\" content=\"Hey!\"><meta property=\"og:description\" content=\"desc..\"></head><body>"
@@ -533,7 +533,7 @@ let ``a deep body still unfurls the head`` () =
 /// OG4: a `Location` to a private address is refused after a public first hop, whether it is a literal or a name, and nothing
 /// connects there.
 [<Fact>]
-let ``each redirect hop is guarded`` () =
+let ``OG4 each redirect hop is guarded`` () =
     task {
         let redirect (path: string) (location: string) =
             Route.create "GET" "www.example.com" path 302 |> Route.header "Location" location

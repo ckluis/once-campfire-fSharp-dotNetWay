@@ -130,7 +130,7 @@ let ``a rails issued session cookie authenticates`` () =
         use! test = bootSeeded "default"
         let sessions, _, forged = sessionVectors ()
         let session = sessions[0]
-        use! host = startPipelineWith test.Booted.ConfigureServices whoamiPipeline
+        use! host = startPipelineWith test.Wiring.ConfigureServices whoamiPipeline
 
         let! signedIn = host.Send(getWithCookie "/whoami" session.CookieHeader)
         Assert.Equal(200, signedIn.Status)
@@ -164,7 +164,7 @@ let ``the application chain blocks banned ips forgeries and old browsers`` () =
         use! test = bootSeeded "default"
         let sessions, _, _ = sessionVectors ()
         let cookie = sessions[0].CookieHeader
-        use! host = startPipelineWith test.Booted.ConfigureServices whoamiPipeline
+        use! host = startPipelineWith test.Wiring.ConfigureServices whoamiPipeline
         let post (name: string) (value: string) = (request "POST" "/whoami").With("cookie", cookie).With(name, value)
 
         // `ips.banned` in the seed's labels.
@@ -197,7 +197,7 @@ let ``allow browser keeps the platform it parsed for the layout`` () =
         use! test = bootSeeded "default"
         use! host =
             startPipelineWith
-                test.Booted.ConfigureServices
+                test.Wiring.ConfigureServices
                 (routedPipeline [ "/platform", platformAction; "/platform/without_the_chain", platformWithoutTheChain ])
 
         let chrome = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"
@@ -614,7 +614,7 @@ let ``a request resolves the scoped CampfireDb and the TimeProvider from its Req
                 let sameGate = obj.ReferenceEquals(gate, test.App.Gate)
                 do! Microsoft.AspNetCore.Http.HttpResponseWritingExtensions.WriteAsync(http.Response, $"{users} {obj.ReferenceEquals(db, again)} {sameGate} {obj.ReferenceEquals(time, test.App.Time)}")
             }
-        use! host = startPipelineWith test.Booted.ConfigureServices (fun app -> Microsoft.AspNetCore.Builder.RunExtensions.Run(app, Microsoft.AspNetCore.Http.RequestDelegate handler))
+        use! host = startPipelineWith test.Wiring.ConfigureServices (fun app -> Microsoft.AspNetCore.Builder.RunExtensions.Run(app, Microsoft.AspNetCore.Http.RequestDelegate handler))
         let! reply = host.Send(get "/")
         Assert.Equal(200, reply.Status)
         let! users = test.App.ReadEf(fun db -> System.Linq.Queryable.Count(db.Users))

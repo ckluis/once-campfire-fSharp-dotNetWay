@@ -224,7 +224,7 @@ let ``OP5 a good one freezes the clock`` () =
 let ``OP6 invalid VAPID keys do not fail: the host boots, logs that Web Push is off and serves /up`` () =
     withTempDir (fun dir ->
         task {
-            let logs = new CapturingLoggers()
+            let logs = new LogCapture()
             let httpPort = freePort ()
             let app =
                 Boot.build

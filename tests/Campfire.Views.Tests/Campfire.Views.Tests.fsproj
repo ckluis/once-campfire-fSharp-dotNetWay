@@ -5,7 +5,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="../Shared/Repo.fs" Link="Repo.fs" />
-    <Compile Include="../Shared/LooseDom.fs" Link="LooseDom.fs" />
+    <Compile Include="LooseDom.fs" />
     <Compile Include="Cases/Inputs.fs" />
     <Compile Include="Cases/Answer.fs" />
     <Compile Include="Cases/Pages.fs" />

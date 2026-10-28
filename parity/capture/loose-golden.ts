@@ -1,4 +1,4 @@
-// Writes what loose.ts makes of the view layer's stored pages, for tests/Shared/LooseDom.fs (the F# port over AngleSharp) to be
+// Writes what loose.ts makes of the view layer's stored pages, for tests/Campfire.Views.Tests/LooseDom.fs (the F# port over AngleSharp) to be
 // pinned to: every rust/crates/views/tests/golden/a/*.html (Rails' own renders) and 30 of the frozen oracle's answers
 // (tests/Campfire.Views.Tests/oracle.jsonl). Run by parity/bin/loose-golden; the outputs are committed, so a change to loose.ts or
 // normalize.ts shows as a diff there and fails the W2 test until the port follows.

@@ -3,7 +3,7 @@
 // `HttpContext` could change: the mention list's formats and headers, the QR code's cache and bad input, the search
 // params, the unfurl `require`, and the Active Storage authentication (`AuthenticateAsync "Session"` or 401, never
 // resuming), CSRF and a direct upload read back through the redirect, proxy and disk endpoints, whole and by range.
-module Campfire.App.Tests.Web.ControllersCTests
+module Campfire.App.Tests.Web.LookupControllerTests
 
 open System
 open System.Security.Cryptography

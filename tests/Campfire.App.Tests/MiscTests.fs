@@ -22,7 +22,7 @@ let private noDb () : Ef.CampfireDb =
 
 [<Fact>]
 let ``a body whose plain text raises has none`` () =
-    use loggers = new CapturingLoggers()
+    use loggers = new LogCapture()
     let richText = AppRichText(Secrets.create "test-secret", TimeProvider.System, loggers.Logger "rich_text") :> Campfire.Db.RichText
     use db = noDb ()
     // Rails raises `ArgumentError: invalid base64` reading the mention.
@@ -37,7 +37,7 @@ let private manyAttributesBody = "<p " + String.Join(" ", [ for i in 1..450 -> $
 
 [<Fact>]
 let ``a body without attachments that fails to parse still logs the mentions error`` () =
-    use loggers = new CapturingLoggers()
+    use loggers = new LogCapture()
     let richText = AppRichText(Secrets.create "test-secret", TimeProvider.System, loggers.Logger "rich_text") :> Campfire.Db.RichText
     use db = noDb ()
     for body in [ deepBody; manyAttributesBody ] do
@@ -48,7 +48,7 @@ let ``a body without attachments that fails to parse still logs the mentions err
 
 [<Fact>]
 let ``a plain body parses nothing and logs nothing`` () =
-    use loggers = new CapturingLoggers()
+    use loggers = new LogCapture()
     let richText = AppRichText(Secrets.create "test-secret", TimeProvider.System, loggers.Logger "rich_text") :> Campfire.Db.RichText
     use db = noDb ()
     for body in [ ""; "hello"; "<div>hi <b>there</b></div>"; String('x', 5000) ] do

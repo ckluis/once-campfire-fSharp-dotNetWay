@@ -72,7 +72,7 @@ let ``HS1 /up answers on HTTP_PORT and on TARGET_PORT, which is bound to loopbac
     task {
         use! test = bootSeeded "default"
         let settings = settingsOf []
-        let! host, app = startHost test.Booted settings
+        let! host, app = startHost test.Wiring settings
         use _host = host
         let! up = host.Send(get "/up")
         Assert.Equal(200, up.Status)
@@ -84,13 +84,13 @@ let ``HS1 /up answers on HTTP_PORT and on TARGET_PORT, which is bound to loopbac
         Assert.DoesNotContain(listening, fun a -> a.Contains "127.0.0.1" && a.EndsWith $":{settings.HttpPort}")
         // TARGET_BIND opens the app listener to every address.
         let open' = settingsOf [ "TARGET_BIND", "0.0.0.0" ]
-        let! host2, app2 = startHost test.Booted open'
+        let! host2, app2 = startHost test.Wiring open'
         use _host2 = host2
         Assert.Contains($"http://0.0.0.0:{open'.TargetPort}", addresses app2)
         // TARGET_PORT = HTTP_PORT: one listener, no failure.
         let port = freePort ()
         let same = settingsOf [ "HTTP_PORT", string port; "TARGET_PORT", string port ]
-        let! host3, app3 = startHost test.Booted same
+        let! host3, app3 = startHost test.Wiring same
         use _host3 = host3
         Assert.Equal(1, (addresses app3).Length)
         let! up3 = host3.Send(get "/up")
@@ -101,7 +101,7 @@ let ``HS1 /up answers on HTTP_PORT and on TARGET_PORT, which is bound to loopbac
 let ``HS3 without TLS the HTTP port serves the app`` () =
     task {
         use! test = bootSeeded "default"
-        let! host, _ = startHost test.Booted (settingsOf [])
+        let! host, _ = startHost test.Wiring (settingsOf [])
         use _host = host
         let! page = host.Send(get "/session/new")
         Assert.Equal(200, page.Status)
@@ -116,7 +116,7 @@ let private hsts = "max-age=63072000; includeSubDomains"
 let ``HS5 HSTS is on an HTTPS page, an asset, an error page and any host, and absent with DISABLE_SSL`` () =
     task {
         use! test = bootSeededConfigured ignore [ "DISABLE_SSL", " " ] "default"
-        let! host, _ = startHost test.Booted (settingsOf [])
+        let! host, _ = startHost test.Wiring (settingsOf [])
         use _host = host
         let page = host.Send(get "/session/new")
         let! page = page
@@ -136,7 +136,7 @@ let ``HS5 HSTS is on an HTTPS page, an asset, an error page and any host, and ab
         Assert.Equal(500, error.Status)
         Assert.Equal(Some hsts, error.Header "strict-transport-security")
         // An exception outside an action reaches the middleware's handler, which clears the headers.
-        let! throwing, _ = startHostWith test.Booted throwingCable (settingsOf [])
+        let! throwing, _ = startHostWith test.Wiring throwingCable (settingsOf [])
         use _throwing = throwing
         let! thrown = throwing.Send((get "/cable").With("accept", "text/html"))
         Assert.Equal(500, thrown.Status)
@@ -153,7 +153,7 @@ let ``HS5 HSTS is on an HTTPS page, an asset, an error page and any host, and ab
 let ``HS5 without force_ssl (DISABLE_SSL) there is no HSTS`` () =
     task {
         use! test = bootSeeded "default"
-        let! host, _ = startHost test.Booted (settingsOf [])
+        let! host, _ = startHost test.Wiring (settingsOf [])
         use _host = host
         let! page = host.Send(get "/session/new")
         Assert.Equal(200, page.Status)
@@ -167,7 +167,7 @@ let ``HS5 without force_ssl (DISABLE_SSL) there is no HSTS`` () =
 let ``HS6 the head limits of Puma and hyper through Host.build`` () =
     task {
         use! test = bootSeeded "default"
-        let! host, _ = startHost test.Booted (settingsOf [])
+        let! host, _ = startHost test.Wiring (settingsOf [])
         use _host = host
         let! cookie = host.Send((get "/session/new").With("cookie", "a=" + String('x', 40_000) + "; b=seen"))
         Assert.Equal(200, cookie.Status)
@@ -196,7 +196,7 @@ let private post (b: Browser) (headers: (string * string) list) : Task<Reply> =
 
 /// A browser over a host of `Host.build`'s, signed in as David.
 let private browserOn (test: Test) (host: Campfire.App.Tests.Support.Host) : Browser =
-    let b = Browser(Test(test.Booted, test.Dir, host, new CapturingLoggers()), None)
+    let b = Browser(Test(test.Wiring, test.Dir, host, new LogCapture()), None)
     b.AbsorbCookieHeader(davidCookie ())
     b
 
@@ -205,7 +205,7 @@ let ``HS7 remote_ip follows FORWARD_HEADERS: Rails' proxies when on, the peer wh
     task {
         use! test = bootSeeded "default"
         // On (Thruster's default without TLS): the loopback peer is a trusted proxy, so its forwarded address is the client's.
-        let! on, _ = startHost test.Booted (settingsOf [ "FORWARD_HEADERS", "true" ])
+        let! on, _ = startHost test.Wiring (settingsOf [ "FORWARD_HEADERS", "true" ])
         use _on = on
         let! banned = post (browserOn test on) [ "x-forwarded-for", bannedIp ]
         Assert.Equal(429, banned.Status)
@@ -216,7 +216,7 @@ let ``HS7 remote_ip follows FORWARD_HEADERS: Rails' proxies when on, the peer wh
         // The default without TLS is on.
         Assert.True (settingsOf []).ForwardHeaders
         // Off: a forged header never counts, whoever the peer is (a private one here), for the address, the scheme and the host.
-        let! off, _ = startHost test.Booted (settingsOf [ "FORWARD_HEADERS", "false" ])
+        let! off, _ = startHost test.Wiring (settingsOf [ "FORWARD_HEADERS", "false" ])
         use _off = off
         let! forged = post (browserOn test off) [ "x-forwarded-for", bannedIp ]
         Assert.True((forged.Status < 400), $"a forged X-Forwarded-For was honoured: {forged.Status}")
@@ -256,7 +256,7 @@ let ``HS8 HTTP_IDLE_TIMEOUT closes an idle keep-alive connection, HTTP_READ_TIME
         use! test = bootSeeded "default"
         let settings = settingsOf [ "HTTP_IDLE_TIMEOUT", "2"; "HTTP_READ_TIMEOUT", "2" ]
         Assert.Equal(TimeSpan.FromSeconds 2.0, settings.IdleTimeout)
-        let! host, _ = startHost test.Booted settings
+        let! host, _ = startHost test.Wiring settings
         use _host = host
         // One request on a keep-alive connection, then silence: the connection closes after about the idle timeout.
         use idle = new TcpClient()
@@ -307,7 +307,7 @@ let ``HS10 a large value of a timeout means none, and the host starts`` () =
         let settings = settingsOf [ "HTTP_IDLE_TIMEOUT", "99999999999"; "HTTP_READ_TIMEOUT", "0" ]
         Assert.Equal(TimeSpan.MaxValue, settings.IdleTimeout)
         Assert.Equal(TimeSpan.MaxValue, settings.ReadTimeout)
-        let! host, app = startHost test.Booted settings
+        let! host, app = startHost test.Wiring settings
         use _host = host
         let limits = app.Services.GetRequiredService<IOptions<KestrelServerOptions>>().Value.Limits
         Assert.Equal(TimeSpan.MaxValue, limits.KeepAliveTimeout)
@@ -327,7 +327,7 @@ let ``HS11 stopping the host closes the cable sockets with server_restart first,
     task {
         use! test = bootSeeded "default"
         let settings = settingsOf []
-        let! host, app = startHost test.Booted settings
+        let! host, app = startHost test.Wiring settings
         Assert.Equal(Boot.ShutdownGrace, app.Services.GetRequiredService<IOptions<HostOptions>>().Value.ShutdownTimeout)
         Assert.Equal(TimeSpan.FromSeconds 10.0, Boot.ShutdownGrace)
         let connect () =
@@ -491,7 +491,7 @@ let ``HS2 with TLS_DOMAIN the HTTP port answers the ACME challenge for its names
         let storage = tempStorage ()
         cachedCertificate storage "chat.example.test" |> ignore
         let settings = tlsSettings storage "chat.example.test" []
-        let! host, app = startHost test.Booted settings
+        let! host, app = startHost test.Wiring settings
         use _host = host
         let store = app.Services.GetRequiredService<CertificateStore>()
         store.AddChallenge("tok-1", "tok-1.thumb")
@@ -536,7 +536,7 @@ let ``HS4 the HTTPS port hands each TLS_DOMAIN name its own certificate, refuses
         let other = cachedCertificate storage "other.example.test"
         Assert.NotEqual<string>(chat, other)
         let settings = tlsSettings storage "chat.example.test,other.example.test" []
-        let! host, _ = startHost test.Booted settings
+        let! host, _ = startHost test.Wiring settings
         use _host = host
         let! first = handshake settings.HttpsPort "chat.example.test"
         Assert.Equal(Ok(chat, "HTTP/1.1 200 OK"), first)
@@ -555,7 +555,7 @@ let ``HS4 the first handshake of a name with no certificate yet fails within HTT
         let storage = tempStorage ()
         // No cache file: the order fails (nothing listens on the directory), so the handshake waits for a certificate that never comes.
         let settings = tlsSettings storage "chat.example.test" [ "HTTP_READ_TIMEOUT", "2" ]
-        let! host, _ = startHost test.Booted settings
+        let! host, _ = startHost test.Wiring settings
         use _host = host
         let clock = Stopwatch.StartNew()
         let! refused = handshake settings.HttpsPort "chat.example.test"
@@ -614,7 +614,7 @@ let ``SR4 the HTTP port's redirect never leaves the TLS_DOMAIN name, whatever th
         let storage = tempStorage ()
         cachedCertificate storage "chat.example.test" |> ignore
         let settings = tlsSettings storage "chat.example.test" []
-        let! host, _ = startHost test.Booted settings
+        let! host, _ = startHost test.Wiring settings
         use _host = host
         let origin = $"https://chat.example.test:{settings.HttpsPort}/"
         // Targets that a browser could read as another authority if they were put after a Host of the client's choosing.
@@ -644,7 +644,7 @@ let ``SR5 the ACME challenge answers only a pending token, by exact name, on the
         let storage = tempStorage ()
         cachedCertificate storage "chat.example.test" |> ignore
         let settings = tlsSettings storage "chat.example.test" []
-        let! host, app = startHost test.Booted settings
+        let! host, app = startHost test.Wiring settings
         use _host = host
         let store = app.Services.GetRequiredService<CertificateStore>()
         store.AddChallenge("tok-1", "tok-1.thumb")

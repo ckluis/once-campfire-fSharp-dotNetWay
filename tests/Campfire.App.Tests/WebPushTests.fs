@@ -169,7 +169,7 @@ let ``encodes the message like json generate`` () =
 
 /// WP1: the vector's receiver key decrypts what the library sent to the message the gem encrypts, and the longest payload fits.
 [<Fact>]
-let ``the payload decrypts to the message`` () =
+let ``WP1 the payload decrypts to the message`` () =
     task {
         let service = pushService 201 "Created"
         use _server = service.Server
@@ -195,7 +195,7 @@ let ``the payload decrypts to the message`` () =
     }
 
 [<Fact>]
-let ``the longest payload fits a push message`` () =
+let ``WP1 the longest payload fits a push message`` () =
     task {
         let service = pushService 201 "Created"
         use _server = service.Server
@@ -213,7 +213,7 @@ let ``the longest payload fits a push message`` () =
 
 /// WP2, and the pinned address: the request goes to the address the delivery resolved, with no second lookup.
 [<Fact>]
-let ``delivers to the pinned address with the vapid headers`` () =
+let ``WP2 delivers to the pinned address with the vapid headers`` () =
     task {
         let service = pushService 201 "Created"
         use _server = service.Server
@@ -303,7 +303,7 @@ let private config (publicKey: string option) (privateKey: string option) : Camp
 
 /// WP6: invalid or missing keys turn push off (`None`), and nothing throws.
 [<Fact>]
-let ``web push is off without a valid key pair`` () =
+let ``WP6 web push is off without a valid key pair`` () =
     task {
         use t = new TestDb()
         let service = pushService 201 "Created"
@@ -319,7 +319,7 @@ let ``web push is off without a valid key pair`` () =
 
 /// WP5
 [<Fact>]
-let ``skips endpoints it may not deliver to`` () =
+let ``WP5 skips endpoints it may not deliver to`` () =
     task {
         let service = pushService 201 "Created"
         use _server = service.Server
@@ -343,7 +343,7 @@ let ``skips endpoints it may not deliver to`` () =
 
 /// WP3 and WP4
 [<Fact>]
-let ``raises what the gem raises`` () =
+let ``WP3 raises what the gem raises`` () =
     task {
         let receiver = Receiver()
         let subscription = receiver.Subscription(1L, "https://fcm.googleapis.com/fcm/send/abc")
@@ -368,7 +368,7 @@ let ``raises what the gem raises`` () =
 
 /// WP4: a 429 that says when to retry is still sent once.
 [<Fact>]
-let ``a 429 with retry after is sent once`` () =
+let ``WP4 a 429 with retry after is sent once`` () =
     task {
         let service = pushServiceWith true (Route.create "POST" "*" "" 429 |> Route.header "Retry-After" "1")
         use _server = service.Server
@@ -381,7 +381,7 @@ let ``a 429 with retry after is sent once`` () =
     }
 
 [<Fact>]
-let ``only the subscriptions own faults invalidate it`` () =
+let ``WP3 only the subscriptions own faults invalidate it`` () =
     task {
         // A key that isn't a point on the curve (as in the fixtures) can never be delivered to.
         let service = pushService 201 "Created"
@@ -410,7 +410,7 @@ let ``only the subscriptions own faults invalidate it`` () =
 
 /// WP7 (the delivery half; the redirect is the controller's)
 [<Fact>]
-let ``test notification`` () =
+let ``WP7 test notification`` () =
     task {
         let service = pushService 201 "Created"
         use _server = service.Server
@@ -517,7 +517,7 @@ let ``pushes messages and destroys expired subscriptions`` () =
     }
 
 [<Fact>]
-let ``the pool keeps subscriptions it failed to reach`` () =
+let ``WP8 the pool keeps subscriptions it failed to reach`` () =
     task {
         let service = pushService 201 "Created"
         use _server = service.Server
@@ -544,7 +544,7 @@ type private GatedResolver() =
             }
 
 [<Fact>]
-let ``the pool drops deliveries past its queue`` () =
+let ``WP8 the pool drops deliveries past its queue`` () =
     task {
         let resolver = GatedResolver()
         let _, net = pushEnv resolver (TcpDialer()) false
@@ -609,7 +609,7 @@ let ``CH2 a closed queue is delivered whole and every reader ends once`` () =
 /// A stop that comes right after the start still delivers what was queued and destroys what is gone: `StartAsync` runs all of
 /// `ExecuteAsync` on the thread pool, so the stop may run before the readers exist.
 [<Fact>]
-let ``a stop right after the start still delivers and invalidates`` () =
+let ``WP8 a stop right after the start still delivers and invalidates`` () =
     task {
         let gone = pushService 410 "Gone"
         use _gone = gone.Server
@@ -630,7 +630,7 @@ type private PanickingResolver() =
 
 /// A delivery that panics still gives its place in the queue back, so panics can't fill it up.
 [<Fact>]
-let ``a panicking delivery frees its slot`` () =
+let ``WP8 a panicking delivery frees its slot`` () =
     task {
         let _, net = pushEnv (PanickingResolver()) (TcpDialer()) false
         let! pool = startPool net (fun _ -> Task.FromResult(Ok()))
@@ -643,7 +643,7 @@ let ``a panicking delivery frees its slot`` () =
 [<Fact>]
 let ``RD4 a push failure logs the host and not the endpoint's path`` () =
     task {
-        let logs = new CapturingLoggers()
+        let logs = new LogCapture()
         let receiver = Receiver()
         let subscription = receiver.Subscription(1L, "https://fcm.googleapis.com/fcm/send/abc")
         // A push service that refuses, and one that cannot be reached (the library's own message may carry the request URI).

@@ -16,7 +16,7 @@ open Campfire.App.Web
 
 /// Runs `routes` as web actions, on the session and the services of the booted app.
 let private startRoutes (test: Test) (routes: HttpContext -> Task<Result<HttpHandler, Campfire.App.Web.Error>>) : Task<Host> =
-    startPipelineWith test.Booted.ConfigureServices (fun app ->
+    startPipelineWith test.Wiring.ConfigureServices (fun app ->
         app.UseCookiePolicy() |> ignore
         app.UseSession() |> ignore
         app.Run(RequestDelegate(fun http -> Action.run routes http)))

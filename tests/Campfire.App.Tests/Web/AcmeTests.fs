@@ -318,7 +318,7 @@ let ``AC9 a pass with every domain loaded and not due makes no HTTP request and 
         let made = ref false
         let factory = Factory(fun () -> made.Value <- true; new HttpClient(handler))
         let store = CertificateStore [ "a.example.com"; "b.example.com" ]
-        let logs = new CapturingLoggers()
+        let logs = new LogCapture()
         let acme = service (settingsFor storage [ "a.example.com"; "b.example.com" ] "https://acme.invalid/directory") store factory (logs.Logger "acme")
         acme.LoadCached now
         let before = [ store.Get "a.example.com"; store.Get "b.example.com" ]
@@ -338,7 +338,7 @@ let ``AC10 a failing order leaves the store unchanged, logs the domain and retur
         let handler = new Status(HttpStatusCode.InternalServerError)
         let factory = Factory(fun () -> new HttpClient(handler))
         let store = CertificateStore [ "chat.example.com" ]
-        let logs = new CapturingLoggers()
+        let logs = new LogCapture()
         let acme = service (settingsFor storage [ "chat.example.com" ] "https://acme.invalid/directory") store factory (logs.Logger "acme")
         let! next = acme.RenewDueAsync(now, CancellationToken.None)
         Assert.True handler.Asked
@@ -363,7 +363,7 @@ let private trusting (root: string) : SocketsHttpHandler =
 type private Running = { App: WebApplication; Store: CertificateStore; Service: AcmeService; HttpsPort: int }
 
 /// The HTTP listener on `httpPort` answering HTTP-01 and an HTTPS listener on a free port serving `store`, with the ACME service hosted.
-let private startHost (logs: CapturingLoggers) (settings: FrontSettings) (httpPort: int) (acmeHandler: unit -> HttpMessageHandler) : Task<Running> =
+let private startHost (logs: LogCapture) (settings: FrontSettings) (httpPort: int) (acmeHandler: unit -> HttpMessageHandler) : Task<Running> =
     task {
         let builder = WebApplication.CreateSlimBuilder()
         builder.Logging.ClearProviders() |> ignore
@@ -454,7 +454,7 @@ let ``AC11 Pebble: a certificate is ordered at start over HTTP-01, cached, serve
             use manager = new HttpClient(trusting root)
             let! issuing = within "Pebble's root" 30 (manager.GetStringAsync $"{management}/roots/0")
             use issuingRoot = X509Certificate2.CreateFromPem issuing
-            let logs = new CapturingLoggers()
+            let logs = new LogCapture()
             // First host: nothing cached, so it orders after ApplicationStarted.
             let! leaf, served =
                 withHost (within "starting the first host" 30 (startHost logs settings httpPort (fun () -> trusting root))) (fun first ->

@@ -134,7 +134,7 @@ Project references follow the crate graph. Don't add an edge Rust doesn't have.
   fingerprinted URL), `webRootFile`, the stylesheet tags and `Link` header, and `map`; `Web/Importmap.fs` reads the import map's `pin`/`pin_all_from`.
   The table is validated at startup and a host without the web root fails at boot; `configureHost` must run on every host (tests included), and nothing may
   render a page, a broadcast or a job before `StaticAssets.map` (it fails with "static assets are not mapped"). The parity harness masks Propshaft digests
-  and SDK fingerprints alike (`parity/capture/normalize.ts`, `network.ts`, `overrides.ts`, `tests/Shared/LooseDom.fs`; a plain `/assets/` URL is still a
+  and SDK fingerprints alike (`parity/capture/normalize.ts`, `network.ts`, `overrides.ts`, `tests/Campfire.Views.Tests/LooseDom.fs`; a plain `/assets/` URL is still a
   difference in the DOM layer). `bin/asset-check` (colima) runs the network checks N1-N4 and the probe list (encoded dots, backslashes, dotfiles,
   `/campfire.dll`, the endpoint manifest, `/wwwroot/...`) against the image; the golden fixtures are in `tests/Campfire.App.Tests/Assets/reference/`.
 - **Views (Falco.Markup, since Phase 4).** Every template is an F# module at the same relative path as its ERB under
@@ -173,7 +173,7 @@ Project references follow the crate graph. Don't add an edge Rust doesn't have.
     `em` holds U+F8FF as the ERB does (the loose DOM sees an empty text node without it). `pwa/manifest.json` is `Manifest.render ... :
     byte[]` on `Utf8JsonWriter` (the oracle compares it as JSON, `Facts.jsonEqual`); the service worker stays text. A custom element's flex
     children still get `Html.sp` between two inline siblings.
-  - **The oracles** (`tests/Campfire.Views.Tests`): `tests/Shared/LooseDom.fs` is the harness's loose DOM in F# (AngleSharp), pinned to
+  - **The oracles** (`tests/Campfire.Views.Tests`): `tests/Campfire.Views.Tests/LooseDom.fs` is the harness's loose DOM in F# (AngleSharp), pinned to
     `loose.ts` by `loose/` (`parity/bin/loose-golden` rewrites it; it reads `oracle.jsonl`, so rerun it after changing that file).
     `oracle.jsonl` is the frozen sample of the Rust views crate's answers (hostile text included), replayed by `DifferentialTests` through
     `Cases/` (`Operations.fs`, `Pages.fs`, `Rest.fs`: what each case calls, the case runners). Markup answers must be equal as the loose DOM; text

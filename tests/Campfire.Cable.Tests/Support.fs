@@ -217,7 +217,9 @@ type Http =
     member this.Header(name: string) : string option =
         this.Headers |> List.tryFind (fun (k, _) -> String.Equals(k, name, StringComparison.OrdinalIgnoreCase)) |> Option.map snd
 
-let private timeout () = new CancellationTokenSource(TimeSpan.FromSeconds 5.0)
+/// How long one socket read may wait. Generous: it is only ever reached by a test that is about to fail, and a starved thread pool under a
+/// parallel run (L5 failed once on 5 s) must not read as a missing frame.
+let private timeout () = new CancellationTokenSource(TimeSpan.FromSeconds 20.0)
 
 let private readExact (stream: Stream) (buffer: byte[]) (count: int) : Task =
     task {
@@ -403,7 +405,7 @@ type Client(tcp: TcpClient, stream: Stream, protocol: string option, extensions:
                 | :? IOException ->
                     closed <- true
                     return Ended
-                | :? OperationCanceledException -> return failwith "no frame within 5s"
+                | :? OperationCanceledException -> return failwith "no frame within 20s"
         }
 
     /// The next frame. A read that was given up on (see `AssertSilent`) is picked up by the next call,

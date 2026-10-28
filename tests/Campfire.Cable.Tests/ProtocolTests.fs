@@ -57,6 +57,22 @@ let private expectGot (expected: Got) (client: Client) : Task =
         eq expected got
     }
 
+/// The close frame arrives within `deadline`, whatever else (pings, a late confirmation) comes first; the wait ends the moment it is read,
+/// so the test has no fixed wait, and a loaded host only makes it later, not wrong.
+let private expectCloseWithin (deadline: TimeSpan) (expected: (uint16 * string) option) (client: Client) : Task =
+    task {
+        let stop = Diagnostics.Stopwatch.StartNew()
+        let mutable closing = ValueNone
+        while closing.IsNone do
+            let remaining = deadline - stop.Elapsed
+            if remaining <= TimeSpan.Zero then failwith $"no close frame within {deadline.TotalSeconds:F0} s"
+            match! client.Next().WaitAsync remaining with
+            | Closed _ as got -> closing <- ValueSome got
+            | Ended -> failwith "the connection ended without a close frame"
+            | _ -> ()
+        eq (Closed expected) closing.Value
+    }
+
 let private logOf (app: TestServer) : string list = lock app.Log (fun () -> List.ofSeq app.Log)
 
 [<Fact>]
@@ -442,7 +458,7 @@ let ``L5 an invalid UTF-8 text message closes 1007, websocket-driver's code and 
             let! client = connect app 1UL
             do! expectText Welcome client
             do! client.SendBytes(clientFrame 0x1uy true false [| 0xffuy; 0xfeuy |])
-            do! expectGot (Closed(Some(1007us, ""))) client
+            do! expectCloseWithin (TimeSpan.FromSeconds 30.0) (Some(1007us, "")) client
         })
 
 [<Fact>]

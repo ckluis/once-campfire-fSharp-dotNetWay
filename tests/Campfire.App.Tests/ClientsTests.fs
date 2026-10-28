@@ -31,7 +31,7 @@ let private deliver (provider: ServiceProvider) (url: string) =
 
 /// CL1: a POST reaches the server exactly once, whether it is answered 500, reset or never answered.
 [<Fact>]
-let ``a webhook POST is sent once on a 500`` () =
+let ``CL1 a webhook POST is sent once on a 500`` () =
     task {
         use server = FakeServer.Start [ Route.create "POST" "*" "/hook" 500 |> Route.header "Content-Type" "text/plain" |> Route.text "no" ]
         use clients = httpClients ignore
@@ -43,7 +43,7 @@ let ``a webhook POST is sent once on a 500`` () =
     }
 
 [<Fact>]
-let ``a webhook POST is sent once on a reset`` () =
+let ``CL1 a webhook POST is sent once on a reset`` () =
     task {
         let handle, address, accepted =
             countingServer (fun client ->
@@ -64,7 +64,7 @@ let ``a webhook POST is sent once on a reset`` () =
     }
 
 [<Fact>]
-let ``a webhook POST is sent once on a timeout`` () =
+let ``CL1 a webhook POST is sent once on a timeout`` () =
     task {
         use server = FakeServer.Start [ { Route.create "POST" "*" "/hook" 200 with Delay = TimeSpan.FromSeconds 9.0 } ]
         use clients = httpClients ignore
@@ -80,7 +80,7 @@ let private urlFor (name: string) (server: IPEndPoint) (path: string) : string =
 
 /// CL2: no client follows a 302 by itself.
 [<Fact>]
-let ``no client follows a redirect`` () =
+let ``CL2 no client follows a redirect`` () =
     task {
         use server =
             FakeServer.Start
@@ -98,7 +98,7 @@ let ``no client follows a redirect`` () =
 
 /// CL3: proxy variables in the process do not route a request.
 [<Fact>]
-let ``proxy variables are ignored`` () =
+let ``CL3 proxy variables are ignored`` () =
     task {
         let handle, proxy, proxied = countingServer (fun client -> task { client.Close() })
         use _proxy = handle
@@ -122,7 +122,7 @@ let ``proxy variables are ignored`` () =
 
 /// CL2 and CL3 by construction, since a loopback request bypasses a proxy whatever the variables say: the handler of every client.
 [<Fact>]
-let ``every handler is configured without redirects, proxy or cookies`` () =
+let ``CL2 CL3 every handler is configured without redirects, proxy or cookies`` () =
     use provider = httpClients ignore
     for guarded, timeout in [ true, 5.0; true, 10.0; false, 7.0 ] do
         use handler = Clients.handler guarded (TimeSpan.FromSeconds timeout) true provider
@@ -136,7 +136,7 @@ let ``every handler is configured without redirects, proxy or cookies`` () =
 /// CL4: Net::HTTP's `Accept` and `User-Agent` on the opengraph and webhook requests; a push request has the library's headers instead
 /// (class A: push services read neither).
 [<Fact>]
-let ``requests carry Net::HTTP's Accept and User-Agent`` () =
+let ``CL4 requests carry Net::HTTP's Accept and User-Agent`` () =
     task {
         use server = FakeServer.Start [ Route.create "GET" "*" "/page" 200 |> Route.text "x" ]
         let provider, _ = guardedClients server.Addr
@@ -160,7 +160,7 @@ let ``requests carry Net::HTTP's Accept and User-Agent`` () =
 let ``no client logs a request's URL`` () =
     task {
         use server = FakeServer.Start [ Route.create "GET" "*" "/secret-path" 200 |> Route.text "x" ]
-        use loggers = new Campfire.App.Tests.Support.CapturingLoggers()
+        use loggers = new Campfire.App.Tests.Support.LogCapture()
         let dialer = MappingDialer(HashSet [ publicHost ], server.Addr)
         use provider =
             httpClients (fun services ->
@@ -176,7 +176,7 @@ let ``no client logs a request's URL`` () =
 
 /// CL5: `readLimited` stops a gigabyte gzip bomb at the limit, and inflates what fits.
 [<Fact>]
-let ``readLimited stops a gzip bomb at the limit`` () =
+let ``CL5 readLimited stops a gzip bomb at the limit`` () =
     task {
         use server =
             FakeServer.Start
@@ -220,7 +220,7 @@ let ``contentType reads the raw header like Net::HTTP`` () =
 
 /// GD1: an unpinned request to a host that resolves to 127.0.0.1 is refused at connect, and the dial is never called.
 [<Fact>]
-let ``an unpinned request to a private host is refused at connect`` () =
+let ``GD1 an unpinned request to a private host is refused at connect`` () =
     task {
         use server = FakeServer.Start [ Route.create "GET" "*" "/" 200 |> Route.text "secret" ]
         let dialer = MappingDialer(HashSet [ IPAddress.Loopback ], server.Addr)
@@ -237,7 +237,7 @@ let ``an unpinned request to a private host is refused at connect`` () =
 
 /// GD2: a request pinned to 10.0.0.1 is refused at connect; one pinned to a public address connects there.
 [<Fact>]
-let ``a pinned private address is refused at connect`` () =
+let ``GD2 a pinned private address is refused at connect`` () =
     task {
         use server = FakeServer.Start [ Route.create "GET" "*" "/" 200 |> Route.text "ok" ]
         let provider, dialer = guardedClients server.Addr
@@ -270,7 +270,7 @@ let private lastOf (network: IPNetwork) : UInt128 =
 /// GD3: the `IPNetwork` lists are the old lists: their sizes, and for every network the first and last address (by the old arithmetic)
 /// inside it and its neighbours outside it; and every disallowed network's ends are blocked.
 [<Fact>]
-let ``the IPNetwork lists are the old lists`` () =
+let ``GD3 the IPNetwork lists are the old lists`` () =
     Assert.Equal(16, Guard.disallowedIpv4List.Length)
     Assert.Equal(11, Guard.disallowedIpv6List.Length)
     Assert.Equal(36, Guard.ianaAllocatedIpv6Unicast.Length)
@@ -292,7 +292,7 @@ let ``the IPNetwork lists are the old lists`` () =
 /// GD4: an IPv4-mapped IPv6 answer is classified as the IPv4 address inside it (a private one is blocked), and surfguard blocks the
 /// mapped form outright, so a public address inside it is dropped too.
 [<Fact>]
-let ``an IPv4-mapped answer is classified as its IPv4 address`` () =
+let ``GD4 an IPv4-mapped answer is classified as its IPv4 address`` () =
     task {
         for v4 in [ "10.0.0.1"; "127.0.0.1"; "169.254.169.254"; "192.168.1.1" ] do
             Assert.True(Guard.blockedAddress ((IPAddress.Parse v4).MapToIPv6()), $"::ffff:{v4}")
@@ -308,7 +308,7 @@ let ``an IPv4-mapped answer is classified as its IPv4 address`` () =
 let ``a timed out webhook's resilience event logs no URL`` () =
     task {
         use server = FakeServer.Start [ { Route.create "POST" "*" "/hooks/secret-token-path" 200 with Delay = TimeSpan.FromSeconds 9.0 } ]
-        use loggers = new Campfire.App.Tests.Support.CapturingLoggers()
+        use loggers = new Campfire.App.Tests.Support.LogCapture()
         use clients = httpClients (fun services -> services.AddSingleton<Microsoft.Extensions.Logging.ILoggerFactory>(loggers) |> ignore)
         let! outcome = deliver clients $"http://{server.Addr}/hooks/secret-token-path"
         match outcome with

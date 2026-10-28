@@ -51,7 +51,7 @@ let private stopped (runner: JobRunner<AppState>) : Task =
 let ``JB1 a job of each kind runs once on its kind's worker`` () =
     task {
         use! test = bootEmpty ()
-        use logs = new CapturingLoggers()
+        use logs = new LogCapture()
         let seen = Channel.CreateUnbounded<string>()
         let record (name: string) : JobHandler<AppState> =
             fun _app _event ->
@@ -85,7 +85,7 @@ let ``JB1 a job of each kind runs once on its kind's worker`` () =
 let ``JB2 JB3 a busy or full kind doesnt hold up the others`` () =
     task {
         use! test = bootEmpty ()
-        use logs = new CapturingLoggers()
+        use logs = new LogCapture()
         let performed = Channel.CreateUnbounded<Event>()
         let slowBot = new SemaphoreSlim(0)
         let registry = Registry<AppState>()
@@ -120,7 +120,7 @@ let ``JB2 JB3 a busy or full kind doesnt hold up the others`` () =
 let ``JB4 a panicking job is logged and its worker carries on`` () =
     task {
         use! test = bootEmpty ()
-        use logs = new CapturingLoggers()
+        use logs = new LogCapture()
         let jobs = Jobs(JobLimits.QueueCapacity, logs.Logger "jobs")
         let! runner = started jobs test.App (Registry<AppState>()) 1
 
@@ -138,7 +138,7 @@ let ``JB4 a panicking job is logged and its worker carries on`` () =
 let ``a failed job is logged with its cause`` () =
     task {
         use! test = bootEmpty ()
-        use logs = new CapturingLoggers()
+        use logs = new LogCapture()
         let jobs = Jobs(JobLimits.QueueCapacity, logs.Logger "jobs")
         let! runner = started jobs test.App (Registry<AppState>()) 1
 
@@ -156,7 +156,7 @@ let ``a failed job is logged with its cause`` () =
 let ``CH3 the job workers drain a closed queue and end without an exception`` () =
     task {
         use! test = bootEmpty ()
-        use logs = new CapturingLoggers()
+        use logs = new LogCapture()
         let performed = Channel.CreateUnbounded<Event>()
         let gate = new SemaphoreSlim(0)
         let registry = Registry<AppState>()
@@ -179,7 +179,7 @@ let ``CH3 the job workers drain a closed queue and end without an exception`` ()
 let ``JB5 shutdown performs what is queued and then takes no more`` () =
     task {
         use! test = bootEmpty ()
-        use logs = new CapturingLoggers()
+        use logs = new LogCapture()
         let performed = Channel.CreateUnbounded<Event>()
         let registry = Registry<AppState>()
         registry.Handle(JobKind.DeliverWebhook, reporting performed.Writer None)

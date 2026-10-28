@@ -1,4 +1,4 @@
-// W2 (plans/design-views.md section 5): tests/Shared/LooseDom.fs, the F# port of parity/capture/loose.ts over AngleSharp, equals what
+// W2 (plans/design-views.md section 5): tests/Campfire.Views.Tests/LooseDom.fs, the F# port of parity/capture/loose.ts over AngleSharp, equals what
 // loose.ts itself made of every Rails golden page and of the stored oracle answers (24 since 4.11 dropped the writer helpers' cases; stored in tests/Campfire.Views.Tests/loose/ by
 // parity/bin/loose-golden), line for line; plus the rules of loose.ts's own self-test (parity/capture/test/loose.test.ts).
 module Campfire.Views.Tests.LooseDomTests

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Rewrites tests/Campfire.Views.Tests/loose/: what parity/capture/loose.ts (the loose DOM layer the pixel harness compares with) makes
-# of every Rails golden page (rust/crates/views/tests/golden/a) and of up to 30 answers of the frozen oracle (24 since unit 4.11 dropped the writer helpers' cases). tests/Shared/LooseDom.fs is
+# of every Rails golden page (rust/crates/views/tests/golden/a) and of up to 30 answers of the frozen oracle (24 since unit 4.11 dropped the writer helpers' cases). tests/Campfire.Views.Tests/LooseDom.fs is
 # the F# port of loose.ts; its W2 test compares the port with these stored outputs line for line. Run it after changing loose.ts,
 # normalize.ts or oracle.jsonl, and commit the result.
 #

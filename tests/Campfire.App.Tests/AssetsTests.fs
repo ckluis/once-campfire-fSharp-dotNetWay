@@ -190,8 +190,8 @@ let ``a host built without configureHost fails at boot, naming the cause`` () =
                 Campfire.App.Tests.Support.startPipelineOn
                     (Campfire.App.Web.StaticAssets.hostOptions [||])
                     ignore
-                    test.Booted.ConfigureServices
-                    test.Booted.Pipeline
+                    test.Wiring.ConfigureServices
+                    test.Wiring.Pipeline
                 :> System.Threading.Tasks.Task)
         Assert.Contains("UseStaticWebAssets", failure.Message)
         Assert.Contains("not in the web root", failure.Message)
@@ -427,7 +427,7 @@ let ``H6 a bot without an avatar gets default-bot-avatar.svg's bytes as image/sv
         use! test = Campfire.App.Tests.Support.bootSeeded "default"
         let b = Campfire.App.Tests.Support.browser test "198.51.100.9"
         do! b.SignIn "david@37signals.com"
-        let token = Campfire.App.Presenters.Common.avatarToken test.Booted.App.Secrets Campfire.App.Tests.Support.BENDER
+        let token = Campfire.App.Presenters.Common.avatarToken test.Wiring.App.Secrets Campfire.App.Tests.Support.BENDER
         let! response = b.Get $"/users/{token}/avatar"
         Assert.Equal(200, response.Status)
         Assert.Equal(Some "image/svg+xml", response.ContentType)

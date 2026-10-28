@@ -5,10 +5,15 @@ module Campfire.App.Tests.Web.AuthenticationTests
 open System
 open System.Threading.Tasks
 open Microsoft.AspNetCore.Authentication
+open Microsoft.AspNetCore.Antiforgery
 open Microsoft.AspNetCore.Authentication.Cookies
+open Microsoft.AspNetCore.Builder
+open Microsoft.AspNetCore.Http
+open Microsoft.AspNetCore.Session
 open Microsoft.Extensions.DependencyInjection
 open Xunit
 open Campfire.App.Tests.Support
+open Campfire.App
 open Campfire.App.Web
 open Campfire.Rails
 
@@ -135,7 +140,7 @@ let ``A4 padding is percent-encoded on the wire both ways`` () =
             }
         let pipeline (app: Microsoft.AspNetCore.Builder.IApplicationBuilder) =
             Microsoft.AspNetCore.Builder.RunExtensions.Run(app, Microsoft.AspNetCore.Http.RequestDelegate run)
-        use! host = startPipelineWith test.Booted.ConfigureServices pipeline
+        use! host = startPipelineWith test.Wiring.ConfigureServices pipeline
         let! reply = host.Send(get "/")
         let header = reply.SetCookies |> List.find (fun c -> c.StartsWith "session_token=")
         let wire = cookieValue header
@@ -221,7 +226,7 @@ let ``A7 requests that do not authenticate never read the cookie`` () =
         use! test = bootSeeded "default"
         let calls = ref 0
         let services (services: IServiceCollection) =
-            test.Booted.ConfigureServices services
+            test.Wiring.ConfigureServices services
             services.PostConfigure<CookieAuthenticationOptions>(Schemes.Session, fun options ->
                 let inner = options.TicketDataFormat
                 options.TicketDataFormat <-
@@ -231,7 +236,7 @@ let ``A7 requests that do not authenticate never read the cookie`` () =
                         member _.Unprotect(text) = calls.Value <- calls.Value + 1; inner.Unprotect text
                         member _.Unprotect(text, purpose) = calls.Value <- calls.Value + 1; inner.Unprotect(text, purpose) })
             |> ignore
-        use! host = startPipelineWith services test.Booted.Pipeline
+        use! host = startPipelineWith services test.Wiring.Pipeline
         let cookie = davidCookie ()
         for path in [ "/up"; Campfire.App.Web.StaticAssets.path "composer.css"; "/webmanifest.json" ] do
             let! reply = host.Send(getWithCookie path cookie)
@@ -260,4 +265,61 @@ let ``A8 a session whose user is gone is not signed in`` () =
         let! reply = test.Send(getWithCookie "/account/edit" $"session_token={Cookies.escape signed}")
         Assert.Equal(302, reply.Status)
         Assert.Equal(Some "http://campfire.test/session/new", reply.Location)
+    }
+
+// --- The seam (unit 2.1, folded in by 9.5): what a request resolves, and `Current` ---------------------------------------
+
+let private run (handler: HttpContext -> Task) : IApplicationBuilder -> unit =
+    fun app -> Microsoft.AspNetCore.Builder.RunExtensions.Run(app, RequestDelegate handler)
+
+let private write (http: HttpContext) (text: string) : Task =
+    Microsoft.AspNetCore.Http.HttpResponseWritingExtensions.WriteAsync(http.Response, text)
+
+[<Fact>]
+let ``a request resolves ICsrfProtection, IAuthenticationSchemeProvider and ISessionStore on net11`` () =
+    task {
+        use! test = bootSeeded "default"
+        let handler (http: HttpContext) : Task =
+            let services = http.RequestServices
+            let csrf = services.GetService<ICsrfProtection>()
+            let schemes = services.GetService<IAuthenticationSchemeProvider>()
+            let sessions = services.GetService<ISessionStore>()
+            write http $"{Environment.Version.Major} {not (isNull (box csrf))} {not (isNull (box schemes))} {not (isNull (box sessions))}"
+        use! host = startPipelineWith test.Wiring.ConfigureServices (run handler)
+        let! reply = host.Send(get "/")
+        Assert.Equal("11 True True True", reply.Text)
+    }
+
+[<Fact>]
+let ``no authentication scheme is the default, so nothing authenticates unasked`` () =
+    task {
+        use! test = bootSeeded "default"
+        let handler (http: HttpContext) : Task =
+            task {
+                let schemes = http.RequestServices.GetRequiredService<IAuthenticationSchemeProvider>()
+                let! authenticate = schemes.GetDefaultAuthenticateSchemeAsync()
+                let! challenge = schemes.GetDefaultChallengeSchemeAsync()
+                do! write http $"{isNull (box authenticate)} {isNull (box challenge)}"
+            }
+        use! host = startPipelineWith test.Wiring.ConfigureServices (run handler)
+        let! reply = host.Send(get "/")
+        Assert.Equal("True True", reply.Text)
+    }
+
+[<Fact>]
+let ``Current is one object per request`` () =
+    task {
+        use! test = bootSeeded "default"
+        let seen = Collections.Concurrent.ConcurrentBag<Current>()
+        let handler (http: HttpContext) : Task =
+            let first = Current.get http
+            let again = Current.get http
+            seen.Add first
+            write http $"{obj.ReferenceEquals(first, again)} {Current.signedIn http} {first.AuthenticatedBy}"
+        use! host = startPipelineWith test.Wiring.ConfigureServices (run handler)
+        let! one = host.Send(get "/")
+        let! two = host.Send(get "/")
+        Assert.Equal("True False Anonymous", one.Text)
+        Assert.Equal("True False Anonymous", two.Text)
+        Assert.Equal(2, (seen |> Seq.distinct |> Seq.length))
     }

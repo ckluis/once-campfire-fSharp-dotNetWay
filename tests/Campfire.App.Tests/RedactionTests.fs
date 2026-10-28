@@ -26,7 +26,7 @@ let private redacted (test: Test) (value: string) : string = (Logging.forSecrets
 /// What production writes: `Boot.createLoggerFactory`'s filters (the framework's categories at Warning, the request log at
 /// Information, the app's at Information), over the capture, which records everything.
 let private shipped (test: Test) : string =
-    let collector = (test.App.Loggers :?> CapturingLoggers).Collector
+    let collector = (test.App.Loggers :?> LogCapture).Collector
     collector.GetSnapshot()
     |> Seq.filter (fun record ->
         let category = record.Category |> Option.ofObj |> Option.defaultValue ""
@@ -123,7 +123,7 @@ let ``RD3 a webhook job failing on a bad URL logs no part of the URL`` () =
             Assert.Contains(redacted test url, message)
         | Ok() -> failwith "the job did not fail"
         // Through the runner's own line: `job failed job=... error=...`.
-        let logger = (test.Booted.App.Loggers).CreateLogger "campfire.jobs"
+        let logger = (test.Wiring.App.Loggers).CreateLogger "campfire.jobs"
         let! failed = handler test.App (Event.DeliverWebhook(BENDER, messageId))
         match failed with
         | Error message -> logger.LogError("job failed job={Job} error={Error}", "deliver_webhook", message)

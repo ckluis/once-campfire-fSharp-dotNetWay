@@ -3,7 +3,7 @@
 // the whole app on the `default` parity seed. J1-J10 check what the move to `HttpContext` could change: the administrator
 // guard, the hash and file params, the Turbo Stream list, the join flow's errors, the conditional GETs of the public images,
 // and the push subscription params.
-module Campfire.App.Tests.Web.ControllersBTests
+module Campfire.App.Tests.Web.AccountControllerTests
 
 open System
 open Xunit

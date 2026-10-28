@@ -98,11 +98,11 @@ let ``F4 return_to sends the signed out visitor back to the absolute URL`` () =
 let ``F5 rails own session cookie is neither read nor rewritten and logs no warning`` () =
     task {
         use! test = bootSeeded "default"
-        let logs = new CapturingLoggers()
+        let logs = new LogCapture()
         let services (services: IServiceCollection) =
-            test.Booted.ConfigureServices services
+            test.Wiring.ConfigureServices services
             services.AddSingleton<ILoggerFactory>(logs :> ILoggerFactory) |> ignore
-        use! host = startPipelineWith services test.Booted.Pipeline
+        use! host = startPipelineWith services test.Wiring.Pipeline
         let rails = "_campfire_session=" + String('x', 120)
         let! reply = host.Send(getWithCookie "/session/new" (rails + "; " + davidCookie ()))
         Assert.True((reply.Status = 200 || reply.Status = 302), $"{reply.Status}")
@@ -157,7 +157,7 @@ let ``F8 pages without a session cookie do not touch the store`` () =
         let touched = ref 0
         let hit () = touched.Value <- touched.Value + 1
         let services (services: IServiceCollection) =
-            test.Booted.ConfigureServices services
+            test.Wiring.ConfigureServices services
             services.AddSingleton<IDistributedCache>(fun _ ->
                 { new IDistributedCache with
                     member _.Get(_) = hit (); null
@@ -169,7 +169,7 @@ let ``F8 pages without a session cookie do not touch the store`` () =
                     member _.Remove(_) = hit ()
                     member _.RemoveAsync(_, _) = hit (); Task.CompletedTask })
             |> ignore
-        use! host = startPipelineWith services test.Booted.Pipeline
+        use! host = startPipelineWith services test.Wiring.Pipeline
         let cookie = davidCookie ()
         for path in [ "/session/new"; "/up"; "/account/edit" ] do
             let! reply = host.Send(getWithCookie path cookie)

@@ -2,7 +2,7 @@
 //
 /// What the app's tests share: a real Kestrel server on a loopback port running a pipeline, a raw
 /// HTTP/1.1 client for it (`Uri` rewrites a bare `%` in a query to `%25`, and these tests need the bytes
-/// they wrote on the wire), and a booted app over a copy of a reference-built parity seed
+/// they wrote on the wire), and a wiring app over a copy of a reference-built parity seed
 /// (`parity/bin/seed build`, which needs Docker), skipped with a message when it hasn't been built
 /// (`CAMPFIRE_REQUIRE_SEED=1` fails the test instead).
 module Campfire.App.Tests.Support
@@ -265,7 +265,7 @@ let startPipeline (pipeline: IApplicationBuilder -> unit) : Task<Host> = startPi
 
 /// Log lines written to a factory: a `FakeLoggerProvider` over a `FakeLogCollector` (Microsoft.Extensions.Diagnostics.Testing),
 /// with `Text` over the snapshot, formatted as `Level category: message` (the console's without its timestamp).
-type CapturingLoggers() =
+type LogCapture() =
     let collector = FakeLogCollector()
     let factory =
         LoggerFactory.Create(fun builder -> builder.SetMinimumLevel(LogLevel.Trace).AddProvider(new FakeLoggerProvider(collector)) |> ignore)
@@ -282,7 +282,7 @@ type CapturingLoggers() =
         member _.CreateLogger(category: string) : ILogger = factory.CreateLogger category
         member _.Dispose() = factory.Dispose()
 
-// --- A booted app ------------------------------------------------------------------------------------------
+// --- A wiring app ------------------------------------------------------------------------------------------
 
 /// Plain ADO.NET over the app's database file, for what the tests check on disk or put in without a model (nothing here knows
 /// the entities).
@@ -314,7 +314,7 @@ module RawSql =
         use command = command conn sql args
         command.ExecuteNonQuery() |> ignore
 
-/// What a second test host needs to serve the state of a booted app: its registrations (`Boot.addServices` over the same inputs, then the
+/// What a second test host needs to serve the state of a wiring app: its registrations (`Boot.addServices` over the same inputs, then the
 /// host's own singletons shared in, so that both hosts and `App` see one app) and its pipeline. Not a second app: the hosted services
 /// that work off the app's queues (`Boot.addWorkers`) go only to the host that serves it, since stopping a runner closes the queues for good.
 [<NoComparison; NoEquality>]
@@ -324,51 +324,51 @@ type Wiring =
       ConfigureServices: IServiceCollection -> unit
       Workers: IServiceCollection -> unit }
 
-/// A booted app over its own copy of a seed (or an empty storage directory): `Boot.build`'s host on loopback ports, with a raw
+/// A wiring app over its own copy of a seed (or an empty storage directory): `Boot.build`'s host on loopback ports, with a raw
 /// client for it.
-type Test(booted: Wiring, dir: string, host: Host, logs: CapturingLoggers) =
-    member _.Booted = booted
+type Test(wiring: Wiring, dir: string, host: Host, logs: LogCapture) =
+    member _.Wiring = wiring
 
     /// The loopback port the app listens on.
     member _.Port = host.Port
 
     /// What the app logged.
     member _.Logs: string = logs.Text
-    member _.Captured: CapturingLoggers = logs
-    member _.App = booted.App
+    member _.Captured: LogCapture = logs
+    member _.App = wiring.App
     member _.Dir = dir
 
     /// A plain connection on the app's database file for the length of `f` (reads; it takes no gate).
     member _.Sql(f: Microsoft.Data.Sqlite.SqliteConnection -> 'T) : 'T =
-        use conn = new Microsoft.Data.Sqlite.SqliteConnection($"Data Source={booted.App.Config.Storage.Database};Pooling=False")
+        use conn = new Microsoft.Data.Sqlite.SqliteConnection($"Data Source={wiring.App.Config.Storage.Database};Pooling=False")
         conn.Open()
         f conn
 
     /// A statement no model makes, run on a connection of its own while holding the write gate.
     member this.Execute(sql: string, args: (obj | null) list) : Task<unit> =
         task {
-            do! booted.App.Gate.Enter()
+            do! wiring.App.Gate.Enter()
             try
                 this.Sql(fun conn -> RawSql.run conn sql args)
             finally
-                booted.App.Gate.Exit()
+                wiring.App.Gate.Exit()
         }
     member _.Host = host
 
     /// The writes the app's handlers have made to response bodies (see `BodyWrites`).
     member _.BodyWrites: int64 = host.BodyWrites.Total
 
-    /// The request to the booted app's whole pipeline.
+    /// The request to the wiring app's whole pipeline.
     member _.Send(req: Req) : Task<Reply> = host.Send req
 
     /// The seed's `labels.json` (what its fixtures' names stand for: `emails.david`, `users.kevin`, ...), if
-    /// the app was booted over one.
+    /// the app was wiring over one.
     member val Labels: JsonElement option = None with get, set
 
     /// A label of the seed as the text a URL or form takes: its string, or the number's digits.
     member this.Label(key: string) : string =
         match this.Labels with
-        | None -> failwith "this app was not booted over a seed"
+        | None -> failwith "this app was not wiring over a seed"
         | Some labels ->
             let value = labels.GetProperty key
             match value.ValueKind with
@@ -380,7 +380,7 @@ type Test(booted: Wiring, dir: string, host: Host, logs: CapturingLoggers) =
             ValueTask(
                 task {
                     do! (host :> IAsyncDisposable).DisposeAsync()
-                    Boot.closeDatabase booted.App
+                    Boot.closeDatabase wiring.App
                     try
                         Directory.Delete(dir, true)
                     with _ ->
@@ -440,7 +440,7 @@ type private CountBodies(writes: BodyWrites) =
 let private shareFrom<'T when 'T: not null and 'T: not struct> (root: IServiceProvider) (target: IServiceCollection) : unit =
     target.AddSingleton<'T>(root.GetRequiredService<'T>()) |> ignore
 
-let private wiringOf (app: WebApplication) (logs: CapturingLoggers) : Wiring =
+let private wiringOf (app: WebApplication) (logs: LogCapture) : Wiring =
     let root = app.Services
     let state = root.GetRequiredService<AppState>()
     let inputs: BootInputs =
@@ -475,7 +475,7 @@ let private wiringOf (app: WebApplication) (logs: CapturingLoggers) : Wiring =
 /// replacing the registrations, then `more`. Started; `Test.Port` is its `TARGET_PORT`.
 let private startApp time dbOptions (more: IServiceCollection -> unit) (vars: (string * string) list) (dir: string) : Task<Test> =
     task {
-        let logs = new CapturingLoggers()
+        let logs = new LogCapture()
         let writes = BodyWrites()
         let httpPort, targetPort = freePort (), freePort ()
         let all = [ "HTTP_PORT", string httpPort; "TARGET_PORT", string targetPort; "LOG_REQUESTS", "false"; "CACHE_SIZE", "0" ] @ vars
@@ -530,7 +530,7 @@ let private withLabels (seed: string) (test: Test) : Test =
     if File.Exists labels then test.Labels <- Some((JsonDocument.Parse(File.ReadAllText labels)).RootElement.Clone())
     test
 
-/// An app booted over a private copy of seed `name`, with `dbOptions` applied to the EF context options (tests: `LogTo`).
+/// An app wiring over a private copy of seed `name`, with `dbOptions` applied to the EF context options (tests: `LogTo`).
 let bootSeededServices (time: TimeProvider option) dbOptions (more: IServiceCollection -> unit) (extra: (string * string) list) (name: string) : Task<Test> =
     task {
         match seedCopy name with
@@ -549,24 +549,24 @@ let bootSeededTimed (time: TimeProvider option) dbOptions (extra: (string * stri
 let bootSeededConfigured dbOptions (extra: (string * string) list) (name: string) : Task<Test> =
     bootSeededTimed None dbOptions extra name
 
-/// An app booted over seed `name` on `time` (the parity harness's `FrozenTimeProvider`, or a `FakeTimeProvider` the test moves).
+/// An app wiring over seed `name` on `time` (the parity harness's `FrozenTimeProvider`, or a `FakeTimeProvider` the test moves).
 let bootSeededFrozen (time: TimeProvider) (name: string) : Task<Test> =
     bootSeededTimed (Some time) ignore [] name
 
 /// `bootSeededConfigured` with no environment of its own.
 let bootSeededWith dbOptions (name: string) : Task<Test> = bootSeededConfigured dbOptions [] name
 
-/// An app booted over a private copy of seed `name`, or a skip when the seed isn't built.
+/// An app wiring over a private copy of seed `name`, or a skip when the seed isn't built.
 let bootSeeded (name: string) : Task<Test> = bootSeededWith ignore name
 
-/// An app booted over an empty storage directory (a fresh install's database), with `extra` as its environment.
+/// An app wiring over an empty storage directory (a fresh install's database), with `extra` as its environment.
 let bootEmptyWith (extra: (string * string) list) : Task<Test> =
     task {
         let dir = Directory.CreateTempSubdirectory("campfire-app-test").FullName
         return! startAppRetrying 5 None ignore ignore ([ "SECRET_KEY_BASE_DUMMY", "1"; "CAMPFIRE_STORAGE_PATH", dir ] @ extra) dir
     }
 
-/// An app booted over an empty storage directory (a fresh install's database).
+/// An app wiring over an empty storage directory (a fresh install's database).
 let bootEmpty () : Task<Test> = bootEmptyWith []
 
 /// The Rails-issued session cookies and blob paths of `vectors/campfire_sessions.json`.

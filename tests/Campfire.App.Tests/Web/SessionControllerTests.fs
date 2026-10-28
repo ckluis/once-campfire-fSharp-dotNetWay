@@ -3,7 +3,7 @@
 // move to `HttpContext` could change: the headers a Web action's response carries (Rails' default headers and cache
 // control, the version headers of the chain), the answers of the controllers outside `ApplicationController`, the CSRF order
 // of the conductor, the per-IP sign-in limiter (K15) and the authentication order of the root page.
-module Campfire.App.Tests.Web.ControllersATests
+module Campfire.App.Tests.Web.SessionControllerTests
 
 open System
 open System.Threading.Tasks
