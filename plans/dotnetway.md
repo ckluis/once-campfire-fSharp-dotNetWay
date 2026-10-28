@@ -4308,3 +4308,35 @@ and D1-D9. Fix in `c8f739f`.
   is at `p8ctl` (inside 2%). Throughput c=1: 1,107 / 1,122 req/s (control 1,121 / 1,094); c=16: 2,199 / 2,198 (control 2,179 / 2,166). Against Rails' stored medians
   (167 / 330 req/s): **post a message 6.63-6.72x at c=1, 6.66x at c=16, above the 5x floor.**
 - **Removed:** `campfire-dotnetway:p8ctl`, the scratch image `p9pre` and the `/private/tmp` worktrees. `p9ctl` stays for the checkpoint. Free disk 21 GB.
+
+### Phase 9, unit 9.5: tests (C8) (2026-10-27)
+
+- **C8 (1), tests of deleted code:** checked, nothing left. `git grep` over `tests` for `FileServerTests`, `PartsStream`, the `Rack` facts, the `to_f` vectors and the Erb-writer
+  facts finds only comments about Ruby's `to_f` in `FormatsTests`/`PresentersTests` (what the framework does instead), which have a subject. They went in 9.1 and 9.2.
+- **Renames:** `Support.CapturingLoggers` -> `LogCapture`; `Test.Booted` -> `Test.Wiring` (and the constructor parameter); `Web/ControllersATests` ->
+  `SessionControllerTests` (N1-N9), `ControllersBTests` -> `AccountControllerTests` (J1-J10), `ControllersCTests` -> `LookupControllerTests` (K1-K6),
+  `ControllersDTests` -> `RoomControllerTests` (D1-D5); `Web/SeamTests` folded: the service-resolution fact, the no-default-scheme fact and "Current is one object per
+  request" into `AuthenticationTests`, `Action.run` and "every row of the route table is a wrapped Web action" into `RouteTableTests`. `tests/Shared/LooseDom.fs` moved to
+  `tests/Campfire.Views.Tests/LooseDom.fs` (only that project compiled it; `Repo` is used by all seven projects, `Testing` by Db and App, `JsonFrames` by App and Cable, which
+  stay). The path is updated in AGENTS.md, `Directory.Packages.props`, `parity/bin/loose-golden`, `parity/capture/loose-golden.ts` and `LooseDomTests`.
+  `LS5`'s seam `HttpLog.loggedWith` is untouched and there is still one boot path (`Boot.build`).
+- **IDs in the names:** `CL1` (x3), `CL2`, `CL3`, `CL2 CL3` (the handler fact), `CL4`, `CL5`, `GD1`-`GD4`, `OG1`-`OG4` (`OG3` on its three class B facts), `WP1`-`WP8` (`WP8` on the four pool
+  facts: keeps, drops, stop right after start, panicking delivery) now start their test names. `SR-J1/J2/J5`, `RD1`-`RD7`, `OP1`-`OP8` and `BB1`-`BB3` already did.
+  `dotnet test --solution CampfireFs.slnx --list-tests` finds all 38 (a script over the saved list: none missing).
+- **`--list-tests` before and after** (`bench/results/tests-95/list-tests-before.txt`, `list-tests-after.txt`, `renames.tsv`): 1,044 and 1,044. 66 tests changed name
+  (listed one by one with their new name in `renames.tsv`: 31 ID prefixes (12 Clients, 6 Opengraph, 13 WebPush), 30 controller-group module renames, 5 folded Seam facts); **0 removed**, 0 added,
+  every one of the 66 found under its new name.
+- **Deterministic:** L7 (`MemoryTests`): the socket-pair, bare-host and Cable measurements run back to back as a trial, three trials, and the judged figure is the least
+  Cable share (heap noise only adds); the first attempt took the least of each figure separately and a negative floor (-0.5 KB) made the share 17.6 KB, which is why the
+  trial is paired. Measured 2.6-2.7 KB of Cable per connection, floor 13.6 KB, server 16.3 KB (bounds 5 KB and 20 KB unchanged). L5 (1007): `expectCloseWithin` reads
+  frames until the close frame, within a 30 s deadline, no fixed wait; `Support.readExact`'s per-read limit is 20 s (was 5 s, which is what "no frame within 5s" was).
+  A third load-sensitive Cable fact fired while proving this and is fixed the same way: `GoldenTests` "replays reference frames" collected frames until a fixed 400 ms
+  quiet moment, so a loaded host saw `[]` for a confirmation; it now waits up to 15 s for the number of frames the recording has for that step, and the quiet moment only
+  decides that nothing more comes.
+- **Gates:** `CAMPFIRE_REQUIRE_SEED=1 bin/verify`: 1,044 total, 1,038 passed, 6 skipped (the same six), 0 failed, four runs in a row green on the final code (the host was at load
+  5-12 from other sessions throughout), after one failure of each of the two flakes below. `git grep -n -e CapturingLoggers -e '\.Booted\b' tests` finds nothing.
+  `bin/linux-tests App`: 445 total, 444 passed, 1 skipped (AC11, no Pebble), HS2, HS4 and THP ran. The first run failed `PresenterAccountsTests` "transfers sign in on another
+  device" with the 302 below; the rerun was green. `bin/kloc`: 26,211 corrected (25,764 cloc), unchanged (no `src` change). `bin/clean-docker` run, free disk 23 GB.
+- **Open, not caused by this unit:** the known 3.4 "302 flake" (a session-cookie request answered 302 to `/session/new`) fired in 2 of 11 `bin/verify` runs
+  (`MessagesTests`/`CsrfTests`, then `RoomsTests`) and 1 of 2 `linux-tests App` runs (`PresenterAccountsTests`), always at host load 6-9, and never in 6 App-only runs at load 3. It
+  needs a `src` change to chase (the session lookup or the resume write is where a request can read as unauthenticated); for 9.7's list.
