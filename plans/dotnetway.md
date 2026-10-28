@@ -4340,3 +4340,28 @@ and D1-D9. Fix in `c8f739f`.
 - **Open, not caused by this unit:** the known 3.4 "302 flake" (a session-cookie request answered 302 to `/session/new`) fired in 2 of 11 `bin/verify` runs
   (`MessagesTests`/`CsrfTests`, then `RoomsTests`) and 1 of 2 `linux-tests App` runs (`PresenterAccountsTests`), always at host load 6-9, and never in 6 App-only runs at load 3. It
   needs a `src` change to chase (the session lookup or the resume write is where a request can read as unauthenticated); for 9.7's list.
+
+### Phase 9, unit 9.6: README (C10) (2026-10-27)
+
+- **Done:** `README.md` is theDotNetWay's: intro, status, Running it (`campfire-dotnetway:app`), Performance (the Phase 8 gate table against Rails' stored
+  medians, marked as replaced by the final bench, with the 9.3 and 9.4 movements in a paragraph), Development, **Known differences** and **How this was built**.
+  Known differences states class C once (never listed), class A once (one list), and class B by layer (Application, Data, Storage, Assets, Front server, Cable, Views,
+  Rich text, Integrations), then "Carried over from the Rust port" restates the Rust entries that still apply, each with a test. No pointer to another README is
+  needed to read it. The range wording is the README's (`bytes= -5` is a suffix range; the vector cases are named), not design-close section 8's `bytes= 1-2`. "How this was
+  built" has the phase table (what each replaced, with what, KLOC at close: 39.4, 38.4, 35.3, hybrid 35.4, 34.8, 33.7, 30.2, 30.0, 27.9, 27.1, 26.2 so far).
+- **Stale test names fixed:** the old README named `ControllersATests`, `ControllersBTests`, `SeamTests` and `ConfigTests` (renamed or folded by 9.5; now
+  `SessionControllerTests`, `AccountControllerTests`, `RouteTableTests`, `OptionsTests`), F11-F14 and Q1 (design IDs, not tests) and four fact names split over lines.
+- **Evidence** (`bench/results/readme-96/`): `checklist.md` maps every class A and B line of the nine design notes' section 8 and of the Phase log's "Differences
+  recorded" lines to its README line; `check-tests.py` is the throwaway script: from the Known differences section it pulls every ID (ranges expanded), every
+  backticked `...Tests` module, every quoted fact name and every `bin/` tool, and greps `tests/` (and `bin/`): **158 IDs, 53 modules, 42 facts, 0 missing**
+  (`check-tests.out`; it fails on a planted `NoSuchTests` / `ZZ9` / "nope not here"). FR1-FR4, LS1-LS5 and "a missing file is not answered as an empty 200" are in it.
+- **Lines removed or changed, with the reason:** (1) "a file an upload spooled is deleted when the response completes" differed from Rust only (Rails does the same). (2) `FILES_AND_MEDIA_URL_REGEX`
+  being .NET's non-backtracking engine: no test pins it (`git grep` finds none), so it cannot be a class B line with a test; the difference is on marks and letter numbers in a URL. (3) Rust's "Passwords" (bcrypt off the
+  database writer) and the bot JSON cached per base URL describe Rust internals: there is no writer thread here and the bot JSON is not cached (design-views section 8); the README says so under
+  "Not carried". (4) The cache-header line (Assets) is pinned by `bin/asset-check`, not a unit test: a Debug test host serves fingerprinted URLs with `no-cache` (the immutable header comes from the
+  published endpoint manifest), so a unit test I tried for it was removed. (5) The "Front server" entry was split by topic (host, log, cache, TLS, certificates) and the Class A items moved to the one Class A list; no sentence was lost.
+- **Gates:** `CAMPFIRE_REQUIRE_SEED=1 bin/verify` green (`verify.log`): 1,044 total, 1,038 passed, 0 failed, 6 skipped (the same six), 0 warnings, lint self-test 39/39 and 320 files clean, guards silent.
+  `bin/kloc`: 26,211 corrected (25,764 cloc, 25.8 KLOC), unchanged (no `src` change; `kloc.md`). The markdown renders by structure (fences balanced, the two tables' rows have equal columns, headings nest `##` over `###`);
+  no renderer is installed here. No image gate, pixel run or bench: the unit changes no code, and `Web/Host.fs`, `Acme.fs` and `OutputCaching.fs` are untouched.
+- **Differences recorded:** none new; this unit states the existing ones.
+- **For 9.7:** README no longer contains `FileServer`, `PartsStream`, `Rack\.`, `TempDir`, `JsonValue`, `RailsCompat`, `Campfire\.Ruby\b`, `Campfire\.Routes`, `CapturingLoggers`, `Booted`, `Campfire\.Kit` or `WaitToReadAsync`.
