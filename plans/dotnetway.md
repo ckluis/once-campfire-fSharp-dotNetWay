@@ -4717,3 +4717,27 @@ Built as `4eb1e94` (code and tests) and `a993bc8` (README) on `dotnetway`; this 
   room_show 2,574 / 31,120 (**12.09x**); messages_page 3,145 / 29,991 (**9.54x**); sidebar 3,970 / 36,063 (**9.08x**); search 3,668 / 36,027 (**9.82x**). Every read at least 5x. (Against 10.4's checkpoint:
   sidebar 15,891 -> 41,412, search 17,538 -> 41,059.) No tmpfs or `uq-*` image left.
 - **Remains for 10.6.** `bench/quick` 5x against stored Rails interleaved with `p10ctl`; P16 adapter metadata (local commit); remove `p10ctl`; the full `realtime/**` states one at a time; `db-differential`; the close entry.
+
+### Phase 10.6: the gate and the close (2026-10-28)
+
+Code at `953023e` (no source change in this unit; 10.5's `a993bc8` plus its log entry). `parity/bin/candidate build` at HEAD, label checked.
+
+- **bin/verify** (`CAMPFIRE_REQUIRE_SEED=1`, Release, warnings as errors, guards, lint and self-test): 1,068 total, 1,062 passed, 0 failed, 6 skipped.
+- **Lean pixel matrix, all seeds** (Chromium/Firefox/WebKit, desktop and phone, light and dark, breakpoint sweep; pixels, aria and loose DOM): default, every non-realtime group in one run, **756/756** (2,307 s); the 13 `realtime/**` states one at a time on default, each **8/8**
+  (attachment_sent, boost_removed, boosted, message_deleted, message_edited, message_sent, new_room_in_sidebar, presence_read, removed_from_room, room_deleted_then_send, typing/many, typing/one, unread_in_sidebar; no hang this time); the other four seeds in one run:
+  crowd **24/24**, custom_styles **32/32**, first_run **16/16**, restricted **8/8** (268 s). 15 slices, all exit 0. `bin/clean-parity` between slices; `fstrim` once when the Mac showed 12 GB; 22 GB free at the start of each slice otherwise.
+- **bin/cookie-roundtrip:** 20/20. **bin/db-differential:** exit 0 (3/3 differential tests, schema identity, reference on the F#-written database).
+- **bench/quick** (`bench/results/phase10-6-quick/`, dotnetway alone, 3 reps, c=1 and 16, against the stored Rails of `phase7-final`; probe 1.05-1.08): x Rails, c=16 / c=1: room 139.6x / 59.9x, messages 83.5x / 28.9x, sidebar 66.1x / 24.9x, search 96.4x / 37.0x,
+  post 7.49x (2,474 req/s) / **7.25x** (1,210, the thinnest cell). No cell under 5x. **Deviation:** the `p10ctl` control image did not exist (it was removed at the end of 10.2, recorded there), so this run is not interleaved with a control; the
+  steady-state comparison with P2 that the control was for was made by 10.2's own run. The room and messages c=1 rates are below the stored port's (0.84x, 0.76x), as expected of a page cache that adds a lookup and a copy; they are still 59.9x and 28.9x the stored Rails.
+- **upstream-quick, `--commit HEAD` (`953023e`, clean clone, dirty=false), 3 rounds, c=16, req/s and x the same session's Rails** (harness `eb45b63`, seed `e7b7f2b4`; exit 0, validate passed).
+  Normal (`bench/results/phase10-6-normal/`; probe 1.064 before, 1.085 after; load 1.2 before, 4.9 after): room_show 4,918 / 34,764 (**7.07x**); messages_page 4,888 / 33,332 (**6.82x**); sidebar 5,226 / 41,679 (**7.97x**); search 5,101 / 41,153 (**8.07x**);
+  post_message 403 / 2,891 (**7.18x**). Every normal route at least 5x. The F# port in the same session: 7.29x / 8.62x / 7.27x / 6.63x / 23.35x.
+  Mixed (`--mixed`, 10 posts/s, `bench/results/phase10-6-mixed/`; probe 1.034 / 1.051; load 4.5 / 4.5): room 33,416 (**12.24x** of 2,731), messages 32,642 (**9.42x**), sidebar 40,062 (**9.39x**), search 39,451 (**9.79x**). Reported, all at least 5x.
+  No tmpfs, `uq-*` image or container left.
+- **bin/kloc:** 26,017 cloc, **26,464 corrected (26.5 KLOC)**, under Rust's 31.0 (the acceptance said about 26.36; the difference is 10.2-10.5's additions, PageCache.fs and its seams, net of what 10.3 removed). Static data left out: 4,512 (4,815 corrected).
+- **P16, harness adapter (local only, never pushed):** commit `eb45b63` on `oncrack-adapter` in `once-campfire-verification` (done in a throwaway worktree: that checkout is on another branch with uncommitted work, untouched). The `dotnetway` row now says
+  response cache "pages (HybridCache, fresh authorization)", and `dotnetway` leaves the `%w[c cpp fsharp]` list so `response_cache_mb` is recorded. Both upstream-quick runs above used it.
+- **p10ctl:** gone before this unit (no tag, no image: `docker images` shows none). Disk: `bin/clean-docker`, `bin/clean-parity`, `fstrim`; 22 GB free at the end. `Web/Host.fs`, `Acme.fs`, `OutputCaching.fs` untouched since their last gate: HS2/HS4, AC11, pebble not re-run.
+- **Differences recorded:** none visible (pixels, aria, loose equal on every seed). The known difference for the page cache (a write by another program shows within 60 s or at the next commit; a global epoch costs hit rate under presence and session-resume commits) stands in the README.
+- **Phase 10 close.** Goals met: every normal route at least 5x Rails in the same session (6.82x-8.07x), post 7.18x, mixed 9.42x-12.24x, KLOC 26.5. Nothing pushed, no repo created.
