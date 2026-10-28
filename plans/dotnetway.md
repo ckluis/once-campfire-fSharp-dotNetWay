@@ -4367,3 +4367,55 @@ and D1-D9. Fix in `c8f739f`.
   no renderer is installed here. No image gate, pixel run or bench: the unit changes no code, and `Web/Host.fs`, `Acme.fs` and `OutputCaching.fs` are untouched.
 - **Differences recorded:** none new; this unit states the existing ones.
 - **For 9.7:** README no longer contains `FileServer`, `PartsStream`, `Rack\.`, `TempDir`, `JsonValue`, `RailsCompat`, `Campfire\.Ruby\b`, `Campfire\.Routes`, `CapturingLoggers`, `Booted`, `Campfire\.Kit` or `WaitToReadAsync`.
+
+### Phase 9, unit 9.7: delete and clean up (2026-10-28)
+
+- **Built (`6f0348d`):** the leftovers grep over `src tests bin bench/lib parity/docker reference-tools AGENTS.md README.md plans/dotnetway.md` (the Phase log excluded), with
+  word boundaries on `TempDir` and `JsonValue` because `JsonValueKind` is System.Text.Json's enum and matched the bare word 400 times. What was real and is changed: the
+  `RailsCompat` module in `Secrets.fs` (it held one function) is now `Secrets.appVerifier` (12 call sites in `src` and `tests`); five comments that named RailsCompat now say the
+  Rails project; the tests' own `TempDir` helper (Db.Tests, Storage.Tests, `withTempDir` in two App test files) is `ScratchDir`; the two reference-tool classes `RailsCompatVectors` and
+  `RailsCompatVerifyRust` are `RailsVectors` and `RailsVerifyRust` (file names, the vector file `rails_compat.json` and its tests are unchanged). No `FileServer`, `PartsStream`,
+  `CapturingLoggers`, `Booted`, `Campfire.Kit`, `Campfire.Ruby` or `Campfire.Routes` was left in those paths.
+- **What the grep still finds, and why (history or kept on purpose):** (1) `reference-tools/ruby_core.rb:121`: `Rack.release` is the Rails reference's own gem version, read
+  from Ruby; it records what the oracle ran and is not our code. (2) `WaitToReadAsync` in `Campfire.App/Integrations/PushDeliveries.fs:85` (the push invalidation reader) and
+  `Campfire.Cable/Connection.fs:236` (the writer loop): the two single readers C6 keeps, plus two comments (`PushDeliveries.fs:64`, `WebPushTests.fs:577`) explaining why the other readers
+  moved to `ReadAsync`. (3) `plans/dotnetway.md` sections 1-6 (14 lines): the plan as written on 2026-10-13, which names the code it replaced; the status line now says so and
+  says the Phase log and the design notes win.
+- **AGENTS.md** is theDotNetWay's guide: the seven-project table (no Rust crate column), the sources of truth (Rails, then the plan and notes, then the differences policy), F# conventions
+  without "match Rust" and "cite the Rust file", performance rules without the UTF-8 pooled rendering, the "no markup library" and the Rust-caches rules (the 5x floor and the hybrid reads
+  stay), and every tool section kept (hybrid reads, integrations, rich text, assets, views, front server, ACME and Pebble, TLS, Phase 7 measuring, Cable bench, storage tools, Dockerfile,
+  controllers, replay, parity gates, cookie round trip, toolchain, colima). 292 lines before, 266 after.
+- **Plan:** the status line reads "built, Phases 0-9 closed"; section 6's "Target .NET 10 (LTS)" line says .NET 11, superseded in Phase 1 unit 1.0 (`27c98c8`), with `global.json` and
+  `Directory.Build.props` as the evidence.
+- **Build outputs:** `find` over the repo finds no `Campfire.Kit`, `Campfire.Ruby`, `Campfire.Routes`, `Campfire.RailsCompat` or `Campfire.Assets` directory (the removed projects' `obj` and `bin`
+  were already gone); `src` has the seven projects and `tests` the seven test projects.
+- **Gates (all on `6f0348d`):** `CAMPFIRE_REQUIRE_SEED=1 bin/verify` green: 1,044 total, 1,038 passed, 0 failed, 6 skipped (the same six), Release, warnings as errors, lint and guards in it.
+  Image rebuilt from HEAD, label `org.opencontainers.image.revision` = `6f0348d2ad80fe121090b92578d37c928b40aa9b` = `git rev-parse HEAD` (checked). `bin/pixel-parity --fast --only 'rooms/show/designers'`: PASSED,
+  default 2/2 screenshots, aria and loose equal; the other four seeds have no cell for that state (0/0), so "every seed" is every seed that has one. `bin/cookie-roundtrip`: **20/20 checks passed**.
+  Also, because the 16 Firefox cells are item 6 of the ledger: `bin/pixel-parity --only 'auth/join/invalid_code,rooms/opens/new/restricted_member' -- --matrix full --engines firefox`: PASSED, default 8/8 and
+  restricted 8/8 (screenshots, aria, loose). `bin/clean-parity` and `bin/clean-docker` run. `docker images 'campfire-dotnetway:*'` lists `app` and `p9ctl` only.
+  No bench and no HS2/HS4, AC11 or pebble run: no behaviour changed and `Web/Host.fs`, `Acme.fs` and `OutputCaching.fs` are untouched.
+- **KLOC** (`bin/kloc`, final): **26,210 corrected (25,763 cloc, 25.8 KLOC)**: App 12,232, Cable 1,051, Db 2,455, Rails 1,533, RichText 2,268, Storage 1,452, Views 5,219; static data left out
+  4,512 (corrected 4,815). Against the projection (about 26.2, range 26.0-26.4): on it. Rust f9dca47 is 31.0 KLOC and Rails 5.5.
+- **Differences recorded:** none.
+
+### Phase 9: open items (the ledger of `plans/design-close.md` section 9, with evidence, 2026-10-28)
+
+| Item (from the Phase 8 verifier) | Ended in | Evidence |
+|---|---|---|
+| Static rows below Rails | 9.3 (`dabac38`) | `bench/results/quick-93`: static_css 1.19x (c=1) and 1.06x (c=16) Rails, avatar 1.67x and 1.69x; 9.3's entry has the table |
+| Post c=1 CPU +3-5% | 9.4 (`979d360`) | the herd of 50 `WaitToReadAsync` readers; `bench/results/quick-94a`/`94b`: CPU per post 1,665 us against `p8ctl` 1,673 us (-0.4%) and 1,646 against `p9ctl` 1,750 us (-5.9%); CH1-CH3 |
+| `layers.py`/`perf_layers.py` Kit buckets | 9.4 (`d242c5c`) | `git grep Campfire.Kit bench/lib` is empty; every bucket has a frame on all eight routes; post "other" 1.7% at c=16 |
+| Cable L5/L7 under load | 9.5 (`a10d72f`) | L7 paired trials (Cable 2.6-2.7 KB, floor 13.6 KB, server 16.3 KB), L5 reads to the close frame under a 30 s deadline, GoldenTests replay without a fixed wait |
+| Stale control images | 9.4 removed `p8ctl`; this unit | `docker images 'campfire-dotnetway:*'` lists `app` and `p9ctl` only. `campfire-candidate-p6ctl` is not a `campfire-dotnetway:*` image and was left to the orchestrator |
+| Firefox empty-404 pair | Phase 4's verification (`49e1e09`, RespondTests X4b) | re-checked here on the HEAD image, Firefox, full matrix: `auth/join/invalid_code` 8/8 and `rooms/opens/new/restricted_member` 8/8 equal on pixels, aria and loose |
+
+Carried out of Phase 9 (not in the note's list; found by its units, still open):
+
+| Item | Where it was found | State |
+|---|---|---|
+| `System.Reflection.CustomAttribute::AddCustomAttributes` is 5.2-5.6% of a post's CLR-native time (a per-connection function registration through a delegate marshal in Microsoft.Data.Sqlite, around `SqliteConnection::Open`) | 9.4's profile; equal in `p8ctl`, `p9pre` and HEAD | open: not part of the c=1 gap; the fix is in the data layer's connection handling (a per-connection setup that could run once), not a 30-line change; a candidate for a post-close speed round |
+| A 302 flake in `Campfire.App.Tests` (a test that expects a 200 sees a 302 once in a while) | 9.5 | open: it did not occur in 9.6's or this unit's `bin/verify`; not reproduced, not fixed |
+| The README's Performance table is the Phase 8 gate's, marked as replaced by the final bench | 9.6 | open for the orchestrator's final gate: the final `bench/quick` against the stored Rails medians replaces it (post a message is the thinnest cell, 6.2-6.7x against the 5x floor in 9.3 and 9.4) |
+| The full 3-engine pixel gate and HS2/HS4, AC11 and pebble on the closing HEAD | the Phase 9 gate | not run in a unit: no unit touched `Host.fs`, `Acme.fs` or `OutputCaching.fs`; the gate does |
+| Operator step, Let's Encrypt staging (AGENTS.md, TLS end to end) | Phase 7 | human-gated, not run by any agent |
