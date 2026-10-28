@@ -1,0 +1,4 @@
+17:08:07 building campfire-dotnetway:uq-903d2a8 from a clean clone of 903d2a8
+17:08:14 dotnetway image campfire-dotnetway:uq-903d2a8 revision label 903d2a819df3d31d771cc6a6d4f28c4cdb8d3aec
+17:08:19 ruby bin/benchmark --workspace /mnt/upstream-quick/ws --rounds 3 --duration 8 --concurrencies 16 --cpus 0-3 --client-cpus 4-7 --apps rails,fsharp,dotnetway --routes room_show,messages_page,sidebar,search,post_message --output /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/bench/results/dotnetway-p10/uq-normal/raw
+17:16:39 harness exit 0

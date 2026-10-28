@@ -1,0 +1,13 @@
+=== build 15:17:48 mac-free 22Gi load 2.49 4.03 4.33
+build rc=0 head=903d2a819df3d31d771cc6a6d4f28c4cdb8d3aec label=903d2a819df3d31d771cc6a6d4f28c4cdb8d3aec
+=== control-build 15:17:59 mac-free 22Gi load 2.42 3.96 4.30
+control build rc=0 label=dcc9434d3afaed16c1976e817334661c245fa36e
+=== verify 15:18:47 mac-free 23Gi load 3.32 4.04 4.31
+verify rc=0
+=== cookie-roundtrip 15:19:52 mac-free 22Gi load 6.18 4.88 4.62
+cookie rc=0
+=== db-differential 15:20:01 mac-free 22Gi load 5.85 4.83 4.60
+dbdiff rc=0
+=== asset-check 15:20:08 mac-free 22Gi load 5.57 4.80 4.59
+asset rc=0
+=== done 15:20:12 mac-free 22Gi load 5.29 4.76 4.58

@@ -1,0 +1,22 @@
+theDotNetWay in /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/bench/results/dotnetway-p10/quick/new against the stored medians of bench/results/phase7-final (Rails, Rust and the F# port, 3 reps each, one session)
+
+| Workload | c | theDotNetWay req/s | F# port stored | vs port | Rust stored | **theDotNetWay / Rust (vs stored Rust baseline)** | Rails stored | **theDotNetWay / Rails** | CPU us/req | port | Rust stored |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| room page | 16 | 33,526 [33,418-33,633] | 40,422 | 0.829x | 28,623 | **1.171x** | 239 | **140.099x** | 96.2 [96-97] | 93.6 | 122.4 |
+| room page | 1 | 6,449 [6,438-6,460] | 7,617 | 0.847x | 6,481 | **0.995x** | 107 | **60.219x** | 266.9 [265-269] | 208.7 | 142.1 |
+| messages page | 16 | 31,768 [31,315-32,222] | 37,836 | 0.840x | 30,063 | **1.057x** | 381 | **83.469x** | 100.5 [99-102] | 102.2 | 114.2 |
+| messages page | 1 | 6,320 [6,268-6,372] | 8,312 | 0.760x | 6,822 | **0.926x** | 218 | **29.003x** | 270.5 [270-271] | 199.3 | 139.2 |
+| sidebar | 16 | 39,488 [39,313-39,664] | 37,555 | 1.051x | 28,238 | **1.398x** | 599 | **65.968x** | 78.1 [78-79] | 101.8 | 123.2 |
+| sidebar | 1 | 7,307 [7,265-7,350] | 8,000 | 0.913x | 6,196 | **1.179x** | 287 | **25.497x** | 247.8 [248-248] | 181.0 | 149.0 |
+| search | 16 | 39,175 [37,663-40,427] | 34,070 | 1.150x | 26,606 | **1.472x** | 408 | **96.041x** | 77.5 [77-82] | 107.3 | 123.9 |
+| search | 1 | 7,342 [7,228-7,469] | 6,055 | 1.212x | 5,646 | **1.300x** | 193 | **38.099x** | 250.3 [248-254] | 315.1 | 158.3 |
+| post a message | 16 | 2,464 [2,425-2,511] | 8,905 | 0.277x | 7,174 | **0.344x** | 330 | **7.466x** | 1,313.6 [1,291-1,346] | 353.0 | 385.6 |
+| post a message | 1 | 1,222 [1,186-1,287] | 3,052 | 0.400x | 2,779 | **0.440x** | 167 | **7.321x** | 1,534.7 [1,510-1,606] | 629.1 | 403.7 |
+
+Checks:
+  note static_css c=1: warm-up did not settle (reached the maximum)
+  note up c=1: warm-up did not settle (reached the maximum)
+  note up c=1: warm-up did not settle (reached the maximum)
+  note up c=1: warm-up did not settle (reached the maximum)
+  responses: every one 2xx with 0 connection errors in 42 runs
+  decoded bytes equal the stored expected size (Rust's where the page is unchanged) on every probed route; post rows written equal the 2xx answers in every phase
