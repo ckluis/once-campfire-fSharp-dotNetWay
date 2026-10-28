@@ -4563,3 +4563,54 @@ test project is not counted.
 - **Control image:** `campfire-dotnetway:p10ctl` was removed by mistake at the end of this unit (its label `dcc9434` image had no other tag). 10.3 needs no control
   (upstream-quick against the baseline in `bench/results/phase10-baseline/`); rebuild it with `bench/upstream-quick --commit dcc9434`-style clean clone and
   `docker build` if a later unit wants one.
+
+### Phase 10.3: narrowing a miss (P4) (2026-10-28)
+
+Built as `f489249` (a) and `de67261` (b); this entry's commit follows them. KLOC (`bin/kloc`): 25.8 (26.2 corrected), unchanged to the decimal against 10.2
+(the memo's ~50 lines are offset by `Current.lastRoomVisitedIn` and the EF form of `originalForUser`, both gone).
+- **(a) The reflection's caller, named.** `bench/breakdown profile --routes room_show,sidebar` on the 10.2 image (`bench/results/phase10-unit-10.3/profile-before/`; the stacks
+  were read from the speedscope traces with a small walker over the evented profiles: every sample whose stack holds `CustomAttribute.*`, charged to the first
+  frame above it that is not CoreLib or FSharp.Core). The caller is **`Room.originalForUser`** (`Models.fs`, `RoomModule.ofUser`): `(ofUser db userId).OrderBy(fun r -> r.CreatedAt)`
+  and the `Join`/`Where` lambdas in `ofUser` are F# lambdas converted to `Expression<Func<..>>` **on every call** (FSharp.Core's `LeafExpressionConverter`, which unpickles
+  the lambda's quotation: `Quotations.Patterns.getRecordProperty`, `Reflection.Impl.tryFindSourceConstructFlagsOfType`, `fieldPropsOfRecordType`, each reading the record
+  type's custom attributes). EF's query cache hits afterwards, which is why H1 (zero compilations) stayed green. It runs when the `last_room` cookie is absent or names a room the
+  user is not in (`last_room_visited` falls back to `user.rooms.original`): always in the harness, whose load generator sends no cookie back. Cost: 3,303 thread-ms of
+  56,152 busy on room_show (**5.9%**), 3,670 of 56,136 on sidebar (**6.5%**) (the design's "~8%" was after P3 and on the parity seed). Fix: no framework API avoids the conversion
+  for a lambda written in F#, so `originalForUser` joined the hybrid reads (AGENTS.md rule: a hot read goes to `FastReads.fs`): `FastReads.originalRoomForUser`, one statement, parameters only,
+  equivalence test in `FastReadsTests.fs` (every user, tie-tolerant on `created_at`, and no memberships answers None). After (`profile-after/`, the 10.3 image): **1 thread-ms** of
+  custom-attribute reflection in each profile, and it is EventSource's own manifest read at attach (`dotnet-trace`), not the request path. The other EF LINQ reads on the
+  request paths (the messages page's `Message.pageAround`/`findById`-shaped query, writes) keep the per-call lambda conversion; they are off the room, sidebar and search reads.
+  **A 10.2 defect found and fixed on the way:** `FastReads.logTo` keyed its sink by `SqliteConnection.DataSource`, which is the path as written while the connection is closed
+  and the resolved absolute path once it is open (macOS resolves `/var` to `/private/var`). Since P3 (10.2) opens the request's connection first, the sink never matched and
+  **H2's log silently listed only 1-2 statements a page** (room 2, sidebar 1, search 1; its assertions, "ran statements, no literal user value", still passed). The sink is keyed by the last
+  two path segments now; the log is right again (room 9, messages 9, sidebar 9, search 8, post 19: the design's numbers).
+- **(b) Memoized per request** (`Web/Data.fs`: `Data.account`, `Data.roomForUser`, `Data.lastRoomVisited`; a dictionary in `HttpContext.Items`, keyed by a tag and two ids; `Data.tryWrite` drops it after the
+  write, so a read after a write sees the write). `Pages.load`, the room page's `JoinCode`, the sidebar's `restricted` and `Searches.index` use them; `setRoom` reads the room through `roomForUser`, so
+  `last_room_visited` with the cookie on the page's own room is the same read. Detached renders (broadcast partials, `Account.first` in `renderSharedRoom`) and Cable/job scopes are untouched.
+  H2's statement counts, second round (cookie set): **room 9 -> 7, sidebar 9 -> 8, search 8 -> 7**, messages 9, post 19. `H4` (HotPathTests) pins 7 / 8 / 7 and at most one `FROM accounts` per page
+  (it fails at 9 / 9 / 8). No prepared-statement cache (Dapper stays). Behavior is unchanged: the memo returns what the read would.
+- **upstream-quick vs same-session Rails** (2 rounds, c=16, `--commit` clean builds with labels checked, `--apps rails,dotnetway`; req/s median, x Rails; Rails differs between sessions, 4,233-4,932):
+
+  | route | 10.2 (`fd285c9`, probe 1.038/1.076) | (a) `f489249` (1.074/1.068) | (a)+(b) `de67261` (1.069/1.064) | (a)+(b) vs 10.2 |
+  |---|---|---|---|---|
+  | room | 10,368 (2.10x) | 13,190 (3.12x) | 13,705 (3.04x) | **+32%** |
+  | messages | 10,035 (2.02x) | 11,813 (2.85x) | 12,046 (2.82x) | **+20%** |
+  | sidebar | 10,754 (2.02x) | 13,936 (3.00x) | 14,437 (3.06x) | **+34%** |
+  | search | 8,932 (1.71x) | 15,079 (3.37x) | 15,796 (3.48x) | **+77%** |
+  | post | 2,888 (7.33x) | 2,611 (7.18x) | 2,604 (7.04x) | -10% (floor 2,300; 7.0x Rails) |
+
+  Acceptance (every read at least +5% over 10.2's run): met on all four reads, by +20% or more. **Attribution, recorded plainly:** nearly all of it is (a) (room +27%, sidebar +30%,
+  search +69%; the room/sidebar/search pages each paid the reflection once or twice, messages' +18% is the rest of the 10.2-to-10.3 difference and not explained by (a)'s
+  profile: the messages route never runs `originalForUser`, so part of it is session-to-session drift or the `DOTNET_TC` warm-up order; treat messages' figure with that doubt). (b)'s own
+  increment over (a) is +2% to +5% in absolute req/s and -3% to +3% as x Rails (the two runs' Rails differ by 6%): inside this host's run-to-run noise, below the 5% bar taken alone.
+  It is **kept** because the unit's acceptance is stated against 10.2's run and the row names it (7 statements on the room page), because it removes 2 of 9 statements on the very page the cache (10.4+)
+  will miss on, and because it has no correctness cost (H4, db-differential, pixels). A later unit that wants the 5% bar per step can drop `Data.account`/`roomForUser`/`lastRoomVisited` (one commit,
+  `de67261`) and lose nothing else. Post fell 10% from 10.2's single run: 2,611 and 2,604 in two sessions, so the post route did not move between (a) and (b); the 10.2 figure (2,888) was
+  a faster session for post (its Rails: 394 against 364-370 now, -7%); no post code changed in this unit (the memo is dropped after each write: a dictionary removal).
+  The floor of 5x Rails still fails on the four reads (3.0x-3.5x); the cache (10.4+) closes it. Evidence: `bench/results/phase10-unit-10.3/upstream-quick-10.3a/`, `-10.3b/`.
+- **Gates:** `CAMPFIRE_REQUIRE_SEED=1 bin/verify` Release, warnings as errors: 1,047 total, 1,041 passed, 6 skipped, 0 failed (H1, H2, H3, new H4, FastReadsTests, the guards, the lint and its self-test).
+  `parity/bin/candidate build` at `de67261` (label checked; `campfire-dotnetway:app` is this image). `bin/pixel-parity --fast --seeds default` (Chromium, light, no breakpoint sweep; nothing cached or
+  invalidated changed, so no realtime states), all equal in pixels, aria and loose DOM: `rooms/show/*` 16/16, `messages/*` 48/48, `search/*` 10/10, `interactions/sidebar/*` + `interactions/phone_sidebar` 6/6
+  (the brief's template-name globs matched 0 cells in 10.2; the same substitution). `bin/db-differential` green (schema identity, reference on the F#-written database, rollback). `bin/clean-parity`
+  and `bin/clean-docker` run. No change to `Web/Host.fs`, `Acme.fs` or `OutputCaching.fs`: HS2/HS4, AC11 and `pebble-image.sh` not re-run. H1 stays green.
+- **Differences recorded:** none in the UI. Test-only: H2's log line carries the status.

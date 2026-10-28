@@ -1,0 +1,4 @@
+10:10:34 building campfire-dotnetway:uq-de67261 from a clean clone of de67261
+10:11:10 dotnetway image campfire-dotnetway:uq-de67261 revision label de6726149d3a8d7b6b3fa6011ab80320b48e44c6
+10:11:15 ruby bin/benchmark --workspace /mnt/upstream-quick/ws --rounds 2 --duration 8 --concurrencies 16 --cpus 0-3 --client-cpus 4-7 --apps rails,dotnetway --routes room_show,messages_page,sidebar,search,post_message --output /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/bench/results/phase10-unit-10.3/upstream-quick-10.3b/raw
+10:15:02 harness exit 0
