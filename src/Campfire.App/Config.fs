@@ -27,6 +27,8 @@
 //   reference caches fragments in Redis (`redis_cache_store`) with no `maxmemory`; this store is
 //   in the process, so it's bounded like Rails' `MemoryStore` (default `size` 32 MB), evicting the
 //   least recently used fragments. See `Campfire.Views.Fragments`.
+// - `CAMPFIRE_RESPONSE_CACHE_MB`: the page cache's limit in megabytes (default 64, `0` turns it off; upstream's name and default).
+//   Added to the fragment store's limit: one memory cache holds both. See `Web/PageCache.fs`.
 // - `CAMPFIRE_FROZEN_TIME` (`Platform/HarnessClock.fs`): pins the clock, for parity runs; a bad value is a validation failure.
 // - `CAMPFIRE_LOG`: a `Microsoft.Extensions.Logging` level (`debug`, `info`, ...) that replaces the
 //   one `RAILS_LOG_LEVEL` gives (Rust's `CAMPFIRE_LOG` is a tracing filter; see Program.fs).
@@ -98,6 +100,8 @@ type CampfireOptions =
       mutable LogLevel: string
       /// The fragment store's limit in bytes (`CAMPFIRE_FRAGMENT_CACHE_MB`).
       mutable FragmentBytes: int64
+      /// The page cache's limit in bytes (`CAMPFIRE_RESPONSE_CACHE_MB`); 0 is off.
+      mutable ResponseCacheBytes: int64
       /// `CAMPFIRE_FROZEN_TIME`, as set.
       mutable FrozenTime: string option
       mutable Problem: string option }
@@ -119,6 +123,7 @@ type CampfireOptions =
                JobConcurrency = this.JobConcurrency
                LogLevel = this.LogLevel
                FragmentBytes = this.FragmentBytes
+               ResponseCacheBytes = this.ResponseCacheBytes
                FrozenTime = this.FrozenTime
                Problem = this.Problem |}
 
@@ -175,6 +180,7 @@ module CampfireOptions =
           JobConcurrency = 2
           LogLevel = "info"
           FragmentBytes = 0L
+          ResponseCacheBytes = 0L
           FrozenTime = None
           Problem = None }
 
@@ -232,6 +238,7 @@ module CampfireOptions =
         options.JobConcurrency <- int (max concurrency 1L)
         options.LogLevel <- defaultArg (present "RAILS_LOG_LEVEL") "info"
         options.FragmentBytes <- megabytes * (1L <<< 20)
+        options.ResponseCacheBytes <- (max 0L (number "CAMPFIRE_RESPONSE_CACHE_MB" 64L)) * (1L <<< 20)
         options.Problem <- problem
 
     /// The options over a lookup, whatever is wrong with them (`Problem` says).

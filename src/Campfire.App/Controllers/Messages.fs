@@ -341,26 +341,31 @@ module MessagesController =
             taskResult {
                 do! Before.chain Before.Default http
                 let! (_: Membership), (room: Room) = Before.setRoom http
-                let! (messages: Message list) = findPagedMessages http room
-                if messages.IsEmpty then
-                    return Respond.head http 204
-                else
-                    // fresh_when @messages: the records' cache keys, their latest updated_at, and the template.
-                    let etag =
-                        messages
-                        |> List.map (fun m -> Fragments.cacheKeyWithVersion "messages" m.Id (DateTimeOffset m.UpdatedAt))
-                        |> String.concat "/"
-                    let freshness =
-                        { Freshness.Default with
-                            Etag = etag
-                            LastModified = ValueSome(DateTimeOffset(messages |> List.map (fun m -> m.UpdatedAt) |> List.max))
-                            Template = TemplateDigestIndex }
-                    match Respond.freshWhen http freshness with
-                    | ValueSome notModified -> return notModified
-                    | ValueNone ->
-                        do! Formats.respondTo http [ Web.Format.Html ] |> Result.map ignore
-                        let! views = Data.presentAsync http (fun presenter -> presenter.Messages messages)
-                        return! Pages.bare http 200 Web.Format.Html (fun _ -> IndexPage.output views)
+                // The page cache's lookup goes before the paged read and `fresh_when`; a conditional request bypasses it.
+                return!
+                    Web.PageCache.serve http (fun () ->
+                        taskResult {
+                        let! (messages: Message list) = findPagedMessages http room
+                        if messages.IsEmpty then
+                            return Respond.head http 204
+                        else
+                            // fresh_when @messages: the records' cache keys, their latest updated_at, and the template.
+                            let etag =
+                                messages
+                                |> List.map (fun m -> Fragments.cacheKeyWithVersion "messages" m.Id (DateTimeOffset m.UpdatedAt))
+                                |> String.concat "/"
+                            let freshness =
+                                { Freshness.Default with
+                                    Etag = etag
+                                    LastModified = ValueSome(DateTimeOffset(messages |> List.map (fun m -> m.UpdatedAt) |> List.max))
+                                    Template = TemplateDigestIndex }
+                            match Respond.freshWhen http freshness with
+                            | ValueSome notModified -> return notModified
+                            | ValueNone ->
+                                do! Formats.respondTo http [ Web.Format.Html ] |> Result.map ignore
+                                let! views = Data.presentAsync http (fun presenter -> presenter.Messages messages)
+                                return! Pages.bare http 200 Web.Format.Html (fun _ -> IndexPage.output views)
+                        })
             }
 
     /// `create`: `set_room` runs inside the action, and a room that's gone renders `room_not_found`.

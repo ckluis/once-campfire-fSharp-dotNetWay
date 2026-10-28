@@ -58,6 +58,7 @@
     <Compile Include="CableAuthTests.fs" />
     <Compile Include="HotPathTests.fs" />
     <Compile Include="ConnectionTests.fs" />
+    <Compile Include="PageCacheTests.fs" />
     <Compile Include="BuildTests.fs" />
     <Compile Include="OptionsTests.fs" />
     <Compile Include="FastReadsTests.fs" />

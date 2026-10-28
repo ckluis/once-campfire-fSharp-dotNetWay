@@ -192,7 +192,7 @@ module RoomsController =
                 do! Before.chain Before.Default http
                 let! (room: Room) = setRoom http All
                 Pages.rememberLastRoomVisited http room.Id
-                return! renderShow http room
+                return! Web.PageCache.serve http (fun () -> renderShow http room)
             }
 
     /// `destroy` (RoomsController and `Rooms::DirectsController`).

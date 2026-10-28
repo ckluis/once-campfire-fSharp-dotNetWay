@@ -58,6 +58,7 @@
     <Compile Include="Web/TicketFormat.fs" />
     <Compile Include="Web/Authentication.fs" />
     <Compile Include="Web/Csrf.fs" />
+    <Compile Include="Web/PageCache.fs" />
     <Compile Include="Web/Pages.fs" />
     <Compile Include="Web/Before.fs" />
     <Compile Include="Web/LoginThrottle.fs" />

@@ -185,6 +185,9 @@ type private CountingBody(inner: IHttpResponseBodyFeature, counter: BodyWrites) 
 type Host(host: WebApplication, port: int, writes: BodyWrites) =
     member _.Port = port
 
+    /// The app's service provider.
+    member _.Services: IServiceProvider = host.Services
+
     /// Stops the host as `Boot.serve`'s ConsoleLifetime does at shutdown: `ApplicationStopping` first, then the server drains.
     member _.StopAsync() : Task = host.StopAsync()
 

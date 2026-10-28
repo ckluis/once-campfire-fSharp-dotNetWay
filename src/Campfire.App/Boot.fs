@@ -134,7 +134,9 @@ module Boot =
             registry)
         |> ignore
         // The fragment cache: one HybridCache over a size-limited memory cache, with no L2 (the session's distributed cache is not one).
-        Campfire.Views.Fragments.add services config.FragmentBytes
+        Campfire.Views.Fragments.add services (config.FragmentBytes + config.ResponseCacheBytes)
+        services.AddSingleton<Web.PageCacheStats>(fun _ -> Web.PageCacheStats()) |> ignore
+        services.AddSingleton<Microsoft.Extensions.Caching.Hybrid.IHybridCacheSerializer<Web.PageEntry>, Web.PageEntrySerializer>() |> ignore
         // The outgoing clients (J2), in the host's provider: the factory and its handlers are disposed with the host.
         Clients.add services
         // config/initializers/web_push.rb: off without a valid VAPID key pair.

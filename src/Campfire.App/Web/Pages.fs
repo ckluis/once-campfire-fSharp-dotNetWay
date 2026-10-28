@@ -24,7 +24,7 @@ open Campfire.Views.Templates.Sessions
 module Pages =
     /// Where the route table leaves the matched row's `controller#action` (the layout choice of `before_action`s reads it).
     [<Literal>]
-    let EndpointKey = "campfire.web.endpoint"
+    let EndpointKey = PageCache.EndpointKey
 
     let endpoint (http: HttpContext) : string =
         match http.Items.TryGetValue EndpointKey with
@@ -152,18 +152,6 @@ module Pages =
         | Bytes of ReadOnlyMemory<byte>
         | Output of HtmlOutput
 
-    /// The encoder for a request that takes compression, or nothing: the framework's provider (gzip or Brotli at their fastest).
-    let private encoderFor (http: HttpContext) : ICompressionProvider voption =
-        match http.RequestServices.GetService<IResponseCompressionProvider>() with
-        | null -> ValueNone
-        | provider ->
-            if provider.CheckRequestAcceptsCompression http && provider.ShouldCompressResponse http then
-                match provider.GetCompressionProvider http with
-                | null -> ValueNone
-                | encoder -> ValueSome encoder
-            else
-                ValueNone
-
     /// `page` compressed with `encoder`.
     let private compress (encoder: ICompressionProvider) (page: HtmlOutput) : byte[] =
         let plain = System.Buffers.ArrayBufferWriter<byte>(page.Length)
@@ -195,7 +183,7 @@ module Pages =
                         // (`BodyWriter` over the compression middleware's stream copies it once more).
                         | Output page when page.Fragments.Length = 0 && page.Parts.Length = 1 -> do! response.Body.WriteAsync page.Parts[0]
                         | Output page ->
-                            let encoder = if page.Fragments.Length = 0 then ValueNone else encoderFor http
+                            let encoder = if page.Fragments.Length = 0 then ValueNone else PageCache.encoderFor http
                             match encoder with
                             | ValueSome encoder ->
                                 let cache = http.RequestServices.GetRequiredService<HybridCache>()
@@ -205,6 +193,7 @@ module Pages =
                                 response.Headers.Append("Vary", "Accept-Encoding")
                                 response.ContentLength <- Nullable(int64 kept.Bytes.Length)
                                 do! response.Body.WriteAsync kept.Bytes
+                                PageCache.capture http status contentType kept
                             | ValueNone ->
                                 page.WriteTo response.BodyWriter
                                 let! _ = response.BodyWriter.FlushAsync().AsTask()

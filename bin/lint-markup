@@ -17,7 +17,8 @@ Rules (a token scan, reading F# as the compiler does: comments are dropped, with
   node-ctor         no TextNode, KeyValueAttr, NonValueAttr, ParentNode or SelfClosingNode built directly (the last two take a raw tag)
   elem-tag          Elem.create takes a literal tag; Elem.createSelfClosing only an HTML void element name; Elem.create never a void one
   trusted-maker     the Trusted makers only in their allowlisted files (TRUSTED below)
-  hybridcache       GetOrCreateAsync / SetAsync / RemoveAsync only in Core/Fragments.fs
+  hybridcache       GetOrCreateAsync / SetAsync / RemoveAsync only in Core/Fragments.fs and Web/PageCache.fs (the page cache's entries are
+                    whole responses of the app's own renders, never markup built from data)
   falco-dsl         none of Falco.Markup.Html, the auto-opened `_a [ _href_ v ] [ _text v ]` spelling (raw attribute values and text
                     with no `Attr.`/`Text.` for the rules above to see), nor Falco.Markup.Templates (html5 writes its lang raw)
   falco-alias       Falco's Attr, Text, Elem, Html, Templates and Svg modules are not opened nor abbreviated (`open Falco.Markup.Attr`
@@ -60,7 +61,7 @@ HYBRID = {"GetOrCreateAsync", "SetAsync", "RemoveAsync"}
 # Falco.Markup.Html (AutoOpen in 1.4.0): `_text`, `_textf`, the `_strong'` text shortcuts and every `_href_` attribute write raw.
 FALCO_DSL = re.compile(r"_text(f|Enc)?|_[a-z][A-Za-z0-9]*'|_[a-z][A-Za-z0-9]*_")
 FALCO_MODULES = {"Attr", "Text", "Elem", "Html", "Templates", "Svg", "XmlAttribute", "XmlNode"}
-HYBRID_FILES = {"src/Campfire.Views/Core/Fragments.fs"}
+HYBRID_FILES = {"src/Campfire.Views/Core/Fragments.fs", "src/Campfire.App/Web/PageCache.fs"}
 # HTML that skips Falco altogether: a page or fragment made from a string or bytes as they are. Only the core files that make them from
 # Falco's output (or read them back from the cache) may.
 RAW_MAKER_FILES = {"src/Campfire.Views/Core/HtmlOutput.fs", "src/Campfire.Views/Core/Fragment.fs", "src/Campfire.Views/Core/Fragments.fs"}
@@ -251,7 +252,7 @@ def lint_source(rel, src):
         if last_seg in TRUSTED and rel not in TRUSTED[last_seg]:
             found.append((line, "trusted-maker", f"{last_seg} outside its allowlisted file(s): {', '.join(sorted(TRUSTED[last_seg]))}"))
         if last_seg in HYBRID and len(segs) > 1 and rel not in HYBRID_FILES:
-            found.append((line, "hybridcache", f"{last_seg} outside Core/Fragments.fs (call Fragments.fetch / Fragments.compressedPage)"))
+            found.append((line, "hybridcache", f"{last_seg} outside Core/Fragments.fs and Web/PageCache.fs (call Fragments.fetch / Fragments.compressedPage)"))
         if segs[-2:] in (["Html", "attr"], ["Html", "attrInt"]) and not literal(at(i + 1)):
             found.append((line, "attr-name", f"{text}: the attribute name must be a plain string literal (a name from data is markup)"))
         nxt = at(i + 1)
@@ -342,6 +343,10 @@ def self_test():
         print("self-test: ofAccountStyles in Presenter.fs must be caught", file=sys.stderr); bad += 1
     if lint_source("src/Campfire.Views/Core/Fragments.fs", "let a = cache.GetOrCreateAsync(key, f)\n"):
         print("self-test: GetOrCreateAsync in Fragments.fs must pass", file=sys.stderr); bad += 1
+    if lint_source("src/Campfire.App/Web/PageCache.fs", "let a = cache.GetOrCreateAsync(key, f)\n"):
+        print("self-test: GetOrCreateAsync in PageCache.fs must pass", file=sys.stderr); bad += 1
+    if [r for _, r, _ in lint_source("src/Campfire.App/Web/Pages.fs", "let a = cache.SetAsync(key, v)\n")] != ["hybridcache"]:
+        print("self-test: SetAsync in Pages.fs must be caught", file=sys.stderr); bad += 1
     # The exempt encoder file may not grow a definition: one more `let` there is caught.
     html_rel = "src/Campfire.Views/Core/Html.fs"
     with open(os.path.join(ROOT, html_rel), encoding="utf-8") as f:

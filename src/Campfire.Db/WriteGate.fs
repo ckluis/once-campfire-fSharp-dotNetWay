@@ -11,11 +11,19 @@ type WriteGate() =
     static let inWrite = new AsyncLocal<bool>()
     static let held = new AsyncLocal<bool>()
     static let exempt = new AsyncLocal<int>()
+    let mutable epoch = 0L
     let semaphore = new SemaphoreSlim(1, 1)
 
     member _.Enter() : Task = semaphore.WaitAsync()
 
     member _.Exit() : unit = semaphore.Release() |> ignore
+
+    /// The commit counter of this gate (design-perf P11; one gate a process, and a test host's own): every page-cache key carries it, so
+    /// a commit retires every kept page.
+    member _.Epoch : int64 = Volatile.Read(&epoch)
+
+    /// One more commit has happened (`Writes.transact` after `COMMIT`, and `Writes.run` before it leaves the gate).
+    member _.Bump() : unit = Interlocked.Increment(&epoch) |> ignore
 
     /// True from `BEGIN` to `COMMIT` inside `Writes.run`, false in the after-commit queue and everywhere else (design-cable C16).
     static member InWrite : bool = inWrite.Value

@@ -72,20 +72,22 @@ module Writes =
     /// `BEGIN IMMEDIATE` unless asked for `ReadUncommitted`; W1 holds it to that), the body, `SaveChanges`, `COMMIT`. `InWrite`
     /// holds exactly across that span, and any exception rolls back (disposing an uncommitted transaction does it, and closes
     /// the connection the transaction opened).
-    let private transact (db: CampfireDb) (tx: Tx) (body: Tx -> 'T) : 'T =
+    let private transact (gate: WriteGate) (db: CampfireDb) (tx: Tx) (body: Tx -> 'T) : 'T =
         use transaction = db.Database.BeginTransaction()
         WriteGate.SetInWrite true
         try
             let value = body tx
             db.SaveChanges() |> ignore
             transaction.Commit()
+            // Before the after-commit queue emits anything: a client that reloads on a Cable frame never gets the page from before.
+            gate.Bump()
             value
         finally
             WriteGate.SetInWrite false
 
-    let private attempt (db: CampfireDb) (tx: Tx) (body: Tx -> 'T) : Result<'T, DbError> =
+    let private attempt (gate: WriteGate) (db: CampfireDb) (tx: Tx) (body: Tx -> 'T) : Result<'T, DbError> =
         try
-            Ok(transact db tx body)
+            Ok(transact gate db tx body)
         with e ->
             match toDbError e with
             | ValueSome error -> Error error
@@ -101,7 +103,7 @@ module Writes =
             WriteGate.SetHeld true
             try
                 let tx = Tx(db, env, true)
-                match attempt db tx body with
+                match attempt gate db tx body with
                 | Error error -> return Error error
                 | Ok value ->
                     let after = Tx(db, env, false)
@@ -118,6 +120,8 @@ module Writes =
             finally
                 WriteGate.SetHeld false
                 db.ChangeTracker.Clear()
+                // The after-commit hooks' own autocommit statements are writes too.
+                gate.Bump()
                 gate.Exit()
         }
 
