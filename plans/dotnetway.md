@@ -4690,3 +4690,30 @@ Reviewed 10.1-10.4 against `plans/design-perf.md` (P1-P16, section 4's checkpoin
   search does not bump the epoch; keep it so. PC14 (1 MB bound) and PC16 on all four pages. Every Cable presence or session-resume commit bumps the global epoch: fine for the harness,
   but name the hit-rate cost in the README's "Response cache" paragraph. `PageCacheStats.AfterLookup` is a test seam on a production singleton: keep it, documented, or move it behind the test host.
   The fire-and-forget `SetAsync` drops a failure silently (HybridCache logs a payload over `MaximumPayloadBytes`, default 1 MB); acceptable, the 1 MB check runs first. P16's adapter metadata in 10.6.
+
+### Phase 10.5: page cache on the sidebar and search, budget, README (2026-10-28)
+
+Built as `4eb1e94` (code and tests) and `a993bc8` (README) on `dotnetway`; this entry follows. KLOC (`bin/kloc`): 26.0 (26.5 corrected), against 26.0 (26.5) after 10.4.
+
+- **Built.** `Users.Sidebars.show` and `Searches.index` run `Web.PageCache.serve` right after `Before.chain` (the render is the old body, unchanged, in the closure). `Searches.index` writes nothing on
+  a GET (`record` stays in `create`), so a search does not bump the epoch (PC1b asserts the epoch is unchanged across search hits). ViewContext fields the two pages read, listed as P8 asks: `CurrentUser`
+  (user id), `Account` (epoch), `Platform` (`User-Agent`), `BaseUrl`/`RequestUrl` (scheme, host, path, query), `LastRoomVisitedId` (the `last_room` cookie plus the epoch; the search page's back link),
+  the format (`Accept`, `Turbo-Frame`, `X-Requested-With`). `Referrer` is read only by `link_back` (users and profiles pages); PC16 holds on all four pages.
+- **Tests.** PC13 and PC16 now cover all four pages; PC14 (new): with the bound lowered to 512 bytes nothing is stored or hit on any page, at the default bound each page is kept and hit; PC1b: second GETs of
+  the sidebar and search are hits with the render's bytes and headers and the epoch does not move; PC18 (new): a raw `SqliteConnection` write (no gate, no epoch) leaves the cached sidebar stale, then the new
+  name shows once the entry's lifetime ends. HybridCache's local cache does not follow `FakeTimeProvider` (a 61 s advance left the entry), so the test lowers the lifetime on a seam and waits 2.5 s for real.
+- **Checkpoint notes.** (a)-(c) done as written (README "Response cache" paragraph names the global-epoch hit-rate cost; a Class B "Page cache" section in Known differences pins the 60 s foreign write by PC18
+  and the `identity` render by PC9). (d) `PageCacheStats` is a production singleton with three documented test seams (`AfterLookup`, `MaxBody`, `Lifetime`); nothing in `src` sets them; kept, documented, not moved.
+  (e) The app's HybridCache `MaximumPayloadBytes` is 4 MB (Fragments.add), not the 1 MB default, so a body at the 1 MB `MaxBody` bound is never refused by HybridCache; PC14 touches only the bound.
+- **Differences recorded.** One new Class B line (foreign write shows within 60 s), one for `identity`. Nothing visible otherwise.
+- **Gates.** `CAMPFIRE_REQUIRE_SEED=1 bin/verify` (Release, warnings as errors): 1,068 total, 1,062 passed, 0 failed, 6 skipped. An earlier `bin/verify App` run failed H4 once (sidebar 10 statements, expected 8,
+  Mac under load: the same family as the checkpoint's H4 flake) and passed on three reruns alone and in the full run; PC1b and PC18 failed first on my test mistakes (cookie warm-up, FakeTimeProvider), fixed.
+  Image from `a993bc8` (clean clone, label checked). Pixel (lean, `bin/pixel-parity --only "search/*,interactions/sidebar/*,interactions/phone_sidebar"`): default 38/38, custom_styles 4/4, crowd, first_run and
+  restricted have no such cells (0/0); pixels, aria and loose all equal. `realtime/unread_in_sidebar`, `new_room_in_sidebar`, `removed_from_room` (lean, one at a time): 8/8 each. The 10-state `users/sidebars/*`
+  and `searches/*` globs are template names and match 0 cells (as in 10.2); the state ids above are the real slices. `bin/clean-parity`, `bin/clean-docker` run. HS2/HS4 not re-run: Host/Acme/OutputCaching untouched.
+- **upstream-quick, `--commit HEAD` (`a993bc8`, clean clone, dirty=false; 2 rounds, c=16; harness `f3103c7`, seed `e3a7302e`; exit 0, validate passed).** Normal (`bench/results/phase10-5-normal/`; probe 1.057
+  before, 1.078 after; load 1.1 before, 5.8 after), Rails / theDotNetWay req/s (x Rails): room_show 4,904 / 34,958 (**7.13x**); messages_page 4,801 / 33,317 (**6.94x**); sidebar 5,139 / 41,412 (**8.06x**);
+  search 5,064 / 41,059 (**8.11x**); post_message 395 / 2,816 (**7.12x**). Every read is at least 5x the session's Rails. Mixed (`--mixed`, 10 posts/s, `bench/results/phase10-5-mixed/`; probe 1.055 / 1.065; load 4.3 / 6.0):
+  room_show 2,574 / 31,120 (**12.09x**); messages_page 3,145 / 29,991 (**9.54x**); sidebar 3,970 / 36,063 (**9.08x**); search 3,668 / 36,027 (**9.82x**). Every read at least 5x. (Against 10.4's checkpoint:
+  sidebar 15,891 -> 41,412, search 17,538 -> 41,059.) No tmpfs or `uq-*` image left.
+- **Remains for 10.6.** `bench/quick` 5x against stored Rails interleaved with `p10ctl`; P16 adapter metadata (local commit); remove `p10ctl`; the full `realtime/**` states one at a time; `db-differential`; the close entry.

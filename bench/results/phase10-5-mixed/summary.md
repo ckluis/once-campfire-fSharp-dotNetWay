@@ -1,0 +1,21 @@
+# upstream-quick (mixed profile, 2 rounds, c=16)
+
+Requests per second at c=16: median (min-max over the rounds); x Rails is the median over the same session's Rails median.
+
+| route | rails | fsharp | dotnetway |
+|---|---|---|---|
+| room_show | 2,574 (2,348-2,799) | 32,286 (31,037-33,534) **12.54x** | 31,120 (30,302-31,937) **12.09x** |
+| messages_page | 3,145 (2,982-3,308) | 39,562 (38,226-40,899) **12.58x** | 29,991 (29,818-30,164) **9.54x** |
+| sidebar | 3,970 (3,671-4,270) | 35,669 (34,763-36,576) **8.98x** | 36,063 (35,395-36,730) **9.08x** |
+| search | 3,668 (3,394-3,943) | 33,425 (32,469-34,382) **9.11x** | 36,027 (35,744-36,310) **9.82x** |
+
+Commits:
+- rails: `ca9b963` dirty=false  image `sha256:abaf6099efd4`
+- fsharp: `9954ad0` dirty=false  image `sha256:eff5fc297f6a`
+- dotnetway: `a993bc8` dirty=false  image `sha256:d33ed18e0eef`
+- seed sha256 `e3a7302e`, harness `f3103c7`
+
+Host:
+- before: {"spin_ms": 58.61, "spin_ms_max_cpu": 62.51, "cpus": "0-7", "baseline_ms": 55.57, "ratio": 1.055} load=4.30 3.85 2.84 1/203 1462927
+- after: {"spin_ms": 59.2, "spin_ms_max_cpu": 60.86, "cpus": "0-7", "baseline_ms": 55.57, "ratio": 1.065} load=6.00 4.93 3.57 1/205 1464807
+- commit=a993bc80d5c069cc4bab9ccee5a012343e4cacdd image=campfire-dotnetway:uq-a993bc8 mounted= mixed=1 harness=f3103c7
