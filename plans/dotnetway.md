@@ -4614,3 +4614,50 @@ Built as `f489249` (a) and `de67261` (b); this entry's commit follows them. KLOC
   (the brief's template-name globs matched 0 cells in 10.2; the same substitution). `bin/db-differential` green (schema identity, reference on the F#-written database, rollback). `bin/clean-parity`
   and `bin/clean-docker` run. No change to `Web/Host.fs`, `Acme.fs` or `OutputCaching.fs`: HS2/HS4, AC11 and `pebble-image.sh` not re-run. H1 stays green.
 - **Differences recorded:** none in the UI. Test-only: H2's log line carries the status.
+
+### Phase 10.4: page cache core, room and messages (P6-P11) (2026-10-28)
+
+Built as `852106e` (code, tests, the lint allowance); this entry's commit follows it, with `OP1`'s test for the new variable. KLOC (`bin/kloc`): 26.0 (26.5 corrected), against 25.8 (26.2) after 10.3:
+`Web/PageCache.fs` is 248 lines with comments, the rest is the epoch, the wrapping in two actions and the budget. Rust is 31.0.
+- **What was built.** `Web/PageCache.fs`: `PageEntry` (encoding, bytes, content type, one `(name, value)` pair per header value) and its serializer (for the size against `SizeLimit`; it also
+  round-trips), `serve` (eligibility P9, the key P8, the lookup, the ticket) and `capture` (P10's conditions, then `SetAsync` with the tag `pages` and a 60 s local lifetime). The key is the SHA-256
+  of `pc1`, the epoch, `controller#action`, scheme, host, raw path and query, `Accept`, `Turbo-Frame`, `X-Requested-With` (`Formats` reads it for XHR; not in P8's list, added because it can pick the format),
+  the encoding, `User-Agent`, user id, session id and the raw `last_room` cookie. The headers kept are `ETag`, `Last-Modified`, `Cache-Control`, `Vary` and `Link`, never `Set-Cookie`. `Pages.send` calls
+  `capture` after the kept compressed page went out; `encoderFor` moved into `PageCache` (Pages compiles after it). `Rooms.show` wraps `renderShow` (after `setRoom` and `rememberLastRoomVisited`);
+  `Messages.index` wraps everything after `Before.setRoom`, so `findPagedMessages` and `fresh_when` run only on a miss, and a conditional request never looks up. `Config.fs`:
+  `CAMPFIRE_RESPONSE_CACHE_MB` (`ResponseCacheBytes`, default 64, 0 off), added to the fragment limit in `Boot` (`Fragments.add` takes the sum; the serializer is registered in `Boot`, `Fragments.add` is unchanged).
+- **The epoch is on the gate instance, not static (a difference from the design's text).** The design says `WriteGate.Epoch` is a process-wide static counter. The test processes run many hosts at
+  once, so a static counter let one test's write retire another test's entry (PC1 failed 1 run in 3 that way). `WriteGate` is one per app (one process, one gate in production), so `gate.Epoch` and
+  `gate.Bump()` are the same thing there. `Writes.transact` bumps right after `Commit()` (before the queue emits), `Writes.run`'s `finally` before `gate.Exit()`.
+  `PageCacheStats` (lookups, hits, stores, and `AfterLookup`, a test seam PC12 uses to commit between the lookup and the store) is a singleton in `Boot`.
+- **PC0 held:** HybridCache with `DisableUnderlyingData` returns null for a missing key without calling the factory, and returns the stored instance after `SetAsync`; no `IMemoryCache.TryGetValue`
+  fallback was needed. Lookup is `GetOrCreateAsync(key, state, factory, options, null, token)`.
+- **Tests** (`tests/Campfire.App.Tests/PageCacheTests.fs`, 17): PC0-PC13, PC15, PC16, PC17 (PC14, the 1 MB bound, is 10.5's row; PC13's off switch is covered here and in `OP1`). Differences from the table
+  in section 5, recorded: **PC4** deactivates through the action (`DELETE /account/users/:id`), because the app, like Rails, ends the user's sessions there and does not check `status` per request (a raw `UPDATE users SET status`
+  still gets 200 in Rails' model too); **PC8** checks that a stale session's resume cookie is not replayed to the next request (the resume happens in the authentication before the lookup, so the cookie count at the
+  lookup already includes it: hit and miss carry the same cookies, as P10 says) and that a request carrying a flash is neither looked up nor stored; **PC6** covers a post, the account's custom styles, a profile name and an
+  involvement change (a boost goes through the same `Writes.run`, not separately driven); the test clients send `Accept-Encoding: gzip` (the shared `Browser` sends none, so every other test still renders: identity is never cached).
+  Existing tests needed no change (H1, H2, H4, DC1 use identity requests).
+- **The markup lint** (`bin/lint-markup`) refused `GetOrCreateAsync`/`SetAsync` outside `Core/Fragments.fs`. `Web/PageCache.fs` is now in `HYBRID_FILES` (its entries are whole responses of the app's own renders), with two self-test lines
+  (the call passes in `PageCache.fs`, `SetAsync` in `Pages.fs` is caught); the self-test still plants and catches the same 39 files.
+- **upstream-quick vs same-session Rails** (`--image campfire-dotnetway:app`, label `852106e`, dirty=false, 2 rounds, c=16, `rails,fsharp,dotnetway`, probe 1.055 before and 1.064 after, harness `f3103c7`, seed `e3a7302e`; `bench/results/phase10-4/`; exit 0, the harness's `--validate` passed on every sample):
+
+  | route | Rails | port (x Rails) | theDotNetWay req/s (min-max) | x Rails | 10.3 |
+  |---|---|---|---|---|---|
+  | room_show | 4,964 | 36,113 (7.27x) | 35,369 (34,849-35,889) | **7.13x** | 3.04x |
+  | messages_page | 4,787 | 41,992 (8.77x) | 34,007 (33,634-34,380) | **7.10x** | 2.82x |
+  | sidebar | 5,246 | 38,147 (7.27x) | 16,164 | 3.08x (not cached yet: 10.5) | 3.06x |
+  | search | 5,286 | 33,996 (6.43x) | 17,948 | 3.40x (not cached yet: 10.5) | 3.48x |
+  | post_message | 399 | 9,413 (23.6x) | 2,899 | 7.27x | 7.04x |
+
+  Room and messages meet the unit's 5x floor (the design's spike: 7.2x and 7.0x). Post did not move (2,899; the epoch bump is an `Interlocked.Increment` twice per write). Load went to 7.3 after the run (other work on the Mac), the probe stayed 1.06.
+- **Gates:** `CAMPFIRE_REQUIRE_SEED=1 bin/verify` Release, warnings as errors: 1,065 total (1,059 passed), 0 failed, 6 skipped on the last full run (an intermediate run at load 7.5 failed `Campfire.Cable.Tests` R6, a 10 ms timing bound, 90 ms; it passed on the rerun) (lint and self-test, guards, H1-H4, DC1, DC2, PC0-PC17). One earlier full run under a Mac load of 7.9 failed three unrelated tests
+  (`F3`, `K4`, `a room page has the same etag cold and warm`: an unauthenticated 302 or an empty body on David's seed session); all three pass alone, twice, and the next full run was green. I did not find the cause; recorded as an unexplained
+  load-dependent flake (suspect: a stale-session resume write racing a second request on the same session in the test hosts), not caused by a PC test (each test has its own app and database copy). `parity/bin/candidate build` at `852106e`, label checked.
+  Pixels (lean matrix, not `--fast`, Chromium/Firefox/WebKit, desktop and phone, light and dark, breakpoint sweep): `rooms/show/*` and `messages/*` on all five seeds: **default 144/144** screenshots, aria and loose DOM equal (crowd, custom_styles,
+  first_run, restricted have no such cells: 0/0), 410 s. The 13 `realtime/**` states one at a time, default seed, each **8/8** screenshots, aria and loose equal: message_sent, attachment_sent, message_edited, message_deleted, boosted, boost_removed,
+  typing/one, typing/many, unread_in_sidebar, new_room_in_sidebar, removed_from_room, room_deleted_then_send, presence_read. **One harness hang, recorded:** the first `message_deleted` run stalled after 3 of 8 cells (the harness's node process idle, both
+  apps answering `/up`); killed, containers removed, rerun: 8/8 in 105 s. `bin/cookie-roundtrip`: 20/20 checks passed. `bin/db-differential` not run (no model, schema or SQL changed; `Writes.fs` gained a counter increment). `Web/Host.fs`, `Acme.fs` and
+  `OutputCaching.fs` untouched: HS2/HS4, AC11 and `pebble-image.sh` not re-run. `bin/clean-docker` and `bin/clean-parity` run.
+- **Differences recorded:** none visible: a hit is the render's bytes (PC1, the pixel slices). Known, for the README in 10.5: a write by another program on the live database shows within 60 s or at the app's next commit (P11).
+  `Cache-Control`, `ETag`, `Last-Modified`, `Vary` and `Link` are replayed from the entry; `X-Runtime` on a hit is the hit's own.

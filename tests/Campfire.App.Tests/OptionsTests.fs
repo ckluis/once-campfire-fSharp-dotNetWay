@@ -77,6 +77,13 @@ let ``OP1 fragment cache size in megabytes`` () =
     Assert.Contains("CAMPFIRE_FRAGMENT_CACHE_MB=\"lots\" is not a number", failure (withSecret [ "CAMPFIRE_FRAGMENT_CACHE_MB", "lots" ]))
 
 [<Fact>]
+let ``OP1 response cache size in megabytes, 64 by default and 0 off`` () =
+    Assert.Equal(64L * 1024L * 1024L, (options (withSecret [])).ResponseCacheBytes)
+    Assert.Equal(0L, (options (withSecret [ "CAMPFIRE_RESPONSE_CACHE_MB", "0" ])).ResponseCacheBytes)
+    Assert.Equal(8L * 1024L * 1024L, (options (withSecret [ "CAMPFIRE_RESPONSE_CACHE_MB", "8" ])).ResponseCacheBytes)
+    Assert.Contains("CAMPFIRE_RESPONSE_CACHE_MB=\"lots\" is not a number", failure (withSecret [ "CAMPFIRE_RESPONSE_CACHE_MB", "lots" ]))
+
+[<Fact>]
 let ``OP1 a number that is not one names the variable and quotes the value, as Ruby's parse does`` () =
     Assert.Equal("JOB_CONCURRENCY=\"two \\\"many\\\"\" is not a number", failure (withSecret [ "JOB_CONCURRENCY", "two \"many\"" ]))
     Assert.Equal(3, (options (withSecret [ "JOB_CONCURRENCY", "+3" ])).JobConcurrency)
