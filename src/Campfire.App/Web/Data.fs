@@ -30,6 +30,52 @@ module Data =
         if db.Database.GetDbConnection().State <> System.Data.ConnectionState.Open then db.Database.OpenConnection()
         db
 
+    // P4 (unit 10.3): reads that repeat inside one request are made once. The memo lives in the request's `Items`; a write (`tryWrite`) drops it,
+    // so a read after a write sees the write. Keys are a tag and two ids.
+    [<Sealed>]
+    type private Memo() =
+        member val Values = System.Collections.Generic.Dictionary<struct (int * int64 * int64), obj>()
+
+    type private Held<'T>(value: 'T) =
+        member _.Value = value
+
+    let private memoKey = obj ()
+
+    let private memo (http: HttpContext) (tag: int) (a: int64) (b: int64) (read: unit -> 'T) : 'T =
+        let memo =
+            match http.Items.TryGetValue memoKey with
+            | true, (:? Memo as memo) -> memo
+            | _ ->
+                let memo = Memo()
+                http.Items[memoKey] <- memo
+                memo
+        match memo.Values.TryGetValue(struct (tag, a, b)) with
+        | true, (:? Held<'T> as held) -> held.Value
+        | _ ->
+            let value = read ()
+            memo.Values[struct (tag, a, b)] <- Held value
+            value
+
+    let private forget (http: HttpContext) : unit = http.Items.Remove memoKey |> ignore
+
+    /// `Current.account` (`Account.first`), read once a request.
+    let account (http: HttpContext) (db: Campfire.Db.Ef.CampfireDb) : Account option = memo http 1 0L 0L (fun () -> Account.first db)
+
+    /// `Current.user.rooms.find_by(id:)`, read once a request for a (user, room) pair: `set_room` and `last_room_visited` meet here.
+    let roomForUser (http: HttpContext) (db: Campfire.Db.Ef.CampfireDb) (userId: int64) (roomId: int64) : Room option =
+        memo http 2 userId roomId (fun () -> Room.findForUser db userId roomId)
+
+    /// `last_room_visited` on a read that is already on the request's context, for the user and the `last_room` cookie's id: the cookie's
+    /// room if the user is in it, else `Current.user.rooms.original`.
+    let lastRoomVisited (http: HttpContext) (db: Campfire.Db.Ef.CampfireDb) (userId: int64) (lastRoom: int64 option) : Room option =
+        let found =
+            match lastRoom with
+            | Some roomId -> roomForUser http db userId roomId
+            | None -> None
+        match found with
+        | Some room -> Some room
+        | None -> memo http 3 userId 0L (fun () -> Room.originalForUser db userId)
+
     /// A database failure as a Web error: a missing record is `NotFound` (what `rescue_from RecordNotFound` matches), the rest is
     /// the error `AppErrors.dbError` maps it to.
     let webError (error: DbError) : Error =
@@ -45,7 +91,11 @@ module Data =
     /// (`ActiveRecord::RecordNotUnique`).
     let tryWrite (http: HttpContext) (f: Campfire.Db.Ef.Tx -> 'T) : Task<Result<'T, DbError>> =
         let app = app http
-        Campfire.Db.Ef.Writes.run app.Gate app.Env (db http) f
+        task {
+            let! result = Campfire.Db.Ef.Writes.run app.Gate app.Env (db http) f
+            forget http
+            return result
+        }
 
     /// `Writes.run` over the request's context: the gate, the transaction, the after-commit queue.
     let write (http: HttpContext) (f: Campfire.Db.Ef.Tx -> 'T) : Task<Result<'T, Error>> =

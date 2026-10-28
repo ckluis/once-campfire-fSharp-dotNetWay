@@ -129,13 +129,34 @@ let ``H2 each workload's statements are listed and carry no literal user value``
         for (name, status, commands) in results do
             Assert.True(status >= 200 && status < 400, $"{name} answered {status}")
             Assert.True(commands.Length > 0, $"{name} ran no statements")
-            log.AppendLine $"## {name}: {commands.Length} statements" |> ignore
+            log.AppendLine $"## {name}: {commands.Length} statements (status {status})" |> ignore
             for c in commands do
                 log.AppendLine $"- {firstLine c}" |> ignore
                 Assert.DoesNotContain("literal-marker-body", c)
         match Environment.GetEnvironmentVariable "CAMPFIRE_HOTPATH_LOG" with
         | null | "" -> ()
         | path -> File.WriteAllText(path, log.ToString())
+    }
+
+/// H4 (unit 10.3, P4): the account row and the room `last_room_visited` finds are read once a request. With the `last_room` cookie set to the page's own
+/// room (the second round's), the room page reads 7 statements, the sidebar 8 and the search page 7; each of them was 9, 9 and 8 before.
+[<Fact>]
+let ``H4 the account and the last room visited are read once a request`` () =
+    task {
+        let probe = Probe()
+        use! test = boot probe
+        let! david = signedIn test "david"
+        let allTalk = messageIds test ALL_TALK
+        let! _warm = pass probe david ALL_TALK allTalk[30] "coffee" "warm up"
+        let! results = pass probe david ALL_TALK allTalk[20] "meeting" "second round"
+        let count name = results |> List.pick (fun (n, _, commands) -> if n = name then Some commands else None)
+        let dupes (commands: string[]) =
+            commands |> Array.map firstLine |> Array.filter (fun c -> c.Contains "FROM accounts") |> Array.length
+        Assert.Equal(7, (count "room page").Length)
+        Assert.Equal(8, (count "sidebar").Length)
+        Assert.Equal(7, (count "search").Length)
+        for name in [ "room page"; "sidebar"; "search"; "messages page" ] do
+            Assert.True(dupes (count name) <= 1, $"{name} reads the account more than once")
     }
 
 /// H3: 16 concurrent posts for 3 s: every 2xx has its row; posts/s is printed (the floor's early warning is 1,650 on the gate's

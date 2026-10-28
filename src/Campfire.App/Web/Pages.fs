@@ -54,7 +54,7 @@ module Pages =
         | None -> Ok None
         | Some user ->
             let lastRoom = lastRoomCookie http
-            Data.read http (fun db -> Campfire.App.Current.lastRoomVisitedIn db user.Id lastRoom)
+            Data.read http (fun db -> Data.lastRoomVisited http db user.Id lastRoom)
 
     /// `remember_last_room_visited`: `cookies.permanent[:last_room] = @room.id`, only when it changes (Rails sets it on every room page).
     let rememberLastRoomVisited (http: HttpContext) (roomId: int64) : unit =
@@ -81,9 +81,9 @@ module Pages =
         Data.read http (fun db ->
             let lastRoomVisitedId =
                 match userId with
-                | Some userId -> Campfire.App.Current.lastRoomVisitedIn db userId lastRoom |> Option.map (fun room -> room.Id)
+                | Some userId -> Data.lastRoomVisited http db userId lastRoom |> Option.map (fun room -> room.Id)
                 | None -> None
-            let account = Account.first db
+            let account = Data.account http db
             let hasLogo =
                 match account with
                 | Some account -> (Attachments.attachedBlob db "Account" account.Id "logo").IsSome

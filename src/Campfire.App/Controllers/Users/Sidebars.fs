@@ -30,7 +30,7 @@ module Sidebars =
                             // The direct rooms' fragments are fetched up front.
                             let! sidebar = Accounts.sidebar db secrets app.Fragments (Page.fragmentContext app) user
                             let restricted =
-                                Account.first db
+                                Data.account http db
                                 |> Option.exists (fun account -> AccountSettings.restrictRoomCreationToAdministrators (Account.settings account))
                             return sidebar, restricted
                         })

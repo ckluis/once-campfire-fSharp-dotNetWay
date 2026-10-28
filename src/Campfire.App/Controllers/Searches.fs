@@ -59,7 +59,7 @@ module SearchesController =
                             | None -> []
                         let recent = Search.orderedForUser db user.Id |> List.map (fun search -> search.Query)
                         let returnTo =
-                            Campfire.App.Current.lastRoomVisitedIn db user.Id lastRoom
+                            Data.lastRoomVisited http db user.Id lastRoom
                             |> Option.map (fun room -> room.Id)
                             |> Option.defaultValue 0L
                         messages, recent, returnTo)

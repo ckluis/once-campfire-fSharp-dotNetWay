@@ -55,7 +55,7 @@ module RoomsController =
                 | id -> id
             let! (room: Room option) =
                 match (match id with null -> None | id -> Ruby.integerCast id) with
-                | Some id -> Data.read http (fun db -> Room.findForUser db user.Id id)
+                | Some id -> Data.read http (fun db -> Data.roomForUser http db user.Id id)
                 | None -> Ok None
             match room |> Option.filter (RoomScope.includes scope) with
             | Some room -> return room
@@ -155,7 +155,7 @@ module RoomsController =
                                User = PresenterSupport.userView app.Secrets user
                                Messages = items
                                Invitation = original && not (Message.paged db room.Id)
-                               JoinCode = Account.first db |> Option.map (fun account -> account.JoinCode) |> Option.defaultValue ""
+                               JoinCode = Data.account http db |> Option.map (fun account -> account.JoinCode) |> Option.defaultValue ""
                                MessagesStreamName = Campfire.Rails.Turbo.signedStreamName app.Secrets [ roomGid; "messages" ] }: Campfire.Views.Rooms.ShowView)
                     })
             return!
