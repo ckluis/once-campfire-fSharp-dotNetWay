@@ -58,6 +58,12 @@ make them; the harness runs our image as the candidate). Tests boot the whole ap
 ## Performance rules (the hot paths are the five benchmarked workloads plus Cable fan-out)
 
 The bar is the plan's floor of 5x Rails per workload, measured with `bench/quick` (stored Rails medians in `bench/results/phase7-final`).
+From Phase 10 (P15) the floor is also stated against upstream's harness: **at least 5x that session's Rails on every normal-profile route** (the Rails there
+serves a page at 4,800-5,200 req/s, ten times `bench/quick`'s pinned Rails), measured with `bench/upstream-quick`, which runs upstream's
+`once-campfire-verification` (`oncrack-adapter`) over Rails, the F# port and theDotNetWay in one session, and prints median, min, max and x Rails.
+Inside colima, detached (see the header of the script): `bench/upstream-quick [--commit REF|--image IMG|--mounted DIR] [--rounds 2] [--mixed]
+[--routes ...] [--env JSON] [--out DIR] [--keep]`; `--commit` builds a clean clone's image and checks its label (the official measurement),
+`--mounted` layers a `bin/publish-mounted` directory over `:app` (iteration). It cleans up its tmpfs and `uq-*` images. `bench/quick`'s 5x stays too.
 
 - No reflection-based serialization on request paths; use `Utf8JsonWriter` or source-generated `System.Text.Json`.
 - **Hybrid reads: the per-request READ paths are Dapper** (`src/Campfire.Db/Ef/FastReads.fs`, the only file that calls Dapper; `bin/verify`

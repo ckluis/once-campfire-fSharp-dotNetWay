@@ -1,0 +1,133 @@
+#!/usr/bin/env bash
+# Upstream's own benchmark harness (once-campfire-verification, branch oncrack-adapter) in a short, same-session run: Rails, the F# port and
+# theDotNetWay measured one after another by the harness's bin/benchmark, so every "x Rails" is against that session's Rails. Phase 10's
+# measuring tool; its floor is 5x Rails per normal-profile route (bench/quick keeps its 5x against the stored Rails). Run inside colima,
+# detached, and poll the status file:
+#
+#   colima ssh -- bash -c "cd $PWD && nohup bench/upstream-quick [--commit REF|--image IMG|--mounted DIR] [--apps rails,fsharp,dotnetway]
+#       [--routes room_show,messages_page,sidebar,search,post_message] [--rounds 2] [--mixed] [--env JSON] [--out DIR] [--keep] > /dev/null 2>&1 &"
+#   timeout 540 bash -c 'until [ -f OUT/STATUS ]; do sleep 20; done'      # STATUS: 0, the harness's exit code, or "blocked: ..."
+#
+# The theDotNetWay side comes from ONE of: --commit REF (default HEAD; a clean clone of that commit is built with `docker build`, the image's
+# revision label checked: the official measurement), --image IMG (as it is; the clone only supplies the commit and dirty flag the harness
+# records, at the image's revision label), --mounted DIR (bin/publish-mounted's output layered over campfire-dotnetway:app as
+# campfire-dotnetway:uq-mounted, for iteration; the summary marks it dirty=mounted). --mixed runs the mixed read/write profile
+# (--mixed-write-rate 10, the four read routes) instead of the normal one. --env JSON goes to DOTNETWAY_BENCH_ENV. --apps takes rails, fsharp and
+# dotnetway (the three workspaces this tool keeps). OUT defaults to bench/results/upstream-quick-<stamp>: summary.md and summary.json (median, min, max
+# per route and app, x Rails, commits, dirty flags, image ids, seed sha, host probe and load before and after), host.txt, the harness's JSON in raw/,
+# and its log. The seed (bin/seed --image campfire-reference:app) is built once per harness sha and kept in /var/tmp/upstream-quick. The harness runs
+# in a 3 GB tmpfs at /mnt/upstream-quick. Afterwards (unless --keep) the tmpfs is unmounted, the clones removed and the uq-* images deleted.
+set -uo pipefail
+ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+HARNESS_SRC=${HARNESS_SRC:-/Users/clank/Desktop/projects/once-campfire-verification}
+HARNESS_REF=${HARNESS_REF:-oncrack-adapter}
+UPSTREAM=${UPSTREAM:-/Users/clank/Desktop/projects/upstream-campfire}
+PORT_SRC=${PORT_SRC:-/Users/clank/Desktop/projects/once-campfire-fsharp}
+MNT=/mnt/upstream-quick CACHE=/var/tmp/upstream-quick
+HP=$ROOT/bench/lib/hostprobe.py PROBE_BASE=/var/tmp/campfire-bench-work/.hostprobe-baseline
+COMMIT=HEAD IMAGE="" MOUNTED="" APPS=rails,fsharp,dotnetway ROUTES="" ROUNDS=2 MIXED="" ENVJ="" OUT="" KEEP=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --commit) COMMIT=$2; shift 2 ;;
+    --image) IMAGE=$2; shift 2 ;;
+    --mounted) MOUNTED=$2; shift 2 ;;
+    --apps) APPS=$2; shift 2 ;;
+    --routes) ROUTES=$2; shift 2 ;;
+    --rounds) ROUNDS=$2; shift 2 ;;
+    --mixed) MIXED=1; shift ;;
+    --env) ENVJ=$2; shift 2 ;;
+    --out) OUT=$2; shift 2 ;;
+    --keep) KEEP=1; shift ;;
+    *) echo "unknown option $1" >&2; exit 2 ;;
+  esac
+done
+[ -n "$ROUTES" ] || { [ -n "$MIXED" ] && ROUTES=room_show,messages_page,sidebar,search || ROUTES=room_show,messages_page,sidebar,search,post_message; }
+OUT=${OUT:-$ROOT/bench/results/upstream-quick-$(date +%Y%m%d-%H%M%S)}
+case "$OUT" in /*) ;; *) OUT=$PWD/$OUT ;; esac
+mkdir -p "$OUT"; : > "$OUT/log.txt"
+log() { echo "$(date +%T) $*" | tee -a "$OUT/log.txt"; }
+TAG=""
+cleanup() {
+  [ -z "$KEEP" ] || { log "--keep: leaving $MNT and any uq-* image"; return; }
+  sudo umount -l "$MNT" 2>/dev/null; sudo rmdir "$MNT" 2>/dev/null
+  [ -z "$TAG" ] || docker rmi "campfire-dotnetway:$TAG" >/dev/null 2>&1
+  docker images --format '{{.Repository}}:{{.Tag}}' 'campfire-dotnetway' | grep ':uq-' | xargs -r docker rmi >/dev/null 2>&1
+  return 0
+}
+trap cleanup EXIT
+blocked() { echo "blocked: $1" > "$OUT/STATUS"; log "blocked: $1"; exit 1; }
+free_gb() { echo $(( $(df -k /Users/clank | awk 'NR==2{print $4}') / 1024 / 1024 )); }
+[ "$(free_gb)" -ge 15 ] || { sudo fstrim -av >/dev/null 2>&1; [ "$(free_gb)" -ge 15 ] || blocked "disk $(free_gb) GB free on the Mac"; }
+sudo umount -l "$MNT" 2>/dev/null
+rm -f "$OUT/STATUS"
+
+# 1. The tmpfs and the harness clone.
+sudo mkdir -p "$MNT" && sudo mount -t tmpfs -o size=3g tmpfs "$MNT" && sudo chown "$(id -u):$(id -g)" "$MNT" || blocked "cannot mount $MNT"
+umask 002
+B=$MNT; export TMPDIR=$B/tmp; mkdir -p "$TMPDIR" "$B/ws" "$CACHE"
+git clone -q "$HARNESS_SRC" "$B/harness" && git -C "$B/harness" checkout -q "$HARNESS_REF" || blocked "harness clone"
+HSHA=$(git -C "$B/harness" rev-parse --short HEAD)
+mkdir -p "$B/harness/loadgen/target/release"
+cp "$UPSTREAM/tools/loadgen-1.98.1-static/loadgen" "$B/harness/loadgen/target/release/loadgen" || blocked "no static loadgen"
+if [ ! -d "$CACHE/seed-$HSHA/db" ]; then
+  log "building the seed for harness $HSHA (once)"
+  (cd "$B/harness" && ruby bin/seed --image campfire-reference:app > "$OUT/seed.log" 2>&1) || blocked "seed build failed (see $OUT/seed.log)"
+  mkdir -p "$CACHE/seed-$HSHA" && cp -a "$B/harness/fixtures/default/." "$CACHE/seed-$HSHA/"
+else
+  mkdir -p "$B/harness/fixtures/default" && cp -a "$CACHE/seed-$HSHA/." "$B/harness/fixtures/default/"
+fi
+chmod -R g+w "$B/harness/fixtures/default/db" "$B/harness/fixtures/default/storage"
+
+# 2. The workspace: Rails and the port at their pins, theDotNetWay at the commit.
+[ -d "$B/harness/fixtures/default" ] || blocked "no seed"
+git clone -q --shared --no-checkout "$UPSTREAM/once-campfire" "$B/ws/once-campfire" && git -C "$B/ws/once-campfire" checkout -q --detach ca9b963 || blocked "rails clone"
+git clone -q --shared --no-checkout "$PORT_SRC" "$B/ws/once-campfire-fsharp" && git -C "$B/ws/once-campfire-fsharp" checkout -q --detach 9954ad0 || blocked "port clone"
+if [ -n "$IMAGE" ]; then
+  rev=$(docker image inspect -f '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$IMAGE" 2>/dev/null)
+  git -C "$ROOT" cat-file -e "${rev:-x}^{commit}" 2>/dev/null && COMMIT=$rev || { log "image revision '$rev' is not in this repository: clone at HEAD"; COMMIT=HEAD; }
+fi
+FULL=$(git -C "$ROOT" rev-parse "$COMMIT") || blocked "unknown commit $COMMIT"
+SHORT=${FULL:0:7}
+D=$B/ws/once-campfire-dotnetway
+git clone -q --shared --no-checkout "$ROOT" "$D" && git -C "$D" checkout -q --detach "$FULL" || blocked "dotnetway clone"
+
+# 3. The image.
+if [ -n "$IMAGE" ]; then DNW_IMAGE=$IMAGE
+elif [ -n "$MOUNTED" ]; then
+  TAG=uq-mounted; DNW_IMAGE=campfire-dotnetway:$TAG
+  log "layering $MOUNTED over campfire-dotnetway:app as $DNW_IMAGE"
+  printf 'FROM campfire-dotnetway:app\nCOPY . /opt/campfire/\n' | docker build -q -t "$DNW_IMAGE" -f - "$MOUNTED" >/dev/null || blocked "mounted layer build"
+else
+  TAG=uq-$SHORT; DNW_IMAGE=campfire-dotnetway:$TAG
+  log "building $DNW_IMAGE from a clean clone of $SHORT"
+  rsync -a --exclude .git "$ROOT/reference/" "$D/reference/" || blocked "no reference/ to build with"
+  refrev=$(git -C "$ROOT/reference" rev-parse HEAD 2>/dev/null || head -n 1 "$ROOT/.git/modules/reference/HEAD" 2>/dev/null || echo parity)
+  docker build -q -t "$DNW_IMAGE" -f "$D/Dockerfile" --build-arg APP_VERSION=parity --build-arg GIT_REVISION="$refrev" \
+    --build-arg SOURCE_REVISION="$SHORT" --label "org.opencontainers.image.revision=$FULL" "$D" > "$OUT/build.log" 2>&1 || blocked "docker build failed (see $OUT/build.log)"
+  find "$D/reference" -mindepth 1 -delete   # the submodule's files were only the build context; the harness reads the clone's status
+fi
+got=$(docker image inspect -f '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$DNW_IMAGE" 2>/dev/null)
+log "dotnetway image $DNW_IMAGE revision label ${got:-none}"
+if [ -z "$IMAGE" ] && [ -z "$MOUNTED" ] && [ "$got" != "$FULL" ]; then blocked "image label '$got' is not $FULL"; fi
+
+# 4. The run.
+export RAILS_IMAGE=campfire-rails-upstream:ca9b963 FSHARP_IMAGE=campfire-fsharp:app DOTNETWAY_IMAGE=$DNW_IMAGE
+export RAILS_BENCH_ENV='{"WEB_CONCURRENCY":"4","RAILS_MAX_THREADS":"1","RAILS_MIN_THREADS":"1"}'
+[ -z "$ENVJ" ] || export DOTNETWAY_BENCH_ENV=$ENVJ
+mkdir -p "$(dirname $PROBE_BASE)"
+probe() { python3 "$HP" 0-7 "$PROBE_BASE"; }
+wait_quiet() { local i; for i in $(seq 1 30); do
+  python3 "$HP" 0-7 "$PROBE_BASE" 1.12 >/dev/null && return 0; sleep 20; done; return 1; }
+wait_quiet || log "host not quiet after 10 minutes: running anyway, the probe is recorded"
+echo "before: $(probe) load=$(cat /proc/loadavg)" > "$OUT/host.txt"
+cd "$B/harness"
+args=(--workspace "$B/ws" --rounds "$ROUNDS" --duration 8 --concurrencies 16 --cpus 0-3 --client-cpus 4-7 --apps "$APPS" --routes "$ROUTES" --output "$OUT/raw")
+[ -z "$MIXED" ] || args+=(--mixed-write-rate 10)
+log "ruby bin/benchmark ${args[*]}"
+ruby bin/benchmark "${args[@]}" > "$OUT/harness.log" 2>&1; rc=$?
+echo "after: $(probe) load=$(cat /proc/loadavg)" >> "$OUT/host.txt"
+echo "commit=$FULL image=$DNW_IMAGE mounted=${MOUNTED:-} mixed=${MIXED:-0} harness=$HSHA" >> "$OUT/host.txt"
+log "harness exit $rc"
+if [ $rc = 0 ]; then python3 "$ROOT/bench/lib/upstream_quick.py" "$OUT" ${MOUNTED:+--mounted} | tee "$OUT/table.txt"; fi
+echo $rc > "$OUT/STATUS"
+exit $rc

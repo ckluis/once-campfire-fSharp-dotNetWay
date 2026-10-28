@@ -1,0 +1,4 @@
+08:02:51 building the seed for harness f3103c7 (once)
+08:03:02 dotnetway image campfire-dotnetway:app revision label dcc9434d3afaed16c1976e817334661c245fa36e
+08:03:07 ruby bin/benchmark --workspace /mnt/upstream-quick/ws --rounds 2 --duration 8 --concurrencies 16 --cpus 0-3 --client-cpus 4-7 --apps rails,fsharp,dotnetway --routes room_show,messages_page,sidebar,search,post_message --output /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/bench/results/phase10-baseline/raw
+08:08:41 harness exit 0

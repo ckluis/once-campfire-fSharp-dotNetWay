@@ -1,0 +1,3 @@
+before: {"spin_ms": 58.13, "spin_ms_max_cpu": 62.98, "cpus": "0-7", "baseline_ms": 55.57, "ratio": 1.046} load=5.40 4.16 3.27 1/192 1033316
+after: {"spin_ms": 58.79, "spin_ms_max_cpu": 62.31, "cpus": "0-7", "baseline_ms": 55.57, "ratio": 1.058} load=6.10 4.79 3.74 1/193 1035193
+commit=dcc9434d3afaed16c1976e817334661c245fa36e image=campfire-dotnetway:app mounted= mixed=1 harness=f3103c7
