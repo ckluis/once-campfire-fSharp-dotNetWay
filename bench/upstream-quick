@@ -42,6 +42,7 @@ while [ $# -gt 0 ]; do
   esac
 done
 [ -n "$ROUTES" ] || { [ -n "$MIXED" ] && ROUTES=room_show,messages_page,sidebar,search || ROUTES=room_show,messages_page,sidebar,search,post_message; }
+[ "$ROUNDS" -ge 2 ] 2>/dev/null || { echo "the harness needs at least 2 rounds (--rounds)" >&2; exit 2; }
 OUT=${OUT:-$ROOT/bench/results/upstream-quick-$(date +%Y%m%d-%H%M%S)}
 case "$OUT" in /*) ;; *) OUT=$PWD/$OUT ;; esac
 mkdir -p "$OUT"; : > "$OUT/log.txt"
