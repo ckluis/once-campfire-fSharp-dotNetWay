@@ -74,6 +74,24 @@ Post a message is the thinnest cell (6.0x to 6.5x against the same-session Rails
 five workloads; the static rows are there to show the request log's cost, not to meet a floor. The Rust port's throughput was a
 stretch goal that this build does not claim.
 
+### Response cache
+
+Upstream Rails, the Rust port and this one all keep a response cache for pages in the Once Campfire benchmark harness, so this one
+does too (`Web/PageCache.fs`, on `HybridCache`, inside the actions where upstream's `around_action :cache_read_response` sits). It
+keeps the room page, the messages page, the sidebar and the search page, as the gzip or Brotli bytes that went out, for signed-in
+`GET` requests that carry no flash and no conditional header. The key is a SHA-256 of the commit epoch, the action, scheme, host,
+path and query, `Accept`, `Turbo-Frame`, `X-Requested-With`, the content encoding, `User-Agent`, the user id, the session id and the
+`last_room` cookie; `Referer` is not in it (a test shows the four pages ignore it). Authorization is fresh on every request: a hit
+runs the before-actions and `set_room` first (the session by token, its user, the membership and the room), so a revoked session or a
+removed membership takes effect on the next request. Nothing carrying `Set-Cookie` is stored.
+
+Every commit this process makes bumps one process-wide epoch, which retires every cached page at once. That is the cost of a global
+epoch, here as upstream: every Cable presence commit and every hourly session-resume commit retires every page, so on a busy install
+the hit rate follows the write rate, not the page. It costs the benchmark nothing (its mixed profile posts ten messages a second and
+every read still clears 5x Rails), and it is the price of never serving a page from before a commit. An entry lives at most 60
+seconds, and a page over 1 MB is not kept. `CAMPFIRE_RESPONSE_CACHE_MB` (default 64, as upstream) is the budget, added to the
+fragment cache's; `0` turns the page cache off.
+
 ## Development
 
 ```sh
@@ -337,6 +355,16 @@ Every install is served by the app's own host (Kestrel's listeners and limits, `
   certificate for a name no longer in `TLS_DOMAIN` is not served. Tested by `AcmeTests` (AC4, AC6, AC11 against Pebble).
 - **Compression bytes** differ from Rust's (.NET's deflate, Brotli and zstd are not flate2 and libzstd); the decoded bytes are the
   same. Compression itself is described under Application.
+
+### Page cache (`Web/PageCache.fs`)
+
+- **A write made outside the app shows on a cached page within 60 seconds, or at the app's next own commit.** Upstream Rails watches
+  `PRAGMA data_version` because its web and job processes are separate programs. theDotNetWay is one process and its only writer, so
+  every write it makes bumps the cache's epoch and shows on the next request; only a database edited live by another program (which
+  neither app supports) waits for the entry's 60 second life. Tested by `PageCacheTests` (PC18: a raw connection changes a room's
+  name, the cached sidebar still shows the old one, then the new one once the entry's lifetime ends).
+- **A request that accepts no compression is rendered every time**, as every request was before the cache (a page that is not
+  compressed has no kept bytes to store). No browser sends `identity` only. Tested by PC9.
 
 ### Cable (`Campfire.Cable`; Action Cable 8.1 on Puma is the reference)
 
