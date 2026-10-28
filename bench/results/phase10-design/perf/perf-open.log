@@ -1,0 +1,8 @@
+[07:09:36] building the load generator (docker)
+libcoreclr symbols (8daecad51b3a88668e81b6e27326a9f47a49b57f): installed
+libc symbols (5f3926d9963ff284b8173bf3601bbb00c3abad16): installed
+[07:10:17] load before run: 1.48 3.09 3.65 (waited 30s)
+[07:10:19] host probe before run: {"spin_ms": 60.09, "spin_ms_max_cpu": 61.5, "cpus": "0-3,4-7", "baseline_ms": 55.57, "ratio": 1.081} (waited 30s)
+[07:11:28] perf fsharp room_show: recorded; host probe after the unprofiled / perf windows: 2.124 / 2.132; unprofiled 708.6 us/req, 3.62 cores
+[07:12:30] perf fsharp sidebar: recorded; host probe after the unprofiled / perf[07:12:30] perf fsharp sidebar: recorded; host probe after the unprofiled / perf windows: 2.117 / 2.172; unprofiled 682.8 us/req, 3.66 cores
+Error response from daemon: removal of container bench-campfire-4390 is already in progress

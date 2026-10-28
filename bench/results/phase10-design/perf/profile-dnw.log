@@ -1,0 +1,4 @@
+[06:27:10] load before run: 0.02 1.63 3.59 (waited 0s)
+[06:27:12] host probe before run: {"spin_ms": 59.86, "spin_ms_max_cpu": 61.58, "cpus": "0-3,4-7", "baseline_ms": 55.57, "ratio": 1.077} (waited 0s)
+[06:29:06] profile room_show: busy 48676 ms;  SQLite reads 43.9%, request log line (console logger) 17.5%, controllers and presenters 16.8%, GC suspension 14.6%, cookies, session, crypto (Campfire.Rails) 2.3%, Kestrel and ASP.NET Core HTTP 2.2%
+[06:30:44] profile sidebar: busy 48560 ms;  SQLite reads 45.4%, controllers and presenters 17.5%, request log line (console logger) 17.5%, GC suspension 11.7%, Kestrel and ASP.NET Core HTTP 2.2%, cookies, session, crypto (Campfire.Rails) 2.0%

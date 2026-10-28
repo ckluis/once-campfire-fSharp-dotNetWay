@@ -1,0 +1,31 @@
+libcoreclr symbols (8daecad51b3a88668e81b6e27326a9f47a49b57f): installed
+libc symbols (5f3926d9963ff284b8173bf3601bbb00c3abad16): installed
+[06:32:05] load before run: 1.33 2.52 3.52 (waited 80s)
+[06:32:08] host busy: {"spin_ms": 70.12, "spin_ms_max_cpu": 84.84, "cpus": "0-3,4-7", "baseline_ms": 55.57, "ratio": 1.262}
+[06:32:21] host busy: {"spin_ms": 62.34, "spin_ms_max_cpu": 66.31, "cpus": "0-3,4-7", "baseline_ms": 55.57, "ratio": 1.122}
+[06:32:34] host busy: {"spin_ms": 67.07, "spin_ms_max_cpu": 69.86, "cpus": "0-3,4-7", "baseline_ms": 55.57, "ratio": 1.207}
+[06:32:47] host busy: {"spin_ms": 65.54, "spin_ms_max_cpu": 74.96, "cpus": "0-3,4-7", "baseline_ms": 55.57, "ratio": 1.179}
+[06:33:00] host busy: {"spin_ms": 71.46, "spin_ms_max_cpu": 86.84, "cpus": "0-3,4-7", "baseline_ms": 55.57, "ratio": 1.286}
+[06:33:13] host busy: {"spin_ms": 69.14, "spin_ms_max_cpu": 74.18, "cpus": "0-3,4-7", "baseline_ms": 55.57, "ratio": 1.244}
+[06:33:27] host busy: {"spin_ms": 64.96, "spin_ms_max_cpu": 70.4, "cpus": "0-3,4-7", "baseline_ms": 55.57, "ratio": 1.169}
+[06:33:40] host busy: {"spin_ms": 70.37, "spin_ms_max_cpu": 78.48, "cpus": "0-3,4-7", "baseline_ms": 55.57, "ratio": 1.266}
+[06:33:54] host busy: {"spin_ms": 82.13, "spin_ms_max_cpu": 90.05, "cpus": "0-3,4-7", "baseline_ms": 55.57, "ratio": 1.478}
+[06:34:07] host busy: {"spin_ms": 69.09, "spin_ms_max_cpu": 73.45, "cpus": "0-3,4-7", "baseline_ms": 55.57, "ratio": 1.243}
+[06:34:19] host busy: {"spin_ms": 62.33, "spin_ms_max_cpu": 64.57, "cpus": "0-3,4-7", "baseline_ms": 55.57, "ratio": 1.122}
+[06:34:33] host busy: {"spin_ms": 68.93, "spin_ms_max_cpu": 74.96, "cpus": "0-3,4-7", "baseline_ms": 55.57, "ratio": 1.24}
+[06:34:46] host busy: {"spin_ms": 76.15, "spin_ms_max_cpu": 79.63, "cpus": "0-3,4-7", "baseline_ms": 55.57, "ratio": 1.37}
+[06:35:00] host busy: {"spin_ms": 74.06, "spin_ms_max_cpu": 81.66, "cpus": "0-3,4-7", "baseline_ms": 55.57, "ratio": 1.333}
+[06:35:13] host busy: {"spin_ms": 67.55, "spin_ms_max_cpu": 77.14, "cpus": "0-3,4-7", "baseline_ms": 55.57, "ratio": 1.216}
+[06:35:26] host busy: {"spin_ms": 69.05, "spin_ms_max_cpu": 77.79, "cpus": "0-3,4-7", "baseline_ms": 55.57, "ratio": 1.243}
+[06:35:39] host busy: {"spin_ms": 75.59, "spin_ms_max_cpu": 80.23, "cpus": "0-3,4-7", "baseline_ms": 55.57, "ratio": 1.36}
+[06:35:52] host busy: {"spin_ms": 70.75, "spin_ms_max_cpu": 79.48, "cpus": "0-3,4-7", "baseline_ms": 55.57, "ratio": 1.273}
+[06:36:05] host busy: {"spin_ms": 63.46, "spin_ms_max_cpu": 73.17, "cpus": "0-3,4-7", "baseline_ms": 55.57, "ratio": 1.142}
+[06:36:18] host busy: {"spin_ms": 64.86, "spin_ms_max_cpu": 69.46, "cpus": "0-3,4-7", "baseline_ms": 55.57, "ratio": 1.167}
+[06:36:31] host busy: {"spin_ms": 62.16, "spin_ms_max_cpu": 67.76, "cpus": "0-3,4-7", "baseline_ms": 55.57, "ratio": 1.119}
+[06:36:44] host probe before run: {"spin_ms": 59.57, "spin_ms_max_cpu": 61.84, "cpus": "0-3,4-7", "baseline_ms": 55.57, "ratio": 1.072} (waited 290s)
+[06:37:48] perf fsharp room_show: recorded; host probe after the unprofiled / perf windows: 1.091 / 1.052; unprofiled 551.5 us/req, 3.39 cores
+[06:39:47] perf fsharp sidebar: recorded; host probe after the unprofiled / perf windows: 1.267 / 1.23; unprofiled 1054.7 us/req, 3.32 cores
+[06:41:46] perf fsharp up: recorded; host probe after the unprofiled / perf windows: 1.245 / 1.39; unprofiled 36.1 us/req, 2.94 cores
+[06:41:54] perf fsharp room_show: 551.5 us/req unprofiled (perf 642.0 ); Campfire.Db (queries, row mapping, connection pool) 26.6%, Microsoft.Data.Sqlite and P/Invoke stubs 22.6%, SQLite engine (libe_sqlite3) 18.9%, Kestrel and ASP.NET Core HTTP 8.8%
+[06:42:02] perf fsharp sidebar: 1054.7 us/req unprofiled (perf 1008.0 ); Campfire.Db (queries, row mapping, connection pool) 27.7%, SQLite engine (libe_sqlite3) 22.8%, Microsoft.Data.Sqlite and P/Invoke stubs 17.9%, Kestrel and ASP.NET Core HTTP 9.6%
+[06:42:05] perf fsharp up: 36.1 us/req unprofiled (perf 40.9 ); Kestrel and ASP.NET Core HTTP 48.8%, cookies, session, HMAC and key derivation (Campfire.Rails) 23.0%, runtime and BCL with no Campfire caller on the stack 17.9%, request layer (Campfire.App.Web) 3.2%

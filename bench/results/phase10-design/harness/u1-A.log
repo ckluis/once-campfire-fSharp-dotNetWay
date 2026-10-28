@@ -1,0 +1,49 @@
+dotnetway round 1: room_show 16 clients 10121.4 req/s
+dotnetway round 1: messages_page 16 clients 9735.0 req/s
+dotnetway round 1: sidebar 16 clients 10502.9 req/s
+dotnetway round 1: search 16 clients 8936.0 req/s
+dotnetway round 1: post_message 16 clients 2431.6 req/s
+dotnetway round 2: room_show 16 clients 10366.8 req/s
+dotnetway round 2: messages_page 16 clients 10084.5 req/s
+dotnetway round 2: sidebar 16 clients 10782.6 req/s
+dotnetway round 2: search 16 clients 8897.1 req/s
+dotnetway round 2: post_message 16 clients 2477.1 req/s
+{
+  "dotnetway": {
+    "room_show": {
+      "median_rps": 10244.099999999999,
+      "runs": [
+        10121.4,
+        10366.8
+      ]
+    },
+    "messages_page": {
+      "median_rps": 9909.75,
+      "runs": [
+        9735.0,
+        10084.5
+      ]
+    },
+    "sidebar": {
+      "median_rps": 10642.75,
+      "runs": [
+        10502.9,
+        10782.6
+      ]
+    },
+    "search": {
+      "median_rps": 8916.55,
+      "runs": [
+        8936.0,
+        8897.1
+      ]
+    },
+    "post_message": {
+      "median_rps": 2454.35,
+      "runs": [
+        2431.6,
+        2477.1
+      ]
+    }
+  }
+}

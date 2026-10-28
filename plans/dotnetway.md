@@ -523,6 +523,7 @@ end (Phase 9), and once after Phase 4 (views), the phase that touches every cell
 | 7 | Front server -> Kestrel + middleware | listeners and TLS; Certes ACME service and `DirCache`; HTTPS redirect, HSTS, HTTP logging; delete `Front/` | Pebble ACME test; Let's Encrypt staging once on a real domain (operator); `bench/front/run` reported; `auth/sign_in` and `rooms/show/designers` over TLS | `Front/` (2.7 KLOC), `ZstdSharp.Port` | 23.9 -> 21.5 | front-server page and asset rows |
 | 8 | Jobs, integrations, push, config and time | BackgroundService queues; HttpClientFactory clients with resilience and the guard; AngleSharp opengraph; WebPush; QRCoder (pixel decides); user-agent parser; IOptions, TimeProvider, logging, redaction | recorded opengraph, webhook and push cases; guard tests one for one; `users/profile/qr_code`, `auth/incompatible_browser`, `users/push_subscriptions/*`, `bot_api/*` | `Http.fs`, `Opengraph*` scanners, `WebPushEncryption.fs`, `UserAgent.fs`, `Rqrcode.fs` (if QRCoder passes), `KitClock.fs`, `Config` plumbing | 21.5 -> 18.5 | post a message (jobs on the write path) |
 | 9 | Storage, Rails helpers, tests; the close | Storage trims; merge Ruby/RailsCompat/Routes into `Campfire.Rails`; test consolidation; README "Known differences" for theDotNetWay; the final bench (`bench/run --apps reference,rust,dotnetway`, all suites) | **full pixel gate**, every seed and the full matrix; cookie round trip; db-differential; `bin/kloc` final | leftovers | 18.5 -> 17.0 | full re-baseline with Rails and Rust re-measured |
+| 10 | Performance on upstream's harness (Chris, 2026-10-28; `plans/design-perf.md`) | `bench/upstream-quick`; the tiering setting and one SQLite connection per request; narrowing a miss; the response cache in the four GET actions on HybridCache (fresh authorization, a commit epoch); the gate | every normal route at least 5x upstream's current Rails in the same session (`bench/upstream-quick`), mixed reported; the lean pixel matrix on all seeds; cookie round trip; db-differential; `bench/quick`'s floor kept | nothing | 26.2 -> about 26.4 | `bench/upstream-quick` every unit, `bench/quick` at the gate |
 
 Each phase's notes (units done, gate evidence, KLOC, speed table, differences recorded) are appended under "Phase log" below as
 it closes, the way `plans/fsharp-port.md` records its phases.
@@ -4483,3 +4484,27 @@ Bench runner on `f9f4637` (HEAD; no code change, so KLOC is the gate's: **26,210
 - **Result (req/s, theDotNetWay / Rails / port / onCrack / Rust / C):** room 3,300 / 4,880 / 35,365 / 168,948 / 50,146 / 76,748; messages 7,349 / 4,882 / 41,083 / 178,725 / 46,978 / 77,560; sidebar 7,707 / 5,243 / 37,524 / 190,428 / 55,269 / 83,030; search 7,187 / 5,063 / 33,742 / 185,206 / 54,112 / 82,902; post 2,263 / 398 / 9,317 / 15,200 / 6,414 / 5,819. Mixed: room 2,868 / 2,711, messages 6,616 / 3,282, sidebar 7,322 / 4,154, search 6,886 / 3,901 (theDotNetWay / Rails).
 - **Floor check FAILS in this harness (blocker, not fixed here):** theDotNetWay over this harness's Rails is room 0.68x, messages 1.51x, sidebar 1.47x, search 1.42x, post 5.68x on the normal profile. The 5x floor was set on `bench/quick`'s Rails (240-600 req/s on a page); upstream's current Rails in Basecamp's harness serves a page at 4,900-5,200 req/s. The room page is theDotNetWay's thinnest read here (3,300 against 7,200-7,700 for the other pages). Decision for the owner: restate the floor against `bench/quick`'s control only, or investigate the room page.
 - **Failures:** none besides the aborted first session (kept, not pooled). Open items unchanged.
+
+### Phase 10: design (2026-10-28)
+
+Opus designer. `plans/design-perf.md`, evidence in `bench/results/phase10-design/` (README, harness runs, perf and trace profiles,
+`spike3.diff`). No code changed; KLOC unchanged (26,210 corrected).
+- **The ceiling is CPU per request.** A page costs 440-550 us (port: 110). 300-380 us of that is the data layer: every one of 9
+  statements opened and closed a pooled connection through EF (EF's SQL functions re-registered on every `Open`, the pool's lock,
+  `Deactivate`) and prepared its statement afresh. A page also allocates about 500 KB. The room page's extra half is tiered
+  compilation still warming up: the harness gives it 2 s, as its first route. Thread pool, GC, Kestrel and the logger are not the
+  limit (knobs measured: none gains).
+- **Spikes on upstream's harness (2 rounds, same session as Rails):** `DOTNET_TC_CallCountingDelayMs=0` takes the room page from 3,402
+  to 7,471. Adding one connection per request gives 2.08x / 2.04x / 2.03x / 1.74x / 6.39x Rails (room / messages / sidebar / search / post).
+  Adding the response cache in the actions gives **7.24x / 6.98x / 8.28x / 8.07x / 6.22x**, and 9.1-13.4x on the mixed reads. The
+  harness's contract validation passed on every sample.
+- **Decided by D9 (P1-P16):** the cache is not the OutputCache middleware. S6 showed OutputCache never stores a response with
+  `Set-Cookie`, and the room page sets `last_room`. It lives in the four actions on HybridCache, after the before-actions and `set_room`,
+  so every hit re-reads the session, the user and the membership. The key covers user, session, URL, format, encoding and user agent.
+  A process-wide commit epoch retires every page on any commit, and it moves before the broadcasts. No statement cache: Dapper stays.
+  The request log stays.
+- **Units:** 10.1 `bench/upstream-quick`; 10.2 configuration and connections; 10.3 narrowing a miss; 10.4 page cache core (room and
+  messages); checkpoint; 10.5 sidebar, search, budget, README; 10.6 gate (and the local harness adapter's metadata).
+- **Differences:** one planned, class B: a write made outside the app shows on a cached page within 60 s.
+- **Cleanup:** the spike images `campfire-dotnetway:spike1`-`:spike3`, the VM's scratch and the Mac's scratch are removed;
+  `bin/clean-docker` was run.

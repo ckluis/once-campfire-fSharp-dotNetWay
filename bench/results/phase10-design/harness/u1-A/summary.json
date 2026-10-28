@@ -1,0 +1,92 @@
+{
+  "metadata": {
+    "verification_revision": "f3103c7d48ab1edf779e6235e34900b489d5a305",
+    "response_validation": "route-contract-v1",
+    "started_at": "2026-10-28T11:29:39Z",
+    "seed_sha256": "4b584669b2268013f3d819d43ac61ea9e900b1740dec594422f185ba43acfe61",
+    "server_cpus": "0-3",
+    "client_cpus": "4-7",
+    "network": "host",
+    "gzip": true,
+    "duration": 8,
+    "concurrencies": "16",
+    "rounds": 2,
+    "loadgen_sha256": "351a66af1ea13003b845c24a63c59d7e5d2d46ddf101aa5c0e0b78e0a0869b1e",
+    "routes": "room_show,messages_page,sidebar,search,post_message",
+    "profile": "read-and-post-v1",
+    "mixed_writer": null,
+    "images": {
+      "dotnetway": "sha256:eaa08b77f0524d9d08227a9ca97dfbb45c74beedf95eec804e2c27de406cac6d"
+    },
+    "image_labels": {
+      "dotnetway": {
+        "org.opencontainers.image.description": "",
+        "org.opencontainers.image.licenses": "MIT",
+        "org.opencontainers.image.revision": "dcc9434d3afaed16c1976e817334661c245fa36e",
+        "org.opencontainers.image.source": ""
+      }
+    },
+    "source_revisions": {
+      "dotnetway": {
+        "head": "838f700743abbb8af8ff5f9125d26270c561793f",
+        "dirty": true
+      }
+    },
+    "preflight_only": false,
+    "topology": {
+      "dotnetway": {
+        "processes": 1,
+        "runtime": ".NET 11 (Kestrel, ASP.NET Core, EF Core with Dapper hot reads)",
+        "response_cache": "none for pages (OutputCache serves public assets only)",
+        "cable": "native",
+        "jobs": "in-process"
+      }
+    },
+    "runtimes": {
+      "dotnetway": "dotnetway"
+    },
+    "search_order": {
+      "dotnetway": "created_at"
+    },
+    "complete": true
+  },
+  "results": {
+    "dotnetway": {
+      "room_show": {
+        "median_rps": 10244.099999999999,
+        "runs": [
+          10121.4,
+          10366.8
+        ]
+      },
+      "messages_page": {
+        "median_rps": 9909.75,
+        "runs": [
+          9735.0,
+          10084.5
+        ]
+      },
+      "sidebar": {
+        "median_rps": 10642.75,
+        "runs": [
+          10502.9,
+          10782.6
+        ]
+      },
+      "search": {
+        "median_rps": 8916.55,
+        "runs": [
+          8936.0,
+          8897.1
+        ]
+      },
+      "post_message": {
+        "median_rps": 2454.35,
+        "runs": [
+          2431.6,
+          2477.1
+        ]
+      }
+    }
+  }
+}

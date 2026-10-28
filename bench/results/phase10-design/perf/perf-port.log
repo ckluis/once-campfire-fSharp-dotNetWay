@@ -1,0 +1,15 @@
+libcoreclr symbols (db80da5a963b4d12f52c5530383d910c80f6ae00): installed
+libc symbols (5f3926d9963ff284b8173bf3601bbb00c3abad16): installed
+[06:43:16] load before run: 1.39 2.72 3.00 (waited 70s)
+[06:43:19] host busy: {"spin_ms": 64.61, "spin_ms_max_cpu": 69.18, "cpus": "0-3,4-7", "baseline_ms": 55.57, "ratio": 1.163}
+[06:43:32] host busy: {"spin_ms": 72.96, "spin_ms_max_cpu": 76.49, "cpus": "0-3,4-7", "baseline_ms": 55.57, "ratio": 1.313}
+[06:43:46] host busy: {"spin_ms": 70.99, "spin_ms_max_cpu": 77.61, "cpus": "0-3,4-7", "baseline_ms": 55.57, "ratio": 1.278}
+[06:43:59] host busy: {"spin_ms": 67.1, "spin_ms_max_cpu": 83.1, "cpus": "0-3,4-7", "baseline_ms": 55.57, "ratio": 1.207}
+[06:44:12] host busy: {"spin_ms": 65.85, "spin_ms_max_cpu": 78.32, "cpus": "0-3,4-7", "baseline_ms": 55.57, "ratio": 1.185}
+[06:44:25] host busy: {"spin_ms": 62.14, "spin_ms_max_cpu": 65.74, "cpus": "0-3,4-7", "baseline_ms": 55.57, "ratio": 1.118}
+[06:44:37] host busy: {"spin_ms": 61.44, "spin_ms_max_cpu": 65.26, "cpus": "0-3,4-7", "baseline_ms": 55.57, "ratio": 1.106}
+[06:44:50] host probe before run: {"spin_ms": 60.67, "spin_ms_max_cpu": 65.83, "cpus": "0-3,4-7", "baseline_ms": 55.57, "ratio": 1.092} (waited 140s)
+[06:46:54] perf fsharp room_show: recorded; host probe after the unprofiled / perf windows: 1.092 / 1.131; unprofiled 109.1 us/req, 3.52 cores
+[06:47:51] perf fsharp sidebar: recorded; host probe after the unprofiled / perf windows: 1.09 / 1.084; unprofiled 112.2 us/req, 3.52 cores
+[06:47:56] perf fsharp room_show: 109.1 us/req unprofiled (perf 106.7 ); SQLite engine (libe_sqlite3) 28.5%, Kestrel and ASP.NET Core HTTP 22.7%, templates, escaping and fragment cache 13.4%, Campfire.Db (queries, row mapping, connection pool) 12.7%
+[06:48:00] perf fsharp sidebar: 112.2 us/req unprofiled (perf 111.5 ); SQLite engine (libe_sqlite3) 32.9%, Kestrel and ASP.NET Core HTTP 16.5%, cookies, session, HMAC and key derivation (Campfire.Rails) 12.4%, templates, escaping and fragment cache 12.0%

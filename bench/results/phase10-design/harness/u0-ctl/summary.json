@@ -1,0 +1,205 @@
+{
+  "metadata": {
+    "verification_revision": "f3103c7d48ab1edf779e6235e34900b489d5a305",
+    "response_validation": "route-contract-v1",
+    "started_at": "2026-10-28T11:24:07Z",
+    "seed_sha256": "4b584669b2268013f3d819d43ac61ea9e900b1740dec594422f185ba43acfe61",
+    "server_cpus": "0-3",
+    "client_cpus": "4-7",
+    "network": "host",
+    "gzip": true,
+    "duration": 8,
+    "concurrencies": "16",
+    "rounds": 2,
+    "loadgen_sha256": "351a66af1ea13003b845c24a63c59d7e5d2d46ddf101aa5c0e0b78e0a0869b1e",
+    "routes": "room_show,messages_page,sidebar,search,post_message",
+    "profile": "read-and-post-v1",
+    "mixed_writer": null,
+    "images": {
+      "rails": "sha256:abaf6099efd479bc449099826868e744e515227af707f0bbf783f285ad39c02a",
+      "fsharp": "sha256:eff5fc297f6aaee74f3fe88b4bb961d6da115ec90940c39ffbbdd4677fe177ae",
+      "dotnetway": "sha256:acdc23f914c76f25f3ab79e1fc080654db6bf227a553c70251774e8384942dc3"
+    },
+    "image_labels": {
+      "rails": {
+        "org.opencontainers.image.description": "",
+        "org.opencontainers.image.licenses": "MIT",
+        "org.opencontainers.image.source": ""
+      },
+      "fsharp": {
+        "org.opencontainers.image.description": "",
+        "org.opencontainers.image.licenses": "MIT",
+        "org.opencontainers.image.revision": "9954ad0",
+        "org.opencontainers.image.source": ""
+      },
+      "dotnetway": {
+        "org.opencontainers.image.description": "",
+        "org.opencontainers.image.licenses": "MIT",
+        "org.opencontainers.image.revision": "dcc9434d3afaed16c1976e817334661c245fa36e",
+        "org.opencontainers.image.source": ""
+      }
+    },
+    "source_revisions": {
+      "rails": {
+        "head": "ca9b963961abcffed8256029afd75f32ecfdea81",
+        "dirty": false
+      },
+      "fsharp": {
+        "head": "9954ad0b01e32a17023b30b4254e7c75053d2dd8",
+        "dirty": false
+      },
+      "dotnetway": {
+        "head": "838f700743abbb8af8ff5f9125d26270c561793f",
+        "dirty": true
+      }
+    },
+    "preflight_only": false,
+    "topology": {
+      "rails": {
+        "http_workers": "4",
+        "threads": "1",
+        "jobs": "Redis/Resque",
+        "cable": "Action Cable",
+        "response_cache_mb": "64"
+      },
+      "fsharp": {
+        "processes": 1,
+        "runtime": ".NET (Kestrel)",
+        "response_cache": "none (port of Rust ccece30)",
+        "cable": "native",
+        "jobs": "in-process"
+      },
+      "dotnetway": {
+        "processes": 1,
+        "runtime": ".NET 11 (Kestrel, ASP.NET Core, EF Core with Dapper hot reads)",
+        "response_cache": "none for pages (OutputCache serves public assets only)",
+        "cable": "native",
+        "jobs": "in-process"
+      }
+    },
+    "runtimes": {
+      "rails": "rails",
+      "fsharp": "fsharp",
+      "dotnetway": "dotnetway"
+    },
+    "search_order": {
+      "rails": "id",
+      "fsharp": "created_at",
+      "dotnetway": "created_at"
+    },
+    "complete": true
+  },
+  "results": {
+    "rails": {
+      "room_show": {
+        "median_rps": 4915.75,
+        "runs": [
+          4921.0,
+          4910.5
+        ]
+      },
+      "messages_page": {
+        "median_rps": 4850.049999999999,
+        "runs": [
+          4955.9,
+          4744.2
+        ]
+      },
+      "sidebar": {
+        "median_rps": 5241.6,
+        "runs": [
+          5171.6,
+          5311.6
+        ]
+      },
+      "search": {
+        "median_rps": 5127.549999999999,
+        "runs": [
+          5118.9,
+          5136.2
+        ]
+      },
+      "post_message": {
+        "median_rps": 384.4,
+        "runs": [
+          377.7,
+          391.1
+        ]
+      }
+    },
+    "fsharp": {
+      "room_show": {
+        "median_rps": 36048.7,
+        "runs": [
+          35640.1,
+          36457.3
+        ]
+      },
+      "messages_page": {
+        "median_rps": 41987.600000000006,
+        "runs": [
+          42020.8,
+          41954.4
+        ]
+      },
+      "sidebar": {
+        "median_rps": 38206.95,
+        "runs": [
+          38000.3,
+          38413.6
+        ]
+      },
+      "search": {
+        "median_rps": 33868.0,
+        "runs": [
+          33823.4,
+          33912.6
+        ]
+      },
+      "post_message": {
+        "median_rps": 8124.1,
+        "runs": [
+          7662.0,
+          8586.2
+        ]
+      }
+    },
+    "dotnetway": {
+      "room_show": {
+        "median_rps": 3368.4,
+        "runs": [
+          3421.0,
+          3315.8
+        ]
+      },
+      "messages_page": {
+        "median_rps": 7465.5,
+        "runs": [
+          7460.2,
+          7470.8
+        ]
+      },
+      "sidebar": {
+        "median_rps": 7728.05,
+        "runs": [
+          7772.6,
+          7683.5
+        ]
+      },
+      "search": {
+        "median_rps": 7237.8,
+        "runs": [
+          7220.5,
+          7255.1
+        ]
+      },
+      "post_message": {
+        "median_rps": 2001.6999999999998,
+        "runs": [
+          2005.6,
+          1997.8
+        ]
+      }
+    }
+  }
+}

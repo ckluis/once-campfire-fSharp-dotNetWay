@@ -1,0 +1,17 @@
+dotnetway round 1: room_show 16 clients 29878.2 req/s
+dotnetway round 2: room_show 16 clients 30718.4 req/s
+{
+  "dotnetway": {
+    "room_show": {
+      "median_rps": 30298.300000000003,
+      "runs": [
+        29878.2,
+        30718.4
+      ]
+    },
+    "messages_page": null,
+    "sidebar": null,
+    "search": null,
+    "post_message": null
+  }
+}
