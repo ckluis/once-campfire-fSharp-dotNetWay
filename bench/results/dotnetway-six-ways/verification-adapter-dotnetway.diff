@@ -1,0 +1,41 @@
+diff --git a/bench/compare.rb b/bench/compare.rb
+index 126b333..bf74862 100644
+--- a/bench/compare.rb
++++ b/bench/compare.rb
+@@ -29,7 +29,7 @@ OptionParser.new do |parser|
+ end.parse!
+ raise "use at least two rounds" unless options[:rounds] >= 2
+ apps = options[:apps].split(",")
+-allowed = %w[rails django laravel express express-bun elixir go rust c cpp oncrack oncrack-cached oncrack-prev fsharp]
++allowed = %w[rails django laravel express express-bun elixir go rust c cpp oncrack oncrack-cached oncrack-prev fsharp dotnetway]
+ raise "apps must be nonempty, unique and supported" unless !apps.empty? && apps.uniq == apps && apps.all? { |app| allowed.include?(app) }
+ selected_routes = options[:routes].split(",")
+ raise "unknown or empty route selection" unless !selected_routes.empty? && (selected_routes - %w[room_show messages_page sidebar search avatar static_css up post_message]).empty?
+@@ -130,12 +130,14 @@ begin
+       when "cpp" then {processes: 1, page_cache_mb: config.fetch("CAMPFIRE_PAGE_CACHE_MB", "32"), cable: "native", jobs: "in-process"}
+       when "oncrack" then {processes: 1, runtime: ".NET (Kestrel)", cable: "native", jobs: "in-process"}
+       when "fsharp" then {processes: 1, runtime: ".NET (Kestrel)", response_cache: "none (port of Rust ccece30)", cable: "native", jobs: "in-process"}
++      when "dotnetway" then {processes: 1, runtime: ".NET 11 (Kestrel, ASP.NET Core, EF Core with Dapper hot reads)", response_cache: "none for pages (OutputCache serves public assets only)", cable: "native", jobs: "in-process"}
+       when "django" then {http_workers: config.fetch("WEB_WORKERS", config["REDIS_URL"].to_s.empty? ? "1" : "affinity, capped at 4"), runtime: "ASGI/Uvicorn", cable: "native", jobs: "leased auxiliary SQLite"}
+       end
+-      unless %w[c cpp fsharp].include?(kind)
++      unless %w[c cpp fsharp dotnetway].include?(kind)
+         metadata[:topology][app][:response_cache_mb] = config.fetch("CAMPFIRE_RESPONSE_CACHE_MB", "64")
+       end
+-      command = ["docker", "run", "-d", "--name", container, "--network", "host", "--cpuset-cpus", options[:cpus]]
++      command = ["docker", "run", "-d", "--name", container, "--network", "host", "--cpuset-cpus", options[:cpus], "--log-opt", "max-size=64m", "--log-opt", "max-file=2"]
++      # (json-file stays the driver; the cap is the one onCrack's rounds set in the VM's dockerd, so upstream Rust's ~1.3 GB of stdout cannot fill the Mac)
+       command.concat environment(config)
+       command.concat mounts(File.join(data, "db") => "/rails/storage/db", File.join(data, "files") => "/rails/storage/files", File.join(data, "logs") => "/rails/storage/logs")
+       command << image_id
+@@ -161,8 +163,8 @@ begin
+       routes = { "room_show" => "/rooms/#{room}", "messages_page" => "/rooms/#{room}/messages?before=#{labels.fetch('messages.busy_060')}",
+         "sidebar" => "/users/me/sidebar", "search" => "/searches?q=coffee", "avatar" => "/users/#{labels.fetch('avatar_tokens.jason')}/avatar",
+         "static_css" => scrape.fetch("css"), "up" => "/up", "post_message" => nil }
+-      # Current onCrack lists search results by message id, as upstream does (R3.3); the F# port and onCrack before R3.3 keep Rails 90b3300's created_at order.
+-      search_order = (kind == "fsharp" || app == "oncrack-prev") ? "created_at" : "id"
++      # theDotNetWay (forked from the port) keeps 90b3300's created_at order too. Current onCrack lists search results by message id, as upstream does (R3.3); the F# port and onCrack before R3.3 keep Rails 90b3300's created_at order.
++      search_order = (%w[fsharp dotnetway].include?(kind) || app == "oncrack-prev") ? "created_at" : "id"
+       metadata[:search_order] ||= {}
+       metadata[:search_order][app] = search_order
+       prepared = BenchmarkContracts.prepare(base, cookie, db, labels, scrape.fetch("css"), File.join(data, "contracts"), search_order: search_order)

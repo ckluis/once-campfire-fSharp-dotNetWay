@@ -1,0 +1,10 @@
+export ONCRACK_IMAGE=campfire-oncrack:app
+export ONCRACK_BENCH_ENV='{"CAMPFIRE_RESPONSE_CACHE_MB":"64"}'
+export FSHARP_IMAGE=campfire-fsharp:app
+export DOTNETWAY_IMAGE=campfire-dotnetway:app
+export RUST_IMAGE=campfire-rust-upstream:6dae2fd
+export C_IMAGE=campfire-c-upstream:cd0cbe4
+export RAILS_IMAGE=campfire-rails-upstream:ca9b963
+export RAILS_BENCH_ENV='{"WEB_CONCURRENCY":"4","RAILS_MAX_THREADS":"1","RAILS_MIN_THREADS":"1"}'
+export TMPDIR=/mnt/cfv
+cd /mnt/cfv/once-campfire-verification
