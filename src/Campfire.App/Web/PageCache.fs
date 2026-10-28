@@ -77,8 +77,9 @@ module PageCache =
     [<Literal>]
     let EndpointKey = "campfire.web.endpoint"
 
-    /// The lookup's record of the request, in `HttpContext.Items`: the key, the epoch and `Set-Cookie`'s count at the lookup.
-    type internal Ticket = { Key: string; Epoch: int64; Cookies: int }
+    /// The lookup's record of the request, in `HttpContext.Items`: the key, the epoch, the encoding the key names and `Set-Cookie`'s
+    /// count at the lookup.
+    type internal Ticket = { Key: string; Epoch: int64; Encoding: string; Cookies: int }
 
     [<Literal>]
     let private TicketItem = "campfire.web.page_cache.ticket"
@@ -192,8 +193,7 @@ module PageCache =
             && (Data.app http).Config.ResponseCacheBytes > 0L
             && http.Request.Headers.IfNoneMatch.Count = 0
             && http.Request.Headers.IfModifiedSince.Count = 0
-            && (let flash = Respond.flash http
-                isNull flash.Notice && isNull flash.Alert)
+            && (Respond.flash http).IsEmpty
         match eligible, current.User, current.Session, encodingOf http with
         | true, Some user, Some session, (NonNull encoding) ->
             let gate = (Data.app http).Gate
@@ -214,7 +214,7 @@ module PageCache =
                     )
                 match box entry with
                 | null ->
-                    http.Items[TicketItem] <- box { Key = key; Epoch = epoch; Cookies = http.Response.Headers.SetCookie.Count }
+                    http.Items[TicketItem] <- box { Key = key; Epoch = epoch; Encoding = encoding; Cookies = http.Response.Headers.SetCookie.Count }
                     stats.AfterLookup.Invoke()
                     return! render ()
                 | _ ->
@@ -224,11 +224,12 @@ module PageCache =
         | _ -> render ()
 
     /// Called by `Pages.send` after a kept compressed page went out: stores the entry if P10's conditions hold (200, no cookie
-    /// added since the lookup, no commit since the lookup, at most 1 MB).
+    /// added since the lookup, no commit since the lookup, at most 1 MB), and only under the encoding its key names.
     let capture (http: HttpContext) (status: int) (contentType: string) (page: CompressedPage) : unit =
         match http.Items.TryGetValue TicketItem with
         | true, (:? Ticket as ticket) when
             status = 200
+            && page.Encoding = ticket.Encoding
             && page.Bytes.Length <= MaxBody
             && http.Response.Headers.SetCookie.Count = ticket.Cookies
             && (Data.app http).Gate.Epoch = ticket.Epoch

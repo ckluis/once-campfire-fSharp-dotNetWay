@@ -77,6 +77,17 @@ let private pass (probe: Probe) (b: Browser) (room: int64) (before: int64) (quer
         return List.ofSeq results
     }
 
+/// Waits until the command log stops growing (250 ms with no new statement, at most 5 s): the jobs a post queued (broadcasts, push) run on
+/// their own threads, and under load their statements would land in the next request's window.
+let private settle (probe: Probe) : Task =
+    task {
+        let deadline = DateTime.UtcNow.AddSeconds 5.0
+        let last = ref -1
+        while probe.Commands.Length <> last.Value && DateTime.UtcNow < deadline do
+            last.Value <- probe.Commands.Length
+            do! Task.Delay 250
+    }
+
 let private firstLine (command: string) : string =
     let at = command.IndexOf '\n'
     (if at < 0 then command else command.Substring(at + 1)).Replace("\r", "").Replace("\n", " ").Trim()
@@ -148,6 +159,8 @@ let ``H4 the account and the last room visited are read once a request`` () =
         let! david = signedIn test "david"
         let allTalk = messageIds test ALL_TALK
         let! _warm = pass probe david ALL_TALK allTalk[30] "coffee" "warm up"
+        // The warm-up post's jobs finish first, so their statements are not counted against the second round's pages.
+        do! settle probe
         let! results = pass probe david ALL_TALK allTalk[20] "meeting" "second round"
         let count name = results |> List.pick (fun (n, _, commands) -> if n = name then Some commands else None)
         let dupes (commands: string[]) =
