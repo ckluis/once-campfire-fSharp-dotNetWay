@@ -6,7 +6,7 @@
 #   reference-tools/run.sh reference-tools/rails_compat_verify_rust.rb [path/to/rust_output.json]
 require_relative "support"
 
-class RailsCompatVerifyRust
+class RailsVerifyRust
   include ReferenceTools
 
   def initialize(path)
@@ -119,4 +119,4 @@ end
 
 default = File.expand_path("../target/rails_compat_rust_output.json", __dir__)
 default = "/work/target/rails_compat_rust_output.json" unless File.exist?(default)
-RailsCompatVerifyRust.new(ARGV.first || default).run
+RailsVerifyRust.new(ARGV.first || default).run

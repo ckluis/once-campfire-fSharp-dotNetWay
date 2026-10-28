@@ -25,11 +25,11 @@ let ``migration versions match reference migrations`` () =
     Assert.Equal<string list>(versions, Schema.migrationVersions)
 
 /// A prepared-on-demand database file: `Schema.prepare` runs through EF on a context of its own.
-let private fresh (dir: TempDir) = dir.File "schema.sqlite3"
+let private fresh (dir: ScratchDir) = dir.File "schema.sqlite3"
 
 [<Fact>]
 let ``prepare loads then is idempotent`` () =
-    use dir = new TempDir()
+    use dir = new ScratchDir()
     let path = fresh dir
     Assert.Equal(Schema.Loaded, Schema.prepareFile path "production" (TimeProvider.System))
     Assert.Equal(Schema.UpToDate, Schema.prepareFile path "production" (TimeProvider.System))
@@ -55,7 +55,7 @@ let private queryPlan (conn: Microsoft.Data.Sqlite.SqliteConnection) (sql: strin
 [<Fact>]
 let ``prepare adds the room paging index to new and existing databases`` () =
     let lastPage = """SELECT * FROM "messages" WHERE "room_id" = 1 ORDER BY "created_at" DESC LIMIT 40"""
-    use dir = new TempDir()
+    use dir = new ScratchDir()
     let path = fresh dir
     Schema.prepareFile path "production" TimeProvider.System |> ignore
     (use conn = Raw.openFile path
@@ -72,7 +72,7 @@ let ``prepare adds the room paging index to new and existing databases`` () =
 
 [<Fact>]
 let ``prepare reports pending migrations and leaves the file free`` () =
-    use dir = new TempDir()
+    use dir = new ScratchDir()
     let path = fresh dir
     Schema.prepareFile path "production" TimeProvider.System |> ignore
     (use conn = Raw.openFile path
@@ -87,7 +87,7 @@ let ``prepare reports pending migrations and leaves the file free`` () =
 
 [<Fact>]
 let ``prepare rolls the schema back when it fails partway`` () =
-    use dir = new TempDir()
+    use dir = new ScratchDir()
     let path = fresh dir
     // A table the schema also creates: loading it fails, and nothing of the load may stay (one transaction).
     (use conn = Raw.openFile path

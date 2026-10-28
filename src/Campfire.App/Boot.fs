@@ -126,7 +126,7 @@ module Boot =
             env)
         |> ignore
         services.AddSingleton<Storage>(fun sp ->
-            Storage.create (DiskService.create (sp.GetRequiredService<CampfireOptions>()).Storage.Files "local") (RailsCompat.appVerifier secrets "ActiveStorage"))
+            Storage.create (DiskService.create (sp.GetRequiredService<CampfireOptions>()).Storage.Files "local") (Secrets.appVerifier secrets "ActiveStorage"))
         |> ignore
         services.AddSingleton<Registry<AppState>>(fun _ ->
             let registry = CoreJobs.withCoreJobs ()

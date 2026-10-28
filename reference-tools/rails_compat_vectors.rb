@@ -6,7 +6,7 @@
 require_relative "support"
 require "action_controller/test_case"
 
-class RailsCompatVectors
+class RailsVectors
   include ReferenceTools
 
   def generate
@@ -606,5 +606,5 @@ class RailsCompatVectors
     end
 end
 
-File.write(File.join(ENV.fetch("VECTORS_DIR"), "rails_compat.json"), JSON.pretty_generate(RailsCompatVectors.new.generate) + "\n")
+File.write(File.join(ENV.fetch("VECTORS_DIR"), "rails_compat.json"), JSON.pretty_generate(RailsVectors.new.generate) + "\n")
 puts "Wrote #{File.join(ENV.fetch("VECTORS_DIR"), "rails_compat.json")}"

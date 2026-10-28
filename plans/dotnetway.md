@@ -1,6 +1,8 @@
 # theDotNetWay: the third Campfire in F#
 
-Status: planned 2026-10-13, nothing built. This file and the D1-D9 decisions
+Status: built. Phases 0-9 are closed (the Phase log at the end of this file is the record; Phase 9 is the close). Sections 1-6 below are the plan as
+written on 2026-10-13 and name the code it replaced, so they stay as history; where a design note (`plans/design-*.md`) or a Phase log entry disagrees
+with them, the note and the log win. This file and the D1-D9 decisions
 (`/Users/clank/Desktop/projects/campfire-fsharp-thedotnetway-plan.md`, copied in short below) win over `AGENTS.md` and
 `plans/fsharp-port.md` wherever they conflict.
 
@@ -588,8 +590,8 @@ Settled here, with the reason:
 - **QRCoder replaces rqrcode only if the pixel gate passes on the QR state**, decided in Phase 8 by measurement.
 - **Projects shrink to seven** (`Rails`, `Db`, `RichText`, `Storage`, `Cable`, `Views`, `App`): Kit and Assets fold into App,
   Ruby, RailsCompat and Routes into Rails. The port's rule against edges Rust lacks no longer applies.
-- **Target .NET 10 (LTS)**. .NET 11 is due 2026-11-10 (STS); measure its runtime async after Phase 9, as the decisions say,
-  before moving.
+- **Target .NET 11** (superseded: this line said .NET 10 LTS). Phase 1 unit 1.0 moved the build to the .NET 11 SDK (`27c98c8`, "Phase 1, unit 1.0" in the
+  Phase log) on the decisions of 2026-10-13; the images and `global.json` are net11.0 and `Directory.Build.props` holds the target.
 - **The differentials against Rust retire with their layers**; the harness, the Rails vectors and `bin/db-differential` are the
   gates that compare with Rails itself.
 - **Count with the corrected cloc column** (`bin/kloc`); report the raw column beside it so the number is comparable with

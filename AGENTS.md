@@ -3,87 +3,63 @@
 **This repository is theDotNetWay**, the third Campfire in F# (branch `dotnetway`), forked from the published F# port
 (`ckluis/once-campfire-fSharp` at `a78972f`). It is the most .NET way possible: framework-first (ASP.NET Core, EF Core, Falco
 and Falco.Markup, mainstream NuGet packages), the least and most familiar code, the UI pixel-identical to Rails, and several
-times Rails' speed. Read `plans/dotnetway.md` first.
+times Rails' speed. Read `README.md` for what it is and `plans/dotnetway.md` (with the design notes `plans/design-*.md`) for how it
+was built. The Phase log at the end of the plan is the record of every decision, gate and measured number.
 
-- **`plans/dotnetway.md` and the D1-D9 decisions** (`/Users/clank/Desktop/projects/campfire-fsharp-thedotnetway-plan.md`)
-  **win wherever they conflict with the port's rules below.** In particular:
-  - "Match Rust's implementation" no longer applies: `rust/` and `reference/` say *what* Rails does; *how* is the framework's.
-    Don't port a Rust module when a framework feature or a mainstream package does the job; hand-written code only where
-    parity demands it.
-  - "Use the framework" does apply: controllers take `HttpContext` (not `Ctx`), views are Falco.Markup (not the UTF-8 writer),
-    data goes through EF Core (not hand-written SQL), Cable runs on ASP.NET Core's WebSocket middleware.
-  - The port's performance rules (pooled UTF-8 rendering, no markup library, prepared statements, Rust's caches) are withdrawn;
-    the speed bar is the plan's floor of 5x Rails per workload, measured with `bench/quick`.
-  - Differences from the port and from Rails follow the plan's known-differences policy (section 4), not "match byte for byte".
-- **The image is `campfire-dotnetway:app`** (renamed in Phase 0: `parity/bin/candidate`, `Dockerfile`, `bench/run`/`bench/quick`). The port's
-  `campfire-fsharp:app` stays usable as the comparison app (`PARITY_CANDIDATE_APP=fsharp`, `bench/run --apps ...,fsharp,dotnetway`); wherever the
-  port guide below says `campfire-fsharp:app`, read `campfire-dotnetway:app`, and `bench/quick` measures `dotnetway` by default.
-- `bin/kloc` counts the code by upstream's rules, per project.
-
-What follows is the port's guide, still accurate for the code as it is until each layer is replaced.
-
-Campfire in F#. It is a port that has to be indistinguishable in use from the Rails app in
-`reference/` (basecamp/once-campfire, pinned at `90b3300`) and from the Rust port in `rust/`
-(basecamp/once-campfire-rust, pinned at `ccece30`). It must also be faster than the Rust port on
-every benchmarked workload.
+The app is a Campfire that has to be indistinguishable in use from the Rails app in `reference/` (basecamp/once-campfire, pinned at
+`90b3300`). `rust/` (basecamp/once-campfire-rust, pinned at `ccece30`) is kept as a second record of *what* Rails does (its tests,
+vectors and README notes); it is not a source to translate from.
 
 ## Sources of truth, in order
 
-1. **`rust/` is what we translate from.** It already reproduces Rails exactly, and its tests and
-   golden vectors prove it. Port a Rust module to F# with the same responsibilities and function
-   boundaries, and port its tests with it. Rust's "Known differences" (`rust/README.md`) are ours
-   too: same cookies, same CSRF policy, same job model, same limits.
-2. **`reference/` is the oracle** for anything Rust doesn't settle or that looks wrong. When in
-   doubt about behavior, read the Ruby. When it depends on Rails or gem internals, read the gem
-   source in the reference image (`docker run --rm campfire-reference bundle show <gem>`).
-3. **Bugs are the one exception.** We may fix a bug instead of copying it. Every deliberate
-   divergence goes under "Known differences" in `README.md`, citing the reference file, and gets a
-   test plus any parity mask it needs.
+1. **`reference/` is the oracle.** When in doubt about behavior, read the Ruby. When it depends on Rails or gem internals, read the gem
+   source in the reference image (`docker run --rm campfire-reference:app bundle show <gem>`).
+2. **`plans/dotnetway.md`, the design notes and the D1-D9 decisions** (`/Users/clank/Desktop/projects/campfire-fsharp-thedotnetway-plan.md`)
+   say how: a framework feature or a mainstream package wherever one does the job, hand-written code only where parity demands it.
+3. **Differences** from Rails follow the plan's known-differences policy (section 4): each one is recorded in `README.md`'s "Known
+   differences" with the test that pins it.
 
-Stay compatible with existing installs: the SQLite schema, the storage layout
-(`/rails/storage/{db,files,backups}`) and signed or encrypted cookies, so nobody is signed out by
-an upgrade and rolling back to Rails works on data we wrote.
+Stay compatible with existing installs: the SQLite schema, the storage layout (`/rails/storage/{db,files,backups}`) and signed or
+encrypted cookies, so nobody is signed out by an upgrade and rolling back to Rails works on data we wrote.
 
-Don't edit `reference/`, `rust/` or `vectors/`. Vectors are generated by the reference app (see
-`vectors/README.md`).
+Don't edit `reference/`, `rust/` or `vectors/`. Vectors are generated by the reference app (see `vectors/README.md`).
 
 ## Layout
 
-| Project | Rust crate | What |
-|---|---|---|
-| `src/Campfire.Rails` | `crates/ruby`, `crates/rails_compat`, `crates/routes` | One project, namespaces after the folders. `Ruby/` (`Campfire.Rails.Ruby`): Ruby string behavior the rest share (ERB escaping, `to_i`/`strip`, `Float#to_s`, `CGI.escape`, `url_encode`), checked by `vectors/ruby_core.json`. Root (`Campfire.Rails`): message verifier/encryptor, key generator, cookie and JSON formats, signed ids, secrets. `Routes.fs` (`Campfire.Rails.Routes`): path helpers mirroring `config/routes.rb`; open it as `open Campfire.Rails.Routes`, never `open Campfire.Rails` for it |
-| `src/Campfire.Db` | `crates/db` | SQLite over the existing schema through EF Core (pooled contexts, one write at a time behind the `WriteGate`), models, queries, fixtures |
-| `src/Campfire.RichText` | `crates/richtext` | Action Text pipeline on AngleSharp (`Html5`: parse, limits, Nokogiri's serializer, DOM helpers), the Loofah-compatible sanitizer (`Loofah.fs` data and rules, `Sanitizer.fs` walker), attachments, autolink (`AutolinkMatch.fs` matchers, `Autolink.fs` node builder), plain text |
-| `src/Campfire.Storage` | `crates/storage` | Active Storage blobs, disk service, variants (libvips via NetVips), previews (ffmpeg) |
-| `src/Campfire.Cable` | `crates/cable` | Action Cable on ASP.NET Core's WebSocket middleware (`app.UseWebSockets()`): one outbound queue and writer loop per connection (`Connection.fs`), the stream registry (`Streams.fs`), the heartbeat hosted service (`Heartbeat.fs`); the server is a DI singleton that restarts its connections on `ApplicationStopping`, and every command runs in a DI scope of its own. The App side: `Channels/Auth.fs` (the session cookie scheme), `Publish.fs` (no broadcast inside `Writes.run`), `CableServices.fs` |
-| `src/Campfire.Views` | `crates/views` | Templates (one Falco.Markup module per ERB file, at the same relative path, under `Templates/`), the markup helpers (`Markup/`), the encoding module (`Core/Html.fs`), the fragment cache on HybridCache (`Core/Fragments.fs`), and the view-models |
-| `src/Campfire.App` | `crates/campfire`, `crates/kit` | Controllers, routing (Falco on Kestrel), channels, jobs (`Jobs.fs`: `BackgroundService` queues), integrations (`Integrations/`: `Clients.fs`' three named `HttpClient`s with the connect-time guard, AngleSharp opengraph, `Lib.Net.Http.WebPush`, webhooks), options (`Config.fs`) and the clock (`Platform/HarnessClock.fs`, `TimeProvider`); the `campfire` executable. The request layer is `Web/`; the front server (Thruster's job) is `Web/Host.fs` (Kestrel's listeners and limits, F6's HTTP-port branch), `Web/Acme.fs` (Certes), `Web/FrontSettings.fs`, `Web/OutputCaching.fs` and `Web/HttpLog.fs`, all on ASP.NET Core's own middleware |
-| `tests/Campfire.*.Tests` | tests beside each crate | xUnit v3, one project per source project |
-| `parity/`, `bench/`, `vectors/`, `reference-tools/` | same paths | Copied from `rust/` (MIT); the harness runs our image as the candidate |
+Seven projects (`CampfireFs.slnx`), each with a test project beside it. `bin/kloc` counts the code by upstream's rules, per project.
 
-Project references follow the crate graph. Don't add an edge Rust doesn't have.
+| Project | What |
+|---|---|
+| `src/Campfire.Rails` | Namespaces after the folders. `Ruby/` (`Campfire.Rails.Ruby`): Ruby string behavior the rest share (ERB escaping, `to_i`/`strip`, `Float#to_s`, `CGI.escape`), checked by `vectors/ruby_core.json`. Root (`Campfire.Rails`): message verifier/encryptor, key generator, cookie and JSON formats, signed ids, secrets. `Routes.fs` (`Campfire.Rails.Routes`): path helpers mirroring `config/routes.rb`; open it as `open Campfire.Rails.Routes`, never `open Campfire.Rails` for it |
+| `src/Campfire.Db` | SQLite over the existing schema through EF Core (pooled contexts, one write at a time behind the `WriteGate`), models, queries, fixtures; the hot reads are Dapper (`Ef/FastReads.fs`) |
+| `src/Campfire.RichText` | Action Text pipeline on AngleSharp (`Html5`: parse, limits, Nokogiri's serializer, DOM helpers), the Loofah-compatible sanitizer (`Loofah.fs` data and rules, `Sanitizer.fs` walker), attachments, autolink (`AutolinkMatch.fs` matchers, `Autolink.fs` node builder), plain text |
+| `src/Campfire.Storage` | Active Storage blobs, disk service, variants (libvips via NetVips), previews (ffmpeg) |
+| `src/Campfire.Cable` | Action Cable on ASP.NET Core's WebSocket middleware (`app.UseWebSockets()`): one outbound queue and writer loop per connection (`Connection.fs`), the stream registry (`Streams.fs`), the heartbeat hosted service (`Heartbeat.fs`); the server is a DI singleton that restarts its connections on `ApplicationStopping`, and every command runs in a DI scope of its own. The App side: `Channels/Auth.fs` (the session cookie scheme), `Publish.fs` (no broadcast inside `Writes.run`), `CableServices.fs` |
+| `src/Campfire.Views` | Templates (one Falco.Markup module per ERB file, at the same relative path, under `Templates/`), the markup helpers (`Markup/`), the encoding module (`Core/Html.fs`), the fragment cache on HybridCache (`Core/Fragments.fs`), and the view-models |
+| `src/Campfire.App` | Controllers, routing (Falco on Kestrel), channels, jobs (`Jobs.fs`: `BackgroundService` queues), integrations (`Integrations/`: `Clients.fs`' three named `HttpClient`s with the connect-time guard, AngleSharp opengraph, `Lib.Net.Http.WebPush`, webhooks), options (`Config.fs`) and the clock (`Platform/HarnessClock.fs`, `TimeProvider`); the `campfire` executable. The request layer is `Web/`; the front server (Thruster's job) is `Web/Host.fs` (Kestrel's listeners and limits, F6's HTTP-port branch), `Web/Acme.fs` (Certes), `Web/FrontSettings.fs`, `Web/OutputCaching.fs` and `Web/HttpLog.fs`, all on ASP.NET Core's own middleware; assets are `MapStaticAssets` (see Assets below) |
+| `tests/Campfire.*.Tests` | xUnit v3, one project per source project; `tests/Shared` holds only what more than one project uses |
+
+Beside them: `parity/`, `bench/`, `vectors/` and `reference-tools/` (the harness, the benchmarks, the Rails-made vectors and the scripts that
+make them; the harness runs our image as the candidate). Tests boot the whole app one way, through `Boot.build`.
 
 ## F# conventions
 
 - Modules and functions first. Use records and unions for data, and classes only where .NET
   interop needs them (ASP.NET Core hosting, `IDisposable` resources).
+- Use the framework: controllers take `HttpContext`, views are Falco.Markup, data goes through EF Core, Cable runs on ASP.NET Core's
+  WebSocket middleware, time is `TimeProvider`. Hand-written code only where parity demands it.
 - `Result` for expected failures a caller handles (bad signature, record not found, invalid
   params); exceptions for bugs and broken invariants.
 - `task { }` for async. No `Async` on hot paths, and no `.Result` or `.Wait()`.
-- Match the shape of the Rust code you're porting: if it is one function there, it is one function
-  here, with the same name in F# casing. Cite the Rust file at the top of each module
-  (`// Port of rust/crates/db/src/messages.rs`). Cite the reference file when matching Rails
+- Comments only where behavior is non-obvious. Write code that reads like the code around it. Cite the reference file when matching Rails
   directly, and say why when diverging.
-- Comments only where behavior is non-obvious. Write code that reads like the code around it.
-- Shared package versions live in `Directory.Packages.props`. Ask before adding a package Rust has
-  no equivalent of.
+- Shared package versions live in `Directory.Packages.props`. A new package needs a reason in the Phase log.
 
 ## Performance rules (the hot paths are the five benchmarked workloads plus Cable fan-out)
 
-- Render templates straight into pooled UTF-8 buffers (`IBufferWriter<byte>` / `ArrayPool`), never
-  through intermediate strings, a DOM or a markup library.
-- No reflection-based serialization on request paths; use `Utf8JsonWriter` or source-generated
-  `System.Text.Json`.
+The bar is the plan's floor of 5x Rails per workload, measured with `bench/quick` (stored Rails medians in `bench/results/phase7-final`).
+
+- No reflection-based serialization on request paths; use `Utf8JsonWriter` or source-generated `System.Text.Json`.
 - **Hybrid reads: the per-request READ paths are Dapper** (`src/Campfire.Db/Ef/FastReads.fs`, the only file that calls Dapper; `bin/verify`
   greps for it). That covers the session, user, account, room (by id, original, through the membership join), membership, message
   (by id, last page, page before), the account logo blob, the sidebar's four reads, the recent searches and the reachable-messages
@@ -95,7 +71,7 @@ Project references follow the crate graph. Don't add an edge Rust doesn't have.
   `FromSql`/`ExecuteSql` only where LINQ can't say it or a workload fell under the floor, each recorded in the Phase log. Nothing
   compiles in steady state (hot-path test H1 counts compilations). Reads run on pooled contexts; every write goes through
   `Writes.run`, one at a time behind the `WriteGate`.
-- Anything Rust caches (page parts, ETags, gzip output, avatar paths), we cache the same way.
+- Page parts, ETags, gzip output and avatar paths are cached as Rails does (HybridCache, OutputCache, the asset manifest).
 - Performance changes come with before-and-after numbers from `bench/`, recorded under
   `bench/results/`.
 

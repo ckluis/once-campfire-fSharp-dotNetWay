@@ -136,7 +136,7 @@ let private build (dir: string) (extra: (string * string) list) : WebApplication
             builder.Configuration.AddInMemoryCollection values |> ignore)
         ignore
 
-let private withTempDir (f: string -> Task) : Task =
+let private withScratchDir (f: string -> Task) : Task =
     task {
         let dir = Directory.CreateTempSubdirectory("campfire-options-test").FullName
         try
@@ -151,7 +151,7 @@ let private withTempDir (f: string -> Task) : Task =
 
 /// Building does not throw; `StartAsync` does, with `message`, and nothing listens on the host's ports.
 let private failsAtStart (extra: (string * string) list) (message: string) : Task =
-    withTempDir (fun dir ->
+    withScratchDir (fun dir ->
         task {
             let httpPort = freePort ()
             let targetPort = freePort ()
@@ -208,7 +208,7 @@ let ``OP5 a bad CAMPFIRE_FROZEN_TIME fails at start`` () =
 
 [<Fact>]
 let ``OP5 a good one freezes the clock`` () =
-    withTempDir (fun dir ->
+    withScratchDir (fun dir ->
         task {
             let app = build dir [ "CAMPFIRE_FROZEN_TIME", "2026-03-02T16:00:00Z" ]
             do! app.StartAsync()
@@ -222,7 +222,7 @@ let ``OP5 a good one freezes the clock`` () =
 
 [<Fact>]
 let ``OP6 invalid VAPID keys do not fail: the host boots, logs that Web Push is off and serves /up`` () =
-    withTempDir (fun dir ->
+    withScratchDir (fun dir ->
         task {
             let logs = new LogCapture()
             let httpPort = freePort ()

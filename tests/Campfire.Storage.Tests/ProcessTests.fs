@@ -117,7 +117,7 @@ let ``output_within kills a child that overruns`` () =
 
 [<Fact>]
 let ``page goes only to loaders that take it`` () =
-    use dir = TempDir.Create()
+    use dir = ScratchDir.Create()
     use moon = (Vips.Image.LoadForProcessing(fixture "moon.jpg")).Value
     use image = (moon.ResizeToLimit(Some 8, Some 8)).Value
     for format, accepts in [ ("jpg", false); ("png", false); ("gif", true); ("webp", true) ] do

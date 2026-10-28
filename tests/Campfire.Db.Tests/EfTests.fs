@@ -19,7 +19,7 @@ open Microsoft.Extensions.Time.Testing
 let private at2026 = DateTimeOffset(2026, 10, 13, 12, 0, 0, TimeSpan.Zero).AddTicks(1_234_567L)
 
 /// A database Rails (here: our schema loader) prepared, empty.
-let private freshDatabase (dir: TempDir) (name: string) : string =
+let private freshDatabase (dir: ScratchDir) (name: string) : string =
     let path = dir.File name
     Schema.prepareFile path "production" TimeProvider.System |> ignore
     // The connection `prepare` used stays in Microsoft.Data.Sqlite's pool, configured; D4 counts the ones it opens itself.
@@ -31,11 +31,11 @@ let private contextOver (path: string) (time: TimeProvider) : CampfireDb =
     WriteGate.Exempt() |> ignore
     (Data.factory (Data.options path time ignore)).CreateDbContext()
 
-let private withSeedCopy (name: string) (f: string -> TempDir -> unit) : unit =
+let private withSeedCopy (name: string) (f: string -> ScratchDir -> unit) : unit =
     match Campfire.Tests.Repo.seed name with
     | None -> Assert.Skip $"parity seed {name} is not built (parity/bin/seed build)"
     | Some seed ->
-        use dir = new TempDir()
+        use dir = new ScratchDir()
         let source = Path.Combine(seed, "db")
         for file in [ "production.sqlite3"; "production.sqlite3-wal"; "production.sqlite3-shm" ] do
             let from = Path.Combine(source, file)
@@ -181,7 +181,7 @@ let private row (path: string) (sql: string) : string list =
 
 [<Fact>]
 let ``D3 an Add of each entity with unset timestamps stores the provider's time in Rails' text`` () =
-    use dir = new TempDir()
+    use dir = new ScratchDir()
     let path = freshDatabase dir "stamps.sqlite3"
     let time = FakeTimeProvider(at2026)
     use db = contextOver path time
@@ -218,7 +218,7 @@ let ``D3 an Add of each entity with unset timestamps stores the provider's time 
 
 [<Fact>]
 let ``D3 SetValues with a change stamps updated_at, without one writes nothing`` () =
-    use dir = new TempDir()
+    use dir = new ScratchDir()
     let path = freshDatabase dir "set-values.sqlite3"
     let time = FakeTimeProvider(at2026)
     use db = contextOver path time
@@ -249,7 +249,7 @@ let ``D3 SetValues with a change stamps updated_at, without one writes nothing``
 
 [<Fact>]
 let ``D4 every pooled connection has Rails' pragmas and the counter equals the physical connections`` () =
-    use dir = new TempDir()
+    use dir = new ScratchDir()
     let path = freshDatabase dir "pragmas.sqlite3"
     let factory = Data.factory (Data.options path TimeProvider.System ignore)
     let before = SqlitePragmas.Applied
@@ -295,7 +295,7 @@ let ``D4 every pooled connection has Rails' pragmas and the counter equals the p
 
 [<Fact>]
 let ``D5 a DateTime hole in raw SQL throws and Rails' text runs`` () =
-    use dir = new TempDir()
+    use dir = new ScratchDir()
     let path = freshDatabase dir "guard.sqlite3"
     use db = contextOver path TimeProvider.System
     let cutoff = utc (2026, 3, 2, 12, 0, 0)
@@ -312,7 +312,7 @@ let ``D5 a DateTime hole in raw SQL throws and Rails' text runs`` () =
 
 [<Fact>]
 let ``D6 Rooms::Closed and involvement everything round-trip as Rails' strings, an unknown type fails loudly`` () =
-    use dir = new TempDir()
+    use dir = new ScratchDir()
     let path = freshDatabase dir "enums.sqlite3"
     use db = contextOver path (FakeTimeProvider(at2026))
     let unset = Unchecked.defaultof<DateTime>

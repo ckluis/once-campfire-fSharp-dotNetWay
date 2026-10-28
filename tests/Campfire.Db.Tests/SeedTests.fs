@@ -23,7 +23,7 @@ let private withSeed (name: string) (f: string -> string -> unit) : unit =
     match Campfire.Tests.Repo.seed name with
     | None -> Assert.Skip $"parity seed {name} is not built (parity/bin/seed build)"
     | Some seed ->
-        use dir = new TempDir()
+        use dir = new ScratchDir()
         let source = Path.Combine(seed, "db")
         for file in [ "production.sqlite3"; "production.sqlite3-wal"; "production.sqlite3-shm" ] do
             let from = Path.Combine(source, file)
@@ -81,7 +81,7 @@ let ``the schema Rails created is the schema we load`` () =
             Raw.names
                 raw
                 "SELECT sql || ';' FROM sqlite_master WHERE sql IS NOT NULL AND name NOT LIKE 'sqlite_%' AND name NOT LIKE 'message_search_index_%' ORDER BY rowid"
-        use dir = new TempDir()
+        use dir = new ScratchDir()
         let fresh = dir.File "fresh.sqlite3"
         Schema.prepareFile fresh "production" TimeProvider.System |> ignore
         // Ours adds the paging index, last.

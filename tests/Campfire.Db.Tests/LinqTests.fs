@@ -15,7 +15,7 @@ open Campfire.Db.Tests.Support
 type private Probe = { Wanted: int64 }
 
 /// A prepared, empty database whose context counts query compilations.
-let private counting (dir: TempDir) : CampfireDb * (unit -> int) =
+let private counting (dir: ScratchDir) : CampfireDb * (unit -> int) =
     let path = dir.File "linq.sqlite3"
     Schema.prepareFile path "production" TimeProvider.System |> ignore
     // Test setup writes straight through the context, outside any Writes.run: exempt this test's flow (never disposed; it ends with the test).
@@ -32,7 +32,7 @@ let private counting (dir: TempDir) : CampfireDb * (unit -> int) =
     (Data.factory options).CreateDbContext(), (fun () -> compilations.Value)
 
 let private compilationsFor (run: CampfireDb -> int64 -> unit) : int =
-    use dir = new TempDir()
+    use dir = new ScratchDir()
     let db, count = counting dir
     run db 1L // warm: the first call compiles
     let warm = count ()

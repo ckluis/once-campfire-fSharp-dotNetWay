@@ -4,7 +4,7 @@ namespace Campfire.Db
 
 open System
 open Campfire.Rails
-// RailsCompat's `Timestamp` (an alias of DateTimeOffset) is not used here: models keep UTC `DateTime` (RailsTime, E4).
+// The Rails project's `Timestamp` (an alias of DateTimeOffset) is not used here: models keep UTC `DateTime` (RailsTime, E4).
 open Campfire.Db
 
 /// `enum :role, %i[ member administrator bot ]`

@@ -41,7 +41,7 @@ let ``filename matches ruby file semantics`` () =
 
 [<Fact>]
 let ``an upload with a checksum is verified`` () =
-    use root = TempDir.Create()
+    use root = ScratchDir.Create()
     let service = DiskService.create root.Path "local"
     let upload (key: string) (data: string) (checksum: string option) =
         use reader = new MemoryStream(Text.Encoding.UTF8.GetBytes data)
@@ -161,8 +161,8 @@ type private Broken(prefix: byte[]) =
 
 [<Fact>]
 let ``a copy that fails leaves no file behind`` () =
-    use root = TempDir.Create()
-    let verifier = RailsCompat.appVerifier (Secrets.create "test") "ActiveStorage"
+    use root = ScratchDir.Create()
+    let verifier = Secrets.appVerifier (Secrets.create "test") "ActiveStorage"
     let storage = Storage.create (DiskService.create root.Path "local") verifier
     let blob = NewBlob.unfurl (Text.Encoding.UTF8.GetBytes "partial and more") (Filename.create "a.txt") None "local" true
     use reader = new Broken(Text.Encoding.UTF8.GetBytes "partial")
@@ -174,14 +174,14 @@ let ``a copy that fails leaves no file behind`` () =
 
 // --- What Rust leaves to the app's tests: the paths through Storage that fail --------------------
 
-let private testStorage (root: TempDir) : Storage =
-    Storage.create (DiskService.create root.Path "local") (RailsCompat.appVerifier (Secrets.create "test") "ActiveStorage")
+let private testStorage (root: ScratchDir) : Storage =
+    Storage.create (DiskService.create root.Path "local") (Secrets.appVerifier (Secrets.create "test") "ActiveStorage")
 
 
 
 [<Fact>]
 let ``opening a blob whose file is missing is file not found`` () =
-    use root = TempDir.Create()
+    use root = ScratchDir.Create()
     use db = openDatabase ()
     let storage = testStorage root
     let blob = (Storage.createAndUpload storage db "bytes"B (Filename.create "a.txt") None).Value
@@ -192,7 +192,7 @@ let ``opening a blob whose file is missing is file not found`` () =
 
 [<Fact>]
 let ``opening a blob whose file changed is an integrity error`` () =
-    use root = TempDir.Create()
+    use root = ScratchDir.Create()
     use db = openDatabase ()
     let storage = testStorage root
     let blob = (Storage.createAndUpload storage db "bytes"B (Filename.create "a.txt") None).Value
@@ -203,7 +203,7 @@ let ``opening a blob whose file changed is an integrity error`` () =
 
 [<Fact>]
 let ``an opened blob is a copy named for its id and extension`` () =
-    use root = TempDir.Create()
+    use root = ScratchDir.Create()
     use db = openDatabase ()
     let storage = testStorage root
     let blob = (Storage.createAndUpload storage db "bytes"B (Filename.create "a.txt") None).Value
@@ -218,7 +218,7 @@ let ``an opened blob is a copy named for its id and extension`` () =
 
 [<Fact>]
 let ``a blob is stored by its key and described by its row`` () =
-    use root = TempDir.Create()
+    use root = ScratchDir.Create()
     use db = openDatabase ()
     let storage = testStorage root
     let blob = (Storage.createAndUpload storage db "hello"B (Filename.create "hello.txt") None).Value
@@ -231,7 +231,7 @@ let ``a blob is stored by its key and described by its row`` () =
 
 [<Fact>]
 let ``a variant record is inserted once`` () =
-    use root = TempDir.Create()
+    use root = ScratchDir.Create()
     use db = openDatabase ()
     let storage = testStorage root
     let blob = (Storage.createAndUpload storage db "bytes"B (Filename.create "a.txt") None).Value
@@ -255,7 +255,7 @@ let ``folders come from the first four characters of the key`` () =
 
 [<Fact>]
 let ``deleting a prefix removes what starts with it`` () =
-    use root = TempDir.Create()
+    use root = ScratchDir.Create()
     let service = DiskService.create root.Path "local"
     for key in [ "variants/abc/one"; "variants/abc/two"; "variants/abd/other" ] do
         use reader = new MemoryStream("x"B)
@@ -269,7 +269,7 @@ let ``deleting a prefix removes what starts with it`` () =
 
 [<Fact>]
 let ``an attached blob is the first attachment's, by id`` () =
-    use root = TempDir.Create()
+    use root = ScratchDir.Create()
     use db = openDatabase ()
     let storage = testStorage root
     let upload (text: string) = (Storage.createAndUpload storage db (Text.Encoding.UTF8.GetBytes text) (Filename.create $"{text}.txt") None).Value
@@ -284,7 +284,7 @@ let ``an attached blob is the first attachment's, by id`` () =
 
 [<Fact>]
 let ``updating a blob's metadata saves it and keeps the rest`` () =
-    use root = TempDir.Create()
+    use root = ScratchDir.Create()
     use db = openDatabase ()
     let storage = testStorage root
     let blob = (Storage.createAndUpload storage db "bytes"B (Filename.create "a.txt") None).Value
@@ -298,7 +298,7 @@ let ``updating a blob's metadata saves it and keeps the rest`` () =
 
 [<Fact>]
 let ``a blob row is stamped with the clock's time as Active Record writes it`` () =
-    use root = TempDir.Create()
+    use root = ScratchDir.Create()
     use db = openDatabase ()
     let blob = (Storage.createAndUpload (testStorage root) db "bytes"B (Filename.create "a.txt") None).Value
     Assert.Equal("2026-09-26 12:00:00", blob.CreatedAt)

@@ -25,7 +25,7 @@ let id (label: string) : int64 = Fixtures.identify label
 let at (n: int64) : DateTime = DateTime(DateTime.UnixEpoch.Ticks + (1_790_000_000_000_000L + n * 1_000_123L) * 10L, DateTimeKind.Utc)
 
 /// A directory for one test's databases, removed when the test is done.
-type TempDir() =
+type ScratchDir() =
     let dir = Directory.CreateTempSubdirectory "campfire-db-test"
     member _.Path : string = dir.FullName
     member _.File(name: string) : string = Path.Combine(dir.FullName, name)
@@ -117,7 +117,7 @@ module Raw =
 let fakeTime () : FakeTimeProvider = FakeTimeProvider(DateTimeOffset.UtcNow)
 
 type TestDb(?fixtures: bool, ?start: DateTimeOffset) =
-    let dir = new TempDir()
+    let dir = new ScratchDir()
     let sink = RecordingSink()
     let clock = match start with Some at -> FakeTimeProvider(at) | None -> fakeTime ()
     let path = dir.File "test.sqlite3"
@@ -142,7 +142,7 @@ type TestDb(?fixtures: bool, ?start: DateTimeOffset) =
     member _.EfEnv : Ef.Env = efEnv
     member _.Sink : RecordingSink = sink
     member _.Time : FakeTimeProvider = clock
-    member _.Dir : TempDir = dir
+    member _.Dir : ScratchDir = dir
 
     /// `Writes.run` on a leased context.
     member _.TryWriteEf(f: Ef.Tx -> 'T) : Result<'T, DbError> =

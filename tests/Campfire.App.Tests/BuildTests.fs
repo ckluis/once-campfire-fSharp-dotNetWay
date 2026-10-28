@@ -62,7 +62,7 @@ type private StartProbe(databasePath: string, port: int) =
 
         member _.StopAsync(_: CancellationToken) : Task = Task.CompletedTask
 
-let private withTempDir (f: string -> Task) : Task =
+let private withScratchDir (f: string -> Task) : Task =
     task {
         let dir = Directory.CreateTempSubdirectory("campfire-build-test").FullName
         try
@@ -77,7 +77,7 @@ let private withTempDir (f: string -> Task) : Task =
 
 [<Fact>]
 let ``BB1 the database is prepared before Kestrel binds, and /up answers on HTTP_PORT and on TARGET_PORT`` () =
-    withTempDir (fun dir ->
+    withScratchDir (fun dir ->
         task {
             let httpPort, targetPort = freePort (), freePort ()
             let databasePath = Path.Combine(dir, "db", "production.sqlite3")
@@ -104,7 +104,7 @@ let ``BB1 the database is prepared before Kestrel binds, and /up answers on HTTP
 
 [<Fact>]
 let ``BB2 the app's services are the host's: one AppState, one client factory, the cable from the same provider`` () =
-    withTempDir (fun dir ->
+    withScratchDir (fun dir ->
         task {
             let app = Boot.build NullLoggerFactory.Instance (configuration dir (freePort ()) (freePort ()) []) ignore
             do! app.StartAsync()
@@ -131,7 +131,7 @@ let ``BB2 the app's services are the host's: one AppState, one client factory, t
 
 [<Fact>]
 let ``BB3 a bad configuration builds, and fails the start before a listener exists`` () =
-    withTempDir (fun dir ->
+    withScratchDir (fun dir ->
         task {
             let fails (extra: (string * string) list) : Task<string> =
                 task {

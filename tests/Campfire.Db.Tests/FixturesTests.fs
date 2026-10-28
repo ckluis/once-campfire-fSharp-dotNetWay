@@ -142,7 +142,7 @@ let ``export database for rails`` () =
 /// Fixture names reach the statements as identifiers (a hole can't be one), so each must be one SQLite lists for the table.
 [<Fact>]
 let ``a fixture naming a table or column the schema lacks is refused and rolls back`` () =
-    use dir = new TempDir()
+    use dir = new ScratchDir()
     let path = dir.File "refuse.sqlite3"
     Testing.prepare path "test" |> ignore
     let factory = Ef.Data.factory (Ef.Data.options path TimeProvider.System ignore)

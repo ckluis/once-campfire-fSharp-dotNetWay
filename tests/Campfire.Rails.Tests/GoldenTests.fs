@@ -212,11 +212,11 @@ let ``turbo_stream_names`` () =
 [<Fact>]
 let ``app_verifiers`` () =
     for case in cases "app_verifiers.generate" 8 do
-        let verifier = RailsCompat.appVerifier secrets.Value (str case?name)
+        let verifier = Secrets.appVerifier secrets.Value (str case?name)
         let message = MessageVerifier.generateRaw verifier (str case?data_json) (optStr case?purpose) (optTime case?expires_at)
         Assert.True((message = str case?message), $"{case?name} {case?data_json}")
     for case in cases "app_verifiers.verify" 15 do
-        let verifier = RailsCompat.appVerifier secrets.Value (str case?name)
+        let verifier = Secrets.appVerifier secrets.Value (str case?name)
         let data =
             MessageVerifier.verifyRaw verifier (str case?message) (optStr case?purpose) (time case?now)
             |> Result.toOption
@@ -318,7 +318,7 @@ let ``write_rust_output_for_rails_to_verify`` () =
                   [ "name", str' "ActiveStorage"
                     "data_json", str' dataJson
                     "purpose", optString purpose
-                    "message", str' (MessageVerifier.generateRaw (RailsCompat.appVerifier secrets "ActiveStorage") dataJson purpose expiresAt) ] ]
+                    "message", str' (MessageVerifier.generateRaw (Secrets.appVerifier secrets "ActiveStorage") dataJson purpose expiresAt) ] ]
 
     let output =
         Value.Object

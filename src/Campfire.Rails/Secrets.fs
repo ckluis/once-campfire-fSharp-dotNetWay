@@ -50,7 +50,6 @@ module Secrets =
         { KeyGenerator = KeyGenerator secretKeyBase
           Tokens = TokenMemo() }
 
-module RailsCompat =
     /// `Rails.application.message_verifier(name)`: `message_verifiers[name]` with the app defaults
     /// (key `generate_key(name, 64)`, HMAC-SHA1, strict Base64, `:json_allow_marshal`, `_rails`
     /// envelope). Active Storage uses `appVerifier secrets "ActiveStorage"` for blob signed ids

@@ -46,7 +46,7 @@ type SignedLookup =
     /// Bad signature, wrong purpose, expired, or not an SGID at all.
     | Invalid
 
-/// The app's access to its records. RailsCompat verifies signatures; this crate only needs the
+/// The app's access to its records. The Rails project verifies signatures; this project only needs the
 /// two lookups Action Text performs.
 type IAttachableResolver =
     /// `GlobalID::Locator.locate_signed(sgid, for: "attachable")` (and, when that finds nothing,

@@ -24,7 +24,7 @@ type LogSink(log: List<string>, onEmit: Event -> unit) =
 let private spawn (f: unit -> Task<unit>) : Task = Task.Run(Func<Task>(fun () -> f () :> Task))
 
 type Rig(?onEmit: Event -> unit) =
-    let dir = new TempDir()
+    let dir = new ScratchDir()
     let path = dir.File "writes.sqlite3"
     do Schema.prepareFile path "production" TimeProvider.System |> ignore
     let log = List<string>()

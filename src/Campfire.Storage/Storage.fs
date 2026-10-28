@@ -19,7 +19,7 @@ open Campfire.Storage.Analyze
 
 type Storage =
     { Service: DiskService
-      /// `ActiveStorage.verifier`: `RailsCompat.appVerifier secrets "ActiveStorage"`. It signs
+      /// `ActiveStorage.verifier`: `Secrets.appVerifier secrets "ActiveStorage"`. It signs
       /// blob ids (purpose "blob_id": `ActiveStorage::Blob` overrides both the signed-id verifier
       /// and `combine_signed_id_purposes`, so this is *not* the Active Record signed-id scheme),
       /// variation keys ("variation"), disk URLs ("blob_key") and direct-upload tokens

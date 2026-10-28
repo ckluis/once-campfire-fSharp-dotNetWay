@@ -40,7 +40,7 @@ let private fixture (name: string) : string = Repo.path $"reference/test/fixture
 let private verifier () : MessageVerifier =
     let env = File.ReadAllLines(Repo.path "parity/.env.reference")
     let secretKeyBase = env |> Array.pick (fun l -> if l.StartsWith "SECRET_KEY_BASE=" then Some(l.Substring "SECRET_KEY_BASE=".Length) else None)
-    RailsCompat.appVerifier (Secrets.create secretKeyBase) "ActiveStorage"
+    Secrets.appVerifier (Secrets.create secretKeyBase) "ActiveStorage"
 
 let private prop (name: string) (e: JsonElement) : JsonElement = e.GetProperty name
 
@@ -287,7 +287,7 @@ type private Comparison(versions: JsonElement) =
 let ``pipeline matches the reference`` () =
     let vectors' = vectors.Value
     let files = Path.Combine(Path.GetDirectoryName(vectorsPath ()) |> nonNull, "storage")
-    use root = TempDir.Create()
+    use root = ScratchDir.Create()
     let storage = Storage.create (DiskService.create root.Path "local") (verifier ())
     use db = openDatabase ()
     let comparison = Comparison(prop "versions" vectors')
@@ -412,7 +412,7 @@ let ``posters are made from the reference frame as the reference made them`` () 
         note $"note: skipping poster comparisons: local libvips {localVips}"
     else
         let files = Path.Combine(Path.GetDirectoryName(vectorsPath ()) |> nonNull, "storage")
-        use root = TempDir.Create()
+        use root = ScratchDir.Create()
         let storage = Storage.create (DiskService.create root.Path "local") (verifier ())
         use db = openDatabase ()
         let video = cases "messages" 5 |> Array.find (fun m -> str (prop "fixture" m) = "alpha-centuri.mov")
@@ -432,7 +432,7 @@ let ``posters are made from the reference frame as the reference made them`` () 
 
 [<Fact>]
 let ``staging a file unfurls it as its bytes would`` () =
-    use root = TempDir.Create()
+    use root = ScratchDir.Create()
     let storage = Storage.create (DiskService.create root.Path "local") (verifier ())
     for m in cases "messages" 5 do
         let name = str (prop "fixture" m)
@@ -448,7 +448,7 @@ let ``staging a file unfurls it as its bytes would`` () =
 
 [<Fact>]
 let ``a staged file is deleted unless kept`` () =
-    use root = TempDir.Create()
+    use root = ScratchDir.Create()
     let storage = Storage.create (DiskService.create root.Path "local") (verifier ())
     let dropped = (Storage.stageBytes storage "dropped"B (Filename.create "a.txt") None).Value
     let droppedPath = DiskService.pathFor storage.Service dropped.Blob.Key

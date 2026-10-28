@@ -23,9 +23,9 @@ module Support =
 
     /// A directory under the temp path (mode 0700) that goes with everything in it when disposed.
     [<Sealed>]
-    type TempDir private (directory: DirectoryInfo) =
+    type ScratchDir private (directory: DirectoryInfo) =
         member _.Path : string = directory.FullName
-        static member Create() : TempDir = new TempDir(Directory.CreateTempSubdirectory ".tmp")
+        static member Create() : ScratchDir = new ScratchDir(Directory.CreateTempSubdirectory ".tmp")
 
         interface IDisposable with
             member _.Dispose() =
@@ -50,13 +50,13 @@ CREATE UNIQUE INDEX index_active_storage_variant_records_uniqueness ON active_st
         Microsoft.Extensions.Time.Testing.FakeTimeProvider(DateTimeOffset(2026, 9, 26, 12, 0, 0, TimeSpan.Zero)) :> TimeProvider
 
     /// The context over a file holding them, in a directory of its own that goes with the context.
-    type TestDb private (options: DbContextOptions<CampfireDb>, dir: TempDir) =
+    type TestDb private (options: DbContextOptions<CampfireDb>, dir: ScratchDir) =
         inherit CampfireDb(options)
 
         static member Open() : TestDb =
             // Test setup writes straight through the context, outside any Writes.run: exempt this test's flow (never disposed).
             Campfire.Db.WriteGate.Exempt() |> ignore
-            let dir = TempDir.Create()
+            let dir = ScratchDir.Create()
             let path = Path.Combine(dir.Path, "test.sqlite3")
             do
                 use conn = new SqliteConnection($"Data Source={path};Pooling=False")

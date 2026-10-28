@@ -2,7 +2,7 @@
 //
 // ASP.NET Core's cookie authentication does the plumbing (read, `SignInAsync`, `SignOutAsync`, attributes); this
 // is the only part that is Rails': `cookies.signed[:session_token]` (HMAC-SHA1 over the PBKDF2 "signed cookie" key,
-// the `_rails` envelope with purpose `cookie.session_token` and an `exp`), through RailsCompat's verifier.
+// the `_rails` envelope with purpose `cookie.session_token` and an `exp`), through the Rails project's message verifier.
 namespace Campfire.App.Web
 
 open System
