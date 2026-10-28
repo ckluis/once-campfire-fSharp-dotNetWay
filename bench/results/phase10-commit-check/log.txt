@@ -1,0 +1,4 @@
+08:16:20 building campfire-dotnetway:uq-25ac9bd from a clean clone of 25ac9bd
+08:16:25 dotnetway image campfire-dotnetway:uq-25ac9bd revision label 25ac9bd4ede485bc6d474b6315d020259f8bd86c
+08:16:30 ruby bin/benchmark --workspace /mnt/upstream-quick/ws --rounds 2 --duration 8 --concurrencies 16 --cpus 0-3 --client-cpus 4-7 --apps rails,dotnetway --routes sidebar --output /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/bench/results/phase10-commit-check/raw
+08:17:35 harness exit 0

@@ -4508,3 +4508,27 @@ Opus designer. `plans/design-perf.md`, evidence in `bench/results/phase10-design
 - **Differences:** one planned, class B: a write made outside the app shows on a cached page within 60 s.
 - **Cleanup:** the spike images `campfire-dotnetway:spike1`-`:spike3`, the VM's scratch and the Mac's scratch are removed;
   `bin/clean-docker` was run.
+
+### Phase 10.1: bench/upstream-quick (2026-10-28)
+
+Tooling only: `bench/upstream-quick` (bash, runs in colima, detached, `OUT/STATUS`) and `bench/lib/upstream_quick.py` (summary), as in
+`plans/design-perf.md` section 3; AGENTS.md "Performance rules" names the tool and the P15 floor. No `src` change; KLOC unchanged
+(`bin/kloc`: 25.8 KLOC, 26.2 corrected). Not counted.
+- **Built:** a 3 GB tmpfs at `/mnt/upstream-quick`, a clone of `once-campfire-verification` at `oncrack-adapter` (`f3103c7`), the static loadgen,
+  the seed built once per harness sha into `/var/tmp/upstream-quick/seed-<sha>` (sha256 `e3a7302e`), `--shared` clones of Rails `ca9b963`, the port
+  `9954ad0` and theDotNetWay at the commit (`--commit REF`, default HEAD: `docker build` from the clean clone, label checked; `--image`:
+  clone at the image's revision label; `--mounted DIR`: layered over `:app`, summary marks dirty=mounted). Host probe (wait up to 10 min for
+  ratio <= 1.12, then run anyway and record) and load before and after; waits for 15 GB free on the Mac. Cleanup on exit: tmpfs unmounted, clones
+  gone, `uq-*` images removed (`--keep` leaves them). The harness refuses fewer than 2 rounds, so the tool does too.
+- **Baseline** (`bench/results/phase10-baseline/`, `--image campfire-dotnetway:app` = `dcc9434`, `src` as `f9f4637`, 2 rounds, c=16, probe 1.022
+  before and 1.054 after, Mac load up to 7; req/s median, x the same session's Rails): room 3,396 (**0.69x**; Rails 4,943), messages 7,340
+  (**1.47x**; 5,005), sidebar 7,656 (**1.39x**; 5,504), search 7,191 (**1.38x**; 5,228), post 2,275 (**5.63x**; 404). The port: 7.23x / 8.37x /
+  6.91x / 6.51x / 23.2x. All inside the six-ways ranges (room 0.6-0.8, the three reads 1.3-1.7, post 5-6.5).
+- **Mixed** (`bench/results/phase10-baseline-mixed/`, same image, 4 reads, writer 10/s): room 2,969 (1.08x; Rails 2,754), messages 6,676 (1.93x),
+  sidebar 7,481 (1.76x), search 6,940 (1.74x).
+- **`--commit HEAD`** (`bench/results/phase10-commit-check/`, rails and dotnetway, sidebar only, 2 rounds): built from a clean clone, revision label
+  checked equal to the commit, summary shows `25ac9bd dirty=false`. (Sidebar alone gives 0.65x: with no earlier route to warm the JIT it is the
+  room page's tiering effect, S3. Not a measurement of the sidebar; the full five-route order is what counts.) The first attempt with 1 round
+  failed in the harness ("use at least two rounds"), which added the guard.
+- **Gates:** `CAMPFIRE_REQUIRE_SEED=1 bin/verify` green (1,038 passed, 6 skipped; lint and its self-test clean). No pixel slice (no app code changed).
+- **Afterwards:** `mount` and `docker images` in colima show no `/mnt/upstream-quick` and no `uq-*`; the harness's `raw/` per-sample JSON is gitignored.

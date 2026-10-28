@@ -26,11 +26,11 @@ def main():
     apps = list(results)
     table = {}
     for route in ORDER:
-        if not any(route in results[a] for a in apps):
+        if not any(results[a].get(route) for a in apps):
             continue
         row = {}
         for a in apps:
-            runs = results[a].get(route, {}).get("runs")
+            runs = (results[a].get(route) or {}).get("runs")
             if runs:
                 row[a] = {"median": statistics.median(runs), "min": min(runs), "max": max(runs), "runs": runs}
         rails = row.get("rails", {}).get("median")
