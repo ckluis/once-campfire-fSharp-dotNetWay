@@ -1,0 +1,4 @@
+12:36:51 building campfire-dotnetway:uq-b42dec7 from a clean clone of b42dec7
+12:37:25 dotnetway image campfire-dotnetway:uq-b42dec7 revision label b42dec790d49b130166a565654ded2459411228c
+12:37:30 ruby bin/benchmark --workspace /mnt/upstream-quick/ws --rounds 2 --duration 8 --concurrencies 16 --cpus 0-3 --client-cpus 4-7 --apps rails,fsharp,dotnetway --routes room_show,messages_page,sidebar,search,post_message --output /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/bench/results/phase10-checkpoint/raw
+12:43:06 harness exit 0

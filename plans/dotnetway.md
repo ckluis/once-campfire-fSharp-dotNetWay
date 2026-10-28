@@ -4661,3 +4661,32 @@ Built as `852106e` (code, tests, the lint allowance); this entry's commit follow
   `OutputCaching.fs` untouched: HS2/HS4, AC11 and `pebble-image.sh` not re-run. `bin/clean-docker` and `bin/clean-parity` run.
 - **Differences recorded:** none visible: a hit is the render's bytes (PC1, the pixel slices). Known, for the README in 10.5: a write by another program on the live database shows within 60 s or at the app's next commit (P11).
   `Cache-Control`, `ETag`, `Last-Modified`, `Vary` and `Link` are replayed from the entry; `X-Runtime` on a hit is the hit's own.
+
+### Phase 10, checkpoint after 10.4: Opus review (2026-10-28) - GO for 10.5, with notes
+
+Reviewed 10.1-10.4 against `plans/design-perf.md` (P1-P16, section 4's checkpoint list) and D1-D9. Fixes in `b42dec7`; KLOC (`bin/kloc`) 26.0 (26.5 corrected), unchanged.
+- **Correctness (the checkpoint list), read at the call sites.** `Rooms.show` looks up after `Before.chain`, `setRoom` and `rememberLastRoomVisited`; `Messages.index` after `Before.chain` and
+  `Before.setRoom`, before `findPagedMessages` and `fresh_when`. No hit skips `restore_authentication` or the membership read (PC2-PC4 drive it with raw SQL that does not bump the epoch, so the
+  re-check is what refuses). Forgery protection is token-less (`Csrf.fs`, `Sec-Fetch-Site`/`Origin`): no page carries a token, so a cached body cannot break one. `capture` stores only a 200 sent
+  from a kept compressed page, with `Set-Cookie`'s count unchanged since the lookup and the gate's epoch unchanged; bot keys (`AuthenticatedBy = BySession`), HEAD and conditional requests never look up.
+  The epoch bumps right after `Commit()` in `transact`, before `run` emits the queue, and again in `run`'s `finally`; every write path is `Writes.run` on the one `WriteGate` singleton (the `MayWrite`
+  guard refuses the rest). The key covers every `ViewContext` field the two pages read: user, account and custom styles (epoch), `Platform` (`User-Agent`), `BaseUrl`/`RequestUrl` (scheme, host, path,
+  query), `LastRoomVisitedId` (the cookie plus the epoch), the format (`Accept`, `Turbo-Frame`, `X-Requested-With`); `Referrer` is read only by `link_back` (users and profiles pages, not the four).
+- **Fixed (`b42dec7`).** (1) `serve` checked `flash.Notice` and `flash.Alert` only; P9 says the flash is empty, so it now asks `Flash.IsEmpty`. (2) The ticket now carries the encoding its key names, and
+  `capture` stores nothing whose kept page went out under another one (the key's encoding is the provider's pick without `ShouldCompressResponse`, the page's is with it: the same today, now held by
+  construction). (3) **H4 flaked under load** (sidebar 10 statements, expected 8, Mac load 9): the probe counts every statement in the host, and the warm-up post's jobs (broadcasts, push) landed in the
+  second round's window. H4 now waits for the command log to settle (250 ms quiet, at most 5 s); three reruns alone and the full run green. This may be the same family as 10.4's unexplained F3/K4 flake
+  (background work of an earlier request in the same test host), not proven.
+- **Gates re-run by the checkpoint.** `CAMPFIRE_REQUIRE_SEED=1 bin/verify` (Release, warnings as errors): first run 1 failed (H4, above), after the fix **1,065 total, 1,059 passed, 0 failed, 6 skipped**,
+  lint 321 files clean and its self-test (39 planted files). `parity/bin/candidate build` at `b42dec7`, label checked. `bin/pixel-parity --fast --seeds default --only "rooms/show/*,messages/*"`: **64/64**
+  pixels, aria and loose equal (187 s). `realtime/message_sent` (lean, one state): **8/8** (100 s). `bin/clean-docker`, `bin/clean-parity` run.
+- **upstream-quick, `--commit HEAD`** (`b42dec7`, clean clone built, label checked, dirty=false; 2 rounds, c=16; probe 1.040 before, 1.084 after; load 3.4 before, 5.2 after; harness `f3103c7`, seed
+  `e3a7302e`; exit 0, `--validate` passed; `bench/results/phase10-checkpoint/`): Rails / port / theDotNetWay req/s and x Rails: room_show 4,882 / 35,632 / **34,514 (7.07x)**; messages_page 4,864 /
+  42,317 / **33,177 (6.82x)**; sidebar 5,322 / 37,658 / 15,891 (2.99x, 10.5); search 5,158 / 33,951 / 17,538 (3.40x, 10.5); post_message 400 / 9,484 / **2,887 (7.21x)**. 10.4's numbers reproduce within 3%.
+  No tmpfs or `uq-*` image left.
+- **Claims checked.** 10.1-10.4's Phase log entries match their result directories (10.4's summary re-read; the 10.4 image label `852106e`). 10.4 did not run `bench/quick`'s 5x against the stored Rails
+  (not in its acceptance; it stays in the 10.6 gate) nor `bin/db-differential` (no SQL changed; agreed).
+- **Notes for 10.5 and 10.6.** Sidebar and search on `serve` after `Before.chain`; `Searches.index` writes nothing on a GET (checked: `record` is in `create`, as upstream), so a
+  search does not bump the epoch; keep it so. PC14 (1 MB bound) and PC16 on all four pages. Every Cable presence or session-resume commit bumps the global epoch: fine for the harness,
+  but name the hit-rate cost in the README's "Response cache" paragraph. `PageCacheStats.AfterLookup` is a test seam on a production singleton: keep it, documented, or move it behind the test host.
+  The fire-and-forget `SetAsync` drops a failure silently (HybridCache logs a payload over `MaximumPayloadBytes`, default 1 MB); acceptable, the 1 MB check runs first. P16's adapter metadata in 10.6.
