@@ -7,6 +7,7 @@ namespace Campfire.App.Web
 
 open System.Threading.Tasks
 open Microsoft.AspNetCore.Http
+open Microsoft.EntityFrameworkCore
 open Microsoft.Extensions.DependencyInjection
 open System
 open Campfire.App
@@ -19,8 +20,15 @@ module Data =
     /// `Time.current` on the harness's clock (frozen in the parity runs).
     let now (http: HttpContext) : System.DateTimeOffset = http.RequestServices.GetRequiredService<TimeProvider>().GetUtcNow()
 
-    /// The request's database context.
-    let db (http: HttpContext) : Campfire.Db.Ef.CampfireDb = http.RequestServices.GetRequiredService<Campfire.Db.Ef.CampfireDb>()
+    /// The request's database context, with its connection opened once, on first use (P3): EF then neither opens nor closes it for
+    /// each statement (every `Open` re-registers EF's SQL functions and takes the pool's lock), and the scope's disposal of the
+    /// context closes it, back to the pool. Lazy, not at the scope's creation: a WebSocket request's scope lives as long as the
+    /// socket, and a Cable or job scope never comes through here. `OpenConnection` counts, so the hybrid reads' own open/close pair
+    /// (`FastReads`) and a transaction's nest inside it.
+    let db (http: HttpContext) : Campfire.Db.Ef.CampfireDb =
+        let db = http.RequestServices.GetRequiredService<Campfire.Db.Ef.CampfireDb>()
+        if db.Database.GetDbConnection().State <> System.Data.ConnectionState.Open then db.Database.OpenConnection()
+        db
 
     /// A database failure as a Web error: a missing record is `NotFound` (what `rescue_from RecordNotFound` matches), the rest is
     /// the error `AppErrors.dbError` maps it to.

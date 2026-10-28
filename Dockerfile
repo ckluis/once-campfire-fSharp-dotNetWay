@@ -214,8 +214,16 @@ USER 1000:1000
 #     workers under steady load (38 -> 43-46 threads after about 60-80 s, with CPU per request rising from 93 to 100 us on the room
 #     page at sixteen connections). Without it the pool stays at 30-31 threads (starvation injection still adds threads for
 #     blocked work) and p99 at sixteen connections fell from 1.6-3.3 ms to 1.1-1.3 ms on the read pages, req/s within noise.
+#   DOTNET_TC_CallCountingDelayMs=0 (Phase 10 unit 10.2, plans/design-perf.md P2, spike S3): tiered compilation waits 100 ms
+#     without a new tier-0 method before it starts counting calls, and a stream of new methods (the first requests of a fresh
+#     container) keeps hot code in ReadyToRun/tier-0. Upstream's harness warms each route for 2 s at c=4 on a fresh container and
+#     the room page is its first route: room 3,402 -> 7,471 req/s there, messages 7,493 -> 7,342 and sidebar 7,788 -> 7,674 (inside
+#     the noise). Measured and not set: TieredPGO=0 (also fixed the room page, 6,350, but cost 12-13% on the others) and
+#     TieredCompilation=0 with ReadyToRun off (-15%). bench/quick (30-90 s warm-up) confirms the steady state does not lose
+#     (bench/results/phase10-unit-10.2).
 ENV DOTNET_GCgen0size=0x4000000 \
-    DOTNET_HillClimbing_Disable=1
+    DOTNET_HillClimbing_Disable=1 \
+    DOTNET_TC_CallCountingDelayMs=0
 
 # Configure environment defaults
 ENV RAILS_ENV="production"
