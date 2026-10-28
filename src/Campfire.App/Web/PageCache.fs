@@ -55,7 +55,8 @@ type PageEntrySerializer() =
             target.Write(ReadOnlySpan<byte>(buffer.GetBuffer(), 0, int buffer.Length))
 
 /// What the cache did, for the tests (PC1-PC17) and `/up`-style inspection: lookups made, hits served, entries stored. `AfterLookup`
-/// is a test seam: it runs after a miss's ticket is taken and before the render (PC12 commits a write there).
+/// and `MaxBody` are test seams on a production singleton, set only by tests: `Lifetime` is the entry's life (60 s); `AfterLookup` runs after a miss's ticket is taken and
+/// before the render (PC12 commits a write there); `MaxBody` is the size bound (1 MB; PC14 lowers it). Nothing in `src` sets either.
 [<Sealed>]
 type PageCacheStats() =
     [<DefaultValue>]
@@ -68,6 +69,9 @@ type PageCacheStats() =
     member this.Hits = Interlocked.Read &this.hits
     member this.Stores = Interlocked.Read &this.stores
     member val AfterLookup: Action = Action(ignore) with get, set
+    member val MaxBody: int = 1048576 with get, set
+    /// How long a stored entry lives (60 s; PC18 shortens it to show a write from outside the app).
+    member val Lifetime: TimeSpan = TimeSpan.FromSeconds 60.0 with get, set
     member internal this.Lookup() = Interlocked.Increment &this.lookups |> ignore
     member internal this.Hit() = Interlocked.Increment &this.hits |> ignore
     member internal this.Store() = Interlocked.Increment &this.stores |> ignore
@@ -87,10 +91,6 @@ module PageCache =
     /// Rails' `CACHE_HEADERS`, plus the preload `Link`. Never `Set-Cookie`.
     let private kept = [| "ETag"; "Last-Modified"; "Cache-Control"; "Vary"; "Link" |]
 
-    /// A page over this is not kept.
-    [<Literal>]
-    let private MaxBody = 1048576
-
     let private lifetime = TimeSpan.FromSeconds 60.0
 
     let private tags: string[] = [| "pages" |]
@@ -98,12 +98,10 @@ module PageCache =
     let private lookupOptions =
         HybridCacheEntryOptions(Flags = (HybridCacheEntryFlags.DisableUnderlyingData ||| HybridCacheEntryFlags.DisableDistributedCache))
 
-    let private storeOptions =
-        HybridCacheEntryOptions(
-            Expiration = lifetime,
-            LocalCacheExpiration = lifetime,
-            Flags = HybridCacheEntryFlags.DisableDistributedCache
-        )
+    let private storeOptionsFor (life: TimeSpan) =
+        HybridCacheEntryOptions(Expiration = life, LocalCacheExpiration = life, Flags = HybridCacheEntryFlags.DisableDistributedCache)
+
+    let private storeOptions = storeOptionsFor lifetime
 
     /// The encoder for a request that takes compression, or nothing: the framework's provider (gzip or Brotli at their fastest).
     let internal encoderFor (http: HttpContext) : ICompressionProvider voption =
@@ -224,13 +222,15 @@ module PageCache =
         | _ -> render ()
 
     /// Called by `Pages.send` after a kept compressed page went out: stores the entry if P10's conditions hold (200, no cookie
-    /// added since the lookup, no commit since the lookup, at most 1 MB), and only under the encoding its key names.
+    /// added since the lookup, no commit since the lookup, at most 1 MB), and only under the encoding its key names. HybridCache's
+    /// own payload limit is 1 MB as well; a body plus headers just under it may be refused by `SetAsync`, silently (the page then
+    /// renders next time: acceptable).
     let capture (http: HttpContext) (status: int) (contentType: string) (page: CompressedPage) : unit =
         match http.Items.TryGetValue TicketItem with
         | true, (:? Ticket as ticket) when
             status = 200
             && page.Encoding = ticket.Encoding
-            && page.Bytes.Length <= MaxBody
+            && page.Bytes.Length <= http.RequestServices.GetRequiredService<PageCacheStats>().MaxBody
             && http.Response.Headers.SetCookie.Count = ticket.Cookies
             && (Data.app http).Gate.Epoch = ticket.Epoch
             ->
@@ -243,7 +243,9 @@ module PageCache =
                            | value -> struct (name, value) |]
             let entry = PageEntry(page.Encoding, page.Bytes, contentType, headers)
             let cache = http.RequestServices.GetRequiredService<HybridCache>()
-            http.RequestServices.GetRequiredService<PageCacheStats>().Store()
-            let stored = cache.SetAsync(ticket.Key, entry, storeOptions, tags)
+            let stats = http.RequestServices.GetRequiredService<PageCacheStats>()
+            stats.Store()
+            let options = if stats.Lifetime = lifetime then storeOptions else storeOptionsFor stats.Lifetime
+            let stored = cache.SetAsync(ticket.Key, entry, options, tags)
             if not stored.IsCompletedSuccessfully then stored.AsTask() |> ignore
         | _ -> ()

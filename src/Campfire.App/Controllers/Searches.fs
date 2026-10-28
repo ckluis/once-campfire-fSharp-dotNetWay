@@ -46,31 +46,36 @@ module SearchesController =
         fun http ->
             taskResult {
                 do! Before.chain Before.Default http
-                let! q = queryParam http
-                let! (user: User) = Current.requireUser http
-                let query = searchableQuery q
-                let lastRoom = Pages.lastRoomCookie http
-                // `set_messages`, the recent searches and `last_room_visited` in one trip to the reader.
-                let! messages, recentSearches, returnToRoomId =
-                    Data.read http (fun db ->
-                        let messages =
-                            match query with
-                            | Some query -> Message.searchReachable db user.Id query
-                            | None -> []
-                        let recent = Search.orderedForUser db user.Id |> List.map (fun search -> search.Query)
-                        let returnTo =
-                            Data.lastRoomVisited http db user.Id lastRoom
-                            |> Option.map (fun room -> room.Id)
-                            |> Option.defaultValue 0L
-                        messages, recent, returnTo)
-                let! messages = Data.presentAsync http (fun presenter -> presenter.Messages messages)
-                let index: IndexView =
-                    { Query = query
-                      Q = q
-                      Messages = messages
-                      RecentSearches = recentSearches
-                      ReturnToRoomId = returnToRoomId }
-                return! Pages.page http 200 (fun ctx -> IndexPage.rendered ctx index)
+                // A GET makes no write (`searches.record` is in `create`), so a search never bumps the epoch.
+                return!
+                    Web.PageCache.serve http (fun () ->
+                        taskResult {
+                            let! q = queryParam http
+                            let! (user: User) = Current.requireUser http
+                            let query = searchableQuery q
+                            let lastRoom = Pages.lastRoomCookie http
+                            // `set_messages`, the recent searches and `last_room_visited` in one trip to the reader.
+                            let! messages, recentSearches, returnToRoomId =
+                                Data.read http (fun db ->
+                                    let messages =
+                                        match query with
+                                        | Some query -> Message.searchReachable db user.Id query
+                                        | None -> []
+                                    let recent = Search.orderedForUser db user.Id |> List.map (fun search -> search.Query)
+                                    let returnTo =
+                                        Data.lastRoomVisited http db user.Id lastRoom
+                                        |> Option.map (fun room -> room.Id)
+                                        |> Option.defaultValue 0L
+                                    messages, recent, returnTo)
+                            let! messages = Data.presentAsync http (fun presenter -> presenter.Messages messages)
+                            let index: IndexView =
+                                { Query = query
+                                  Q = q
+                                  Messages = messages
+                                  RecentSearches = recentSearches
+                                  ReturnToRoomId = returnToRoomId }
+                            return! Pages.page http 200 (fun ctx -> IndexPage.rendered ctx index)
+                        })
             }
 
     let create: Web.Action =

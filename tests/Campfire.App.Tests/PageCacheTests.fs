@@ -23,6 +23,9 @@ let private gz (path: string) : Req = (get path).With("accept-encoding", "gzip")
 
 let private room = $"/rooms/{ALL_TALK}"
 let private messages = $"/rooms/{ALL_TALK}/messages"
+let private sidebar = "/users/me/sidebar"
+let private search = "/searches?q=coffee"
+let private fourPages = [ room; messages; sidebar; search ]
 
 /// The body, inflated when it went out gzipped.
 let private text (reply: Reply) : string =
@@ -371,15 +374,85 @@ let ``PC12 a commit between the lookup and the store leaves nothing stored`` () 
     }
 
 [<Fact>]
-let ``PC13 with CAMPFIRE_RESPONSE_CACHE_MB=0 nothing is looked up or stored`` () =
+let ``PC13 with CAMPFIRE_RESPONSE_CACHE_MB=0 nothing is looked up or stored, on all four pages`` () =
     task {
         use! test = bootSeededConfigured ignore [ "CAMPFIRE_RESPONSE_CACHE_MB", "0" ] "default"
         let stats = stats test
         let b = david test
-        for _ in 1..3 do
-            let! reply = b.Send(gz room)
-            Assert.Equal(200, reply.Status)
+        for path in fourPages do
+            for _ in 1..3 do
+                let! reply = b.Send(gz path)
+                Assert.Equal(200, reply.Status)
         Assert.Equal((0L, 0L, 0L), (stats.Lookups, stats.Hits, stats.Stores))
+    }
+
+[<Fact>]
+let ``PC14 a body over the bound is not stored, on all four pages`` () =
+    task {
+        use! test = bootSeeded "default"
+        let stats = stats test
+        let b = david test
+        // The bound is 1 MB; the seam lowers it so the seed's pages (tens of KB) are over it.
+        stats.MaxBody <- 512
+        for path in fourPages do
+            for _ in 1..2 do
+                let! reply = b.Send(gz path)
+                Assert.Equal(200, reply.Status)
+        Assert.Equal(0L, stats.Stores)
+        Assert.Equal(0L, stats.Hits)
+        // The default bound keeps each of them.
+        stats.MaxBody <- 1048576
+        for path in fourPages do
+            let! _ = b.Send(gz path)
+            let hits = stats.Hits
+            let! _ = b.Send(gz path)
+            Assert.Equal(hits + 1L, stats.Hits)
+    }
+
+[<Fact>]
+let ``PC1b a second GET of the sidebar and the search page is a hit with the render's bytes, and a search bumps nothing`` () =
+    task {
+        use! test = bootSeeded "default"
+        let stats = stats test
+        let! _ = (david test).Send(get room)
+        for path in [ sidebar; search ] do
+            let b = david test
+            // The first request has no `last_room` cookie and sets one, so the second is another key: warm both.
+            let! _ = b.Send(gz path)
+            let! _ = b.Send(gz path)
+            let hits = stats.Hits
+            let epoch = test.App.Gate.Epoch
+            let! first = b.Send(gz path)
+            let! second = b.Send(gz path)
+            Assert.Equal(200, first.Status)
+            let cookies = String.Join(";", first.SetCookies) + " / " + String.Join(";", second.SetCookies)
+            Assert.True(hits + 2L = stats.Hits, $"{path}: hits {hits} -> {stats.Hits}, cookies {cookies}")
+            Assert.Equal<byte[]>(first.Body, second.Body)
+            Assert.Equal<string>(String.Join("\n", comparable first), String.Join("\n", comparable second))
+            Assert.Equal(epoch, test.App.Gate.Epoch)
+    }
+
+[<Fact>]
+let ``PC18 a write from outside the app shows on a cached page once the entry's lifetime ends`` () =
+    task {
+        use! test = bootSeeded "default"
+        let stats = stats test
+        // The lifetime is 60 s in production; the seam shortens it so the test waits for real.
+        stats.Lifetime <- TimeSpan.FromSeconds 2.0
+        let b = david test
+        let! _ = b.Send(gz sidebar)
+        let! warm = b.Send(gz sidebar)
+        let hits = stats.Hits
+        let! cached = b.Send(gz sidebar)
+        Assert.Equal(hits + 1L, stats.Hits)
+        Assert.DoesNotContain("Outside Write", text cached)
+        // A raw connection: no gate, so no epoch bump.
+        test.Sql(fun conn -> RawSql.run conn "UPDATE rooms SET name = ? WHERE id = ?" [ box "Outside Write"; box ALL_TALK ])
+        let! stale = b.Send(gz sidebar)
+        Assert.Equal<byte[]>(warm.Body, stale.Body)
+        do! Task.Delay 2500
+        let! fresh = b.Send(gz sidebar)
+        Assert.Contains("Outside Write", text fresh)
     }
 
 [<Fact>]
@@ -395,11 +468,11 @@ let ``PC15 a bot-key request to the messages page never looks up or stores`` () 
     }
 
 [<Fact>]
-let ``PC16 the room page and the messages page do not change with Referer`` () =
+let ``PC16 the four pages do not change with Referer`` () =
     task {
         // Rendered every time (the cache is off), so a page that read the referer would show it.
         use! test = bootSeededConfigured ignore [ "CAMPFIRE_RESPONSE_CACHE_MB", "0" ] "default"
-        for path in [ room; messages ] do
+        for path in fourPages do
             let! plain = (david test).Send(gz path)
             for referer in [ $"http://campfire.test{room}"; "http://campfire.test/searches?q=coffee"; "https://elsewhere.example/" ] do
                 let! withReferer = (david test).Send((gz path).With("referer", referer))
