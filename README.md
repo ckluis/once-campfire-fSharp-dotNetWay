@@ -7,13 +7,13 @@ a drop-in replacement for the Rails app: the same SQLite database, storage layou
 and the same behavior. It is the third Campfire in F#, a fork of the published F# port (`ckluis/once-campfire-fSharp`), from which
 it replaced one layer at a time behind a pixel-parity harness.
 
-**Status: built, with its known differences listed below.** Phase 9, the close, is under way: its build units (storage trims,
-`Campfire.Rails`, the static rows, the job and push readers, test consolidation and this README) are done. The full pixel gate, the
-final benchmark, the security review and the independent verification run after them and are recorded in
-[`plans/dotnetway.md`](plans/dotnetway.md). At the last full gate (Phase 8) **940 of 940 captured cells** (five seeds, three
-browsers, both themes, several breakpoints) were equal to Rails on screenshot, accessibility tree and live DOM, the cookie round
-trip passed both ways (20 of 20), and the backend is **26.2 KLOC** by upstream's counting rules, against 31.0 for the Rust port
-and 5.5 for Rails. Every benchmarked workload runs at least 5 times Rails' throughput (table below).
+**Status: built and verified, with its known differences listed below.** Phases 0 to 10 are closed and recorded in
+[`plans/dotnetway.md`](plans/dotnetway.md). At the final full gate (Phase 10) **4,918 of 4,918 captured cells** (five seeds, three
+browsers, four viewports, both themes, a breakpoint sweep) were equal to Rails on screenshot, accessibility tree and loose DOM, the
+cookie round trip passed both ways (20 of 20), and the backend is **26.5 KLOC** by upstream's counting rules (corrected; 26.0 as
+cloc prints it), against 31.0 for the Rust port and 5.5 for Rails. Every benchmarked workload runs at least 5 times Rails'
+throughput, both on `bench/quick` against the pinned Rails and on Basecamp's own harness against current Rails in the same session
+(tables below).
 
 The Rails app it reproduces is pinned in `reference/`. The Rust port (pinned in `rust/`) and the earlier F# port supply the parity
 harness, the golden vectors and the benchmark tooling this repository reuses under the MIT license. The Rails frontend ships with a
@@ -44,40 +44,61 @@ The settings are in [`Config.fs`](src/Campfire.App/Config.fs) (the app's) and
 
 ## Performance
 
-Measured with `bench/quick` in a Linux VM (colima, 8 vCPUs) on an Apple M4, against the reference Rails app's stored medians
-([`bench/results/phase7-final.md`](bench/results/phase7-final.md)), 3 repetitions interleaved with a control build of the previous
-phase, and Rails measured again in the same session (its medians agree with the stored ones within 8%). Every response was 2xx,
-every post's row was counted and the decoded bodies equal the stored sizes. The Phase 9 gate
-([`plans/dotnetway.md`](plans/dotnetway.md), "Phase 9: gate", evidence in [`bench/results/dotnetway-p9/`](bench/results/dotnetway-p9/)),
+Measured in a Linux VM (colima, 8 vCPUs) on an Apple M4, two ways.
+
+**Basecamp's harness, current Rails, the same sessions** (the floor since Phase 10). Upstream's `once-campfire-verification` (its
+`bin/benchmark`, a local adapter branch) ran six Campfires in each of four sessions, 3 rounds of 8 s at 16 clients, the app on 4 CPUs and
+the load generator on 4, every response checked against the seed's contract and every post audited in the database. Pooled medians
+over 6 rounds, requests per second, theDotNetWay at `75487b7` ([`bench/results/dotnetway-six-ways/`](bench/results/dotnetway-six-ways/),
+with every app's column, commit and range):
+
+| HTTP workload | Rails | theDotNetWay | x Rails | with a writer at 10 posts/s: Rails | theDotNetWay | x Rails |
+|---|---:|---:|---:|---:|---:|---:|
+| Room page | 4,944 | 34,989 | 7.08x | 2,800 | 32,886 | 11.75x |
+| Messages page | 4,953 | 33,831 | 6.83x | 3,461 | 33,012 | 9.54x |
+| Sidebar | 5,425 | 41,581 | 7.66x | 4,267 | 40,246 | 9.43x |
+| Search | 5,280 | 41,325 | 7.83x | 4,084 | 39,610 | 9.70x |
+| Post a message | 401 | 2,901 | 7.24x | | | |
+
+The messages page is the thinnest cell there (6.83x). onCrack, the C port and upstream's Rust port are faster than theDotNetWay in every
+row, and the F# port in five of the nine; this build gives up speed for the framework's way and does not claim the others'. The
+security review's two fixes (`d89fdd2`, `3a6c4f8`) were re-measured on the same harness at `fed00c4`: every route within 3.3% of the
+Phase 10 gate's run and at least 5x that session's Rails ([`bench/results/security-p9p10/`](bench/results/security-p9p10/)).
+
+**`bench/quick` against the pinned Rails' stored medians** (the floor through Phase 9;
+[`bench/results/phase7-final.md`](bench/results/phase7-final.md)), 3 repetitions interleaved with a control build of the Phase 9 gate.
+Every response was 2xx, every post's row was counted and the decoded bodies equal the stored sizes. The Phase 10 gate
+([`plans/dotnetway.md`](plans/dotnetway.md), "Phase 10: gate", evidence in [`bench/results/dotnetway-p10/`](bench/results/dotnetway-p10/)),
 requests per second at 16 and at 1 concurrent clients:
 
 | HTTP workload | c | Rails | theDotNetWay | x Rails | CPU per request |
 |---|---:|---:|---:|---:|---:|
-| Room page | 16 | 239 | 7,215 | 30.2x | 454 us |
-| Room page | 1 | 107 | 2,232 | 20.9x | 572 us |
-| Messages page | 16 | 381 | 7,062 | 18.5x | 476 us |
-| Messages page | 1 | 218 | 2,079 | 9.5x | 598 us |
-| Sidebar | 16 | 599 | 7,337 | 12.2x | 452 us |
-| Sidebar | 1 | 287 | 2,175 | 7.6x | 576 us |
-| Search | 16 | 408 | 6,887 | 16.9x | 495 us |
-| Search | 1 | 193 | 1,980 | 10.3x | 622 us |
-| Post a message | 16 | 330 | 2,150 | 6.5x | 1,508 us |
-| Post a message | 1 | 167 | 1,065 | 6.4x | 1,707 us |
-| Static stylesheet | 16 | 98,776 | 107,808 | 1.09x | 26 us |
-| Static stylesheet | 1 | 15,167 | 18,192 | 1.20x | 133 us |
-| Avatar | 16 | 69,481 | 116,916 | 1.68x | 23 us |
-| Avatar | 1 | 12,838 | 21,987 | 1.71x | 108 us |
-| `/up` | 16 | 4,229 | 95,705 | 22.6x | 30 us |
-| `/up` | 1 | 2,101 | 16,995 | 8.1x | 131 us |
+| Room page | 16 | 239 | 33,418 | 139.8x | 97 us |
+| Room page | 1 | 107 | 6,438 | 60.2x | 269 us |
+| Messages page | 16 | 381 | 31,425 | 82.5x | 102 us |
+| Messages page | 1 | 218 | 6,268 | 28.8x | 271 us |
+| Sidebar | 16 | 599 | 39,313 | 65.6x | 79 us |
+| Sidebar | 1 | 287 | 7,265 | 25.3x | 248 us |
+| Search | 16 | 408 | 37,663 | 92.3x | 82 us |
+| Search | 1 | 193 | 7,342 | 38.0x | 250 us |
+| Post a message | 16 | 330 | 2,464 | 7.47x | 1,314 us |
+| Post a message | 1 | 167 | 1,247 | 7.47x | 1,524 us |
+| Static stylesheet | 16 | 98,776 | 109,206 | 1.11x | 26 us |
+| Static stylesheet | 1 | 15,167 | 18,476 | 1.22x | 132 us |
+| Avatar | 16 | 69,481 | 117,493 | 1.69x | 22 us |
+| Avatar | 1 | 12,838 | 20,940 | 1.63x | 114 us |
+| `/up` | 16 | 4,229 | 96,697 | 22.9x | 30 us |
+| `/up` | 1 | 2,101 | 16,862 | 8.0x | 131 us |
 
-Post a message is the thinnest cell (6.0x to 6.5x against the same-session Rails). The floor is 5x Rails per workload on the
-five workloads; the static rows are there to show the request log's cost, not to meet a floor. The Rust port's throughput was a
-stretch goal that this build does not claim.
+The pinned Rails serves a room page at 239 requests a second; current Rails in Basecamp's harness, with its page cache, serves about
+4,900, which is why the second table's ratios are so much larger than the first's. The page rows are the response cache below; post a
+message is the thinnest cell here (7.47x). The floor is 5x Rails per workload on the five workloads; the static rows are there to show
+the request log's cost, not to meet a floor.
 
 ### Response cache
 
-Upstream Rails, the Rust port and this one all keep a response cache for pages in the Once Campfire benchmark harness, so this one
-does too (`Web/PageCache.fs`, on `HybridCache`, inside the actions where upstream's `around_action :cache_read_response` sits). It
+Upstream's current Rails and Rust apps keep a response cache for pages in the Once Campfire benchmark harness (the pinned Rust
+port in `rust/` and the F# port do not), so this one does too (`Web/PageCache.fs`, on `HybridCache`, inside the actions where upstream's `around_action :cache_read_response` sits). It
 keeps the room page, the messages page, the sidebar and the search page, as the gzip or Brotli bytes that went out, for signed-in
 `GET` requests that carry no flash and no conditional header. The key is a SHA-256 of the commit epoch, the action, scheme, host,
 path and query, `Accept`, `Turbo-Frame`, `X-Requested-With`, the content encoding, `User-Agent`, the user id, the session id and the
@@ -318,11 +339,12 @@ Every install is served by the app's own host (Kestrel's listeners and limits, `
   `Started GET` line; paths are logged as sent, as Rails and Thruster log them, so a bot key, a join code or a session transfer
   id in a path reaches the log (percent-encoded, no control character). Tested by `HttpLogTests` (LG1-LG4, SR1-SR3).
 - **The request log skips three route families**: the static asset endpoints (every fingerprinted asset and public file, matched
-  against the loaded `MapStaticAssets` table), the avatar family and `/up` (Rails silences its health check too). Thruster logged
-  each of them; here a request for one writes no line, which keeps the middleware off the hot static path. Everything else is still
-  logged (pages, posts, bot calls, redirects, 404s, and a 404 under `/assets/` that is not a table route), and a 500 on a skipped
-  path still writes the `request failed` line. The framework's meters count every request. `HttpLog.logged` is the one predicate
-  to change. Tested by `HttpLogTests` (LS1-LS5).
+  against the loaded `MapStaticAssets` table), the avatar family and `/up` (Rails silences its health check too), for `GET` and
+  `HEAD` only. Thruster logged each of them; here such a request writes no line, which keeps the middleware off the hot static
+  path. Everything else is still logged (pages, posts, bot calls, redirects, 404s, and a 404 under `/assets/` that is not a table
+  route), and a 500 on a skipped path still writes the `request failed` line. Any other method on those paths (a `DELETE` of an
+  avatar, a write) is logged as usual. The framework's meters count every request. `HttpLog.logged` is the one predicate to
+  change. Tested by `HttpLogTests` (LS1-LS6).
 - **The response cache** is ASP.NET Core's OutputCache, one base policy per route family that Rails marks `public`, matched by the
   route's exact path shape: `/users/:id/avatar` 30 minutes, `/account/logo` 5 minutes, `/qr_code/:id` 1 year, the Active Storage
   proxy routes 100 years, the disk service's `show` 1 hour. Nothing else is cached, so a page is never looked up, stored or locked.
@@ -558,7 +580,8 @@ fixed.
 | 6 | a custom asset pipeline | `MapStaticAssets`, staged at build time, a generated import map | 30.0 |
 | 7 | the Thruster port (front server, cache, ACME, TLS) | Kestrel listeners, OutputCache, HTTP logging, Certes | 27.9 |
 | 8 | the `Net::HTTP` replica, hand-written web-push encryption, the job runner, hand-rolled config and clocks | named `HttpClient`s with a connect guard, `Lib.Net.Http.WebPush`, `BackgroundService` queues, `IOptions`, `TimeProvider`, redaction | 27.1 |
-| 9 | the Rack range code, three small crates, scattered test helpers | the framework's file result, one `Campfire.Rails` project, `UseWhen` around the request log, `ReadAsync` readers, consolidated tests, this README | 26.2 so far |
+| 9 | the Rack range code, three small crates, scattered test helpers | the framework's file result, one `Campfire.Rails` project, `UseWhen` around the request log, `ReadAsync` readers, consolidated tests, this README | 26.2 |
+| 10 | the per-statement connection opens, a reflection-heavy read, no page cache | one SQLite connection per request, `DOTNET_TC_CallCountingDelayMs=0`, a Dapper read for `rooms.original`, a page cache in the four GET actions on HybridCache with fresh authorization and a commit epoch | 26.5 |
 
 The result is seven projects: `Campfire.App` (host, controllers, jobs, integrations), `Campfire.Views`, `Campfire.Db`,
 `Campfire.RichText`, `Campfire.Storage`, `Campfire.Cable` and `Campfire.Rails` (cookie and crypto compatibility, the Ruby helpers

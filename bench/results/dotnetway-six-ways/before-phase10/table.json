@@ -48,12 +48,12 @@
      "max": 3478.6,
      "n": 6,
      "sources": [
-      "bench/results/dotnetway-six-ways/normal-1/dotnetway-1.json",
-      "bench/results/dotnetway-six-ways/normal-1/dotnetway-2.json",
-      "bench/results/dotnetway-six-ways/normal-1/dotnetway-3.json",
-      "bench/results/dotnetway-six-ways/normal-2/dotnetway-1.json",
-      "bench/results/dotnetway-six-ways/normal-2/dotnetway-2.json",
-      "bench/results/dotnetway-six-ways/normal-2/dotnetway-3.json"
+      "bench/results/dotnetway-six-ways/before-phase10/normal-1/dotnetway-1.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-1/dotnetway-2.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-1/dotnetway-3.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-2/dotnetway-1.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-2/dotnetway-2.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-2/dotnetway-3.json"
      ]
     },
     "oncrack": {
@@ -62,12 +62,12 @@
      "max": 170083.4,
      "n": 6,
      "sources": [
-      "bench/results/dotnetway-six-ways/normal-1/oncrack-1.json",
-      "bench/results/dotnetway-six-ways/normal-1/oncrack-2.json",
-      "bench/results/dotnetway-six-ways/normal-1/oncrack-3.json",
-      "bench/results/dotnetway-six-ways/normal-2/oncrack-1.json",
-      "bench/results/dotnetway-six-ways/normal-2/oncrack-2.json",
-      "bench/results/dotnetway-six-ways/normal-2/oncrack-3.json"
+      "bench/results/dotnetway-six-ways/before-phase10/normal-1/oncrack-1.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-1/oncrack-2.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-1/oncrack-3.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-2/oncrack-1.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-2/oncrack-2.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-2/oncrack-3.json"
      ]
     },
     "fsharp": {
@@ -76,12 +76,12 @@
      "max": 36202.9,
      "n": 6,
      "sources": [
-      "bench/results/dotnetway-six-ways/normal-1/fsharp-1.json",
-      "bench/results/dotnetway-six-ways/normal-1/fsharp-2.json",
-      "bench/results/dotnetway-six-ways/normal-1/fsharp-3.json",
-      "bench/results/dotnetway-six-ways/normal-2/fsharp-1.json",
-      "bench/results/dotnetway-six-ways/normal-2/fsharp-2.json",
-      "bench/results/dotnetway-six-ways/normal-2/fsharp-3.json"
+      "bench/results/dotnetway-six-ways/before-phase10/normal-1/fsharp-1.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-1/fsharp-2.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-1/fsharp-3.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-2/fsharp-1.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-2/fsharp-2.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-2/fsharp-3.json"
      ]
     },
     "rails": {
@@ -90,12 +90,12 @@
      "max": 5033.0,
      "n": 6,
      "sources": [
-      "bench/results/dotnetway-six-ways/normal-1/rails-1.json",
-      "bench/results/dotnetway-six-ways/normal-1/rails-2.json",
-      "bench/results/dotnetway-six-ways/normal-1/rails-3.json",
-      "bench/results/dotnetway-six-ways/normal-2/rails-1.json",
-      "bench/results/dotnetway-six-ways/normal-2/rails-2.json",
-      "bench/results/dotnetway-six-ways/normal-2/rails-3.json"
+      "bench/results/dotnetway-six-ways/before-phase10/normal-1/rails-1.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-1/rails-2.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-1/rails-3.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-2/rails-1.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-2/rails-2.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-2/rails-3.json"
      ]
     },
     "rust": {
@@ -104,12 +104,12 @@
      "max": 51077.2,
      "n": 6,
      "sources": [
-      "bench/results/dotnetway-six-ways/normal-1/rust-1.json",
-      "bench/results/dotnetway-six-ways/normal-1/rust-2.json",
-      "bench/results/dotnetway-six-ways/normal-1/rust-3.json",
-      "bench/results/dotnetway-six-ways/normal-2/rust-1.json",
-      "bench/results/dotnetway-six-ways/normal-2/rust-2.json",
-      "bench/results/dotnetway-six-ways/normal-2/rust-3.json"
+      "bench/results/dotnetway-six-ways/before-phase10/normal-1/rust-1.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-1/rust-2.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-1/rust-3.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-2/rust-1.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-2/rust-2.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-2/rust-3.json"
      ]
     },
     "c": {
@@ -118,12 +118,12 @@
      "max": 78821.5,
      "n": 6,
      "sources": [
-      "bench/results/dotnetway-six-ways/normal-1/c-1.json",
-      "bench/results/dotnetway-six-ways/normal-1/c-2.json",
-      "bench/results/dotnetway-six-ways/normal-1/c-3.json",
-      "bench/results/dotnetway-six-ways/normal-2/c-1.json",
-      "bench/results/dotnetway-six-ways/normal-2/c-2.json",
-      "bench/results/dotnetway-six-ways/normal-2/c-3.json"
+      "bench/results/dotnetway-six-ways/before-phase10/normal-1/c-1.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-1/c-2.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-1/c-3.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-2/c-1.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-2/c-2.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-2/c-3.json"
      ]
     }
    }
@@ -143,12 +143,12 @@
      "max": 7529.7,
      "n": 6,
      "sources": [
-      "bench/results/dotnetway-six-ways/normal-1/dotnetway-1.json",
-      "bench/results/dotnetway-six-ways/normal-1/dotnetway-2.json",
-      "bench/results/dotnetway-six-ways/normal-1/dotnetway-3.json",
-      "bench/results/dotnetway-six-ways/normal-2/dotnetway-1.json",
-      "bench/results/dotnetway-six-ways/normal-2/dotnetway-2.json",
-      "bench/results/dotnetway-six-ways/normal-2/dotnetway-3.json"
+      "bench/results/dotnetway-six-ways/before-phase10/normal-1/dotnetway-1.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-1/dotnetway-2.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-1/dotnetway-3.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-2/dotnetway-1.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-2/dotnetway-2.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-2/dotnetway-3.json"
      ]
     },
     "oncrack": {
@@ -157,12 +157,12 @@
      "max": 180357.6,
      "n": 6,
      "sources": [
-      "bench/results/dotnetway-six-ways/normal-1/oncrack-1.json",
-      "bench/results/dotnetway-six-ways/normal-1/oncrack-2.json",
-      "bench/results/dotnetway-six-ways/normal-1/oncrack-3.json",
-      "bench/results/dotnetway-six-ways/normal-2/oncrack-1.json",
-      "bench/results/dotnetway-six-ways/normal-2/oncrack-2.json",
-      "bench/results/dotnetway-six-ways/normal-2/oncrack-3.json"
+      "bench/results/dotnetway-six-ways/before-phase10/normal-1/oncrack-1.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-1/oncrack-2.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-1/oncrack-3.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-2/oncrack-1.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-2/oncrack-2.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-2/oncrack-3.json"
      ]
     },
     "fsharp": {
@@ -171,12 +171,12 @@
      "max": 42393.2,
      "n": 6,
      "sources": [
-      "bench/results/dotnetway-six-ways/normal-1/fsharp-1.json",
-      "bench/results/dotnetway-six-ways/normal-1/fsharp-2.json",
-      "bench/results/dotnetway-six-ways/normal-1/fsharp-3.json",
-      "bench/results/dotnetway-six-ways/normal-2/fsharp-1.json",
-      "bench/results/dotnetway-six-ways/normal-2/fsharp-2.json",
-      "bench/results/dotnetway-six-ways/normal-2/fsharp-3.json"
+      "bench/results/dotnetway-six-ways/before-phase10/normal-1/fsharp-1.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-1/fsharp-2.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-1/fsharp-3.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-2/fsharp-1.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-2/fsharp-2.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-2/fsharp-3.json"
      ]
     },
     "rails": {
@@ -185,12 +185,12 @@
      "max": 4979.9,
      "n": 6,
      "sources": [
-      "bench/results/dotnetway-six-ways/normal-1/rails-1.json",
-      "bench/results/dotnetway-six-ways/normal-1/rails-2.json",
-      "bench/results/dotnetway-six-ways/normal-1/rails-3.json",
-      "bench/results/dotnetway-six-ways/normal-2/rails-1.json",
-      "bench/results/dotnetway-six-ways/normal-2/rails-2.json",
-      "bench/results/dotnetway-six-ways/normal-2/rails-3.json"
+      "bench/results/dotnetway-six-ways/before-phase10/normal-1/rails-1.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-1/rails-2.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-1/rails-3.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-2/rails-1.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-2/rails-2.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-2/rails-3.json"
      ]
     },
     "rust": {
@@ -199,12 +199,12 @@
      "max": 47334.1,
      "n": 6,
      "sources": [
-      "bench/results/dotnetway-six-ways/normal-1/rust-1.json",
-      "bench/results/dotnetway-six-ways/normal-1/rust-2.json",
-      "bench/results/dotnetway-six-ways/normal-1/rust-3.json",
-      "bench/results/dotnetway-six-ways/normal-2/rust-1.json",
-      "bench/results/dotnetway-six-ways/normal-2/rust-2.json",
-      "bench/results/dotnetway-six-ways/normal-2/rust-3.json"
+      "bench/results/dotnetway-six-ways/before-phase10/normal-1/rust-1.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-1/rust-2.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-1/rust-3.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-2/rust-1.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-2/rust-2.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-2/rust-3.json"
      ]
     },
     "c": {
@@ -213,12 +213,12 @@
      "max": 78418.8,
      "n": 6,
      "sources": [
-      "bench/results/dotnetway-six-ways/normal-1/c-1.json",
-      "bench/results/dotnetway-six-ways/normal-1/c-2.json",
-      "bench/results/dotnetway-six-ways/normal-1/c-3.json",
-      "bench/results/dotnetway-six-ways/normal-2/c-1.json",
-      "bench/results/dotnetway-six-ways/normal-2/c-2.json",
-      "bench/results/dotnetway-six-ways/normal-2/c-3.json"
+      "bench/results/dotnetway-six-ways/before-phase10/normal-1/c-1.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-1/c-2.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-1/c-3.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-2/c-1.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-2/c-2.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-2/c-3.json"
      ]
     }
    }
@@ -238,12 +238,12 @@
      "max": 7825.6,
      "n": 6,
      "sources": [
-      "bench/results/dotnetway-six-ways/normal-1/dotnetway-1.json",
-      "bench/results/dotnetway-six-ways/normal-1/dotnetway-2.json",
-      "bench/results/dotnetway-six-ways/normal-1/dotnetway-3.json",
-      "bench/results/dotnetway-six-ways/normal-2/dotnetway-1.json",
-      "bench/results/dotnetway-six-ways/normal-2/dotnetway-2.json",
-      "bench/results/dotnetway-six-ways/normal-2/dotnetway-3.json"
+      "bench/results/dotnetway-six-ways/before-phase10/normal-1/dotnetway-1.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-1/dotnetway-2.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-1/dotnetway-3.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-2/dotnetway-1.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-2/dotnetway-2.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-2/dotnetway-3.json"
      ]
     },
     "oncrack": {
@@ -252,12 +252,12 @@
      "max": 191398.4,
      "n": 6,
      "sources": [
-      "bench/results/dotnetway-six-ways/normal-1/oncrack-1.json",
-      "bench/results/dotnetway-six-ways/normal-1/oncrack-2.json",
-      "bench/results/dotnetway-six-ways/normal-1/oncrack-3.json",
-      "bench/results/dotnetway-six-ways/normal-2/oncrack-1.json",
-      "bench/results/dotnetway-six-ways/normal-2/oncrack-2.json",
-      "bench/results/dotnetway-six-ways/normal-2/oncrack-3.json"
+      "bench/results/dotnetway-six-ways/before-phase10/normal-1/oncrack-1.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-1/oncrack-2.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-1/oncrack-3.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-2/oncrack-1.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-2/oncrack-2.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-2/oncrack-3.json"
      ]
     },
     "fsharp": {
@@ -266,12 +266,12 @@
      "max": 38031.6,
      "n": 6,
      "sources": [
-      "bench/results/dotnetway-six-ways/normal-1/fsharp-1.json",
-      "bench/results/dotnetway-six-ways/normal-1/fsharp-2.json",
-      "bench/results/dotnetway-six-ways/normal-1/fsharp-3.json",
-      "bench/results/dotnetway-six-ways/normal-2/fsharp-1.json",
-      "bench/results/dotnetway-six-ways/normal-2/fsharp-2.json",
-      "bench/results/dotnetway-six-ways/normal-2/fsharp-3.json"
+      "bench/results/dotnetway-six-ways/before-phase10/normal-1/fsharp-1.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-1/fsharp-2.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-1/fsharp-3.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-2/fsharp-1.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-2/fsharp-2.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-2/fsharp-3.json"
      ]
     },
     "rails": {
@@ -280,12 +280,12 @@
      "max": 5346.9,
      "n": 6,
      "sources": [
-      "bench/results/dotnetway-six-ways/normal-1/rails-1.json",
-      "bench/results/dotnetway-six-ways/normal-1/rails-2.json",
-      "bench/results/dotnetway-six-ways/normal-1/rails-3.json",
-      "bench/results/dotnetway-six-ways/normal-2/rails-1.json",
-      "bench/results/dotnetway-six-ways/normal-2/rails-2.json",
-      "bench/results/dotnetway-six-ways/normal-2/rails-3.json"
+      "bench/results/dotnetway-six-ways/before-phase10/normal-1/rails-1.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-1/rails-2.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-1/rails-3.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-2/rails-1.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-2/rails-2.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-2/rails-3.json"
      ]
     },
     "rust": {
@@ -294,12 +294,12 @@
      "max": 56251.0,
      "n": 6,
      "sources": [
-      "bench/results/dotnetway-six-ways/normal-1/rust-1.json",
-      "bench/results/dotnetway-six-ways/normal-1/rust-2.json",
-      "bench/results/dotnetway-six-ways/normal-1/rust-3.json",
-      "bench/results/dotnetway-six-ways/normal-2/rust-1.json",
-      "bench/results/dotnetway-six-ways/normal-2/rust-2.json",
-      "bench/results/dotnetway-six-ways/normal-2/rust-3.json"
+      "bench/results/dotnetway-six-ways/before-phase10/normal-1/rust-1.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-1/rust-2.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-1/rust-3.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-2/rust-1.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-2/rust-2.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-2/rust-3.json"
      ]
     },
     "c": {
@@ -308,12 +308,12 @@
      "max": 83643.7,
      "n": 6,
      "sources": [
-      "bench/results/dotnetway-six-ways/normal-1/c-1.json",
-      "bench/results/dotnetway-six-ways/normal-1/c-2.json",
-      "bench/results/dotnetway-six-ways/normal-1/c-3.json",
-      "bench/results/dotnetway-six-ways/normal-2/c-1.json",
-      "bench/results/dotnetway-six-ways/normal-2/c-2.json",
-      "bench/results/dotnetway-six-ways/normal-2/c-3.json"
+      "bench/results/dotnetway-six-ways/before-phase10/normal-1/c-1.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-1/c-2.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-1/c-3.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-2/c-1.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-2/c-2.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-2/c-3.json"
      ]
     }
    }
@@ -333,12 +333,12 @@
      "max": 7336.2,
      "n": 6,
      "sources": [
-      "bench/results/dotnetway-six-ways/normal-1/dotnetway-1.json",
-      "bench/results/dotnetway-six-ways/normal-1/dotnetway-2.json",
-      "bench/results/dotnetway-six-ways/normal-1/dotnetway-3.json",
-      "bench/results/dotnetway-six-ways/normal-2/dotnetway-1.json",
-      "bench/results/dotnetway-six-ways/normal-2/dotnetway-2.json",
-      "bench/results/dotnetway-six-ways/normal-2/dotnetway-3.json"
+      "bench/results/dotnetway-six-ways/before-phase10/normal-1/dotnetway-1.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-1/dotnetway-2.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-1/dotnetway-3.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-2/dotnetway-1.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-2/dotnetway-2.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-2/dotnetway-3.json"
      ]
     },
     "oncrack": {
@@ -347,12 +347,12 @@
      "max": 186867.7,
      "n": 6,
      "sources": [
-      "bench/results/dotnetway-six-ways/normal-1/oncrack-1.json",
-      "bench/results/dotnetway-six-ways/normal-1/oncrack-2.json",
-      "bench/results/dotnetway-six-ways/normal-1/oncrack-3.json",
-      "bench/results/dotnetway-six-ways/normal-2/oncrack-1.json",
-      "bench/results/dotnetway-six-ways/normal-2/oncrack-2.json",
-      "bench/results/dotnetway-six-ways/normal-2/oncrack-3.json"
+      "bench/results/dotnetway-six-ways/before-phase10/normal-1/oncrack-1.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-1/oncrack-2.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-1/oncrack-3.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-2/oncrack-1.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-2/oncrack-2.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-2/oncrack-3.json"
      ]
     },
     "fsharp": {
@@ -361,12 +361,12 @@
      "max": 34120.8,
      "n": 6,
      "sources": [
-      "bench/results/dotnetway-six-ways/normal-1/fsharp-1.json",
-      "bench/results/dotnetway-six-ways/normal-1/fsharp-2.json",
-      "bench/results/dotnetway-six-ways/normal-1/fsharp-3.json",
-      "bench/results/dotnetway-six-ways/normal-2/fsharp-1.json",
-      "bench/results/dotnetway-six-ways/normal-2/fsharp-2.json",
-      "bench/results/dotnetway-six-ways/normal-2/fsharp-3.json"
+      "bench/results/dotnetway-six-ways/before-phase10/normal-1/fsharp-1.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-1/fsharp-2.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-1/fsharp-3.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-2/fsharp-1.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-2/fsharp-2.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-2/fsharp-3.json"
      ]
     },
     "rails": {
@@ -375,12 +375,12 @@
      "max": 5247.2,
      "n": 6,
      "sources": [
-      "bench/results/dotnetway-six-ways/normal-1/rails-1.json",
-      "bench/results/dotnetway-six-ways/normal-1/rails-2.json",
-      "bench/results/dotnetway-six-ways/normal-1/rails-3.json",
-      "bench/results/dotnetway-six-ways/normal-2/rails-1.json",
-      "bench/results/dotnetway-six-ways/normal-2/rails-2.json",
-      "bench/results/dotnetway-six-ways/normal-2/rails-3.json"
+      "bench/results/dotnetway-six-ways/before-phase10/normal-1/rails-1.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-1/rails-2.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-1/rails-3.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-2/rails-1.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-2/rails-2.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-2/rails-3.json"
      ]
     },
     "rust": {
@@ -389,12 +389,12 @@
      "max": 56107.1,
      "n": 6,
      "sources": [
-      "bench/results/dotnetway-six-ways/normal-1/rust-1.json",
-      "bench/results/dotnetway-six-ways/normal-1/rust-2.json",
-      "bench/results/dotnetway-six-ways/normal-1/rust-3.json",
-      "bench/results/dotnetway-six-ways/normal-2/rust-1.json",
-      "bench/results/dotnetway-six-ways/normal-2/rust-2.json",
-      "bench/results/dotnetway-six-ways/normal-2/rust-3.json"
+      "bench/results/dotnetway-six-ways/before-phase10/normal-1/rust-1.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-1/rust-2.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-1/rust-3.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-2/rust-1.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-2/rust-2.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-2/rust-3.json"
      ]
     },
     "c": {
@@ -403,12 +403,12 @@
      "max": 83961.2,
      "n": 6,
      "sources": [
-      "bench/results/dotnetway-six-ways/normal-1/c-1.json",
-      "bench/results/dotnetway-six-ways/normal-1/c-2.json",
-      "bench/results/dotnetway-six-ways/normal-1/c-3.json",
-      "bench/results/dotnetway-six-ways/normal-2/c-1.json",
-      "bench/results/dotnetway-six-ways/normal-2/c-2.json",
-      "bench/results/dotnetway-six-ways/normal-2/c-3.json"
+      "bench/results/dotnetway-six-ways/before-phase10/normal-1/c-1.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-1/c-2.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-1/c-3.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-2/c-1.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-2/c-2.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-2/c-3.json"
      ]
     }
    }
@@ -428,12 +428,12 @@
      "max": 2291.2,
      "n": 6,
      "sources": [
-      "bench/results/dotnetway-six-ways/normal-1/dotnetway-1.json",
-      "bench/results/dotnetway-six-ways/normal-1/dotnetway-2.json",
-      "bench/results/dotnetway-six-ways/normal-1/dotnetway-3.json",
-      "bench/results/dotnetway-six-ways/normal-2/dotnetway-1.json",
-      "bench/results/dotnetway-six-ways/normal-2/dotnetway-2.json",
-      "bench/results/dotnetway-six-ways/normal-2/dotnetway-3.json"
+      "bench/results/dotnetway-six-ways/before-phase10/normal-1/dotnetway-1.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-1/dotnetway-2.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-1/dotnetway-3.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-2/dotnetway-1.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-2/dotnetway-2.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-2/dotnetway-3.json"
      ]
     },
     "oncrack": {
@@ -442,12 +442,12 @@
      "max": 15325.8,
      "n": 6,
      "sources": [
-      "bench/results/dotnetway-six-ways/normal-1/oncrack-1.json",
-      "bench/results/dotnetway-six-ways/normal-1/oncrack-2.json",
-      "bench/results/dotnetway-six-ways/normal-1/oncrack-3.json",
-      "bench/results/dotnetway-six-ways/normal-2/oncrack-1.json",
-      "bench/results/dotnetway-six-ways/normal-2/oncrack-2.json",
-      "bench/results/dotnetway-six-ways/normal-2/oncrack-3.json"
+      "bench/results/dotnetway-six-ways/before-phase10/normal-1/oncrack-1.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-1/oncrack-2.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-1/oncrack-3.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-2/oncrack-1.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-2/oncrack-2.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-2/oncrack-3.json"
      ]
     },
     "fsharp": {
@@ -456,12 +456,12 @@
      "max": 9548.0,
      "n": 6,
      "sources": [
-      "bench/results/dotnetway-six-ways/normal-1/fsharp-1.json",
-      "bench/results/dotnetway-six-ways/normal-1/fsharp-2.json",
-      "bench/results/dotnetway-six-ways/normal-1/fsharp-3.json",
-      "bench/results/dotnetway-six-ways/normal-2/fsharp-1.json",
-      "bench/results/dotnetway-six-ways/normal-2/fsharp-2.json",
-      "bench/results/dotnetway-six-ways/normal-2/fsharp-3.json"
+      "bench/results/dotnetway-six-ways/before-phase10/normal-1/fsharp-1.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-1/fsharp-2.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-1/fsharp-3.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-2/fsharp-1.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-2/fsharp-2.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-2/fsharp-3.json"
      ]
     },
     "rails": {
@@ -470,12 +470,12 @@
      "max": 405.0,
      "n": 6,
      "sources": [
-      "bench/results/dotnetway-six-ways/normal-1/rails-1.json",
-      "bench/results/dotnetway-six-ways/normal-1/rails-2.json",
-      "bench/results/dotnetway-six-ways/normal-1/rails-3.json",
-      "bench/results/dotnetway-six-ways/normal-2/rails-1.json",
-      "bench/results/dotnetway-six-ways/normal-2/rails-2.json",
-      "bench/results/dotnetway-six-ways/normal-2/rails-3.json"
+      "bench/results/dotnetway-six-ways/before-phase10/normal-1/rails-1.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-1/rails-2.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-1/rails-3.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-2/rails-1.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-2/rails-2.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-2/rails-3.json"
      ]
     },
     "rust": {
@@ -484,12 +484,12 @@
      "max": 6580.8,
      "n": 6,
      "sources": [
-      "bench/results/dotnetway-six-ways/normal-1/rust-1.json",
-      "bench/results/dotnetway-six-ways/normal-1/rust-2.json",
-      "bench/results/dotnetway-six-ways/normal-1/rust-3.json",
-      "bench/results/dotnetway-six-ways/normal-2/rust-1.json",
-      "bench/results/dotnetway-six-ways/normal-2/rust-2.json",
-      "bench/results/dotnetway-six-ways/normal-2/rust-3.json"
+      "bench/results/dotnetway-six-ways/before-phase10/normal-1/rust-1.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-1/rust-2.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-1/rust-3.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-2/rust-1.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-2/rust-2.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-2/rust-3.json"
      ]
     },
     "c": {
@@ -498,12 +498,12 @@
      "max": 5850.2,
      "n": 6,
      "sources": [
-      "bench/results/dotnetway-six-ways/normal-1/c-1.json",
-      "bench/results/dotnetway-six-ways/normal-1/c-2.json",
-      "bench/results/dotnetway-six-ways/normal-1/c-3.json",
-      "bench/results/dotnetway-six-ways/normal-2/c-1.json",
-      "bench/results/dotnetway-six-ways/normal-2/c-2.json",
-      "bench/results/dotnetway-six-ways/normal-2/c-3.json"
+      "bench/results/dotnetway-six-ways/before-phase10/normal-1/c-1.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-1/c-2.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-1/c-3.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-2/c-1.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-2/c-2.json",
+      "bench/results/dotnetway-six-ways/before-phase10/normal-2/c-3.json"
      ]
     }
    }
@@ -523,12 +523,12 @@
      "max": 2996.9,
      "n": 6,
      "sources": [
-      "bench/results/dotnetway-six-ways/mixed-1/dotnetway-1.json",
-      "bench/results/dotnetway-six-ways/mixed-1/dotnetway-2.json",
-      "bench/results/dotnetway-six-ways/mixed-1/dotnetway-3.json",
-      "bench/results/dotnetway-six-ways/mixed-2/dotnetway-1.json",
-      "bench/results/dotnetway-six-ways/mixed-2/dotnetway-2.json",
-      "bench/results/dotnetway-six-ways/mixed-2/dotnetway-3.json"
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-1/dotnetway-1.json",
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-1/dotnetway-2.json",
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-1/dotnetway-3.json",
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-2/dotnetway-1.json",
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-2/dotnetway-2.json",
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-2/dotnetway-3.json"
      ]
     },
     "oncrack": {
@@ -537,12 +537,12 @@
      "max": 163951.4,
      "n": 6,
      "sources": [
-      "bench/results/dotnetway-six-ways/mixed-1/oncrack-1.json",
-      "bench/results/dotnetway-six-ways/mixed-1/oncrack-2.json",
-      "bench/results/dotnetway-six-ways/mixed-1/oncrack-3.json",
-      "bench/results/dotnetway-six-ways/mixed-2/oncrack-1.json",
-      "bench/results/dotnetway-six-ways/mixed-2/oncrack-2.json",
-      "bench/results/dotnetway-six-ways/mixed-2/oncrack-3.json"
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-1/oncrack-1.json",
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-1/oncrack-2.json",
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-1/oncrack-3.json",
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-2/oncrack-1.json",
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-2/oncrack-2.json",
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-2/oncrack-3.json"
      ]
     },
     "fsharp": {
@@ -551,12 +551,12 @@
      "max": 33747.1,
      "n": 6,
      "sources": [
-      "bench/results/dotnetway-six-ways/mixed-1/fsharp-1.json",
-      "bench/results/dotnetway-six-ways/mixed-1/fsharp-2.json",
-      "bench/results/dotnetway-six-ways/mixed-1/fsharp-3.json",
-      "bench/results/dotnetway-six-ways/mixed-2/fsharp-1.json",
-      "bench/results/dotnetway-six-ways/mixed-2/fsharp-2.json",
-      "bench/results/dotnetway-six-ways/mixed-2/fsharp-3.json"
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-1/fsharp-1.json",
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-1/fsharp-2.json",
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-1/fsharp-3.json",
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-2/fsharp-1.json",
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-2/fsharp-2.json",
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-2/fsharp-3.json"
      ]
     },
     "rails": {
@@ -565,12 +565,12 @@
      "max": 2863.3,
      "n": 6,
      "sources": [
-      "bench/results/dotnetway-six-ways/mixed-1/rails-1.json",
-      "bench/results/dotnetway-six-ways/mixed-1/rails-2.json",
-      "bench/results/dotnetway-six-ways/mixed-1/rails-3.json",
-      "bench/results/dotnetway-six-ways/mixed-2/rails-1.json",
-      "bench/results/dotnetway-six-ways/mixed-2/rails-2.json",
-      "bench/results/dotnetway-six-ways/mixed-2/rails-3.json"
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-1/rails-1.json",
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-1/rails-2.json",
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-1/rails-3.json",
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-2/rails-1.json",
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-2/rails-2.json",
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-2/rails-3.json"
      ]
     },
     "rust": {
@@ -579,12 +579,12 @@
      "max": 47445.8,
      "n": 6,
      "sources": [
-      "bench/results/dotnetway-six-ways/mixed-1/rust-1.json",
-      "bench/results/dotnetway-six-ways/mixed-1/rust-2.json",
-      "bench/results/dotnetway-six-ways/mixed-1/rust-3.json",
-      "bench/results/dotnetway-six-ways/mixed-2/rust-1.json",
-      "bench/results/dotnetway-six-ways/mixed-2/rust-2.json",
-      "bench/results/dotnetway-six-ways/mixed-2/rust-3.json"
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-1/rust-1.json",
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-1/rust-2.json",
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-1/rust-3.json",
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-2/rust-1.json",
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-2/rust-2.json",
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-2/rust-3.json"
      ]
     },
     "c": {
@@ -593,12 +593,12 @@
      "max": 72817.8,
      "n": 6,
      "sources": [
-      "bench/results/dotnetway-six-ways/mixed-1/c-1.json",
-      "bench/results/dotnetway-six-ways/mixed-1/c-2.json",
-      "bench/results/dotnetway-six-ways/mixed-1/c-3.json",
-      "bench/results/dotnetway-six-ways/mixed-2/c-1.json",
-      "bench/results/dotnetway-six-ways/mixed-2/c-2.json",
-      "bench/results/dotnetway-six-ways/mixed-2/c-3.json"
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-1/c-1.json",
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-1/c-2.json",
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-1/c-3.json",
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-2/c-1.json",
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-2/c-2.json",
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-2/c-3.json"
      ]
     }
    }
@@ -618,12 +618,12 @@
      "max": 6771.0,
      "n": 6,
      "sources": [
-      "bench/results/dotnetway-six-ways/mixed-1/dotnetway-1.json",
-      "bench/results/dotnetway-six-ways/mixed-1/dotnetway-2.json",
-      "bench/results/dotnetway-six-ways/mixed-1/dotnetway-3.json",
-      "bench/results/dotnetway-six-ways/mixed-2/dotnetway-1.json",
-      "bench/results/dotnetway-six-ways/mixed-2/dotnetway-2.json",
-      "bench/results/dotnetway-six-ways/mixed-2/dotnetway-3.json"
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-1/dotnetway-1.json",
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-1/dotnetway-2.json",
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-1/dotnetway-3.json",
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-2/dotnetway-1.json",
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-2/dotnetway-2.json",
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-2/dotnetway-3.json"
      ]
     },
     "oncrack": {
@@ -632,12 +632,12 @@
      "max": 181542.4,
      "n": 6,
      "sources": [
-      "bench/results/dotnetway-six-ways/mixed-1/oncrack-1.json",
-      "bench/results/dotnetway-six-ways/mixed-1/oncrack-2.json",
-      "bench/results/dotnetway-six-ways/mixed-1/oncrack-3.json",
-      "bench/results/dotnetway-six-ways/mixed-2/oncrack-1.json",
-      "bench/results/dotnetway-six-ways/mixed-2/oncrack-2.json",
-      "bench/results/dotnetway-six-ways/mixed-2/oncrack-3.json"
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-1/oncrack-1.json",
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-1/oncrack-2.json",
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-1/oncrack-3.json",
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-2/oncrack-1.json",
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-2/oncrack-2.json",
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-2/oncrack-3.json"
      ]
     },
     "fsharp": {
@@ -646,12 +646,12 @@
      "max": 41757.0,
      "n": 6,
      "sources": [
-      "bench/results/dotnetway-six-ways/mixed-1/fsharp-1.json",
-      "bench/results/dotnetway-six-ways/mixed-1/fsharp-2.json",
-      "bench/results/dotnetway-six-ways/mixed-1/fsharp-3.json",
-      "bench/results/dotnetway-six-ways/mixed-2/fsharp-1.json",
-      "bench/results/dotnetway-six-ways/mixed-2/fsharp-2.json",
-      "bench/results/dotnetway-six-ways/mixed-2/fsharp-3.json"
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-1/fsharp-1.json",
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-1/fsharp-2.json",
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-1/fsharp-3.json",
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-2/fsharp-1.json",
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-2/fsharp-2.json",
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-2/fsharp-3.json"
      ]
     },
     "rails": {
@@ -660,12 +660,12 @@
      "max": 3508.0,
      "n": 6,
      "sources": [
-      "bench/results/dotnetway-six-ways/mixed-1/rails-1.json",
-      "bench/results/dotnetway-six-ways/mixed-1/rails-2.json",
-      "bench/results/dotnetway-six-ways/mixed-1/rails-3.json",
-      "bench/results/dotnetway-six-ways/mixed-2/rails-1.json",
-      "bench/results/dotnetway-six-ways/mixed-2/rails-2.json",
-      "bench/results/dotnetway-six-ways/mixed-2/rails-3.json"
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-1/rails-1.json",
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-1/rails-2.json",
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-1/rails-3.json",
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-2/rails-1.json",
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-2/rails-2.json",
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-2/rails-3.json"
      ]
     },
     "rust": {
@@ -674,12 +674,12 @@
      "max": 45256.5,
      "n": 6,
      "sources": [
-      "bench/results/dotnetway-six-ways/mixed-1/rust-1.json",
-      "bench/results/dotnetway-six-ways/mixed-1/rust-2.json",
-      "bench/results/dotnetway-six-ways/mixed-1/rust-3.json",
-      "bench/results/dotnetway-six-ways/mixed-2/rust-1.json",
-      "bench/results/dotnetway-six-ways/mixed-2/rust-2.json",
-      "bench/results/dotnetway-six-ways/mixed-2/rust-3.json"
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-1/rust-1.json",
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-1/rust-2.json",
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-1/rust-3.json",
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-2/rust-1.json",
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-2/rust-2.json",
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-2/rust-3.json"
      ]
     },
     "c": {
@@ -688,12 +688,12 @@
      "max": 74179.6,
      "n": 6,
      "sources": [
-      "bench/results/dotnetway-six-ways/mixed-1/c-1.json",
-      "bench/results/dotnetway-six-ways/mixed-1/c-2.json",
-      "bench/results/dotnetway-six-ways/mixed-1/c-3.json",
-      "bench/results/dotnetway-six-ways/mixed-2/c-1.json",
-      "bench/results/dotnetway-six-ways/mixed-2/c-2.json",
-      "bench/results/dotnetway-six-ways/mixed-2/c-3.json"
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-1/c-1.json",
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-1/c-2.json",
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-1/c-3.json",
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-2/c-1.json",
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-2/c-2.json",
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-2/c-3.json"
      ]
     }
    }
@@ -713,12 +713,12 @@
      "max": 7560.9,
      "n": 6,
      "sources": [
-      "bench/results/dotnetway-six-ways/mixed-1/dotnetway-1.json",
-      "bench/results/dotnetway-six-ways/mixed-1/dotnetway-2.json",
-      "bench/results/dotnetway-six-ways/mixed-1/dotnetway-3.json",
-      "bench/results/dotnetway-six-ways/mixed-2/dotnetway-1.json",
-      "bench/results/dotnetway-six-ways/mixed-2/dotnetway-2.json",
-      "bench/results/dotnetway-six-ways/mixed-2/dotnetway-3.json"
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-1/dotnetway-1.json",
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-1/dotnetway-2.json",
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-1/dotnetway-3.json",
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-2/dotnetway-1.json",
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-2/dotnetway-2.json",
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-2/dotnetway-3.json"
      ]
     },
     "oncrack": {
@@ -727,12 +727,12 @@
      "max": 188499.9,
      "n": 6,
      "sources": [
-      "bench/results/dotnetway-six-ways/mixed-1/oncrack-1.json",
-      "bench/results/dotnetway-six-ways/mixed-1/oncrack-2.json",
-      "bench/results/dotnetway-six-ways/mixed-1/oncrack-3.json",
-      "bench/results/dotnetway-six-ways/mixed-2/oncrack-1.json",
-      "bench/results/dotnetway-six-ways/mixed-2/oncrack-2.json",
-      "bench/results/dotnetway-six-ways/mixed-2/oncrack-3.json"
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-1/oncrack-1.json",
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-1/oncrack-2.json",
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-1/oncrack-3.json",
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-2/oncrack-1.json",
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-2/oncrack-2.json",
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-2/oncrack-3.json"
      ]
     },
     "fsharp": {
@@ -741,12 +741,12 @@
      "max": 38109.6,
      "n": 6,
      "sources": [
-      "bench/results/dotnetway-six-ways/mixed-1/fsharp-1.json",
-      "bench/results/dotnetway-six-ways/mixed-1/fsharp-2.json",
-      "bench/results/dotnetway-six-ways/mixed-1/fsharp-3.json",
-      "bench/results/dotnetway-six-ways/mixed-2/fsharp-1.json",
-      "bench/results/dotnetway-six-ways/mixed-2/fsharp-2.json",
-      "bench/results/dotnetway-six-ways/mixed-2/fsharp-3.json"
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-1/fsharp-1.json",
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-1/fsharp-2.json",
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-1/fsharp-3.json",
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-2/fsharp-1.json",
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-2/fsharp-2.json",
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-2/fsharp-3.json"
      ]
     },
     "rails": {
@@ -755,12 +755,12 @@
      "max": 4446.3,
      "n": 6,
      "sources": [
-      "bench/results/dotnetway-six-ways/mixed-1/rails-1.json",
-      "bench/results/dotnetway-six-ways/mixed-1/rails-2.json",
-      "bench/results/dotnetway-six-ways/mixed-1/rails-3.json",
-      "bench/results/dotnetway-six-ways/mixed-2/rails-1.json",
-      "bench/results/dotnetway-six-ways/mixed-2/rails-2.json",
-      "bench/results/dotnetway-six-ways/mixed-2/rails-3.json"
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-1/rails-1.json",
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-1/rails-2.json",
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-1/rails-3.json",
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-2/rails-1.json",
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-2/rails-2.json",
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-2/rails-3.json"
      ]
     },
     "rust": {
@@ -769,12 +769,12 @@
      "max": 55495.4,
      "n": 6,
      "sources": [
-      "bench/results/dotnetway-six-ways/mixed-1/rust-1.json",
-      "bench/results/dotnetway-six-ways/mixed-1/rust-2.json",
-      "bench/results/dotnetway-six-ways/mixed-1/rust-3.json",
-      "bench/results/dotnetway-six-ways/mixed-2/rust-1.json",
-      "bench/results/dotnetway-six-ways/mixed-2/rust-2.json",
-      "bench/results/dotnetway-six-ways/mixed-2/rust-3.json"
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-1/rust-1.json",
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-1/rust-2.json",
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-1/rust-3.json",
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-2/rust-1.json",
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-2/rust-2.json",
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-2/rust-3.json"
      ]
     },
     "c": {
@@ -783,12 +783,12 @@
      "max": 84212.4,
      "n": 6,
      "sources": [
-      "bench/results/dotnetway-six-ways/mixed-1/c-1.json",
-      "bench/results/dotnetway-six-ways/mixed-1/c-2.json",
-      "bench/results/dotnetway-six-ways/mixed-1/c-3.json",
-      "bench/results/dotnetway-six-ways/mixed-2/c-1.json",
-      "bench/results/dotnetway-six-ways/mixed-2/c-2.json",
-      "bench/results/dotnetway-six-ways/mixed-2/c-3.json"
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-1/c-1.json",
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-1/c-2.json",
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-1/c-3.json",
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-2/c-1.json",
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-2/c-2.json",
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-2/c-3.json"
      ]
     }
    }
@@ -808,12 +808,12 @@
      "max": 6994.2,
      "n": 6,
      "sources": [
-      "bench/results/dotnetway-six-ways/mixed-1/dotnetway-1.json",
-      "bench/results/dotnetway-six-ways/mixed-1/dotnetway-2.json",
-      "bench/results/dotnetway-six-ways/mixed-1/dotnetway-3.json",
-      "bench/results/dotnetway-six-ways/mixed-2/dotnetway-1.json",
-      "bench/results/dotnetway-six-ways/mixed-2/dotnetway-2.json",
-      "bench/results/dotnetway-six-ways/mixed-2/dotnetway-3.json"
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-1/dotnetway-1.json",
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-1/dotnetway-2.json",
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-1/dotnetway-3.json",
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-2/dotnetway-1.json",
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-2/dotnetway-2.json",
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-2/dotnetway-3.json"
      ]
     },
     "oncrack": {
@@ -822,12 +822,12 @@
      "max": 184053.6,
      "n": 6,
      "sources": [
-      "bench/results/dotnetway-six-ways/mixed-1/oncrack-1.json",
-      "bench/results/dotnetway-six-ways/mixed-1/oncrack-2.json",
-      "bench/results/dotnetway-six-ways/mixed-1/oncrack-3.json",
-      "bench/results/dotnetway-six-ways/mixed-2/oncrack-1.json",
-      "bench/results/dotnetway-six-ways/mixed-2/oncrack-2.json",
-      "bench/results/dotnetway-six-ways/mixed-2/oncrack-3.json"
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-1/oncrack-1.json",
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-1/oncrack-2.json",
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-1/oncrack-3.json",
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-2/oncrack-1.json",
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-2/oncrack-2.json",
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-2/oncrack-3.json"
      ]
     },
     "fsharp": {
@@ -836,12 +836,12 @@
      "max": 34956.1,
      "n": 6,
      "sources": [
-      "bench/results/dotnetway-six-ways/mixed-1/fsharp-1.json",
-      "bench/results/dotnetway-six-ways/mixed-1/fsharp-2.json",
-      "bench/results/dotnetway-six-ways/mixed-1/fsharp-3.json",
-      "bench/results/dotnetway-six-ways/mixed-2/fsharp-1.json",
-      "bench/results/dotnetway-six-ways/mixed-2/fsharp-2.json",
-      "bench/results/dotnetway-six-ways/mixed-2/fsharp-3.json"
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-1/fsharp-1.json",
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-1/fsharp-2.json",
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-1/fsharp-3.json",
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-2/fsharp-1.json",
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-2/fsharp-2.json",
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-2/fsharp-3.json"
      ]
     },
     "rails": {
@@ -850,12 +850,12 @@
      "max": 4208.7,
      "n": 6,
      "sources": [
-      "bench/results/dotnetway-six-ways/mixed-1/rails-1.json",
-      "bench/results/dotnetway-six-ways/mixed-1/rails-2.json",
-      "bench/results/dotnetway-six-ways/mixed-1/rails-3.json",
-      "bench/results/dotnetway-six-ways/mixed-2/rails-1.json",
-      "bench/results/dotnetway-six-ways/mixed-2/rails-2.json",
-      "bench/results/dotnetway-six-ways/mixed-2/rails-3.json"
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-1/rails-1.json",
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-1/rails-2.json",
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-1/rails-3.json",
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-2/rails-1.json",
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-2/rails-2.json",
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-2/rails-3.json"
      ]
     },
     "rust": {
@@ -864,12 +864,12 @@
      "max": 54374.1,
      "n": 6,
      "sources": [
-      "bench/results/dotnetway-six-ways/mixed-1/rust-1.json",
-      "bench/results/dotnetway-six-ways/mixed-1/rust-2.json",
-      "bench/results/dotnetway-six-ways/mixed-1/rust-3.json",
-      "bench/results/dotnetway-six-ways/mixed-2/rust-1.json",
-      "bench/results/dotnetway-six-ways/mixed-2/rust-2.json",
-      "bench/results/dotnetway-six-ways/mixed-2/rust-3.json"
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-1/rust-1.json",
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-1/rust-2.json",
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-1/rust-3.json",
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-2/rust-1.json",
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-2/rust-2.json",
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-2/rust-3.json"
      ]
     },
     "c": {
@@ -878,12 +878,12 @@
      "max": 80848.0,
      "n": 6,
      "sources": [
-      "bench/results/dotnetway-six-ways/mixed-1/c-1.json",
-      "bench/results/dotnetway-six-ways/mixed-1/c-2.json",
-      "bench/results/dotnetway-six-ways/mixed-1/c-3.json",
-      "bench/results/dotnetway-six-ways/mixed-2/c-1.json",
-      "bench/results/dotnetway-six-ways/mixed-2/c-2.json",
-      "bench/results/dotnetway-six-ways/mixed-2/c-3.json"
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-1/c-1.json",
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-1/c-2.json",
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-1/c-3.json",
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-2/c-1.json",
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-2/c-2.json",
+      "bench/results/dotnetway-six-ways/before-phase10/mixed-2/c-3.json"
      ]
     }
    }

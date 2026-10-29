@@ -1,0 +1,17 @@
+PASS two users /rooms/654632876 -- statuses [200, 200, 200, 200] ids ({127326141}, {712064548})
+PASS two users /rooms/654632876/messages -- statuses [200, 200, 200, 200] ids ({None}, {None})
+PASS two users /users/me/sidebar -- statuses [200, 200, 200, 200] ids ({127326141}, {712064548})
+PASS two users /searches?q=the -- statuses [200, 200, 200, 200] ids ({127326141}, {712064548})
+PASS hit serves the warm page after an outside write (cache is live) -- titles 'All Talk' -> 'All Talk'
+PASS jason posts -- status 200
+PASS fresh message shows on /rooms/486777696 -- status 200
+PASS fresh message shows on /rooms/486777696/messages -- status 200
+PASS fresh message shows in search -- status 200
+PASS removed membership refused on /rooms/654632876 -- status 302 location http://127.0.0.1:4312/
+PASS removed membership refused on /rooms/654632876/messages -- status 404 location None
+PASS sidebar after raw membership delete (warm entry, outside write) -- Designers in sidebar: False (class B within 60 s)
+PASS revoked session refused on every cached page -- [('/rooms/654632876', 302), ('/rooms/654632876/messages', 302), ('/users/me/sidebar', 302), ('/searches?q=the', 302)]
+PASS the other session still served -- [('/rooms/654632876', 200), ('/rooms/654632876/messages', 200), ('/users/me/sidebar', 200), ('/searches?q=the', 200)]
+PASS signed-out cookie refused -- signout 302 [('/rooms/654632876', 302), ('/rooms/654632876/messages', 302), ('/users/me/sidebar', 302), ('/searches?q=the', 302)]
+PASS raw status-only deactivation behaves as Rails (sessions kept, so signed in) -- [('/rooms/654632876', 200), ('/rooms/654632876/messages', 200), ('/users/me/sidebar', 200), ('/searches?q=the', 200)]
+SUMMARY 16 / 16

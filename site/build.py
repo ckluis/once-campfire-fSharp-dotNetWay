@@ -415,7 +415,8 @@ def facts():
         F['steps'].append(st)
     # proofs
     F['pix'] = pixel_gate()
-    F['verify'] = {k: md(GATE + '/verify.log', r'(?m)^  %s: (\d+)$' % k, 'bin/verify at the Phase 10 gate: tests %s' % k) for k in ('total', 'succeeded', 'failed', 'skipped')}
+    # The closing commit's bin/verify (the Phases 9-10 verifier's run, after the security review's fixes and tests), not the gate's.
+    F['verify'] = {k: md(R + '/dotnetway-p9p10-verify/verify.log', r'(?m)^  %s: (\d+)$' % k, 'bin/verify on the closing commit (Phases 9-10 verification): tests %s' % k) for k in ('total', 'succeeded', 'failed', 'skipped')}
     F['cookie'] = md(GATE + '/cookie-roundtrip.log', r'cookie-roundtrip: (\d+)/\d+ checks passed', 'bin/cookie-roundtrip at the Phase 10 gate: checks passed')
     F['cookie_n'] = md(GATE + '/cookie-roundtrip.log', r'cookie-roundtrip: \d+/(\d+) checks passed', 'bin/cookie-roundtrip at the Phase 10 gate: checks run')
     F['assets'] = md(GATE + '/asset-check.log', r'asset-check: (\d+) checks, \d+ failed', 'bin/asset-check at the Phase 10 gate: checks')
@@ -747,9 +748,9 @@ def proof(F):
         ('Cookie round trip', '%s<i>/</i>%s' % (L.n(F['cookie']), L.n(F['cookie_n'])),
          'checks: sign in on Rails, switch the same storage to theDotNetWay and post, then back. Nobody is signed out by an upgrade or a rollback.', None),
         ('Database differential', 'Equal', 'Fixtures and a long scenario written by Active Record and by EF Core compare equal; the schemas agree; Rails boots on the database theDotNetWay wrote.', None),
-        ('Tests', L.n(v['succeeded']), 'passed of %s in <code>bin/verify</code>, %s failed, %s skipped (Linux-only or reference-image tests, run elsewhere), with the markup lint, the Dapper and EF guards and the zero-compilation check.'
+        ('Tests', L.n(v['succeeded']), 'passed of %s in <code>bin/verify</code> on the closing commit, %s failed, %s skipped (Linux-only or reference-image tests, run elsewhere), with the markup lint, the Dapper and EF guards and the zero-compilation check.'
          % (L.n(v['total']), L.n(v['failed']), L.n(v['skipped'])), None),
-        ('Security reviews', L.n(F['sec']), 'independent reviews of the risky layers: views, rich text, assets, the front server, the integrations, then the page cache and the close. Findings were fixed before each phase closed.', 'p-security'),
+        ('Security reviews', L.n(F['sec']), 'independent reviews of the risky layers: views, rich text, assets, the front server, the integrations, then the page cache and the close. Findings were fixed, or accepted with a recorded reason, before each phase closed.', 'p-security'),
         ('Assets', '%s' % L.n(F['assets']), 'network checks on the asset routes (fingerprints, encodings, probes for traversal and dotfiles), %s failed.' % L.n(F['assets_f']), None),
         ('Known differences', 'Listed', 'Every difference a person or another system could notice has a README entry, the reference file it departs from and a test that pins it.', 'readme'),
     ]

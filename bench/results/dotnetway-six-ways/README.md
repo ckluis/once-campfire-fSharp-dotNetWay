@@ -80,14 +80,14 @@ gate's). Search order per app: created_at for the F# port and theDotNetWay, id f
 
 ### Sessions, host probe and load
 
-`bench/lib/hostprobe.py 0-7` (a fixed spin on every vCPU against the quietest this VM has shown, 55.57 ms) before and after each session, and the VM's load average (`*.host`, `*.loadsamples`).
+`bench/lib/hostprobe.py 0-7` (a fixed spin on every vCPU against the quietest this VM has shown, 55.57 ms) before and after each session, and the VM's load average (`*.host`, `*.loadsamples`). The probe column is each session's own `<session>.host` (corrected by the Phases 9-10 verifier: it had been offset against the sessions; the load and the pid counter in each file order them normal-1, mixed-1, normal-2, mixed-2).
 
 | session | time (EDT, 2026-10-29) | probe ratio before / after | VM 1-min load range | Mac free |
 |---|---|---|---|---|
-| normal-1 | 01:57:54-02:14:29 | 1.064 / 1.066 | 0.49-7.18 | 22 GB |
-| mixed-1 | 02:14:34-02:28:10 | 1.069 / 1.054 | 4.23-6.30 | 22 GB |
-| normal-2 | 02:28:15-02:44:50 | 1.028 / 1.080 | 3.76-8.04 | 28 GB |
-| mixed-2 | 02:44:55-02:58:31 | 1.050 / 1.075 | 4.09-6.89 | 28 GB |
+| normal-1 | 01:57:54-02:14:29 | 1.028 / 1.080 | 0.49-7.18 | 22 GB |
+| mixed-1 | 02:14:34-02:28:10 | 1.064 / 1.066 | 4.23-6.30 | 22 GB |
+| normal-2 | 02:28:15-02:44:50 | 1.050 / 1.075 | 3.76-8.04 | 28 GB |
+| mixed-2 | 02:44:55-02:58:31 | 1.069 / 1.054 | 4.09-6.89 | 28 GB |
 
 Recorded gap: the Mac-side load sampler's output file was overwritten when the VM's output directory was copied back, so the Mac's own load average and non-VM CPU per session were not kept;
 other sessions were running on the Mac (the VM load of 4-6 with the benchmark's 4 server CPUs and 4 client CPUs is typical of this host). The probe ratios (1.03-1.08, none above 1.10) are the evidence of a quiet VM.
