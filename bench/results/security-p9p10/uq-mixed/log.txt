@@ -1,0 +1,4 @@
+03:32:13 building campfire-dotnetway:uq-fed00c4 from a clean clone of fed00c4
+03:32:16 dotnetway image campfire-dotnetway:uq-fed00c4 revision label fed00c4f61902a2f99dfffdf13a01e6c5ed6e6f5
+03:32:21 ruby bin/benchmark --workspace /mnt/upstream-quick/ws --rounds 3 --duration 8 --concurrencies 16 --cpus 0-3 --client-cpus 4-7 --apps rails,fsharp,dotnetway --routes room_show,messages_page,sidebar,search --output /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/bench/results/security-p9p10/uq-mixed/raw --mixed-write-rate 10
+03:39:12 harness exit 0

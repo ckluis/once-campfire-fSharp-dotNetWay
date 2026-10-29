@@ -1,0 +1,53 @@
+03:23:12 building campfire-dotnetway:uq-fed00c4 from a clean clone of fed00c4
+03:23:46 dotnetway image campfire-dotnetway:uq-fed00c4 revision label fed00c4f61902a2f99dfffdf13a01e6c5ed6e6f5
+03:23:51 ruby bin/benchmark --workspace /mnt/upstream-quick/ws --rounds 3 --duration 8 --concurrencies 16 --cpus 0-3 --client-cpus 4-7 --apps rails,fsharp,dotnetway --routes room_show,messages_page,sidebar,search,post_message --output /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/bench/results/security-p9p10/uq-normal/raw
+03:32:12 harness exit 0
+# upstream-quick (normal profile, 3 rounds, c=16)
+
+Requests per second at c=16: median (min-max over the rounds); x Rails is the median over the same session's Rails median.
+
+| route | rails | fsharp | dotnetway |
+|---|---|---|---|
+| room_show | 4,881 (4,876-4,940) | 36,206 (33,204-36,468) **7.42x** | 34,292 (33,110-34,721) **7.03x** |
+| messages_page | 4,924 (4,779-5,001) | 41,491 (40,371-42,169) **8.43x** | 33,036 (32,403-33,965) **6.71x** |
+| sidebar | 5,354 (5,069-5,470) | 38,118 (37,361-38,507) **7.12x** | 41,616 (40,690-41,913) **7.77x** |
+| search | 5,156 (4,785-5,331) | 33,849 (33,742-33,850) **6.56x** | 40,927 (38,510-41,036) **7.94x** |
+| post_message | 403 (398-405) | 9,449 (9,396-9,454) **23.47x** | 2,836 (2,650-2,936) **7.04x** |
+
+Commits:
+- rails: `ca9b963` dirty=false  image `sha256:abaf6099efd4`
+- fsharp: `9954ad0` dirty=false  image `sha256:eff5fc297f6a`
+- dotnetway: `fed00c4` dirty=false  image `sha256:f2b6abb5180e`
+- seed sha256 `e7b7f2b4`, harness `eb45b63`
+
+Host:
+- before: {"spin_ms": 59.35, "spin_ms_max_cpu": 62.03, "cpus": "0-7", "baseline_ms": 55.57, "ratio": 1.068} load=2.38 1.83 2.06 1/211 21115
+- after: {"spin_ms": 60.02, "spin_ms_max_cpu": 61.09, "cpus": "0-7", "baseline_ms": 55.57, "ratio": 1.08} load=5.78 5.29 3.70 1/205 24171
+- commit=fed00c4f61902a2f99dfffdf13a01e6c5ed6e6f5 image=campfire-dotnetway:uq-fed00c4 mounted= mixed=0 harness=eb45b63
+
+03:32:13 building campfire-dotnetway:uq-fed00c4 from a clean clone of fed00c4
+03:32:16 dotnetway image campfire-dotnetway:uq-fed00c4 revision label fed00c4f61902a2f99dfffdf13a01e6c5ed6e6f5
+03:32:21 ruby bin/benchmark --workspace /mnt/upstream-quick/ws --rounds 3 --duration 8 --concurrencies 16 --cpus 0-3 --client-cpus 4-7 --apps rails,fsharp,dotnetway --routes room_show,messages_page,sidebar,search --output /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/bench/results/security-p9p10/uq-mixed/raw --mixed-write-rate 10
+03:39:12 harness exit 0
+# upstream-quick (mixed profile, 3 rounds, c=16)
+
+Requests per second at c=16: median (min-max over the rounds); x Rails is the median over the same session's Rails median.
+
+| route | rails | fsharp | dotnetway |
+|---|---|---|---|
+| room_show | 2,928 (2,638-3,322) | 33,565 (32,391-34,308) **11.46x** | 31,968 (31,288-32,599) **10.92x** |
+| messages_page | 3,387 (3,365-3,680) | 41,820 (41,356-41,849) **12.35x** | 31,788 (30,873-32,379) **9.39x** |
+| sidebar | 4,254 (4,147-4,718) | 37,800 (37,376-37,841) **8.89x** | 38,872 (38,111-39,282) **9.14x** |
+| search | 3,988 (3,887-4,287) | 34,736 (34,579-34,869) **8.71x** | 38,352 (37,335-38,614) **9.62x** |
+
+Commits:
+- rails: `ca9b963` dirty=false  image `sha256:abaf6099efd4`
+- fsharp: `9954ad0` dirty=false  image `sha256:eff5fc297f6a`
+- dotnetway: `fed00c4` dirty=false  image `sha256:6905266f6503`
+- seed sha256 `e7b7f2b4`, harness `eb45b63`
+
+Host:
+- before: {"spin_ms": 59.75, "spin_ms_max_cpu": 62.95, "cpus": "0-7", "baseline_ms": 55.57, "ratio": 1.075} load=5.19 5.18 3.68 1/204 24509
+- after: {"spin_ms": 58.7, "spin_ms_max_cpu": 60.66, "cpus": "0-7", "baseline_ms": 55.57, "ratio": 1.056} load=4.86 5.43 4.40 1/204 27303
+- commit=fed00c4f61902a2f99dfffdf13a01e6c5ed6e6f5 image=campfire-dotnetway:uq-fed00c4 mounted= mixed=1 harness=eb45b63
+

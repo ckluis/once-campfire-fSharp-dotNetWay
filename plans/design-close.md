@@ -323,3 +323,33 @@ Settled by D9, the vectors and the spikes, and recorded above:
 - The channel readers (C6, S1).
 - The project and namespaces (C7, S7).
 - The test consolidation, without a second boot path (C8).
+
+## 11. Security review (2026-10-29, Opus reviewer, on `e30e84d`; fixes in `3a6c4f8`, coverage in `fed00c4`)
+
+**Read.** Phase 9's `src` changes (`git log 8f72e40..838f700`): the Campfire.Rails merge (`bb84c82`; the 18 files of the old
+`Campfire.RailsCompat` compared with `src/Campfire.Rails` line by line, namespace and `open` lines aside), the trims (`b50edf4`: `Uri.fs`,
+`Float.toF`, Erb's writers), the storage commits (`9dc8f2c`, `5b534b3`, `c8f739f`: `ActiveStorage.fileResult`, the proxy and disk
+controllers, `Outgoing.fs`, `TempFile.fs`, `Disk.fs`, `Json.parseInt64Only`), the log scope (`dabac38`), the channel readers (`979d360`)
+and the renames (`6f0348d`); the tests the phase deleted (every `let ``...`` ` at `8f72e40` missing at HEAD, 47 names, of which 32 were
+renamed with their Phase 8 ids and 15 are gone); and the Phase 8 verifier's list of integration facts (CL1-CL5, GD1-GD4, OG1-OG4,
+SR-J1/J2/J5, WP1-WP8, RD1-RD7, OP1-OP8, BB1-BB3, SR1-SR8, LG1-LG4, HS12): every id is still a test.
+
+**Findings.**
+
+| # | Where | Severity | Status | What, and the test |
+|---|---|---|---|---|
+| CS1 | `Web/HttpLog.fs:24` (`loggedWith`) | Low | fixed (`3a6c4f8`) | **A write on a skipped path left no request line.** C5 skipped `/up`, the avatar family and the asset routes by path alone, so `DELETE /users/:id/avatar` (`Users::AvatarsController#destroy`, a write) and any other method on those paths (probes, a `POST /up`) were not logged, where Rails and Thruster log them. The skip now needs GET or HEAD too (the method as sent: `UseHttpMethodOverride` runs later, so a form's `POST` with `_method` is logged). **LS6**: a form DELETE, a DELETE, `POST /up` and `POST` to an asset route log one line each; it failed before (no line). A GET of each still logs none (LS2). |
+| CS2 | `src/Campfire.Rails` | Info | holds | **Cookie, signed-id and crypto formats byte for byte.** `MessageVerifier`, `MessageEncryptor`, `KeyGenerator`, `KeyedCrypto`, `Secrets`, `SignedId`, `Cookies`, `Password`, `Marshal`, `Metadata`, `RailsEncoding`, `Timestamp`, `GlobalId`, `Turbo`, `ContentDisposition` are identical to `8f72e40`'s apart from namespace lines; `Json.fs` gained `Value.Set`/`Merge` and `parseInt64Only` (`JsonValue.fs` folded in: the blob-key payloads it signs and parses are checked against Rails by the storage vectors). `bin/cookie-roundtrip` 20/20 at the Phase 9 and 10 gates; the golden vectors pass. |
+| CS3 | `Ruby/Ruby.fs` (`cgiEscape`, `urlEncode`) | Info | holds | On `Uri.EscapeDataString`: the same unreserved set as `CGI.escape` and `url_encode`; the `%20` -> `+` swap cannot touch anything else because `%` itself is always escaped. `ruby_core.json` checks U+0000-U+00FF. |
+| CS4 | `ActiveStorage.fileResult`, `Controllers/ActiveStorage.fs` | Info | holds | **Content types, disposition, ranges.** The file result is handed `ContentTypes.forServing` and the disposition with `forcedDisposition` first, so a type Rails serves as binary goes out as `application/octet-stream`, `attachment`, whatever `?disposition=` asks (**FR5**, new coverage, passed as written). Ranges are the framework's: one range or the whole file (C3), no multipart body is built, and the file is streamed, not read into memory. The disk route's key and type come from a verified `blob_key` signature. A header value with a line break goes out as Puma's repeated lines (`SetPumaValue`), never as a new header name. |
+| CS5 | `Campfire.Storage/Disk.fs:65` (`pathFor`) | Low | accepted (unchanged since before Phase 9) | `Path.Combine` lets a rooted key replace the root, and nothing checks that the path stays under it. Rails' `path_for` in the reference image is `File.join(root, folder_for(key), key)` with no check either. Keys are only `Key.generateKey ()` (base36) or a key inside a verified signature, so no request reaches it; Phase 9's `Path.GetFullPath` changes nothing there. |
+| CS6 | `TempFile.fs` | Info | holds | `Directory.CreateTempSubdirectory` (0700) and the file created `CreateNew` at 0600; both deleted on dispose. |
+| CS7 | the deleted tests | Info | covered, two accepted | Gone with their code: `to_f` x3 (`Float.toF`), "erb escapes straight into a utf-8 buffer" (the writer; "erb escapes like erb util" stays, and markup encoding is `Html.fs` under the lint). The `FileServer`/`Rack` facts and what covers each now: whole file with Rack's headers -> FR2, `LookupControllerTests` (proxy); 304 -> FR2 (`If-Modified-Since`), the proxy's ETag 304; HEAD -> FR2; missing file -> "a missing file is not answered as an empty 200", FR2; past the end 416 -> FR2, FR4, FR1; one range -> FR2, FR3; several ranges multipart -> the whole file (C3), FR3, FR1; `byte ranges match rack` and `byte_ranges` -> FR1 against the same vectors with the listed differences; the type and disposition given -> FR2 and FR5. Accepted without a test: "byte ranges are not read into memory" (the framework's file result streams the file; no code of ours buffers it) and "options lists the methods" (Rack's `OPTIONS` answer; not a security property). The `SeamTests.fs` facts moved to other files under their own names. |
+
+**Open security items of Phases 4-8, re-checked on HEAD** (their "Security review" sections):
+- Phase 4 (views): X1-X9 fixed and held (lint green, self-test 39 planted files). O1 (`Referer` into `link_back`'s `href`) and O2 (`client_message_id` in ids) open by design, as Rails; neither is on a cached page (PC16). O3 (the lint is a token scan) open, accepted.
+- Phase 5 (rich text): F1, F2 fixed; F3, F4 accepted; F5 no change (parity). F6 (no real-browser replay of the outputs) open, outside this phase; Q1 (upstream reports) waits on Chris.
+- Phase 6 (assets): F1 fixed; F2, F4, F7 holding; F3 guarded; F5 accepted (no `nosniff`, Rails parity); F6 no finding.
+- Phase 7 (front server): R1 fixed; R2-R9 hold. R2's log line and Phase 9's scope now meet in CS1 (fixed). R7: OutputCache still keeps only the five public families; the page cache is a separate store keyed by user and session (design-perf section 11).
+- Phase 8 (jobs, integrations): S1-S3 fixed; S4 open, accepted (a pooled push may be resent); S5 open, as Rails (join codes and transfer ids in request paths: a plan decision); S6 open, informational.
+- Phase 10 (the page cache): design-perf.md section 11 (PS1 fixed, PS2-PS8 hold).

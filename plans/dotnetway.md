@@ -4800,3 +4800,32 @@ Second run of the six-ways bench on Basecamp's harness (`oncrack-adapter` `eb45b
 - **Normal, req/s [min-max] and x Rails:** room 34,989 [34,059-35,620] 7.08x; messages 33,831 [32,446-34,269] 6.83x; sidebar 41,581 [40,390-42,302] 7.66x; search 41,325 [40,019-42,399] 7.83x; post 2,901 [2,781-2,940] 7.24x. **Mixed:** room 32,886 11.75x; messages 33,012 9.54x; sidebar 40,246 9.43x; search 39,610 9.70x.
 - **Floor:** every normal route at least 5x Rails (thinnest: messages page 6.83x). Before Phase 10: 0.68x-1.51x on pages, 5.68x post. Others' pooled medians (room page, normal): onCrack 169,088, C 77,135, Rust 49,902, port 35,619, Rails 4,944.
 - **Gap:** the Mac-side load sampler's file was overwritten when the VM's output was copied back; probe and VM load are kept. No failures; no code changed; nothing pushed.
+
+### Security review of Phases 9 and 10 (2026-10-29)
+
+Opus reviewer, on `e30e84d` (Phase 10's six-ways close). Findings and method in `plans/design-perf.md` section 11 (the page cache) and `plans/design-close.md` section 11
+(Phase 9, plus the re-check of Phases 4-8's open security items). Fixes `d89fdd2` and `3a6c4f8`, coverage `fed00c4`. Evidence: `bench/results/security-p9p10/`. KLOC (`bin/kloc`):
+26,030 cloc, **26,477 corrected (26.5 KLOC)**, against 26,464 at the Phase 10 gate.
+- **Read:** 16 Phase 10 `src` files and the paths beside them (before-actions, cookie scheme, `Pages.load`/`render`, `Csrf.fs`, `Fragments.add`, the writer guard, every `Writes.run` caller); Phase 9's
+  storage, log-scope, trims, readers and rename commits, the 18 merged `Campfire.Rails` files against `8f72e40` (identical apart from namespace lines; `Json.fs` gained the folded `JsonValue` helpers);
+  the 47 test names gone since `8f72e40` (32 renamed with their Phase 8 ids, 15 gone, each listed with what covers it in design-close CS7); the Phase 8 verifier's integration ids (all still tests).
+- **PS1, Medium, fixed (`d89fdd2`):** the page cache keyed and stored under the epoch read at the lookup, after the before-actions had read the session, user, room and membership, so a commit
+  between those reads and the lookup stored a render of the old rows under the new epoch (per session; a Cable-driven reload got the stale page until the next commit or 60 s). `Current` records the
+  epoch when it is made (before the session lookup) and `serve` uses it. **PC19** failed before (the cached old room name came back), passes after. **PC20** (new coverage): 300 client-chosen keys stay
+  inside the memory cache's limit.
+- **CS1, Low, fixed (`3a6c4f8`):** Phase 9's log scope skipped `/up`, avatars and asset routes by path alone, so `DELETE /users/:id/avatar` (a write) and other methods there left no request line. The
+  skip now needs GET or HEAD. **LS6** failed before (no line), passes after; LS5's contexts set GET.
+- **FR5 (coverage, `fed00c4`):** a `text/html` blob goes out as `application/octet-stream`, `attachment` from the proxy (whole, ranged, `?disposition=inline`) and the disk service; passed as written.
+- **Holding / accepted:** PS2-PS8 (no cross-session key, fresh authorization on every hit, every write bumps, no `Set-Cookie` or error stored, bounded growth with a shared budget, the read path's
+  authorization unchanged, no logging change in Phase 10); CS2-CS6 (crypto and cookie formats byte for byte, `CGI.escape` on `Uri.EscapeDataString`, file results' types and ranges, `TempFile` modes;
+  CS5 `DiskService.pathFor` has no containment check, as Rails' has none, accepted: keys are generated or signed). Phases 4-8: O1, O2 open by design; O3, F3/F4 (rich text), F5 (assets), S4 accepted;
+  F6 (real-browser replay), S5, S6 and Q1 still open, none blocking.
+- **Gates after the fixes:** `CAMPFIRE_REQUIRE_SEED=1 bin/verify`: **1,072 total, 1,066 passed, 0 failed, 6 skipped** (lint 321 files clean, self-test 39 planted files; guards and H1 in it). Image
+  `campfire-dotnetway:app` rebuilt from `fed00c4` (label checked). `bin/pixel-parity --fast --seeds default,custom_styles --only 'rooms/show/*,messages/*,search/*,interactions/sidebar/*,interactions/phone_sidebar'`:
+  default **80/80**, custom_styles **2/2** (pixels, aria, loose); `realtime/message_sent`, `unread_in_sidebar`, `boosted` one at a time: **2/2** each. `Web/Host.fs`, `Acme.fs`, `OutputCaching.fs`
+  untouched, so HS2/HS4, AC11 and pebble not re-run. Not re-run: the full pixel matrix, cookie-roundtrip and db-differential (no format, schema or model change).
+- **`bench/upstream-quick --commit HEAD --rounds 3`** (`fed00c4`, clean clone, dirty=false; harness `eb45b63`, seed `e7b7f2b4`; exit 0 both). Normal (probe 1.068 before, 1.080 after; VM load 2.4 / 5.8),
+  Rails / theDotNetWay req/s (x Rails), against the Phase 10 gate's theDotNetWay: room_show 4,881 / 34,292 (**7.03x**; -0.8%), messages_page 4,924 / 33,036 (**6.71x**; -0.5%), sidebar 5,354 / 41,616
+  (**7.77x**; -0.2%), search 5,156 / 40,927 (**7.94x**; -0.7%), post_message 403 / 2,836 (**7.04x**; -1.7%). Mixed (probe 1.075 / 1.056; load 5.2 / 4.9): room 31,968 (**10.92x** of 2,928; -3.3%), messages
+  31,788 (**9.39x**; -1.9%), sidebar 38,872 (**9.14x**; -2.1%), search 38,352 (**9.62x**; -1.5%). Every route within 5% of the gate and at least 5x the session's Rails, so **the six-ways numbers stand**
+  (no re-run needed). `bin/clean-docker`, `bin/clean-parity` run; `docker images 'campfire-dotnetway:*'` lists `app` only; no tmpfs left. Nothing pushed.
