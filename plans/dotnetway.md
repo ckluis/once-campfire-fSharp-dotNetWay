@@ -4741,3 +4741,55 @@ Code at `953023e` (no source change in this unit; 10.5's `a993bc8` plus its log 
 - **p10ctl:** gone before this unit (no tag, no image: `docker images` shows none). Disk: `bin/clean-docker`, `bin/clean-parity`, `fstrim`; 22 GB free at the end. `Web/Host.fs`, `Acme.fs`, `OutputCaching.fs` untouched since their last gate: HS2/HS4, AC11, pebble not re-run.
 - **Differences recorded:** none visible (pixels, aria, loose equal on every seed). The known difference for the page cache (a write by another program shows within 60 s or at the next commit; a global epoch costs hit rate under presence and session-resume commits) stands in the README.
 - **Phase 10 close.** Goals met: every normal route at least 5x Rails in the same session (6.82x-8.07x), post 7.18x, mixed 9.42x-12.24x, KLOC 26.5. Nothing pushed, no repo created.
+
+### Phase 10: gate (2026-10-29)
+
+Gate runner on `903d2a8` (HEAD; code identical to `953023e`, the 10.6 close; the image `campfire-dotnetway:app` rebuilt from HEAD, label = `git rev-parse HEAD`, checked). No code change. Evidence: `bench/results/dotnetway-p10/` (`driverA.sh`/`driverB.sh`/`driverC.sh`/`driverU.sh`, their logs, `full/` with a `report.json` per pixel slice, `tls/`, `quick/` with a JSON per rep and `summary.md` from `summ.py`, `uq-normal/`, `uq-mixed/`, `kloc.md`).
+- **`CAMPFIRE_REQUIRE_SEED=1 bin/verify`:** 1,068 total, 1,062 passed, 0 failed, 6 skipped (guards, H1, lint and self-test in it). `Web/Host.fs`, `Acme.fs` and `OutputCaching.fs` are unchanged since the Phase 9 gate (`git diff dcc9434 HEAD` lists none), so `bin/linux-tests App`, AC11 and `pebble-image.sh` were **not re-run** (HS2/HS4/AC11/pebble stand from Phase 9's gate).
+- **Full pixel gate** (`--matrix full`: 3 engines x 4 viewports x light/dark x breakpoint sweep, screenshots, aria, loose DOM; slices as Phase 9's: the other four seeds whole, default by top-level group, the 13 `realtime/**` states one at a time; 29 slices):
+
+| seed | cells | screenshots | aria | loose DOM | not captured |
+|---|---:|---:|---:|---:|---:|
+| default | 4,438 | 4,437 at first, 4,438 after the re-run | 4,438/4,438 | 4,438/4,438 | 0 |
+| crowd | 144 | 144/144 | 144/144 | 144/144 | 0 |
+| custom_styles | 192 | 192/192 | 192/192 | 192/192 | 0 |
+| first_run | 96 | 96/96 | 96/96 | 96/96 | 0 |
+| restricted | 48 | 48/48 | 48/48 | 48/48 | 0 |
+
+  Default by slice: errors 120, auth 326, pwa 276, welcome 38, search 158 (157 at first), account 206, users 388, messages 720, interactions 964, rooms 930, realtime 13 x 24 = 312; `bot_api` and `autocompletable` 0/0 (fragment states). **One cell differed at first:** `search/results/many` webkit-phone-light (136 px; aria and loose equal), the carried WebKit WebP avatar decode flake (Phase 9 saw it on the same state in dark). That cell alone (webkit, phone, light), three runs: **3/3 equal** on all three layers (`full/rerun/`). Not a regression, not fixed, still on the open list. **Every cell is equal.**
+  The `interactions` slice first hung (19:28 to 22:49; log 88 bytes, three `reset-request.sh` children of the compare stuck in the VM; killed by me by pid, `candidate`'s containers removed, `bin/clean-parity`) and was re-run whole from the start on the same image: 964/964 in 4,118 s (kept as `full/interactions-hung-attempt.log`). It did not recur in 28 other slices. **TLS states** (`--candidate-tls --only 'auth/sign_in,rooms/show/designers'`, lean): **28/28** on all three layers.
+- **`bin/cookie-roundtrip`:** 20/20. **`bin/db-differential`:** rc 0. **`bin/asset-check`:** 1,806 checks, 0 failed.
+- **Speed, `bench/quick`** (`--reps 3`, five workloads plus `static_css`, `avatar`, `up`, c=1 and 16, new = HEAD image, control = `campfire-dotnetway:p10ctl` built from `dcc9434` (Phase 9 gate image, label checked), parts interleaved new/ctl/ctl/new/new/ctl; host probe 1.033-1.089 over 96 runs, 0 above 1.10; 0 connection errors, 0 non-2xx; Mac load 4-5 from other sessions). Rails is the stored `phase7-final` median (a same-session Rails re-measure was left to `upstream-quick`, below). **Deviation:** the first part of new rep 1 died on a sampler-file race in `bench/run` (`cat .dotnetway-1.mem`); new rep 1 was then re-run in three parts after the interleaved schedule, so its position in the order is last. Medians req/s [range]:
+
+| route | c | new | control | new vs control | x Rails (stored) | CPU us/req new / ctl |
+|---|---:|---|---:|---:|---:|---|
+| room page | 16 | 33,418 [32,628-33,633] | 7,228 | +362% | 139.8x | 97 / 453 |
+| room page | 1 | 6,438 [6,096-6,460] | 2,198 | +193% | 60.2x | 269 / 566 |
+| messages page | 16 | 31,425 [31,315-32,222] | 7,165 | +339% | 82.5x | 102 / 469 |
+| messages page | 1 | 6,268 [5,961-6,372] | 2,024 | +210% | 28.8x | 271 / 608 |
+| sidebar | 16 | 39,313 [39,100-39,664] | 7,410 | +431% | 65.6x | 79 / 446 |
+| sidebar | 1 | 7,265 [6,715-7,350] | 2,120 | +243% | 25.3x | 248 / 584 |
+| search | 16 | 37,663 [35,615-40,427] | 7,023 | +436% | 92.3x | 82 / 489 |
+| search | 1 | 7,342 [7,334-7,469] | 2,009 | +266% | 38.0x | 250 / 624 |
+| post a message | 16 | 2,464 [2,456-2,511] | 2,166 | +13.8% | **7.47x** | 1,314 / 1,488 |
+| post a message | 1 | 1,247 [1,222-1,287] | 1,085 | +14.9% | **7.47x** | 1,524 / 1,691 |
+| static_css | 16 / 1 | 109,206 / 18,476 | 108,561 / 18,458 | +0.6% / +0.1% | 1.11x / 1.22x | 26 / 26, 132 / 131 |
+| avatar | 16 / 1 | 117,493 / 20,940 | 116,794 / 22,063 | +0.6% / -5.1% | 1.69x / 1.63x | 22 / 22, 114 / 108 |
+| up | 16 / 1 | 96,697 / 16,862 | 97,448 / 17,409 | -0.8% / -3.1% | 22.9x / 8.0x | 30 / 30, 131 / 127 |
+
+  **No workload under 5x Rails; the thinnest cell is post a message, 7.47x at both concurrencies.** The page rows are the response cache (Phase 10: 4.6x-5.4x the Phase 9 gate image); post is +14-15% over the control in req/s (CPU per request -12% and -10%); the static rows are unchanged within +-5%.
+- **`bench/upstream-quick`, `--commit HEAD` (`903d2a8`, clean clone, dirty=false), 3 rounds, c=16, same session** (harness `eb45b63`, seed `e7b7f2b4`; exit 0). Req/s median (min-max), x that session's Rails. Normal (probe 1.063 before, 1.057 after; load 3.0 before, 4.7 after):
+
+| route | Rails | F# port | theDotNetWay |
+|---|---|---|---|
+| room_show | 4,842 | 35,401 (7.31x) | 34,573 (33,947-34,690) **7.14x** |
+| messages_page | 4,909 | 41,896 (8.53x) | 33,198 (32,240-33,438) **6.76x** |
+| sidebar | 5,242 | 37,691 (7.19x) | 41,719 (40,576-41,982) **7.96x** |
+| search | 5,124 | 33,658 (6.57x) | 41,206 (40,464-41,208) **8.04x** |
+| post_message | 401 | 9,501 (23.68x) | 2,885 (2,838-2,911) **7.19x** |
+
+  Mixed (`--mixed`, 10 posts/s; probe 1.097 / 1.055; load 4.2 / 5.2), theDotNetWay req/s and x Rails: room_show 33,046 (**12.17x** of 2,715), messages_page 32,388 (**9.16x** of 3,537), sidebar 39,712 (**9.24x** of 4,298), search 38,930 (**9.63x** of 4,041); port 12.43x / 11.8x / 8.76x / 8.6x. Every route at least 5x in both profiles. No tmpfs, `uq-*` image or container left.
+- **KLOC** (`bin/kloc`): **26,017 cloc, 26,464 corrected (26.5 KLOC)**: App 12,474, Cable 1,051, Db 2,467, Rails 1,533, RichText 2,268, Storage 1,452, Views 5,219; static data left out 4,512 (4,815). Under Rust's 31.0.
+- **Disk and images:** Mac free 15-23 GB (`fstrim` three times); `bin/clean-docker` and `bin/clean-parity` run; `campfire-dotnetway:p10ctl` removed, `docker images 'campfire-dotnetway:*'` lists `app` only.
+- **Failures:** none open. Differences recorded: none new. Open, none blocking (unchanged): the WebKit WebP avatar flake on `search` states, the stuck `reset-request.sh` hang seen once in `interactions` (harness; not reproduced), Q1, the operator's Let's Encrypt staging run.
+
