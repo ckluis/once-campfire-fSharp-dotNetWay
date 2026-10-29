@@ -17,11 +17,17 @@ module HttpLog =
     let private isAvatar: PathString -> bool =
         OutputCaching.families |> List.pick (fun (name, matches, _) -> if name = "avatar" then Some matches else None)
 
-    /// plans/design-close.md C5: the requests the line is for. The static asset endpoints, the avatar family and `/up` carry nothing an
-    /// operator acts on (Rails silences `/up` too); everything else is logged. One reversible predicate.
+    /// plans/design-close.md C5: the requests the line is for. A GET or HEAD of the static asset endpoints, the avatar family and `/up`
+    /// carries nothing an operator acts on (Rails silences `/up` too); everything else is logged, any other method on those paths
+    /// included (`DELETE /users/:id/avatar` changes data; the security review of Phase 9, LS6). One reversible predicate. The method is
+    /// the one sent: `_method` is read later in the pipeline, so a form's `POST` is logged.
     let internal loggedWith (assetRoute: PathString -> bool) (http: HttpContext) : bool =
-        let path = http.Request.Path
-        not (path.Equals("/up", StringComparison.Ordinal) || isAvatar path || assetRoute path)
+        let request = http.Request
+        let path = request.Path
+        not (
+            (HttpMethods.IsGet request.Method || HttpMethods.IsHead request.Method)
+            && (path.Equals("/up", StringComparison.Ordinal) || isAvatar path || assetRoute path)
+        )
 
     let logged (http: HttpContext) : bool = loggedWith StaticAssets.isAssetRoute http
 

@@ -233,6 +233,7 @@ let ``LS4 the HTTP logging middleware does not run for an asset request`` () =
 let ``LS5 before the asset table is loaded logged answers false only for /up and avatars, and nothing throws`` () =
     let ctx (path: string) =
         let http = DefaultHttpContext()
+        http.Request.Method <- "GET"
         http.Request.Path <- PathString path
         http
     let beforeLoad = HttpLog.loggedWith (fun _ -> false)
@@ -249,6 +250,27 @@ let ``LS5 before the asset table is loaded logged answers false only for /up and
     match assetPath with
     | Some route -> Assert.True(StaticAssets.isAssetRoute (PathString route)) ; Assert.False(HttpLog.logged (ctx route))
     | None -> ()
+
+[<Fact>]
+let ``LS6 a write to the avatar route and a POST to /up or an asset route each log one line`` () =
+    task {
+        use! test = bootSeededRequestLog "default"
+        let d = david test
+        // `Users::AvatarsController#destroy` changes data: an operator must see it, as Rails' and Thruster's logs show it.
+        let! gone = d.Form("delete", $"/users/{DAVID}/avatar", [])
+        Assert.True(gone.Status < 400, $"{gone.Status} {gone.Text}")
+        let! deleted = d.Write(request "DELETE" $"/users/{DAVID}/avatar")
+        Assert.True(deleted.Status < 500, $"{deleted.Status}")
+        let! up = d.Write(request "POST" "/up")
+        Assert.True(up.Status >= 400, $"{up.Status}")
+        let! asset = d.Write(request "POST" (StaticAssets.path "composer.css"))
+        Assert.True(asset.Status >= 400, $"{asset.Status}")
+        let paths = loggedPaths test
+        Assert.Equal<string list>([ $"/users/{DAVID}/avatar"; $"/users/{DAVID}/avatar"; "/up"; StaticAssets.path "composer.css" ], paths)
+        // A GET of the avatar and /up still logs nothing.
+        let! _ = d.Get "/up"
+        Assert.Equal(4, (loggedPaths test).Length)
+    }
 
 // --- Compression ----------------------------------------------------------------------------------------------
 
