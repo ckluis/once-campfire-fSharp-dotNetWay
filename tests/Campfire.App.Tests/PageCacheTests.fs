@@ -8,7 +8,10 @@ open System.IO
 open System.IO.Compression
 open System.Threading
 open System.Threading.Tasks
+open System.Runtime.CompilerServices
+open Microsoft.EntityFrameworkCore
 open Microsoft.Extensions.Caching.Hybrid
+open Microsoft.Extensions.Caching.Memory
 open Microsoft.Extensions.DependencyInjection
 open Xunit
 open Campfire.App.Tests.Support
@@ -516,4 +519,66 @@ let ``PC17 sixteen readers and one writer: after each post's 2xx, the writer's n
         do! Task.WhenAll(write :: readers)
         Assert.True(posted.Value > 0)
         Assert.Empty(missing.Value)
+    }
+
+// --- Security review of Phases 9 and 10 (plans/design-perf.md section 11) ------------------------------------------------
+
+[<Fact>]
+let ``PC19 a commit after the before-actions read the room and before the lookup leaves that render unstored`` () =
+    task {
+        use! test = bootSeeded "default"
+        let stats = stats test
+        let b = david test
+        // Warm: the stale seed session resumes and `last_room` is set, so the next requests are one key.
+        let! _ = b.Send(gz room)
+        let! _ = b.Send(gz room)
+        let app = test.App
+        let fired = ref 0
+        // A rename commits after `set_room` read the room (and `restore_authentication` the user), before the page cache takes its key:
+        // the render below is made from the rows of before the commit.
+        stats.BeforeLookup <-
+            Action(fun () ->
+                if Interlocked.Increment fired = 1 then
+                    use context = app.DbFactory.CreateDbContext()
+                    let written =
+                        (Ef.Writes.run app.Gate app.Env context (fun tx ->
+                            tx.Db.Database.ExecuteSql(
+                                FormattableStringFactory.Create("UPDATE rooms SET name = {0} WHERE id = {1}", [| box "Pcnineteen Renamed"; box ALL_TALK |])
+                            )
+                            |> ignore))
+                            .GetAwaiter()
+                            .GetResult()
+                    Assert.True(Result.isOk written))
+        let! during = b.Send(gz room)
+        Assert.Equal(200, during.Status)
+        Assert.Equal(1, fired.Value)
+        // The premise: this render shows the name `set_room` read, from before the rename.
+        Assert.DoesNotContain("Pcnineteen Renamed", text during)
+        stats.BeforeLookup <- Action(ignore)
+        // A client that reloads after the rename's broadcast must not get that render back.
+        let! after = b.Send(gz room)
+        Assert.Equal(200, after.Status)
+        Assert.Contains("Pcnineteen Renamed", text after)
+    }
+
+[<Fact>]
+let ``PC20 entries made under keys a signed-in client controls stay inside the memory cache's size limit`` () =
+    task {
+        // 1 MB of fragments plus 1 MB of pages: one memory cache with a 2 MB limit.
+        use! test = bootSeededConfigured ignore [ "CAMPFIRE_RESPONSE_CACHE_MB", "1"; "CAMPFIRE_FRAGMENT_CACHE_MB", "1" ] "default"
+        let stats = stats test
+        let memory = test.Host.Services.GetRequiredService<IMemoryCache>() :?> MemoryCache
+        let b = david test
+        let! _ = b.Send(gz room)
+        let! first = b.Send(gz room)
+        Assert.Equal(200, first.Status)
+        // Each User-Agent (and Host, query, Accept) is a key of its own: 300 of them, each page tens of KB, several times the limit.
+        for i in 1..300 do
+            let! reply = b.Send((gz $"{room}?n={i}").With("user-agent", $"Mozilla/5.0 PC20/{i}"))
+            Assert.Equal(200, reply.Status)
+        Assert.True(stats.Stores >= 300L, $"stores {stats.Stores}")
+        let statistics = nonNull (memory.GetCurrentStatistics())
+        let size = statistics.CurrentEstimatedSize.GetValueOrDefault()
+        Assert.True(size > 0L, "entries carry a size")
+        Assert.True(size <= 2L * 1024L * 1024L, $"estimated size {size} over the 2 MB limit, {memory.Count} entries")
     }

@@ -69,6 +69,9 @@ type PageCacheStats() =
     member this.Hits = Interlocked.Read &this.hits
     member this.Stores = Interlocked.Read &this.stores
     member val AfterLookup: Action = Action(ignore) with get, set
+    /// Runs when an eligible request reaches the lookup, after the before-actions' reads and before the key is made (PC19 commits a
+    /// write there: the epoch the key and the ticket carry is the one the request started at, so that write retires the render).
+    member val BeforeLookup: Action = Action(ignore) with get, set
     member val MaxBody: int = 1048576 with get, set
     /// How long a stored entry lives (60 s; PC18 shortens it to show a write from outside the app).
     member val Lifetime: TimeSpan = TimeSpan.FromSeconds 60.0 with get, set
@@ -191,15 +194,18 @@ module PageCache =
             && (Data.app http).Config.ResponseCacheBytes > 0L
             && http.Request.Headers.IfNoneMatch.Count = 0
             && http.Request.Headers.IfModifiedSince.Count = 0
+            && current.Epoch >= 0L
             && (Respond.flash http).IsEmpty
         match eligible, current.User, current.Session, encodingOf http with
         | true, Some user, Some session, (NonNull encoding) ->
-            let gate = (Data.app http).Gate
-            let epoch = gate.Epoch
+            let stats = http.RequestServices.GetRequiredService<PageCacheStats>()
+            stats.BeforeLookup.Invoke()
+            // The epoch the request started at, not the gate's now: the before-actions have read the session, the user, `set_room`'s room
+            // and membership and perhaps the account already, and a commit since then must retire this render (PC19).
+            let epoch = current.Epoch
             let key = keyOf http epoch encoding user session
             task {
                 let cache = http.RequestServices.GetRequiredService<HybridCache>()
-                let stats = http.RequestServices.GetRequiredService<PageCacheStats>()
                 stats.Lookup()
                 let! (entry: PageEntry) =
                     cache.GetOrCreateAsync(
