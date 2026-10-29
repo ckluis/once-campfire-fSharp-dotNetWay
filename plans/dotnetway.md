@@ -4854,3 +4854,74 @@ corrected (26.5 KLOC)**, as after the security review.
 - **Checked with cmux** (`cmux browser` screenshots, never headless Chrome) at 1440 and 390 wide, light and dark: no horizontal page scroll at 390 (the six-ways table and
   the chart scroll inside their boxes), panels open by `#id`, no console errors. Screenshots: `bench/results/dotnetway-landing/{desktop,phone}-{light,dark}-{top,six,climb,proof}.png`.
 - Nothing pushed, no repo created.
+
+### Phases 9-10: independent verification (2026-10-29) - PHASES 9 AND 10 DONE; the project closes
+
+Opus verifier, adversarial review of `8f72e40..3ca91df8` (Phase 9 design, units, gate and six-ways run; Phase 10 design, units, checkpoint, gate,
+six-ways run; the security review; the landing page). Cheap checks re-run, the response cache tried live against the image, every gated cell
+re-counted. Fixes in `fedae125` (docs, evidence, landing build input); no `src` change, so the image `campfire-dotnetway:app` (label `fed00c4`,
+`git diff fed00c4 HEAD -- src tests` empty) is the closing build. Evidence: `bench/results/dotnetway-p9p10-verify/`.
+- **Phase 9's deletions and merge, checked.** `git grep` over `src tests bin bench/lib AGENTS.md` finds none of `FileServer` (only a test
+  comment naming the deleted fact), `Rack.fs`, `PartsStream`/`partsBody`/`partsLen`, `OutgoingBody.Streamed`, `\bTempDir\b`, `\bJsonValue\b`,
+  `Float.toF`, `CapturingLoggers`, `Test.Booted`, `ControllersA`-`D`, `SeamTests`, `Campfire.Kit`, `isAudio`, `findByKey`, `RailsCompat`,
+  `Campfire.Ruby`. `src/` holds the seven projects. `git diff -M 8f72e40 HEAD` shows the 18 `Campfire.RailsCompat` files and `Routes.fs` as
+  renames with a one-line namespace change (`Json.fs` +30 for the folded helpers, `Secrets.fs` +1 for `appVerifier`); the remaining
+  `WaitToReadAsync` are the single invalidation reader and Cable's per-connection writer, not the 50-reader herd C6 removed.
+- **The response cache, tried live** (`cachetest.py`, `cachetest2.py`, the image at `fed00c4` on a fresh default seed each, gzip requests,
+  23/23): two users on the room, messages, sidebar and search pages each get their own page (room, sidebar, search name their own
+  `current-user-id`); the cache is live (a raw-SQL rename, which bumps no epoch, is not seen on the third GET: class B, as the README says) and
+  an app commit (Jason's post) retires it; a fresh message shows at once on the room page, the messages page and search; a membership deleted
+  by raw SQL (no epoch bump) and one removed through `PATCH /rooms/closeds/:id` are both refused on warm pages (302 room, 404 messages, the
+  sidebar drops the room); a session deleted by raw SQL is refused on all four warm pages while the user's other session is served; a signed-out
+  cookie and a user deactivated through `DELETE /account/users/:id` are refused on all four. A raw status-only change that keeps the sessions
+  stays signed in, as in Rails (`restore_authentication` never reads `users.status`; `User#deactivate` deletes the sessions). Read: `PageCache.fs`,
+  `Current.fs`, `Authentication.fs` (the scheme calls `Current.get` before the session lookup, so PS1's epoch precedes every read), `Writes.fs`
+  (bump after `Commit()` and in `run`'s `finally`), `WriteGate.fs` (volatile read, interlocked bump).
+- **The full pixel gate, re-counted from the 29 slices' `report.json`** (`bench/results/dotnetway-p10/full`, re-runs apart): **4,918 cells with a
+  screenshot**, default 4,438, crowd 144, custom_styles 192, first_run 96, restricted 48 (16 non-page entries); pixels 4,917/4,918 at first (the one
+  miss `search/results/many` webkit-phone-light, 136 px), aria 4,918/4,918, loose 4,918/4,918; the three `rerun/` reports are that cell, equal on
+  all three layers. The layers the gate does not report (server, live, network, cable) equal the Phase 9 gate's counts cell for cell (cable
+  4,722/4,918 in both, the same seven states), so no regression hides there. TLS 28/28 on all three layers.
+- **Six ways, re-derived.** Every one of the 54 cells (9 rows x 6 apps) recomputed from the 72 per-round files
+  (`<session>/<app>-<round>.json`, `http` or `mixed_http`, 6 rounds each, every sample 0 errors and 0 invalid responses): **0 mismatches** with
+  `table.json` in median, min or max. theDotNetWay over the same sessions' Rails: room 34,989 / 4,944 = **7.08x**, messages 33,831 / 4,953 =
+  **6.83x**, sidebar **7.66x**, search **7.83x**, post 2,901 / 401 = **7.24x**; with the writer 11.75x, 9.54x, 9.43x, 9.70x. All four sessions'
+  `summary.json` (`mixed-summary.json` for the mixed ones) record every app in the same session at the same heads (theDotNetWay `75487b7`, onCrack
+  `3770dff`, port `9954ad0`, Rails `ca9b963`, Rust `6dae2fd`, C `873a51f`), `dirty: false`, theDotNetWay's image labelled `903d2a8` (`git diff
+  903d2a8 75487b75 -- src Dockerfile` empty). No outside number is pooled. The first run (`before-phase10/`) re-derives to 0.68x / 1.51x / 1.47x /
+  1.42x / 5.68x.
+- **The security fixes do not move the table.** PS1 reads the epoch earlier and CS1 adds a method test to the log predicate; `bench/results/
+  security-p9p10/uq-*` (`fed00c4`, 3 rounds, same-session Rails) read 6.71x-7.94x normal and 9.14x-10.92x mixed, every route within 3.3% of the
+  Phase 10 gate's run. The six-ways numbers stand.
+- **Gates re-run:** `CAMPFIRE_REQUIRE_SEED=1 bin/verify` on HEAD: **1,072 total, 1,066 passed, 0 failed, 6 skipped**, lint 321 files and its
+  self-test (39), the Dapper/EF/DateTime guards, H1. A first run made while this verifier's cache tests loaded the VM failed two timing tests,
+  Cable R6 (13.1 ms against 10) and H4 (room page 10 statements, expected 7); both passed alone (H4 5/5, R6 3/3) and in the full re-run. This is
+  the load-dependent family the Phase 10 checkpoint named: H4's `settle` does not fully keep the warm-up post's background statements out under
+  load. Recorded, not fixed (`verify-run1-under-load.log`). `bin/kloc`: **26,030 cloc, 26,477 corrected (26.5 KLOC)**, Rust 31.0, Rails 5.5.
+  `Web/Host.fs`, `Acme.fs`, `OutputCaching.fs` have no diff since `dcc9434`, so Phase 9's HS2/HS4, AC11 and pebble stand.
+- **The landing page.** `python3 site/build.py` passes and is deterministic; a digit planted in the Dapper copy fails it ("a number with no
+  source"). Traced by hand to the files: 26.5 and 26.0 (`dotnetway-landing/kloc.md`, and this run's `bin/kloc`), 31.0 and 5.5, 39.4
+  (`dotnetway-p0/kloc.md`), 6.83x-7.83x and 9.43x-11.75x (round files above), 4,918/4,918 and 136 px (report.json), 107 and 239 (median of
+  `phase7-final/reference-{1,2,3}.json`: 103.3/107.1/111.4 and 237.6/239.3/241.3), 21x (4,943.8 / 239.3), 0.68x (3,300.3 / 4,879.7), 33,418 and
+  139.65x (`dotnetway-p10/quick/new`), 128.50x (Phase 0, 30,751 / 239.3), 8,344 (Kit, `dotnetway-p1-fix/kloc.md`), 1,806 (asset-check.log), 28/28
+  and 20/20, "ahead of the F# port in 4" (sidebar and search, both groups). Looked at with cmux at 1440 and 390 wide, light and dark: no horizontal
+  page scroll at 390 (the table and the chart scroll in their boxes; the chart's right-hand labels fit at the box's end), panels open, no console
+  errors. Fixed: the Tests tile now reads this run's `verify.log` (1,066 of 1,072 on the closing commit, not the gate's 1,062 of 1,068), and the
+  security tile says findings were "fixed, or accepted with a recorded reason" (S4, CS5, PS6 were accepted, not fixed).
+- **Fixed, `fedae125` (docs):** README's status paragraph and Performance section were Phase 8/9's (940 cells, 26.2 KLOC, the Phase 9 bench/quick
+  table, "Phase 9 under way"); they now give the Phase 10 gate, the six-ways table against current Rails (with the faster apps named) and the
+  Phase 10 bench/quick table. The request-log skip entry said nothing of the method; it now says GET and HEAD only with LS6 (CS1). The response
+  cache paragraph said "the Rust port" has a page cache; it is upstream's current Rust (the pinned `rust/` and the F# port have none). The phase
+  table gains Phase 10 (26.5). The six-ways README's probe column was offset against the sessions (each `.host` file now in its own row; the
+  loads and pid counters order them); `before-phase10/table.json`'s 324 source paths now point into `before-phase10/` (values unchanged).
+- **Known differences, checked:** the response cache adds two class B lines (a write from outside the app within 60 s, PC18; no compression,
+  no cache, PC9) and one class A line (a hit's own `X-Request-Id` and `X-Runtime`); the global epoch's hit-rate cost is in the Response cache
+  paragraph. Nothing else the cache does is visible: hits carry the before-actions' cookies, conditional requests and HEAD bypass it. Complete.
+- **Nothing pushed:** `git branch -r --contains 3ca91df8` is empty, `fsharp-port` has no `dotnetway` ref, `gh repo list ckluis` has no
+  theDotNetWay repo and the port's PRs are #1-#4 from before this project. No GitHub repo, no PR.
+- **Open, none blocking:** the WebKit WebP avatar flake on `search` states; the load-dependent test flakes (H4, Cable R6, and 10.4's F3/K4/etag
+  trio); the one-time `reset-request.sh` hang in a pixel slice; Phase 7's KLOC reads 27.8 on the landing chart (the gate's `kloc.md`) and 27.9 in the
+  README's table (the verifier's close), both sourced; Q1 (AngleSharp upstream), Phase 5 F6, Phase 8 S5/S6; the operator's steps below.
+- **Operator steps still owed (human-gated):** review the landing page (`index.html`), then create the GitHub repo, push `dotnetway`, set
+  `site/data.json`'s `meta.repo_url` and rebuild so file links become repository links, and turn on Pages; the Let's Encrypt staging run
+  (AGENTS.md, "TLS end to end") before a release; Q1, the AngleSharp upstream report, with an AI disclosure, if wanted.
