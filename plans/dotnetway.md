@@ -4793,3 +4793,10 @@ Gate runner on `903d2a8` (HEAD; code identical to `953023e`, the 10.6 close; the
 - **Disk and images:** Mac free 15-23 GB (`fstrim` three times); `bin/clean-docker` and `bin/clean-parity` run; `campfire-dotnetway:p10ctl` removed, `docker images 'campfire-dotnetway:*'` lists `app` only.
 - **Failures:** none open. Differences recorded: none new. Open, none blocking (unchanged): the WebKit WebP avatar flake on `search` states, the stuck `reset-request.sh` hang seen once in `interactions` (harness; not reproduced), Q1, the operator's Let's Encrypt staging run.
 
+
+### Phase 10: six ways bench (2026-10-29)
+
+Second run of the six-ways bench on Basecamp's harness (`oncrack-adapter` `eb45b63`, no adapter change needed), theDotNetWay at `75487b75` (code identical to the gate's `903d2a8`, image `campfire-dotnetway:app`), the other five unchanged since the first run (Rails `ca9b963`, Rust `6dae2fd`, C `873a51f`/`cd0cbe4` binary, port `9954ad0`, onCrack `3770dff`). Four sessions (normal-1, mixed-1, normal-2, mixed-2), all six apps in each, 3 rounds x 8 s, c=16, cpus 0-3/4-7, pooled over 6 rounds; host probe 1.03-1.08, VM load 4-8. Evidence: `bench/results/dotnetway-six-ways/` (README.md, table.json, table.md, session folders); the first run moved to `before-phase10/`.
+- **Normal, req/s [min-max] and x Rails:** room 34,989 [34,059-35,620] 7.08x; messages 33,831 [32,446-34,269] 6.83x; sidebar 41,581 [40,390-42,302] 7.66x; search 41,325 [40,019-42,399] 7.83x; post 2,901 [2,781-2,940] 7.24x. **Mixed:** room 32,886 11.75x; messages 33,012 9.54x; sidebar 40,246 9.43x; search 39,610 9.70x.
+- **Floor:** every normal route at least 5x Rails (thinnest: messages page 6.83x). Before Phase 10: 0.68x-1.51x on pages, 5.68x post. Others' pooled medians (room page, normal): onCrack 169,088, C 77,135, Rust 49,902, port 35,619, Rails 4,944.
+- **Gap:** the Mac-side load sampler's file was overwritten when the VM's output was copied back; probe and VM load are kept. No failures; no code changed; nothing pushed.

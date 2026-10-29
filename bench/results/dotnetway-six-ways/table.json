@@ -3,7 +3,7 @@
   {
    "id": "dotnetway",
    "name": "theDotNetWay",
-   "commit": "f9f4637"
+   "commit": "75487b7"
   },
   {
    "id": "oncrack",
@@ -43,9 +43,9 @@
    ],
    "values": {
     "dotnetway": {
-     "median": 3300.3,
-     "min": 3143.1,
-     "max": 3478.6,
+     "median": 34989.1,
+     "min": 34059.0,
+     "max": 35620.2,
      "n": 6,
      "sources": [
       "bench/results/dotnetway-six-ways/normal-1/dotnetway-1.json",
@@ -57,9 +57,9 @@
      ]
     },
     "oncrack": {
-     "median": 168947.5,
-     "min": 158234.6,
-     "max": 170083.4,
+     "median": 169087.5,
+     "min": 167975.2,
+     "max": 170183.9,
      "n": 6,
      "sources": [
       "bench/results/dotnetway-six-ways/normal-1/oncrack-1.json",
@@ -71,9 +71,9 @@
      ]
     },
     "fsharp": {
-     "median": 35364.7,
-     "min": 30061.9,
-     "max": 36202.9,
+     "median": 35618.8,
+     "min": 31680.5,
+     "max": 36667.2,
      "n": 6,
      "sources": [
       "bench/results/dotnetway-six-ways/normal-1/fsharp-1.json",
@@ -85,9 +85,9 @@
      ]
     },
     "rails": {
-     "median": 4879.7,
-     "min": 4208.0,
-     "max": 5033.0,
+     "median": 4943.8,
+     "min": 4685.6,
+     "max": 5058.6,
      "n": 6,
      "sources": [
       "bench/results/dotnetway-six-ways/normal-1/rails-1.json",
@@ -99,9 +99,9 @@
      ]
     },
     "rust": {
-     "median": 50146.1,
-     "min": 48904.6,
-     "max": 51077.2,
+     "median": 49902.1,
+     "min": 47158.0,
+     "max": 50205.9,
      "n": 6,
      "sources": [
       "bench/results/dotnetway-six-ways/normal-1/rust-1.json",
@@ -113,9 +113,9 @@
      ]
     },
     "c": {
-     "median": 76748.4,
-     "min": 72431.5,
-     "max": 78821.5,
+     "median": 77134.9,
+     "min": 74907.4,
+     "max": 78851.0,
      "n": 6,
      "sources": [
       "bench/results/dotnetway-six-ways/normal-1/c-1.json",
@@ -138,9 +138,9 @@
    ],
    "values": {
     "dotnetway": {
-     "median": 7348.9,
-     "min": 6742.5,
-     "max": 7529.7,
+     "median": 33830.8,
+     "min": 32445.8,
+     "max": 34268.7,
      "n": 6,
      "sources": [
       "bench/results/dotnetway-six-ways/normal-1/dotnetway-1.json",
@@ -152,9 +152,9 @@
      ]
     },
     "oncrack": {
-     "median": 178725.0,
-     "min": 166578.8,
-     "max": 180357.6,
+     "median": 179077.2,
+     "min": 176146.3,
+     "max": 179802.1,
      "n": 6,
      "sources": [
       "bench/results/dotnetway-six-ways/normal-1/oncrack-1.json",
@@ -166,9 +166,9 @@
      ]
     },
     "fsharp": {
-     "median": 41083.3,
-     "min": 36917.1,
-     "max": 42393.2,
+     "median": 42126.2,
+     "min": 41199.6,
+     "max": 42773.9,
      "n": 6,
      "sources": [
       "bench/results/dotnetway-six-ways/normal-1/fsharp-1.json",
@@ -180,9 +180,9 @@
      ]
     },
     "rails": {
-     "median": 4882.4,
-     "min": 4281.5,
-     "max": 4979.9,
+     "median": 4953.4,
+     "min": 4737.6,
+     "max": 5020.0,
      "n": 6,
      "sources": [
       "bench/results/dotnetway-six-ways/normal-1/rails-1.json",
@@ -194,9 +194,9 @@
      ]
     },
     "rust": {
-     "median": 46977.5,
-     "min": 45987.8,
-     "max": 47334.1,
+     "median": 47112.0,
+     "min": 45976.1,
+     "max": 47600.3,
      "n": 6,
      "sources": [
       "bench/results/dotnetway-six-ways/normal-1/rust-1.json",
@@ -208,9 +208,9 @@
      ]
     },
     "c": {
-     "median": 77560.5,
-     "min": 74847.7,
-     "max": 78418.8,
+     "median": 77086.5,
+     "min": 74958.3,
+     "max": 78652.4,
      "n": 6,
      "sources": [
       "bench/results/dotnetway-six-ways/normal-1/c-1.json",
@@ -233,9 +233,9 @@
    ],
    "values": {
     "dotnetway": {
-     "median": 7707.2,
-     "min": 7109.1,
-     "max": 7825.6,
+     "median": 41580.8,
+     "min": 40389.9,
+     "max": 42302.5,
      "n": 6,
      "sources": [
       "bench/results/dotnetway-six-ways/normal-1/dotnetway-1.json",
@@ -247,9 +247,9 @@
      ]
     },
     "oncrack": {
-     "median": 190428.5,
-     "min": 180064.8,
-     "max": 191398.4,
+     "median": 190319.6,
+     "min": 189060.3,
+     "max": 191607.5,
      "n": 6,
      "sources": [
       "bench/results/dotnetway-six-ways/normal-1/oncrack-1.json",
@@ -261,9 +261,9 @@
      ]
     },
     "fsharp": {
-     "median": 37523.8,
-     "min": 35062.4,
-     "max": 38031.6,
+     "median": 38195.4,
+     "min": 37952.6,
+     "max": 38619.4,
      "n": 6,
      "sources": [
       "bench/results/dotnetway-six-ways/normal-1/fsharp-1.json",
@@ -275,9 +275,9 @@
      ]
     },
     "rails": {
-     "median": 5243.1,
-     "min": 5099.4,
-     "max": 5346.9,
+     "median": 5425.4,
+     "min": 5040.8,
+     "max": 5566.6,
      "n": 6,
      "sources": [
       "bench/results/dotnetway-six-ways/normal-1/rails-1.json",
@@ -289,9 +289,9 @@
      ]
     },
     "rust": {
-     "median": 55268.7,
-     "min": 53590.5,
-     "max": 56251.0,
+     "median": 55561.0,
+     "min": 54090.3,
+     "max": 56085.6,
      "n": 6,
      "sources": [
       "bench/results/dotnetway-six-ways/normal-1/rust-1.json",
@@ -303,9 +303,9 @@
      ]
     },
     "c": {
-     "median": 83029.8,
-     "min": 82330.1,
-     "max": 83643.7,
+     "median": 83137.1,
+     "min": 81450.5,
+     "max": 84689.0,
      "n": 6,
      "sources": [
       "bench/results/dotnetway-six-ways/normal-1/c-1.json",
@@ -328,9 +328,9 @@
    ],
    "values": {
     "dotnetway": {
-     "median": 7187.2,
-     "min": 6603.1,
-     "max": 7336.2,
+     "median": 41325.2,
+     "min": 40019.0,
+     "max": 42399.2,
      "n": 6,
      "sources": [
       "bench/results/dotnetway-six-ways/normal-1/dotnetway-1.json",
@@ -342,9 +342,9 @@
      ]
     },
     "oncrack": {
-     "median": 185205.5,
-     "min": 175274.7,
-     "max": 186867.7,
+     "median": 184644.5,
+     "min": 183973.9,
+     "max": 185593.3,
      "n": 6,
      "sources": [
       "bench/results/dotnetway-six-ways/normal-1/oncrack-1.json",
@@ -356,9 +356,9 @@
      ]
     },
     "fsharp": {
-     "median": 33742.2,
-     "min": 31909.9,
-     "max": 34120.8,
+     "median": 34009.2,
+     "min": 33751.0,
+     "max": 34482.9,
      "n": 6,
      "sources": [
       "bench/results/dotnetway-six-ways/normal-1/fsharp-1.json",
@@ -370,9 +370,9 @@
      ]
     },
     "rails": {
-     "median": 5062.8,
-     "min": 4918.1,
-     "max": 5247.2,
+     "median": 5280.1,
+     "min": 4769.7,
+     "max": 5383.2,
      "n": 6,
      "sources": [
       "bench/results/dotnetway-six-ways/normal-1/rails-1.json",
@@ -384,9 +384,9 @@
      ]
     },
     "rust": {
-     "median": 54112.3,
-     "min": 53484.2,
-     "max": 56107.1,
+     "median": 55919.7,
+     "min": 54801.1,
+     "max": 56330.4,
      "n": 6,
      "sources": [
       "bench/results/dotnetway-six-ways/normal-1/rust-1.json",
@@ -398,9 +398,9 @@
      ]
     },
     "c": {
-     "median": 82901.9,
-     "min": 80959.8,
-     "max": 83961.2,
+     "median": 82401.8,
+     "min": 81559.8,
+     "max": 83324.7,
      "n": 6,
      "sources": [
       "bench/results/dotnetway-six-ways/normal-1/c-1.json",
@@ -423,9 +423,9 @@
    ],
    "values": {
     "dotnetway": {
-     "median": 2262.9,
-     "min": 2085.9,
-     "max": 2291.2,
+     "median": 2900.7,
+     "min": 2781.3,
+     "max": 2939.7,
      "n": 6,
      "sources": [
       "bench/results/dotnetway-six-ways/normal-1/dotnetway-1.json",
@@ -437,9 +437,9 @@
      ]
     },
     "oncrack": {
-     "median": 15200.3,
-     "min": 13785.3,
-     "max": 15325.8,
+     "median": 15149.0,
+     "min": 14548.7,
+     "max": 15301.5,
      "n": 6,
      "sources": [
       "bench/results/dotnetway-six-ways/normal-1/oncrack-1.json",
@@ -451,9 +451,9 @@
      ]
     },
     "fsharp": {
-     "median": 9316.9,
-     "min": 9072.0,
-     "max": 9548.0,
+     "median": 9515.7,
+     "min": 9451.7,
+     "max": 9577.7,
      "n": 6,
      "sources": [
       "bench/results/dotnetway-six-ways/normal-1/fsharp-1.json",
@@ -465,9 +465,9 @@
      ]
     },
     "rails": {
-     "median": 398.3,
-     "min": 395.7,
-     "max": 405.0,
+     "median": 400.9,
+     "min": 392.4,
+     "max": 406.7,
      "n": 6,
      "sources": [
       "bench/results/dotnetway-six-ways/normal-1/rails-1.json",
@@ -479,9 +479,9 @@
      ]
     },
     "rust": {
-     "median": 6413.5,
-     "min": 6191.9,
-     "max": 6580.8,
+     "median": 6498.2,
+     "min": 6418.2,
+     "max": 6570.2,
      "n": 6,
      "sources": [
       "bench/results/dotnetway-six-ways/normal-1/rust-1.json",
@@ -493,9 +493,9 @@
      ]
     },
     "c": {
-     "median": 5819.0,
-     "min": 5566.6,
-     "max": 5850.2,
+     "median": 5858.5,
+     "min": 5812.4,
+     "max": 5908.8,
      "n": 6,
      "sources": [
       "bench/results/dotnetway-six-ways/normal-1/c-1.json",
@@ -518,9 +518,9 @@
    ],
    "values": {
     "dotnetway": {
-     "median": 2867.9,
-     "min": 2628.9,
-     "max": 2996.9,
+     "median": 32885.7,
+     "min": 32344.7,
+     "max": 33772.4,
      "n": 6,
      "sources": [
       "bench/results/dotnetway-six-ways/mixed-1/dotnetway-1.json",
@@ -532,9 +532,9 @@
      ]
     },
     "oncrack": {
-     "median": 162223.5,
-     "min": 153721.5,
-     "max": 163951.4,
+     "median": 163174.2,
+     "min": 160988.5,
+     "max": 164057.8,
      "n": 6,
      "sources": [
       "bench/results/dotnetway-six-ways/mixed-1/oncrack-1.json",
@@ -546,9 +546,9 @@
      ]
     },
     "fsharp": {
-     "median": 31508.7,
-     "min": 24887.3,
-     "max": 33747.1,
+     "median": 33217.2,
+     "min": 31721.8,
+     "max": 33958.9,
      "n": 6,
      "sources": [
       "bench/results/dotnetway-six-ways/mixed-1/fsharp-1.json",
@@ -560,9 +560,9 @@
      ]
     },
     "rails": {
-     "median": 2711.4,
-     "min": 2293.5,
-     "max": 2863.3,
+     "median": 2799.9,
+     "min": 2519.5,
+     "max": 2876.5,
      "n": 6,
      "sources": [
       "bench/results/dotnetway-six-ways/mixed-1/rails-1.json",
@@ -574,9 +574,9 @@
      ]
     },
     "rust": {
-     "median": 46560.2,
-     "min": 41865.5,
-     "max": 47445.8,
+     "median": 47410.8,
+     "min": 46435.3,
+     "max": 48215.7,
      "n": 6,
      "sources": [
       "bench/results/dotnetway-six-ways/mixed-1/rust-1.json",
@@ -588,9 +588,9 @@
      ]
     },
     "c": {
-     "median": 72040.2,
-     "min": 59997.4,
-     "max": 72817.8,
+     "median": 71828.7,
+     "min": 70871.6,
+     "max": 71976.1,
      "n": 6,
      "sources": [
       "bench/results/dotnetway-six-ways/mixed-1/c-1.json",
@@ -613,9 +613,9 @@
    ],
    "values": {
     "dotnetway": {
-     "median": 6615.8,
-     "min": 5682.6,
-     "max": 6771.0,
+     "median": 33012.5,
+     "min": 31630.0,
+     "max": 33442.2,
      "n": 6,
      "sources": [
       "bench/results/dotnetway-six-ways/mixed-1/dotnetway-1.json",
@@ -627,9 +627,9 @@
      ]
     },
     "oncrack": {
-     "median": 177585.5,
-     "min": 166852.2,
-     "max": 181542.4,
+     "median": 178188.4,
+     "min": 176258.6,
+     "max": 181944.2,
      "n": 6,
      "sources": [
       "bench/results/dotnetway-six-ways/mixed-1/oncrack-1.json",
@@ -641,9 +641,9 @@
      ]
     },
     "fsharp": {
-     "median": 41420.1,
-     "min": 36913.2,
-     "max": 41757.0,
+     "median": 41137.2,
+     "min": 39970.4,
+     "max": 41517.1,
      "n": 6,
      "sources": [
       "bench/results/dotnetway-six-ways/mixed-1/fsharp-1.json",
@@ -655,9 +655,9 @@
      ]
     },
     "rails": {
-     "median": 3282.1,
-     "min": 3070.2,
-     "max": 3508.0,
+     "median": 3461.1,
+     "min": 3060.7,
+     "max": 3612.9,
      "n": 6,
      "sources": [
       "bench/results/dotnetway-six-ways/mixed-1/rails-1.json",
@@ -669,9 +669,9 @@
      ]
     },
     "rust": {
-     "median": 44346.8,
-     "min": 39619.8,
-     "max": 45256.5,
+     "median": 45001.6,
+     "min": 43537.3,
+     "max": 45751.8,
      "n": 6,
      "sources": [
       "bench/results/dotnetway-six-ways/mixed-1/rust-1.json",
@@ -683,9 +683,9 @@
      ]
     },
     "c": {
-     "median": 73312.6,
-     "min": 61891.1,
-     "max": 74179.6,
+     "median": 73843.0,
+     "min": 72986.2,
+     "max": 74742.0,
      "n": 6,
      "sources": [
       "bench/results/dotnetway-six-ways/mixed-1/c-1.json",
@@ -708,9 +708,9 @@
    ],
    "values": {
     "dotnetway": {
-     "median": 7321.6,
-     "min": 6219.9,
-     "max": 7560.9,
+     "median": 40246.2,
+     "min": 38353.3,
+     "max": 40577.7,
      "n": 6,
      "sources": [
       "bench/results/dotnetway-six-ways/mixed-1/dotnetway-1.json",
@@ -722,9 +722,9 @@
      ]
     },
     "oncrack": {
-     "median": 187231.0,
-     "min": 173675.7,
-     "max": 188499.9,
+     "median": 187713.3,
+     "min": 187173.8,
+     "max": 189142.7,
      "n": 6,
      "sources": [
       "bench/results/dotnetway-six-ways/mixed-1/oncrack-1.json",
@@ -736,9 +736,9 @@
      ]
     },
     "fsharp": {
-     "median": 37335.7,
-     "min": 34738.9,
-     "max": 38109.6,
+     "median": 37797.6,
+     "min": 37303.0,
+     "max": 38323.7,
      "n": 6,
      "sources": [
       "bench/results/dotnetway-six-ways/mixed-1/fsharp-1.json",
@@ -750,9 +750,9 @@
      ]
     },
     "rails": {
-     "median": 4154.1,
-     "min": 3629.0,
-     "max": 4446.3,
+     "median": 4266.9,
+     "min": 4196.3,
+     "max": 4425.1,
      "n": 6,
      "sources": [
       "bench/results/dotnetway-six-ways/mixed-1/rails-1.json",
@@ -764,9 +764,9 @@
      ]
     },
     "rust": {
-     "median": 52332.2,
-     "min": 41859.8,
-     "max": 55495.4,
+     "median": 55627.6,
+     "min": 53580.7,
+     "max": 56233.7,
      "n": 6,
      "sources": [
       "bench/results/dotnetway-six-ways/mixed-1/rust-1.json",
@@ -778,9 +778,9 @@
      ]
     },
     "c": {
-     "median": 82265.9,
-     "min": 67694.8,
-     "max": 84212.4,
+     "median": 82395.5,
+     "min": 81439.2,
+     "max": 84034.8,
      "n": 6,
      "sources": [
       "bench/results/dotnetway-six-ways/mixed-1/c-1.json",
@@ -803,9 +803,9 @@
    ],
    "values": {
     "dotnetway": {
-     "median": 6886.4,
-     "min": 6168.9,
-     "max": 6994.2,
+     "median": 39609.8,
+     "min": 38016.8,
+     "max": 40230.3,
      "n": 6,
      "sources": [
       "bench/results/dotnetway-six-ways/mixed-1/dotnetway-1.json",
@@ -817,9 +817,9 @@
      ]
     },
     "oncrack": {
-     "median": 182827.2,
-     "min": 144568.0,
-     "max": 184053.6,
+     "median": 182965.3,
+     "min": 181279.3,
+     "max": 184443.8,
      "n": 6,
      "sources": [
       "bench/results/dotnetway-six-ways/mixed-1/oncrack-1.json",
@@ -831,9 +831,9 @@
      ]
     },
     "fsharp": {
-     "median": 34645.1,
-     "min": 32655.0,
-     "max": 34956.1,
+     "median": 34789.8,
+     "min": 34583.7,
+     "max": 35410.3,
      "n": 6,
      "sources": [
       "bench/results/dotnetway-six-ways/mixed-1/fsharp-1.json",
@@ -845,9 +845,9 @@
      ]
     },
     "rails": {
-     "median": 3901.2,
-     "min": 3410.4,
-     "max": 4208.7,
+     "median": 4084.4,
+     "min": 3846.7,
+     "max": 4186.7,
      "n": 6,
      "sources": [
       "bench/results/dotnetway-six-ways/mixed-1/rails-1.json",
@@ -859,9 +859,9 @@
      ]
     },
     "rust": {
-     "median": 53424.1,
-     "min": 44879.8,
-     "max": 54374.1,
+     "median": 54140.4,
+     "min": 50690.4,
+     "max": 54722.0,
      "n": 6,
      "sources": [
       "bench/results/dotnetway-six-ways/mixed-1/rust-1.json",
@@ -873,9 +873,9 @@
      ]
     },
     "c": {
-     "median": 80063.9,
-     "min": 66767.2,
-     "max": 80848.0,
+     "median": 79869.7,
+     "min": 78460.5,
+     "max": 83297.2,
      "n": 6,
      "sources": [
       "bench/results/dotnetway-six-ways/mixed-1/c-1.json",

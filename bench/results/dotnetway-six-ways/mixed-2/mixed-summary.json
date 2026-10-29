@@ -1,9 +1,9 @@
 {
   "metadata": {
-    "verification_revision": "f3103c7d48ab1edf779e6235e34900b489d5a305",
+    "verification_revision": "eb45b63f50e0c19167f7bd00021b912e0fda4001",
     "response_validation": "route-contract-v1",
-    "started_at": "2026-10-28T10:08:02Z",
-    "seed_sha256": "b775e12501641142d76ec3239e095ef6f6e8e1abf0d33829d5e84da0741515e8",
+    "started_at": "2026-10-29T06:44:58Z",
+    "seed_sha256": "b62498d4451551b896f3559121f1ed4f03f2306cd2819c324a811900022856ab",
     "server_cpus": "0-3",
     "client_cpus": "4-7",
     "network": "host",
@@ -26,7 +26,7 @@
       "c": "sha256:51001f452cc56b2ca1ca8694a6b107ece42b4fcb11a822ecbf7200aac2d9fa62",
       "fsharp": "sha256:eff5fc297f6aaee74f3fe88b4bb961d6da115ec90940c39ffbbdd4677fe177ae",
       "oncrack": "sha256:0c479e08f884f0c373093cd14125f715c0e74ec80450e526ff8d692886d98254",
-      "dotnetway": "sha256:acdc23f914c76f25f3ab79e1fc080654db6bf227a553c70251774e8384942dc3"
+      "dotnetway": "sha256:80ead90cd4fafcb4f60c090b83fccbbca5e90600eb9dce9905a5ea32d1e5cd64"
     },
     "image_labels": {
       "rails": {
@@ -57,7 +57,7 @@
       "dotnetway": {
         "org.opencontainers.image.description": "",
         "org.opencontainers.image.licenses": "MIT",
-        "org.opencontainers.image.revision": "dcc9434d3afaed16c1976e817334661c245fa36e",
+        "org.opencontainers.image.revision": "903d2a819df3d31d771cc6a6d4f28c4cdb8d3aec",
         "org.opencontainers.image.source": ""
       }
     },
@@ -83,7 +83,7 @@
         "dirty": false
       },
       "dotnetway": {
-        "head": "f9f4637aea70559029be2c4ad42170a8f3219ac4",
+        "head": "75487b75fff0d5792f97ed91d4d34c335a81c5ab",
         "dirty": false
       }
     },
@@ -127,9 +127,10 @@
       "dotnetway": {
         "processes": 1,
         "runtime": ".NET 11 (Kestrel, ASP.NET Core, EF Core with Dapper hot reads)",
-        "response_cache": "none for pages (OutputCache serves public assets only)",
+        "response_cache": "pages (HybridCache, fresh authorization)",
         "cable": "native",
-        "jobs": "in-process"
+        "jobs": "in-process",
+        "response_cache_mb": "64"
       }
     },
     "runtimes": {
@@ -153,205 +154,205 @@
   "mixed_results": {
     "rails": {
       "room_show": {
-        "median_rps": 2660.9,
+        "median_rps": 2775.4,
         "runs": [
-          2293.5,
-          2660.9,
-          2666.9
+          2519.5,
+          2775.4,
+          2876.5
         ]
       },
       "messages_page": {
-        "median_rps": 3316.6,
+        "median_rps": 3444.5,
         "runs": [
-          3070.2,
-          3358.6,
-          3316.6
+          3060.7,
+          3444.5,
+          3612.9
         ]
       },
       "sidebar": {
-        "median_rps": 4109.6,
+        "median_rps": 4242.9,
         "runs": [
-          3629.0,
-          4165.4,
-          4109.6
+          4242.9,
+          4196.3,
+          4321.7
         ]
       },
       "search": {
-        "median_rps": 3879.8,
+        "median_rps": 4084.3,
         "runs": [
-          3410.4,
-          3922.6,
-          3879.8
+          3846.7,
+          4186.7,
+          4084.3
         ]
       }
     },
     "rust": {
       "room_show": {
-        "median_rps": 45921.4,
+        "median_rps": 47689.6,
         "runs": [
-          41865.5,
-          45921.4,
-          47210.0
+          47218.1,
+          48215.7,
+          47689.6
         ]
       },
       "messages_page": {
-        "median_rps": 43359.8,
+        "median_rps": 45247.5,
         "runs": [
-          39619.8,
-          43359.8,
-          44613.6
+          43581.2,
+          45751.8,
+          45247.5
         ]
       },
       "sidebar": {
-        "median_rps": 45766.2,
+        "median_rps": 55526.4,
         "runs": [
-          45766.2,
-          41859.8,
-          50399.4
+          54862.5,
+          56233.7,
+          55526.4
         ]
       },
       "search": {
-        "median_rps": 50911.3,
+        "median_rps": 54302.9,
         "runs": [
-          44879.8,
-          50911.3,
-          53643.6
+          54722.0,
+          50690.4,
+          54302.9
         ]
       }
     },
     "c": {
       "room_show": {
-        "median_rps": 69171.7,
+        "median_rps": 71119.3,
         "runs": [
-          59997.4,
-          72817.8,
-          69171.7
+          70871.6,
+          71119.3,
+          71727.3
         ]
       },
       "messages_page": {
-        "median_rps": 72565.2,
+        "median_rps": 73637.4,
         "runs": [
-          61891.1,
-          72565.2,
-          73287.8
+          72986.2,
+          73637.4,
+          74048.7
         ]
       },
       "sidebar": {
-        "median_rps": 82389.9,
+        "median_rps": 81479.7,
         "runs": [
-          67694.8,
-          82580.9,
-          82389.9
+          81439.2,
+          81479.7,
+          82423.4
         ]
       },
       "search": {
-        "median_rps": 78337.8,
+        "median_rps": 78642.9,
         "runs": [
-          66767.2,
-          80848.0,
-          78337.8
+          78460.5,
+          78642.9,
+          79866.2
         ]
       }
     },
     "fsharp": {
       "room_show": {
-        "median_rps": 26491.1,
+        "median_rps": 32495.1,
         "runs": [
-          24887.3,
-          33747.1,
-          26491.1
+          33958.9,
+          32495.1,
+          31721.8
         ]
       },
       "messages_page": {
-        "median_rps": 41146.4,
+        "median_rps": 41117.9,
         "runs": [
-          38122.6,
-          41693.8,
-          41146.4
+          41117.9,
+          41498.3,
+          39970.4
         ]
       },
       "sidebar": {
-        "median_rps": 37222.0,
+        "median_rps": 38038.6,
         "runs": [
-          35005.3,
-          37222.0,
-          38109.6
+          38038.6,
+          37556.5,
+          38092.5
         ]
       },
       "search": {
-        "median_rps": 34595.9,
+        "median_rps": 34865.7,
         "runs": [
-          32655.0,
-          34775.8,
-          34595.9
+          34865.7,
+          34583.7,
+          35410.3
         ]
       }
     },
     "oncrack": {
       "room_show": {
-        "median_rps": 161752.1,
+        "median_rps": 161499.0,
         "runs": [
-          153721.5,
-          161752.1,
-          162152.6
+          161499.0,
+          160988.5,
+          162956.1
         ]
       },
       "messages_page": {
-        "median_rps": 178185.4,
+        "median_rps": 177834.0,
         "runs": [
-          166852.2,
-          181542.4,
-          178185.4
+          177388.3,
+          177834.0,
+          180994.6
         ]
       },
       "sidebar": {
-        "median_rps": 177915.1,
+        "median_rps": 187719.4,
         "runs": [
-          177915.1,
-          186796.5,
-          173675.7
+          187707.3,
+          187719.4,
+          189142.7
         ]
       },
       "search": {
-        "median_rps": 175360.9,
+        "median_rps": 182475.7,
         "runs": [
-          175360.9,
-          182763.7,
-          144568.0
+          183448.2,
+          182475.7,
+          181279.3
         ]
       }
     },
     "dotnetway": {
       "room_show": {
-        "median_rps": 2726.8,
+        "median_rps": 32908.7,
         "runs": [
-          2726.8,
-          2996.9,
-          2628.9
+          32908.7,
+          33772.4,
+          32395.6
         ]
       },
       "messages_page": {
-        "median_rps": 6244.4,
+        "median_rps": 33254.0,
         "runs": [
-          6244.4,
-          6644.7,
-          5682.6
+          33254.0,
+          33442.2,
+          31670.9
         ]
       },
       "sidebar": {
-        "median_rps": 7269.1,
+        "median_rps": 40185.5,
         "runs": [
-          7269.1,
-          7309.6,
-          6219.9
+          40185.5,
+          40577.7,
+          38353.3
         ]
       },
       "search": {
-        "median_rps": 6845.8,
+        "median_rps": 39700.9,
         "runs": [
-          6845.8,
-          6984.8,
-          6168.9
+          39700.9,
+          40230.3,
+          38016.8
         ]
       }
     }

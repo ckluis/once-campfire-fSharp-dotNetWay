@@ -1,9 +1,9 @@
 {
   "metadata": {
-    "verification_revision": "f3103c7d48ab1edf779e6235e34900b489d5a305",
+    "verification_revision": "eb45b63f50e0c19167f7bd00021b912e0fda4001",
     "response_validation": "route-contract-v1",
-    "started_at": "2026-10-28T09:51:21Z",
-    "seed_sha256": "b775e12501641142d76ec3239e095ef6f6e8e1abf0d33829d5e84da0741515e8",
+    "started_at": "2026-10-29T06:28:18Z",
+    "seed_sha256": "b62498d4451551b896f3559121f1ed4f03f2306cd2819c324a811900022856ab",
     "server_cpus": "0-3",
     "client_cpus": "4-7",
     "network": "host",
@@ -21,7 +21,7 @@
       "c": "sha256:51001f452cc56b2ca1ca8694a6b107ece42b4fcb11a822ecbf7200aac2d9fa62",
       "fsharp": "sha256:eff5fc297f6aaee74f3fe88b4bb961d6da115ec90940c39ffbbdd4677fe177ae",
       "oncrack": "sha256:0c479e08f884f0c373093cd14125f715c0e74ec80450e526ff8d692886d98254",
-      "dotnetway": "sha256:acdc23f914c76f25f3ab79e1fc080654db6bf227a553c70251774e8384942dc3"
+      "dotnetway": "sha256:80ead90cd4fafcb4f60c090b83fccbbca5e90600eb9dce9905a5ea32d1e5cd64"
     },
     "image_labels": {
       "rails": {
@@ -52,7 +52,7 @@
       "dotnetway": {
         "org.opencontainers.image.description": "",
         "org.opencontainers.image.licenses": "MIT",
-        "org.opencontainers.image.revision": "dcc9434d3afaed16c1976e817334661c245fa36e",
+        "org.opencontainers.image.revision": "903d2a819df3d31d771cc6a6d4f28c4cdb8d3aec",
         "org.opencontainers.image.source": ""
       }
     },
@@ -78,7 +78,7 @@
         "dirty": false
       },
       "dotnetway": {
-        "head": "f9f4637aea70559029be2c4ad42170a8f3219ac4",
+        "head": "75487b75fff0d5792f97ed91d4d34c335a81c5ab",
         "dirty": false
       }
     },
@@ -122,9 +122,10 @@
       "dotnetway": {
         "processes": 1,
         "runtime": ".NET 11 (Kestrel, ASP.NET Core, EF Core with Dapper hot reads)",
-        "response_cache": "none for pages (OutputCache serves public assets only)",
+        "response_cache": "pages (HybridCache, fresh authorization)",
         "cable": "native",
-        "jobs": "in-process"
+        "jobs": "in-process",
+        "response_cache_mb": "64"
       }
     },
     "runtimes": {
@@ -148,253 +149,253 @@
   "results": {
     "rails": {
       "room_show": {
-        "median_rps": 4918.3,
+        "median_rps": 4957.2,
         "runs": [
-          4841.1,
-          4943.0,
-          4918.3
+          4957.2,
+          5058.6,
+          4876.5
         ]
       },
       "messages_page": {
-        "median_rps": 4956.6,
+        "median_rps": 4993.4,
         "runs": [
-          4956.6,
-          4917.5,
-          4979.9
+          5020.0,
+          4993.4,
+          4965.0
         ]
       },
       "sidebar": {
-        "median_rps": 5263.3,
+        "median_rps": 5463.5,
         "runs": [
-          5222.8,
-          5346.9,
-          5263.3
+          5566.6,
+          5387.4,
+          5463.5
         ]
       },
       "search": {
-        "median_rps": 5074.9,
+        "median_rps": 5341.2,
         "runs": [
-          5123.2,
-          5074.9,
-          5050.6
+          5383.2,
+          5148.1,
+          5341.2
         ]
       },
       "post_message": {
-        "median_rps": 399.8,
+        "median_rps": 401.7,
         "runs": [
-          403.1,
-          396.2,
-          399.8
+          392.4,
+          405.3,
+          401.7
         ]
       }
     },
     "rust": {
       "room_show": {
-        "median_rps": 49678.4,
+        "median_rps": 50110.8,
         "runs": [
-          49678.4,
-          50575.9,
-          48904.6
+          50051.9,
+          50110.8,
+          50205.9
         ]
       },
       "messages_page": {
-        "median_rps": 46628.5,
+        "median_rps": 47352.7,
         "runs": [
-          46628.5,
-          47326.5,
-          46346.9
+          46871.3,
+          47352.7,
+          47600.3
         ]
       },
       "sidebar": {
-        "median_rps": 55849.2,
+        "median_rps": 55859.3,
         "runs": [
-          55869.6,
-          55849.2,
-          54688.2
+          55859.3,
+          55490.3,
+          56085.6
         ]
       },
       "search": {
-        "median_rps": 54140.5,
+        "median_rps": 55978.7,
         "runs": [
-          55060.0,
-          54140.5,
-          53545.3
+          55757.7,
+          55978.7,
+          56330.4
         ]
       },
       "post_message": {
-        "median_rps": 6511.6,
+        "median_rps": 6497.9,
         "runs": [
-          6511.6,
-          6532.8,
-          6191.9
+          6497.9,
+          6418.2,
+          6549.2
         ]
       }
     },
     "c": {
       "room_show": {
-        "median_rps": 76853.5,
+        "median_rps": 76881.4,
         "runs": [
-          78821.5,
-          76444.5,
-          76853.5
+          75780.6,
+          77824.1,
+          76881.4
         ]
       },
       "messages_page": {
-        "median_rps": 76859.0,
+        "median_rps": 77363.1,
         "runs": [
-          78418.8,
-          76859.0,
-          74847.7
+          76809.9,
+          77363.1,
+          78652.4
         ]
       },
       "sidebar": {
-        "median_rps": 82635.2,
+        "median_rps": 82780.1,
         "runs": [
-          83543.6,
-          82330.1,
-          82635.2
+          82854.4,
+          82780.1,
+          81450.5
         ]
       },
       "search": {
-        "median_rps": 82388.8,
+        "median_rps": 82927.6,
         "runs": [
-          82388.8,
-          83961.2,
-          80959.8
+          82927.6,
+          83324.7,
+          82166.6
         ]
       },
       "post_message": {
-        "median_rps": 5840.7,
+        "median_rps": 5852.6,
         "runs": [
-          5843.3,
-          5840.7,
-          5791.4
+          5812.4,
+          5852.6,
+          5908.8
         ]
       }
     },
     "fsharp": {
       "room_show": {
-        "median_rps": 35408.5,
+        "median_rps": 35240.4,
         "runs": [
-          35408.5,
-          35721.3,
-          35320.8
+          35240.4,
+          36667.2,
+          35016.3
         ]
       },
       "messages_page": {
-        "median_rps": 41917.6,
+        "median_rps": 42010.5,
         "runs": [
-          42393.2,
-          41917.6,
-          39219.6
+          41376.1,
+          42773.9,
+          42010.5
         ]
       },
       "sidebar": {
-        "median_rps": 37822.4,
+        "median_rps": 38101.0,
         "runs": [
-          37863.8,
-          37822.4,
-          37225.2
+          38101.0,
+          38619.4,
+          37957.1
         ]
       },
       "search": {
-        "median_rps": 33847.9,
+        "median_rps": 34012.1,
         "runs": [
-          33636.4,
-          33912.6,
-          33847.9
+          34012.1,
+          34268.1,
+          33751.0
         ]
       },
       "post_message": {
-        "median_rps": 9321.4,
+        "median_rps": 9512.2,
         "runs": [
-          9321.4,
-          9516.7,
-          9312.4
+          9512.2,
+          9577.7,
+          9451.7
         ]
       }
     },
     "oncrack": {
       "room_show": {
-        "median_rps": 169747.3,
+        "median_rps": 168499.0,
         "runs": [
-          170083.4,
-          169747.3,
-          167578.0
+          168499.0,
+          169926.9,
+          168397.0
         ]
       },
       "messages_page": {
-        "median_rps": 178603.5,
+        "median_rps": 179088.5,
         "runs": [
-          178846.5,
-          178603.5,
-          178531.7
+          179802.1,
+          179088.5,
+          177993.9
         ]
       },
       "sidebar": {
-        "median_rps": 190816.6,
+        "median_rps": 190378.3,
         "runs": [
-          190816.6,
-          190973.9,
-          180064.8
+          190261.0,
+          191607.5,
+          190378.3
         ]
       },
       "search": {
-        "median_rps": 186430.6,
+        "median_rps": 185257.5,
         "runs": [
-          186867.7,
-          186430.6,
-          180777.9
+          185027.9,
+          185593.3,
+          185257.5
         ]
       },
       "post_message": {
-        "median_rps": 15188.8,
+        "median_rps": 15270.9,
         "runs": [
-          15188.8,
-          15027.1,
-          15325.8
+          15301.5,
+          15169.0,
+          15270.9
         ]
       }
     },
     "dotnetway": {
       "room_show": {
-        "median_rps": 3298.5,
+        "median_rps": 35312.9,
         "runs": [
-          3318.7,
-          3298.5,
-          3280.8
+          34674.5,
+          35620.2,
+          35312.9
         ]
       },
       "messages_page": {
-        "median_rps": 7411.5,
+        "median_rps": 34172.4,
         "runs": [
-          7411.5,
-          7529.7,
-          7243.2
+          33474.5,
+          34268.7,
+          34172.4
         ]
       },
       "sidebar": {
-        "median_rps": 7759.4,
+        "median_rps": 42198.0,
         "runs": [
-          7759.4,
-          7825.6,
-          7510.3
+          41712.6,
+          42198.0,
+          42302.5
         ]
       },
       "search": {
-        "median_rps": 7233.7,
+        "median_rps": 41995.1,
         "runs": [
-          7233.7,
-          7336.2,
-          6789.2
+          41110.8,
+          41995.1,
+          42399.2
         ]
       },
       "post_message": {
-        "median_rps": 2280.3,
+        "median_rps": 2907.0,
         "runs": [
-          2291.2,
-          2280.3,
-          2085.9
+          2806.2,
+          2907.0,
+          2911.1
         ]
       }
     }

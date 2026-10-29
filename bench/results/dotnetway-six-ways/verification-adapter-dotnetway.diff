@@ -1,5 +1,5 @@
 diff --git a/bench/compare.rb b/bench/compare.rb
-index 126b333..bf74862 100644
+index 126b333..9f3d532 100644
 --- a/bench/compare.rb
 +++ b/bench/compare.rb
 @@ -29,7 +29,7 @@ OptionParser.new do |parser|
@@ -15,11 +15,10 @@ index 126b333..bf74862 100644
        when "cpp" then {processes: 1, page_cache_mb: config.fetch("CAMPFIRE_PAGE_CACHE_MB", "32"), cable: "native", jobs: "in-process"}
        when "oncrack" then {processes: 1, runtime: ".NET (Kestrel)", cable: "native", jobs: "in-process"}
        when "fsharp" then {processes: 1, runtime: ".NET (Kestrel)", response_cache: "none (port of Rust ccece30)", cable: "native", jobs: "in-process"}
-+      when "dotnetway" then {processes: 1, runtime: ".NET 11 (Kestrel, ASP.NET Core, EF Core with Dapper hot reads)", response_cache: "none for pages (OutputCache serves public assets only)", cable: "native", jobs: "in-process"}
++      when "dotnetway" then {processes: 1, runtime: ".NET 11 (Kestrel, ASP.NET Core, EF Core with Dapper hot reads)", response_cache: "pages (HybridCache, fresh authorization)", cable: "native", jobs: "in-process"}
        when "django" then {http_workers: config.fetch("WEB_WORKERS", config["REDIS_URL"].to_s.empty? ? "1" : "affinity, capped at 4"), runtime: "ASGI/Uvicorn", cable: "native", jobs: "leased auxiliary SQLite"}
        end
--      unless %w[c cpp fsharp].include?(kind)
-+      unless %w[c cpp fsharp dotnetway].include?(kind)
+       unless %w[c cpp fsharp].include?(kind)
          metadata[:topology][app][:response_cache_mb] = config.fetch("CAMPFIRE_RESPONSE_CACHE_MB", "64")
        end
 -      command = ["docker", "run", "-d", "--name", container, "--network", "host", "--cpuset-cpus", options[:cpus]]

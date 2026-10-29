@@ -2,7 +2,7 @@
 """aggregate.py RESULTS_DIR: pool the c=16 medians over every round of every session per app and row; write table.json and table.md."""
 import json, statistics, sys, glob, os
 D = sys.argv[1]
-APPS = [("dotnetway", "theDotNetWay", "f9f4637"), ("oncrack", "onCrack", "3770dff"), ("fsharp", "F# port", "9954ad0"),
+APPS = [("dotnetway", "theDotNetWay", "75487b7"), ("oncrack", "onCrack", "3770dff"), ("fsharp", "F# port", "9954ad0"),
         ("rails", "Rails", "ca9b963"), ("rust", "Rust", "6dae2fd"), ("c", "C", "873a51f")]
 GROUPS = [("Each route alone", "normal", "http", ["room_show", "messages_page", "sidebar", "search", "post_message"]),
           ("Reads while a writer posts 10/s", "mixed", "mixed_http", ["room_show", "messages_page", "sidebar", "search"])]
