@@ -1,495 +1,442 @@
 #!/usr/bin/env python3
-"""Render index.html (at the repository root) from site/data.json and the Phase 7 log.
+"""Render index.html (at the repository root): theDotNetWay's landing page.
 
-Python 3 standard library only. The page is a run of short beats, with the live climb chart from
-bench/progress/climb.py at the top; every detail sits in a side panel a beat links to. Panels are
-CSS :target drawers, so they work with JavaScript off; with it on they also close on Esc or a click
-outside, keep focus inside while open, and give it back on close.
+Python 3 standard library only.
 
-    python3 site/collect_tokens.py   # refresh token and commit figures from the transcripts
-    python3 site/build.py            # write index.html
+    python3 site/build.py            # write index.html, or fail
 
-bench/progress/build.py runs this after every logged tuning run, so the chart stays current.
+The page is short: the headline, "Campfire, six ways" (Basecamp's harness, six implementations, the same sessions), an honest note
+about the speed (what the old 5x floor was measured against, and what Phase 10 changed), the climb across Phases 0-10, what the
+framework replaced layer by layer, and a row of proofs. Details sit in side panels, CSS :target drawers that work with JavaScript off;
+with it on they also close on Esc or a click outside and give focus back.
+
+**Every number on the page is computed here from a file in the repository, never typed.** A number is a value V (the value, what it
+is, the files it came from, how it was worked out); the Ledger prints it as a link to its row in the "Every number" panel, and that
+row links the files. After rendering, check() reads the page back and fails the build if any digit a reader can see is not inside an
+element the ledger issued (data-src), outside code, or if any source file is missing. Identifiers with digits (commits, phase names,
+test ids) are marked data-lit and must match a short list of shapes. Links to files are relative to the repository root until
+meta.repo_url in site/data.json is set.
+
+Copy and links are in site/data.json under "dotnetway". The rest of site/data.json (and site/collect_tokens.py, site/same_pixels.py,
+site/workflows/) is the F# port's story, inherited from the fork; this page does not draw it.
 """
 import glob
-import hashlib
 import html
 import json
+import math
 import os
 import re
 import statistics
 import sys
-from datetime import datetime, timedelta, timezone
+from html.parser import HTMLParser
 
 SITE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(SITE)
-sys.path.insert(0, os.path.join(REPO, 'bench', 'progress'))
-import climb as climb_chart  # noqa: E402  (bench/progress/climb.py, shared with the dashboard)
+DATA = json.load(open(os.path.join(SITE, 'data.json'), encoding='utf-8'))
+D = DATA['dotnetway']
+META = D['meta']
 
-EDT = timezone(timedelta(hours=-4))
+R = 'bench/results'
+SIX = R + '/dotnetway-six-ways'
+SIX_T = SIX + '/table.json'
+PRE = SIX + '/before-phase10'
+PRE_T = PRE + '/table.json'
+STORED = R + '/phase7-final'
+KLOC_NOW = R + '/dotnetway-landing/kloc.md'
+GATE = R + '/dotnetway-p10'
+PLAN = 'plans/dotnetway.md'
+
+ROUTES = [('room_show', 'Room page'), ('messages_page', 'Messages page'), ('sidebar', 'Sidebar'), ('search', 'Search'), ('post_message', 'Post a message')]
+RNAME = dict(ROUTES)
+READS = [r for r, _ in ROUTES if r != 'post_message']
+APPS = ['dotnetway', 'oncrack', 'fsharp', 'rails', 'rust', 'c']
+
+# The phase gates' bench/quick runs (five workloads, c=1 and 16, 3 reps) against the stored medians of phase7-final.
+PHASES = [('0', R + '/dotnetway-p0/quick', R + '/dotnetway-p0'),
+          ('1', R + '/dotnetway-p1-fix/quick', R + '/dotnetway-p1-fix'),
+          ('2', R + '/dotnetway-p2/quick', R + '/dotnetway-p2'),
+          ('H', R + '/dotnetway-hybrid-2/new', None),
+          ('3', R + '/dotnetway-p3/quick/new', R + '/dotnetway-p3'),
+          ('4', R + '/dotnetway-p4/quick/new', R + '/dotnetway-p4'),
+          ('5', R + '/dotnetway-p5/quick/new', R + '/dotnetway-p5'),
+          ('6', R + '/dotnetway-p6/quick/new', R + '/dotnetway-p6'),
+          ('7', R + '/dotnetway-p7/quick/new', R + '/dotnetway-p7'),
+          ('8', R + '/dotnetway-p8/quick/new', R + '/dotnetway-p8'),
+          ('9', R + '/dotnetway-p9/quick/new', R + '/dotnetway-p9'),
+          ('10', R + '/dotnetway-p10/quick/new', R + '/dotnetway-p10')]
+
+# Phase 10 on bench/upstream-quick, step by step (normal profile, same-session Rails).
+STEPS = [('baseline', 'Before', R + '/phase10-baseline'), ('10.2', 'One connection', R + '/phase10-unit-10.2/upstream-quick'),
+         ('10.3', 'Narrower miss', R + '/phase10-unit-10.3/upstream-quick-10.3b'), ('10.4', 'Page cache: room, messages', R + '/phase10-4'),
+         ('10.5', 'Page cache: sidebar, search', R + '/phase10-5-normal'), ('gate', 'The gate', GATE + '/uq-normal')]
 
 
 def e(s):
     return html.escape(str(s), quote=True)
 
 
-# The page is served by GitHub Pages under /once-campfire-fSharp/, where a repo path is either a raw
-# file (a .md comes down as text/markdown) or a 404 (a directory has no index). Every link to a file
-# in the repository goes to GitHub's view of it instead; build() sets this from meta.repo.
-REPO_URL = 'https://github.com/ckluis/once-campfire-fSharp'
+def src_url(path):
+    base = META.get('repo_url')
+    if not base:
+        return path
+    kind = 'tree' if os.path.isdir(os.path.join(REPO, path.split('#')[0])) else 'blob'
+    return '%s/%s/%s/%s' % (base.rstrip('/'), kind, META.get('branch', 'main'), path.rstrip('/'))
 
 
-def src(path):
-    kind = 'tree' if path.endswith('/') else 'blob'
-    return '%s/%s/main/%s' % (REPO_URL.rstrip('/'), kind, path.rstrip('/'))
+def lit(s, why='name'):
+    return '<span data-lit="%s">%s</span>' % (e(why), e(s))
 
 
-def n(x):
-    return format(int(x), ',')
+def prose(s):
+    """Copy from site/data.json: escaped, with the few names that hold digits marked as names."""
+    return re.sub(r'\b(UTF-8|HTML5)\b', lambda m: lit(m.group(1)), e(s))
 
 
-def mega(x, digits=1):
-    x = float(x)
-    if x >= 1e9:
-        return ('%.' + str(digits) + 'f B') % (x / 1e9)
-    if x >= 1e6:
-        return ('%.' + str(digits) + 'f M') % (x / 1e6)
-    if x >= 1e3:
-        return '%.0f K' % (x / 1e3)
-    return '%d' % x
+def commit(s):
+    return '<code>%s</code>' % e(s)
 
 
-def ts(iso):
-    if not iso:
-        return None
-    if iso.endswith('Z'):
-        iso = iso[:-1] + '+00:00'
-    d = datetime.fromisoformat(iso)
-    return d if d.tzinfo else d.replace(tzinfo=timezone.utc)
+def flink(path, label=None):
+    return '<a href="%s"><code>%s</code></a>' % (e(src_url(path)), e(label or path))
 
 
-def local(iso, fmt='%-d %b %H:%M'):
-    d = ts(iso)
-    return d.astimezone(EDT).strftime(fmt) if d else ''
+def ph(p):
+    """A phase name as shown: 'Phase 4', 'Hybrid reads'."""
+    return 'Hybrid reads' if p == 'H' else lit('Phase ' + p, 'phase')
 
 
-def duration(a, b):
-    if not a or not b:
-        return ''
-    s = int((ts(b) - ts(a)).total_seconds())
-    h, m = s // 3600, (s % 3600) // 60
-    return '%dh %02dm' % (h, m) if h else '%d min' % m
+# ================================================================ sources
+
+class V:
+    __slots__ = ('v', 'label', 'files', 'how')
+
+    def __init__(self, v, label, files, how=''):
+        self.v, self.label, self.files, self.how = v, label, list(files), how
+
+    def over(self, o, label=None):
+        return V(self.v / o.v, label or '%s, over %s' % (self.label, o.label), self.files + [f for f in o.files if f not in self.files],
+                 '%s ÷ %s' % (g(self.v), g(o.v)))
+
+    def minus(self, o, label):
+        return V(self.v - o.v, label, self.files + [f for f in o.files if f not in self.files], '%s − %s' % (g(self.v), g(o.v)))
 
 
-def para(text):
-    return ''.join('<p>%s</p>' % inline(p).replace('\n', '<br>') for p in str(text).split('\n\n'))
+def g(x):
+    return ('%.4g' % x) if isinstance(x, float) and abs(x) < 100 else format(round(x, 1), ',')
 
 
-def inline(text):
-    """Escape, then render `code` spans."""
-    return re.sub(r'`([^`]+)`', r'<code>\1</code>', e(text))
+def vmin(vs, label):
+    m = min(vs, key=lambda v: v.v)
+    files = []
+    for v in vs:
+        files += [f for f in v.files if f not in files]
+    return V(m.v, label, files, 'the smallest of ' + ', '.join('%.2f' % v.v for v in vs))
 
 
-def lead_int(s):
-    m = re.match(r'\s*([\d,]+)', str(s or ''))
-    return int(m.group(1).replace(',', '')) if m else None
+def vmax(vs, label):
+    m = max(vs, key=lambda v: v.v)
+    files = []
+    for v in vs:
+        files += [f for f in v.files if f not in files]
+    return V(m.v, label, files, 'the largest of ' + ', '.join('%.2f' % v.v for v in vs))
 
 
-def pills(items):
-    return '<ul class="pills">%s</ul>' % ''.join('<li>%s</li>' % e(i) for i in items)
+class Ledger:
+    def __init__(self):
+        self.rows, self.by = [], {}
+
+    def row(self, label, files, how, shown, block=False):
+        for f in files:
+            if not os.path.exists(os.path.join(REPO, f.split('#')[0])):
+                raise SystemExit('build: source file missing: %s (for %s)' % (f, label))
+        key = (label, tuple(files), how, shown)
+        if key not in self.by:
+            rid = 's-%d' % (len(self.rows) + 1)
+            self.by[key] = rid
+            self.rows.append({'id': rid, 'label': label, 'files': files, 'how': how, 'shown': shown, 'block': block})
+        return self.by[key]
+
+    def n(self, v, fmt='{:,.0f}', link=True):
+        shown = fmt.format(v.v)
+        rid = self.row(v.label, v.files, v.how, shown)
+        if link:
+            return '<a class="sn" href="#%s" data-src="%s">%s</a>' % (rid, rid, e(shown))
+        return '<span class="sn" data-src="%s">%s</span>' % (rid, e(shown))
+
+    def x(self, v, link=True):
+        return self.n(v, '{:.2f}×', link)
+
+    def d1(self, v, link=True):
+        return self.n(v, '{:.1f}', link)
+
+    def block(self, label, files, how):
+        rid = self.row(label, files, how, '(every number in the block)', block=True)
+        return 'data-src="%s"' % rid
 
 
-def tip(label, text, cls=''):
-    """A small fact with a hover/focus card (CSS only)."""
-    return ('<span class="has-tip %s" tabindex="0">%s<span class="tip" role="tooltip">%s</span></span>'
-            % (cls, label, e(text)))
+L = Ledger()
+_J = {}
 
 
-def status_badge(status):
-    label = {'done': 'Done', 'in-progress': 'In progress', 'pending': 'Pending', 'running': 'Running'}.get(status, status)
-    return '<span class="badge badge-%s"><span class="bdot" aria-hidden="true"></span>%s</span>' % (e(status), e(label))
+def jload(rel):
+    if not os.path.exists(os.path.join(REPO, rel)):
+        raise SystemExit('build: source file missing: %s' % rel)
+    if rel not in _J:
+        _J[rel] = json.load(open(os.path.join(REPO, rel), encoding='utf-8'))
+    return _J[rel]
 
 
-def table(columns, rows, caption=None, num_from=1, cls='', ratio_col=None):
-    head = ''.join('<th scope="col"%s>%s</th>' % (' class="num"' if i >= num_from else '', e(c)) for i, c in enumerate(columns))
-    body = []
-    for r in rows:
-        cells = []
-        for i, c in enumerate(r):
-            if i == 0:
-                cells.append('<th scope="row">%s</th>' % e(c))
-            elif ratio_col is not None and i == ratio_col:
-                cells.append(ratio_cell(c))
-            else:
-                cells.append('<td class="num">%s</td>' % e(c) if i >= num_from else '<td>%s</td>' % e(c))
-        body.append('<tr>%s</tr>' % ''.join(cells))
-    cap = '<caption>%s</caption>' % e(caption) if caption else ''
-    return ('<div class="tw %s"><table>%s<thead><tr>%s</tr></thead><tbody>%s</tbody></table></div>'
-            % (cls, cap, head, ''.join(body)))
+def text(rel):
+    if not os.path.exists(os.path.join(REPO, rel)):
+        raise SystemExit('build: source file missing: %s' % rel)
+    return open(os.path.join(REPO, rel), encoding='utf-8').read()
 
 
-def ratio_cell(text):
-    m = re.match(r'([0-9.]+)', text)
-    v = float(m.group(1)) if m else 0
-    pct = max(0.0, min(v / 1.25, 1.0)) * 100
-    tone = 'ahead' if v >= 1.0 else 'behind'
-    return ('<td class="num ratio"><span class="rbar" aria-hidden="true"><span class="rfill %s" style="width:%.1f%%"></span>'
-            '<span class="rone" style="left:80%%"></span></span><span class="rval">%s</span></td>' % (tone, pct, e(text)))
+def md(rel, pattern, label, group=1):
+    ms = list(re.finditer(pattern, text(rel)))
+    if len(ms) != 1:
+        raise SystemExit('build: %r matches %d times in %s (want 1)' % (pattern, len(ms), rel))
+    return V(float(ms[0].group(group).replace(',', '')), label, [rel], 'written in the file: "%s"' % ms[0].group(0).strip())
 
 
-# ---------------------------------------------------------------- token charts (panel only)
-
-def bar_chart(rows, title, desc, chart_id, series=None):
-    """Horizontal bars. rows: [(label, sublabel, {series_key: value})]. series: [(key, label, css_var)]."""
-    series = series or [('v', 'Tokens', '--s1')]
-    W, label_w, row_h, gap, pad_r = 760, 210, 30, 16, 92
-    plot_w = W - label_w - pad_r
-    H = len(rows) * (row_h + gap) + 28
-    vmax = max(sum(v.get(k, 0) for k, _, _ in series) for _, _, v in rows) or 1
-    mag = 10 ** (len(str(int(vmax))) - 1)
-    nice = next(m * mag for m in (1, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10) if m * mag >= vmax)
-    out = ['<svg class="bars" id="%s" viewBox="0 0 %d %d" role="img" aria-labelledby="%s-t %s-d">' % (chart_id, W, H, chart_id, chart_id),
-           '<title id="%s-t">%s</title><desc id="%s-d">%s</desc>' % (chart_id, e(title), chart_id, e(desc))]
-    for i in range(5):
-        x = label_w + plot_w * i / 4
-        out.append('<line class="bg" x1="%.1f" x2="%.1f" y1="0" y2="%d"/>' % (x, x, H - 22))
-        out.append('<text class="bt" x="%.1f" y="%d" text-anchor="middle">%s</text>' % (x, H - 6, e(mega(nice * i / 4) if i else '0')))
-    for idx, (label, sub, vals) in enumerate(rows):
-        y = idx * (row_h + gap) + 4
-        out.append('<text class="bl" x="%d" y="%.1f" text-anchor="end">%s</text>' % (label_w - 12, y + row_h / 2 - 2, e(label)))
-        if sub:
-            out.append('<text class="bs" x="%d" y="%.1f" text-anchor="end">%s</text>' % (label_w - 12, y + row_h / 2 + 12, e(sub)))
-        x = label_w
-        total = sum(vals.get(k, 0) for k, _, _ in series)
-        segs = [(k, lab, var, vals.get(k, 0)) for k, lab, var in series if vals.get(k, 0) > 0]
-        for j, (k, lab, var, v) in enumerate(segs):
-            w = plot_w * v / nice
-            last = j == len(segs) - 1
-            out.append('<rect style="fill:var(%s)" x="%.1f" y="%.1f" width="%.1f" height="%d" rx="%d"><title>%s: %s %s</title></rect>'
-                       % (var, x, y + 4, max(w - (0 if last else 2), 0.8), row_h - 8, 3 if last else 0, e(label), e(lab), n(v)))
-            x += w
-        out.append('<text class="bv" x="%.1f" y="%.1f">%s</text>' % (x + 8, y + row_h / 2 + 4, e(mega(total))))
-    out.append('</svg>')
-    legend = ''
-    if len(series) > 1:
-        legend = '<ul class="legend">%s</ul>' % ''.join(
-            '<li><span class="sw" style="background:var(%s)"></span>%s</li>' % (var, e(lab)) for _, lab, var in series)
-    return legend + '<div class="bars-box">%s</div>' % ''.join(out)
+def cpus(spec):
+    n = 0
+    for part in spec.split(','):
+        a, _, b = part.partition('-')
+        n += (int(b) - int(a) + 1) if b else 1
+    return n
 
 
-# ---------------------------------------------------------------- facts the page derives
+# ---------------------------------------------------------------- the six-ways table
 
-def facts(d, cl):
-    tok = d['tokens']
-    g = tok['grand']
-    b = d['chapters']['build']
-    phases = b['phases']
-    gate5 = next((p for p in phases if p['key'] == 'phase5'), {}).get('gate', '')
-    renders = next((x['value'] for x in b['differentials'] if 'render' in x['label']), '')
-    words = 0
-    msgs = [m for m in d['prompts']['chris'] if m.get('kind') != 'attachment']
-    for m in msgs:
-        words += len(m['text'].split())
-    words += d['prompts']['status_pings']['count']
-    start, end = ts(tok['main']['first']), ts(tok['as_of'])
-    vs_rails = []
-    for row in d['chapters']['tuning']['baseline']['rows']:
-        if 'c=16' in row[0]:
-            ra, fs = float(row[1].replace(',', '')), float(row[3].replace(',', ''))
-            vs_rails.append(fs / ra)
-    findings = {'critical': 0, 'major': 0, 'minor': 0}
-    for w in tok['workflows']:
-        for a in w['agents']:
-            if a['role'] == 'verify' and a.get('findings'):
-                for k in findings:
-                    findings[k] += a['findings'].get(k, 0)
-    return {
-        'processed': g['processed'], 'fresh': g['fresh'], 'output': g['output'], 'calls': g['calls'],
-        'agents': tok['workflow_agents'] + 1 + len(tok['others']), 'wf_agents': tok['workflow_agents'], 'others': len(tok['others']),
-        'commits': d['commits']['total'],
-        'tests': lead_int(gate5), 'tests_gate': gate5,
-        'renders': lead_int(renders), 'renders_label': renders,
-        'hours': (end - start).total_seconds() / 3600, 'as_of': tok['as_of'], 'first': tok['main']['first'],
-        'words': words, 'messages': len(msgs) + d['prompts']['status_pings']['count'],
-        'rails_lo': min(vs_rails) if vs_rails else None, 'rails_hi': max(vs_rails) if vs_rails else None,
-        'findings': findings,
-    }
+GROUP_NORMAL, GROUP_MIXED = 'Each route alone', 'Reads while a writer posts 10/s'
 
 
-# ---------------------------------------------------------------- beats
-
-def details(pid, label='The details'):
-    return '<a class="more" href="#%s">%s <span aria-hidden="true">&rarr;</span></a>' % (pid, e(label))
-
-
-def beat(bid, kicker, visual, headline, lines, links, cls=''):
-    return ('<section class="beat %s" id="b-%s" aria-labelledby="b-%s-h"><div class="wrap beat-grid">'
-            '<div class="beat-visual reveal">%s</div>'
-            '<div class="beat-copy reveal"><p class="kicker">%s</p><h2 id="b-%s-h">%s</h2>%s<p class="links">%s</p></div>'
-            '</div></section>' % (cls, bid, bid, visual, kicker, bid, headline, ''.join(l if l.startswith('<div') else '<p class="line">%s</p>' % l for l in lines), links))
+def raw_median(sources, key, mixed):
+    vals = []
+    for f in sources:
+        d = jload(f)
+        rows = d['mixed_http' if mixed else 'http'] or []
+        vals += [x['rps'] for x in rows if x.get('route') == key and x.get('conc') == 16]
+    return statistics.median(vals), len(vals)
 
 
-def counter(value, dec=0, unit='', prefix=''):
-    shown = ('{:,.%df}' % dec).format(value)
-    return ('<span class="num-big">%s<b class="count" data-to="%s" data-dec="%d">%s</b>%s</span>'
-            % (('<i>%s</i>' % e(prefix)) if prefix else '', ('%.' + str(dec) + 'f') % value, dec, shown,
-               ('<i>%s</i>' % e(unit)) if unit else ''))
+def six_cell(table_rel, app, key, mixed, stat='median'):
+    t = jload(table_rel)
+    row = next(r for r in t['rows'] if r['key'] == key and (r['group'] != GROUP_NORMAL) == mixed)
+    c = dict(row['values'][app])
+    if table_rel == PRE_T:
+        # The first run's table.json was written before its sessions moved into before-phase10/; its sources still name the old paths.
+        c['sources'] = [PRE + f[len(SIX):] if f.startswith(SIX + '/') and not f.startswith(PRE + '/') else f for f in c['sources']]
+    if stat == 'median':
+        m, n = raw_median(c['sources'], key, mixed)
+        if n != c['n'] or abs(m - c['median']) > 0.06:
+            raise SystemExit('build: %s %s %s: table.json says %s over %d rounds, the round files give %s over %d' % (table_rel, app, key, c['median'], c['n'], m, n))
+    name = next(a['name'] for a in t['apps'] if a['id'] == app)
+    era = 'after Phase 10' if table_rel == SIX_T else 'before Phase 10 (the first run)'
+    return V(c[stat], '%s, %s, %s, req/s at c=16, %s of %d rounds over %s, six-ways bench %s' % (
+        name, RNAME[key].lower(), 'with a writer posting' if mixed else 'alone', stat, c['n'], ' and '.join(row['sessions']), era),
+        [table_rel] + c['sources'], '%s of the rounds: %s' % (stat, ', '.join(g(float(x)) for x in sorted(_round_vals(c['sources'], key, mixed)))) if stat == 'median' else 'the %s of the rounds' % stat)
 
 
-def hero(d, cl, f):
-    latest = cl.get('latest')
-    if latest is None:
-        live = 'Tuning against Rust has begun; the first measured runs will appear on the chart below.'
-        head = 'Campfire, in F#.'
-    else:
-        if latest >= 1.005:
-            head = 'F# just passed Rust.'
-        elif latest >= 0.995:
-            head = 'F# caught Rust.'
+def _round_vals(sources, key, mixed):
+    out = []
+    for f in sources:
+        d = jload(f)
+        rows = d['mixed_http' if mixed else 'http'] or []
+        out += [x['rps'] for x in rows if x.get('route') == key and x.get('conc') == 16]
+    return out
+
+
+# ---------------------------------------------------------------- bin/kloc
+
+def kloc(rel, project=None, col='corrected'):
+    t = text(rel)
+    if project is None:
+        m = re.search(r'\*\*Total\*\* \| \*\*([\d,]+) \([\d.]+ KLOC\)\*\* \| \*\*([\d,]+) \([\d.]+ KLOC\)\*\*', t)
+        v = float(m.group(1 if col == 'cloc' else 2).replace(',', ''))
+        return V(v, 'backend lines of code by upstream\'s rules (bin/kloc, %s column), %s' % (col, rel.rsplit('/', 1)[0].split('/')[-1]), [rel],
+                 'the Total row of bin/kloc\'s table, %s column' % col)
+    m = re.search(r'^\| %s \| ([\d,]+) \| ([\d,]+) \|$' % re.escape(project), t, re.M)
+    v = float(m.group(1 if col == 'cloc' else 2).replace(',', '')) if m else 0.0
+    return V(v, '%s, lines of code (bin/kloc, %s column), %s' % (project, col, rel.rsplit('/', 1)[0].split('/')[-1]), [rel],
+             ('the %s row, %s column' % (project, col)) if m else 'no %s row: the project is gone' % project)
+
+
+def kloc_projects(rel):
+    return [m.group(1) for m in re.finditer(r'^\| (Campfire\.[A-Za-z]+) \|', text(rel), re.M)]
+
+
+# ---------------------------------------------------------------- bench/quick
+
+def qmed(d, app, route, conc):
+    files = sorted(os.path.relpath(f, REPO) for f in glob.glob(os.path.join(REPO, d, app + '-[0-9].json')))
+    vals = [x['rps'] for f in files for x in jload(f)['http'] if x['route'] == route and x['conc'] == conc]
+    if len(vals) != 3 or len(files) != 3:
+        raise SystemExit('build: %s %s %s c=%d: %d samples in %d files (want 3)' % (d, app, route, conc, len(vals), len(files)))
+    who = 'pinned Rails (stored)' if app == 'reference' else 'theDotNetWay'
+    return V(statistics.median(vals), '%s, %s, c=%d, req/s, median of 3 reps (bench/quick, %s)' % (who, RNAME[route].lower(), conc, d), files,
+             'median of ' + ', '.join(g(float(x)) for x in sorted(vals)))
+
+
+# ---------------------------------------------------------------- upstream-quick summaries
+
+def uq(d, app, route):
+    rel = d + '/summary.json'
+    c = jload(rel)['table'][route][app]
+    return V(c['median'], '%s, %s, req/s at c=16, median of %d rounds (bench/upstream-quick, %s)' % (
+        {'rails': 'current Rails', 'dotnetway': 'theDotNetWay', 'fsharp': 'F# port'}[app], RNAME[route].lower(), len(c['runs']), d), [rel],
+        'median of ' + ', '.join(g(float(x)) for x in c['runs']))
+
+
+# ---------------------------------------------------------------- the pixel gate
+
+def pixel_gate():
+    out = {'seeds': {}, 'engines': set(), 'viewports': set(), 'bps': set(), 'themes': set(), 'states': set(), 'files': [], 'differ': [], 'rerun_cells': 0, 'rerun_equal': 0}
+    for f in sorted(glob.glob(os.path.join(REPO, GATE, 'full', '**', 'report.json'), recursive=True)):
+        rel = os.path.relpath(f, REPO)
+        rerun = '/rerun/' in rel
+        seed = rel.split('/')[-2]
+        out['files'].append(rel)
+        for r in jload(rel)['results']:
+            ly = {x['layer']: x for x in r['layers']}
+            if 'pixels' not in ly:
+                continue
+            eq = all(ly.get(k, {}).get('equal') for k in ('pixels', 'aria', 'loose'))
+            if rerun:
+                out['rerun_cells'] += 1
+                out['rerun_equal'] += eq
+                continue
+            s = out['seeds'].setdefault(seed, {'cells': 0, 'pixels': 0, 'aria': 0, 'loose': 0})
+            s['cells'] += 1
+            for k in ('pixels', 'aria', 'loose'):
+                s[k] += bool(ly.get(k, {}).get('equal'))
+            engine, view, theme = r['cell'].split('-')
+            out['engines'].add(engine)
+            (out['bps'] if view.startswith('bp') else out['viewports']).add(view)
+            out['themes'].add(theme)
+            out['states'].add((seed, r['state']))
+            if not eq:
+                out['differ'].append((seed, r['state'], r['cell']))
+    tls = {'cells': 0, 'equal': 0, 'file': GATE + '/tls/default/report.json'}
+    for r in jload(tls['file'])['results']:
+        ly = {x['layer']: x for x in r['layers']}
+        if 'pixels' in ly:
+            tls['cells'] += 1
+            tls['equal'] += all(ly.get(k, {}).get('equal') for k in ('pixels', 'aria', 'loose'))
+    out['tls'] = tls
+    return out
+
+
+# ================================================================ facts
+
+def facts():
+    F = {}
+    t = jload(SIX_T)
+    F['apps'] = t['apps']
+    F['conc'] = V(t['concurrency'], 'concurrent clients in every cell of the six-ways table', [SIX_T], 'table.json "concurrency"')
+    meta_n = jload(SIX + '/normal-1/summary.json')['metadata']
+    meta_m = jload(SIX + '/mixed-1/mixed-summary.json')['metadata']
+    F['meta_n'], F['meta_m'] = meta_n, meta_m
+    F['srv_cpus'] = V(cpus(meta_n['server_cpus']), 'server CPUs per app (the harness pins the app to cpus %s)' % meta_n['server_cpus'], [SIX + '/normal-1/summary.json'], 'count of metadata.server_cpus')
+    F['cli_cpus'] = V(cpus(meta_n['client_cpus']), 'load-generator CPUs (cpus %s)' % meta_n['client_cpus'], [SIX + '/normal-1/summary.json'], 'count of metadata.client_cpus')
+    F['secs'] = V(meta_n['duration'], 'seconds per round', [SIX + '/normal-1/summary.json'], 'metadata.duration')
+    F['rounds'] = V(meta_n['rounds'], 'rounds per app per session', [SIX + '/normal-1/summary.json'], 'metadata.rounds')
+    F['wps'] = V(meta_m['mixed_writer']['maximum_writes_per_second'], 'posts a second by the mixed profile\'s writer', [SIX + '/mixed-1/mixed-summary.json'], 'metadata.mixed_writer.maximum_writes_per_second')
+    sess = sorted({s for r in t['rows'] for s in r['sessions']})
+    F['sessions'] = sess
+    F['n_sess'] = V(len(sess), 'sessions of the six-ways bench after Phase 10, every app in each', [SIX_T], 'distinct sessions named in table.json rows')
+    F['n_rounds'] = V(t['rows'][0]['values']['dotnetway']['n'], 'rounds pooled into each cell', [SIX_T], 'table.json values.n')
+    F['six'], F['pre'] = {}, {}
+    for key, nm in ROUTES:
+        for mixed in (False, True):
+            if mixed and key == 'post_message':
+                continue
+            for a in APPS:
+                for stat in ('median', 'min', 'max'):
+                    F['six'][a, key, mixed, stat] = six_cell(SIX_T, a, key, mixed, stat)
+                F['pre'][a, key, mixed] = six_cell(PRE_T, a, key, mixed)
+    F['pre_apps'] = jload(PRE_T)['apps']
+    # theDotNetWay over the same sessions' Rails
+    F['xr'] = {(k, m): F['six']['dotnetway', k, m, 'median'].over(F['six']['rails', k, m, 'median'], 'theDotNetWay over current Rails, %s, %s, pooled medians after Phase 10' % (RNAME[k].lower(), 'with a writer' if m else 'alone'))
+               for k, _ in ROUTES for m in (False, True) if not (m and k == 'post_message')}
+    F['xr_pre'] = {(k, m): F['pre']['dotnetway', k, m].over(F['pre']['rails', k, m], 'theDotNetWay over current Rails, %s, %s, pooled medians before Phase 10 (first run)' % (RNAME[k].lower(), 'with a writer' if m else 'alone'))
+                   for k, _ in ROUTES for m in (False, True) if not (m and k == 'post_message')}
+    F['xr_lo'] = vmin([F['xr'][k, False] for k, _ in ROUTES], 'theDotNetWay over current Rails, the thinnest of the five routes alone, after Phase 10')
+    F['xr_hi'] = vmax([F['xr'][k, False] for k, _ in ROUTES], 'theDotNetWay over current Rails, the widest of the five routes alone, after Phase 10')
+    F['xm_lo'] = vmin([F['xr'][k, True] for k in READS], 'theDotNetWay over current Rails, the thinnest of the four reads with a writer, after Phase 10')
+    F['xm_hi'] = vmax([F['xr'][k, True] for k in READS], 'theDotNetWay over current Rails, the widest of the four reads with a writer, after Phase 10')
+    F['pre_lo'] = vmin([F['xr_pre'][k, False] for k in READS], 'theDotNetWay over current Rails, the thinnest of the four reads alone, before Phase 10')
+    F['pre_hi'] = vmax([F['xr_pre'][k, False] for k in READS], 'theDotNetWay over current Rails, the widest of the four reads alone, before Phase 10')
+    F['pre_mlo'] = vmin([F['xr_pre'][k, True] for k in READS], 'theDotNetWay over current Rails, the thinnest read with a writer, before Phase 10')
+    F['pre_mhi'] = vmax([F['xr_pre'][k, True] for k in READS], 'theDotNetWay over current Rails, the widest read with a writer, before Phase 10')
+    F['gain'] = {(k, m): F['six']['dotnetway', k, m, 'median'].over(F['pre']['dotnetway', k, m], 'theDotNetWay after Phase 10 over before, %s, %s' % (RNAME[k].lower(), 'with a writer' if m else 'alone'))
+                 for k, _ in ROUTES for m in (False, True) if not (m and k == 'post_message')}
+    # where theDotNetWay stands against each other column
+    F['ahead'] = {}
+    rows = [(k, m) for k, _ in ROUTES for m in (False, True) if not (m and k == 'post_message')]
+    F['n_rows'] = V(len(rows), 'rows of the six-ways table', [SIX_T], 'len(rows)')
+    for a in APPS[1:]:
+        F['ahead'][a] = V(sum(F['six']['dotnetway', k, m, 'median'].v > F['six'][a, k, m, 'median'].v for k, m in rows),
+                          'rows of the six-ways table in which theDotNetWay\'s pooled median is above %s\'s' % a, [SIX_T], 'count of rows where dotnetway median > %s median' % a)
+    # the old floor's Rails
+    F['pin'] = {(k, c): qmed(STORED, 'reference', k, c) for k, _ in ROUTES for c in (1, 16)}
+    F['pin_vs_cur'] = F['six']['rails', 'room_show', False, 'median'].over(F['pin']['room_show', 16], 'current Rails on upstream\'s harness over the pinned Rails of bench/quick, room page at c=16')
+    # KLOC
+    F['k_now'] = kloc(KLOC_NOW)
+    F['k_now_cloc'] = kloc(KLOC_NOW, col='cloc')
+    F['k_rust'] = md(KLOC_NOW, r'Rust f9dca47: ([\d.]+) KLOC', 'the Rust port (f9dca47), KLOC by upstream\'s rules, as onCrack counted it (bin/kloc prints the stored count)')
+    F['k_rails'] = md(KLOC_NOW, r'Rails 0aa339d: ([\d.]+)\.', 'Rails (0aa339d), KLOC by upstream\'s rules (bin/kloc prints the stored count)')
+    F['k_p0'] = kloc(R + '/dotnetway-p0/kloc.md')
+    F['k_now_k'] = V(F['k_now'].v / 1000, 'theDotNetWay today, KLOC by upstream\'s rules, corrected column', F['k_now'].files, F['k_now'].how + ' / 1000')
+    F['k_now_cloc_k'] = V(F['k_now_cloc'].v / 1000, 'theDotNetWay today, KLOC as cloc 2.10 prints it', F['k_now_cloc'].files, F['k_now_cloc'].how + ' / 1000')
+    F['k_p0_k'] = V(F['k_p0'].v / 1000, 'the F# port at the fork (Phase 0), KLOC by upstream\'s rules, corrected column', F['k_p0'].files, F['k_p0'].how + ' / 1000')
+    # phases
+    F['ph'] = []
+    for p, qd, kd in PHASES:
+        row = {'p': p, 'qd': qd}
+        if kd:
+            row['k'] = kloc(kd + '/kloc.md')
         else:
-            head = 'F# is hunting Rust.'
-        live = ('Basecamp&#39;s chat app, ported to F# so it can&#39;t be told apart from the Rails original or the Rust port. '
-                'Latest run: <strong>%.2f&times;</strong> Rust&#39;s throughput, <strong>%+.1f%%</strong> since tuning began.' % (latest, cl['gain']))
-    pts = cl.get('points') or []
-    last_t = pts[-1]['time'].astimezone(EDT).strftime('%a %-d %b, %H:%M EDT') if pts else ''
-    tiles = ''
-    if latest is not None:
-        tiles = ''.join('<div class="ht">%s<span>%s</span></div>' % (a, b) for a, b in [
-            (counter(latest, 2, '×'), 'of Rust, latest run'),
-            (counter(cl['gain'], 1, '%', '+' if cl['gain'] >= 0 else ''), 'since tuning began'),
-            (counter(cl['changes'], 0, ''), 'code change%s to get here' % ('' if cl['changes'] == 1 else 's')),
-            (counter(abs(cl['to_go']), 0, '%'), 'to go to match Rust' if cl['to_go'] > 0 else 'ahead of Rust')
-            if abs(cl['to_go']) >= 0.5 else ('<span class="num-big"><b>Level</b></span>', 'with Rust, latest run'),
-        ])
-    return ('<section class="hero" id="top" aria-labelledby="hero-h"><div class="glow" aria-hidden="true"></div><div class="wrap">'
-            '<p class="kicker hero-in">Basecamp&#39;s ONCE Campfire &middot; ported to F# &middot; Phase 7, live</p>'
-            '<h1 id="hero-h" class="hero-in">%s</h1><p class="lede hero-in">%s</p>'
-            '<div class="htiles hero-in">%s</div>'
-            '<figure class="climb hero-in" id="climb" aria-labelledby="climb-cap">%s'
-            '<figcaption id="climb-cap"><span><b>The climb.</b> F#&#39;s throughput as a share of Rust&#39;s, one dot per measured run '
-            '(geometric mean of the five workloads, 16 connections). Hover, tap or tab to a dot for that run&#39;s numbers and what changed. '
-            'Hollow grey dots were tried and reverted. Latest: %s.</span>%s</figcaption></figure>'
-            '<p class="btw" id="btw"><a href="#p-muse">(btw, Muse sucks)</a> <span>How this started, and why none of its numbers are on the chart.</span></p>'
-            '</div></section>' % (head, live, tiles, cl['chart'], e(last_t), details('p-climb', 'How to read it')))
+            row['k'] = md(PLAN, r'\*\*(35,408) corrected \(35\.4 KLOC\)\*\*', 'backend lines of code after the hybrid reads (unit H.2, bin/kloc, corrected column, written in the Phase log)')
+            row['k'] = V(row['k'].v, row['k'].label, row['k'].files, row['k'].how)
+        row['q'] = {(k, c): qmed(qd, 'dotnetway', k, c) for k, _ in ROUTES for c in (1, 16)}
+        row['x'] = {(k, c): row['q'][k, c].over(F['pin'][k, c], 'theDotNetWay over pinned Rails, %s, c=%d, %s' % (RNAME[k].lower(), c, ph_plain(p))) for k, _ in ROUTES for c in (1, 16)}
+        row['thin'] = vmin([row['x'][k, 16] for k, _ in ROUTES], 'theDotNetWay over pinned Rails, the thinnest of the five workloads at c=16, %s' % ph_plain(p))
+        F['ph'].append(row)
+    F['ph_up'] = {'9': vmin([F['xr_pre'][k, False] for k, _ in ROUTES], 'theDotNetWay over current Rails on upstream\'s harness, thinnest of the five routes, Phase 9 (first six-ways run)'),
+                  '10': F['xr_lo']}
+    # Phase 10 step by step
+    F['steps'] = []
+    for sid, nm, d in STEPS:
+        st = {'id': sid, 'name': nm, 'dir': d, 'x': {}}
+        for k, _ in ROUTES:
+            st['x'][k] = uq(d, 'dotnetway', k).over(uq(d, 'rails', k), 'theDotNetWay over the same session\'s Rails, %s, upstream-quick %s' % (RNAME[k].lower(), sid))
+        F['steps'].append(st)
+    # proofs
+    F['pix'] = pixel_gate()
+    F['verify'] = {k: md(GATE + '/verify.log', r'(?m)^  %s: (\d+)$' % k, 'bin/verify at the Phase 10 gate: tests %s' % k) for k in ('total', 'succeeded', 'failed', 'skipped')}
+    F['cookie'] = md(GATE + '/cookie-roundtrip.log', r'cookie-roundtrip: (\d+)/\d+ checks passed', 'bin/cookie-roundtrip at the Phase 10 gate: checks passed')
+    F['cookie_n'] = md(GATE + '/cookie-roundtrip.log', r'cookie-roundtrip: \d+/(\d+) checks passed', 'bin/cookie-roundtrip at the Phase 10 gate: checks run')
+    F['assets'] = md(GATE + '/asset-check.log', r'asset-check: (\d+) checks, \d+ failed', 'bin/asset-check at the Phase 10 gate: checks')
+    F['assets_f'] = md(GATE + '/asset-check.log', r'asset-check: \d+ checks, (\d+) failed', 'bin/asset-check at the Phase 10 gate: failed')
+    dbd = text(GATE + '/db-differential.log')
+    if 'rollback ok' not in dbd or 'agree' not in dbd:
+        raise SystemExit('build: the Phase 10 gate\'s db-differential log does not say the schemas agree and the rollback was ok')
+    sec = re.findall(r'^### .*[Ss]ecurity review.*$', text(PLAN), re.M)
+    F['sec'] = V(len(sec), 'security reviews in the Phase log (one per risky layer, then Phases 9 and 10 together)', [PLAN], 'count of "### ... security review ..." headings')
+    F['sec_titles'] = sec
+    return F
 
 
-# ---------------------------------------------------------------- same pixels, different engines
-
-def room_bench(where):
-    """Room page req/s per app and concurrency over a bench/run directory's reps: {app: {conc: (median, lo, hi)}}."""
-    reps = {}
-    for app in ('reference', 'rust', 'fsharp'):
-        for p in sorted(glob.glob(os.path.join(REPO, where, app + '-[0-9].json'))):
-            for run in json.load(open(p, encoding='utf-8'))['http']:
-                if run.get('route') == 'room_show' and run.get('gzip'):
-                    reps.setdefault(app, {}).setdefault(run['conc'], []).append(run['rps'])
-    return {a: {c: (statistics.median(v), min(v), max(v)) for c, v in cs.items()} for a, cs in reps.items()}
+def ph_plain(p):
+    return 'hybrid reads (unit H.2)' if p == 'H' else 'Phase %s gate' % p
 
 
-def same_pixels_facts(d):
-    sp = d.get('same_pixels')
-    if not sp:
-        return None
-    b = sp['bench']
-    rb = room_bench(b['dir'])
-    apps = [dict(a, rate=rb.get(a['bench_app'], {}).get(b['conc'], (None,))[0]) for a in sp['apps']]
-    if any(a['rate'] is None for a in apps):
-        return None
-    # The badge is earned, not asserted: the committed thumbnails, one from each app's capture, must be the same bytes too.
-    files = {hashlib.sha256(open(os.path.join(REPO, a['thumb']), 'rb').read()).hexdigest() for a in apps}
-    same = sp['identical'] and len(files) == 1 and bool(sp.get('image')) and os.path.exists(os.path.join(REPO, sp['image']))
-    return dict(sp, apps=apps, rb=rb, files_identical=len(files) == 1, same=same)
+# ================================================================ helpers for the page
 
+FX = {}
 
-def same_pixels(sp):
-    """One screenshot (the three apps render it to the same pixels) beside the three engines, each counting at its rate."""
-    if not sp:
-        return ''
-    by = {a['key']: a for a in sp['apps']}
-    rails, rust = by['rails']['rate'], by['rust']['rate']
-    rows = []
-    for i, a in enumerate(sp['apps']):
-        vs = {'rails': 'the original',
-              'rust': '%.0f&times; Rails' % (a['rate'] / rails),
-              'fsharp': '%.2f&times; Rust &middot; %.0f&times; Rails' % (a['rate'] / rust, a['rate'] / rails)}.get(a['key'], '')
-        rows.append(
-            '<li class="sbs-row sbs-%s" style="--i:%d" data-rate="%.1f">'
-            '<p class="sbs-name"><b>%s</b><em class="sbs-tag">%s</em><span class="sbs-x">%s</span></p>'
-            '<p class="sbs-rate"><b class="sbs-n">%s</b><span class="sbs-u sbs-u-rate">requests a second</span>'
-            '<span class="sbs-u sbs-u-live">served while you watch, at %s a second</span></p>'
-            '<span class="sbs-lane" aria-hidden="true"></span></li>'
-            % (e(a['key']), i, a['rate'], e(a['name']), e(a['tag']), vs, n(round(a['rate'])), n(round(a['rate']))))
-    if sp['same']:
-        badge = ('<span class="sbs-badge"><svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="9"/>'
-                 '<path d="M5.5 10.4l3 3 6-6.6"/></svg>Same pixels</span>')
-        shot = ('<figure class="sbs-shot reveal"><div class="sbs-frame"><img src="%s" width="1440" height="900" decoding="async" '
-                'alt="The All Talk room, signed in as David: the page Rails, Rust and F# each render to these same pixels."></div>'
-                '<figcaption>%s<span>One screenshot, because the three are one: Rails&#39;, Rust&#39;s and F#&#39;s captures of this page are byte-identical.</span>'
-                '</figcaption></figure>' % (e(sp['image']), badge))
-    else:
-        shot = ('<figure class="sbs-shot sbs-three reveal">%s<figcaption><span class="sbs-badge sbs-differ">The captures differ</span>'
-                '<span>Each app&#39;s own capture; the panel says where they differ.</span></figcaption></figure>'
-                % ''.join('<div class="sbs-frame"><img src="%s" width="640" height="400" decoding="async" alt="The All Talk room as %s renders it."></div>'
-                          % (e(a['thumb']), e(a['name'])) for a in sp['apps']))
-    return ('<section class="sbs" id="sbs" aria-labelledby="sbs-h"><div class="wrap sbs-grid">%s'
-            '<div class="sbs-copy reveal"><p class="kicker">Same pixels, different engines &middot; the room page</p>'
-            '<h2 id="sbs-h">Same software.</h2>'
-            '<ol class="sbs-rows">%s</ol>'
-            '<p class="sbs-cap"><span>Each counter ticks at that engine&#39;s measured rate for this page, signed in, at 16 connections.</span>%s</p>'
-            '</div></div></section>' % (shot, ''.join(rows), details('p-sbs', 'How we know')))
-
-
-def p_sbs(sp):
-    if not sp:
-        return ''
-    rb, b = sp['rb'], sp['bench']
-    cell = lambda v: '%s [%s&ndash;%s]' % (n(round(v[0])), n(round(v[1])), n(round(v[2])))
-    rows = []
-    for c in sorted(rb['fsharp']):
-        ra, ru, fs = rb['reference'][c], rb['rust'][c], rb['fsharp'][c]
-        rows.append('<tr><th scope="row">%d</th><td class="num">%s</td><td class="num">%s</td><td class="num">%s</td><td class="num">%.2f&times;</td><td class="num">%.0f&times;</td></tr>'
-                    % (c, cell(ra), cell(ru), cell(fs), fs[0] / ru[0], fs[0] / ra[0]))
-    tbl = ('<div class="tw"><table><caption>Room page, requests a second: median [min&ndash;max] of 3 reps</caption><thead><tr>'
-           '<th scope="col">Connections</th><th scope="col" class="num">Rails</th><th scope="col" class="num">Rust</th><th scope="col" class="num">F#</th>'
-           '<th scope="col" class="num">F# / Rust</th><th scope="col" class="num">F# / Rails</th></tr></thead><tbody>%s</tbody></table></div>' % ''.join(rows))
-    thumbs = ''.join('<figure><div class="sbs-frame"><img src="%s" width="640" height="400" loading="lazy" decoding="async" alt="The All Talk room as %s renders it."></div>'
-                     '<figcaption><b>%s</b><span><code>parity/out/%s/%s</code></span><span>%s vs Rails &middot; PNG <code>%s&hellip;</code></span></figcaption></figure>'
-                     % (e(a['thumb']), e(a['name']), e(a['name']), e(a['run']), e(a['side']), e(a['harness_verdict']), e(a['capture_sha256'][:12]))
-                     for a in sp['apps'])
-    host = ''
-    rep = os.path.join(REPO, b['dir'], 'report.md')
-    if os.path.exists(rep):
-        txt = open(rep, encoding='utf-8').read()
-        m = re.search(r'^server cpus: ([^;\n]+);\s*loadgen cpus: ([^;\n]+)', txt, re.M)
-        if m:
-            host = ' The app ran on CPUs %s, the load generator on %s, inside the colima Linux VM.' % (e(m.group(1).split(' ')[0]), e(m.group(2).strip()))
-    verdict = ('<p><b>Same pixels, checked.</b> The three %s PNGs are byte-identical (SHA-256 <code>%s&hellip;</code>), and decoding them gives the same pixels '
-               '(SHA-256 of the RGB data <code>%s&hellip;</code>). The thumbnails above are made one from each app&#39;s own capture, resized to %s, lossless; '
-               'they come out the same bytes too, which <code>site/build.py</code> checks on every build before it shows the badge. '
-               'The big screenshot on the page is the Rails capture at full size, lossless, so it is the F# and Rust pixels as well.</p>'
-               % (e(sp['viewport']), e(sp['apps'][0]['capture_sha256'][:16]), e((sp.get('pixels_sha256') or '')[:16]), e(sp['thumb_size']))) if sp['same'] else \
-              '<p><b>The captures differ.</b> Compare the hashes under the thumbnails.</p>'
-    body = ''.join([
-        '<p class="lead">%s. Each picture is the parity harness&#39;s own capture of that page from one app: Chromium, %s, light scheme, '
-        'the default seed with the clock frozen, so nothing on the page depends on when it ran.</p>' % (e(sp['page']), e(sp['viewport'])),
-        '<div class="sbs-thumbs">%s</div>' % thumbs,
-        verdict,
-        '<p class="src">Rails and Rust come from one run (<code>PARITY_CANDIDATE_APP=rust parity/bin/candidate compare</code>), Rails and F# from another '
-        '(the default candidate), state <code>%s</code>, cell <code>%s</code>. A pass means every layer the harness compares, pixels, server HTML, live DOM, '
-        'accessibility tree, network and Cable, equal to Rails. Made by <a href="%s">site/same_pixels.py</a>.</p>' % (e(sp['state']), e(sp['cell']), e(src('site/same_pixels.py'))),
-        '<h3>The counters</h3>',
-        '<p>Each counter adds its engine&#39;s median requests a second for this page at %d connections, for every second the section is on screen, '
-        'and its row of dots moves at a speed in the same proportion. After ten seconds Rails has served about %s and F# about %s. '
-        'Without JavaScript, or with reduced motion, they show the rates and nothing moves.</p>'
-        % (b['conc'], n(round(sp['apps'][0]['rate'] * 10)), n(round(sp['apps'][-1]['rate'] * 10))),
-        tbl,
-        '<p class="src">Signed in as David, keep-alive, gzip, 8-second runs after a warm-up that waits for each app to settle.%s '
-        'Source: <a href="%s">%s/report.md</a>, the Phase 7 re-baseline with all three apps in the same run.</p>' % (host, e(src(b['dir'] + '/report.md')), e(b['dir'])),
-    ])
-    return panel('p-sbs', 'Same pixels, different engines', 'How we know', body, 'sbs')
-
-
-def numbers(d, f):
-    hrs = f['hours']
-    items = [
-        ('p-tokens', counter(f['processed'] / 1e9, 2, 'B'), 'tokens processed',
-         '%s tokens read or written across %s API calls, summed from the transcripts.' % (n(f['processed']), n(f['calls']))),
-        ('p-tokens', counter(f['fresh'] / 1e6, 1, 'M'), 'fresh tokens',
-         '%s: uncached input, cache writes and output. Cache reads left out.' % n(f['fresh'])),
-        ('p-tokens', counter(f['agents']), 'Claude agents',
-         '%d in workflows, the orchestrator, and %d that built this page.' % (f['wf_agents'], f['others'])),
-        ('p-routine', counter(f['commits']), 'commits',
-         'On the port branch from Phase 0 to now, this page&#39;s own commits left out.'),
-        ('p-phase5', counter(f['tests'] or 0), 'tests at the last gate', 'Phase 5 gate: %s.' % e(f['tests_gate'])),
-        ('p-proof', counter(f['renders'] or 0), 'renders, byte for byte', '%s view renders identical to the Rust port&#39;s.' % e(f['renders_label'])),
-        ('p-tokens', counter(hrs, 1), 'hours so far', 'From the hand-off (%s) to the last token counted (%s), EDT.' % (local(f['first']), local(f['as_of']))),
-    ]
-    tiles = ''.join('<a class="nt reveal" href="#%s" style="--i:%d">%s<span class="nt-l">%s</span><span class="tip" role="tooltip">%s</span></a>'
-                    % (pid, i, big, e(label), t) for i, (pid, big, label, t) in enumerate(items))
-    return ('<section class="numbers" id="numbers" aria-label="By the numbers"><div class="wrap">'
-            '<p class="kicker reveal">By the numbers &middot; counted from the transcripts, git and the logs, not estimated</p>'
-            '<div class="ntiles">%s</div></div></section>' % tiles)
-
-
-def beat_port(d, f):
-    b = d['chapters']['build']
-    wfs = {w['key']: w for w in d['tokens']['workflows']}
-    commits = d['commits']['by_phase_window']
-    tests = [lead_int(p.get('gate')) or 0 for p in b['phases']]
-    top = max(tests) or 1
-    tiles = []
-    for i, p in enumerate(b['phases']):
-        wf = wfs.get(p['key'])
-        t = tests[i]
-        if wf:
-            dur = duration(wf['first'], wf['last'])
-            meta = '%s &middot; %d agents &middot; %s commits' % (e(dur), len(wf['agents']), commits.get(p['key'], 0))
-        else:
-            mm = re.search(r'(\d\d):(\d\d) to (\d\d):(\d\d)', p.get('when', ''))
-            dur = '%d min' % ((int(mm.group(3)) * 60 + int(mm.group(4))) - (int(mm.group(1)) * 60 + int(mm.group(2)))) if mm else ''
-            meta = 'orchestrator &middot; %s commit' % commits.get(p['key'], 0)
-        big = ('<b class="count" data-to="%d" data-dec="0">%s</b><span>tests at the gate</span>' % (t, n(t))) if t else '<b>%s</b><span>to a green build</span>' % e(dur)
-        tiles.append('<li class="ph" style="--i:%d;--h:%.3f"><a href="#p-%s"><span class="ph-n">%s</span><span class="ph-t">%s</span>'
-                     '<span class="ph-bar" aria-hidden="true"><span></span></span><span class="ph-big">%s</span><span class="ph-m">%s</span></a></li>'
-                     % (i, max(t / top, 0.04), e(p['key']), e(p['n']), e(p['title']), big, meta))
-    m = re.search(r'about ([\d,]+) lines', d['chapters']['handover']['decision']['after'])
-    rust_lines = m.group(1) if m else ''
-    return beat('port', 'The call &middot; 5 Oct %s' % e(d['chapters']['handover']['decision']['time']),
-                '<ol class="phases-strip">%s</ol>' % ''.join(tiles), 'So we ported the whole thing.',
-                ['All %s lines of the Rust port, translated module by module in six gated phases: %s tests at the last gate, none failing.'
-                 % (tip('~' + e(rust_lines), '177 routes, Action Cable, Web Push, bots and attachments; the Muse app was 713 lines.'), n(f['tests'] or 0))],
-                details('p-decision', 'The call') + details('p-routine', 'The routine'), 'wide')
-
-
-def beat_proof(d, f):
-    visual = ('<div class="proof"><span class="num-big">%s</span><span class="of">of %s</span></div>'
-              % ('<b class="count" data-to="%d" data-dec="0">%s</b>' % (f['renders'], n(f['renders'])), n(f['renders'])))
-    return beat('proof', 'Checked against the originals', visual, 'Byte for byte.',
-                ['Every view render identical to the Rust port&#39;s. Rich text, cookies, the HTTP kit and thumbnails matched too.'],
-                details('p-proof'), 'flip')
-
-
-def beat_process(d):
-    pc = d['chapters']['tuning']['process_change']
-    q = pc['quotes'][0]
-    tiers = ''.join('<li style="--i:%d">%s</li>' % (i, tip('<b>%s</b>' % e(t[1]), 'Tier %s: %s. Decides: %s.' % (t[0], t[2], t[3].lower())))
-                    for i, t in enumerate(pc['tiers']))
-    return beat('process', 'A change of process &middot; %s' % e(q.get('time', pc['when'])), '<ol class="tiers">%s</ol>' % tiers,
-                'Rust became a fixed target.',
-                ['F# measured alone against stored Rust numbers, in loops of seconds, minutes and an hour. That&#39;s why the dots come fast.'],
-                details('p-process'))
-
-
-def more_row():
-    links = [('p-climb', 'Every run'), ('p-baseline', 'The 5b baseline'), ('p-delivered', 'What&#39;s left'),
-             ('p-prompts', 'Every prompt'), ('p-tokens', 'The token ledger'), ('p-muse', 'How it started')]
-    return ('<section class="more-row" id="more" aria-label="Everything else"><div class="wrap reveal"><p class="kicker">Everything else</p>'
-            '<p class="links">%s</p></div></section>' % ''.join('<a class="more" href="#%s">%s <span aria-hidden="true">&rarr;</span></a>' % (p, l) for p, l in links))
-
-
-def oncrack(d):
-    """The call to action: onCrack, the successor fork. All of its figures come from data.json's `oncrack`, each linked to its source."""
-    c = d.get('oncrack')
-    if not c:
-        return ''
-    tiles = []
-    for t in c['tiles']:
-        big = counter(t['value'], t.get('dec', 0), t.get('unit', ''), t.get('prefix', '')) if 'value' in t else \
-            '<span class="num-big">%s%s</span>' % (e(t['text']), ('<i>%s</i>' % e(t['unit'])) if t.get('unit') else '')
-        tiles.append('<a class="ht cta-t" href="%s" rel="noopener">%s<span>%s</span></a>' % (e(t['href']), big, e(t['label'])))
-    lad = c['ladder']
-    return ('<section class="cta" id="oncrack" aria-labelledby="oncrack-h"><div class="wrap reveal">'
-            '<p class="kicker">The successor</p><h2 id="oncrack-h">%s</h2><p class="lede">%s</p>'
-            '<p class="cta-btns"><a class="more primary" href="%s" rel="noopener">The onCrack repo <span aria-hidden="true">&rarr;</span></a>'
-            '<a class="more primary" href="%s" rel="noopener">The onCrack page <span aria-hidden="true">&rarr;</span></a></p>'
-            '<div class="htiles cta-tiles">%s</div>'
-            '<p class="cta-math">%s <b>%s</b> (%s <a href="%s" rel="noopener">source</a>) &middot; <a href="%s" rel="noopener">The final report</a></p>'
-            '</div></section>'
-            % (e(c['heading']), e(c['intro']), e(c['repo']), e(c['page']), ''.join(tiles),
-               e(lad['label']), e(lad['values']), e(lad['tail']), e(lad['href']), e(c['report'])))
-
-
-# ---------------------------------------------------------------- panels
 
 def panel(pid, kicker, title, body, back):
     return ('<div class="panel" id="%s" role="dialog" aria-modal="true" aria-labelledby="%s-t">'
@@ -500,620 +447,799 @@ def panel(pid, kicker, title, body, back):
             % (pid, pid, back, kicker, pid, title, back, body, back))
 
 
-def p_climb(cl):
-    pts = cl.get('points') or []
-    rows = []
-    for p in pts:
-        rows.append('<tr%s><th scope="row">%s</th><td>%s</td><td>%s</td><td class="num">%.2f&times;</td><td>%s</td></tr>'
-                    % ('' if p['kept'] else ' class="dropped"', e(p['time'].astimezone(EDT).strftime('%-d %b %H:%M')), e(p['unit'] or ''),
-                       e(p['change']), p['ratio'], 'kept' if p['kept'] else 'reverted'))
-    tbl = ('<div class="tw"><table><caption>Every dot, oldest first</caption><thead><tr><th scope="col">EDT</th><th scope="col">Unit</th>'
-           '<th scope="col">Change</th><th scope="col" class="num">&times; Rust</th><th scope="col">Kept</th></tr></thead><tbody>%s</tbody></table></div>' % ''.join(rows))
-    body = ''.join([
-        '<p class="lead">The line is the geometric mean of F#&#39;s throughput over Rust&#39;s across the five benchmarked workloads '
-        '(room page, messages page, sidebar, search, post a message) at 16 connections. Dots are spaced evenly in the order they ran, '
-        'not by the clock. A dot that measured only some workloads carries the rest from the last kept run; its card greys them.</p>',
-        '<h3>Read with care</h3><ul class="caveats">'
-        '<li><b>Most tuning dots are provisional.</b> Tier 2 runs are one rep of only the workloads a change touches, on a published build mounted '
-        'into the existing container. The number that gets reported is tier 3: a rebuilt image, three reps, every workload.</li>'
-        '<li><b>Rust is a stored reference.</b> From the Phase 7 start on, Rust&#39;s numbers are its medians from that run '
-        '(<code>bench/results/phase7-start/</code>), not re-measured each time; Rust and Rails are re-run at the re-baseline that closes the phase.</li>'
-        '<li><b>The first two dots are different methods.</b> The Phase 5 dot is a rough wrk check through Docker&#39;s published port; '
-        'the 5b baseline is <code>bench/run</code> with Rust in the same run, before the longer warm-up the Phase 7 harness added.</li>'
-        '<li><b>Rails is in the cards only.</b> Its numbers are the 5b baseline; at 1 to 2%% of Rust&#39;s throughput it would sit flat on the floor of the chart.</li>'
-        '</ul>',
-        '<p>The Muse-era ratios are off the chart on purpose: those pages were not the same as Rust&#39;s. <a href="#p-muse">(btw, Muse sucks) &rarr;</a></p>',
-        tbl,
-        '<p class="src">Source: <code>bench/results/phase7-log.jsonl</code>, <code>bench/progress/history.json</code>, drawn by <code>bench/progress/climb.py</code>.</p>',
-    ])
-    return panel('p-climb', 'The climb', 'How to read the chart', body, 'climb')
+def more(pid, label='The details'):
+    return '<a class="more" href="#%s"><span>%s</span> <span aria-hidden="true">&rarr;</span></a>' % (pid, label)
 
 
-def p_muse(d, cl):
-    """The whole Muse and hand-over story, in one panel: what was claimed, what we found, the M4 rebaseline."""
-    c = d['chapters']['muse']
-    ho = d['chapters']['handover']
-    pre = (cl['hist'].get('prelude') or [{}])[0]
-    rows = c['claimed_table']['rows']
-    chips = []
-    for i, (k, v) in enumerate((pre.get('ratios') or {}).items()):
-        r = rows[i] if i < len(rows) else None
-        t = ('Ren: F# %s req/s vs official Rust %s, on the Linux box.' % (r[1], r[2])) if r else k
-        chips.append('<li>%s<small>%s</small></li>' % (tip('<s class="strike">%s</s>' % e(v), t, 'ratio'), e(k)))
-    st = next((f['stat'] for f in ho['findings'] if f.get('stat')), None)
-    cards = []
-    for f in ho['findings']:
-        stat = ''
-        if f.get('stat'):
-            s = f['stat']
-            stat = ('<div class="versus"><div class="v bad"><b>%s</b><span>%s</span></div><div class="v good"><b>%s</b><span>%s</span></div></div>'
-                    % (e(s['bad']), e(s['bad_note']), e(s['good']), e(s['good_note'])))
-        cards.append('<article class="finding"><p class="tag">%s</p><h3>%s</h3><p>%s</p>%s<p class="evidence">%s</p></article>'
-                     % (e(f['tag']), e(f['title']), e(f['body']), stat, inline(f['evidence'])))
-    fs = ''.join('<div class="fact"><b>%s</b><span>%s</span><p>%s</p></div>' % (e(x['value']), e(x['label']), e(x['detail'])) for x in c['facts'])
-    instr = ''.join('<li><time>%s</time><span>%s</span></li>' % (e(i['time']), inline(i['text'])) for i in c['instructions'])
-    log = ''.join('<li><time>%s</time><span>%s</span></li>' % (e(i['time']), inline(i['text'])) for i in c['ren_log'])
-    ct = c['claimed_table']
-    rb = ho['rebaseline']
-    h = c['handoff']
-    body = ''.join([
-        '<p class="lead">%s</p>' % e(c['standfirst']),
-        '<div class="claim"><p class="claim-tag"><s class="strike">F# wins 5/5</s></p><ul class="struck">%s</ul>'
-        '<p class="cap">Ren&#39;s final scoreboard, F# over Rust. None of it measured the same pages.</p></div>' % ''.join(chips),
-        ('<div class="vs"><div class="vs-bad"><span class="num-big small"><s class="strike">%s</s></span><span>req/s for posting a message, with %s</span></div>'
-         '<div class="vs-good"><span class="num-big small"><b>%s</b></span><span>once the post script kept its session cookie: %s</span></div></div>'
-         % (e(st['bad'].replace(' req/s', '')), e(st['bad_note']), e(st['good'].replace(' req/s', '')), e(st['good_note']))) if st else '',
-        '<h3>What we found on the M4</h3><p>%s</p>' % e(ho['standfirst']),
-        ''.join(cards),
-        table(rb['columns'], rb['rows'], rb['caption']), '<p class="src">Source: %s</p>' % e(rb['source']),
-        '<h3>Why it is off the chart</h3>', cl['prelude'],
-        '<h3>The overnight run</h3><div class="facts">%s</div>' % fs,
-        '<div class="row"><span class="lbl">Ren&#39;s stack</span>%s</div>' % pills(c['stack']),
-        '<h4>What Chris asked Ren for</h4><p class="muted">%s</p><ol class="log">%s</ol>' % (e(c['instructions_intro']), instr),
-        '<h4>What Ren reported</h4><p class="muted">%s</p><ol class="log">%s</ol>' % (e(c['ren_log_intro']), log),
-        table(ct['columns'], ct['rows'], ct['caption']),
-        '<h3>The hand-off</h3><figure class="handoff"><figcaption>%s</figcaption><div class="bubble"><div class="bubble-head"><span class="avatar" aria-hidden="true">CK</span>'
-        '<b>chris kluis</b><time>10:45 AM</time></div><div class="bubble-body">%s</div></div></figure>' % (e(h['intro']), para(h['text'])),
-        '<p>Then Chris made the call: an identical-in-use port of the whole app. <a href="#p-decision">The call and the six decisions &rarr;</a></p>',
-        '<div class="unknown"><span aria-hidden="true">?</span><p><b>Tokens in Muse:</b> %s</p></div>' % e(c['tokens_note']),
-    ])
-    return panel('p-muse', '(btw, Muse sucks)', 'How it started', body, 'btw')
+def srcline(*paths, lead='Sources'):
+    return '<p class="src">%s: %s.</p>' % (lead, ', '.join(flink(p) for p in paths))
 
 
-def p_decision(d):
-    c = d['chapters']['handover']
-    dec = c['decision']
-    ds = ''.join('<div class="decision"><b>%s</b><p class="q">%s</p><p>%s</p></div>' % (e(x['id']), e(x['q']), e(x['a'])) for x in c['decisions'])
-    body = ''.join([
-        '<p class="muted">%s</p><blockquote class="pull"><p>%s</p><footer>Chris, 5 Oct %s</footer></blockquote>' % (e(dec['intro']), e(dec['quote']), e(dec['time'])),
-        '<p>%s</p>' % e(dec['after']),
-        '<div class="decisions">%s</div>' % ds,
-        '<h3>Chris&#39;s reply, 11:37</h3><pre class="reply">%s</pre>' % e(c['decision_reply']),
-    ])
-    return panel('p-decision', 'The call', 'Identical in use, then faster', body, 'b-port')
+def tbl(head, rows, caption=None, cls=''):
+    th = ''.join('<th scope="col"%s>%s</th>' % (' class="num"' if num else '', h) for h, num in head)
+    body = ''.join('<tr>%s</tr>' % ''.join(('<th scope="row">%s</th>' % c) if i == 0 else ('<td class="num">%s</td>' % c if head[i][1] else '<td>%s</td>' % c)
+                                          for i, c in enumerate(r)) for r in rows)
+    return '<div class="tw %s"><table>%s<thead><tr>%s</tr></thead><tbody>%s</tbody></table></div>' % (
+        cls, ('<caption>%s</caption>' % caption) if caption else '', th, body)
 
 
-def findings_line(agents):
-    parts = []
-    for role, name in (('verify', 'Verifier'), ('reverify', 'Re-verify')):
-        for a in agents:
-            if a['role'] == role and 'findings' in a:
-                f = a['findings']
-                chips = ''.join('<span class="sev sev-%s">%d %s</span>' % (s, f[s], s) for s in ('critical', 'major', 'minor') if f.get(s))
-                parts.append('<span class="fl"><b>%s</b>%s</span>' % (name, chips or '<span class="sev sev-none">none</span>'))
-    return '<div class="findings-line">%s</div>' % ''.join(parts) if parts else ''
+def appname(a, apps=None):
+    return next(x['name'] for x in (apps or FX['F']['apps']) if x['id'] == a)
 
 
-def p_phase(d, i, p):
-    wfs = {w['key']: w for w in d['tokens']['workflows']}
-    commits = d['commits']['by_phase_window']
-    wf = wfs.get(p['key'])
-    meta = []
-    if wf:
-        meta += [('Ran', '%s &ndash; %s' % (e(local(wf['first'])), e(local(wf['last'], '%H:%M')))),
-                 ('Duration', e(duration(wf['first'], wf['last']))), ('Agents', len(wf['agents'])),
-                 ('Processed', e(mega(wf['totals']['processed']))), ('Fresh', e(mega(wf['totals']['fresh'])))]
-    else:
-        meta += [('Ran', e(p.get('when', ''))), ('By', 'orchestrator')]
-    meta.append(('Commits', commits.get(p['key'], 0)))
-    dl = ''.join('<div><dt>%s</dt><dd>%s</dd></div>' % (k, v) for k, v in meta)
-    units = ''.join('<li>%s</li>' % e(u) for u in p['units'])
-    hl = ''.join('<li>%s</li>' % inline(h) for h in p['highlights'])
-    gate = '<p class="gate"><span>Gate</span>%s</p>' % e(p['gate']) if p.get('gate') else ''
-    phases = d['chapters']['build']['phases']
-    nav = []
-    if i > 0:
-        nav.append('<a href="#p-%s">&larr; Phase %s</a>' % (e(phases[i - 1]['key']), e(phases[i - 1]['n'])))
-    if i + 1 < len(phases):
-        nav.append('<a href="#p-%s">Phase %s &rarr;</a>' % (e(phases[i + 1]['key']), e(phases[i + 1]['n'])))
-    script = ''
-    unit = next((u for u in d['prompts']['units'] if u['phase'] == p['key']), None)
-    if unit:
-        script = ('<h3>What the builders were told</h3><ul>%s</ul><p class="src">Script: <a href="%s">site/workflows/%s</a></p>'
-                  % (''.join('<li>%s</li>' % inline(x) for x in unit['items']), e(src('site/workflows/' + unit['script'])), e(unit['script'])))
-    body = ''.join(['<dl class="pmeta">%s</dl>' % dl, findings_line(wf['agents']) if wf else '', gate,
-                    '<h3>Units</h3><ul class="units">%s</ul>' % units, '<h3>What happened</h3><ul class="hl">%s</ul>' % hl,
-                    pills(p['pills']), script, '<p class="pnav">%s</p>' % ' '.join(nav)])
-    return panel('p-' + p['key'], 'Phase %s' % e(p['n']), e(p['title']), body, 'b-port')
+def appcommit(a, apps=None):
+    return next(x['commit'] for x in (apps or FX['F']['apps']) if x['id'] == a)
 
 
-def p_routine(d, f):
-    b = d['chapters']['build']
-    steps = ''.join('<li><span class="step-n">%d</span><b>%s</b><span class="who">%s &middot; %s</span><p>%s</p></li>'
-                    % (i + 1, e(s['step']), e(s['who']), e(s['count']), e(s['what'])) for i, s in enumerate(b['routine']))
-    commits = d['commits']['by_phase_window']
-    titles = d['token_config']['phase_titles']
-    crow = [[titles.get(k, {'phase0': 'Phase 0: Scaffold', 'after': 'After'}.get(k, k)), str(v)] for k, v in commits.items() if v]
-    fd = f['findings']
-    body = ''.join([
-        '<p class="lead">%s</p>' % e(b['standfirst']),
-        '<ol class="routine">%s</ol>' % steps,
-        '<p>Verifier findings, Phases 1 to 5: <b>%d critical, %d major, %d minor</b>. The per-phase counts, and what the re-verifiers still found, are in each phase&#39;s panel.</p>' % (fd['critical'], fd['major'], fd['minor']),
-        '<p class="pnav">%s</p>' % ' '.join('<a href="#p-%s">Phase %s</a>' % (e(p['key']), e(p['n'])) for p in b['phases']),
-        table(['Phase window', 'Commits'], crow, 'Commits on the port branch, by the phase running when they were made (site/ excluded; %d in all)' % f['commits']),
-    ])
-    return panel('p-routine', 'Built for real', 'The routine, every phase', body, 'b-port')
+def group_label(F, mixed):
+    return GROUP_MIXED.replace('10', L.n(F['wps'])) if mixed else GROUP_NORMAL
 
 
-def p_proof(d):
-    b = d['chapters']['build']
-    diffs = ''.join('<div class="diff"><b>%s</b><span>%s</span></div>' % (e(x['value']), e(x['label'])) for x in b['differentials'])
-    inc = ''.join('<article class="incident"><h4>%s</h4><p>%s</p></article>' % (e(x['title']), e(x['body'])) for x in b['incidents'])
-    body = ''.join([
-        '<p class="lead">Each layer was compared with the port it was translated from, or with Rails itself, on generated inputs, not samples. '
-        'The differential tools are in <code>bin/</code>: <code>views-differential</code>, <code>richtext-differential</code>, <code>kit-differential</code>, <code>db-differential</code>.</p>',
-        '<div class="diffs">%s</div>' % diffs,
-        '<h3>What went wrong along the way</h3><div class="incidents">%s</div>' % inc,
-    ])
-    return panel('p-proof', 'Checked against the originals', 'Byte for byte, and how we know', body, 'b-proof')
+def claims_check(F):
+    rows = [(k, m) for k, _ in ROUTES for m in (False, True) if not (m and k == 'post_message')]
+    for k, m in rows:
+        if not F['xr'][k, m].v > 1:
+            raise SystemExit('build: theDotNetWay is not ahead of Rails on %s (%s); the hero says it is ahead in every row' % (k, m))
+    if F['ahead']['oncrack'].v != 0 or F['ahead']['rust'].v != 0 or F['ahead']['c'].v != 0:
+        raise SystemExit('build: theDotNetWay is now ahead of onCrack, Rust or C in some row; the copy says it is behind them in every row')
+    if not F['xr_lo'].v >= 5:
+        raise SystemExit('build: a normal route is under 5x Rails; the copy says every route clears the floor')
+    if not F['pre_lo'].v < 1:
+        raise SystemExit('build: the first run had no read under 1x Rails; the "about the speed" copy is stale')
+    if not F['k_now_cloc'].v < F['k_rust'].v * 1000:
+        raise SystemExit('build: theDotNetWay is no longer under Rust\'s count')
 
 
-def p_baseline(d):
-    c = d['chapters']['tuning']
-    b = c['baseline']
-    q = c['chris_quote']
-    other = table(['Measure', 'Rails', 'Rust', 'F#'], [[o['label'], o['rails'], o['rust'], o['fsharp']] for o in b['other']], 'Beyond throughput (same run)')
-    body = ''.join([
-        '<blockquote class="pull"><p>%s</p><footer>Chris, 5 Oct %s, during Phase 3</footer></blockquote>' % (e(q['text']), e(q['time'])),
-        '<p class="lead">%s</p>' % e(b['summary']),
-        table(b['columns'], b['rows'], 'Throughput, %s. The bar is F# as a share of Rust; the tick marks parity.' % b['unit'], ratio_col=b.get('ratio_col')),
-        '<p class="src">%s Source: <code>%s</code>.</p>' % (e(b['method']), e(b['source'])),
-        other,
-        '<div class="note"><b>The skeptical review.</b> %s</div>' % e(b['note']) if b.get('note') else '',
-    ])
-    return panel('p-baseline', 'Phase 5b', 'The whole-app baseline', body, 'more')
+# ================================================================ sections
+
+def hero(F):
+    pills = ''.join('<li>%s</li>' % e(p) for p in D['pills'])
+    stack = ''.join('<li style="--i:%d"><b>%s</b><span>%s</span></li>' % (i, e(a), e(b)) for i, (a, b) in enumerate(D['stack']))
+    tiles = [
+        ('<span class="big">%s</span><span class="unit">KLOC</span>' % L.d1(F['k_now_k']),
+         'of backend F#, by upstream&#39;s counting rules (%s as cloc prints it). Rust&#39;s port is %s, Rails %s. The port it forked from was %s.'
+         % (L.d1(F['k_now_cloc_k']), L.d1(F['k_rust']), L.d1(F['k_rails']), L.d1(F['k_p0_k']))),
+        ('<span class="big">%s<i>&ndash;</i>%s</span>' % (L.x(F['xr_lo']), L.x(F['xr_hi'])),
+         'current Rails, each route alone, on Basecamp&#39;s own harness in the same sessions. %s&ndash;%s while a writer posts.' % (L.x(F['xm_lo']), L.x(F['xm_hi']))),
+        ('<span class="big">%s<i>/</i>%s</span>' % (L.n(F['pix_eq']), L.n(F['pix_cells'])),
+         'screenshots pixel-equal to Rails on the full matrix: %s seeds, %s engines, %s viewports and %s breakpoint widths, light and dark. Accessibility tree and DOM equal too.'
+         % (L.n(F['pix_seeds']), L.n(F['pix_engines']), L.n(F['pix_views']), L.n(F['pix_bps']))),
+    ]
+    tiles_html = ''.join('<li class="tile"><p class="tile-n">%s</p><p class="tile-l">%s</p></li>' % t for t in tiles)
+    return ('<section class="hero" id="top" aria-labelledby="hero-h"><div class="aura" aria-hidden="true"></div><div class="wrap hero-grid">'
+            '<div class="hero-copy"><p class="kicker rise">Basecamp&#39;s ONCE Campfire &middot; the third Campfire in F#</p>'
+            '<h1 id="hero-h" class="rise">Campfire,<br>the .NET way.</h1>'
+            '<p class="lede rise">ASP.NET Core, EF Core with Dapper on the hot reads, Kestrel, the framework&#39;s middleware and OutputCache, Falco.Markup, AngleSharp. '
+            'The code a .NET team would write. Every page is pixel-identical to Rails, the database and cookies are Rails&#39; own, and it serves '
+            '%s&ndash;%s the requests of current Rails on Basecamp&#39;s harness.</p>'
+            '<ul class="pills rise" aria-label="What it is built on">%s</ul></div>'
+            '<div class="stack rise" aria-hidden="true"><ol>%s</ol></div></div>'
+            '<div class="wrap"><ul class="tiles rise">%s</ul>'
+            '<p class="honest rise"><b>Not the fastest Campfire.</b> In the table below it is ahead of Rails in all %s rows and of the F# port in %s; '
+            'onCrack, C and Rust are ahead of it in every row. It gives up speed for the framework&#39;s way, on purpose. <em>Every number on this page links to the file it came from.</em></p></div></section>'
+            % (L.x(F['xr_lo']), L.x(F['xr_hi']), pills, stack, tiles_html, L.n(F['n_rows']), L.n(F['ahead']['fsharp'])))
 
 
-def p_process(d):
-    pc = d['chapters']['tuning']['process_change']
-    quotes = ''.join('<blockquote class="pull"><p>%s</p><footer>Chris, %s</footer></blockquote>' % (e(q['text']), e(q.get('time', pc['when']))) for q in pc['quotes'])
-    tiers = table(['Tier', 'Loop time', 'What runs', 'What it decides'], pc['tiers'], 'Iteration tiers from here on')
-    rules = ''
-    path = os.path.join(SITE, 'workflows', 'campfire-fs-phase7b.js')
-    if os.path.exists(path):
-        m = re.search(r'const RULES = `(.*?)`', open(path, encoding='utf-8').read(), re.S)
-        if m:
-            rules = ('<h3>As the relaunched Phase 7 workflow tells every agent</h3><pre class="code">%s</pre>'
-                     '<p class="src">From <a href="%s">site/workflows/campfire-fs-phase7b.js</a>; '
-                     'the first launch, before the change, is <a href="%s">campfire-fs-phase7.js</a>.</p>'
-                     % (e(m.group(1).strip()), e(src('site/workflows/campfire-fs-phase7b.js')), e(src('site/workflows/campfire-fs-phase7.js'))))
-    body = ''.join([quotes, '<p class="lead">%s</p>' % e(pc['summary']), tiers, rules])
-    return panel('p-process', 'A change of process', e(pc['title']), body, 'b-process')
+def six_table(F):
+    apps = F['apps']
+    head = ['<th scope="col" class="c-grp"><span class="sr">Group</span></th><th scope="col" class="c-wl">Workload</th>']
+    for a in apps:
+        head.append('<th scope="col" class="c-app%s"><span class="an">%s</span><span class="ac">%s</span></th>'
+                    % (' feat' if a['id'] == 'dotnetway' else '', e(a['name']), lit(a['commit'], 'commit')))
+    body = []
+    for mixed in (False, True):
+        keys = READS if mixed else [k for k, _ in ROUTES]
+        glabel = group_label(F, mixed)
+        body.append('<tbody class="%s"><tr class="grp-row"><th colspan="%d" scope="rowgroup">%s</th></tr>' % ('g-mix' if mixed else 'g-alone', len(apps) + 1, glabel))
+        for i, k in enumerate(keys):
+            vals = {a['id']: F['six'][a['id'], k, mixed, 'median'] for a in apps}
+            best = max(vals, key=lambda a: vals[a].v)
+            cells = []
+            if i == 0:
+                cells.append('<th scope="rowgroup" class="c-grp" rowspan="%d">%s</th>' % (len(keys), glabel))
+            cells.append('<th scope="row" class="c-wl">%s <small>req/s</small></th>' % RNAME[k])
+            for a in apps:
+                cls = ['num']
+                if a['id'] == best:
+                    cls.append('best')
+                if a['id'] == 'dotnetway':
+                    cls.append('feat')
+                extra = ('<small class="xr">%s Rails</small>' % L.x(F['xr'][k, mixed])) if a['id'] == 'dotnetway' else ''
+                cells.append('<td class="%s">%s%s</td>' % (' '.join(cls), L.n(vals[a['id']]), extra))
+            body.append('<tr%s>%s</tr>' % (' class="last"' if (mixed and i == len(keys) - 1) else '', ''.join(cells)))
+        body.append('</tbody>')
+    return ('<div class="sw-scroll"><table class="sw"><caption class="sr">Campfire, six ways: requests per second</caption><thead><tr>%s</tr></thead>%s</table></div>'
+            % (''.join(head), ''.join(body)))
 
 
-def p_delivered(d):
-    t = d['chapters']['tuning']
-    dl = d['chapters']['delivered']
-    pend = ''.join('<article class="pcard"><div class="ptop"><span class="pn">%s</span><h3>%s</h3>%s</div><p>%s</p>%s</article>'
-                   % (e(p['n']), e(p['title']), status_badge(p['status']), e(p['target']),
-                      '<p class="result">%s</p>' % e(p['result']) if p.get('result') else '')
-                   for p in t['pending'])
-    steps = ''.join('<article class="pcard">%s<h3>%s</h3><p>%s</p>%s</article>'
-                    % (status_badge(s['status']), e(s['title']), e(s['detail']), '<a href="%s">%s</a>' % (e(s['link']), e(s['link'])) if s.get('link') else '')
-                    for s in dl['steps'])
-    body = '<p class="lead">%s</p><h3>Still running</h3><div class="pgrid">%s</div><h3>Then</h3><div class="pgrid">%s</div>' % (e(dl['standfirst']), pend, steps)
-    return panel('p-delivered', 'Delivered, not yet', 'What&#39;s left', body, 'more')
-
-
-def p_prompts(d, f):
-    p = d['prompts']
-    msgs = []
-    for m in p['chris']:
-        if m.get('kind') == 'attachment':
-            msgs.append('<li class="msg attach"><time>%s</time><p>%s</p></li>' % (e(m['time']), e(m['text'])))
+def six_ways(F):
+    topo = F['meta_n']['topology']
+    cache = []
+    for a in APPS:
+        tp = topo[a]
+        if 'response_cache_mb' in tp:
+            c = '%s <span data-lit="unit">MB</span> response cache' % L.n(V(float(tp['response_cache_mb']), '%s: response cache size the harness records' % appname(a), [SIX + '/normal-1/summary.json'], 'metadata.topology.%s.response_cache_mb' % a))
+        elif 'cache_bytes' in tp:
+            c = '%s <span data-lit="unit">MiB</span> cache' % L.n(V(float(tp['cache_bytes']) / 2 ** 20, 'C: cache size the harness records, MiB', [SIX + '/normal-1/summary.json'], 'metadata.topology.c.cache_bytes / 2^20'))
         else:
-            msgs.append('<li class="msg"><time>%s</time><p>%s</p></li>' % (e(m['time']), e(m['text']).replace('\n', '<br>')))
-    roles = ''.join('<div class="prole"><p class="kicker">%s</p><pre>%s</pre></div>' % (e(r['role']), e(r['text'])) for r in p['roles'])
-    scripts = sorted(x for x in os.listdir(os.path.join(SITE, 'workflows')) if x.endswith('.js'))
+            c = 'no response cache'
+        cache.append('<li><b>%s</b> %s. %s</li>' % (e(appname(a)), c, prose(D['apps'][a])))
+    return ('<section class="band" id="six" aria-labelledby="six-h"><div class="wrap">'
+            '<p class="kicker reveal">The table</p><h2 id="six-h" class="reveal">Campfire, six ways.</h2>'
+            '<p class="sub reveal">Requests per second at %s clients, %s server CPUs per app, Basecamp&#39;s <code>once-campfire-verification</code> harness, '
+            'all six apps in the same %s sessions. Higher is better; the fastest in each row is shaded, theDotNetWay is outlined. Every cell is the median of %s rounds.</p>'
+            '<figure class="reveal sw-fig">%s<figcaption>'
+            '<p><b>Method.</b> Upstream&#39;s <code>bin/benchmark</code> on this project&#39;s Linux VM (not Basecamp&#39;s or Ryan Rodemoyer&#39;s rig): %s rounds of %s s per app per session, '
+            'the app on %s CPUs and the load generator on %s, every response checked against the seed&#39;s contract and every post audited in the database. '
+            'The writer group adds one client posting %s messages a second into the room. Numbers from other rigs or older sessions are not mixed in. '
+            '<b>Upstream&#39;s contract asks a page cache to re-check the session and the room membership on every hit;</b> theDotNetWay and onCrack (its fresh mode) do it on every request, '
+            'stricter than upstream&#39;s own, which serves the session from its epoch.</p>'
+            '<ul class="apps">%s</ul><p class="btw">%s %s %s</p></figcaption></figure></div></section>'
+            % (L.n(F['conc']), L.n(F['srv_cpus']), L.n(F['n_sess']), L.n(F['n_rounds']), six_table(F),
+               L.n(F['rounds']), L.n(F['secs']), L.n(F['srv_cpus']), L.n(F['cli_cpus']), L.n(F['wps']), ''.join(cache),
+               more('p-method', 'Method, sessions, images'), more('p-ranges', 'Every cell with its range'), more('p-steps', ph('10') + ', step by step')))
+
+
+def bars(F):
+    """Before and after Phase 10, x the same sessions' Rails, per row. HTML bars; every label is a ledger link."""
+    hi = max(F['xr'][k, m].v for k, m in F['xr']) * 1.2
+    rows = []
+    for mixed in (False, True):
+        keys = READS if mixed else [k for k, _ in ROUTES]
+        rows.append('<li class="bb-g">%s</li>' % group_label(F, mixed))
+        for k in keys:
+            b, a = F['xr_pre'][k, mixed], F['xr'][k, mixed]
+            rows.append('<li class="bb"><span class="bb-l">%s</span><span class="bb-t">'
+                        '<span class="bb-b pre" style="--w:%.2f%%"><span class="bb-v">%s</span></span>'
+                        '<span class="bb-b now" style="--w:%.2f%%"><span class="bb-v">%s</span></span></span></li>'
+                        % (RNAME[k], 100 * b.v / hi, L.x(b), 100 * a.v / hi, L.x(a)))
+    floor = 100 * 5 / hi
+    return ('<figure class="bbars reveal" style="--floor:%.2f%%;--one:%.2f%%"><div class="bb-key"><span><i class="k-pre"></i>%s, the first run</span><span><i class="k-now"></i>after %s</span>'
+            '<span><i class="k-floor"></i>the floor, five times Rails</span><span><i class="k-one"></i>Rails</span></div><ol>%s</ol>'
+            '<figcaption>theDotNetWay over the same sessions&#39; current Rails (pooled medians of each run). Before: %s; after: %s.</figcaption></figure>'
+            % (floor, 100 / hi, ph('9'), ph('10'), ''.join(rows), flink(PRE_T), flink(SIX_T)))
+
+
+def speed(F):
+    pin_c1, pin_c16 = F['pin']['room_show', 1], F['pin']['room_show', 16]
+    cur = F['six']['rails', 'room_show', False, 'median']
+    return ('<section class="band alt" id="speed" aria-labelledby="speed-h"><div class="wrap speed-grid">'
+            '<div class="speed-copy"><p class="kicker reveal">About the speed</p><h2 id="speed-h" class="reveal">Five times which Rails?</h2>'
+            '<p class="reveal">Through %s, every phase was held to a floor of five times Rails, measured with <code>bench/quick</code> against stored numbers for an old, pinned Rails: '
+            'about %s room pages a second with one client, %s with sixteen. Every phase cleared it, which is where the earlier &ldquo;five times Rails&rdquo; came from.</p>'
+            '<p class="reveal">Basecamp&#39;s harness runs current Rails with a page cache, and it serves %s room pages a second: %s the pinned one. '
+            'The first run there put theDotNetWay at <b>%s&ndash;%s Rails on the reads</b> (%s&ndash;%s with a writer). The room page was slower than Rails&#39;.</p>'
+            '<p class="reveal">%s found why: about half a millisecond of CPU a page, most of it the data layer opening a pooled connection and preparing a statement for every one of nine statements, and the JIT still warming up on the first route. '
+            'It opened one connection per request, set the tiering delay to zero, moved one slow read to Dapper, and added a page cache in the four GET actions on HybridCache that re-reads the session and the membership on every hit. '
+            'The framework&#39;s OutputCache could not do it: it never stores a response that sets a cookie, and the room page always does.</p>'
+            '<p class="reveal"><b>Now every route alone is %s&ndash;%s current Rails</b>, and the new floor is measured on Basecamp&#39;s harness, in the same session. %s</p></div>'
+            '%s</div></section>'
+            % (ph('9'), L.n(pin_c1), L.n(pin_c16), L.n(cur), L.n(cur.over(pin_c16, 'current Rails over the pinned Rails of bench/quick, room page at c=16'), '{:.0f}×'),
+               L.x(F['pre_lo']), L.x(F['pre_hi']), L.x(F['pre_mlo']), L.x(F['pre_mhi']), ph('10'),
+               L.x(F['xr_lo']), L.x(F['xr_hi']), more('p-steps', 'Each step, measured'), bars(F)))
+
+
+# ---------------------------------------------------------------- the climb chart
+
+def climb(F):
+    pts = F['ph']
+    n = len(pts)
+    W, H = 1000, 560
+    X0, X1 = 70, 870
+    xs = [X0 + (X1 - X0) * (i + 0.5) / n for i in range(n)]
+    # KLOC panel
+    KT, KB, KMAX = 52, 214, 42000
+    ky = lambda v: KB - (KB - KT) * v / KMAX
+    # speed panel
+    ST, SB = 290, 510
+    smax = max(max(r['thin'].v for r in pts), max(v.v for v in F['ph_up'].values())) * 1.12
+    sy = lambda v: SB - (SB - ST) * v / smax
+    files = sorted({f for r in pts for f in r['k'].files + r['thin'].files} | {f for v in F['ph_up'].values() for f in v.files})
+    blk = L.block('the climb chart: backend KLOC (corrected) at each phase gate, and theDotNetWay over Rails, the thinnest of the five workloads at c=16, against the pinned Rails (bench/quick) and, for Phases 9 and 10, current Rails on upstream\'s harness',
+                  files, 'bars: bin/kloc totals; solid line: each gate\'s bench/quick medians over phase7-final\'s stored Rails medians, smallest of five; teal: six-ways pooled medians over the same sessions\' Rails, smallest of five')
+    s = ['<svg viewBox="0 0 %d %d" role="img" aria-labelledby="climb-cap" preserveAspectRatio="none">' % (W, H)]
+    s.append('<text class="cl-ph" x="%d" y="30">Backend KLOC, corrected (bin/kloc)</text>' % X0)
+    for v in range(0, KMAX + 1, 10000):
+        s.append('<line class="cl-grid" x1="%d" x2="%d" y1="%.1f" y2="%.1f"/><text class="cl-tick" x="%d" y="%.1f" text-anchor="end">%d</text>' % (X0, X1, ky(v), ky(v), X0 - 10, ky(v) + 4, v // 1000))
+    for v, cls, nm in ((F['k_rust'].v * 1000, 'cl-rust', 'Rust %.1f' % F['k_rust'].v), (F['k_rails'].v * 1000, 'cl-rails', 'Rails %.1f' % F['k_rails'].v)):
+        s.append('<line class="%s" x1="%d" x2="%d" y1="%.1f" y2="%.1f"/><text class="cl-ref" x="%d" y="%.1f">%s</text>' % (cls, X0, X1, ky(v), ky(v), X1 + 10, ky(v) + 4, nm))
+    bw = (X1 - X0) / n * 0.56
+    for i, r in enumerate(pts):
+        y = ky(r['k'].v)
+        s.append('<rect class="cl-bar%s" x="%.1f" y="%.1f" width="%.1f" height="%.1f" rx="4"/>' % (' cl-last' if i == n - 1 else '', xs[i] - bw / 2, y, bw, KB - y))
+        s.append('<text class="cl-bv" x="%.1f" y="%.1f" text-anchor="middle">%.1f</text>' % (xs[i], y - 7, r['k'].v / 1000))
+    s.append('<text class="cl-ph" x="%d" y="%d">The thinnest workload, times Rails</text>' % (X0, ST - 22))
+    step = 2 if smax < 16 else 5
+    v = 0
+    while v <= smax:
+        s.append('<line class="cl-grid" x1="%d" x2="%d" y1="%.1f" y2="%.1f"/><text class="cl-tick" x="%d" y="%.1f" text-anchor="end">%d&times;</text>' % (X0, X1, sy(v), sy(v), X0 - 10, sy(v) + 4, v))
+        v += step
+    s.append('<line class="cl-floor" x1="%d" x2="%d" y1="%.1f" y2="%.1f"/><text class="cl-ref cl-floor-t" x="%d" y="%.1f">the floor, 5&times;</text>' % (X0, X1, sy(5), sy(5), X0 + 236, sy(5) + 16))
+    line = ' '.join('%s%.1f %.1f' % ('M' if i == 0 else 'L', xs[i], sy(r['thin'].v)) for i, r in enumerate(pts))
+    area = line + ' L%.1f %d L%.1f %d Z' % (xs[-1], SB, xs[0], SB)
+    s.append('<path class="cl-area" d="%s"/><path class="cl-line" d="%s"/>' % (area, line))
+    i9, i10 = [i for i, r in enumerate(pts) if r['p'] in ('9', '10')]
+    s.append('<path class="cl-up" d="M%.1f %.1f L%.1f %.1f"/>' % (xs[i9], sy(F['ph_up']['9'].v), xs[i10], sy(F['ph_up']['10'].v)))
+    for i, r in enumerate(pts):
+        s.append('<circle class="cl-pt" cx="%.1f" cy="%.1f" r="5.5"/>' % (xs[i], sy(r['thin'].v)))
+    for p, i in (('9', i9), ('10', i10)):
+        s.append('<circle class="cl-upt" cx="%.1f" cy="%.1f" r="6.5"/>' % (xs[i], sy(F['ph_up'][p].v)))
+    yp, yu = sy(pts[-1]['thin'].v), sy(F['ph_up']['10'].v)
+    if abs(yp - yu) < 30:
+        mid = (yp + yu) / 2
+        yp, yu = (mid - 15, mid + 15) if yp <= yu else (mid + 15, mid - 15)
+    s.append('<text class="cl-lab cl-lab-pin" x="%d" y="%.1f">pinned Rails<tspan x="%d" dy="14" class="cl-lab-s">bench/quick</tspan></text>' % (X1 + 10, yp - 4, X1 + 10))
+    s.append('<text class="cl-lab cl-lab-up" x="%d" y="%.1f">current Rails<tspan x="%d" dy="14" class="cl-lab-s">upstream&#39;s harness</tspan></text>' % (X1 + 10, yu + 2, X1 + 10))
+    for i, r in enumerate(pts):
+        s.append('<text class="cl-x" x="%.1f" y="%d" text-anchor="middle">%s</text>' % (xs[i], SB + 26, 'H' if r['p'] == 'H' else 'P' + r['p']))
+    s.append('</svg>')
+    # columns with hover cards
+    cols = []
+    for i, r in enumerate(pts):
+        name, what = D['phases'][r['p']]
+        trs = ''.join('<tr><th scope="row">%s</th><td>%s</td><td>%s</td></tr>' % (RNAME[k], L.n(r['q'][k, 16]), L.x(r['x'][k, 16])) for k, _ in ROUTES)
+        up = ''
+        if r['p'] in F['ph_up']:
+            src = F['xr_pre'] if r['p'] == '9' else F['xr']
+            up = ('<p class="cd-up"><b>On upstream&#39;s harness, against current Rails:</b> %s.</p>'
+                  % ', '.join('%s %s' % (RNAME[k].lower(), L.x(src[k, False])) for k, _ in ROUTES))
+        flip = ' flip' if i >= n / 2 else ''
+        cols.append('<div class="cl-col%s" tabindex="0" style="left:%.3f%%;width:%.3f%%" aria-label="%s">'
+                    '<span class="cl-hit" aria-hidden="true"></span>'
+                    '<div class="cd" role="group"><p class="cd-k">%s</p><p class="cd-h">%s</p><p class="cd-w">%s</p>'
+                    '<p class="cd-kloc"><b>%s</b> KLOC, corrected</p>'
+                    '<table><thead><tr><th scope="col">c=%s, <code>bench/quick</code></th><th scope="col">req/s</th><th scope="col">&times; pinned Rails</th></tr></thead><tbody>%s</tbody></table>%s'
+                    '<p class="cd-src">%s</p></div></div>'
+                    % (flip, 100 * (xs[i] - (X1 - X0) / n / 2) / W, 100 * ((X1 - X0) / n) / W, e(name),
+                       ph(r['p']), e(name), prose(what), L.d1(V(r['k'].v / 1000, r['k'].label + ', in thousands', r['k'].files, r['k'].how + ' / 1000')),
+                       L.n(V(16, 'concurrency of the c=16 column of bench/quick', [r['qd'] + '/dotnetway-1.json'], 'http[].conc')), trs, up, flink(r['qd'], r['qd'].replace('bench/results/', ''))))
+    last = pts[-1]
+    return ('<section class="band" id="climb" aria-labelledby="climb-h"><div class="wrap">'
+            '<p class="kicker reveal">The climb</p><h2 id="climb-h" class="reveal">Lines down. Speed lost, then found.</h2>'
+            '<p class="sub reveal">From the fork (%s KLOC) to %s KLOC, one layer a phase. The data layer&#39;s move to EF Core cost the pages most of their speed, Dapper on the hot reads made them about half again as fast, and %s, the page cache, took the room page from %s to %s requests a second on <code>bench/quick</code>.</p>'
+            '<figure class="climb reveal" %s><div class="cl-scroll"><div class="cl-chart">%s%s</div></div>'
+            '<figcaption id="climb-cap"><span><b>Which Rails.</b> The violet line is each phase gate&#39;s <code>bench/quick</code> run over the stored medians of the pinned Rails (%s); the teal pair is the six-ways bench over current Rails in the same sessions. Both show the thinnest of the five workloads at sixteen clients. '
+            'Hover, tap or tab to a phase for its numbers.</span>%s</figcaption></figure></div></section>'
+            % (L.d1(F['k_p0_k']), L.d1(F['k_now_k']), ph('10'), L.n(F['ph'][-2]['q']['room_show', 16]), L.n(last['q']['room_show', 16]),
+               blk, ''.join(s), ''.join(cols), flink(STORED), more('p-climb', 'Every phase, as a table')))
+
+
+# ---------------------------------------------------------------- layers
+
+def layers(F):
+    cards = []
+    for ly in D['layers']:
+        b, a = ly['before'], ly['after']
+        kb = [kloc(R + '/%s/kloc.md' % b, p) for p in ly['projects']]
+        ka = [kloc(R + '/%s/kloc.md' % a, p) for p in ly['projects']]
+        sb = V(sum(v.v for v in kb), '%s before (%s), lines of code, corrected' % (' + '.join(ly['projects']), b), [R + '/%s/kloc.md' % b], ' + '.join(g(v.v) for v in kb))
+        sa = V(sum(v.v for v in ka), '%s after (%s), lines of code, corrected' % (' + '.join(ly['projects']), a), [R + '/%s/kloc.md' % a], ' + '.join(g(v.v) for v in ka))
+        hk = next(r['k'] for r in F['ph'] if r['p'] == 'H')
+        tb = hk if ly.get('tot_before') == 'H' else kloc(R + '/%s/kloc.md' % b)
+        ta = hk if ly.get('tot_after') == 'H' else kloc(R + '/%s/kloc.md' % a)
+        projs = ', '.join(lit(p, 'project') if re.search(r'\d', p) else e(p) for p in ly['projects'])
+        pills = ''.join('<li>%s</li>' % e(p) for p in ly['pills'])
+        why = ('<p class="ly-why"><b>Why Dapper is still the .NET way.</b> %s</p>' % prose(D['dapper_why'])) if ly.get('dapper') else ''
+        cards.append('<li class="ly%s%s reveal"><p class="ly-k">%s</p><h3>%s</h3>'
+                     '<div class="ly-ft"><p class="ly-from"><span class="lab">In the port</span>%s</p><p class="ly-to"><span class="lab">Now</span>%s</p></div>%s'
+                     '<p class="ly-n"><span class="ly-proj">%s</span> <b>%s</b> <span class="arr" aria-hidden="true">&rarr;</span> <b>%s</b> lines'
+                     '<span class="ly-tot">backend %s &rarr; %s</span></p><ul class="pills sm">%s</ul></li>'
+                     % (' wide' if ly.get('dapper') else '', ' added' if ly.get('added') else '', ph(ly['phase']) if ly['phase'] != 'H' else 'Between ' + ph('2') + ' and ' + ph('3'),
+                        e(ly['name']), prose(ly['from']), prose(ly['to']), why, projs, L.n(sb), L.n(sa), L.n(tb), L.n(ta), pills))
+    return ('<section class="band alt" id="layers" aria-labelledby="layers-h"><div class="wrap">'
+            '<p class="kicker reveal">Layer by layer</p><h2 id="layers-h" class="reveal">What the framework replaced.</h2>'
+            '<p class="sub reveal">It started as a fork of the F# port and swapped one layer a phase, each behind the pixel gate, the cookie round trip and the database differential. '
+            'Hand-written code stays only where Rails parity needs it: the cookie formats, Loofah&#39;s sanitizer rules, Rails&#39; markup quirks.</p>'
+            '<ol class="lys">%s</ol><p class="btw reveal">%s</p></div></section>' % (''.join(cards), more('p-layers', 'Lines per project, phase by phase')))
+
+
+# ---------------------------------------------------------------- proof
+
+def proof(F):
+    P = F['pix']
+    v = F['verify']
+    tiles = [
+        ('Full pixel gate', '%s<i>/</i>%s' % (L.n(F['pix_eq']), L.n(F['pix_cells'])),
+         'cells equal to Rails on screenshots, the accessibility tree and the loose DOM, at the ' + ph('10') + ' gate: %s seeds, %s browser engines, %s viewports, light and dark, and a sweep of %s breakpoint widths. '
+         'One WebKit cell differed at first by %s pixels (a WebP avatar decode flake carried since %s); alone it was equal %s times of %s.'
+         % (L.n(F['pix_seeds']), L.n(F['pix_engines']), L.n(F['pix_views']), L.n(F['pix_bps']), L.n(F['flake_px']), ph('4'), L.n(F['rerun_eq']), L.n(F['rerun_n'])), 'p-pixels'),
+        ('Over TLS', '%s<i>/</i>%s' % (L.n(F['tls_eq']), L.n(F['tls_n'])), 'cells equal with the app serving HTTPS from its own certificate cache.', 'p-pixels'),
+        ('Cookie round trip', '%s<i>/</i>%s' % (L.n(F['cookie']), L.n(F['cookie_n'])),
+         'checks: sign in on Rails, switch the same storage to theDotNetWay and post, then back. Nobody is signed out by an upgrade or a rollback.', None),
+        ('Database differential', 'Equal', 'Fixtures and a long scenario written by Active Record and by EF Core compare equal; the schemas agree; Rails boots on the database theDotNetWay wrote.', None),
+        ('Tests', L.n(v['succeeded']), 'passed of %s in <code>bin/verify</code>, %s failed, %s skipped (Linux-only or reference-image tests, run elsewhere), with the markup lint, the Dapper and EF guards and the zero-compilation check.'
+         % (L.n(v['total']), L.n(v['failed']), L.n(v['skipped'])), None),
+        ('Security reviews', L.n(F['sec']), 'independent reviews of the risky layers: views, rich text, assets, the front server, the integrations, then the page cache and the close. Findings were fixed before each phase closed.', 'p-security'),
+        ('Assets', '%s' % L.n(F['assets']), 'network checks on the asset routes (fingerprints, encodings, probes for traversal and dotfiles), %s failed.' % L.n(F['assets_f']), None),
+        ('Known differences', 'Listed', 'Every difference a person or another system could notice has a README entry, the reference file it departs from and a test that pins it.', 'readme'),
+    ]
+    out = []
+    for h, n, txt, link in tiles:
+        tail = ''
+        if link == 'readme':
+            tail = '<a class="more" href="%s"><span>The list</span> <span aria-hidden="true">&rarr;</span></a>' % e(src_url('README.md') + '#known-differences')
+        elif link:
+            tail = more(link)
+        out.append('<li class="pr reveal"><p class="pr-k">%s</p><p class="pr-n">%s</p><p class="pr-t">%s</p>%s</li>' % (h, n, txt, tail))
+    return ('<section class="band" id="proof" aria-labelledby="proof-h"><div class="wrap">'
+            '<p class="kicker reveal">Check it</p><h2 id="proof-h" class="reveal">Checked against Rails, cell by cell.</h2>'
+            '<ol class="prs">%s</ol></div></section>' % ''.join(out))
+
+
+def more_row():
+    links = [('p-ledger', 'Every number'), ('p-method', 'The method'), ('p-ranges', 'Every cell&#39;s range'), ('p-steps', ph('10') + ', step by step'),
+             ('p-climb', 'Every phase'), ('p-layers', 'Lines per project'), ('p-pixels', 'The pixel gate'), ('p-security', 'The security reviews')]
+    return ('<section class="more-row" id="more" aria-label="Everything else"><div class="wrap"><p class="kicker">Everything else</p>'
+            '<p class="links">%s</p></div></section>' % ''.join(more(p, l) for p, l in links))
+
+
+# ================================================================ panels
+
+def p_method(F):
+    env = []
+    for s in F['sessions']:
+        hostf = SIX + '/%s.host' % s
+        t = text(hostf)
+        r = re.findall(r'"ratio": ([\d.]+)', t)
+        if len(r) != 2:
+            raise SystemExit('build: %s: want a before and an after probe' % hostf)
+        env.append([lit(s, 'session'), L.n(V(float(r[0]), 'host probe ratio before session %s (1.00 is the quietest this VM has shown)' % s, [hostf], 'the "before" line\'s ratio'), '{:.3f}'),
+                    L.n(V(float(r[1]), 'host probe ratio after session %s' % s, [hostf], 'the "after" line\'s ratio'), '{:.3f}')])
+    imgs = []
+    meta = F['meta_n']
+    for a in APPS:
+        sr = meta['source_revisions'][a]
+        imgs.append([e(appname(a)), commit(sr['head'][:7]), 'clean' if not sr['dirty'] else 'dirty', commit(meta['images'][a].replace('sha256:', '')[:12])])
     body = ''.join([
-        '<div class="pstats"><div><b>%d</b><span>messages from Chris</span></div><div><b>%s</b><span>%s</span></div><div><b>%d</b><span>workflow scripts</span></div></div>'
-        % (f['messages'], n(f['words']), e(p['word_count_note']), len(scripts)),
-        '<p class="muted">%s</p>' % e(p['intro']),
-        '<ol class="chat">%s</ol>' % ''.join(msgs),
-        '<p class="muted">%s</p>' % e(p['status_pings']['note']),
-        '<h3>The routine, as code</h3><p>%s</p>' % e(p['routine_intro']),
-        '<div class="prole common"><p class="kicker">%s</p><pre>%s</pre></div>' % (e(p['common_label']), e(p['common'])),
-        roles,
-        '<h3>The workflow scripts</h3><ul class="scripts">%s</ul>' % ''.join('<li><a href="%s">%s</a></li>' % (e(src('site/workflows/' + s)), e(s)) for s in scripts),
+        '<p class="lead">Upstream&#39;s harness, run the way onCrack&#39;s round five ran it, with every app of the table in every session. The pooled figure of a cell is the median over all its rounds; the range is in the next panel.</p>',
+        '<pre><code>bin/benchmark --workspace /mnt/cfv/ws --rounds 3 --duration 8 --concurrencies 16 --cpus 0-3 --client-cpus 4-7 \\\n'
+        '  --apps rails,rust,c,fsharp,oncrack,dotnetway --routes room_show,messages_page,sidebar,search,post_message\n'
+        '# the writer group: the same, with --mixed-write-rate 10 and the four reads</code></pre>',
+        '<h3>Sessions and the host</h3><p>The probe is a fixed spin on every VM CPU, against the quietest run this VM has shown; a ratio close to one is a quiet host.</p>',
+        tbl([('Session', False), ('Probe before', True), ('Probe after', True)], env),
+        '<h3>What ran</h3>', tbl([('App', False), ('Commit', False), ('Tree', False), ('Image', False)], imgs, 'From the session&#39;s summary.json'),
+        '<p>theDotNetWay runs with its page cache (HybridCache, fresh authorization, %s MB, the default). onCrack runs its fresh-authorization mode; its faster cached decision is not run. '
+        'The F# port has no page cache: it is a translation of Rust&#39;s port from before Rust had one. Search orders by message id in every app but theDotNetWay and the port, which keep the pinned Rails&#39; creation-time order.</p>'
+        % lit(F['meta_n']['topology']['dotnetway']['response_cache_mb'], 'size'),
+        srcline(SIX + '/README.md', SIX + '/drive.sh', SIX + '/aggregate.py', SIX + '/normal-1/summary.json', SIX + '/mixed-1/mixed-summary.json', SIX + '/verification-adapter-dotnetway.diff', 'plans/design-perf.md'),
     ])
-    return panel('p-prompts', 'The prompts', 'What was actually said', body, 'more')
+    return panel('p-method', 'Campfire, six ways', 'The method', body, 'six')
 
 
-def p_tokens(d):
-    tok = d['tokens']
-    wfs, main, others, g = tok['workflows'], tok['main'], tok['others'], tok['grand']
-    rows = [(w['title'].replace(': ', ' · ', 1), '%d agent%s' % (len(w['agents']), '' if len(w['agents']) == 1 else 's'), {'v': w['totals']['processed']}) for w in wfs]
-    rows.append(('Orchestrator session', '%s calls' % n(main['totals']['calls']), {'v': main['totals']['processed']}))
-    for o in others:
-        rows.append(('Page agent', o['label'][:32], {'v': o['totals']['processed']}))
-    chart1 = bar_chart(rows, 'Tokens processed per phase', 'Horizontal bars: total tokens processed by each workflow, the orchestrating session and the page agents.', 'chart-processed')
-    series = [('cache_write', 'Cache writes', '--s1'), ('output', 'Output', '--s2'), ('input', 'Uncached input', '--s3')]
-    rows2 = [(w['title'].replace(': ', ' · ', 1), '', {k: w['totals'][k] for k, _, _ in series}) for w in wfs]
-    rows2.append(('Orchestrator session', '', {k: main['totals'][k] for k, _, _ in series}))
-    chart2 = bar_chart(rows2, 'Fresh tokens per phase', 'Stacked bars: cache writes, output and uncached input by workflow and the orchestrating session.', 'chart-fresh', series)
-    rec = []
-    for w in wfs:
-        h = w.get('harness')
-        delta = (h['tokens'] - w['final_context_sum']) if h else None
-        rec.append([w['title'], str(len(w['agents'])), duration(w['first'], w['last']), n(h['tokens']) if h else '–', n(w['final_context_sum']),
-                    ('%+d' % delta) if delta is not None else '–', n(w['totals']['fresh']), n(w['totals']['processed'])])
-    role_names = {'build': 'Builders', 'verify': 'Verifiers', 'fix': 'Fixers', 'reverify': 'Re-verifiers', 'bench': 'Bench', 'review': 'Reviewers',
-                  'harness': 'Harness (7.0)', 'tune': 'Tuner'}
-    cols = ['', 'Agents', 'API calls', 'Processed', 'Fresh', 'Output']
-    role_rows = [[role_names.get(k, k), str(v['agents']), n(v['totals']['calls']), mega(v['totals']['processed']), mega(v['totals']['fresh']), n(v['totals']['output'])]
-                 for k, v in tok['by_role'].items()]
-    model_rows = [[k, str(v['agents']) + (' + orchestrator' if k in main['models'] else ''), n(v['totals']['calls']), mega(v['totals']['processed']), mega(v['totals']['fresh']), n(v['totals']['output'])]
-                  for k, v in tok['by_model'].items()]
-    ag_rows = [[w['title'].split(':')[0], a['label'], a['model'], duration(a['first'], a['last']), n(a['totals']['calls']),
-                n(a['totals']['processed']), n(a['totals']['fresh']), n(a['final_context'])] for w in wfs for a in w['agents']]
-    win_rows = [[w['label'], local(w['from']), n(w['totals']['calls']), n(w['totals']['processed']), n(w['totals']['fresh'])] for w in main['windows']]
-    share = 100.0 * g['cache_read'] / g['processed'] if g['processed'] else 0
+def p_ranges(F):
+    out = ['<p class="lead">Each cell&#39;s pooled median with the smallest and largest round, from <code>table.json</code>, which <code>aggregate.py</code> made from the round files. '
+           'The build recomputes every median from the round files and stops if one disagrees.</p>']
+    for mixed in (False, True):
+        keys = READS if mixed else [k for k, _ in ROUTES]
+        rows = []
+        for k in keys:
+            rows.append([RNAME[k]] + ['%s <span class="rng">%s&ndash;%s</span>' % (L.n(F['six'][a, k, mixed, 'median']), L.n(F['six'][a, k, mixed, 'min']), L.n(F['six'][a, k, mixed, 'max'])) for a in APPS])
+        out.append('<h3>%s</h3>' % group_label(F, mixed))
+        out.append(tbl([('req/s', False)] + [(e(appname(a)), True) for a in APPS], rows, cls='wide'))
+    out.append(srcline(SIX_T, SIX + '/table.md', SIX + '/aggregate.py'))
+    return panel('p-ranges', 'Campfire, six ways', 'Every cell, with its range', ''.join(out), 'six')
+
+
+def p_steps(F):
+    rows = []
+    for st in F['steps']:
+        rows.append(['%s <small>%s</small>' % (e(st['name']), flink(st['dir'], st['dir'].replace('bench/results/', '')))] + [L.x(st['x'][k]) for k, _ in ROUTES])
+    pre_rows, now_rows = [], []
+    for k, _ in ROUTES:
+        pre_rows.append([RNAME[k]] + [L.n(F['pre'][a, k, False]) for a in APPS])
     body = ''.join([
-        '<p class="lead">Summed from the transcripts Claude Code wrote, once per API call, for the orchestrating session, all %d workflow agents and the page agents. '
-        'Nothing here is estimated. As of %s EDT.</p>' % (tok['workflow_agents'], e(local(tok['as_of']))),
-        '<div class="bign"><div><b>%s</b><span>tokens processed</span><p>%s. Cache reads are %.1f%% of it: each turn re-reads the agent&#39;s context from the prompt cache.</p></div>'
-        '<div><b>%s</b><span>fresh tokens</span><p>%s: uncached input, cache writes and output. What was new to the model on each call.</p></div>'
-        '<div><b>%s</b><span>written by models</span><p>Output across %s API calls: code, tests, reports, commit messages.</p></div></div>'
-        % (e(mega(g['processed'], 2)), n(g['processed']), share, e(mega(g['fresh'])), n(g['fresh']), e(mega(g['output'])), n(g['calls'])),
-        '<dl class="measures"><div><dt>Processed</dt><dd>input + cache writes + cache reads + output, over every API call. The fullest measure of work done.</dd></div>'
-        '<div><dt>Fresh</dt><dd>the same without cache reads, which are cheap and repetitive. Closer to new work.</dd></div>'
-        '<div><dt>Final context</dt><dd>each agent&#39;s context on its last call. The workflow harness&#39;s per-phase figure is this, summed; it lands within a few dozen tokens of ours. It measures how big the contexts grew, not how much was processed.</dd></div></dl>',
-        '<figure class="fig"><figcaption><b>Tokens processed</b><span>Linear scale. The orchestrator ran the whole time.</span></figcaption>%s</figure>' % chart1,
-        '<figure class="fig"><figcaption><b>Fresh tokens</b><span>Cache reads left out, so the new work shows.</span></figcaption>%s</figure>' % chart2,
-        table(['Workflow', 'Agents', 'Ran', 'Harness figure', 'Final contexts', 'Gap', 'Fresh', 'Processed'], rec, 'Reconciliation with the workflow harness (gap = harness minus our sum of final contexts)', cls='dense'),
-        table(cols, role_rows, 'By role (workflow agents)'),
-        table(cols, model_rows, 'By model (everything, the orchestrator and page agents included)'),
-        table(['Orchestrator window', 'From', 'Calls', 'Processed', 'Fresh'], win_rows, 'The orchestrating session, split where its job changed', num_from=2),
-        '<details><summary>All %d workflow agents</summary>%s</details>' % (len(ag_rows), table(['Phase', 'Agent', 'Model', 'Ran', 'Calls', 'Processed', 'Fresh', 'Final context'], ag_rows, num_from=4, cls='dense')),
-        '<div class="unknown"><span aria-hidden="true">?</span><p><b>Not counted:</b> Ren&#39;s run in Muse. Its token use isn&#39;t in the hand-off and no transcript was shared, so it is unknown, not zero.</p></div>',
-        '<p class="src">Method: <code>site/collect_tokens.py</code> reads the session transcript and every <code>agent-*.jsonl</code> under its <code>subagents/</code> folder, '
-        'keeps the last line of each API message id (Claude Code repeats a message&#39;s usage on each content block), and maps workflows to phases by their script names. Rule: %s.</p>' % e(tok['rule']),
+        '<p class="lead">' + ph('10') + ' measured every unit with <code>bench/upstream-quick</code>: Basecamp&#39;s harness over current Rails, the F# port and theDotNetWay in one session, at least two rounds. '
+        'Each cell is theDotNetWay over that session&#39;s own Rails.</p>',
+        tbl([('Step', False)] + [(RNAME[k], True) for k, _ in ROUTES], rows, cls='wide'),
+        '<p>One connection per request took the room page from about two thirds of Rails to twice Rails. Narrowing a miss moved the one read that still built a LINQ expression on every call to Dapper. '
+        'The page cache did the rest, on the room and messages pages first, then the sidebar and search. Posting stayed above five times Rails throughout.</p>',
+        '<h3>The first six-ways run, before %s</h3>' % ph('10'),
+        tbl([('Each route alone, req/s', False)] + [('%s <small>%s</small>' % (e(appname(a, F['pre_apps'])), lit(appcommit(a, F['pre_apps']), 'commit')), True) for a in APPS], pre_rows, cls='wide'),
+        srcline(*([st['dir'] + '/summary.json' for st in F['steps']] + [PRE_T, PRE + '/README.md', 'plans/design-perf.md'])),
     ])
-    return panel('p-tokens', 'Every token, counted', 'The token ledger', body, 'numbers')
+    return panel('p-steps', 'About the speed', ph('10') + ', step by step', body, 'speed')
 
 
-# ---------------------------------------------------------------- page
+def p_climb(F):
+    rows = []
+    for r in F['ph']:
+        rows.append([ph(r['p']), L.n(r['k'])] + ['%s <small>%s</small>' % (L.n(r['q'][k, 16]), L.x(r['x'][k, 16])) for k, _ in ROUTES] + [L.x(r['thin'])])
+    body = ''.join([
+        '<p class="lead">Each phase gate&#39;s <code>bench/quick</code> run (theDotNetWay alone, three reps, sixteen clients) against the stored medians of the pinned Rails, and <code>bin/kloc</code>&#39;s corrected total. '
+        'The hybrid reads were a unit between %s and %s with their own run. The %s run was on a loaded host.</p>' % (ph('2'), ph('3'), ph('0')),
+        tbl([('Phase', False), ('Lines', True)] + [(RNAME[k], True) for k, _ in ROUTES] + [('Thinnest', True)], rows, cls='wide'),
+        '<h3>The pinned Rails</h3>',
+        tbl([('Rails, stored', False)] + [(RNAME[k], True) for k, _ in ROUTES], [['c=' + L.n(V(c, 'bench/quick concurrency', [STORED + '/reference-1.json'], 'http[].conc'))] + [L.n(F['pin'][k, c]) for k, _ in ROUTES] for c in (16, 1)]),
+        srcline(STORED + '.md', PLAN, *[r['qd'] for r in F['ph']]),
+    ])
+    return panel('p-climb', 'The climb', 'Every phase', body, 'climb')
+
+
+def p_layers(F):
+    dirs = [(p, kd) for p, _, kd in PHASES if kd] + [('now', 'bench/results/dotnetway-landing')]
+    projs = []
+    for _, kd in dirs:
+        for p in kloc_projects(kd + '/kloc.md'):
+            if p not in projs:
+                projs.append(p)
+    rows = []
+    for p in projs:
+        rows.append([e(p)] + [L.n(kloc(kd + '/kloc.md', p)) if p in kloc_projects(kd + '/kloc.md') else '&middot;' for _, kd in dirs])
+    rows.append(['<b>Total</b>'] + [L.n(kloc(kd + '/kloc.md')) for _, kd in dirs])
+    head = [('Project', False)] + [(('P' + p) if p != 'now' else 'Now', True) for p, _ in dirs]
+    head = [(lit(h, 'phase') if re.search(r'\d', h) else h, n) for h, n in head]
+    body = ''.join([
+        '<p class="lead"><code>bin/kloc</code> at every phase gate: upstream&#39;s cloc rules, the corrected column (cloc counts <code>(*</code> in an F# string as the start of a comment and drops lines; the corrected count is the higher, honest one).</p>',
+        tbl(head, rows, cls='wide'),
+        srcline('bin/kloc', KLOC_NOW, *[kd + '/kloc.md' for _, kd in dirs[:-1]]),
+    ])
+    return panel('p-layers', 'Layer by layer', 'Lines per project', body, 'layers')
+
+
+def p_pixels(F):
+    P = F['pix']
+    rows = []
+    for seed, s in sorted(P['seeds'].items(), key=lambda kv: -kv[1]['cells']):
+        mk = lambda k, lab: L.n(V(s[k], '%s seed, cells %s at the Phase 10 gate, first pass' % (seed, lab), P['files'], 'count over report.json results'))
+        rows.append([e(seed), mk('cells', 'with a screenshot'), mk('pixels', 'pixel-equal'), mk('aria', 'aria-equal'), mk('loose', 'loose-DOM-equal')])
+    diff = ''.join('<li><code>%s</code> %s, <code>%s</code></li>' % (e(st), e(seed), e(cell)) for seed, st, cell in P['differ'])
+    body = ''.join([
+        '<p class="lead">The full matrix: every state on Chromium, Firefox and WebKit, desktop, laptop, tablet and phone, light and dark, with the breakpoint sweep, against the Rails reference on the same seed and a frozen clock. '
+        'A cell passes when its screenshot is pixel-equal, its accessibility tree is equal and its live DOM is equal after the loose normalization. The server, network and Cable layers are reported, not gated.</p>',
+        tbl([('Seed', False), ('Cells', True), ('Screenshots', True), ('aria', True), ('Loose DOM', True)], rows, 'First pass, by seed'),
+        '<p>Differed on the first pass:</p><ul>%s</ul><p>Re-run alone: %s of %s equal on all three layers. Over TLS: %s of %s.</p>' % (diff, L.n(F['rerun_eq']), L.n(F['rerun_n']), L.n(F['tls_eq']), L.n(F['tls_n'])),
+        srcline(GATE + '/full/', GATE + '/full/rerun/', F['pix']['tls']['file'], 'bin/pixel-parity'),
+    ])
+    return panel('p-pixels', 'Check it', 'The pixel gate', body, 'proof')
+
+
+def p_security(F):
+    items = ''.join('<li>%s</li>' % e(re.sub(r'^###\s*', '', re.sub(r'\s*\(\d{4}-\d\d-\d\d\)$', '', t))).replace('Phase ', 'Phase&nbsp;') for t in F['sec_titles'])
+    items = re.sub(r'(Phase&nbsp;|Phases )(\d+)( and )?(\d+)?', lambda m: m.group(1) + lit(m.group(2), 'phase') + (m.group(3) or '') + (lit(m.group(4), 'phase') if m.group(4) else ''), items)
+    body = ''.join([
+        '<p class="lead">Each review read the layer&#39;s code and the paths beside it, tried the attacks that layer invites (XSS through the views and rich text, traversal through assets and storage, header and host tricks at the front server, SSRF through the integrations, a stale or cross-session page from the cache), '
+        'and fixed what it found before the phase closed. The record of each is its Phase log entry.</p>',
+        '<ol class="plain">%s</ol>' % items,
+        srcline(PLAN, 'plans/design-perf.md', 'plans/design-close.md', R + '/security-p9p10/'),
+    ])
+    return panel('p-security', 'Check it', 'The security reviews', body, 'proof')
+
+
+def p_ledger():
+    rows = []
+    for r in L.rows:
+        files = ' '.join(flink(f, f.replace('bench/results/', '')) for f in r['files'][:8])
+        if len(r['files']) > 8:
+            files += ' <small>and %s more</small>' % ('<span data-lit="count">%d</span>' % (len(r['files']) - 8))
+        rows.append('<li id="%s"><span class="lg-id">%s</span><b class="lg-v">%s</b><span class="lg-l">%s</span><small class="lg-h">%s</small><span class="lg-f">%s</span></li>'
+                    % (r['id'], r['id'], e(r['shown']), e(r['label']), e(r['how']), files))
+    body = ('<p class="lead">Every number on the page, in order of first use, with the files it was computed from and how. <code>site/build.py</code> computes each one when it builds the page '
+            'and refuses to build if anything a reader can see has a digit in it and no row here. %s rows.</p><ol class="ledger">%s</ol>' % ('<span data-lit="count">%d</span>' % len(L.rows), ''.join(rows)))
+    return panel('p-ledger', 'Every number', 'The ledger', '<div data-ledger>%s</div>' % body, 'more')
+
+
+# ================================================================ the check
+
+LIT_SHAPES = {
+    'commit': [r'[0-9a-f]{7,12}'],
+    'phase': [r'Phase \d+', r'P\d+', r'\d+'],
+    'project': [r'Campfire\.\w+'],
+    'unit': [r'MB', r'MiB'],
+    'size': [r'\d+'],
+    'count': [r'\d+'],
+    'name': [r'H\d', r'D\d', r'UTF-8', r'HTML5', r'37signals'],
+    'session': [r'(?:normal|mixed)-\d'],
+}
+
+
+class Checker(HTMLParser):
+    VOID = {'area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta', 'source', 'track', 'wbr'}
+    EXEMPT = {'script', 'style', 'code', 'pre', 'title'}
+
+    def __init__(self, ids):
+        super().__init__(convert_charrefs=True)
+        self.ids, self.stack, self.errors, self.lits, self.spans, self.links = ids, [], [], [], set(), set()
+
+    def ctx(self):
+        return any(s[1] for s in self.stack)
+
+    def handle_starttag(self, tag, attrs):
+        a = dict(attrs)
+        ok = False
+        if 'data-src' in a:
+            if a['data-src'] not in self.ids:
+                self.errors.append('data-src %s is not a ledger row' % a['data-src'])
+            (self.links if tag == 'a' else self.spans).add(a['data-src'])
+            ok = True
+        if 'data-lit' in a:
+            ok = True
+            self.lits.append(a['data-lit'])
+            if a['data-lit'] not in LIT_SHAPES:
+                self.errors.append('data-lit with an unknown reason: %s' % a['data-lit'])
+        if 'data-ledger' in a or tag in self.EXEMPT:
+            ok = True
+        for k in ('aria-label', 'alt', 'title'):
+            if a.get(k) and re.search(r'\d', a[k]) and not (ok or self.ctx()):
+                self.errors.append('a digit in %s="%s" with no source' % (k, a[k]))
+        if tag in self.VOID:
+            return
+        self.stack.append((tag, ok, a.get('data-lit')))
+
+    def handle_startendtag(self, tag, attrs):
+        self.handle_starttag(tag, attrs)
+        if tag not in self.VOID:
+            self.stack.pop()
+
+    def handle_endtag(self, tag):
+        if tag in self.VOID:
+            return
+        for i in range(len(self.stack) - 1, -1, -1):
+            if self.stack[i][0] == tag:
+                del self.stack[i:]
+                return
+        self.errors.append('stray </%s>' % tag)
+
+    def handle_data(self, data):
+        if not re.search(r'\d', data):
+            return
+        litv = next((s[2] for s in reversed(self.stack) if s[2]), None)
+        if litv:
+            if not any(re.fullmatch(p, data.strip()) for p in LIT_SHAPES.get(litv, [])):
+                self.errors.append('data-lit "%s" holds %r, which is not an identifier shape' % (litv, data.strip()))
+            return
+        if not self.ctx():
+            where = '/'.join(s[0] for s in self.stack[-4:])
+            self.errors.append('a number with no source: %r (in %s)' % (data.strip()[:80], where))
+
+
+def check(page):
+    c = Checker({r['id'] for r in L.rows})
+    c.feed(page)
+    c.close()
+    for rid in sorted(c.spans - c.links):
+        row = next(r for r in L.rows if r['id'] == rid)
+        if not row['block']:
+            c.errors.append('%s (%s) is shown only as plain text; it must also appear as a link to its row' % (rid, row['label']))
+    for r in L.rows:
+        for f in r['files']:
+            if not os.path.exists(os.path.join(REPO, f.split('#')[0])):
+                c.errors.append('source file missing: %s' % f)
+    return c
+
+
+# ================================================================ CSS and JS
 
 CSS = r"""
-:root{
-  --bg:#f7f4ee;--surface:#fffdf9;--surface-2:#efe9df;--ink:#16130f;--ink-2:#4b453d;--muted:#7a7368;
-  --line:rgba(22,19,15,.13);--line-2:rgba(22,19,15,.07);--accent:#c2410c;--accent-2:#6d4aff;--crit:#c0262d;--good:#0b7a35;--warn:#a15c00;--minor:#6b665d;
-  --s1:#2a78d6;--s2:#eb6834;--s3:#1baf7a;
-  --glow-a:rgba(234,88,12,.22);--glow-b:rgba(109,74,255,.15);--shadow:0 1px 2px rgba(0,0,0,.04),0 18px 40px -18px rgba(30,20,10,.18);
-  --display:"Instrument Serif",ui-serif,Georgia,serif;--sans:system-ui,-apple-system,"SF Pro Text","Segoe UI",Roboto,sans-serif;--mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
-  color-scheme:light}
-@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
-  --bg:#0c0a09;--surface:#161311;--surface-2:#1f1b18;--ink:#f6f1ea;--ink-2:#cbc3b7;--muted:#91897d;
-  --line:rgba(255,255,255,.12);--line-2:rgba(255,255,255,.06);--accent:#ff8a4c;--accent-2:#a594ff;--crit:#ff6b6b;--good:#34c46a;--warn:#e8a33a;--minor:#a39d92;
-  --s1:#3987e5;--s2:#d95926;--s3:#199e70;--glow-a:rgba(255,122,61,.22);--glow-b:rgba(140,110,255,.2);--shadow:0 1px 2px rgba(0,0,0,.4),0 18px 44px -18px rgba(0,0,0,.7);color-scheme:dark}}
-:root[data-theme="dark"]{
-  --bg:#0c0a09;--surface:#161311;--surface-2:#1f1b18;--ink:#f6f1ea;--ink-2:#cbc3b7;--muted:#91897d;
-  --line:rgba(255,255,255,.12);--line-2:rgba(255,255,255,.06);--accent:#ff8a4c;--accent-2:#a594ff;--crit:#ff6b6b;--good:#34c46a;--warn:#e8a33a;--minor:#a39d92;
-  --s1:#3987e5;--s2:#d95926;--s3:#199e70;--glow-a:rgba(255,122,61,.22);--glow-b:rgba(140,110,255,.2);--shadow:0 1px 2px rgba(0,0,0,.4),0 18px 44px -18px rgba(0,0,0,.7);color-scheme:dark}
+:root{--bg:#f6f5fb;--bg-2:#eeecf7;--surface:#ffffff;--ink:#16131f;--ink-2:#3d384d;--mute:#6b6680;--line:#e2dfed;--line-2:#d3cfe2;
+  --acc:#5b3fd6;--acc-2:#7c5cf5;--acc-soft:#ece7ff;--teal:#0b8f86;--warn:#c2410c;--best:#e7e4f2;--best-ink:#16131f;
+  --display:-apple-system,BlinkMacSystemFont,"SF Pro Display","Helvetica Neue",Inter,system-ui,sans-serif;--text:-apple-system,BlinkMacSystemFont,"SF Pro Text","Helvetica Neue",Inter,system-ui,sans-serif;
+  --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;color-scheme:light}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0c0a14;--bg-2:#12101d;--surface:#17142a;--ink:#f1eefb;--ink-2:#c9c3dd;--mute:#958fab;--line:#2a2640;--line-2:#383352;
+  --acc:#a48dff;--acc-2:#8b6cf0;--acc-soft:#221c40;--teal:#3fd2c7;--warn:#fb923c;--best:#2a2546;--best-ink:#ffffff;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#0c0a14;--bg-2:#12101d;--surface:#17142a;--ink:#f1eefb;--ink-2:#c9c3dd;--mute:#958fab;--line:#2a2640;--line-2:#383352;
+  --acc:#a48dff;--acc-2:#8b6cf0;--acc-soft:#221c40;--teal:#3fd2c7;--warn:#fb923c;--best:#2a2546;--best-ink:#ffffff;color-scheme:dark}
 *{box-sizing:border-box}
-html{scroll-behavior:smooth;-webkit-text-size-adjust:100%;overflow-x:clip}
-body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 var(--sans);overflow-x:clip;-webkit-font-smoothing:antialiased}
+html{-webkit-text-size-adjust:100%;scroll-behavior:smooth;scroll-padding-top:64px}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+body{margin:0;background:var(--bg);color:var(--ink);font:400 17px/1.55 var(--text);-webkit-font-smoothing:antialiased;overflow-x:hidden}
 html.locked,html.locked body{overflow:hidden}
-a{color:var(--accent);text-underline-offset:3px}
-:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:4px}
-code{overflow-wrap:anywhere;font:.88em var(--mono);background:var(--surface-2);padding:.1em .35em;border-radius:5px}
-.wrap{max-width:1200px;margin:0 auto;padding:0 16px}
-@media (min-width:720px){.wrap{padding:0 32px}}
-.skip{position:absolute;left:-999px}.skip:focus{left:16px;top:8px;z-index:60;background:var(--surface);padding:8px 12px;border-radius:8px}
-.kicker{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);font-weight:650;margin:0 0 12px}
-/* top bar */
-.bar{position:sticky;top:0;z-index:20;backdrop-filter:saturate(1.6) blur(18px);-webkit-backdrop-filter:saturate(1.6) blur(18px);background:color-mix(in srgb,var(--bg) 80%,transparent);border-bottom:1px solid var(--line-2)}
-.bar .wrap{display:flex;align-items:center;gap:12px;height:52px}
-.brand{font-weight:650;letter-spacing:-.01em;color:var(--ink);text-decoration:none;white-space:nowrap}.brand span{color:var(--accent)}
-.bar nav{flex:1;min-width:0;overflow-x:auto;scrollbar-width:none}.bar nav::-webkit-scrollbar{display:none}
-.bar nav ol{display:flex;gap:2px;list-style:none;margin:0;padding:0;justify-content:flex-end}
-.bar nav a{display:block;padding:6px 10px;border-radius:999px;color:var(--ink-2);text-decoration:none;font-size:13px;white-space:nowrap}
-.bar nav a:hover,.bar nav a:focus-visible{background:var(--surface-2);color:var(--ink)}
-.theme{border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:999px;width:34px;height:34px;cursor:pointer;flex:none;display:none}
-.js .theme{display:inline-grid;place-items:center}
+a{color:var(--acc)}
+code{font:0.86em var(--mono);background:var(--bg-2);border:1px solid var(--line);border-radius:5px;padding:.05em .3em;overflow-wrap:anywhere}
+pre code{display:block;padding:14px 16px;overflow-x:auto;white-space:pre;border-radius:10px;font-size:12.5px;line-height:1.6}
+.wrap{max-width:1180px;margin:0 auto;padding:0 32px}
+@media (max-width:720px){.wrap{padding:0 16px}}
+[data-lit]{white-space:nowrap}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.skip{position:absolute;left:-999px;top:8px;z-index:100;background:var(--surface);padding:8px 12px;border-radius:8px}.skip:focus{left:8px}
+.kicker{font:600 13px/1.2 var(--text);letter-spacing:.12em;text-transform:uppercase;color:var(--acc);margin:0 0 14px}
+h1,h2,h3{font-family:var(--display);letter-spacing:-.025em;color:var(--ink)}
+h2{font-size:clamp(34px,5vw,60px);line-height:1.02;font-weight:700;margin:0 0 18px}
+.sub{font-size:clamp(17px,1.6vw,20px);color:var(--ink-2);max-width:820px;margin:0 0 34px}
+a.sn{color:inherit;text-decoration:underline;text-decoration-color:color-mix(in srgb,var(--acc) 45%,transparent);text-decoration-thickness:1.5px;text-underline-offset:3px;font-variant-numeric:tabular-nums}
+a.sn:hover{text-decoration-color:var(--acc)}
+.more{display:inline-flex;align-items:center;gap:0;white-space:nowrap;font-weight:600;font-size:15px;color:var(--acc);text-decoration:none;padding:9px 15px;border:1px solid var(--line-2);border-radius:999px;background:var(--surface);margin:4px 8px 4px 0;transition:border-color .2s,transform .2s}
+.more>span+span{margin-left:6px}.more:hover{border-color:var(--acc);transform:translateY(-1px)}
+.btw{margin:22px 0 0}
+.src{font-size:13px;color:var(--mute);margin-top:18px}.src a{color:var(--mute)}
+/* bar */
+.bar{position:sticky;top:0;z-index:20;background:color-mix(in srgb,var(--bg) 80%,transparent);backdrop-filter:saturate(1.6) blur(18px);-webkit-backdrop-filter:saturate(1.6) blur(18px);border-bottom:1px solid var(--line)}
+.bar .wrap{display:flex;align-items:center;gap:18px;height:56px}
+.brand{font:700 18px/1 var(--display);letter-spacing:-.02em;color:var(--ink);text-decoration:none;white-space:nowrap}.brand span{color:var(--acc)}
+.bar nav{margin-left:auto;overflow-x:auto;scrollbar-width:none}.bar nav::-webkit-scrollbar{display:none}
+.bar ol{display:flex;gap:4px;list-style:none;margin:0;padding:0}
+.bar nav a{display:block;padding:7px 11px;border-radius:999px;color:var(--ink-2);text-decoration:none;font-size:14px;white-space:nowrap}.bar nav a:hover{background:var(--bg-2);color:var(--ink)}
+.theme{flex:none;width:36px;height:36px;border-radius:50%;border:1px solid var(--line-2);background:var(--surface);color:var(--ink);cursor:pointer;font-size:15px}
+html:not(.js) .theme{display:none}
+@media (max-width:860px){.bar nav{display:none}.theme{margin-left:auto}}
 /* hero */
-.hero{position:relative;z-index:2;padding:56px 0 24px;isolation:isolate}
-.glow{position:absolute;inset:-140px 0 auto;height:700px;z-index:-1;pointer-events:none;
-  background:radial-gradient(38% 46% at 22% 35%,var(--glow-a),transparent 70%),radial-gradient(34% 44% at 78% 22%,var(--glow-b),transparent 70%);filter:blur(12px)}
-h1{font:400 clamp(52px,10.5vw,138px)/.9 var(--display);letter-spacing:-.025em;margin:0 0 22px;text-wrap:balance}
-.lede{font-size:clamp(17px,2.1vw,22px);line-height:1.5;color:var(--ink-2);max-width:780px;margin:0 0 28px}
-.lede strong{color:var(--ink)}
-.htiles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:0 0 18px}
-.ht{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:16px 18px;box-shadow:var(--shadow);min-width:0}
-.ht .num-big{font-size:clamp(34px,4.6vw,54px)}.ht>span:last-child{display:block;color:var(--muted);font-size:13.5px;margin-top:4px}
-@media (max-width:720px){.htiles{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}}
-.climb{margin:0;position:relative;z-index:3}
-.climb figcaption{display:flex;flex-wrap:wrap;gap:8px 20px;align-items:baseline;justify-content:space-between;color:var(--muted);font-size:13.5px;margin-top:12px}
-.climb figcaption>span{flex:1 1 420px;min-width:0}.climb figcaption b{color:var(--ink)}
-.cc{--cc-card:var(--surface);--cc-ink:var(--ink);--cc-mute:var(--muted);--cc-line:var(--line);--cc-acc:var(--accent);font-family:var(--sans)}
-.cc-chart{border-radius:22px;box-shadow:var(--shadow)}
-/* big numbers */
-.num-big{display:inline-flex;align-items:baseline;font:400 clamp(60px,12vw,168px)/.9 var(--display);letter-spacing:-.03em;font-variant-numeric:tabular-nums;white-space:nowrap}
-.num-big i{font-style:normal;font-size:.5em;margin-left:.04em;color:var(--accent)}
-.num-big i:first-child{margin:0 .03em 0 0}
-.num-big.small{font-size:clamp(44px,7vw,96px)}
-s.strike{text-decoration:none;position:relative;display:inline-block}
-s.strike::after{content:"";position:absolute;left:-4%;right:-4%;top:47%;height:.07em;min-height:2px;background:var(--crit);border-radius:2px;transform-origin:left;transition:transform .7s cubic-bezier(.6,0,.2,1) .35s}
-/* numbers band */
-.numbers{padding:72px 0 24px}
-.sec-head h2,.beat h2{font:400 clamp(38px,6.4vw,80px)/.98 var(--display);letter-spacing:-.02em;margin:0 0 16px;text-wrap:balance}
-.line{font-size:clamp(17px,1.8vw,20px);line-height:1.55;color:var(--ink-2);margin:0 0 14px;max-width:640px}
-.ntiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin:28px 0 8px}
-.nt{position:relative;display:flex;flex-direction:column;justify-content:space-between;gap:10px;min-height:150px;padding:18px;border-radius:20px;background:var(--surface);border:1px solid var(--line);
-  color:var(--ink);text-decoration:none;box-shadow:var(--shadow);transition:transform .25s,border-color .25s}
-.nt:hover,.nt:focus-visible{transform:translateY(-3px);border-color:color-mix(in srgb,var(--accent) 50%,var(--line))}
-.nt .num-big{font-size:clamp(40px,5vw,60px)}.nt-l{font-size:13.5px;font-weight:600;color:var(--ink-2)}
-@media (min-width:1100px){.ntiles{grid-template-columns:repeat(7,1fr)}.nt:first-child{grid-column:span 1}}
-/* tips (CSS only): a card above the fact; a sheet at the bottom of a phone screen */
-.has-tip{position:relative;cursor:help;border-bottom:1px dashed color-mix(in srgb,currentColor 45%,transparent);outline-offset:2px}
-.tip{position:absolute;z-index:30;left:50%;bottom:calc(100% + 10px);transform:translate(-50%,4px);width:max-content;max-width:min(300px,80vw);
-  background:var(--ink);color:var(--bg);font:500 13px/1.45 var(--sans);letter-spacing:0;text-transform:none;text-align:left;padding:9px 12px;border-radius:10px;
-  box-shadow:0 10px 30px rgba(0,0,0,.25);opacity:0;visibility:hidden;pointer-events:none;transition:opacity .15s,transform .15s;white-space:normal}
-.has-tip:hover>.tip,.has-tip:focus>.tip,.nt:hover>.tip,.nt:focus-visible>.tip{opacity:1;visibility:visible;transform:translate(-50%,0)}
-.nt>.tip{bottom:auto;top:calc(100% + 8px)}
-@media (max-width:640px),(hover:none){.tip{position:fixed;left:12px;right:12px;bottom:12px;top:auto!important;width:auto;max-width:none;transform:none!important;font-size:14px;padding:12px 14px}}
-/* beats */
-.beat{padding:clamp(56px,8vw,104px) 0;border-top:1px solid var(--line-2);scroll-margin-top:52px;position:relative}
-.beat-grid{display:grid;gap:clamp(28px,5vw,72px);align-items:center;grid-template-columns:minmax(0,1fr)}
-@media (min-width:900px){.beat-grid{grid-template-columns:minmax(0,1.1fr) minmax(0,1fr)}.beat.flip .beat-visual{order:2}.beat.wide .beat-grid{grid-template-columns:minmax(0,1fr)}}
-.beat-visual,.beat-copy{min-width:0}
-.beat.wide .beat-visual{order:2}
-.beat q{font:400 clamp(22px,2.6vw,30px)/1.25 var(--display);color:var(--ink);quotes:"\201C" "\201D"}
-.who{display:block;margin-top:6px;font-size:14px;color:var(--muted)}
-.links{display:flex;flex-wrap:wrap;gap:10px;margin:22px 0 0}
-.more{display:inline-flex;align-items:center;gap:8px;padding:10px 16px;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:var(--ink);
-  font-weight:600;font-size:14.5px;text-decoration:none;box-shadow:var(--shadow);transition:transform .2s,border-color .2s,background .2s}
-.more:hover,.more:focus-visible{transform:translateY(-2px);border-color:var(--accent)}
-.more span{color:var(--accent);transition:transform .2s}.more:hover span{transform:translateX(3px)}
-.cap{display:block;color:var(--muted);font-size:14px;margin-top:10px}
-/* the struck claims (Muse panel) */
-.claim-tag{font:400 clamp(30px,4vw,48px)/1 var(--display);margin:0 0 18px;color:var(--ink-2)}
-.struck{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:6px 26px}
-.struck li{display:flex;flex-direction:column}
-.struck .has-tip{border:0}
-.struck s{font:400 clamp(48px,8vw,104px)/1 var(--display);color:var(--ink);letter-spacing:-.02em}
-.struck small{font-size:12.5px;color:var(--muted);margin-top:4px}
-.struck li:nth-child(2) s::after{transition-delay:.45s}.struck li:nth-child(3) s::after{transition-delay:.55s}.struck li:nth-child(4) s::after{transition-delay:.65s}.struck li:nth-child(5) s::after{transition-delay:.75s}
-/* before and after (Muse panel) */
-.vs{display:grid;gap:18px}
-.vs>div>span:last-child{display:block;color:var(--muted);font-size:14px;margin-top:6px}
-.vs-bad .num-big{color:var(--muted)}
-.vs-good .num-big b{background:linear-gradient(160deg,var(--good),color-mix(in srgb,var(--good) 55%,var(--accent-2)));-webkit-background-clip:text;background-clip:text;color:transparent}
-.tags ul,.chips ul,.loop ol{list-style:none;margin:8px 0 0;padding:0;display:flex;flex-wrap:wrap;gap:8px}
-.tags li .has-tip,.chips li,.loop li .has-tip{display:inline-block;border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:5px 12px;font-size:14px;color:var(--ink)}
-.tags li .has-tip{border-color:color-mix(in srgb,var(--crit) 45%,var(--line));color:var(--crit)}
-.tags,.loop,.chips{margin:0 0 16px}.loop ol{counter-reset:l}.loop li{display:flex;align-items:center;gap:8px}.loop li:not(:last-child)::after{content:"\2192";color:var(--accent);font-weight:700}
-.chips b{font-variant-numeric:tabular-nums}
-/* the phases strip */
-.phases-strip{list-style:none;margin:0;padding:0;display:grid;gap:10px;grid-template-columns:repeat(6,minmax(0,1fr))}
-@media (max-width:899px){.phases-strip{grid-template-columns:repeat(3,minmax(0,1fr))}}
-@media (max-width:520px){.phases-strip{gap:8px}.ph a{padding:12px;border-radius:16px}.ph-n{font-size:34px}.ph-t{font-size:13px}.ph-m{display:none!important}.ph-big b{font-size:26px}}
-.ph a{display:flex;flex-direction:column;gap:6px;height:100%;padding:16px;border-radius:20px;background:var(--surface);border:1px solid var(--line);color:var(--ink);text-decoration:none;box-shadow:var(--shadow);transition:transform .25s,border-color .25s}
-.ph a:hover,.ph a:focus-visible{transform:translateY(-4px);border-color:var(--accent)}
-.ph-n{font:400 44px/.85 var(--display);background:linear-gradient(160deg,var(--accent),var(--accent-2));-webkit-background-clip:text;background-clip:text;color:transparent}
-.ph-t{font-weight:650;font-size:15px;line-height:1.25;min-height:2.5em}
-.ph-bar{display:block;height:84px;border-radius:10px;background:var(--surface-2);position:relative;overflow:hidden}
-.ph-bar span{position:absolute;left:0;right:0;bottom:0;height:calc(var(--h)*100%);background:linear-gradient(0deg,var(--accent),var(--accent-2));border-radius:10px;transform-origin:bottom;transition:transform 1.1s cubic-bezier(.2,.7,.2,1) calc(var(--i)*90ms)}
-.ph-big b{display:block;font:400 clamp(30px,3.2vw,40px)/1 var(--display);font-variant-numeric:tabular-nums}.ph-big span,.ph-m{display:block;font-size:12.5px;color:var(--muted)}
-.beat-build .beat-copy{max-width:820px}
-/* byte for byte */
-.proof .of{display:block;font:400 clamp(24px,3vw,36px)/1 var(--display);color:var(--muted);margin-top:6px}
-.proof .num-big b{background:linear-gradient(160deg,var(--accent),var(--accent-2));-webkit-background-clip:text;background-clip:text;color:transparent}
-/* tiers: three big words, details on hover */
-.tiers{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:6px 0;align-items:baseline}
-.tiers li{display:flex;align-items:baseline}
-.tiers li:not(:last-child)::after{content:"\2192";font:400 clamp(28px,4vw,48px)/1 var(--display);color:var(--muted);margin:0 .35em}
-.tiers .has-tip{border:0}
-.tiers b{font:400 clamp(44px,7vw,96px)/1 var(--display);letter-spacing:-.02em;color:var(--ink)}
-.tiers li:last-child b{background:linear-gradient(160deg,var(--accent),var(--accent-2));-webkit-background-clip:text;background-clip:text;color:transparent}
-@media (max-width:720px){.bar nav ol{justify-content:flex-start}.nt{min-height:112px}.ph-bar{height:48px}.ph-t{min-height:0}}
-.btw{margin:18px 0 0;font-size:15px;color:var(--muted)}
-.btw a{font-weight:650;text-decoration-thickness:1px}
-.btw span{margin-left:4px}
-.numbers{padding:48px 0 8px}.numbers .ntiles{margin-top:14px}
-.more-row{padding:40px 0 56px;border-top:1px solid var(--line-2)}.more-row .links{margin-top:0}
-.sheet-body h4{margin:22px 0 8px;font-size:16px}
-.sheet .vs{margin:22px 0}
-/* same pixels, different engines: one screenshot, three engines */
-.sbs{padding:clamp(36px,5vw,64px) 0 clamp(36px,5vw,64px);border-top:1px solid var(--line-2);scroll-margin-top:52px}
-.sbs-grid{display:grid;gap:clamp(24px,4vw,56px);align-items:center;grid-template-columns:minmax(0,1fr)}
-@media (min-width:900px){.sbs-grid{grid-template-columns:minmax(0,1.08fr) minmax(0,1fr)}}
-.sbs-shot,.sbs-copy{margin:0;min-width:0}
-.sbs-frame{border-radius:16px;overflow:hidden;border:1px solid var(--line);background:#fff;box-shadow:var(--shadow)}
-.sbs-frame img{display:block;width:100%;height:auto;aspect-ratio:8/5}
-.sbs-shot figcaption{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;margin-top:14px;color:var(--muted);font-size:13.5px}
-.sbs-shot figcaption>span:last-child{flex:1 1 260px;min-width:0}
-.sbs-three{display:grid;gap:10px}
-.sbs h2{font:400 clamp(44px,6.4vw,84px)/.95 var(--display);letter-spacing:-.02em;margin:0 0 18px;text-wrap:balance}
-.sbs-badge{display:inline-flex;align-items:center;gap:8px;padding:7px 14px 7px 9px;border-radius:999px;font-weight:650;font-size:14.5px;color:var(--good);white-space:nowrap;
-  background:color-mix(in srgb,var(--good) 10%,var(--surface));border:1px solid color-mix(in srgb,var(--good) 45%,var(--line))}
-.sbs-badge svg{width:19px;height:19px;flex:none}.sbs-badge circle{fill:var(--good)}.sbs-badge path{fill:none;stroke:var(--surface);stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
-.sbs-badge.sbs-differ{color:var(--crit);border-color:var(--crit);background:var(--surface)}
-.sbs-rows{list-style:none;margin:0;padding:0;border:1px solid var(--line);border-radius:20px;background:var(--surface);box-shadow:var(--shadow);overflow:hidden}
-.sbs-row{--c:var(--muted);display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:end;gap:4px 16px;padding:16px 18px 0}
-.sbs-row+.sbs-row{border-top:1px solid var(--line-2)}
-.sbs-rust{--c:var(--s1)}.sbs-fsharp{--c:var(--accent)}
-.sbs-name{display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px;margin:0 0 6px;min-width:0}.sbs-name b{font-size:18px;letter-spacing:-.01em}
-.sbs-tag{font:700 11.5px/1 var(--sans);letter-spacing:.14em;text-transform:uppercase;padding:5px 9px;border-radius:999px;color:var(--c);
-  border:1px solid color-mix(in srgb,var(--c) 50%,var(--line));background:color-mix(in srgb,var(--c) 8%,var(--surface))}
-.sbs-x{flex-basis:100%;font-size:13px;font-weight:600;color:var(--ink-2)}
-.sbs-rate{display:flex;flex-direction:column;align-items:flex-end;text-align:right;margin:0 0 8px;min-width:0}
-.sbs-n{font:400 clamp(40px,4.2vw,58px)/1 var(--display);letter-spacing:-.02em;font-variant-numeric:tabular-nums;white-space:nowrap;color:var(--ink)}
-.sbs-fsharp .sbs-n{background:linear-gradient(160deg,var(--accent),var(--accent-2));-webkit-background-clip:text;background-clip:text;color:transparent}
-.sbs-u{color:var(--muted);font-size:12.5px}.sbs-u-live{display:none}.sbs.live .sbs-u-live{display:block}.sbs.live .sbs-u-rate{display:none}
-.sbs-lane{grid-column:1/-1;display:block;height:10px;margin:0 -18px;border-top:1px solid var(--line-2);background-color:color-mix(in srgb,var(--c) 7%,var(--surface));
-  background-image:radial-gradient(circle,var(--c) 0 2.2px,transparent 2.8px);background-size:16px 10px;background-repeat:repeat-x;background-position:0 0}
-.sbs-cap{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;justify-content:space-between;color:var(--muted);font-size:13.5px;margin:16px 0 0}
-.sbs-cap>span{flex:1 1 260px;min-width:0}
-.sbs-thumbs{display:grid;gap:10px;grid-template-columns:repeat(3,minmax(0,1fr));margin:18px 0}
-.sbs-thumbs figure{margin:0;min-width:0}.sbs-thumbs .sbs-frame{border-radius:10px;box-shadow:none}
-.sbs-thumbs figcaption{display:flex;flex-direction:column;gap:2px;margin-top:8px;font-size:12.5px;color:var(--muted);overflow-wrap:anywhere}.sbs-thumbs figcaption b{color:var(--ink);font-size:14px}
-@media (max-width:560px){.sbs-thumbs{grid-template-columns:minmax(0,1fr)}.sbs-row{grid-template-columns:minmax(0,1fr);gap:2px;padding:14px 14px 0}.sbs-lane{margin:0 -14px}.sbs-x{flex-basis:auto;margin-left:auto}.sbs-rate{align-items:flex-start;text-align:left}.sbs-n{font-size:40px}}
-/* footer */
-footer.site{border-top:1px solid var(--line-2);padding:40px 0 64px;color:var(--muted);font-size:14px}
-footer.site p{max-width:860px}
-/* panels: :target drawers without JS, .open with it */
-.panel{position:fixed;inset:0;z-index:50;visibility:hidden;pointer-events:none}
-html:not(.js) .panel:target,.panel.open{visibility:visible;pointer-events:auto}
-.scrim{position:absolute;inset:0;background:rgba(10,8,6,.45);opacity:0;transition:opacity .3s;cursor:default}
-html:not(.js) .panel:target .scrim,.panel.open .scrim{opacity:1}
-.sheet{position:absolute;top:0;right:0;bottom:0;width:min(780px,100%);background:var(--bg);color:var(--ink);box-shadow:-24px 0 60px rgba(0,0,0,.25);
-  overflow-y:auto;overscroll-behavior:contain;transform:translateX(102%);transition:transform .38s cubic-bezier(.2,.8,.2,1);outline:none}
-html:not(.js) .panel:target .sheet,.panel.open .sheet{transform:none}
-.sheet-head{position:sticky;top:0;z-index:2;display:flex;gap:16px;align-items:flex-start;justify-content:space-between;padding:22px 24px 16px;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-bottom:1px solid var(--line-2)}
-.sheet-head h2{font:400 clamp(30px,4.4vw,46px)/1 var(--display);margin:0;letter-spacing:-.015em}
-.sheet-head .kicker{margin-bottom:8px}
-.x{flex:none;display:grid;place-items:center;width:40px;height:40px;border-radius:50%;border:1px solid var(--line);background:var(--surface);color:var(--ink);text-decoration:none;font-size:24px;line-height:1}
-.x:hover{border-color:var(--accent)}
-.sheet-body{padding:8px 24px 48px;font-size:15.5px}
-.sheet-body h3{font:400 28px/1.1 var(--display);margin:34px 0 12px}
-.sheet-body .lead{font-size:17.5px;color:var(--ink-2)}
-.back{margin-top:36px}
-@media (max-width:720px){.sheet{width:100%;box-shadow:none}.sheet-head{padding:16px 16px 12px}.sheet-body{padding:4px 16px 40px}}
-.muted{color:var(--muted)}.src{font-size:13px;color:var(--muted)}
-.pills{display:flex;flex-wrap:wrap;gap:6px;list-style:none;margin:12px 0;padding:0}
-.pills li{font-size:12.5px;padding:4px 10px;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:var(--ink-2)}
-.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:18px 0}.lbl{font-size:12px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted)}
-.tw{overflow-x:auto;margin:18px 0;border:1px solid var(--line);border-radius:16px;background:var(--surface)}
-.tw table{border-collapse:collapse;width:100%;font-size:14px}
-.tw caption{text-align:left;padding:14px 16px 4px;font-size:13px;color:var(--muted);caption-side:top}
-.tw th,.tw td{padding:9px 14px;border-bottom:1px solid var(--line-2);text-align:left;vertical-align:top}
-.tw thead th{font-size:11.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600;white-space:nowrap}
-.tw tbody th{font-weight:600}.tw tbody tr:last-child>*{border-bottom:0}.tw tr.dropped{color:var(--muted)}
-.tw .num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
-.tw.dense th,.tw.dense td{padding:6px 10px;font-size:13px}
-.ratio{min-width:160px}.rbar{display:inline-block;position:relative;width:90px;height:8px;border-radius:4px;background:var(--surface-2);vertical-align:middle;margin-right:10px}
-.rfill{position:absolute;left:0;top:0;bottom:0;border-radius:4px;background:var(--s1)}.rfill.ahead{background:var(--good)}
-.rone{position:absolute;top:-3px;bottom:-3px;width:2px;background:var(--ink);opacity:.55}
-.facts{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));margin:18px 0}
-.fact{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:16px}
-.fact b{font:400 38px/1 var(--display)}.fact span{display:block;font-weight:600;margin:6px 0}.fact p{margin:0;color:var(--ink-2);font-size:13.5px}
-.log{list-style:none;margin:0;padding:0;display:grid;gap:8px}
-.log li{display:grid;grid-template-columns:52px minmax(0,1fr);gap:10px;font-size:14.5px;overflow-wrap:anywhere}
-.log time{font:12.5px var(--mono);color:var(--accent);padding-top:2px}
-.handoff{margin:0}.handoff figcaption{color:var(--muted);font-size:14px;margin-bottom:10px}
-.bubble{background:#1a1d21;color:#e8e8e8;border-radius:18px;padding:16px 18px;font-size:15px}
-.bubble-head{display:flex;align-items:center;gap:10px;margin-bottom:6px}.bubble-head b{color:#fff}.bubble-head time{color:#9aa0a6;font-size:12.5px}
-.avatar{width:32px;height:32px;border-radius:8px;display:grid;place-items:center;background:linear-gradient(135deg,#c2410c,#6d4aff);color:#fff;font-size:12px;font-weight:700}
-.bubble-body p{margin:.5em 0;overflow-wrap:anywhere}
-.unknown{display:flex;gap:16px;align-items:center;margin:24px 0;padding:16px 18px;border:1px dashed var(--line);border-radius:16px}
-.unknown>span{font:400 64px/1 var(--display);color:var(--muted);opacity:.6}.unknown p{margin:0}
-.finding{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:20px;margin:14px 0}
-.finding h3{font:650 18px/1.3 var(--sans);margin:0 0 8px}.finding p{margin:0 0 10px;color:var(--ink-2)}
-.tag{font-size:12px;text-transform:uppercase;letter-spacing:.1em;color:var(--crit)!important;font-weight:650}
-.evidence{font:13px/1.5 var(--mono);color:var(--muted)!important;border-top:1px dashed var(--line);padding-top:10px;margin:0!important;overflow-wrap:anywhere}
-.versus{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:4px 0 12px}
-.v{border-radius:14px;padding:12px;background:var(--surface-2)}.v b{display:block;font:400 26px/1.05 var(--display)}.v span{font-size:13px;color:var(--muted)}
-.v.bad b{color:var(--crit);text-decoration:line-through}.v.good b{color:var(--good)}
-.pull{margin:18px 0;padding:0 0 0 20px;border-left:3px solid var(--accent)}
-.pull p{font:400 clamp(21px,2.6vw,27px)/1.3 var(--display);margin:0 0 8px}.pull footer{color:var(--muted);font-size:14px}
-.decisions{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));margin:18px 0}
-.decision{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:14px 16px}
-.decision b{font:400 26px var(--display);color:var(--accent)}.decision .q{font-weight:600;margin:2px 0 6px}.decision p{margin:0;font-size:14px;color:var(--ink-2)}
-pre{font:13px/1.55 var(--mono);white-space:pre-wrap;word-break:break-word;margin:0}
-.reply,.code{background:var(--surface-2);border-radius:14px;padding:14px 16px}
-.pmeta{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px;margin:12px 0}
-.pmeta div{background:var(--surface);border:1px solid var(--line-2);border-radius:12px;padding:8px 10px}
-.pmeta dt{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}.pmeta dd{margin:0;font-weight:600;font-variant-numeric:tabular-nums;font-size:14px}
-.units{display:flex;flex-wrap:wrap;gap:6px;list-style:none;margin:0;padding:0}
-.units li{font-size:13.5px;padding:5px 10px;border-radius:8px;background:color-mix(in srgb,var(--accent-2) 11%,transparent)}
-.hl{padding-left:18px;display:grid;gap:8px;color:var(--ink-2)}
-.gate{font-weight:600;margin:12px 0}.gate span{font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:var(--good);margin-right:8px}
-.findings-line{display:flex;flex-wrap:wrap;gap:8px 16px;font-size:13px;margin:10px 0}
-.fl{display:inline-flex;gap:6px;align-items:center;flex-wrap:wrap}.fl b{color:var(--muted);font-weight:600}
-.sev{padding:2px 8px;border-radius:999px;font-weight:600;font-size:12px;border:1px solid currentColor}
-.sev-critical{color:var(--crit)}.sev-major{color:var(--warn)}.sev-minor{color:var(--minor)}.sev-none{color:var(--good)}
-.pnav{display:flex;flex-wrap:wrap;gap:10px;margin-top:24px}.pnav a{padding:6px 12px;border:1px solid var(--line);border-radius:999px;text-decoration:none;font-size:14px;background:var(--surface)}
-.routine{list-style:none;margin:16px 0;padding:0;display:grid;gap:10px}
-.routine li{display:grid;grid-template-columns:40px minmax(0,1fr);gap:0 12px;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:14px 16px}
-.routine .step-n{font:400 34px/1 var(--display);color:var(--accent);grid-row:span 3}.routine b{font-size:16px}.routine .who{margin:0;font-size:13px;color:var(--accent-2);font-weight:600}.routine p{margin:6px 0 0;font-size:14px;color:var(--ink-2)}
-.diffs{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));margin:18px 0}
-.diff{padding:18px;border-radius:16px;background:linear-gradient(160deg,color-mix(in srgb,var(--accent) 9%,var(--surface)),var(--surface));border:1px solid var(--line)}
-.diff b{display:block;font:400 30px/1.05 var(--display)}.diff span{font-size:14px;color:var(--ink-2)}
-.incidents{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}
-.incident{border:1px solid var(--line);border-radius:16px;padding:16px;background:var(--surface)}.incident h4{margin:0 0 6px}.incident p{margin:0;font-size:14px;color:var(--ink-2)}
-.note{border-left:3px solid var(--accent-2);padding:4px 0 4px 14px;color:var(--ink-2);font-size:14.5px}
-.caveats{padding-left:18px;display:grid;gap:10px;color:var(--ink-2)}.caveats b{color:var(--ink)}
-.sheet .cc-prelude h2{display:none}.sheet .cc-sub{display:none}
-.pgrid{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}
-.pcard{border:1px dashed var(--line);border-radius:16px;padding:16px}.pcard h3{font:650 17px/1.3 var(--sans);margin:10px 0 6px}.pcard p{margin:0;font-size:14px;color:var(--ink-2)}
-.ptop{display:flex;flex-wrap:wrap;gap:10px;align-items:center}.ptop h3{margin:0}.pn{font:400 34px/1 var(--display);color:var(--accent)}
-.badge{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:600;padding:3px 9px;border-radius:999px;border:1px solid var(--line);white-space:nowrap}
-.bdot{width:7px;height:7px;border-radius:50%;background:var(--muted)}.badge-done .bdot{background:var(--good)}.badge-in-progress .bdot{background:var(--accent-2)}
-.badge-pending{color:var(--muted)}.badge-pending .bdot{background:transparent;border:1.5px dashed var(--muted)}
-.pstats{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));margin:12px 0 18px}
-.pstats div{border:1px solid var(--line);border-radius:16px;padding:14px;background:var(--surface)}.pstats b{display:block;font:400 36px/1 var(--display)}.pstats span{font-size:13px;color:var(--ink-2)}
-.chat{list-style:none;margin:0;padding:0;display:grid;gap:10px}
-.msg{display:grid;gap:4px}.msg time{font:12px var(--mono);color:var(--muted)}
-.msg p{margin:0;background:linear-gradient(160deg,color-mix(in srgb,var(--accent) 13%,var(--surface)),color-mix(in srgb,var(--accent-2) 9%,var(--surface)));
-  border:1px solid var(--line);border-radius:18px 18px 18px 6px;padding:11px 15px;font-size:15px;justify-self:start;max-width:100%;overflow-wrap:anywhere}
-.msg.attach p{background:var(--surface-2);font-style:italic;color:var(--muted)}
-.prole{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:16px;margin:10px 0}.prole pre{color:var(--ink-2)}
-.prole.common{border-color:color-mix(in srgb,var(--accent) 40%,var(--line))}
-.scripts{columns:2 220px;padding-left:18px}.scripts a{font:13px var(--mono)}
-.bign{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));margin:16px 0}
-.bign div{border-radius:18px;padding:18px;background:var(--surface);border:1px solid var(--line)}
-.bign b{display:block;font:400 clamp(40px,6vw,56px)/1 var(--display)}.bign span{display:block;font-weight:600;margin:6px 0}.bign p{margin:0;color:var(--ink-2);font-size:13.5px}
-.measures{display:grid;gap:10px;margin:16px 0}.measures dt{font-weight:650;color:var(--accent)}.measures dd{margin:2px 0 0;font-size:14px;color:var(--ink-2)}
-.fig{margin:22px 0;background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:16px}
-.fig figcaption{display:flex;flex-direction:column;margin-bottom:8px}.fig figcaption span{color:var(--muted);font-size:13px}
-.bars-box{overflow-x:auto}.bars{display:block;width:100%;min-width:560px;height:auto;font-family:var(--sans)}
-.bars .bg{stroke:var(--line);stroke-width:1}.bars .bt{fill:var(--muted);font-size:11px}.bars .bl{fill:var(--ink);font-size:13px;font-weight:600}
-.bars .bs{fill:var(--muted);font-size:11px}.bars .bv{fill:var(--ink-2);font-size:12px;font-weight:600}
-.legend{display:flex;flex-wrap:wrap;gap:14px;list-style:none;margin:0 0 8px;padding:0;font-size:13px;color:var(--ink-2)}
-.sw{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:6px;vertical-align:-1px}
-details{margin:18px 0;border:1px solid var(--line);border-radius:16px;background:var(--surface);padding:4px 16px}
-details summary{cursor:pointer;padding:12px 0;font-weight:600}details .tw{border:0;margin:0 -16px 8px}
-/* onCrack call to action */
-.cta{padding:56px 0 72px;border-top:1px solid var(--line-2)}
-.cta h2{font:400 clamp(36px,6vw,72px)/.95 var(--display);letter-spacing:-.02em;margin:0 0 16px;text-wrap:balance}
-.cta .lede{margin-bottom:22px}
-.cta-btns{display:flex;flex-wrap:wrap;gap:10px;margin:0 0 28px}
-.more.primary{background:var(--accent);border-color:var(--accent);color:var(--bg)}
-.more.primary span{color:inherit}
-.more.primary:hover,.more.primary:focus-visible{border-color:var(--ink)}
-.cta-tiles{grid-template-columns:repeat(4,minmax(0,1fr))}
-.cta-t{display:block;color:var(--ink);text-decoration:none;transition:transform .2s,border-color .2s}
-.cta-t:hover,.cta-t:focus-visible{transform:translateY(-3px);border-color:var(--accent)}
-.cta-t>span:last-child{line-height:1.4}
-@media (max-width:1000px){.cta-tiles{grid-template-columns:repeat(2,minmax(0,1fr))}}
-@media (max-width:560px){.cta-tiles{grid-template-columns:minmax(0,1fr)}}
-.cta-math{color:var(--muted);font-size:14px;margin:0}.cta-math b{color:var(--ink)}
-/* motion: everything is visible without JS; with it, things wait for their reveal */
-.js .reveal{opacity:0;transform:translateY(26px);transition:opacity .8s cubic-bezier(.2,.7,.2,1),transform .8s cubic-bezier(.2,.7,.2,1)}
-.js .reveal.in{opacity:1;transform:none}
-.js .nt.reveal{transition-delay:calc(var(--i)*70ms)}
-.js .reveal:not(.in) s.strike::after{transform:scaleX(0)}
-.js .reveal:not(.in) .ph-bar span{transform:scaleY(0)}
-.js .reveal:not(.in) .struck li,.js .reveal:not(.in) .tiers li{opacity:0;transform:translateY(14px)}
-.struck li,.tiers li{transition:opacity .6s,transform .6s;transition-delay:calc(var(--i,0)*80ms)}
-.js .hero-in{animation:rise .9s cubic-bezier(.2,.7,.2,1) both}
-.js h1.hero-in{animation-delay:.05s}.js .lede.hero-in{animation-delay:.12s}.js .htiles.hero-in{animation-delay:.2s}.js .climb.hero-in{animation-delay:.28s}
-@keyframes rise{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:none}}
-.js .climb.hero-in{animation-name:fade}
-@keyframes fade{from{opacity:0}to{opacity:1}}
-@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}.js .reveal,.js .reveal *{opacity:1!important;transform:none!important}html{scroll-behavior:auto}}
-@media print{.bar,.theme,.panel{display:none}.js .reveal{opacity:1;transform:none}}
+.hero{position:relative;overflow:hidden;padding:84px 0 70px}
+.aura{position:absolute;inset:-20% -10% auto -10%;height:120%;pointer-events:none;
+  background:radial-gradient(40% 50% at 18% 18%,color-mix(in srgb,var(--acc) 26%,transparent),transparent 70%),radial-gradient(36% 46% at 86% 12%,color-mix(in srgb,var(--teal) 18%,transparent),transparent 70%),radial-gradient(50% 40% at 60% 90%,color-mix(in srgb,var(--acc-2) 12%,transparent),transparent 70%);filter:blur(10px)}
+.hero-grid{position:relative;display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,.85fr);gap:56px;align-items:end}
+.hero h1{font-size:clamp(48px,6.6vw,92px);line-height:.94;font-weight:800;letter-spacing:-.045em;margin:0 0 26px;
+  background:linear-gradient(100deg,var(--ink) 0%,var(--ink) 52%,var(--acc) 100%);-webkit-background-clip:text;background-clip:text;color:transparent}
+.lede{font-size:clamp(18px,1.9vw,22px);line-height:1.5;color:var(--ink-2);margin:0 0 26px;max-width:640px}
+.pills{display:flex;flex-wrap:wrap;gap:8px;list-style:none;margin:0;padding:0}
+.pills li{font:600 13px/1 var(--text);padding:8px 12px;border-radius:999px;background:var(--surface);border:1px solid var(--line-2);color:var(--ink-2)}
+.pills.sm li{font-size:12px;padding:6px 10px}
+.stack ol{list-style:none;margin:0;padding:0;display:grid;gap:10px;perspective:900px}
+.stack li{display:flex;justify-content:space-between;gap:16px;align-items:baseline;padding:15px 18px;border-radius:14px;background:color-mix(in srgb,var(--surface) 86%,transparent);
+  border:1px solid var(--line-2);box-shadow:0 1px 0 rgba(255,255,255,.4) inset,0 14px 30px -18px color-mix(in srgb,var(--acc) 50%,transparent);
+  transform:rotateX(14deg) translateZ(calc(var(--i) * -4px));transform-origin:50% 100%;backdrop-filter:blur(6px)}
+.stack li b{font:650 16px/1.2 var(--display);letter-spacing:-.01em}
+.stack li span{font-size:13px;color:var(--mute);text-align:right}
+.stack li:nth-child(1){border-color:color-mix(in srgb,var(--acc) 55%,var(--line-2))}
+.stack li:last-child{background:var(--acc-soft)}
+.tiles{list-style:none;padding:0;margin:56px 0 0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+.tile{background:var(--surface);border:1px solid var(--line);border-radius:22px;padding:26px 26px 24px;box-shadow:0 30px 60px -40px rgba(40,20,90,.35)}
+.tile-n{margin:0 0 10px;font-family:var(--display);font-weight:750;letter-spacing:-.04em;line-height:1}
+.tile-n .big{font-size:clamp(36px,3.7vw,52px);font-variant-numeric:tabular-nums;white-space:nowrap}.tile-n i{font-style:normal;color:var(--mute);font-weight:400;margin:0 .04em}
+.tile-n .unit{font-size:22px;color:var(--mute);margin-left:8px;font-weight:600;letter-spacing:0}
+.tile-n a.sn{text-decoration-thickness:2px;text-underline-offset:6px}
+.tile-l{margin:0;color:var(--ink-2);font-size:15.5px}
+.honest{margin:26px 0 0;max-width:900px;color:var(--ink-2)}.honest b{color:var(--ink)}
+@media (max-width:980px){.hero-grid{grid-template-columns:1fr;gap:36px}.tiles{grid-template-columns:1fr}.stack li{transform:none}}
+@media (max-width:720px){.hero{padding:44px 0 48px}}
+/* bands */
+.band{padding:110px 0;border-top:1px solid var(--line)}
+.band.alt{background:var(--bg-2)}
+@media (max-width:720px){.band{padding:64px 0}}
+/* six ways */
+.sw-fig{margin:0}
+.sw-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;border-radius:18px;background:var(--surface);border:1px solid var(--line);padding:22px 24px 10px}
+.sw{border-collapse:separate;border-spacing:0;width:100%;min-width:900px;font-variant-numeric:tabular-nums}
+.sw th,.sw td{padding:15px 12px;border-bottom:1px solid var(--line);text-align:right;font-size:16px;white-space:nowrap}
+.sw thead th{border-bottom:1.5px solid var(--ink);vertical-align:bottom;padding-top:8px}
+.sw .c-wl{text-align:left;font-weight:500;width:170px}.sw a.sn{text-decoration-color:transparent}.sw a.sn:hover{text-decoration-color:var(--acc)}.sw .c-wl small{font-size:11.5px;color:var(--mute);font-weight:400;margin-left:6px}
+.sw .c-grp{text-align:left;font-weight:500;font-size:13px;color:var(--mute);white-space:normal;width:120px;border-bottom:1.5px solid var(--ink);vertical-align:middle}
+.sw thead .c-grp{border-bottom:1.5px solid var(--ink)}
+.sw tbody tr:last-child td,.sw tbody tr:last-child th.c-wl{border-bottom:1.5px solid var(--ink)}
+.sw .c-app{text-align:center}.sw .an{display:block;font-weight:600;font-size:16px}.sw .ac{display:block;font:11.5px var(--mono);color:var(--mute);margin-top:3px}
+.sw td{text-align:center}
+.sw td.best{background:var(--best);font-weight:750;color:var(--best-ink)}
+.sw .feat{box-shadow:inset 2px 0 0 var(--acc),inset -2px 0 0 var(--acc)}
+.sw thead .feat{box-shadow:inset 2px 0 0 var(--acc),inset -2px 0 0 var(--acc),inset 0 2px 0 var(--acc);border-radius:10px 10px 0 0;color:var(--acc)}
+.sw tr.last td.feat{box-shadow:inset 2px 0 0 var(--acc),inset -2px 0 0 var(--acc),inset 0 -2px 0 var(--acc)}
+.sw td.feat{background:color-mix(in srgb,var(--acc-soft) 60%,transparent);font-weight:650}
+.sw td.feat .xr{display:block;font-size:11.5px;font-weight:600;color:var(--acc);margin-top:2px}
+.sw .grp-row{display:none}
+.sw .grp-row th{text-align:left;font-size:12.5px;font-weight:600;color:var(--mute);letter-spacing:.06em;text-transform:uppercase;padding:18px 12px 8px;border-bottom:1px solid var(--line)}
+@media (max-width:720px){
+  .sw-scroll{margin:0 -16px;border-radius:0;border-left:0;border-right:0;padding:12px 0 6px}
+  .sw{min-width:740px}.sw .c-wl{width:118px;white-space:normal}.sw .c-wl small{display:none}
+  .bbars{padding:18px 16px}.sw td.c-grp,.sw th.c-grp{display:none}.sw .grp-row{display:table-row}
+  .sw .c-wl{position:sticky;left:0;background:var(--surface);z-index:1;box-shadow:6px 0 10px -8px rgba(0,0,0,.25)}
+  .sw .grp-row th{position:sticky;left:0}
+  .sw th,.sw td{padding:12px 9px;font-size:14.5px}
+}
+.sw-fig figcaption{margin-top:26px;display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:28px;font-size:15px;color:var(--ink-2)}
+.sw-fig figcaption p{margin:0}
+.apps{list-style:none;margin:0;padding:0;display:grid;gap:9px}.apps li{font-size:14px;line-height:1.45}.apps b{color:var(--ink)}
+.sw-fig .btw{grid-column:1/-1}
+@media (max-width:900px){.sw-fig figcaption{grid-template-columns:1fr}}
+/* speed */
+.speed-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:56px;align-items:start}
+.speed-copy p{color:var(--ink-2);font-size:17px}.speed-copy p b{color:var(--ink)}
+@media (max-width:980px){.speed-grid{grid-template-columns:1fr;gap:24px}}
+.bbars{margin:0;background:var(--surface);border:1px solid var(--line);border-radius:22px;padding:24px;position:sticky;top:80px}
+@media (max-width:980px){.bbars{position:static}}
+.bbars ol{list-style:none;margin:16px 0 0;padding:0;position:relative}
+.bb-key{display:flex;flex-wrap:wrap;gap:8px 16px;font-size:12.5px;color:var(--mute)}.bb-key i{display:inline-block;width:14px;height:8px;border-radius:3px;margin-right:6px;vertical-align:middle}
+.k-pre{background:var(--line-2)}.k-now{background:var(--acc)}.k-floor{border-top:2px dashed var(--warn);height:0!important}.k-one{border-top:2px solid var(--mute);height:0!important}
+.bb-g{font:600 12px/1 var(--text);letter-spacing:.08em;text-transform:uppercase;color:var(--mute);margin:18px 0 8px}
+.bb{display:grid;grid-template-columns:minmax(84px,118px) minmax(0,1fr);gap:10px;align-items:center;margin:0 0 9px}
+.bb-l{font-size:14px;color:var(--ink-2)}
+.bb-t{position:relative;display:grid;gap:3px;padding:2px 0;width:calc(100% - 58px)}
+.bb-t::before{content:"";position:absolute;top:-4px;bottom:-4px;left:var(--floor);border-left:2px dashed var(--warn);opacity:.75;z-index:1}
+.bb-t::after{content:"";position:absolute;top:-4px;bottom:-4px;left:var(--one);border-left:2px solid var(--mute);opacity:.55;z-index:1}
+.bb-b{display:block;height:16px;border-radius:0 6px 6px 0;width:var(--w);position:relative;min-width:3px}
+.bb-b.pre{background:var(--line-2)}.bb-b.now{background:linear-gradient(90deg,var(--acc-2),var(--acc))}
+.bb-v{position:absolute;left:calc(100% + 6px);top:50%;transform:translateY(-50%);font-size:12.5px;font-weight:600;white-space:nowrap;color:var(--ink-2)}
+.bb-b.now .bb-v{color:var(--acc)}
+.bbars figcaption{margin-top:16px;font-size:13px;color:var(--mute)}.bbars figcaption code{font-size:11px}
+.js.anim .bb-b{transform-origin:0 50%;transform:scaleX(0);transition:transform 1.1s cubic-bezier(.2,.7,.1,1)}
+.js.anim .bbars.in .bb-b{transform:none}.js.anim .bbars.in .bb-b.now{transition-delay:.25s}
+/* climb */
+.climb{margin:0}
+.cl-scroll{position:relative}
+.cl-chart{position:relative;aspect-ratio:1000/560;background:var(--surface);border:1px solid var(--line);border-radius:22px}
+.cl-chart svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+.cl-grid{stroke:var(--line);stroke-width:1}.cl-tick{fill:var(--mute);font-size:12px}.cl-x{fill:var(--ink-2);font-size:13px;font-weight:600}
+.cl-ph{fill:var(--mute);font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase}
+.cl-rust{stroke:var(--ink);stroke-dasharray:7 6;stroke-width:1.5;opacity:.6}.cl-rails{stroke:var(--warn);stroke-dasharray:2 5;stroke-width:2}
+.cl-ref{fill:var(--ink-2);font-size:12px;font-weight:650}.cl-floor{stroke:var(--warn);stroke-width:1.6;stroke-dasharray:6 5}.cl-floor-t{fill:var(--warn)}
+.cl-bar{fill:color-mix(in srgb,var(--acc) 22%,var(--surface))}.cl-bar.cl-last{fill:var(--acc)}
+.cl-bv{fill:var(--ink-2);font-size:11.5px;font-weight:600}
+.cl-line{fill:none;stroke:var(--acc);stroke-width:3.5;stroke-linejoin:round;stroke-linecap:round}.cl-area{fill:var(--acc);opacity:.08}
+.cl-pt{fill:var(--surface);stroke:var(--acc);stroke-width:3}.cl-up{stroke:var(--teal);stroke-width:3.5;stroke-dasharray:1 7;stroke-linecap:round;fill:none}
+.cl-upt{fill:var(--teal);stroke:var(--surface);stroke-width:2.5}
+.cl-lab{font-size:12.5px;font-weight:650}.cl-lab-s{font-size:10.5px;font-weight:500;fill:var(--mute)}.cl-lab-pin{fill:var(--acc)}.cl-lab-up{fill:var(--teal)}
+.cl-col{position:absolute;top:0;bottom:0;outline:none;cursor:pointer}
+.cl-hit{position:absolute;inset:6px 2px;border-radius:12px;transition:background .2s}
+.cl-col:hover .cl-hit,.cl-col:focus .cl-hit,.cl-col:focus-within .cl-hit{background:color-mix(in srgb,var(--acc) 8%,transparent)}
+.cl-col:focus-visible .cl-hit{box-shadow:0 0 0 2px var(--acc)}
+.cd{display:none;position:absolute;left:60%;top:24%;z-index:6;width:400px;max-width:86vw;background:var(--surface);color:var(--ink);border:1px solid var(--line-2);border-radius:16px;
+  padding:14px 16px;box-shadow:0 24px 60px -20px rgba(20,10,60,.45);font-size:13.5px;line-height:1.45;cursor:default;text-align:left}
+.cl-col.flip .cd{left:auto;right:60%}
+.cl-col:hover .cd,.cl-col:focus .cd,.cl-col:focus-within .cd{display:block}
+.cd p{margin:0 0 6px}.cd-k{font-size:11.5px;font-weight:650;letter-spacing:.08em;text-transform:uppercase;color:var(--acc)}.cd-h{font:700 17px/1.2 var(--display)}.cd-w{color:var(--ink-2)}
+.cd-kloc{font-size:13px}.cd table{width:100%;border-collapse:collapse;margin:6px 0;font-variant-numeric:tabular-nums}
+.cd th,.cd td{padding:4px 2px;border-top:1px solid var(--line);text-align:right;font-size:12.5px}.cd th:first-child{text-align:left;font-weight:500}.cd thead th{font-weight:600;color:var(--mute);font-size:11px;border-top:0}
+.cd-up{color:var(--teal)}.cd-up b{color:var(--ink)}.cd-src{font-size:11px;color:var(--mute)}.cd-src code{font-size:10.5px}
+.climb figcaption{margin-top:18px;display:flex;gap:24px;align-items:flex-start;justify-content:space-between;color:var(--ink-2);font-size:15px}
+@media (max-width:720px){
+  .cl-scroll{overflow-x:auto;margin:0 -16px;padding:0 16px 8px;overscroll-behavior-x:contain}.cl-chart{min-width:820px}
+  .cd,.cl-col.flip .cd{position:fixed;left:8px;right:8px;top:auto;bottom:8px;width:auto;max-width:none;max-height:70vh;overflow:auto;z-index:60}
+  .climb figcaption{flex-direction:column}
+}
+.js.anim .cl-line{stroke-dasharray:var(--len);stroke-dashoffset:var(--len);transition:stroke-dashoffset 1.8s cubic-bezier(.6,0,.2,1) .2s}
+.js.anim .climb.in .cl-line{stroke-dashoffset:0}
+/* layers */
+.lys{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.ly{background:var(--surface);border:1px solid var(--line);border-radius:22px;padding:24px 26px;display:flex;flex-direction:column;gap:12px}
+.ly.wide{grid-column:1/-1;background:linear-gradient(135deg,var(--surface),color-mix(in srgb,var(--acc-soft) 70%,var(--surface)));border-color:color-mix(in srgb,var(--acc) 35%,var(--line))}
+.ly.added{border-style:dashed}
+.ly-k{margin:0;font-size:12px;font-weight:650;letter-spacing:.08em;text-transform:uppercase;color:var(--acc)}
+.ly h3{margin:0;font-size:26px;line-height:1.1}
+.ly-ft{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.ly-ft p{margin:0;font-size:14.5px;color:var(--ink-2)}.ly-ft .lab{display:block;font-size:11.5px;font-weight:650;letter-spacing:.08em;text-transform:uppercase;color:var(--mute);margin-bottom:4px}
+.ly-to{border-left:2px solid var(--acc);padding-left:12px}
+.ly-why{margin:0;font-size:15px;color:var(--ink-2);max-width:900px}.ly-why b{color:var(--ink)}
+.ly-n{margin:auto 0 0;font-size:14px;color:var(--mute);display:flex;flex-wrap:wrap;gap:4px 8px;align-items:baseline}.ly-n b{font-size:20px;color:var(--ink);font-variant-numeric:tabular-nums}
+.ly-proj{font-size:12.5px}.ly-tot{flex-basis:100%;font-size:12.5px}
+@media (max-width:860px){.lys{grid-template-columns:1fr}.ly-ft{grid-template-columns:1fr}}
+/* proof */
+.prs{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
+.pr{background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:20px 20px 18px;display:flex;flex-direction:column}
+.pr:last-child{grid-column:1/-1;flex-direction:row;flex-wrap:wrap;align-items:baseline;gap:0 18px}.pr:last-child .pr-t{flex:1 1 360px}.pr:first-child{grid-column:span 2;background:linear-gradient(160deg,var(--surface),var(--acc-soft))}
+.pr-k{margin:0 0 8px;font-size:12px;font-weight:650;letter-spacing:.08em;text-transform:uppercase;color:var(--mute)}
+.pr-n{margin:0 0 8px;font:750 clamp(30px,3.2vw,44px)/1 var(--display);letter-spacing:-.035em;font-variant-numeric:tabular-nums}.pr-n i{font-style:normal;color:var(--mute);font-weight:400}
+.pr-t{margin:0 0 10px;font-size:14px;color:var(--ink-2);flex:1}
+.pr .more{align-self:flex-start;font-size:13.5px;padding:7px 12px}
+@media (max-width:1000px){.prs{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:560px){.prs{grid-template-columns:1fr}.pr:first-child{grid-column:auto}}
+.more-row{padding:56px 0;border-top:1px solid var(--line)}.more-row .links{margin:0}
+footer.site{padding:40px 0 64px;border-top:1px solid var(--line);color:var(--mute);font-size:13.5px}footer.site p{max-width:900px}
+/* reveal: only when the page is visible and motion is welcome; without JS everything is simply there */
+@media (prefers-reduced-motion:no-preference){
+  .js.anim .reveal,.js.anim .rise{opacity:0;transform:translateY(18px);transition:opacity .8s ease,transform .9s cubic-bezier(.2,.7,.1,1)}
+  .js.anim .reveal.in,.js.anim .rise.in{opacity:1;transform:none}
+  .js.anim .rise:nth-child(2){transition-delay:.06s}.js.anim .rise:nth-child(3){transition-delay:.12s}.js.anim .rise:nth-child(4){transition-delay:.18s}
+  .stack li{animation:float 7s ease-in-out infinite;animation-delay:calc(var(--i) * -.6s)}
+  @keyframes float{50%{translate:0 -4px}}
+}
+@media (prefers-reduced-motion:reduce){.js.anim .bb-b{transform:none!important}.js.anim .cl-line{stroke-dasharray:none}}
+/* panels */
+.panel{position:fixed;inset:0;z-index:70;visibility:hidden;pointer-events:none}
+html:not(.js) .panel:target,html:not(.js) .panel:has(:target),.panel.open{visibility:visible;pointer-events:auto}
+.scrim{position:absolute;inset:0;background:rgba(8,5,20,.45);opacity:0;cursor:default}.js.anim .scrim{transition:opacity .3s}
+html:not(.js) .panel:target .scrim,html:not(.js) .panel:has(:target) .scrim,.panel.open .scrim{opacity:1}
+.sheet{position:absolute;top:0;right:0;bottom:0;width:min(860px,100%);background:var(--bg);color:var(--ink);box-shadow:-24px 0 60px rgba(0,0,0,.28);overflow-y:auto;overscroll-behavior:contain;
+  transform:translateX(102%);outline:none}
+.js.anim .sheet{transition:transform .42s cubic-bezier(.2,.7,.1,1)}
+html:not(.js) .panel:target .sheet,html:not(.js) .panel:has(:target) .sheet,.panel.open .sheet{transform:none}
+@media (prefers-reduced-motion:reduce){.sheet,.scrim{transition:none}}
+.sheet-head{position:sticky;top:0;z-index:2;display:flex;gap:16px;align-items:flex-start;justify-content:space-between;padding:22px 28px 16px;background:color-mix(in srgb,var(--bg) 97%,transparent);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-bottom:1px solid var(--line)}
+.sheet-head h2{font-size:clamp(28px,4vw,40px);margin:0}.sheet-head .kicker{margin-bottom:8px}
+.x{flex:none;display:grid;place-items:center;width:38px;height:38px;border-radius:50%;border:1px solid var(--line-2);background:var(--surface);color:var(--ink);text-decoration:none;font-size:22px}
+.sheet-body{padding:8px 28px 48px;font-size:15.5px}.sheet-body h3{font-size:22px;margin:32px 0 10px}.sheet-body .lead{font-size:17px;color:var(--ink-2)}
+.back{margin-top:30px}
+@media (max-width:720px){.sheet{box-shadow:none}.sheet-head{padding:16px 16px 12px}.sheet-body{padding:4px 16px 40px}}
+.tw{overflow-x:auto;margin:14px 0;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
+.tw table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums;font-size:14px}
+.tw caption{text-align:left;padding:10px 12px 0;color:var(--mute);font-size:12.5px}
+.tw th,.tw td{padding:9px 12px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+.tw tr:last-child th,.tw tr:last-child td{border-bottom:0}
+.tw thead th{font-size:12px;color:var(--mute);font-weight:600}
+.tw .num{text-align:right;white-space:nowrap}.tw small{display:block;color:var(--mute);font-size:11.5px}.tw .rng{display:block;color:var(--mute);font-size:11.5px}
+.tw.wide table{min-width:640px}
+.plain{padding-left:20px}.plain li{margin:4px 0}
+.ledger{list-style:none;padding:0;margin:14px 0}
+.ledger li{display:grid;grid-template-columns:52px 1fr;gap:2px 12px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;margin:0 0 6px;background:var(--surface)}
+.ledger li:target,.ledger li.flash{border-color:var(--acc);background:var(--acc-soft)}
+.lg-id{grid-row:span 4;font:11px var(--mono);color:var(--mute);padding-top:3px}.lg-v{font-size:16px}.lg-l{font-size:14px}.lg-h{color:var(--mute);font-size:12.5px;overflow-wrap:anywhere}
+.lg-f{font-size:12px;overflow-wrap:anywhere}.lg-f a{margin-right:6px;color:var(--mute)}.lg-f code{font-size:11px}
+@media print{.bar,.theme,.panel{display:none}.js.anim .reveal,.js.anim .rise{opacity:1;transform:none}}
 """
 
 JS = r"""
@@ -1124,126 +1250,119 @@ JS = r"""
   function label(){if(btn){var c=current();btn.textContent=c==='dark'?'☀':'☾';btn.setAttribute('aria-label','Switch to '+(c==='dark'?'light':'dark')+' theme');}}
   if(btn){btn.addEventListener('click',function(){var next=current()==='dark'?'light':'dark';root.setAttribute('data-theme',next);try{localStorage.setItem('theme',next);}catch(e){}label();});label();}
   var reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
-  // counters: the HTML holds the final value; count up to it when it scrolls into view
-  function fmt(v,dec){return v.toLocaleString('en-US',{minimumFractionDigits:dec,maximumFractionDigits:dec});}
-  function count(el){var to=parseFloat(el.getAttribute('data-to')),dec=+el.getAttribute('data-dec')||0;if(reduce||!isFinite(to))return;
-    var t0=null,d=1400;function step(t){if(!t0)t0=t;var k=Math.min((t-t0)/d,1),q=1-Math.pow(1-k,3);el.textContent=fmt(to*q,dec);if(k<1)requestAnimationFrame(step);else el.textContent=fmt(to,dec);}
-    el.textContent=fmt(0,dec);requestAnimationFrame(step);}
-  var els=[].slice.call(document.querySelectorAll('.reveal,.hero-in'));
-  function show(el){el.classList.add('in');[].forEach.call(el.querySelectorAll('.count'),count);}
-  if('IntersectionObserver' in window){
-    var io=new IntersectionObserver(function(es){es.forEach(function(en){if(en.isIntersecting){show(en.target);io.unobserve(en.target);}});},{rootMargin:'0px 0px -10% 0px',threshold:0.08});
+  // the climb line's length, for the draw-in
+  var pl=document.querySelector('.cl-line');if(pl&&pl.getTotalLength){try{pl.style.setProperty('--len',pl.getTotalLength().toFixed(0));}catch(e){}}
+  // animate only on a visible page with motion welcome; otherwise everything is already in its final state
+  var els=[].slice.call(document.querySelectorAll('.reveal,.rise,.bbars,.climb'));
+  if(!reduce&&document.visibilityState==='visible'&&'IntersectionObserver' in window){
+    root.classList.add('anim');
+    var io=new IntersectionObserver(function(es){es.forEach(function(en){if(en.isIntersecting){en.target.classList.add('in');io.unobserve(en.target);}});},{rootMargin:'0px 0px -8% 0px',threshold:0.06});
     els.forEach(function(el){io.observe(el);});
-  }else{els.forEach(show);}
-  // same pixels, different engines: each counter adds its engine's measured req/s for every second the section is on screen,
-  // and its row of dots moves at a speed in proportion. Without JS or with reduced motion the HTML shows the rates and nothing moves.
-  var sbs=document.getElementById('sbs');
-  if(sbs&&!reduce&&'IntersectionObserver' in window){
-    var lanes=[].slice.call(sbs.querySelectorAll('.sbs-row')).map(function(t){return {rate:parseFloat(t.getAttribute('data-rate'))||0,n:t.querySelector('.sbs-n'),lane:t.querySelector('.sbs-lane'),c:0,x:0};});
-    var peak=Math.max.apply(null,lanes.map(function(l){return l.rate;}))||1,running=false,last=0,raf=0;
-    var tick=function(t){var dt=last?Math.min((t-last)/1000,0.1):0;last=t;
-      lanes.forEach(function(l){l.c+=l.rate*dt;l.n.textContent=fmt(Math.floor(l.c),0);l.x=(l.x+160*dt*l.rate/peak)%1600;if(l.lane)l.lane.style.backgroundPosition=l.x.toFixed(2)+'px 0';});
-      if(running)raf=requestAnimationFrame(tick);};
-    new IntersectionObserver(function(es){var vis=es[es.length-1].isIntersecting;
-      if(vis&&!running){if(!sbs.classList.contains('live')){sbs.classList.add('live');lanes.forEach(function(l){l.n.textContent='0';});}running=true;last=0;raf=requestAnimationFrame(tick);}
-      else if(!vis&&running){running=false;cancelAnimationFrame(raf);}},{threshold:0.25}).observe(sbs.querySelector('.sbs-rows'));
+    setTimeout(function(){els.forEach(function(el){el.classList.add('in');});},4000);
   }
-  // on a phone the chart scrolls sideways: start at the latest run
-  var sc=document.querySelector('.climb .cc-scroll');if(sc&&sc.scrollWidth>sc.clientWidth)sc.scrollLeft=sc.scrollWidth;
-  // draw the climb line once
-  var pl=document.querySelector('.climb .cc-climb');
-  if(pl&&pl.getTotalLength&&!reduce){try{var L=pl.getTotalLength();pl.style.strokeDasharray=L;pl.style.strokeDashoffset=L;pl.getBoundingClientRect();
-    pl.style.transition='stroke-dashoffset 1.8s cubic-bezier(.6,0,.2,1) .5s';pl.style.strokeDashoffset=0;}catch(e){}}
+  // on a phone the chart scrolls sideways: start at the latest phase
+  var sc=document.querySelector('.cl-scroll');if(sc&&sc.scrollWidth>sc.clientWidth)sc.scrollLeft=sc.scrollWidth;
   // side panels: :target drawers without JS; with it, opened by class so Esc, click-outside and focus all work
   var mainEl=document.getElementById('main'),barEl=document.querySelector('.bar'),footEl=document.querySelector('footer.site');
   var openP=null,opener=null;
-  function isPanel(el){return el&&el.classList&&el.classList.contains('panel');}
+  function panelOf(el){return el&&el.closest?el.closest('.panel'):null;}
   function setInert(on){[mainEl,barEl,footEl].forEach(function(x){if(x){if(on)x.setAttribute('inert','');else x.removeAttribute('inert');}});}
-  function openPanel(p,from,push){
-    if(openP===p)return;if(openP)closePanel(true,true);
+  function reveal(p,t){var s=p.querySelector('.sheet');if(!t||t===p){s.scrollTop=0;return;}
+    setTimeout(function(){var r=t.getBoundingClientRect(),sr=s.getBoundingClientRect();s.scrollTop+=r.top-sr.top-(t.tagName==='LI'?sr.height/3:120);
+      if(t.tagName==='LI'){t.classList.remove('flash');void t.offsetWidth;t.classList.add('flash');}},60);}
+  function openPanel(p,from,push,t,hash){
+    if(openP===p){if(push)history.pushState({panel:p.id},'','#'+(hash||p.id));reveal(p,t);return;}
+    if(openP)closePanel(true,true);
     openP=p;opener=from||null;p.classList.add('open');root.classList.add('locked');setInert(true);
-    if(push)history.pushState({panel:p.id},'','#'+p.id);
-    var s=p.querySelector('.sheet');s.scrollTop=0;setTimeout(function(){s.focus({preventScroll:true});},40);
+    if(push)history.pushState({panel:p.id},'','#'+(hash||p.id));
+    reveal(p,t);setTimeout(function(){p.querySelector('.sheet').focus({preventScroll:true});},40);
   }
   function closePanel(silent,keepFocus){
     if(!openP)return;var p=openP;openP=null;p.classList.remove('open');root.classList.remove('locked');setInert(false);
-    if(!silent){if(history.state&&history.state.panel===p.id){history.back();}else if(location.hash==='#'+p.id){history.replaceState(null,'',location.pathname+location.search);}}
-    if(!keepFocus){var back=opener;if(!back){var c=p.querySelector('[data-close]');back=c&&document.getElementById(c.getAttribute('href').slice(1));}
-      if(back){if(!back.matches('a[href],button,input,[tabindex]'))back.setAttribute('tabindex','-1');back.focus({preventScroll:!!opener});}}
+    if(!silent){if(history.state&&history.state.panel===p.id){history.back();}else if(location.hash){history.replaceState(null,'',location.pathname+location.search);}}
+    if(!keepFocus&&opener){opener.focus({preventScroll:true});}
   }
   document.addEventListener('click',function(ev){
     var a=ev.target.closest&&ev.target.closest('a');if(!a)return;
     if(a.hasAttribute('data-close')){ev.preventDefault();closePanel(false);return;}
     var h=a.getAttribute('href')||'';
-    if(h.charAt(0)==='#'){var t=document.getElementById(h.slice(1));
-      if(isPanel(t)){ev.preventDefault();openPanel(t,openP?opener:a,true);}
+    if(h.charAt(0)==='#'&&h.length>1){var t=document.getElementById(h.slice(1)),p=panelOf(t);
+      if(p){ev.preventDefault();openPanel(p,openP?opener:a,true,t,h.slice(1));}
       else if(openP&&t){ev.preventDefault();closePanel(false,true);setTimeout(function(){t.scrollIntoView({behavior:reduce?'auto':'smooth'});},60);}}
   });
   document.addEventListener('keydown',function(ev){
     if(!openP)return;
     if(ev.key==='Escape'){ev.preventDefault();closePanel(false);return;}
-    if(ev.key==='Tab'){var f=[].filter.call(openP.querySelectorAll('a[href],button,summary,[tabindex]:not([tabindex="-1"])'),function(x){return x.offsetParent!==null||x===document.activeElement;});
+    if(ev.key==='Tab'){var f=[].filter.call(openP.querySelectorAll('a[href],button,[tabindex]:not([tabindex="-1"])'),function(x){return x.offsetParent!==null;});
       if(!f.length)return;var first=f[0],last=f[f.length-1];
       if(ev.shiftKey&&(document.activeElement===first||document.activeElement===openP.querySelector('.sheet'))){ev.preventDefault();last.focus();}
       else if(!ev.shiftKey&&document.activeElement===last){ev.preventDefault();first.focus();}}
   });
-  window.addEventListener('popstate',function(){var id=location.hash.slice(1),t=id&&document.getElementById(id);
-    if(isPanel(t))openPanel(t,null,false);else if(openP)closePanel(true);});
-  var h0=location.hash.slice(1),t0=h0&&document.getElementById(h0);if(isPanel(t0))openPanel(t0,null,false);
+  window.addEventListener('popstate',function(){var id=location.hash.slice(1),t=id&&document.getElementById(id),p=panelOf(t);
+    if(p)openPanel(p,null,false,t);else if(openP)closePanel(true);});
+  var h0=location.hash.slice(1),t0=h0&&document.getElementById(h0),p0=panelOf(t0);if(p0){window.scrollTo(0,0);openPanel(p0,null,false,t0);}
 })();
 """
 
 
-FONTS_CSS = 'https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&display=swap'
-
+# ================================================================ build
 
 def build():
-    d = json.load(open(os.path.join(SITE, 'data.json'), encoding='utf-8'))
-    m = d['meta']
-    global REPO_URL
-    REPO_URL = m.get('repo') or REPO_URL
-    cl = climb_chart.climb()
-    f = facts(d, cl)
-    phases = d['chapters']['build']['phases']
-    sp = same_pixels_facts(d)
+    F = facts()
+    FX['F'] = F
+    P = F['pix']
+    files = P['files']
+    F['pix_cells'] = V(sum(s['cells'] for s in P['seeds'].values()), 'cells with a screenshot in the Phase 10 gate\'s full pixel matrix, every seed', files, 'count of results with a pixels layer, outside rerun/')
+    F['pix_eq'] = V(sum(s['pixels'] for s in P['seeds'].values()) + P['rerun_equal'] // max(P['rerun_cells'], 1) * len(P['differ']),
+                    'cells pixel-equal to Rails in the Phase 10 gate\'s full matrix, after the one differing cell was re-run alone', files,
+                    'first-pass pixel-equal cells (%d) + the differing cells whose every re-run was equal on all layers (%d)' % (sum(s['pixels'] for s in P['seeds'].values()), len(P['differ']) if P['rerun_equal'] == P['rerun_cells'] else 0))
+    if P['rerun_equal'] != P['rerun_cells'] or len(P['differ']) != 1 or any(s['aria'] != s['cells'] or s['loose'] != s['cells'] for s in P['seeds'].values()):
+        raise SystemExit('build: the pixel gate is not what the copy says (one cell differed at first, equal on every re-run, aria and loose equal everywhere)')
+    F['pix_seeds'] = V(len(P['seeds']), 'seeds in the full pixel matrix', files, 'distinct seed folders')
+    F['pix_engines'] = V(len(P['engines']), 'browser engines in the full pixel matrix (%s)' % ', '.join(sorted(P['engines'])), files, 'distinct engines in the cell names')
+    F['pix_bps'] = V(len(P['bps']), 'breakpoint widths in the sweep (%s)' % ', '.join(sorted(P['bps'])), files, 'distinct bp* viewports in the cell names')
+    F['pix_views'] = V(len(P['viewports']), 'viewports in the full pixel matrix (%s)' % ', '.join(sorted(P['viewports'])), files, 'distinct viewports in the cell names')
+    F['rerun_eq'] = V(P['rerun_equal'], 're-runs of the differing cell that were equal on all three layers', [f for f in files if '/rerun/' in f], 'count')
+    F['rerun_n'] = V(P['rerun_cells'], 're-runs of the differing cell', [f for f in files if '/rerun/' in f], 'count')
+    seed, st, cell = P['differ'][0]
+    rel = GATE + '/full/search/default/report.json'
+    px = next(l for r in jload(rel)['results'] if r['state'] == st and r['cell'] == cell for l in r['layers'] if l['layer'] == 'pixels')['pixels']
+    F['flake_px'] = V(px['differentPixels'], 'pixels that differed in %s %s on the first pass' % (st, cell), [rel], 'the pixels layer of that result')
+    F['tls_eq'] = V(P['tls']['equal'], 'TLS cells equal on all three layers at the Phase 10 gate', [P['tls']['file']], 'count')
+    F['tls_n'] = V(P['tls']['cells'], 'TLS cells at the Phase 10 gate', [P['tls']['file']], 'count')
+    claims_check(F)
     nav = ''.join('<li><a href="%s">%s</a></li>' % h for h in
-                  [('#climb', 'Climb')] + ([('#sbs', 'Side by side')] if sp else []) + [('#numbers', 'Numbers'), ('#b-port', 'Story'), ('#p-prompts', 'Prompts'), ('#p-tokens', 'Tokens')])
-    beats = [beat_port(d, f), beat_proof(d, f), beat_process(d), more_row()]
-    panels = [p_climb(cl), p_sbs(sp), p_tokens(d), p_muse(d, cl), p_decision(d), p_routine(d, f)] + \
-             [p_phase(d, i, p) for i, p in enumerate(phases)] + \
-             [p_proof(d), p_baseline(d), p_process(d), p_delivered(d), p_prompts(d, f)]
+                  [('#six', 'Six ways'), ('#speed', 'The speed'), ('#climb', 'The climb'), ('#layers', 'Layers'), ('#proof', 'Check it'), ('#p-ledger', 'Every number')])
+    main = ''.join([hero(F), six_ways(F), speed(F), climb(F), layers(F), proof(F), more_row()])
+    panels = [p_method(F), p_ranges(F), p_steps(F), p_climb(F), p_layers(F), p_pixels(F), p_security(F)]
+    panels.append(p_ledger())
     body = ''.join([
         '<a class="skip" href="#main">Skip to content</a>',
-        '<header class="bar"><div class="wrap"><a class="brand" href="#top">Campfire <span>in F#</span></a>'
+        '<header class="bar"><div class="wrap"><a class="brand" href="#top">the<span>DotNet</span>Way</a>'
         '<nav aria-label="Sections"><ol>%s</ol></nav><button class="theme" type="button" aria-label="Switch theme"></button></div></header>' % nav,
-        '<main id="main">', hero(d, cl, f), same_pixels(sp), numbers(d, f), ''.join(beats), oncrack(d), '</main>',
-        '<footer class="site"><div class="wrap"><p><b>Sources.</b> Muse: Ren&#39;s <code>STATUS.md</code>, <code>AI-ORIENTATION.md</code>, '
-        '<code>campfire-fs/Program.fs</code> and <code>bench_official.sh</code> from the hand-off zip. Hand-over: the M4 logs '
-        '<code>bench-mac-rebaseline.log</code> and <code>bench-mac-rebaseline-run1-badpost.log</code>. The build and tuning: '
-        '<a href="%s">plans/fsharp-port.md</a>, <a href="%s">AGENTS.md</a>, <a href="%s">README.md</a> (Known differences), '
-        '<code>bench/results/</code> (the climb is <code>phase7-log.jsonl</code>), the git history of <code>port</code>, and the workflow scripts in '
-        '<a href="%s">site/workflows/</a>. Tokens and prompts: the session transcripts, via <code>site/collect_tokens.py</code>. %s</p>'
-        '<p>Written by %s with Claude. Campfire, the Rust port, its parity harness and vectors are &copy; 37signals, LLC, MIT. '
-        'Generated from <code>site/data.json</code> and the Phase 7 log by <code>site/build.py</code>.</p></div></footer>'
-        % (e(src('plans/fsharp-port.md')), e(src('AGENTS.md')), e(src('README.md')), e(src('site/workflows/')), e(m['timezone_note']), e(m['author'])),
+        '<main id="main">', main, '</main>',
+        '<footer class="site"><div class="wrap"><p><b>Sources.</b> %s (the plan and the Phase log: every decision, gate and measured number), %s, %s, %s, %s.</p>'
+        '<p>theDotNetWay is a fork of <a href="%s">the F# port</a> of <a href="%s">Basecamp&#39;s ONCE Campfire</a>; <a href="%s">onCrack</a> is its sibling. Campfire, the Rust port, the verification harness and the vectors are &copy; '
+        '<span data-lit="name">37signals</span>, LLC, MIT. The table&#39;s shape is <a href="%s">Ryan Rodemoyer&#39;s &ldquo;Campfire, seven ways&rdquo;</a>; none of its numbers are used. '
+        'Generated by <code>site/build.py</code>, which refuses to show a number it cannot source.</p></div></footer>'
+        % (flink(PLAN), flink('README.md'), flink('AGENTS.md'), flink(SIX + '/'), flink(GATE + '/'), e(META['port_url']), e(META['upstream_url']), e(META['oncrack_url']), e(META['ryan_url'])),
         '<div class="panels">%s</div>' % ''.join(panels),
     ])
     page = ('<!doctype html>\n<html lang="en"><head><meta charset="utf-8">'
             '<meta name="viewport" content="width=device-width, initial-scale=1">'
-            '<title>%s</title><meta name="description" content="%s">'
+            '<title>theDotNetWay</title><meta name="description" content="%s">'
             '<meta name="color-scheme" content="light dark">'
             '<script>document.documentElement.className+=" js";try{var t=localStorage.getItem("theme");if(t==="light"||t==="dark")document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>'
-            '<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>'
-            # The display face is a nicety: load it without blocking render, so a slow or blocked
-            # fonts.googleapis.com can't hold the whole page blank (the stack falls back to Georgia).
-            '<link rel="stylesheet" href="%s" media="print" onload="this.media=\'all\'">'
-            '<noscript><link rel="stylesheet" href="%s"></noscript>'
-            '<style>%s%s</style></head><body>%s<script>%s</script></body></html>\n'
-            % (e(m['title']), e(m['description']), e(FONTS_CSS), e(FONTS_CSS), climb_chart.CSS.strip(), CSS.strip(), body, JS.strip()))
+            '<style>%s</style></head><body>%s<script>%s</script></body></html>\n'
+            % (e(META['description']), CSS.strip(), body, JS.strip()))
+    c = check(page)
+    if c.errors:
+        sys.stderr.write('build: %d problem(s); index.html not written:\n  %s\n' % (len(c.errors), '\n  '.join(c.errors[:200])))
+        sys.exit(1)
     out = os.path.join(REPO, 'index.html')
     with open(out, 'w', encoding='utf-8') as fh:
         fh.write(page)
-    print('wrote %s (%s bytes)' % (out, format(len(page.encode('utf-8')), ',')))
+    print('wrote %s (%s bytes; %d numbers in the ledger, %d identifiers marked as names)' % (out, format(len(page.encode('utf-8')), ','), len(L.rows), len(c.lits)))
 
 
 if __name__ == '__main__':

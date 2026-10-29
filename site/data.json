@@ -2674,5 +2674,318 @@
       "tail": "level at 2,000;",
       "href": "https://github.com/ckluis/once-campfire-fSharp-onCrack/blob/main/bench/results/oncrack-r5-final/cable/RESULTS.md"
     }
+  },
+  "dotnetway": {
+    "meta": {
+      "title": "theDotNetWay",
+      "description": "Basecamp's ONCE Campfire on the standard .NET stack: ASP.NET Core, EF Core with Dapper on the hot reads, Kestrel, Falco.Markup and AngleSharp. Every page pixel-identical to Rails; every number links to the file it came from.",
+      "repo_url": "",
+      "branch": "dotnetway",
+      "port_url": "https://github.com/ckluis/once-campfire-fSharp",
+      "oncrack_url": "https://github.com/ckluis/once-campfire-fSharp-onCrack",
+      "upstream_url": "https://github.com/basecamp/once-campfire",
+      "harness_url": "https://github.com/basecamp/once-campfire-verification",
+      "ryan_url": "https://x.com/RyanRodemoyer2/status/2112589072824737865"
+    },
+    "pills": [
+      "F#",
+      "ASP.NET Core",
+      "Kestrel",
+      "EF Core",
+      "Dapper",
+      "Microsoft.Data.Sqlite",
+      "Falco",
+      "Falco.Markup",
+      "AngleSharp",
+      "HybridCache",
+      "OutputCache",
+      "MapStaticAssets",
+      "WebSockets",
+      "Certes",
+      "BackgroundService",
+      "TimeProvider",
+      "xUnit"
+    ],
+    "stack": [
+      [
+        "Kestrel",
+        "listeners, TLS, limits"
+      ],
+      [
+        "ASP.NET Core middleware",
+        "HTTPS, HSTS, logging, compression, OutputCache"
+      ],
+      [
+        "Falco on HttpContext",
+        "routing, cookie auth, antiforgery"
+      ],
+      [
+        "HybridCache",
+        "pages and fragments"
+      ],
+      [
+        "Falco.Markup + AngleSharp",
+        "views and rich text"
+      ],
+      [
+        "EF Core + Dapper",
+        "writes and model; hot reads"
+      ],
+      [
+        "SQLite",
+        "Rails' own schema and files"
+      ]
+    ],
+    "apps": {
+      "dotnetway": "This repository. The framework's way, with a page cache that re-checks who is asking on every hit.",
+      "oncrack": "The F# port with its hands free: finished pages kept until a commit changes them, posts committed together, its own fast paths. Fresh authorization mode.",
+      "fsharp": "The F# port: a line-for-line translation of the Rust port onto ASP.NET Core and Falco, with its own HTTP kit, views and data layer. No page cache.",
+      "rails": "Basecamp's Rails app, current upstream, as their harness runs it: four Puma workers and a page cache.",
+      "rust": "Basecamp's Rust port, current upstream, with its page cache.",
+      "c": "Basecamp's C port, current upstream, with its cache."
+    },
+    "layers": [
+      {
+        "key": "data",
+        "phase": "1",
+        "name": "Data",
+        "from": "Campfire.Db's own SQLite layer: a reader pool, a writer thread, hand-mapped columns and SQL text in every model.",
+        "to": "EF Core over Microsoft.Data.Sqlite on Rails' schema, no migrations: pooled contexts, LINQ with parameters, interceptors, one writer behind a gate.",
+        "pills": [
+          "EF Core",
+          "Microsoft.Data.Sqlite"
+        ],
+        "projects": [
+          "Campfire.Db"
+        ],
+        "before": "dotnetway-p0",
+        "after": "dotnetway-p1-fix"
+      },
+      {
+        "key": "kit",
+        "phase": "2",
+        "name": "The HTTP kit",
+        "from": "A hand-written kit: its own request context, params, multipart, cookies, sessions, formats, compression and page splicing.",
+        "to": "HttpContext, cookie authentication that reads and writes Rails' signed session cookie, antiforgery, sessions and flash, the framework's response compression.",
+        "pills": [
+          "ASP.NET Core",
+          "Authentication",
+          "Antiforgery"
+        ],
+        "projects": [
+          "Campfire.Kit"
+        ],
+        "before": "dotnetway-p1-fix",
+        "after": "dotnetway-p2"
+      },
+      {
+        "key": "dapper",
+        "phase": "H",
+        "name": "Hot reads on Dapper",
+        "from": "Every per-request read through EF's LINQ pipeline, the room page's nine statements included.",
+        "to": "Dapper for the per-request read paths only, in one file, parameters only, each read checked against EF's answer over the seed. EF Core keeps every write, every cold query, the model and the schema.",
+        "pills": [
+          "Dapper",
+          "EF Core"
+        ],
+        "projects": [
+          "Campfire.Db"
+        ],
+        "before": "dotnetway-p2",
+        "after": "dotnetway-p3",
+        "dapper": true,
+        "tot_after": "H",
+        "after_note": "the Db count is at the Phase 3 gate (Cable did not touch it); the backend total is the hybrid unit's own"
+      },
+      {
+        "key": "cable",
+        "phase": "3",
+        "name": "Action Cable",
+        "from": "A hand-written WebSocket server: framing, a ring buffer, its own pub/sub, JSON text and deflate.",
+        "to": "ASP.NET Core's WebSocket middleware, a bounded Channel per connection, a hosted service for the heartbeat. Rails' JavaScript client is unchanged.",
+        "pills": [
+          "WebSockets",
+          "Channel<T>",
+          "IHostedService"
+        ],
+        "projects": [
+          "Campfire.Cable"
+        ],
+        "before": "dotnetway-p2",
+        "after": "dotnetway-p3",
+        "tot_before": "H"
+      },
+      {
+        "key": "views",
+        "phase": "4",
+        "name": "Views",
+        "from": "A hand-written UTF-8 writer, its own fragment cache and recorded pages.",
+        "to": "Falco.Markup, one module per ERB file at the same path, fragments on HybridCache, and a lint that refuses any HTML built from a string.",
+        "pills": [
+          "Falco.Markup",
+          "HybridCache"
+        ],
+        "projects": [
+          "Campfire.Views"
+        ],
+        "before": "dotnetway-p3",
+        "after": "dotnetway-p4"
+      },
+      {
+        "key": "richtext",
+        "phase": "5",
+        "name": "Rich text",
+        "from": "A port of an HTML5 parser with a DOM of its own, a sanitizer on top of it and Ruby's URI parser.",
+        "to": "AngleSharp's HTML5 parser and DOM, Loofah's rules as one walk over its tree, System.Uri. A fuzz against Rails finds no violation.",
+        "pills": [
+          "AngleSharp",
+          "System.Uri"
+        ],
+        "projects": [
+          "Campfire.RichText"
+        ],
+        "before": "dotnetway-p4",
+        "after": "dotnetway-p5"
+      },
+      {
+        "key": "assets",
+        "phase": "6",
+        "name": "Assets",
+        "from": "An assets project that computed Propshaft's digests and wrote the manifest.",
+        "to": "The SDK's MapStaticAssets: fingerprints, precompressed files and ETags, fed by a staging target.",
+        "pills": [
+          "MapStaticAssets"
+        ],
+        "projects": [
+          "Campfire.Assets"
+        ],
+        "before": "dotnetway-p5",
+        "after": "dotnetway-p6"
+      },
+      {
+        "key": "front",
+        "phase": "7",
+        "name": "The front server",
+        "from": "Thruster's job by hand: listeners, TLS, an ACME client, logging and compression in the kit's front end.",
+        "to": "Kestrel's listeners and limits, Certes for ACME, HTTPS redirection, HSTS, HTTP logging, OutputCache for the public responses.",
+        "pills": [
+          "Kestrel",
+          "Certes",
+          "OutputCache",
+          "HttpLogging"
+        ],
+        "projects": [
+          "Campfire.Kit"
+        ],
+        "before": "dotnetway-p6",
+        "after": "dotnetway-p7"
+      },
+      {
+        "key": "jobs",
+        "phase": "8",
+        "name": "Jobs, integrations, push, time",
+        "from": "A Net::HTTP replica, hand-written Web Push encryption, a user-agent parser, a clock and config plumbing.",
+        "to": "BackgroundService queues, named HttpClients with a guard at connect, AngleSharp for unfurls, Lib.Net.Http.WebPush, IOptions and TimeProvider.",
+        "pills": [
+          "BackgroundService",
+          "IHttpClientFactory",
+          "Lib.Net.Http.WebPush",
+          "TimeProvider",
+          "IOptions"
+        ],
+        "projects": [
+          "Campfire.App"
+        ],
+        "before": "dotnetway-p7",
+        "after": "dotnetway-p8"
+      },
+      {
+        "key": "rails",
+        "phase": "9",
+        "name": "Rails helpers and storage",
+        "from": "Three small projects for Ruby string behavior, Rails' message formats and the route helpers; storage serving by hand.",
+        "to": "One Campfire.Rails project; storage served through the framework's file results.",
+        "pills": [
+          "Results.File"
+        ],
+        "projects": [
+          "Campfire.Ruby",
+          "Campfire.RailsCompat",
+          "Campfire.Routes",
+          "Campfire.Rails",
+          "Campfire.Storage"
+        ],
+        "before": "dotnetway-p8",
+        "after": "dotnetway-p9"
+      },
+      {
+        "key": "cache",
+        "phase": "10",
+        "name": "The page cache",
+        "from": "No page cache: every signed-in page queried, rendered and compressed on every request, and nine connection opens a page.",
+        "to": "One connection per request, then HybridCache in the four GET actions, keyed by user and session. The session and membership are read again on every hit; any commit retires every page.",
+        "pills": [
+          "HybridCache",
+          "TimeProvider"
+        ],
+        "projects": [
+          "Campfire.App"
+        ],
+        "before": "dotnetway-p9",
+        "after": "dotnetway-p10",
+        "added": true
+      }
+    ],
+    "dapper_why": "EF Core for the model, the writes and the transactions, a micro-ORM for the hot queries: that split is the read side of the CQRS pattern in Microsoft's own .NET microservices guide, where eShop's ordering service queries with Dapper and writes with EF Core. It was measured first (a spike on its own branch), kept to one file, and every Dapper read is tested against the EF query it replaced. A statement cache or hand-built SQL would have been faster still; neither is the framework's way, so neither is here.",
+    "phases": {
+      "0": [
+        "Baseline",
+        "The untouched F# port, renamed, with the pixel, aria and loose-DOM gates, the cookie round trip and the bench in place."
+      ],
+      "1": [
+        "Data on EF Core",
+        "The data layer moves to EF Core. Every page pays for it: the room page drops to a fifth of the port's speed."
+      ],
+      "2": [
+        "Kit on ASP.NET Core",
+        "The hand-written HTTP kit gives way to HttpContext, authentication and antiforgery."
+      ],
+      "H": [
+        "Hot reads on Dapper",
+        "The per-request reads move to Dapper; EF Core keeps the rest. The pages gain about half."
+      ],
+      "3": [
+        "Cable on WebSockets",
+        "Action Cable on the framework's WebSocket middleware."
+      ],
+      "4": [
+        "Views on Falco.Markup",
+        "Every template is Falco.Markup; the string-render cost lands here."
+      ],
+      "5": [
+        "Rich text on AngleSharp",
+        "The parser and DOM go; AngleSharp comes in. The biggest single cut in lines."
+      ],
+      "6": [
+        "Assets on MapStaticAssets",
+        "The SDK fingerprints and serves the assets."
+      ],
+      "7": [
+        "Kestrel, Certes, middleware",
+        "The front server is the framework's."
+      ],
+      "8": [
+        "Jobs, clients, push, time",
+        "BackgroundService, HttpClientFactory, WebPush, IOptions, TimeProvider."
+      ],
+      "9": [
+        "The close",
+        "One Rails helpers project, storage trims, the full pixel gate. Then the first run on upstream's harness."
+      ],
+      "10": [
+        "Speed on upstream's harness",
+        "One connection a request, the tiering setting, a narrower miss, and the page cache with fresh authorization."
+      ]
+    }
   }
 }

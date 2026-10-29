@@ -4829,3 +4829,28 @@ Opus reviewer, on `e30e84d` (Phase 10's six-ways close). Findings and method in 
   (**7.77x**; -0.2%), search 5,156 / 40,927 (**7.94x**; -0.7%), post_message 403 / 2,836 (**7.04x**; -1.7%). Mixed (probe 1.075 / 1.056; load 5.2 / 4.9): room 31,968 (**10.92x** of 2,928; -3.3%), messages
   31,788 (**9.39x**; -1.9%), sidebar 38,872 (**9.14x**; -2.1%), search 38,352 (**9.62x**; -1.5%). Every route within 5% of the gate and at least 5x the session's Rails, so **the six-ways numbers stand**
   (no re-run needed). `bin/clean-docker`, `bin/clean-parity` run; `docker images 'campfire-dotnetway:*'` lists `app` only; no tmpfs left. Nothing pushed.
+
+### Landing page (2026-10-29)
+
+`site/build.py` (rewritten; Python standard library only) renders `index.html` at the repository root from the results files, with the copy and links in
+`site/data.json` under `"dotnetway"` (the rest of that file is the F# port's inherited story and is not drawn). Links to files are relative to the repository root
+(`meta.repo_url` is empty until the GitHub repo exists). No `src` change; KLOC (`bin/kloc`, saved as `bench/results/dotnetway-landing/kloc.md`): **26,030 cloc, 26,477
+corrected (26.5 KLOC)**, as after the security review.
+- **What it shows:** the headline (the stack, 26.5 KLOC against Rust's 31.0 and Rails' 5.5, 6.83x-7.83x current Rails alone and 9.43x-11.75x with a writer, 4,918/4,918
+  cells); "Campfire, six ways" from `bench/results/dotnetway-six-ways/table.json` (two row groups, commits under the names, the fastest per row shaded, theDotNetWay
+  outlined, x Rails under its cells; method, response caches from the sessions' `summary.json` topology, ranges); "Five times which Rails?" (the pinned Rails of
+  `phase7-final` against current Rails, before and after Phase 10 from `before-phase10/` and the current table, Phase 10 step by step from the upstream-quick
+  summaries); the climb (KLOC and the thinnest workload x Rails per phase gate, Phases 0-10 plus the hybrid unit, pinned Rails and current Rails labelled, hover cards);
+  what the framework replaced (eleven layer cards, KLOC from each gate's `kloc.md`, the Dapper decision); the proof row (full pixel gate from the Phase 10 gate's
+  `report.json` files, TLS, cookie round trip, db-differential, `bin/verify`, the six security reviews, asset check, known differences); side panels and the ledger.
+- **The check:** every visible digit is a ledger link or inside a ledger block (the chart) or a marked identifier; 636 ledger rows, 148 identifiers. The build recomputes
+  every six-ways median from the round files and stops on a mismatch, and stops if a hero claim stops being true (ahead of Rails in every row, behind onCrack, Rust and C in
+  every row, every normal route at least 5x, under Rust's count). Sabotage: a digit planted in the copy fails the build ("a number with no source"); a missing source
+  file fails it. `index.html` is unchanged by a rebuild.
+- **Found while sourcing, recorded, not changed:** (1) `before-phase10/table.json`'s `sources` still name the paths from before the move (`dotnetway-six-ways/normal-1/...`,
+  which now hold the second run); the build maps them into `before-phase10/` and its medians then match. (2) The six-ways README's probe table is offset by one session
+  against the `*.host` files (README normal-1 1.064/1.066 is `mixed-1.host`); the page prints the `.host` files. (3) `README.md`'s status paragraph and Performance table
+  are still the Phase 8/9 text (Phase 9 "under way", 940 cells, the Phase 9 gate's bench/quick table); the page does not quote them.
+- **Checked with cmux** (`cmux browser` screenshots, never headless Chrome) at 1440 and 390 wide, light and dark: no horizontal page scroll at 390 (the six-ways table and
+  the chart scroll inside their boxes), panels open by `#id`, no console errors. Screenshots: `bench/results/dotnetway-landing/{desktop,phone}-{light,dark}-{top,six,climb,proof}.png`.
+- Nothing pushed, no repo created.
