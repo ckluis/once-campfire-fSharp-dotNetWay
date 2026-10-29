@@ -244,3 +244,28 @@ let ``FR4 an empty file is served whole and refuses a range`` () =
         let! ranged = test.Send((get proxy).With("range", "bytes=0-"))
         Assert.Equal(416, ranged.Status)
     }
+
+/// Security review of Phase 9 (plans/design-close.md section 11): the deleted `FileServer` fact "the type and disposition are the ones given"
+/// guarded what the framework's file result is now handed. A blob whose type Rails serves as binary (`text/html`, here) goes out as
+/// `application/octet-stream` and `attachment` from the proxy (whole and ranged) and the disk service, whatever the query asks.
+[<Fact>]
+let ``FR5 a blob typed text/html is served as application/octet-stream and attachment, whole, ranged and from the disk service`` () =
+    task {
+        use! test = bootSeeded "default"
+        do! test.Execute("UPDATE active_storage_blobs SET content_type = 'text/html' WHERE id = 5", [])
+        let! proxy, _, _ = blobPaths test
+        let check (name: string) (reply: Reply) =
+            Assert.True(reply.Status = 200 || reply.Status = 206, $"{name}: {reply.Status}")
+            Assert.Equal(Some "application/octet-stream", reply.Header "content-type")
+            let disposition = reply.Header "content-disposition"
+            Assert.True((disposition |> Option.map (fun d -> d.StartsWith "attachment;")) = Some true, $"{name}: {disposition}")
+        let! whole = test.Send(get $"{proxy}?disposition=inline")
+        check "proxy" whole
+        let! ranged = test.Send((get proxy).With("range", "bytes=0-9"))
+        check "proxy ranged" ranged
+        let _, blobs, _ = sessionVectors ()
+        let! redirect = test.Send(get $"{blobs[0]}?disposition=inline")
+        let location = (redirect.Header "location").Value
+        let! disk = test.Send(get (location.Substring "http://campfire.test".Length))
+        check "disk" disk
+    }
