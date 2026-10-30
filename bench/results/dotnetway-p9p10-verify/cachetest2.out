@@ -1,0 +1,8 @@
+PASS messages page per user stable -- david==kevin bodies: True
+PASS cache is live: outside write not seen within 60 s (class B) -- 'All Talk' -> 'All Talk'
+PASS an app commit retires the warm page -- 'Raw Renamed'
+PASS david revises Designers without Kevin -- status 302; kevin member rows now 0
+PASS removed member refused on room and messages pages -- [('/rooms/654632876', 302), ('/rooms/654632876/messages', 404)]
+PASS removed member's sidebar no longer lists Designers -- status 200
+PASS deactivated user refused on every cached page -- deactivate 302 [('/rooms/654632876', 302), ('/rooms/654632876/messages', 302), ('/users/me/sidebar', 302), ('/searches?q=the', 302)]
+SUMMARY 7 / 7

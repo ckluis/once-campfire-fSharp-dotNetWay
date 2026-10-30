@@ -1,0 +1,194 @@
+<body class data-controller="local-time lightbox">
+  <a class="btn skip-navigation" href="#main-content">
+    "Skip to main content"
+  </a>
+  <nav id="nav">
+  </nav>
+  <main id="main-content">
+    <turbo-frame data-action="presence:present@window->rooms-list#read read-rooms:read->rooms-list#read turbo:frame-load->rooms-list#loaded refresh-room:visible@window->turbo-frame#reload" data-controller="rooms-list read-rooms turbo-frame" data-rooms-list-unread-class="unread" data-turbo-permanent="true" id="user_sidebar" target="_top">
+      <turbo-cable-stream-source channel="Turbo::StreamsChannel" signed-stream-name="«stream:rooms»">
+      </turbo-cable-stream-source>
+      " "
+      <turbo-cable-stream-source channel="Turbo::StreamsChannel" signed-stream-name="«stream:User#712064548:rooms»">
+      </turbo-cable-stream-source>
+      <div class="overflow-hide-scrollbar overflow-y sidebar__container" data-action="rooms-list:unread@window->badge-dot#update rooms-list:read@window->badge-dot#update turbo:submit-start->turbo-frame#unpermanize" data-badge-dot-unread-class="unread" data-controller="badge-dot">
+        <turbo-frame id="direct_rooms_control" target="_top">
+          <div class="directs gap overflow-hide-scrollbar overflow-x">
+            <a class="direct direct__new" data-turbo-frame="_self" href="/rooms/directs/new">
+              <span class="avatar avatar--icon">
+                <img aria-hidden="true" class="colorize--black" height="20" src="/assets/messages-add-«digest».svg" width="20">
+              </span>
+              " "
+              <span class="border-radius direct__author flex max-width min-width pad-inline-half">
+                <span class="for-screen-reader">
+                  "New"
+                </span>
+                " "
+                <span class="overflow-clip txt-small">
+                  "Ping"
+                </span>
+              </span>
+            </a>
+            <div contents data-action="rooms-list:unread@window->sorted-list#updateItem" data-controller="sorted-list" id="direct_rooms">
+              <a class="direct" data-badge-dot-target="unread" data-room-id="340026324" data-rooms-list-target="room" data-sorted-list-number="«epochms+17960420.300s»" data-sorted-list-target="item" href="/rooms/340026324" id="list_rooms_direct_340026324">
+                <span class="avatar">
+                  <img aria-hidden="true" height="48" src="/users/«signed_id:user/avatar:394959859»/avatar?v=20260926130020" width="48">
+                </span>
+                " "
+                <span class="align-center border-radius direct__author flex gap max-width min-width txt-small">
+                  <span class="overflow-ellipsis txt-nowrap">
+                    <span class="for-screen-reader">
+                      "Ping with"
+                    </span>
+                    " Bender"
+                  </span>
+                </span>
+              </a>
+              " "
+              <a class="direct" data-badge-dot-target="unread" data-room-id="699448325" data-rooms-list-target="room" data-sorted-list-number="«epochms+17960420.300s»" data-sorted-list-target="item" href="/rooms/699448325" id="list_rooms_direct_699448325">
+                <span class="avatar">
+                  <img aria-hidden="true" height="48" src="/users/«signed_id:user/avatar:127326141»/avatar?v=20260926130020" width="48">
+                </span>
+                " "
+                <span class="align-center border-radius direct__author flex gap max-width min-width txt-small">
+                  <span class="overflow-ellipsis txt-nowrap">
+                    <span class="for-screen-reader">
+                      "Ping with"
+                    </span>
+                    " David"
+                  </span>
+                </span>
+              </a>
+            </div>
+            <div contents>
+              <form action="/rooms/directs?user_ids%5B%5D=149087659" class="button_to" method="post">
+                <button class="borderless direct fill-transparent unpad" type="submit">
+                  <span class="avatar">
+                    <img aria-hidden="true" src="/users/«signed_id:user/avatar:149087659»/avatar?v=20260926130020">
+                  </span>
+                  " "
+                  <span class="align-center border-radius direct__author flex gap max-width min-width txt-small">
+                    <span class="overflow-ellipsis txt-nowrap">
+                      <span class="for-screen-reader">
+                        "Start a ping with"
+                      </span>
+                      " Jason"
+                    </span>
+                  </span>
+                </button>
+              </form>
+              <form action="/rooms/directs?user_ids%5B%5D=773523953" class="button_to" method="post">
+                <button class="borderless direct fill-transparent unpad" type="submit">
+                  <span class="avatar">
+                    <img aria-hidden="true" src="/users/«signed_id:user/avatar:773523953»/avatar?v=20260926130020">
+                  </span>
+                  " "
+                  <span class="align-center border-radius direct__author flex gap max-width min-width txt-small">
+                    <span class="overflow-ellipsis txt-nowrap">
+                      <span class="for-screen-reader">
+                        "Start a ping with"
+                      </span>
+                      " JZ"
+                    </span>
+                  </span>
+                </button>
+              </form>
+              <form action="/rooms/directs?user_ids%5B%5D=773523956" class="button_to" method="post">
+                <button class="borderless direct fill-transparent unpad" type="submit">
+                  <span class="avatar">
+                    <img aria-hidden="true" src="/users/«signed_id:user/avatar:773523956»/avatar?v=20260926130022">
+                  </span>
+                  " "
+                  <span class="align-center border-radius direct__author flex gap max-width min-width txt-small">
+                    <span class="overflow-ellipsis txt-nowrap">
+                      <span class="for-screen-reader">
+                        "Start a ping with"
+                      </span>
+                      " Anna"
+                    </span>
+                  </span>
+                </button>
+              </form>
+            </div>
+          </div>
+        </turbo-frame>
+        <div class="flex flex-column gap position-relative rooms">
+          <div contents data-controller="sorted-list" id="shared_rooms">
+            <a class="align-center btn gap room txt-nowrap" data-badge-dot-target="unread" data-room-id="654632876" data-rooms-list-target="room" data-sorted-list-name="Designers" data-sorted-list-target="item" href="/rooms/654632876" id="list_rooms_closed_654632876" style="--column-gap: 0.5em">
+              <span class="overflow-ellipsis">
+                "Designers"
+              </span>
+            </a>
+            " "
+            <a class="align-center btn gap room txt-nowrap" data-badge-dot-target="unread" data-room-id="201306877" data-rooms-list-target="room" data-sorted-list-name="HQ" data-sorted-list-target="item" href="/rooms/201306877" id="list_rooms_open_201306877" style="--column-gap: 0.5em">
+              <span class="overflow-ellipsis">
+                "HQ"
+              </span>
+            </a>
+          </div>
+          <a aria-label="New Chat Room" class="align-center btn gap room rooms__new-btn txt-reversed" href="/rooms/opens/new">
+            <img aria-hidden="true" height="20" src="/assets/add-«digest».svg" style="view-transition-name: new-room" width="20">
+          </a>
+        </div>
+        <button class="btn sidebar__toggle" data-action="toggle-class#toggle">
+          <img aria-hidden="true" height="20" src="/assets/menu-«digest».svg" width="20">
+          " "
+          <span class="for-screen-reader">
+            "Open menu"
+          </span>
+        </button>
+      </div>
+      <div class="align-end flex gap justify-end sidebar__tools">
+        <a class="avatar btn flex-item-no-shrink sidebar__tool" href="/users/me/profile">
+          <img aria-hidden="true" height="48" src="/users/«signed_id:user/avatar:712064548»/avatar?v=20260926130020" style="view-transition-name: avatar-712064548" width="48">
+          " "
+          <span class="for-screen-reader">
+            "My Settings"
+          </span>
+        </a>
+        " "
+        <a class="align-center btn gap sidebar__tool txt-reversed" href="/account/edit">
+          <img aria-hidden="true" height="20" src="/assets/settings-«digest».svg" style="view-transition-name: account-settings" width="20">
+          " "
+          <span class="for-screen-reader">
+            "Account Settings"
+          </span>
+        </a>
+      </div>
+    </turbo-frame>
+    <footer id="footer">
+    </footer>
+  </main>
+  <aside data-controller="toggle-class" data-toggle-class-toggle-class="open" id="sidebar">
+  </aside>
+  <dialog aria-label="Image Viewer (Press escape to close)" class="lightbox" data-action="close->lightbox#reset" data-lightbox-target="dialog">
+    <img class="lightbox__image" data-lightbox-target="zoomedImage" src>
+    <form class="lightbox__btn" method="dialog">
+      <button class="btn">
+        <img aria-hidden="true" src="/assets/remove-«digest».svg">
+        " "
+        <span class="for-screen-reader">
+          "Close image viewer"
+        </span>
+      </button>
+    </form>
+    <a class="btn hide-in-ios-pwa lightbox__btn--download" data-lightbox-target="download" href>
+      <img aria-hidden="true" src="/assets/download-«digest».svg">
+      " "
+      <span class="for-screen-reader">
+        "Download file"
+      </span>
+    </a>
+    " "
+    <button class="btn lightbox__btn--share" data-action="web-share#share" data-controller="web-share" data-lightbox-target="share" data-web-share-files-value>
+      <img aria-hidden="true" src="/assets/share-«digest».svg">
+      " "
+      <span class="for-screen-reader">
+        "Share file"
+      </span>
+    </button>
+  </dialog>
+  <a aria-label="Once software from 37signals home page" href="https://once.com" id="app-logo" target="_blank">
+    <img alt="Campfire logo" height="216" src="/assets/campfire-icon-«digest».png" width="256">
+  </a>
+</body>

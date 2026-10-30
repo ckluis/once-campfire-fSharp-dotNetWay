@@ -1,0 +1,22 @@
+login 302
+room 486777696, newest message 933434481
+/rooms/486777696 accept='' rep=1 HTTP/1.1 200 OK content-encoding-headers=0 [] vary=[Accept|Accept-Encoding] content-length=416116 body=416116 decoded=416116
+/rooms/486777696 accept='' rep=2 HTTP/1.1 200 OK content-encoding-headers=0 [] vary=[Accept|Accept-Encoding] content-length=416116 body=416116 decoded=416116
+/rooms/486777696 accept='identity' rep=1 HTTP/1.1 200 OK content-encoding-headers=0 [] vary=[Accept|Accept-Encoding] content-length=416116 body=416116 decoded=416116
+/rooms/486777696 accept='identity' rep=2 HTTP/1.1 200 OK content-encoding-headers=0 [] vary=[Accept|Accept-Encoding] content-length=416116 body=416116 decoded=416116
+/rooms/486777696 accept='gzip' rep=1 HTTP/1.1 200 OK content-encoding-headers=1 [gzip] vary=[Accept|Accept-Encoding] content-length=37392 body=37392 decoded=416116
+/rooms/486777696 accept='gzip' rep=2 HTTP/1.1 200 OK content-encoding-headers=1 [gzip] vary=[Accept|Accept-Encoding] content-length=37392 body=37392 decoded=416116
+/rooms/486777696 accept='br' rep=1 HTTP/1.1 200 OK content-encoding-headers=1 [br] vary=[Accept|Accept-Encoding] content-length=21802 body=21802 decoded=416116
+/rooms/486777696 accept='br' rep=2 HTTP/1.1 200 OK content-encoding-headers=1 [br] vary=[Accept|Accept-Encoding] content-length=21802 body=21802 decoded=416116
+/rooms/486777696 accept='gzip, br' rep=1 HTTP/1.1 200 OK content-encoding-headers=1 [br] vary=[Accept|Accept-Encoding] content-length=21802 body=21802 decoded=416116
+/rooms/486777696 accept='gzip, br' rep=2 HTTP/1.1 200 OK content-encoding-headers=1 [br] vary=[Accept|Accept-Encoding] content-length=21802 body=21802 decoded=416116
+/rooms/486777696/messages?before=933434481 accept='' rep=1 HTTP/1.1 200 OK content-encoding-headers=0 [] vary=[Accept|Accept-Encoding] content-length=383844 body=383844 decoded=383844
+/rooms/486777696/messages?before=933434481 accept='' rep=2 HTTP/1.1 200 OK content-encoding-headers=0 [] vary=[Accept|Accept-Encoding] content-length=383844 body=383844 decoded=383844
+/rooms/486777696/messages?before=933434481 accept='identity' rep=1 HTTP/1.1 200 OK content-encoding-headers=0 [] vary=[Accept|Accept-Encoding] content-length=383844 body=383844 decoded=383844
+/rooms/486777696/messages?before=933434481 accept='identity' rep=2 HTTP/1.1 200 OK content-encoding-headers=0 [] vary=[Accept|Accept-Encoding] content-length=383844 body=383844 decoded=383844
+/rooms/486777696/messages?before=933434481 accept='gzip' rep=1 HTTP/1.1 200 OK content-encoding-headers=1 [gzip] vary=[Accept|Accept-Encoding] content-length=25383 body=25383 decoded=383844
+/rooms/486777696/messages?before=933434481 accept='gzip' rep=2 HTTP/1.1 200 OK content-encoding-headers=1 [gzip] vary=[Accept|Accept-Encoding] content-length=25383 body=25383 decoded=383844
+/rooms/486777696/messages?before=933434481 accept='br' rep=1 HTTP/1.1 200 OK content-encoding-headers=1 [br] vary=[Accept|Accept-Encoding] content-length=11226 body=11226 decoded=383844
+/rooms/486777696/messages?before=933434481 accept='br' rep=2 HTTP/1.1 200 OK content-encoding-headers=1 [br] vary=[Accept|Accept-Encoding] content-length=11226 body=11226 decoded=383844
+/rooms/486777696/messages?before=933434481 accept='gzip, br' rep=1 HTTP/1.1 200 OK content-encoding-headers=1 [br] vary=[Accept|Accept-Encoding] content-length=11226 body=11226 decoded=383844
+/rooms/486777696/messages?before=933434481 accept='gzip, br' rep=2 HTTP/1.1 200 OK content-encoding-headers=1 [br] vary=[Accept|Accept-Encoding] content-length=11226 body=11226 decoded=383844

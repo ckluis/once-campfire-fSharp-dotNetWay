@@ -1,0 +1,24 @@
+=== new rep 1 part 1/2 03:37:57 mac-free 28Gi load 3.32 4.26 4.37
+rc=0
+=== new rep 1 part 2/2 03:42:14 mac-free 28Gi load 3.48 3.83 4.14
+rc=0
+=== ctl rep 1 part 1/2 03:45:29 mac-free 28Gi load 4.00 3.77 4.03
+rc=1
+=== ctl rep 1 part 2/2 03:50:15 mac-free 28Gi load 4.01 3.85 3.98
+rc=1
+=== ctl rep 2 part 1/2 03:53:40 mac-free 28Gi load 3.81 3.77 3.90
+rc=1
+=== ctl rep 2 part 2/2 03:58:26 mac-free 28Gi load 3.89 3.72 3.81
+rc=1
+=== new rep 2 part 1/2 04:02:01 mac-free 28Gi load 3.67 3.50 3.67
+rc=0
+=== new rep 2 part 2/2 04:06:37 mac-free 28Gi load 3.98 3.53 3.59
+rc=0
+=== new rep 3 part 1/2 04:10:12 mac-free 28Gi load 3.33 3.27 3.44
+rc=0
+=== new rep 3 part 2/2 04:15:09 mac-free 28Gi load 4.21 3.53 3.46
+rc=0
+=== ctl rep 3 part 1/2 04:18:54 mac-free 28Gi load 3.59 3.39 3.39
+rc=1
+=== ctl rep 3 part 2/2 04:23:40 mac-free 28Gi load 3.95 3.56 3.43
+rc=1

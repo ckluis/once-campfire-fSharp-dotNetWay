@@ -1,0 +1,5 @@
+removed_from_room rc=0
+room_deleted_then_send rc=0
+message_sent rc=0
+typing/one rc=0
+presence_read rc=0

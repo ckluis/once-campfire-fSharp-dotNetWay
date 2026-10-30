@@ -1,0 +1,12 @@
+pixel-parity: dotnetway vs the Rails reference, layers pixels,aria,loose, seeds default,crowd,custom_styles,first_run,restricted (fast: chromium, light, no breakpoint sweep)
+pixel-parity: VM free 36G, parity/out 22M
+seed default: 40/40 screenshots pixel-equal; 40/40 aria equal; 40/40 loose equal  [109s]
+pixel-parity: VM free 36G, parity/out 58M
+seed crowd: 8/8 screenshots pixel-equal; 8/8 aria equal; 8/8 loose equal  [33s]
+pixel-parity: VM free 36G, parity/out 58M
+seed custom_styles: 0/0 screenshots pixel-equal; 0/0 aria equal; 0/0 loose equal  [4s]
+pixel-parity: VM free 36G, parity/out 58M
+seed first_run: 0/0 screenshots pixel-equal; 0/0 aria equal; 0/0 loose equal  [4s]
+pixel-parity: VM free 36G, parity/out 58M
+seed restricted: 2/2 screenshots pixel-equal; 2/2 aria equal; 2/2 loose equal  [13s]
+pixel-parity: PASSED, the UI is pixel-identical in 163s; reports under /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/bench/results/dotnetway-4-7/pixels/extra

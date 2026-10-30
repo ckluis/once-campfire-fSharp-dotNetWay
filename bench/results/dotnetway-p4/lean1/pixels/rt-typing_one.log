@@ -1,0 +1,15 @@
+pixel-parity: dotnetway vs the Rails reference, layers pixels,aria,loose, seeds default,crowd,custom_styles,first_run,restricted
+pixel-parity: VM free 38G, parity/out 35M
+seed default: 6/8 screenshots pixel-equal, 2 DIFFERENT; 8/8 aria equal; 8/8 loose equal  [94s]
+    DIFF realtime/typing/one @ webkit-desktop-light: 37 pixels  (diff image: /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/parity/out/p4lean-rt-typing_one/default/diff/candidate/realtime/typing/one/webkit-desktop-light.png)
+    DIFF realtime/typing/one @ webkit-phone-light: 37 pixels  (diff image: /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/parity/out/p4lean-rt-typing_one/default/diff/candidate/realtime/typing/one/webkit-phone-light.png)
+pixel-parity: VM free 38G, parity/out 35M
+seed crowd: 0/0 screenshots pixel-equal; 0/0 aria equal; 0/0 loose equal  [6s]
+pixel-parity: VM free 38G, parity/out 35M
+seed custom_styles: 0/0 screenshots pixel-equal; 0/0 aria equal; 0/0 loose equal  [6s]
+pixel-parity: VM free 38G, parity/out 35M
+seed first_run: 0/0 screenshots pixel-equal; 0/0 aria equal; 0/0 loose equal  [6s]
+pixel-parity: VM free 38G, parity/out 35M
+seed restricted: 0/0 screenshots pixel-equal; 0/0 aria equal; 0/0 loose equal  [6s]
+pixel-parity: FAILED in 118s; reports under /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/parity/out/p4lean-rt-typing_one
+time="2026-10-21T19:56:15-04:00" level=fatal msg="exit status 1"

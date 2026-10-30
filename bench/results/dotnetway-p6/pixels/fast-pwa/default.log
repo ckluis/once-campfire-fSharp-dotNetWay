@@ -1,0 +1,32 @@
+candidate: reference :4111 vs candidate :4112 (seed default, clock frozen at 2026-03-02T16:00:00Z)
+28 cells (28 on shared servers, 0 on fresh servers in 3 slots) × 2 targets, 4 workers
+[1/28] pwa/install/firefox_android @ chromium-phone-light fail
+[2/28] pwa/install/safari_ios @ chromium-phone-light fail
+[3/28] pwa/install/safari_mac @ chromium-phone-light fail
+[4/28] pwa/install/safari_mac @ chromium-desktop-light fail
+[5/28] pwa/install/absent_chrome @ chromium-desktop-light fail
+[6/28] pwa/install/opera_linux @ chromium-phone-light fail
+[7/28] pwa/install/absent_chrome @ chromium-phone-light fail
+[8/28] pwa/install/opera_linux @ chromium-desktop-light fail
+[9/28] pwa/install/absent_firefox @ chromium-desktop-light fail
+[10/28] pwa/install/absent_firefox @ chromium-phone-light fail
+[11/28] pwa/notifications_help/chrome_mac @ chromium-phone-light fail
+[12/28] pwa/notifications_help/chrome_mac @ chromium-desktop-light fail
+[13/28] pwa/notifications_help/chrome_windows @ chromium-desktop-light fail
+[14/28] pwa/notifications_help/chrome_windows @ chromium-phone-light fail
+[15/28] pwa/notifications_help/chrome_ios @ chromium-phone-light fail
+[16/28] pwa/notifications_help/chrome_android @ chromium-phone-light fail
+[17/28] pwa/notifications_help/safari_mac @ chromium-phone-light fail
+[18/28] pwa/notifications_help/safari_mac @ chromium-desktop-light fail
+[19/28] pwa/notifications_help/safari_ios @ chromium-phone-light fail
+[20/28] pwa/notifications_help/firefox_mac @ chromium-desktop-light fail
+[21/28] pwa/notifications_help/firefox_mac @ chromium-phone-light fail
+[22/28] pwa/notifications_help/firefox_windows @ chromium-desktop-light fail
+[23/28] pwa/notifications_help/firefox_windows @ chromium-phone-light fail
+[24/28] pwa/manifest @ chromium-desktop-light allowed
+[25/28] pwa/service_worker @ chromium-desktop-light pass
+[26/28] pwa/notifications_help/firefox_android @ chromium-phone-light fail
+[27/28] pwa/notifications_help/opera_linux @ chromium-desktop-light fail
+[28/28] pwa/notifications_help/opera_linux @ chromium-phone-light fail
+28 cells: 1 pass (0 flaky), 26 fail, 1 allowed, 0 error in 78.6s
+report: /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/parity/out/p6-fast-pwa/default/report.html

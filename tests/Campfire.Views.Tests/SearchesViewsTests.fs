@@ -1,0 +1,20 @@
+// Port of rust/crates/views/tests/searches_views.rs: DOM parity of the search views with the reference app
+// (goldens in rust/crates/views/tests/golden/b, read here and never written).
+module Campfire.Views.Tests.SearchesViewsTests
+
+open Xunit
+open Campfire.Views
+open Campfire.Views.Differential.Inputs
+open Campfire.Views.Tests.GoldenB
+
+[<Fact>]
+let ``index with results`` () =
+    let g = golden "searches_index"
+    let index = searchesIndexView g.Context g.Input
+    g.AssertDom((Layouts.page g.Context false (Templates.Searches.Index.rendered g.Context index)).ToString())
+
+[<Fact>]
+let ``index without query`` () =
+    let g = golden "searches_index_empty"
+    let index = searchesIndexView g.Context g.Input
+    g.AssertDom((Layouts.page g.Context false (Templates.Searches.Index.rendered g.Context index)).ToString())

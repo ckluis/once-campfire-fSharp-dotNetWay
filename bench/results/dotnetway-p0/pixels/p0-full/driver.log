@@ -1,0 +1,130 @@
+=== slice auth 20:38:10 df 11Gi
+slice auth rc=0
+Total reclaimed space: 0B
+Total:	0B
+TYPE            TOTAL     ACTIVE    SIZE      RECLAIMABLE
+Images          11        0         13.76GB   8.414GB (61%)
+Containers      0         0         0B        0B
+Local Volumes   2         0         546.6MB   546.6MB (100%)
+Build Cache     58        0         4.183GB   4.183GB
+VM disk on macOS:  14G	/Users/clank/.colima/_lima/_disks/colima/datadisk
+=== slice errors 20:47:42 df 10Gi
+slice errors rc=0
+Total reclaimed space: 0B
+Total:	0B
+TYPE            TOTAL     ACTIVE    SIZE      RECLAIMABLE
+Images          11        0         13.76GB   8.414GB (61%)
+Containers      0         0         0B        0B
+Local Volumes   2         0         546.6MB   546.6MB (100%)
+Build Cache     58        0         4.183GB   4.183GB
+VM disk on macOS:  14G	/Users/clank/.colima/_lima/_disks/colima/datadisk
+=== slice pwa 20:48:53 df 10Gi
+slice pwa rc=1
+Total reclaimed space: 0B
+Total:	0B
+TYPE            TOTAL     ACTIVE    SIZE      RECLAIMABLE
+Images          11        0         13.76GB   8.414GB (61%)
+Containers      0         0         0B        0B
+Local Volumes   2         0         546.6MB   546.6MB (100%)
+Build Cache     58        0         4.183GB   4.183GB
+VM disk on macOS:  14G	/Users/clank/.colima/_lima/_disks/colima/datadisk
+=== slice welcome 20:52:06 df 9.1Gi
+slice welcome rc=0
+Total reclaimed space: 0B
+Total:	0B
+TYPE            TOTAL     ACTIVE    SIZE      RECLAIMABLE
+Images          11        0         13.76GB   8.414GB (61%)
+Containers      0         0         0B        0B
+Local Volumes   2         0         546.6MB   546.6MB (100%)
+Build Cache     58        0         4.183GB   4.183GB
+VM disk on macOS:  14G	/Users/clank/.colima/_lima/_disks/colima/datadisk
+=== slice bot_api 20:53:10 df 10Gi
+slice bot_api rc=0
+Total reclaimed space: 0B
+Total:	0B
+TYPE            TOTAL     ACTIVE    SIZE      RECLAIMABLE
+Images          11        0         13.76GB   8.414GB (61%)
+Containers      0         0         0B        0B
+Local Volumes   2         0         546.6MB   546.6MB (100%)
+Build Cache     58        0         4.183GB   4.183GB
+VM disk on macOS:  14G	/Users/clank/.colima/_lima/_disks/colima/datadisk
+=== slice search 20:53:44 df 10Gi
+slice search rc=1
+Total reclaimed space: 0B
+Total:	0B
+TYPE            TOTAL     ACTIVE    SIZE      RECLAIMABLE
+Images          11        0         13.76GB   8.414GB (61%)
+Containers      0         0         0B        0B
+Local Volumes   2         0         546.6MB   546.6MB (100%)
+Build Cache     58        0         4.183GB   4.183GB
+VM disk on macOS:  14G	/Users/clank/.colima/_lima/_disks/colima/datadisk
+=== slice account 20:55:49 df 10Gi
+slice account rc=0
+Total reclaimed space: 0B
+Total:	0B
+TYPE            TOTAL     ACTIVE    SIZE      RECLAIMABLE
+Images          11        0         13.76GB   8.414GB (61%)
+Containers      0         0         0B        0B
+Local Volumes   2         0         546.6MB   546.6MB (100%)
+Build Cache     58        0         4.183GB   4.183GB
+VM disk on macOS:  14G	/Users/clank/.colima/_lima/_disks/colima/datadisk
+=== slice users 20:59:16 df 16Gi
+slice users rc=0
+Total reclaimed space: 0B
+Total:	0B
+TYPE            TOTAL     ACTIVE    SIZE      RECLAIMABLE
+Images          11        0         13.76GB   8.414GB (61%)
+Containers      0         0         0B        0B
+Local Volumes   2         0         546.6MB   546.6MB (100%)
+Build Cache     58        0         4.183GB   4.183GB
+VM disk on macOS:  14G	/Users/clank/.colima/_lima/_disks/colima/datadisk
+=== slice autocompletable 21:02:46 df 16Gi
+slice autocompletable rc=0
+Total reclaimed space: 0B
+Total:	0B
+TYPE            TOTAL     ACTIVE    SIZE      RECLAIMABLE
+Images          11        0         13.76GB   8.414GB (61%)
+Containers      0         0         0B        0B
+Local Volumes   2         0         546.6MB   546.6MB (100%)
+Build Cache     58        0         4.183GB   4.183GB
+VM disk on macOS:  14G	/Users/clank/.colima/_lima/_disks/colima/datadisk
+=== slice messages 21:03:14 df 16Gi
+slice messages rc=1
+Total reclaimed space: 0B
+Total:	0B
+TYPE            TOTAL     ACTIVE    SIZE      RECLAIMABLE
+Images          11        0         13.76GB   8.414GB (61%)
+Containers      0         0         0B        0B
+Local Volumes   2         0         546.6MB   546.6MB (100%)
+Build Cache     58        0         4.183GB   4.183GB
+VM disk on macOS:  14G	/Users/clank/.colima/_lima/_disks/colima/datadisk
+=== slice interactions 21:09:35 df 16Gi
+slice interactions rc=1
+Total reclaimed space: 0B
+Total:	0B
+TYPE            TOTAL     ACTIVE    SIZE      RECLAIMABLE
+Images          11        0         13.76GB   8.414GB (61%)
+Containers      0         0         0B        0B
+Local Volumes   2         0         546.6MB   546.6MB (100%)
+Build Cache     58        0         4.183GB   4.183GB
+VM disk on macOS:  14G	/Users/clank/.colima/_lima/_disks/colima/datadisk
+=== slice rooms 21:22:12 df 15Gi
+slice rooms rc=1
+Total reclaimed space: 0B
+Total:	0B
+TYPE            TOTAL     ACTIVE    SIZE      RECLAIMABLE
+Images          11        0         13.76GB   8.414GB (61%)
+Containers      0         0         0B        0B
+Local Volumes   2         0         546.6MB   546.6MB (100%)
+Build Cache     58        0         4.183GB   4.183GB
+VM disk on macOS:  14G	/Users/clank/.colima/_lima/_disks/colima/datadisk
+=== slice realtime 21:32:38 df 13Gi
+slice realtime rc=1
+Total reclaimed space: 0B
+Total:	0B
+TYPE            TOTAL     ACTIVE    SIZE      RECLAIMABLE
+Images          11        0         13.76GB   8.414GB (61%)
+Containers      0         0         0B        0B
+Local Volumes   2         0         546.6MB   546.6MB (100%)
+Build Cache     58        0         4.183GB   4.183GB
+VM disk on macOS:  14G	/Users/clank/.colima/_lima/_disks/colima/datadisk

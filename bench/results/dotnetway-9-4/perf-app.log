@@ -1,0 +1,6 @@
+libcoreclr symbols (8daecad51b3a88668e81b6e27326a9f47a49b57f): installed
+libc symbols (5f3926d9963ff284b8173bf3601bbb00c3abad16): installed
+[19:23:15] load before run: 1.37 1.70 1.85 (waited 20s)
+[19:23:18] host probe before run: {"spin_ms": 59.04, "spin_ms_max_cpu": 60.48, "cpus": "0-3,4-7", "baseline_ms": 55.57, "ratio": 1.063} (waited 20s)
+[19:24:21] perf fsharp post_message: recorded; host probe after the unprofiled / perf windows: 1.083 / 1.067; unprofiled 1707.1 us/req, 1.81 cores
+[19:24:24] perf fsharp post_message: 1707.1 us/req unprofiled (perf 1707.3 ); Campfire.Db (queries, row mapping, connection pool) 35.0%, SQLite engine (libe_sqlite3) 18.8%, runtime and BCL with no Campfire caller on the stack 16.7%, Microsoft.Data.Sqlite and P/Invoke stubs 9.6%

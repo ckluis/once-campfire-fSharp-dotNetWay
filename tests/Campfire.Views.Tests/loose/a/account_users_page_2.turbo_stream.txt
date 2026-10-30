@@ -1,0 +1,424 @@
+<body>
+  <turbo-stream action="replace" target="next_page_container">
+    <template>
+      <li class="align-center flex gap margin-none">
+        <figure class="avatar flex-item-no-shrink" style="--avatar-size: 3.75ch;">
+          <a class="avatar btn" data-turbo-frame="_top" href="/users/773524452" title="Person 494">
+            <img aria-hidden="true" height="48" loading="lazy" src="/users/«signed_id:user/avatar:773524452»/avatar?v=20260926130030" width="48">
+          </a>
+        </figure>
+        <div class="min-width">
+          <div class="fill-shade overflow-ellipsis">
+            <strong>
+              "Person 494"
+            </strong>
+          </div>
+        </div>
+        <hr aria-hidden="true" class="separator">
+        <form accept-charset="UTF-8" action="/account/users/773524452" data-controller="form" method="post">
+          <input name="_method" type="hidden" value="patch">
+          <label class="btn flex-item-no-shrink txt-small" for="role_user_773524452">
+            <span class="for-screen-reader">
+              "Role: Member"
+            </span>
+            " "
+            <img aria-hidden="true" height="20" src="/assets/crown-«digest».svg" width="20">
+            " "
+            <input name="user[role]" type="hidden" value="member">
+            <input data-action="form#submit" hidden="hidden" id="role_user_773524452" name="user[role]" type="checkbox" value="administrator">
+          </label>
+        </form>
+        <form action="/account/users/773524452" class="button_to" method="post">
+          <input name="_method" type="hidden" value="delete">
+          <button class="btn btn--negative flex-item-no-shrink txt-small" data-turbo-confirm="Are you sure you want to permanently remove this person from the account? This can’t be undone." type="submit">
+            <img aria-hidden="true" height="20" src="/assets/minus-«digest».svg" width="20">
+            " "
+            <span class="for-screen-reader">
+              "Delete Person 494"
+            </span>
+          </button>
+        </form>
+      </li>
+      <li class="align-center flex gap margin-none">
+        <figure class="avatar flex-item-no-shrink" style="--avatar-size: 3.75ch;">
+          <a class="avatar btn" data-turbo-frame="_top" href="/users/773524453" title="Person 495">
+            <img aria-hidden="true" height="48" loading="lazy" src="/users/«signed_id:user/avatar:773524453»/avatar?v=20260926130030" width="48">
+          </a>
+        </figure>
+        <div class="min-width">
+          <div class="fill-shade overflow-ellipsis">
+            <strong>
+              "Person 495"
+            </strong>
+          </div>
+        </div>
+        <hr aria-hidden="true" class="separator">
+        <form accept-charset="UTF-8" action="/account/users/773524453" data-controller="form" method="post">
+          <input name="_method" type="hidden" value="patch">
+          <label class="btn flex-item-no-shrink txt-small" for="role_user_773524453">
+            <span class="for-screen-reader">
+              "Role: Member"
+            </span>
+            " "
+            <img aria-hidden="true" height="20" src="/assets/crown-«digest».svg" width="20">
+            " "
+            <input name="user[role]" type="hidden" value="member">
+            <input data-action="form#submit" hidden="hidden" id="role_user_773524453" name="user[role]" type="checkbox" value="administrator">
+          </label>
+        </form>
+        <form action="/account/users/773524453" class="button_to" method="post">
+          <input name="_method" type="hidden" value="delete">
+          <button class="btn btn--negative flex-item-no-shrink txt-small" data-turbo-confirm="Are you sure you want to permanently remove this person from the account? This can’t be undone." type="submit">
+            <img aria-hidden="true" height="20" src="/assets/minus-«digest».svg" width="20">
+            " "
+            <span class="for-screen-reader">
+              "Delete Person 495"
+            </span>
+          </button>
+        </form>
+      </li>
+      <li class="align-center flex gap margin-none">
+        <figure class="avatar flex-item-no-shrink" style="--avatar-size: 3.75ch;">
+          <a class="avatar btn" data-turbo-frame="_top" href="/users/773524454" title="Person 496">
+            <img aria-hidden="true" height="48" loading="lazy" src="/users/«signed_id:user/avatar:773524454»/avatar?v=20260926130030" width="48">
+          </a>
+        </figure>
+        <div class="min-width">
+          <div class="fill-shade overflow-ellipsis">
+            <strong>
+              "Person 496"
+            </strong>
+          </div>
+        </div>
+        <hr aria-hidden="true" class="separator">
+        <form accept-charset="UTF-8" action="/account/users/773524454" data-controller="form" method="post">
+          <input name="_method" type="hidden" value="patch">
+          <label class="btn flex-item-no-shrink txt-small" for="role_user_773524454">
+            <span class="for-screen-reader">
+              "Role: Member"
+            </span>
+            " "
+            <img aria-hidden="true" height="20" src="/assets/crown-«digest».svg" width="20">
+            " "
+            <input name="user[role]" type="hidden" value="member">
+            <input data-action="form#submit" hidden="hidden" id="role_user_773524454" name="user[role]" type="checkbox" value="administrator">
+          </label>
+        </form>
+        <form action="/account/users/773524454" class="button_to" method="post">
+          <input name="_method" type="hidden" value="delete">
+          <button class="btn btn--negative flex-item-no-shrink txt-small" data-turbo-confirm="Are you sure you want to permanently remove this person from the account? This can’t be undone." type="submit">
+            <img aria-hidden="true" height="20" src="/assets/minus-«digest».svg" width="20">
+            " "
+            <span class="for-screen-reader">
+              "Delete Person 496"
+            </span>
+          </button>
+        </form>
+      </li>
+      <li class="align-center flex gap margin-none">
+        <figure class="avatar flex-item-no-shrink" style="--avatar-size: 3.75ch;">
+          <a class="avatar btn" data-turbo-frame="_top" href="/users/773524455" title="Person 497">
+            <img aria-hidden="true" height="48" loading="lazy" src="/users/«signed_id:user/avatar:773524455»/avatar?v=20260926130030" width="48">
+          </a>
+        </figure>
+        <div class="min-width">
+          <div class="fill-shade overflow-ellipsis">
+            <strong>
+              "Person 497"
+            </strong>
+          </div>
+        </div>
+        <hr aria-hidden="true" class="separator">
+        <form accept-charset="UTF-8" action="/account/users/773524455" data-controller="form" method="post">
+          <input name="_method" type="hidden" value="patch">
+          <label class="btn flex-item-no-shrink txt-small" for="role_user_773524455">
+            <span class="for-screen-reader">
+              "Role: Member"
+            </span>
+            " "
+            <img aria-hidden="true" height="20" src="/assets/crown-«digest».svg" width="20">
+            " "
+            <input name="user[role]" type="hidden" value="member">
+            <input data-action="form#submit" hidden="hidden" id="role_user_773524455" name="user[role]" type="checkbox" value="administrator">
+          </label>
+        </form>
+        <form action="/account/users/773524455" class="button_to" method="post">
+          <input name="_method" type="hidden" value="delete">
+          <button class="btn btn--negative flex-item-no-shrink txt-small" data-turbo-confirm="Are you sure you want to permanently remove this person from the account? This can’t be undone." type="submit">
+            <img aria-hidden="true" height="20" src="/assets/minus-«digest».svg" width="20">
+            " "
+            <span class="for-screen-reader">
+              "Delete Person 497"
+            </span>
+          </button>
+        </form>
+      </li>
+      <li class="align-center flex gap margin-none">
+        <figure class="avatar flex-item-no-shrink" style="--avatar-size: 3.75ch;">
+          <a class="avatar btn" data-turbo-frame="_top" href="/users/773524456" title="Person 498">
+            <img aria-hidden="true" height="48" loading="lazy" src="/users/«signed_id:user/avatar:773524456»/avatar?v=20260926130030" width="48">
+          </a>
+        </figure>
+        <div class="min-width">
+          <div class="fill-shade overflow-ellipsis">
+            <strong>
+              "Person 498"
+            </strong>
+          </div>
+        </div>
+        <hr aria-hidden="true" class="separator">
+        <form accept-charset="UTF-8" action="/account/users/773524456" data-controller="form" method="post">
+          <input name="_method" type="hidden" value="patch">
+          <label class="btn flex-item-no-shrink txt-small" for="role_user_773524456">
+            <span class="for-screen-reader">
+              "Role: Member"
+            </span>
+            " "
+            <img aria-hidden="true" height="20" src="/assets/crown-«digest».svg" width="20">
+            " "
+            <input name="user[role]" type="hidden" value="member">
+            <input data-action="form#submit" hidden="hidden" id="role_user_773524456" name="user[role]" type="checkbox" value="administrator">
+          </label>
+        </form>
+        <form action="/account/users/773524456" class="button_to" method="post">
+          <input name="_method" type="hidden" value="delete">
+          <button class="btn btn--negative flex-item-no-shrink txt-small" data-turbo-confirm="Are you sure you want to permanently remove this person from the account? This can’t be undone." type="submit">
+            <img aria-hidden="true" height="20" src="/assets/minus-«digest».svg" width="20">
+            " "
+            <span class="for-screen-reader">
+              "Delete Person 498"
+            </span>
+          </button>
+        </form>
+      </li>
+      <li class="align-center flex gap margin-none">
+        <figure class="avatar flex-item-no-shrink" style="--avatar-size: 3.75ch;">
+          <a class="avatar btn" data-turbo-frame="_top" href="/users/773524457" title="Person 499">
+            <img aria-hidden="true" height="48" loading="lazy" src="/users/«signed_id:user/avatar:773524457»/avatar?v=20260926130030" width="48">
+          </a>
+        </figure>
+        <div class="min-width">
+          <div class="fill-shade overflow-ellipsis">
+            <strong>
+              "Person 499"
+            </strong>
+          </div>
+        </div>
+        <hr aria-hidden="true" class="separator">
+        <form accept-charset="UTF-8" action="/account/users/773524457" data-controller="form" method="post">
+          <input name="_method" type="hidden" value="patch">
+          <label class="btn flex-item-no-shrink txt-small" for="role_user_773524457">
+            <span class="for-screen-reader">
+              "Role: Member"
+            </span>
+            " "
+            <img aria-hidden="true" height="20" src="/assets/crown-«digest».svg" width="20">
+            " "
+            <input name="user[role]" type="hidden" value="member">
+            <input data-action="form#submit" hidden="hidden" id="role_user_773524457" name="user[role]" type="checkbox" value="administrator">
+          </label>
+        </form>
+        <form action="/account/users/773524457" class="button_to" method="post">
+          <input name="_method" type="hidden" value="delete">
+          <button class="btn btn--negative flex-item-no-shrink txt-small" data-turbo-confirm="Are you sure you want to permanently remove this person from the account? This can’t be undone." type="submit">
+            <img aria-hidden="true" height="20" src="/assets/minus-«digest».svg" width="20">
+            " "
+            <span class="for-screen-reader">
+              "Delete Person 499"
+            </span>
+          </button>
+        </form>
+      </li>
+      <li class="align-center flex gap margin-none">
+        <figure class="avatar flex-item-no-shrink" style="--avatar-size: 3.75ch;">
+          <a class="avatar btn" data-turbo-frame="_top" href="/users/773524458" title="Person 500">
+            <img aria-hidden="true" height="48" loading="lazy" src="/users/«signed_id:user/avatar:773524458»/avatar?v=20260926130030" width="48">
+          </a>
+        </figure>
+        <div class="min-width">
+          <div class="fill-shade overflow-ellipsis">
+            <strong>
+              "Person 500"
+            </strong>
+          </div>
+        </div>
+        <hr aria-hidden="true" class="separator">
+        <form accept-charset="UTF-8" action="/account/users/773524458" data-controller="form" method="post">
+          <input name="_method" type="hidden" value="patch">
+          <label class="btn flex-item-no-shrink txt-small" for="role_user_773524458">
+            <span class="for-screen-reader">
+              "Role: Member"
+            </span>
+            " "
+            <img aria-hidden="true" height="20" src="/assets/crown-«digest».svg" width="20">
+            " "
+            <input name="user[role]" type="hidden" value="member">
+            <input data-action="form#submit" hidden="hidden" id="role_user_773524458" name="user[role]" type="checkbox" value="administrator">
+          </label>
+        </form>
+        <form action="/account/users/773524458" class="button_to" method="post">
+          <input name="_method" type="hidden" value="delete">
+          <button class="btn btn--negative flex-item-no-shrink txt-small" data-turbo-confirm="Are you sure you want to permanently remove this person from the account? This can’t be undone." type="submit">
+            <img aria-hidden="true" height="20" src="/assets/minus-«digest».svg" width="20">
+            " "
+            <span class="for-screen-reader">
+              "Delete Person 500"
+            </span>
+          </button>
+        </form>
+      </li>
+      <li class="align-center flex gap margin-none">
+        <figure class="avatar flex-item-no-shrink" style="--avatar-size: 3.75ch;">
+          <a class="avatar btn" data-turbo-frame="_top" href="/users/773524459" title="Person 501">
+            <img aria-hidden="true" height="48" loading="lazy" src="/users/«signed_id:user/avatar:773524459»/avatar?v=20260926130030" width="48">
+          </a>
+        </figure>
+        <div class="min-width">
+          <div class="fill-shade overflow-ellipsis">
+            <strong>
+              "Person 501"
+            </strong>
+          </div>
+        </div>
+        <hr aria-hidden="true" class="separator">
+        <form accept-charset="UTF-8" action="/account/users/773524459" data-controller="form" method="post">
+          <input name="_method" type="hidden" value="patch">
+          <label class="btn flex-item-no-shrink txt-small" for="role_user_773524459">
+            <span class="for-screen-reader">
+              "Role: Member"
+            </span>
+            " "
+            <img aria-hidden="true" height="20" src="/assets/crown-«digest».svg" width="20">
+            " "
+            <input name="user[role]" type="hidden" value="member">
+            <input data-action="form#submit" hidden="hidden" id="role_user_773524459" name="user[role]" type="checkbox" value="administrator">
+          </label>
+        </form>
+        <form action="/account/users/773524459" class="button_to" method="post">
+          <input name="_method" type="hidden" value="delete">
+          <button class="btn btn--negative flex-item-no-shrink txt-small" data-turbo-confirm="Are you sure you want to permanently remove this person from the account? This can’t be undone." type="submit">
+            <img aria-hidden="true" height="20" src="/assets/minus-«digest».svg" width="20">
+            " "
+            <span class="for-screen-reader">
+              "Delete Person 501"
+            </span>
+          </button>
+        </form>
+      </li>
+      <li class="align-center flex gap margin-none">
+        <figure class="avatar flex-item-no-shrink" style="--avatar-size: 3.75ch;">
+          <a class="avatar btn" data-turbo-frame="_top" href="/users/773524460" title="Person 502">
+            <img aria-hidden="true" height="48" loading="lazy" src="/users/«signed_id:user/avatar:773524460»/avatar?v=20260926130030" width="48">
+          </a>
+        </figure>
+        <div class="min-width">
+          <div class="fill-shade overflow-ellipsis">
+            <strong>
+              "Person 502"
+            </strong>
+          </div>
+        </div>
+        <hr aria-hidden="true" class="separator">
+        <form accept-charset="UTF-8" action="/account/users/773524460" data-controller="form" method="post">
+          <input name="_method" type="hidden" value="patch">
+          <label class="btn flex-item-no-shrink txt-small" for="role_user_773524460">
+            <span class="for-screen-reader">
+              "Role: Member"
+            </span>
+            " "
+            <img aria-hidden="true" height="20" src="/assets/crown-«digest».svg" width="20">
+            " "
+            <input name="user[role]" type="hidden" value="member">
+            <input data-action="form#submit" hidden="hidden" id="role_user_773524460" name="user[role]" type="checkbox" value="administrator">
+          </label>
+        </form>
+        <form action="/account/users/773524460" class="button_to" method="post">
+          <input name="_method" type="hidden" value="delete">
+          <button class="btn btn--negative flex-item-no-shrink txt-small" data-turbo-confirm="Are you sure you want to permanently remove this person from the account? This can’t be undone." type="submit">
+            <img aria-hidden="true" height="20" src="/assets/minus-«digest».svg" width="20">
+            " "
+            <span class="for-screen-reader">
+              "Delete Person 502"
+            </span>
+          </button>
+        </form>
+      </li>
+      <li class="align-center flex gap margin-none">
+        <figure class="avatar flex-item-no-shrink" style="--avatar-size: 3.75ch;">
+          <a class="avatar btn" data-turbo-frame="_top" href="/users/773524461" title="Person 503">
+            <img aria-hidden="true" height="48" loading="lazy" src="/users/«signed_id:user/avatar:773524461»/avatar?v=20260926130030" width="48">
+          </a>
+        </figure>
+        <div class="min-width">
+          <div class="fill-shade overflow-ellipsis">
+            <strong>
+              "Person 503"
+            </strong>
+          </div>
+        </div>
+        <hr aria-hidden="true" class="separator">
+        <form accept-charset="UTF-8" action="/account/users/773524461" data-controller="form" method="post">
+          <input name="_method" type="hidden" value="patch">
+          <label class="btn flex-item-no-shrink txt-small" for="role_user_773524461">
+            <span class="for-screen-reader">
+              "Role: Member"
+            </span>
+            " "
+            <img aria-hidden="true" height="20" src="/assets/crown-«digest».svg" width="20">
+            " "
+            <input name="user[role]" type="hidden" value="member">
+            <input data-action="form#submit" hidden="hidden" id="role_user_773524461" name="user[role]" type="checkbox" value="administrator">
+          </label>
+        </form>
+        <form action="/account/users/773524461" class="button_to" method="post">
+          <input name="_method" type="hidden" value="delete">
+          <button class="btn btn--negative flex-item-no-shrink txt-small" data-turbo-confirm="Are you sure you want to permanently remove this person from the account? This can’t be undone." type="submit">
+            <img aria-hidden="true" height="20" src="/assets/minus-«digest».svg" width="20">
+            " "
+            <span class="for-screen-reader">
+              "Delete Person 503"
+            </span>
+          </button>
+        </form>
+      </li>
+      <li class="align-center flex gap margin-none">
+        <figure class="avatar flex-item-no-shrink" style="--avatar-size: 3.75ch;">
+          <a class="avatar btn" data-turbo-frame="_top" href="/users/773524462" title="Person 504">
+            <img aria-hidden="true" height="48" loading="lazy" src="/users/«signed_id:user/avatar:773524462»/avatar?v=20260926130030" width="48">
+          </a>
+        </figure>
+        <div class="min-width">
+          <div class="fill-shade overflow-ellipsis">
+            <strong>
+              "Person 504"
+            </strong>
+          </div>
+        </div>
+        <hr aria-hidden="true" class="separator">
+        <form accept-charset="UTF-8" action="/account/users/773524462" data-controller="form" method="post">
+          <input name="_method" type="hidden" value="patch">
+          <label class="btn flex-item-no-shrink txt-small" for="role_user_773524462">
+            <span class="for-screen-reader">
+              "Role: Member"
+            </span>
+            " "
+            <img aria-hidden="true" height="20" src="/assets/crown-«digest».svg" width="20">
+            " "
+            <input name="user[role]" type="hidden" value="member">
+            <input data-action="form#submit" hidden="hidden" id="role_user_773524462" name="user[role]" type="checkbox" value="administrator">
+          </label>
+        </form>
+        <form action="/account/users/773524462" class="button_to" method="post">
+          <input name="_method" type="hidden" value="delete">
+          <button class="btn btn--negative flex-item-no-shrink txt-small" data-turbo-confirm="Are you sure you want to permanently remove this person from the account? This can’t be undone." type="submit">
+            <img aria-hidden="true" height="20" src="/assets/minus-«digest».svg" width="20">
+            " "
+            <span class="for-screen-reader">
+              "Delete Person 504"
+            </span>
+          </button>
+        </form>
+      </li>
+    </template>
+  </turbo-stream>
+</body>

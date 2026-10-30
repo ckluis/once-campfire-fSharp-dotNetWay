@@ -1,0 +1,8 @@
+candidate: reference :4111 vs candidate :4112 (seed custom_styles, clock frozen at 2026-03-02T16:00:00Z)
+4 cells (2 on shared servers, 2 on fresh servers in 3 slots) × 2 targets, 4 workers
+[1/4] rooms/show/designers/custom_styles @ chromium-phone-light fail
+[2/4] rooms/show/designers/custom_styles @ chromium-desktop-light fail
+[3/4] rooms/show/designers/custom_styles/member @ chromium-phone-light fail
+[4/4] rooms/show/designers/custom_styles/member @ chromium-desktop-light fail
+4 cells: 0 pass (0 flaky), 4 fail, 0 allowed, 0 error in 16.1s
+report: /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/parity/out/p410gate-rooms/custom_styles/report.html

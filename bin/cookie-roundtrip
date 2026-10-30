@@ -1,0 +1,202 @@
+#!/usr/bin/env bash
+# The Rails cookie round trip (plans/dotnetway.md, section 3, gate 3): a person signed in on one app is still signed in, and can post,
+# after the same storage is handed to the other app. Nobody is signed out by an upgrade, and rolling back to Rails keeps them in.
+#
+#   bin/cookie-roundtrip [--candidate dotnetway|fsharp] [--port N] [--seed NAME] [--keep]
+#
+#   A. sign in on the Rails reference image (campfire-reference:app), post, stop it; start our image (campfire-dotnetway:app) on the SAME
+#      storage; the Rails cookie must still sign the person in (the page names the same user) and a post must be stored.
+#   B. sign in on OUR image, post, stop it; start Rails on the same storage; that cookie must sign the person in on Rails, and a post
+#      must be stored. Then the cookie Rails minted in A is tried on Rails once more (the storage went Rails -> ours -> Rails).
+#
+# Both apps are the production images, run as bench/run runs them (host network, parity/.env.reference, one fixed SECRET_KEY_BASE, which
+# is what the signed cookie depends on). The storage is a private copy of parity/.seed/NAME (default: default; the person is
+# david@37signals.com), under /var/tmp, removed at the end (--keep leaves it). Nothing is mocked: curl signs in through the form, with
+# the CSRF token the page serves, exactly as a browser does; "signed in" is the page's current-user-id meta tag naming David; "posted" is
+# a row in the messages table written by David with the message's text, read from the SQLite file after the app has stopped.
+#
+# A tab opened before a switch holds the other app's antiforgery token; the script takes a fresh token from the new app's page with the
+# SAME cookie jar before each post (plans/dotnetway.md section 4, class B: "a tab from before a switch needs a reload").
+#
+# On the Mac it runs itself inside colima (Docker, GNU userland, host networking). Exit status 0 only if every check passed.
+set -euo pipefail
+
+ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+
+if [ "$(uname -s)" = Darwin ] && [ -z "${COOKIE_ROUNDTRIP_IN_VM:-}" ]; then
+  command -v colima >/dev/null || { echo "cookie-roundtrip: needs colima (or run it inside the VM)" >&2; exit 2; }
+  args=''; [ $# -eq 0 ] || args=$(printf '%q ' "$@")
+  fwd=$(env | grep -E '^(COOKIE_ROUNDTRIP_|RAILS_IMAGE=|APP_IMAGE=)[A-Z_]*' | while IFS= read -r kv; do printf '%q ' "$kv"; done || true)
+  exec colima ssh -- bash -c "cd '$ROOT' && env COOKIE_ROUNDTRIP_IN_VM=1 $fwd bin/cookie-roundtrip $args"
+fi
+
+CANDIDATE=dotnetway PORT=4511 SEED=default KEEP=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --candidate) CANDIDATE=$2; shift 2 ;;
+    --port)      PORT=$2; shift 2 ;;
+    --seed)      SEED=$2; shift 2 ;;
+    --keep)      KEEP=1; shift ;;
+    -h|--help)   sed -n '2,/^set -euo/p' "$0" | sed '$d; s/^# \{0,1\}//'; exit 0 ;;
+    *) echo "cookie-roundtrip: unknown option $1 (try --help)" >&2; exit 2 ;;
+  esac
+done
+RAILS_IMAGE=${RAILS_IMAGE:-campfire-reference:app}
+case "$CANDIDATE" in
+  dotnetway) APP_IMAGE=${APP_IMAGE:-campfire-dotnetway:app} ;;
+  fsharp)    APP_IMAGE=${APP_IMAGE:-campfire-fsharp:app} ;;
+  *) echo "cookie-roundtrip: --candidate is dotnetway or fsharp" >&2; exit 2 ;;
+esac
+
+SEED_DIR=$ROOT/parity/.seed/$SEED
+[ -f "$SEED_DIR/labels.json" ] || { echo "cookie-roundtrip: seed $SEED is not built (parity/bin/seed build $SEED)" >&2; exit 2; }
+for image in "$RAILS_IMAGE" "$APP_IMAGE"; do
+  docker image inspect "$image" >/dev/null 2>&1 || { echo "cookie-roundtrip: image $image is missing" >&2; exit 2; }
+done
+label() { python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))[sys.argv[2]])' "$SEED_DIR/labels.json" "$1"; }
+EMAIL=$(label emails.david) PASSWORD=$(label passwords.all) USER_ID=$(label users.david) ROOM_ID=$(label rooms.designers)
+
+WORK=$(mktemp -d /var/tmp/cookie-roundtrip.XXXXXX)
+CONTAINER=cookie-roundtrip-app
+BASE=http://127.0.0.1:$PORT
+UA="cookie-roundtrip/1 (a browser stand-in)"
+STAMP=$(date +%s)
+failed=0 checks=0
+
+cleanup() {
+  docker rm -f "$CONTAINER" >/dev/null 2>&1 || true
+  if [ -z "$KEEP" ]; then rm -rf "$WORK"; else echo "cookie-roundtrip: kept $WORK"; fi
+}
+trap cleanup EXIT
+
+say()  { echo "cookie-roundtrip: $*"; }
+check() {   # check DESCRIPTION CONDITION-EXIT-STATUS
+  checks=$((checks + 1))
+  if [ "$2" -eq 0 ]; then say "  ok    $1"; else say "  FAIL  $1"; failed=$((failed + 1)); fi
+}
+
+mkdir -p "$WORK/db" "$WORK/storage"
+cp -a "$SEED_DIR/db/." "$WORK/db/"; cp -a "$SEED_DIR/storage/." "$WORK/storage/"
+# Deliveries to the seed's real endpoints go to a closed local port, as in bench/run.
+python3 - "$WORK/db/production.sqlite3" <<'PY'
+import sqlite3, sys
+db = sqlite3.connect(sys.argv[1])
+db.execute("UPDATE push_subscriptions SET endpoint = 'https://127.0.0.1:9/push/' || id")
+db.execute("UPDATE webhooks SET url = 'http://127.0.0.1:9/hook/' || id")
+db.commit()
+PY
+
+# start NAME IMAGE: the app on the shared storage, once /up answers.
+start() {
+  local name=$1 image=$2 args=() scratch=()
+  mapfile -t args < <(grep -Ev '^(#|$|WEB_CONCURRENCY|JOB_CONCURRENCY|RAILS_MAX_THREADS|RAILS_LOG_LEVEL)' "$ROOT/parity/.env.reference" | sed 's/^/-e\n/')
+  [ "$name" != rails ] || scratch=(--tmpfs /rails/tmp:mode=1777 --tmpfs /rails/log:mode=1777)
+  docker rm -f "$CONTAINER" >/dev/null 2>&1 || true
+  docker run -d --name "$CONTAINER" --user "$(id -u):$(id -g)" --network host -e "HTTP_PORT=$PORT" -e "TARGET_PORT=$((PORT + 1))" \
+    "${scratch[@]}" "${args[@]}" -e WEB_CONCURRENCY=1 -e JOB_CONCURRENCY=1 -e RAILS_MAX_THREADS=5 -e RAILS_LOG_LEVEL=warn \
+    -v "$WORK/db:/rails/storage/db" -v "$WORK/storage:/rails/storage/files" "$image" >/dev/null
+  for _ in $(seq 1 480); do
+    curl -fsS -o /dev/null "$BASE/up" 2>/dev/null && { say "$name up ($image)"; return 0; }
+    sleep 0.25
+  done
+  docker logs "$CONTAINER" 2>&1 | tail -30 >&2
+  say "$name did not come up"; return 1
+}
+
+# stop: a graceful stop, so SQLite checkpoints its WAL and the next app finds a settled file.
+stop() { docker stop -t 20 "$CONTAINER" >/dev/null; docker rm "$CONTAINER" >/dev/null; }
+
+# csrf JAR: the antiforgery token the current app serves at /session/new (or the room), with the jar's cookies.
+csrf() {
+  curl -fsS -A "$UA" -b "$1" -c "$1" "$BASE$2" | python3 -c '
+import re, sys
+html = sys.stdin.read()
+m = re.search(r"<meta[^>]*name=\"csrf-token\"[^>]*content=\"([^\"]*)\"", html) or re.search(r"<meta[^>]*content=\"([^\"]*)\"[^>]*name=\"csrf-token\"", html)
+print(__import__("html").unescape(m.group(1)) if m else "")'
+}
+
+# sign_in JAR: the form, with the token; the jar ends up holding the session cookie.
+sign_in() {
+  local jar=$1 token; token=$(csrf "$jar" /session/new)
+  local code
+  code=$(curl -sS -o /dev/null -w '%{http_code}' -A "$UA" -b "$jar" -c "$jar" -H "Origin: $BASE" -H 'Sec-Fetch-Site: same-origin' \
+    --data-urlencode "authenticity_token=$token" --data-urlencode "email_address=$EMAIL" --data-urlencode "password=$PASSWORD" "$BASE/session")
+  [ "$code" = 302 ] || [ "$code" = 303 ]
+}
+
+# whoami JAR: the user id the page names (empty when the person is not signed in), following the redirects from /.
+whoami() {
+  curl -sS -L -A "$UA" -b "$1" -H 'Sec-Fetch-Site: same-origin' "$BASE/" | python3 -c '
+import re, sys
+html = sys.stdin.read()
+m = re.search(r"<meta[^>]*name=\"current-user-id\"[^>]*content=\"([^\"]*)\"", html) or re.search(r"<meta[^>]*content=\"([^\"]*)\"[^>]*name=\"current-user-id\"", html)
+print(m.group(1) if m else "")'
+}
+
+# post JAR TEXT: a message in the Designers room, with a fresh token from this app's own room page and the same cookies.
+post() {
+  local jar=$1 text=$2 token code
+  token=$(csrf "$jar" "/rooms/$ROOM_ID")
+  code=$(curl -sS -o /dev/null -w '%{http_code}' -A "$UA" -b "$jar" -c "$jar" -H "Origin: $BASE" -H 'Sec-Fetch-Site: same-origin' \
+    -H 'Accept: text/vnd.turbo-stream.html, text/html, application/xhtml+xml' -H "X-CSRF-Token: $token" \
+    --data-urlencode "authenticity_token=$token" --data-urlencode "message[body]=$text" --data-urlencode "message[client_message_id]=rt-$STAMP-$RANDOM" \
+    "$BASE/rooms/$ROOM_ID/messages")
+  case "$code" in 2*|3*) return 0 ;; *) say "    post answered $code"; return 1 ;; esac
+}
+
+# stored TEXT: David's message with this text is in the database (read after the app stopped, from the file both apps share).
+stored() {
+  python3 - "$WORK/db/production.sqlite3" "$USER_ID" "$ROOM_ID" "$1" <<'PY'
+import sqlite3, sys
+db = sqlite3.connect(f"file:{sys.argv[1]}?mode=ro", uri=True)
+rows = db.execute("""SELECT count(*) FROM messages m JOIN action_text_rich_texts r
+                     ON r.record_type = 'Message' AND r.record_id = m.id AND r.name = 'body'
+                     WHERE m.creator_id = ? AND m.room_id = ? AND r.body LIKE ?""", (int(sys.argv[2]), int(sys.argv[3]), f"%{sys.argv[4]}%")).fetchone()[0]
+sys.exit(0 if rows == 1 else 1)
+PY
+}
+
+# The room page lists a message another app wrote (the data went across with the cookie).
+page_has() { curl -sS -A "$UA" -b "$1" "$BASE/rooms/$ROOM_ID" | grep -qF "$2"; }
+
+jar_a=$WORK/jar-a.txt jar_b=$WORK/jar-b.txt jar_none=$WORK/jar-none.txt
+# The control: a visitor with no cookie is not signed in (so "signed in" above is the cookie's doing, not a page that always says David).
+anonymous() { [ -z "$(whoami "$jar_none")" ] && rc=0 || rc=1; check "$1: a visitor with no cookie is not signed in (control)" $rc; }
+msg() { echo "round trip $STAMP $1"; }
+
+# ---- A: Rails signs in, ours takes over --------------------------------------------------------------------------------------------
+say "A. sign in on Rails ($RAILS_IMAGE), switch the storage to ours ($APP_IMAGE)"
+start rails "$RAILS_IMAGE"
+anonymous Rails
+rc=0; sign_in "$jar_a" || rc=$?; check "Rails: signing in answers with a redirect" $rc
+[ "$(whoami "$jar_a")" = "$USER_ID" ] && rc=0 || rc=1; check "Rails: the cookie signs David in" $rc
+rc=0; post "$jar_a" "$(msg 'A1 on Rails')" || rc=$?; check "Rails: David posts" $rc
+stop
+rc=0; stored "$(msg 'A1 on Rails')" || rc=$?; check "Rails: the post is in the database" $rc
+
+start ours "$APP_IMAGE"
+anonymous ours
+[ "$(whoami "$jar_a")" = "$USER_ID" ] && rc=0 || rc=1; check "ours: the cookie Rails minted still signs David in (no new sign-in)" $rc
+rc=0; page_has "$jar_a" "$(msg 'A1 on Rails')" || rc=$?; check "ours: the room shows the message Rails stored" $rc
+rc=0; post "$jar_a" "$(msg 'A2 on ours')" || rc=$?; check "ours: David, signed in by Rails' cookie, posts" $rc
+
+# ---- B: ours signs in, Rails takes over --------------------------------------------------------------------------------------------
+say "B. sign in on ours, switch the storage back to Rails"
+rc=0; sign_in "$jar_b" || rc=$?; check "ours: signing in answers with a redirect" $rc
+[ "$(whoami "$jar_b")" = "$USER_ID" ] && rc=0 || rc=1; check "ours: the cookie signs David in" $rc
+rc=0; post "$jar_b" "$(msg 'B1 on ours')" || rc=$?; check "ours: David posts" $rc
+stop
+rc=0; stored "$(msg 'A2 on ours')" || rc=$?; check "ours: the A2 post is in the database" $rc
+rc=0; stored "$(msg 'B1 on ours')" || rc=$?; check "ours: the B1 post is in the database" $rc
+
+start rails "$RAILS_IMAGE"
+anonymous Rails
+[ "$(whoami "$jar_b")" = "$USER_ID" ] && rc=0 || rc=1; check "Rails: the cookie ours minted still signs David in (no new sign-in)" $rc
+[ "$(whoami "$jar_a")" = "$USER_ID" ] && rc=0 || rc=1; check "Rails: the cookie from A (Rails -> ours -> Rails) still signs David in" $rc
+rc=0; page_has "$jar_b" "$(msg 'B1 on ours')" || rc=$?; check "Rails: the room shows the message ours stored" $rc
+rc=0; post "$jar_b" "$(msg 'B2 on Rails')" || rc=$?; check "Rails: David, signed in by our cookie, posts" $rc
+stop
+rc=0; stored "$(msg 'B2 on Rails')" || rc=$?; check "Rails: the B2 post is in the database" $rc
+
+say "$((checks - failed))/$checks checks passed; $([ $failed -eq 0 ] && echo 'PASSED, the cookies and the storage went both ways' || echo 'FAILED')"
+exit $((failed > 0))

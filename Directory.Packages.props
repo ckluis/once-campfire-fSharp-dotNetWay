@@ -1,0 +1,36 @@
+<Project>
+  <!-- One version per package for the whole solution. -->
+  <ItemGroup>
+    <PackageVersion Include="FSharp.Core" Version="10.1.401" />
+    <PackageVersion Include="Falco" Version="5.2.0" />
+    <!-- The view layer (plans/design-views.md V1): pinned to the version Falco 5.2.0 depends on. It writes attribute values raw: see Core/Html.fs and bin/lint-markup. -->
+    <PackageVersion Include="Falco.Markup" Version="1.4.0" />
+    <!-- The fragment cache and the kept compressed pages (plans/design-views.md V5, V7): local memory only, no L2. -->
+    <PackageVersion Include="Microsoft.Extensions.Caching.Hybrid" Version="10.11.0" />
+    <!-- Rich text parsing and serialization (plans/design-richtext.md R1), pinned: a parser upgrade changes trees. The tests also read pages as the browser does (tests/Campfire.Views.Tests/LooseDom.fs). -->
+    <PackageVersion Include="AngleSharp" Version="1.8.4" />
+    <!-- taskResult { } for the Web/ actions (plans/design-kit-auth.md K8). -->
+    <PackageVersion Include="FsToolkit.ErrorHandling" Version="5.2.0" />
+    <PackageVersion Include="Microsoft.Data.Sqlite" Version="10.0.13" />
+    <!-- EF Core 10 (LTS) on the net11.0 runtime; NamingConventions 10.0.1 declares EF [10.0.1, 11.0.0), so EF 11 waits for its own build (design-data-ef E1). -->
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.13" />
+    <PackageVersion Include="EFCore.NamingConventions" Version="10.0.1" />
+    <!-- Dapper: the hybrid reads, in Campfire.Db/Ef/FastReads.fs only. -->
+    <PackageVersion Include="Dapper" Version="2.1.89" />
+    <PackageVersion Include="BCrypt.Net-Next" Version="4.0.3" />
+    <!-- The managed binding only: libvips comes from the system (NetVips.Native is not used). -->
+    <PackageVersion Include="NetVips" Version="3.2.0" />
+    <!-- ACME client for the front server (plans/design-front.md F4): HTTP-01 only; pulls BouncyCastle.Cryptography >= 2.7.0. -->
+    <PackageVersion Include="Certes" Version="4.1.0" />
+    <!-- J2: the named clients' timeout pipelines (plans/design-jobs.md); no retry, no circuit breaker. -->
+    <PackageVersion Include="Microsoft.Extensions.Http.Resilience" Version="10.11.0" />
+    <!-- J7: Web Push (aes128gcm, VAPID) on the "push" client; pulls Lib.Net.Http.EncryptedContentEncoding 2.1.1. -->
+    <PackageVersion Include="Lib.Net.Http.WebPush" Version="3.3.1" />
+    <!-- J11: the HMAC redactor for the bot key and webhook URLs in log lines (plans/design-jobs.md). -->
+    <PackageVersion Include="Microsoft.Extensions.Compliance.Redaction" Version="10.11.0" />
+    <!-- Tests only (plans/design-jobs.md J10, J11): FakeTimeProvider and FakeLogger/FakeLogCollector. -->
+    <PackageVersion Include="Microsoft.Extensions.TimeProvider.Testing" Version="10.11.0" />
+    <PackageVersion Include="Microsoft.Extensions.Diagnostics.Testing" Version="10.11.0" />
+    <PackageVersion Include="xunit.v3" Version="3.2.0" />
+  </ItemGroup>
+</Project>

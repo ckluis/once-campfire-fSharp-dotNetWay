@@ -1,0 +1,159 @@
+http://127.0.0.1:4311  (seed: default, runtime: docker, time: 2026-03-02 16:00:00)
+http://127.0.0.1:4312  (seed: default, candidate, time: 2026-03-02 16:00:00)
+✓ anon GET /session/new
+✓ anon GET /session/new?email_address=x%40y.com
+✓ anon GET /
+✓ anon GET /first_run
+✓ anon GET /join/CRMu-l8Ge-KB9B
+✓ anon GET /join/nope
+✓ anon GET /account/logo
+✓ anon GET /account/logo?size=small
+✓ anon GET /webmanifest.json
+✓ anon GET /service-worker.js
+✓ anon GET /qr_code/aHR0cDovL2NhbXBmaXJlLnRlc3Qvam9pbi9DUk11LWw4R2UtS0I5Qg
+✓ anon GET /account/edit
+✓ anon GET /session/transfers/bogus
+✓ anon GET /users/me/profile
+✓ anon GET /session/new.json
+✓ anon GET /account/logo.png
+✓ anon GET /session/new with Turbo-Frame
+✓ POST /session with a wrong password
+✓ POST /session with no password
+~ POST /session with a bad token (differs by design)
+✓ POST /session, 11th attempt (rate limited)
+✓ sign in (returns to the page asked for)
+✓ sign in as a member
+✓ admin GET /
+✓ admin GET /account/edit
+✓ admin GET /account/bots
+✓ admin GET /account/bots/new
+✓ admin GET /account/bots/394959859/edit
+✓ admin GET /account/bots/394959859
+✓ admin GET /account/custom_styles/edit
+✓ admin GET /users/me/profile
+✓ admin GET /users/me/sidebar
+✓ admin GET /users/me/push_subscriptions
+✓ admin GET /users/712064548
+✓ admin GET /users/394959859
+✓ admin GET /users/773523954
+✓ admin GET /users/773523955
+✓ admin GET /users/999
+✓ admin GET /autocompletable/users
+✓ admin GET /autocompletable/users?filter=j
+✓ admin GET /autocompletable/users.json
+✓ admin GET /autocompletable/users.json?query=e&page=1
+✓ admin GET /autocompletable/users?room_id=486777696
+✓ admin GET /users/eyJfcmFpbHMiOnsiZGF0YSI6MTI3MzI2MTQxLCJwdXIiOiJ1c2VyL2F2YXRhciJ9fQ--0ac8233a4786ee6c413408416bb81e7107534db5702d351533dc2ecd3876e97f/avatar
+✓ admin GET /users/eyJfcmFpbHMiOnsiZGF0YSI6MTQ5MDg3NjU5LCJwdXIiOiJ1c2VyL2F2YXRhciJ9fQ--3717de512c048bb2a011a08236969887ee56ae9f8bd2fb510959b9915f449e17/avatar
+✓ admin GET /users/x/avatar
+✓ admin GET /users/bogus/avatar
+✓ admin GET /account/logo
+✓ admin GET /webmanifest.json
+✓ admin GET /session/new
+✓ admin GET /join/CRMu-l8Ge-KB9B
+✓ admin GET /account/users.turbo_stream?page=2
+✓ admin GET /account/users?page=2
+✓ admin GET /first_run
+✓ admin GET /account/join_code
+✓ admin GET /users/me/profile/edit
+✓ admin GET / in a Turbo frame
+✓ admin GET /account/edit in a Turbo frame
+✓ admin GET /account/bots in a Turbo frame
+✓ admin GET /account/bots/new in a Turbo frame
+✓ admin GET /account/bots/394959859/edit in a Turbo frame
+✓ admin GET /account/bots/394959859 in a Turbo frame
+✓ admin GET /account/custom_styles/edit in a Turbo frame
+✓ admin GET /users/me/profile in a Turbo frame
+✓ admin GET /users/me/sidebar in a Turbo frame
+✓ admin GET /users/me/push_subscriptions in a Turbo frame
+✓ admin GET /users/712064548 in a Turbo frame
+✓ admin GET /users/394959859 in a Turbo frame
+✓ admin GET /users/773523954 in a Turbo frame
+✓ admin GET /users/773523955 in a Turbo frame
+✓ admin GET /users/999 in a Turbo frame
+✓ admin GET /autocompletable/users in a Turbo frame
+✓ admin GET /autocompletable/users?filter=j in a Turbo frame
+✓ admin GET /autocompletable/users.json in a Turbo frame
+✓ admin GET /autocompletable/users.json?query=e&page=1 in a Turbo frame
+✓ admin GET /autocompletable/users?room_id=486777696 in a Turbo frame
+✓ admin GET /users/eyJfcmFpbHMiOnsiZGF0YSI6MTI3MzI2MTQxLCJwdXIiOiJ1c2VyL2F2YXRhciJ9fQ--0ac8233a4786ee6c413408416bb81e7107534db5702d351533dc2ecd3876e97f/avatar in a Turbo frame
+✓ admin GET /users/eyJfcmFpbHMiOnsiZGF0YSI6MTQ5MDg3NjU5LCJwdXIiOiJ1c2VyL2F2YXRhciJ9fQ--3717de512c048bb2a011a08236969887ee56ae9f8bd2fb510959b9915f449e17/avatar in a Turbo frame
+✓ admin GET /users/x/avatar in a Turbo frame
+✓ admin GET /users/bogus/avatar in a Turbo frame
+✓ admin GET /account/logo in a Turbo frame
+✓ admin GET /webmanifest.json in a Turbo frame
+✓ admin GET /session/new in a Turbo frame
+✓ admin GET /join/CRMu-l8Ge-KB9B in a Turbo frame
+✓ admin GET /account/users.turbo_stream?page=2 in a Turbo frame
+✓ admin GET /account/users?page=2 in a Turbo frame
+✓ admin GET /first_run in a Turbo frame
+✓ admin GET /account/join_code in a Turbo frame
+✓ admin GET /users/me/profile/edit in a Turbo frame
+✓ anon GET /session/new in a Turbo frame
+~ anon GET /join/CRMu-l8Ge-KB9B in a Turbo frame (differs by design)
+✓ anon GET /first_run in a Turbo frame
+✓ admin GET /users/me/sidebar in a Turbo frame
+✓ admin GET /account/users as a turbo stream
+✓ admin GET /users/me/profile with a referrer
+✓ admin GET /qr_code/aHR0cDovL2NhbXBmaXJlLnRlc3Q with Accept: */*
+✓ admin GET /webmanifest with Accept: */*
+✓ admin GET /service-worker with Accept: */*
+✓ admin GET /autocompletable/users with Accept: */*
+✓ admin GET /users/me/profile with Accept: */*
+✓ admin GET /account/logo with Accept: */*
+✓ admin GET /autocompletable/users with Accept: application/json
+✓ admin GET avatar with */*
+✓ admin GET avatar with image accepts
+✓ member GET /account/edit
+✓ member GET /account/bots
+✓ member GET /users/me/profile
+✓ member GET /users/me/sidebar
+✓ member GET /users/773523953
+✓ admin GET /users/eyJfcmFpbHMiOnsiZGF0YSI6MTI3MzI2MTQxLCJwdXIiOiJ1c2VyL2F2YXRhciJ9fQ--0ac8233a4786ee6c413408416bb81e7107534db5702d351533dc2ecd3876e97f/avatar If-None-Match
+✓ admin GET /account/logo?size=small If-None-Match
+✓ PATCH /account.<id>
+✓   then GET /account/edit (notice)
+✓ PATCH /account.<id> settings
+✓   then GET /users/me/sidebar
+✓ PATCH /account/custom_styles
+✓   then GET /account/custom_styles/edit
+✓ PATCH /users/me/profile
+✓   then GET /users/me/profile
+✓ POST /account/bots
+✓ PATCH /account/bots/<id>
+✓   then GET /account/bots/<id>/edit
+✓ PATCH /account/users/<id> (role)
+✓ POST /users/<id>/ban
+✓   then GET /users/<id>
+✓ DELETE /users/<id>/ban
+✓ member PATCH /account.<id> (forbidden)
+✓ POST /users/me/push_subscriptions (invalid endpoint)
+✓ POST /users/me/push_subscriptions (create)
+✓ POST /users/me/push_subscriptions (existing)
+✓   then GET /users/me/push_subscriptions
+✓ DELETE /session with push_subscription_endpoint
+✓   then GET /users/me/push_subscriptions
+✓ POST /join/<code>
+✓   then GET /
+✓ POST /join/<code> with a taken email
+~ POST /join/<wrong code> (differs by design)
+✓ GET /session/transfers/<id>
+✓ PUT /session/transfers/<id>
+✓   then GET /users/me/profile
+✓ POST /account/join_code
+✓ DELETE /session
+✓   then GET /users/me/profile
+✓ PATCH /users/me/profile with an avatar
+✓   then GET /users/me/profile
+✓   then GET the avatar
+✓ DELETE /users/<token>/avatar
+✓ PATCH /account.<id> with a logo
+✓   then GET /account/edit
+✓   then GET /account/logo
+✓ DELETE /account/logo
+✓ POST /account/bots with an avatar
+✓   then GET /account/bots
+✓ DELETE /account/users/<id>
+✓   then GET /account/edit
+
+152 matched, 3 differed by design, 0 differed

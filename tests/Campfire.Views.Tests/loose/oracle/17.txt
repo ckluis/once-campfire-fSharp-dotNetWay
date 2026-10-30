@@ -1,0 +1,5 @@
+<body>
+  <a href="mailto:%EF%BD%81%EF%BD%82%EF%BD%83">
+    "ａｂｃ"
+  </a>
+</body>

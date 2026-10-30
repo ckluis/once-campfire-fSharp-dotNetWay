@@ -1,0 +1,892 @@
+{
+ "apps": [
+  {
+   "id": "dotnetway",
+   "name": "theDotNetWay",
+   "commit": "75487b7"
+  },
+  {
+   "id": "oncrack",
+   "name": "onCrack",
+   "commit": "3770dff"
+  },
+  {
+   "id": "fsharp",
+   "name": "F# port",
+   "commit": "9954ad0"
+  },
+  {
+   "id": "rails",
+   "name": "Rails",
+   "commit": "ca9b963"
+  },
+  {
+   "id": "rust",
+   "name": "Rust",
+   "commit": "6dae2fd"
+  },
+  {
+   "id": "c",
+   "name": "C",
+   "commit": "873a51f"
+  }
+ ],
+ "concurrency": 16,
+ "rows": [
+  {
+   "group": "Each route alone",
+   "route": "Room page",
+   "key": "room_show",
+   "sessions": [
+    "normal-1",
+    "normal-2"
+   ],
+   "values": {
+    "dotnetway": {
+     "median": 34989.1,
+     "min": 34059.0,
+     "max": 35620.2,
+     "n": 6,
+     "sources": [
+      "bench/results/dotnetway-six-ways/normal-1/dotnetway-1.json",
+      "bench/results/dotnetway-six-ways/normal-1/dotnetway-2.json",
+      "bench/results/dotnetway-six-ways/normal-1/dotnetway-3.json",
+      "bench/results/dotnetway-six-ways/normal-2/dotnetway-1.json",
+      "bench/results/dotnetway-six-ways/normal-2/dotnetway-2.json",
+      "bench/results/dotnetway-six-ways/normal-2/dotnetway-3.json"
+     ]
+    },
+    "oncrack": {
+     "median": 169087.5,
+     "min": 167975.2,
+     "max": 170183.9,
+     "n": 6,
+     "sources": [
+      "bench/results/dotnetway-six-ways/normal-1/oncrack-1.json",
+      "bench/results/dotnetway-six-ways/normal-1/oncrack-2.json",
+      "bench/results/dotnetway-six-ways/normal-1/oncrack-3.json",
+      "bench/results/dotnetway-six-ways/normal-2/oncrack-1.json",
+      "bench/results/dotnetway-six-ways/normal-2/oncrack-2.json",
+      "bench/results/dotnetway-six-ways/normal-2/oncrack-3.json"
+     ]
+    },
+    "fsharp": {
+     "median": 35618.8,
+     "min": 31680.5,
+     "max": 36667.2,
+     "n": 6,
+     "sources": [
+      "bench/results/dotnetway-six-ways/normal-1/fsharp-1.json",
+      "bench/results/dotnetway-six-ways/normal-1/fsharp-2.json",
+      "bench/results/dotnetway-six-ways/normal-1/fsharp-3.json",
+      "bench/results/dotnetway-six-ways/normal-2/fsharp-1.json",
+      "bench/results/dotnetway-six-ways/normal-2/fsharp-2.json",
+      "bench/results/dotnetway-six-ways/normal-2/fsharp-3.json"
+     ]
+    },
+    "rails": {
+     "median": 4943.8,
+     "min": 4685.6,
+     "max": 5058.6,
+     "n": 6,
+     "sources": [
+      "bench/results/dotnetway-six-ways/normal-1/rails-1.json",
+      "bench/results/dotnetway-six-ways/normal-1/rails-2.json",
+      "bench/results/dotnetway-six-ways/normal-1/rails-3.json",
+      "bench/results/dotnetway-six-ways/normal-2/rails-1.json",
+      "bench/results/dotnetway-six-ways/normal-2/rails-2.json",
+      "bench/results/dotnetway-six-ways/normal-2/rails-3.json"
+     ]
+    },
+    "rust": {
+     "median": 49902.1,
+     "min": 47158.0,
+     "max": 50205.9,
+     "n": 6,
+     "sources": [
+      "bench/results/dotnetway-six-ways/normal-1/rust-1.json",
+      "bench/results/dotnetway-six-ways/normal-1/rust-2.json",
+      "bench/results/dotnetway-six-ways/normal-1/rust-3.json",
+      "bench/results/dotnetway-six-ways/normal-2/rust-1.json",
+      "bench/results/dotnetway-six-ways/normal-2/rust-2.json",
+      "bench/results/dotnetway-six-ways/normal-2/rust-3.json"
+     ]
+    },
+    "c": {
+     "median": 77134.9,
+     "min": 74907.4,
+     "max": 78851.0,
+     "n": 6,
+     "sources": [
+      "bench/results/dotnetway-six-ways/normal-1/c-1.json",
+      "bench/results/dotnetway-six-ways/normal-1/c-2.json",
+      "bench/results/dotnetway-six-ways/normal-1/c-3.json",
+      "bench/results/dotnetway-six-ways/normal-2/c-1.json",
+      "bench/results/dotnetway-six-ways/normal-2/c-2.json",
+      "bench/results/dotnetway-six-ways/normal-2/c-3.json"
+     ]
+    }
+   }
+  },
+  {
+   "group": "Each route alone",
+   "route": "Messages page",
+   "key": "messages_page",
+   "sessions": [
+    "normal-1",
+    "normal-2"
+   ],
+   "values": {
+    "dotnetway": {
+     "median": 33830.8,
+     "min": 32445.8,
+     "max": 34268.7,
+     "n": 6,
+     "sources": [
+      "bench/results/dotnetway-six-ways/normal-1/dotnetway-1.json",
+      "bench/results/dotnetway-six-ways/normal-1/dotnetway-2.json",
+      "bench/results/dotnetway-six-ways/normal-1/dotnetway-3.json",
+      "bench/results/dotnetway-six-ways/normal-2/dotnetway-1.json",
+      "bench/results/dotnetway-six-ways/normal-2/dotnetway-2.json",
+      "bench/results/dotnetway-six-ways/normal-2/dotnetway-3.json"
+     ]
+    },
+    "oncrack": {
+     "median": 179077.2,
+     "min": 176146.3,
+     "max": 179802.1,
+     "n": 6,
+     "sources": [
+      "bench/results/dotnetway-six-ways/normal-1/oncrack-1.json",
+      "bench/results/dotnetway-six-ways/normal-1/oncrack-2.json",
+      "bench/results/dotnetway-six-ways/normal-1/oncrack-3.json",
+      "bench/results/dotnetway-six-ways/normal-2/oncrack-1.json",
+      "bench/results/dotnetway-six-ways/normal-2/oncrack-2.json",
+      "bench/results/dotnetway-six-ways/normal-2/oncrack-3.json"
+     ]
+    },
+    "fsharp": {
+     "median": 42126.2,
+     "min": 41199.6,
+     "max": 42773.9,
+     "n": 6,
+     "sources": [
+      "bench/results/dotnetway-six-ways/normal-1/fsharp-1.json",
+      "bench/results/dotnetway-six-ways/normal-1/fsharp-2.json",
+      "bench/results/dotnetway-six-ways/normal-1/fsharp-3.json",
+      "bench/results/dotnetway-six-ways/normal-2/fsharp-1.json",
+      "bench/results/dotnetway-six-ways/normal-2/fsharp-2.json",
+      "bench/results/dotnetway-six-ways/normal-2/fsharp-3.json"
+     ]
+    },
+    "rails": {
+     "median": 4953.4,
+     "min": 4737.6,
+     "max": 5020.0,
+     "n": 6,
+     "sources": [
+      "bench/results/dotnetway-six-ways/normal-1/rails-1.json",
+      "bench/results/dotnetway-six-ways/normal-1/rails-2.json",
+      "bench/results/dotnetway-six-ways/normal-1/rails-3.json",
+      "bench/results/dotnetway-six-ways/normal-2/rails-1.json",
+      "bench/results/dotnetway-six-ways/normal-2/rails-2.json",
+      "bench/results/dotnetway-six-ways/normal-2/rails-3.json"
+     ]
+    },
+    "rust": {
+     "median": 47112.0,
+     "min": 45976.1,
+     "max": 47600.3,
+     "n": 6,
+     "sources": [
+      "bench/results/dotnetway-six-ways/normal-1/rust-1.json",
+      "bench/results/dotnetway-six-ways/normal-1/rust-2.json",
+      "bench/results/dotnetway-six-ways/normal-1/rust-3.json",
+      "bench/results/dotnetway-six-ways/normal-2/rust-1.json",
+      "bench/results/dotnetway-six-ways/normal-2/rust-2.json",
+      "bench/results/dotnetway-six-ways/normal-2/rust-3.json"
+     ]
+    },
+    "c": {
+     "median": 77086.5,
+     "min": 74958.3,
+     "max": 78652.4,
+     "n": 6,
+     "sources": [
+      "bench/results/dotnetway-six-ways/normal-1/c-1.json",
+      "bench/results/dotnetway-six-ways/normal-1/c-2.json",
+      "bench/results/dotnetway-six-ways/normal-1/c-3.json",
+      "bench/results/dotnetway-six-ways/normal-2/c-1.json",
+      "bench/results/dotnetway-six-ways/normal-2/c-2.json",
+      "bench/results/dotnetway-six-ways/normal-2/c-3.json"
+     ]
+    }
+   }
+  },
+  {
+   "group": "Each route alone",
+   "route": "Sidebar",
+   "key": "sidebar",
+   "sessions": [
+    "normal-1",
+    "normal-2"
+   ],
+   "values": {
+    "dotnetway": {
+     "median": 41580.8,
+     "min": 40389.9,
+     "max": 42302.5,
+     "n": 6,
+     "sources": [
+      "bench/results/dotnetway-six-ways/normal-1/dotnetway-1.json",
+      "bench/results/dotnetway-six-ways/normal-1/dotnetway-2.json",
+      "bench/results/dotnetway-six-ways/normal-1/dotnetway-3.json",
+      "bench/results/dotnetway-six-ways/normal-2/dotnetway-1.json",
+      "bench/results/dotnetway-six-ways/normal-2/dotnetway-2.json",
+      "bench/results/dotnetway-six-ways/normal-2/dotnetway-3.json"
+     ]
+    },
+    "oncrack": {
+     "median": 190319.6,
+     "min": 189060.3,
+     "max": 191607.5,
+     "n": 6,
+     "sources": [
+      "bench/results/dotnetway-six-ways/normal-1/oncrack-1.json",
+      "bench/results/dotnetway-six-ways/normal-1/oncrack-2.json",
+      "bench/results/dotnetway-six-ways/normal-1/oncrack-3.json",
+      "bench/results/dotnetway-six-ways/normal-2/oncrack-1.json",
+      "bench/results/dotnetway-six-ways/normal-2/oncrack-2.json",
+      "bench/results/dotnetway-six-ways/normal-2/oncrack-3.json"
+     ]
+    },
+    "fsharp": {
+     "median": 38195.4,
+     "min": 37952.6,
+     "max": 38619.4,
+     "n": 6,
+     "sources": [
+      "bench/results/dotnetway-six-ways/normal-1/fsharp-1.json",
+      "bench/results/dotnetway-six-ways/normal-1/fsharp-2.json",
+      "bench/results/dotnetway-six-ways/normal-1/fsharp-3.json",
+      "bench/results/dotnetway-six-ways/normal-2/fsharp-1.json",
+      "bench/results/dotnetway-six-ways/normal-2/fsharp-2.json",
+      "bench/results/dotnetway-six-ways/normal-2/fsharp-3.json"
+     ]
+    },
+    "rails": {
+     "median": 5425.4,
+     "min": 5040.8,
+     "max": 5566.6,
+     "n": 6,
+     "sources": [
+      "bench/results/dotnetway-six-ways/normal-1/rails-1.json",
+      "bench/results/dotnetway-six-ways/normal-1/rails-2.json",
+      "bench/results/dotnetway-six-ways/normal-1/rails-3.json",
+      "bench/results/dotnetway-six-ways/normal-2/rails-1.json",
+      "bench/results/dotnetway-six-ways/normal-2/rails-2.json",
+      "bench/results/dotnetway-six-ways/normal-2/rails-3.json"
+     ]
+    },
+    "rust": {
+     "median": 55561.0,
+     "min": 54090.3,
+     "max": 56085.6,
+     "n": 6,
+     "sources": [
+      "bench/results/dotnetway-six-ways/normal-1/rust-1.json",
+      "bench/results/dotnetway-six-ways/normal-1/rust-2.json",
+      "bench/results/dotnetway-six-ways/normal-1/rust-3.json",
+      "bench/results/dotnetway-six-ways/normal-2/rust-1.json",
+      "bench/results/dotnetway-six-ways/normal-2/rust-2.json",
+      "bench/results/dotnetway-six-ways/normal-2/rust-3.json"
+     ]
+    },
+    "c": {
+     "median": 83137.1,
+     "min": 81450.5,
+     "max": 84689.0,
+     "n": 6,
+     "sources": [
+      "bench/results/dotnetway-six-ways/normal-1/c-1.json",
+      "bench/results/dotnetway-six-ways/normal-1/c-2.json",
+      "bench/results/dotnetway-six-ways/normal-1/c-3.json",
+      "bench/results/dotnetway-six-ways/normal-2/c-1.json",
+      "bench/results/dotnetway-six-ways/normal-2/c-2.json",
+      "bench/results/dotnetway-six-ways/normal-2/c-3.json"
+     ]
+    }
+   }
+  },
+  {
+   "group": "Each route alone",
+   "route": "Search",
+   "key": "search",
+   "sessions": [
+    "normal-1",
+    "normal-2"
+   ],
+   "values": {
+    "dotnetway": {
+     "median": 41325.2,
+     "min": 40019.0,
+     "max": 42399.2,
+     "n": 6,
+     "sources": [
+      "bench/results/dotnetway-six-ways/normal-1/dotnetway-1.json",
+      "bench/results/dotnetway-six-ways/normal-1/dotnetway-2.json",
+      "bench/results/dotnetway-six-ways/normal-1/dotnetway-3.json",
+      "bench/results/dotnetway-six-ways/normal-2/dotnetway-1.json",
+      "bench/results/dotnetway-six-ways/normal-2/dotnetway-2.json",
+      "bench/results/dotnetway-six-ways/normal-2/dotnetway-3.json"
+     ]
+    },
+    "oncrack": {
+     "median": 184644.5,
+     "min": 183973.9,
+     "max": 185593.3,
+     "n": 6,
+     "sources": [
+      "bench/results/dotnetway-six-ways/normal-1/oncrack-1.json",
+      "bench/results/dotnetway-six-ways/normal-1/oncrack-2.json",
+      "bench/results/dotnetway-six-ways/normal-1/oncrack-3.json",
+      "bench/results/dotnetway-six-ways/normal-2/oncrack-1.json",
+      "bench/results/dotnetway-six-ways/normal-2/oncrack-2.json",
+      "bench/results/dotnetway-six-ways/normal-2/oncrack-3.json"
+     ]
+    },
+    "fsharp": {
+     "median": 34009.2,
+     "min": 33751.0,
+     "max": 34482.9,
+     "n": 6,
+     "sources": [
+      "bench/results/dotnetway-six-ways/normal-1/fsharp-1.json",
+      "bench/results/dotnetway-six-ways/normal-1/fsharp-2.json",
+      "bench/results/dotnetway-six-ways/normal-1/fsharp-3.json",
+      "bench/results/dotnetway-six-ways/normal-2/fsharp-1.json",
+      "bench/results/dotnetway-six-ways/normal-2/fsharp-2.json",
+      "bench/results/dotnetway-six-ways/normal-2/fsharp-3.json"
+     ]
+    },
+    "rails": {
+     "median": 5280.1,
+     "min": 4769.7,
+     "max": 5383.2,
+     "n": 6,
+     "sources": [
+      "bench/results/dotnetway-six-ways/normal-1/rails-1.json",
+      "bench/results/dotnetway-six-ways/normal-1/rails-2.json",
+      "bench/results/dotnetway-six-ways/normal-1/rails-3.json",
+      "bench/results/dotnetway-six-ways/normal-2/rails-1.json",
+      "bench/results/dotnetway-six-ways/normal-2/rails-2.json",
+      "bench/results/dotnetway-six-ways/normal-2/rails-3.json"
+     ]
+    },
+    "rust": {
+     "median": 55919.7,
+     "min": 54801.1,
+     "max": 56330.4,
+     "n": 6,
+     "sources": [
+      "bench/results/dotnetway-six-ways/normal-1/rust-1.json",
+      "bench/results/dotnetway-six-ways/normal-1/rust-2.json",
+      "bench/results/dotnetway-six-ways/normal-1/rust-3.json",
+      "bench/results/dotnetway-six-ways/normal-2/rust-1.json",
+      "bench/results/dotnetway-six-ways/normal-2/rust-2.json",
+      "bench/results/dotnetway-six-ways/normal-2/rust-3.json"
+     ]
+    },
+    "c": {
+     "median": 82401.8,
+     "min": 81559.8,
+     "max": 83324.7,
+     "n": 6,
+     "sources": [
+      "bench/results/dotnetway-six-ways/normal-1/c-1.json",
+      "bench/results/dotnetway-six-ways/normal-1/c-2.json",
+      "bench/results/dotnetway-six-ways/normal-1/c-3.json",
+      "bench/results/dotnetway-six-ways/normal-2/c-1.json",
+      "bench/results/dotnetway-six-ways/normal-2/c-2.json",
+      "bench/results/dotnetway-six-ways/normal-2/c-3.json"
+     ]
+    }
+   }
+  },
+  {
+   "group": "Each route alone",
+   "route": "Post a message",
+   "key": "post_message",
+   "sessions": [
+    "normal-1",
+    "normal-2"
+   ],
+   "values": {
+    "dotnetway": {
+     "median": 2900.7,
+     "min": 2781.3,
+     "max": 2939.7,
+     "n": 6,
+     "sources": [
+      "bench/results/dotnetway-six-ways/normal-1/dotnetway-1.json",
+      "bench/results/dotnetway-six-ways/normal-1/dotnetway-2.json",
+      "bench/results/dotnetway-six-ways/normal-1/dotnetway-3.json",
+      "bench/results/dotnetway-six-ways/normal-2/dotnetway-1.json",
+      "bench/results/dotnetway-six-ways/normal-2/dotnetway-2.json",
+      "bench/results/dotnetway-six-ways/normal-2/dotnetway-3.json"
+     ]
+    },
+    "oncrack": {
+     "median": 15149.0,
+     "min": 14548.7,
+     "max": 15301.5,
+     "n": 6,
+     "sources": [
+      "bench/results/dotnetway-six-ways/normal-1/oncrack-1.json",
+      "bench/results/dotnetway-six-ways/normal-1/oncrack-2.json",
+      "bench/results/dotnetway-six-ways/normal-1/oncrack-3.json",
+      "bench/results/dotnetway-six-ways/normal-2/oncrack-1.json",
+      "bench/results/dotnetway-six-ways/normal-2/oncrack-2.json",
+      "bench/results/dotnetway-six-ways/normal-2/oncrack-3.json"
+     ]
+    },
+    "fsharp": {
+     "median": 9515.7,
+     "min": 9451.7,
+     "max": 9577.7,
+     "n": 6,
+     "sources": [
+      "bench/results/dotnetway-six-ways/normal-1/fsharp-1.json",
+      "bench/results/dotnetway-six-ways/normal-1/fsharp-2.json",
+      "bench/results/dotnetway-six-ways/normal-1/fsharp-3.json",
+      "bench/results/dotnetway-six-ways/normal-2/fsharp-1.json",
+      "bench/results/dotnetway-six-ways/normal-2/fsharp-2.json",
+      "bench/results/dotnetway-six-ways/normal-2/fsharp-3.json"
+     ]
+    },
+    "rails": {
+     "median": 400.9,
+     "min": 392.4,
+     "max": 406.7,
+     "n": 6,
+     "sources": [
+      "bench/results/dotnetway-six-ways/normal-1/rails-1.json",
+      "bench/results/dotnetway-six-ways/normal-1/rails-2.json",
+      "bench/results/dotnetway-six-ways/normal-1/rails-3.json",
+      "bench/results/dotnetway-six-ways/normal-2/rails-1.json",
+      "bench/results/dotnetway-six-ways/normal-2/rails-2.json",
+      "bench/results/dotnetway-six-ways/normal-2/rails-3.json"
+     ]
+    },
+    "rust": {
+     "median": 6498.2,
+     "min": 6418.2,
+     "max": 6570.2,
+     "n": 6,
+     "sources": [
+      "bench/results/dotnetway-six-ways/normal-1/rust-1.json",
+      "bench/results/dotnetway-six-ways/normal-1/rust-2.json",
+      "bench/results/dotnetway-six-ways/normal-1/rust-3.json",
+      "bench/results/dotnetway-six-ways/normal-2/rust-1.json",
+      "bench/results/dotnetway-six-ways/normal-2/rust-2.json",
+      "bench/results/dotnetway-six-ways/normal-2/rust-3.json"
+     ]
+    },
+    "c": {
+     "median": 5858.5,
+     "min": 5812.4,
+     "max": 5908.8,
+     "n": 6,
+     "sources": [
+      "bench/results/dotnetway-six-ways/normal-1/c-1.json",
+      "bench/results/dotnetway-six-ways/normal-1/c-2.json",
+      "bench/results/dotnetway-six-ways/normal-1/c-3.json",
+      "bench/results/dotnetway-six-ways/normal-2/c-1.json",
+      "bench/results/dotnetway-six-ways/normal-2/c-2.json",
+      "bench/results/dotnetway-six-ways/normal-2/c-3.json"
+     ]
+    }
+   }
+  },
+  {
+   "group": "Reads while a writer posts 10/s",
+   "route": "Room page",
+   "key": "room_show",
+   "sessions": [
+    "mixed-1",
+    "mixed-2"
+   ],
+   "values": {
+    "dotnetway": {
+     "median": 32885.7,
+     "min": 32344.7,
+     "max": 33772.4,
+     "n": 6,
+     "sources": [
+      "bench/results/dotnetway-six-ways/mixed-1/dotnetway-1.json",
+      "bench/results/dotnetway-six-ways/mixed-1/dotnetway-2.json",
+      "bench/results/dotnetway-six-ways/mixed-1/dotnetway-3.json",
+      "bench/results/dotnetway-six-ways/mixed-2/dotnetway-1.json",
+      "bench/results/dotnetway-six-ways/mixed-2/dotnetway-2.json",
+      "bench/results/dotnetway-six-ways/mixed-2/dotnetway-3.json"
+     ]
+    },
+    "oncrack": {
+     "median": 163174.2,
+     "min": 160988.5,
+     "max": 164057.8,
+     "n": 6,
+     "sources": [
+      "bench/results/dotnetway-six-ways/mixed-1/oncrack-1.json",
+      "bench/results/dotnetway-six-ways/mixed-1/oncrack-2.json",
+      "bench/results/dotnetway-six-ways/mixed-1/oncrack-3.json",
+      "bench/results/dotnetway-six-ways/mixed-2/oncrack-1.json",
+      "bench/results/dotnetway-six-ways/mixed-2/oncrack-2.json",
+      "bench/results/dotnetway-six-ways/mixed-2/oncrack-3.json"
+     ]
+    },
+    "fsharp": {
+     "median": 33217.2,
+     "min": 31721.8,
+     "max": 33958.9,
+     "n": 6,
+     "sources": [
+      "bench/results/dotnetway-six-ways/mixed-1/fsharp-1.json",
+      "bench/results/dotnetway-six-ways/mixed-1/fsharp-2.json",
+      "bench/results/dotnetway-six-ways/mixed-1/fsharp-3.json",
+      "bench/results/dotnetway-six-ways/mixed-2/fsharp-1.json",
+      "bench/results/dotnetway-six-ways/mixed-2/fsharp-2.json",
+      "bench/results/dotnetway-six-ways/mixed-2/fsharp-3.json"
+     ]
+    },
+    "rails": {
+     "median": 2799.9,
+     "min": 2519.5,
+     "max": 2876.5,
+     "n": 6,
+     "sources": [
+      "bench/results/dotnetway-six-ways/mixed-1/rails-1.json",
+      "bench/results/dotnetway-six-ways/mixed-1/rails-2.json",
+      "bench/results/dotnetway-six-ways/mixed-1/rails-3.json",
+      "bench/results/dotnetway-six-ways/mixed-2/rails-1.json",
+      "bench/results/dotnetway-six-ways/mixed-2/rails-2.json",
+      "bench/results/dotnetway-six-ways/mixed-2/rails-3.json"
+     ]
+    },
+    "rust": {
+     "median": 47410.8,
+     "min": 46435.3,
+     "max": 48215.7,
+     "n": 6,
+     "sources": [
+      "bench/results/dotnetway-six-ways/mixed-1/rust-1.json",
+      "bench/results/dotnetway-six-ways/mixed-1/rust-2.json",
+      "bench/results/dotnetway-six-ways/mixed-1/rust-3.json",
+      "bench/results/dotnetway-six-ways/mixed-2/rust-1.json",
+      "bench/results/dotnetway-six-ways/mixed-2/rust-2.json",
+      "bench/results/dotnetway-six-ways/mixed-2/rust-3.json"
+     ]
+    },
+    "c": {
+     "median": 71828.7,
+     "min": 70871.6,
+     "max": 71976.1,
+     "n": 6,
+     "sources": [
+      "bench/results/dotnetway-six-ways/mixed-1/c-1.json",
+      "bench/results/dotnetway-six-ways/mixed-1/c-2.json",
+      "bench/results/dotnetway-six-ways/mixed-1/c-3.json",
+      "bench/results/dotnetway-six-ways/mixed-2/c-1.json",
+      "bench/results/dotnetway-six-ways/mixed-2/c-2.json",
+      "bench/results/dotnetway-six-ways/mixed-2/c-3.json"
+     ]
+    }
+   }
+  },
+  {
+   "group": "Reads while a writer posts 10/s",
+   "route": "Messages page",
+   "key": "messages_page",
+   "sessions": [
+    "mixed-1",
+    "mixed-2"
+   ],
+   "values": {
+    "dotnetway": {
+     "median": 33012.5,
+     "min": 31630.0,
+     "max": 33442.2,
+     "n": 6,
+     "sources": [
+      "bench/results/dotnetway-six-ways/mixed-1/dotnetway-1.json",
+      "bench/results/dotnetway-six-ways/mixed-1/dotnetway-2.json",
+      "bench/results/dotnetway-six-ways/mixed-1/dotnetway-3.json",
+      "bench/results/dotnetway-six-ways/mixed-2/dotnetway-1.json",
+      "bench/results/dotnetway-six-ways/mixed-2/dotnetway-2.json",
+      "bench/results/dotnetway-six-ways/mixed-2/dotnetway-3.json"
+     ]
+    },
+    "oncrack": {
+     "median": 178188.4,
+     "min": 176258.6,
+     "max": 181944.2,
+     "n": 6,
+     "sources": [
+      "bench/results/dotnetway-six-ways/mixed-1/oncrack-1.json",
+      "bench/results/dotnetway-six-ways/mixed-1/oncrack-2.json",
+      "bench/results/dotnetway-six-ways/mixed-1/oncrack-3.json",
+      "bench/results/dotnetway-six-ways/mixed-2/oncrack-1.json",
+      "bench/results/dotnetway-six-ways/mixed-2/oncrack-2.json",
+      "bench/results/dotnetway-six-ways/mixed-2/oncrack-3.json"
+     ]
+    },
+    "fsharp": {
+     "median": 41137.2,
+     "min": 39970.4,
+     "max": 41517.1,
+     "n": 6,
+     "sources": [
+      "bench/results/dotnetway-six-ways/mixed-1/fsharp-1.json",
+      "bench/results/dotnetway-six-ways/mixed-1/fsharp-2.json",
+      "bench/results/dotnetway-six-ways/mixed-1/fsharp-3.json",
+      "bench/results/dotnetway-six-ways/mixed-2/fsharp-1.json",
+      "bench/results/dotnetway-six-ways/mixed-2/fsharp-2.json",
+      "bench/results/dotnetway-six-ways/mixed-2/fsharp-3.json"
+     ]
+    },
+    "rails": {
+     "median": 3461.1,
+     "min": 3060.7,
+     "max": 3612.9,
+     "n": 6,
+     "sources": [
+      "bench/results/dotnetway-six-ways/mixed-1/rails-1.json",
+      "bench/results/dotnetway-six-ways/mixed-1/rails-2.json",
+      "bench/results/dotnetway-six-ways/mixed-1/rails-3.json",
+      "bench/results/dotnetway-six-ways/mixed-2/rails-1.json",
+      "bench/results/dotnetway-six-ways/mixed-2/rails-2.json",
+      "bench/results/dotnetway-six-ways/mixed-2/rails-3.json"
+     ]
+    },
+    "rust": {
+     "median": 45001.6,
+     "min": 43537.3,
+     "max": 45751.8,
+     "n": 6,
+     "sources": [
+      "bench/results/dotnetway-six-ways/mixed-1/rust-1.json",
+      "bench/results/dotnetway-six-ways/mixed-1/rust-2.json",
+      "bench/results/dotnetway-six-ways/mixed-1/rust-3.json",
+      "bench/results/dotnetway-six-ways/mixed-2/rust-1.json",
+      "bench/results/dotnetway-six-ways/mixed-2/rust-2.json",
+      "bench/results/dotnetway-six-ways/mixed-2/rust-3.json"
+     ]
+    },
+    "c": {
+     "median": 73843.0,
+     "min": 72986.2,
+     "max": 74742.0,
+     "n": 6,
+     "sources": [
+      "bench/results/dotnetway-six-ways/mixed-1/c-1.json",
+      "bench/results/dotnetway-six-ways/mixed-1/c-2.json",
+      "bench/results/dotnetway-six-ways/mixed-1/c-3.json",
+      "bench/results/dotnetway-six-ways/mixed-2/c-1.json",
+      "bench/results/dotnetway-six-ways/mixed-2/c-2.json",
+      "bench/results/dotnetway-six-ways/mixed-2/c-3.json"
+     ]
+    }
+   }
+  },
+  {
+   "group": "Reads while a writer posts 10/s",
+   "route": "Sidebar",
+   "key": "sidebar",
+   "sessions": [
+    "mixed-1",
+    "mixed-2"
+   ],
+   "values": {
+    "dotnetway": {
+     "median": 40246.2,
+     "min": 38353.3,
+     "max": 40577.7,
+     "n": 6,
+     "sources": [
+      "bench/results/dotnetway-six-ways/mixed-1/dotnetway-1.json",
+      "bench/results/dotnetway-six-ways/mixed-1/dotnetway-2.json",
+      "bench/results/dotnetway-six-ways/mixed-1/dotnetway-3.json",
+      "bench/results/dotnetway-six-ways/mixed-2/dotnetway-1.json",
+      "bench/results/dotnetway-six-ways/mixed-2/dotnetway-2.json",
+      "bench/results/dotnetway-six-ways/mixed-2/dotnetway-3.json"
+     ]
+    },
+    "oncrack": {
+     "median": 187713.3,
+     "min": 187173.8,
+     "max": 189142.7,
+     "n": 6,
+     "sources": [
+      "bench/results/dotnetway-six-ways/mixed-1/oncrack-1.json",
+      "bench/results/dotnetway-six-ways/mixed-1/oncrack-2.json",
+      "bench/results/dotnetway-six-ways/mixed-1/oncrack-3.json",
+      "bench/results/dotnetway-six-ways/mixed-2/oncrack-1.json",
+      "bench/results/dotnetway-six-ways/mixed-2/oncrack-2.json",
+      "bench/results/dotnetway-six-ways/mixed-2/oncrack-3.json"
+     ]
+    },
+    "fsharp": {
+     "median": 37797.6,
+     "min": 37303.0,
+     "max": 38323.7,
+     "n": 6,
+     "sources": [
+      "bench/results/dotnetway-six-ways/mixed-1/fsharp-1.json",
+      "bench/results/dotnetway-six-ways/mixed-1/fsharp-2.json",
+      "bench/results/dotnetway-six-ways/mixed-1/fsharp-3.json",
+      "bench/results/dotnetway-six-ways/mixed-2/fsharp-1.json",
+      "bench/results/dotnetway-six-ways/mixed-2/fsharp-2.json",
+      "bench/results/dotnetway-six-ways/mixed-2/fsharp-3.json"
+     ]
+    },
+    "rails": {
+     "median": 4266.9,
+     "min": 4196.3,
+     "max": 4425.1,
+     "n": 6,
+     "sources": [
+      "bench/results/dotnetway-six-ways/mixed-1/rails-1.json",
+      "bench/results/dotnetway-six-ways/mixed-1/rails-2.json",
+      "bench/results/dotnetway-six-ways/mixed-1/rails-3.json",
+      "bench/results/dotnetway-six-ways/mixed-2/rails-1.json",
+      "bench/results/dotnetway-six-ways/mixed-2/rails-2.json",
+      "bench/results/dotnetway-six-ways/mixed-2/rails-3.json"
+     ]
+    },
+    "rust": {
+     "median": 55627.6,
+     "min": 53580.7,
+     "max": 56233.7,
+     "n": 6,
+     "sources": [
+      "bench/results/dotnetway-six-ways/mixed-1/rust-1.json",
+      "bench/results/dotnetway-six-ways/mixed-1/rust-2.json",
+      "bench/results/dotnetway-six-ways/mixed-1/rust-3.json",
+      "bench/results/dotnetway-six-ways/mixed-2/rust-1.json",
+      "bench/results/dotnetway-six-ways/mixed-2/rust-2.json",
+      "bench/results/dotnetway-six-ways/mixed-2/rust-3.json"
+     ]
+    },
+    "c": {
+     "median": 82395.5,
+     "min": 81439.2,
+     "max": 84034.8,
+     "n": 6,
+     "sources": [
+      "bench/results/dotnetway-six-ways/mixed-1/c-1.json",
+      "bench/results/dotnetway-six-ways/mixed-1/c-2.json",
+      "bench/results/dotnetway-six-ways/mixed-1/c-3.json",
+      "bench/results/dotnetway-six-ways/mixed-2/c-1.json",
+      "bench/results/dotnetway-six-ways/mixed-2/c-2.json",
+      "bench/results/dotnetway-six-ways/mixed-2/c-3.json"
+     ]
+    }
+   }
+  },
+  {
+   "group": "Reads while a writer posts 10/s",
+   "route": "Search",
+   "key": "search",
+   "sessions": [
+    "mixed-1",
+    "mixed-2"
+   ],
+   "values": {
+    "dotnetway": {
+     "median": 39609.8,
+     "min": 38016.8,
+     "max": 40230.3,
+     "n": 6,
+     "sources": [
+      "bench/results/dotnetway-six-ways/mixed-1/dotnetway-1.json",
+      "bench/results/dotnetway-six-ways/mixed-1/dotnetway-2.json",
+      "bench/results/dotnetway-six-ways/mixed-1/dotnetway-3.json",
+      "bench/results/dotnetway-six-ways/mixed-2/dotnetway-1.json",
+      "bench/results/dotnetway-six-ways/mixed-2/dotnetway-2.json",
+      "bench/results/dotnetway-six-ways/mixed-2/dotnetway-3.json"
+     ]
+    },
+    "oncrack": {
+     "median": 182965.3,
+     "min": 181279.3,
+     "max": 184443.8,
+     "n": 6,
+     "sources": [
+      "bench/results/dotnetway-six-ways/mixed-1/oncrack-1.json",
+      "bench/results/dotnetway-six-ways/mixed-1/oncrack-2.json",
+      "bench/results/dotnetway-six-ways/mixed-1/oncrack-3.json",
+      "bench/results/dotnetway-six-ways/mixed-2/oncrack-1.json",
+      "bench/results/dotnetway-six-ways/mixed-2/oncrack-2.json",
+      "bench/results/dotnetway-six-ways/mixed-2/oncrack-3.json"
+     ]
+    },
+    "fsharp": {
+     "median": 34789.8,
+     "min": 34583.7,
+     "max": 35410.3,
+     "n": 6,
+     "sources": [
+      "bench/results/dotnetway-six-ways/mixed-1/fsharp-1.json",
+      "bench/results/dotnetway-six-ways/mixed-1/fsharp-2.json",
+      "bench/results/dotnetway-six-ways/mixed-1/fsharp-3.json",
+      "bench/results/dotnetway-six-ways/mixed-2/fsharp-1.json",
+      "bench/results/dotnetway-six-ways/mixed-2/fsharp-2.json",
+      "bench/results/dotnetway-six-ways/mixed-2/fsharp-3.json"
+     ]
+    },
+    "rails": {
+     "median": 4084.4,
+     "min": 3846.7,
+     "max": 4186.7,
+     "n": 6,
+     "sources": [
+      "bench/results/dotnetway-six-ways/mixed-1/rails-1.json",
+      "bench/results/dotnetway-six-ways/mixed-1/rails-2.json",
+      "bench/results/dotnetway-six-ways/mixed-1/rails-3.json",
+      "bench/results/dotnetway-six-ways/mixed-2/rails-1.json",
+      "bench/results/dotnetway-six-ways/mixed-2/rails-2.json",
+      "bench/results/dotnetway-six-ways/mixed-2/rails-3.json"
+     ]
+    },
+    "rust": {
+     "median": 54140.4,
+     "min": 50690.4,
+     "max": 54722.0,
+     "n": 6,
+     "sources": [
+      "bench/results/dotnetway-six-ways/mixed-1/rust-1.json",
+      "bench/results/dotnetway-six-ways/mixed-1/rust-2.json",
+      "bench/results/dotnetway-six-ways/mixed-1/rust-3.json",
+      "bench/results/dotnetway-six-ways/mixed-2/rust-1.json",
+      "bench/results/dotnetway-six-ways/mixed-2/rust-2.json",
+      "bench/results/dotnetway-six-ways/mixed-2/rust-3.json"
+     ]
+    },
+    "c": {
+     "median": 79869.7,
+     "min": 78460.5,
+     "max": 83297.2,
+     "n": 6,
+     "sources": [
+      "bench/results/dotnetway-six-ways/mixed-1/c-1.json",
+      "bench/results/dotnetway-six-ways/mixed-1/c-2.json",
+      "bench/results/dotnetway-six-ways/mixed-1/c-3.json",
+      "bench/results/dotnetway-six-ways/mixed-2/c-1.json",
+      "bench/results/dotnetway-six-ways/mixed-2/c-2.json",
+      "bench/results/dotnetway-six-ways/mixed-2/c-3.json"
+     ]
+    }
+   }
+  }
+ ]
+}

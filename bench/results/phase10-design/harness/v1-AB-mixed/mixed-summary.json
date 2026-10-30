@@ -1,0 +1,139 @@
+{
+  "metadata": {
+    "verification_revision": "f3103c7d48ab1edf779e6235e34900b489d5a305",
+    "response_validation": "route-contract-v1",
+    "started_at": "2026-10-28T11:41:09Z",
+    "seed_sha256": "4b584669b2268013f3d819d43ac61ea9e900b1740dec594422f185ba43acfe61",
+    "server_cpus": "0-3",
+    "client_cpus": "4-7",
+    "network": "host",
+    "gzip": true,
+    "duration": 8,
+    "concurrencies": "16",
+    "rounds": 2,
+    "loadgen_sha256": "351a66af1ea13003b845c24a63c59d7e5d2d46ddf101aa5c0e0b78e0a0869b1e",
+    "routes": "room_show,messages_page,sidebar,search",
+    "profile": "mixed-read-write-v1",
+    "mixed_writer": {
+      "clients": 1,
+      "maximum_writes_per_second": 10,
+      "room": 201306877,
+      "catch_up": false
+    },
+    "images": {
+      "rails": "sha256:abaf6099efd479bc449099826868e744e515227af707f0bbf783f285ad39c02a",
+      "dotnetway": "sha256:6f8d95a65a528cd400f5eee80f05ab9ab7551b29949f5c01043609e73b11443f"
+    },
+    "image_labels": {
+      "rails": {
+        "org.opencontainers.image.description": "",
+        "org.opencontainers.image.licenses": "MIT",
+        "org.opencontainers.image.source": ""
+      },
+      "dotnetway": {
+        "org.opencontainers.image.description": "",
+        "org.opencontainers.image.licenses": "MIT",
+        "org.opencontainers.image.revision": "dcc9434d3afaed16c1976e817334661c245fa36e",
+        "org.opencontainers.image.source": ""
+      }
+    },
+    "source_revisions": {
+      "rails": {
+        "head": "ca9b963961abcffed8256029afd75f32ecfdea81",
+        "dirty": false
+      },
+      "dotnetway": {
+        "head": "838f700743abbb8af8ff5f9125d26270c561793f",
+        "dirty": true
+      }
+    },
+    "preflight_only": false,
+    "topology": {
+      "rails": {
+        "http_workers": "4",
+        "threads": "1",
+        "jobs": "Redis/Resque",
+        "cable": "Action Cable",
+        "response_cache_mb": "64"
+      },
+      "dotnetway": {
+        "processes": 1,
+        "runtime": ".NET 11 (Kestrel, ASP.NET Core, EF Core with Dapper hot reads)",
+        "response_cache": "none for pages (OutputCache serves public assets only)",
+        "cable": "native",
+        "jobs": "in-process"
+      }
+    },
+    "runtimes": {
+      "rails": "rails",
+      "dotnetway": "dotnetway"
+    },
+    "search_order": {
+      "rails": "id",
+      "dotnetway": "created_at"
+    },
+    "complete": true
+  },
+  "mixed_results": {
+    "rails": {
+      "room_show": {
+        "median_rps": 2491.2,
+        "runs": [
+          2566.7,
+          2415.7
+        ]
+      },
+      "messages_page": {
+        "median_rps": 3166.05,
+        "runs": [
+          3041.5,
+          3290.6
+        ]
+      },
+      "sidebar": {
+        "median_rps": 4448.950000000001,
+        "runs": [
+          4515.1,
+          4382.8
+        ]
+      },
+      "search": {
+        "median_rps": 3798.8,
+        "runs": [
+          3697.5,
+          3900.1
+        ]
+      }
+    },
+    "dotnetway": {
+      "room_show": {
+        "median_rps": 33320.35,
+        "runs": [
+          33739.0,
+          32901.7
+        ]
+      },
+      "messages_page": {
+        "median_rps": 33065.45,
+        "runs": [
+          33055.4,
+          33075.5
+        ]
+      },
+      "sidebar": {
+        "median_rps": 40556.3,
+        "runs": [
+          40012.2,
+          41100.4
+        ]
+      },
+      "search": {
+        "median_rps": 40241.05,
+        "runs": [
+          40197.8,
+          40284.3
+        ]
+      }
+    }
+  }
+}

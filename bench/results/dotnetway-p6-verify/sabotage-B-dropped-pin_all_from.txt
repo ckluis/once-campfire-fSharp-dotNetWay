@@ -1,0 +1,22 @@
+Running tests from /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/bin/Release/net11.0/Campfire.App.Tests.dll (net11.0|arm64)
+failed Campfire.App.Tests.AssetsTests.T4 importmapTags have Rails' 89 pins and modulepreloads in Rails' order and targets, the same text after the mask (563ms)
+  Assert.Equal() Failure: Collections differ
+Expected: [Tuple ("application", "application.js"), Tuple ("@hotwired/stimulus", "stimulus.min.js"), Tuple ("@hotwired/stimulus-loading", "stimulus-loading.js"), Tuple ("@hotwired/turbo-rails", "turbo.js"), Tuple ("@rails/actioncable", "actioncable.esm.js"), ···]
+Actual:   [Tuple ("application", "application.js"), Tuple ("@hotwired/stimulus", "stimulus.min.js"), Tuple ("@hotwired/stimulus-loading", "stimulus-loading.js"), Tuple ("@hotwired/turbo-rails", "turbo.js"), Tuple ("@rails/actioncable", "actioncable.esm.js"), ···]
+  from /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/bin/Release/net11.0/Campfire.App.Tests.dll (net11.0|arm64)
+  Assert.Equal() Failure: Collections differ
+  Expected: [Tuple ("application", "application.js"), Tuple ("@hotwired/stimulus", "stimulus.min.js"), Tuple ("@hotwired/stimulus-loading", "stimulus-loading.js"), Tuple ("@hotwired/turbo-rails", "turbo.js"), Tuple ("@rails/actioncable", "actioncable.esm.js"), ···]
+  Actual:   [Tuple ("application", "application.js"), Tuple ("@hotwired/stimulus", "stimulus.min.js"), Tuple ("@hotwired/stimulus-loading", "stimulus-loading.js"), Tuple ("@hotwired/turbo-rails", "turbo.js"), Tuple ("@rails/actioncable", "actioncable.esm.js"), ···]
+    at Campfire.App.Tests.AssetsTests.T4 importmapTags have Rails' 89 pins and modulepreloads in Rails' order and targets\, the same text after the mask@276.MoveNext() in /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/AssetsTests.fs:286
+    at Campfire.App.Tests.AssetsTests.T4 importmapTags have Rails' 89 pins and modulepreloads in Rails' order and targets\, the same text after the mask@276.MoveNext() in /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/AssetsTests.fs:293
+    --- End of stack trace from previous location ---
+/Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/bin/Release/net11.0/Campfire.App.Tests.dll (net11.0|arm64) failed with 1 error(s) [+1/x1/?0] (794ms)
+Exit code: 2
+
+Test run summary: Failed!
+  total: 2
+  failed: 1
+  succeeded: 1
+  skipped: 0
+  duration: 992ms
+Test run completed with non-success exit code: 2. At least one test failed. See: https://aka.ms/testingplatform/exitcodes

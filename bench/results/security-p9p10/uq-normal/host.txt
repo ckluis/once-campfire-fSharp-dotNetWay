@@ -1,0 +1,3 @@
+before: {"spin_ms": 59.35, "spin_ms_max_cpu": 62.03, "cpus": "0-7", "baseline_ms": 55.57, "ratio": 1.068} load=2.38 1.83 2.06 1/211 21115
+after: {"spin_ms": 60.02, "spin_ms_max_cpu": 61.09, "cpus": "0-7", "baseline_ms": 55.57, "ratio": 1.08} load=5.78 5.29 3.70 1/205 24171
+commit=fed00c4f61902a2f99dfffdf13a01e6c5ed6e6f5 image=campfire-dotnetway:uq-fed00c4 mounted= mixed=0 harness=eb45b63

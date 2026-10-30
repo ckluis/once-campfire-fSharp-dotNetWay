@@ -1,0 +1,54 @@
+{
+  "profile": "read-and-post-v1",
+  "rounds": 2,
+  "routes": "sidebar",
+  "seed_sha256": "e3a7302e6560174e332161d1e555a43a7a0ebf3f722de8db170e63772eef1560",
+  "verification_revision": "f3103c7d48ab1edf779e6235e34900b489d5a305",
+  "source_revisions": {
+    "rails": {
+      "head": "ca9b963961abcffed8256029afd75f32ecfdea81",
+      "dirty": false
+    },
+    "dotnetway": {
+      "head": "25ac9bd4ede485bc6d474b6315d020259f8bd86c",
+      "dirty": false
+    }
+  },
+  "images": {
+    "rails": "sha256:abaf6099efd479bc449099826868e744e515227af707f0bbf783f285ad39c02a",
+    "dotnetway": "sha256:cc2643266d83cb509d64abb9aa63d62f6c0e5225e49b84fe89488545a3a019d9"
+  },
+  "image_labels": {
+    "rails": null,
+    "dotnetway": "25ac9bd4ede485bc6d474b6315d020259f8bd86c"
+  },
+  "host": [
+    "before: {\"spin_ms\": 59.33, \"spin_ms_max_cpu\": 61.0, \"cpus\": \"0-7\", \"baseline_ms\": 55.57, \"ratio\": 1.068} load=1.80 3.25 3.30 1/215 1039020",
+    "after: {\"spin_ms\": 59.54, \"spin_ms_max_cpu\": 62.09, \"cpus\": \"0-7\", \"baseline_ms\": 55.57, \"ratio\": 1.071} load=3.92 3.60 3.42 1/214 1040165",
+    "commit=25ac9bd4ede485bc6d474b6315d020259f8bd86c image=campfire-dotnetway:uq-25ac9bd mounted= mixed=0 harness=f3103c7"
+  ],
+  "table": {
+    "sidebar": {
+      "rails": {
+        "median": 5474.5,
+        "min": 5413.6,
+        "max": 5535.4,
+        "runs": [
+          5413.6,
+          5535.4
+        ],
+        "x_rails": 1.0
+      },
+      "dotnetway": {
+        "median": 3578.8999999999996,
+        "min": 3471.2,
+        "max": 3686.6,
+        "runs": [
+          3471.2,
+          3686.6
+        ],
+        "x_rails": 0.65
+      }
+    }
+  }
+}

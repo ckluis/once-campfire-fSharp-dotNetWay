@@ -1,0 +1,198 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>campfire</AssemblyName>
+    <ServerGarbageCollection>true</ServerGarbageCollection>
+    <TieredPGO>true</TieredPGO>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="Platform/HarnessClock.fs" />
+    <Compile Include="Config.fs" />
+    <Compile Include="Logging.fs" />
+    <Compile Include="Concerns/UserAgent.fs" />
+    <Compile Include="Concerns/Platform.fs" />
+    <Compile Include="Platform/OpenFiles.fs" />
+    <Compile Include="Channels/Identity.fs" />
+    <Compile Include="Channels/Publish.fs" />
+    <Compile Include="Channels/Revocation.fs" />
+    <Compile Include="Channels/ReadRooms.fs" />
+    <Compile Include="Channels/UnreadRooms.fs" />
+    <Compile Include="Channels/Broadcasts.fs" />
+    <Compile Include="Channels/RoomChannel.fs" />
+    <Compile Include="Channels/Presence.fs" />
+    <Compile Include="Channels/RoomMessages.fs" />
+    <Compile Include="Channels/TypingNotifications.fs" />
+    <Compile Include="Integrations/Net.fs" />
+    <Compile Include="Integrations/Guard.fs" />
+    <Compile Include="Integrations/Clients.fs" />
+    <Compile Include="Integrations/Vapid.fs" />
+    <Compile Include="Integrations/WebPush.fs" />
+    <Compile Include="Integrations/PushDeliveries.fs" />
+    <Compile Include="Integrations/Webhook.fs" />
+    <Compile Include="Jobs.fs" />
+    <Compile Include="Web/Importmap.fs" />
+    <Compile Include="Web/Errors.fs" />
+    <Compile Include="Web/Params.fs" />
+    <Compile Include="Web/Formats.fs" />
+    <Compile Include="Web/Flash.fs" />
+    <Compile Include="Web/Respond.fs" />
+    <Compile Include="Web/Edge.fs" />
+    <Compile Include="Web/StaticAssets.fs" />
+    <Compile Include="AppState.fs" />
+    <Compile Include="Current.fs" />
+    <Compile Include="Presenters/Common.fs" />
+    <Compile Include="Presenters/RichText.fs" />
+    <Compile Include="Presenters/Attachments.fs" />
+    <Compile Include="Presenters/Pagination.fs" />
+    <Compile Include="Presenters/Accounts.fs" />
+    <Compile Include="Presenters/ViewContext.fs" />
+    <Compile Include="Presenters/Page.fs" />
+    <Compile Include="Presenters/EmojiRanges.fs" />
+    <Compile Include="Presenters/Presenter.fs" />
+    <Compile Include="Web/Outgoing.fs" />
+    <Compile Include="Web/PublicExceptions.fs" />
+    <Compile Include="Web/Action.fs" />
+    <Compile Include="Web/Data.fs" />
+    <Compile Include="Web/Native.fs" />
+    <Compile Include="Web/Current.fs" />
+    <Compile Include="Web/TicketFormat.fs" />
+    <Compile Include="Web/Authentication.fs" />
+    <Compile Include="Web/Csrf.fs" />
+    <Compile Include="Web/PageCache.fs" />
+    <Compile Include="Web/Pages.fs" />
+    <Compile Include="Web/Before.fs" />
+    <Compile Include="Web/LoginThrottle.fs" />
+    <Compile Include="Web/FrontSettings.fs" />
+    <Compile Include="Web/Acme.fs" />
+    <Compile Include="Web/OutputCaching.fs" />
+    <Compile Include="Web/HttpLog.fs" />
+    <Compile Include="Web/Services.fs" />
+    <Compile Include="Channels/Auth.fs" />
+    <Compile Include="Channels/CableServices.fs" />
+    <Compile Include="ActiveStorage.fs" />
+    <Compile Include="Presenters/AttachmentWrites.fs" />
+    <Compile Include="RichText.fs" />
+    <Compile Include="CoreJobs.fs" />
+    <Compile Include="Integrations/OpengraphDocument.fs" />
+    <Compile Include="Integrations/OpengraphFetch.fs" />
+    <Compile Include="Integrations/OpengraphLocation.fs" />
+    <Compile Include="Integrations/OpengraphMetadata.fs" />
+    <Compile Include="Integrations/Opengraph.fs" />
+    <Compile Include="Integrations/SearchWordRanges.fs" />
+    <Compile Include="Integrations/Search.fs" />
+    <Compile Include="Controllers/Sessions.fs" />
+    <Compile Include="Controllers/Welcome.fs" />
+    <Compile Include="Controllers/Sessions/Transfers.fs" />
+    <Compile Include="Controllers/FirstRuns.fs" />
+    <Compile Include="Controllers/Pwa.fs" />
+    <Compile Include="Controllers/Accounts.fs" />
+    <Compile Include="Controllers/Accounts/Bots.fs" />
+    <Compile Include="Controllers/Accounts/BotKeys.fs" />
+    <Compile Include="Controllers/Accounts/CustomStyles.fs" />
+    <Compile Include="Controllers/Accounts/JoinCodes.fs" />
+    <Compile Include="Controllers/Accounts/Users.fs" />
+    <Compile Include="Controllers/Users.fs" />
+    <Compile Include="Controllers/Users/Avatars.fs" />
+    <Compile Include="Controllers/Accounts/Logos.fs" />
+    <Compile Include="Controllers/Users/Bans.fs" />
+    <Compile Include="Controllers/Users/Profiles.fs" />
+    <Compile Include="Controllers/Users/Sidebars.fs" />
+    <Compile Include="Controllers/Users/PushSubscriptions.fs" />
+    <Compile Include="Controllers/Users/TestNotifications.fs" />
+    <Compile Include="Controllers/Autocompletable.fs" />
+    <Compile Include="Controllers/QrCode/Rqrcode.fs" />
+    <Compile Include="Controllers/QrCode.fs" />
+    <Compile Include="Controllers/UnfurlLinks.fs" />
+    <Compile Include="Controllers/Messages.fs" />
+    <Compile Include="Controllers/Messages/Boosts.fs" />
+    <Compile Include="Controllers/Messages/ByBots.fs" />
+    <Compile Include="Controllers/Messages/BoostsByBots.fs" />
+    <Compile Include="Integrations/IntegrationJobs.fs" />
+    <Compile Include="Controllers/Rooms.fs" />
+    <Compile Include="Controllers/Rooms/Opens.fs" />
+    <Compile Include="Controllers/Rooms/Closeds.fs" />
+    <Compile Include="Controllers/Rooms/Directs.fs" />
+    <Compile Include="Controllers/Rooms/Involvements.fs" />
+    <Compile Include="Controllers/Rooms/Refreshes.fs" />
+    <Compile Include="Controllers/Searches.fs" />
+    <Compile Include="Controllers/ActiveStorage.fs" />
+    <Compile Include="Controllers/Rails.fs" />
+    <Compile Include="Controllers.fs" />
+    <Compile Include="Web/Host.fs" />
+    <Compile Include="Boot.fs" />
+    <Compile Include="Program.fs" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../Campfire.Rails/Campfire.Rails.fsproj" />
+    <ProjectReference Include="../Campfire.Db/Campfire.Db.fsproj" />
+    <ProjectReference Include="../Campfire.RichText/Campfire.RichText.fsproj" />
+    <ProjectReference Include="../Campfire.Storage/Campfire.Storage.fsproj" />
+    <ProjectReference Include="../Campfire.Cable/Campfire.Cable.fsproj" />
+    <ProjectReference Include="../Campfire.Views/Campfire.Views.fsproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- K2: the one registered scheme must not become the default (Web/Services.fs sets the same switch for hosts that are not this executable). -->
+    <RuntimeHostConfigurationOption Include="Microsoft.AspNetCore.Authentication.SuppressAutoDefaultScheme" Value="true" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Certes" />
+    <PackageReference Include="Microsoft.Extensions.Http.Resilience" />
+    <PackageReference Include="Lib.Net.Http.WebPush" />
+    <PackageReference Include="Microsoft.Extensions.Compliance.Redaction" />
+    <PackageReference Include="Falco" />
+    <PackageReference Include="FsToolkit.ErrorHandling" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="Campfire.App.Tests" />
+  </ItemGroup>
+<PropertyGroup>
+  <CampfireAssetsDir>$(MSBuildProjectDirectory)/Assets/</CampfireAssetsDir>
+  <CampfireReferenceRoot>$(MSBuildProjectDirectory)/../../reference/</CampfireReferenceRoot>
+</PropertyGroup>
+<ItemGroup>
+  <EmbeddedResource Include="$(CampfireReferenceRoot)config/importmap.rb" LogicalName="importmap.rb" />
+</ItemGroup>
+<!-- Propshaft's load path (Assets/overrides first, then Assets/vendor/LOAD_PATH; an override shadows the file of its logical
+     path) and reference/public, copied into wwwroot/ (gitignored) before static web assets discovery. -->
+<Target Name="CampfireStageWebRoot" BeforeTargets="ResolveProjectStaticWebAssets">
+  <Error Condition="!Exists('$(CampfireReferenceRoot)config/importmap.rb')" Text="reference/ submodule is missing (git submodule update --init reference)" />
+  <ReadLinesFromFile File="$(CampfireAssetsDir)vendor/LOAD_PATH">
+    <Output TaskParameter="Lines" ItemName="_CampfireLoadPathLine" />
+  </ReadLinesFromFile>
+  <ItemGroup>
+    <_CampfireLoadPathGlob Include="$([System.String]::Copy('%(_CampfireLoadPathLine.Identity)').Replace('reference:', '$(CampfireReferenceRoot)').Replace('vendor:', '$(CampfireAssetsDir)vendor/'))/**" />
+    <!-- Nothing hidden is served: a dotfile or a file under a dot-directory (.keep, .DS_Store, .git/) is never staged. -->
+    <_CampfireOverride Include="$(CampfireAssetsDir)overrides/**" />
+    <_CampfireOverride Remove="@(_CampfireOverride)" Condition="$([System.String]::Copy('/%(_CampfireOverride.RecursiveDir)%(_CampfireOverride.Filename)%(_CampfireOverride.Extension)').Replace('\','/').Contains('/.'))" />
+    <_CampfireOverride Link="wwwroot/assets/%(RecursiveDir)%(Filename)%(Extension)" />
+    <_CampfireAsset Include="@(_CampfireLoadPathGlob)" />
+    <_CampfireAsset Remove="@(_CampfireAsset)" Condition="$([System.String]::Copy('/%(_CampfireAsset.RecursiveDir)%(_CampfireAsset.Filename)%(_CampfireAsset.Extension)').Replace('\','/').Contains('/.')) Or '%(_CampfireAsset.Extension)' == '.gz' Or '%(_CampfireAsset.Extension)' == '.br'" />
+    <_CampfireAsset Link="wwwroot/assets/%(RecursiveDir)%(Filename)%(Extension)" />
+    <_CampfireAsset Remove="@(_CampfireOverride)" MatchOnMetadata="Link" />
+    <_CampfirePublic Include="$(CampfireReferenceRoot)public/**" />
+    <_CampfirePublic Remove="@(_CampfirePublic)" Condition="$([System.String]::Copy('/%(_CampfirePublic.RecursiveDir)%(_CampfirePublic.Filename)%(_CampfirePublic.Extension)').Replace('\','/').Contains('/.'))" />
+    <_CampfirePublic Link="wwwroot/%(RecursiveDir)%(Filename)%(Extension)" />
+    <_CampfireStage Include="@(_CampfireOverride);@(_CampfireAsset);@(_CampfirePublic)" />
+    <_CampfireRoot Include="$(CampfireAssetsDir)overrides;$(CampfireReferenceRoot)public" />
+    <_CampfireRoot Include="$([System.String]::Copy('%(_CampfireLoadPathLine.Identity)').Replace('reference:', '$(CampfireReferenceRoot)').Replace('vendor:', '$(CampfireAssetsDir)vendor/'))" />
+    <_CampfireRoot Remove="@(_CampfireRoot)" Condition="!Exists('%(_CampfireRoot.Identity)')" />
+  </ItemGroup>
+  <!-- No symbolic links: Copy follows them, so a link (to a file, or a directory the glob walks into) would stage whatever
+       file of the build host it names into the web root, and the image would serve it (design-assets.md, Security review, F1). -->
+  <Exec Condition="'$(OS)' != 'Windows_NT'" Command="find @(_CampfireRoot->'&quot;%(Identity)&quot;', ' ') -name '.*' -prune -o -type l -print" ConsoleToMSBuild="true" StandardOutputImportance="low" EchoOff="true">
+    <Output TaskParameter="ConsoleOutput" ItemName="_CampfireSymlink" />
+  </Exec>
+  <Error Condition="'@(_CampfireSymlink)' != ''" Text="the web root's inputs hold a symbolic link, which would stage the file it names into the web root (replace it with the file itself): @(_CampfireSymlink, '; ')" />
+  <Copy SourceFiles="@(_CampfireStage)" DestinationFiles="@(_CampfireStage->'%(Link)')" SkipUnchangedFiles="true">
+    <Output TaskParameter="DestinationFiles" ItemName="_CampfireStaged" />
+  </Copy>
+  <ItemGroup>
+    <_CampfireStale Include="wwwroot/**" Exclude="@(_CampfireStaged)" />
+  </ItemGroup>
+  <Delete Files="@(_CampfireStale)" />
+  <ItemGroup>
+    <Content Remove="@(_CampfireStaged);@(_CampfireStale)" />
+    <Content Include="@(_CampfireStaged)" />
+  </ItemGroup>
+</Target>
+</Project>

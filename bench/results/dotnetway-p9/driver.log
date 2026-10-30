@@ -1,0 +1,11 @@
+=== build 21:19:57 mac-free 24Gi load 2.18 3.31 3.95
+build rc=0 head=dcc9434d3afaed16c1976e817334661c245fa36e label=dcc9434d3afaed16c1976e817334661c245fa36e
+=== verify 21:21:13 mac-free 23Gi load 2.97 3.29 3.89
+verify rc=0
+=== linux-tests 21:22:10 mac-free 22Gi load 5.84 4.17 4.18
+linux-tests rc=0
+=== ac11 21:24:48 mac-free 18Gi load 4.66 4.73 4.43
+ac11 rc=0
+=== pebble-image 21:25:23 mac-free 18Gi load 3.78 4.50 4.36
+pebble-image rc=0
+=== done 21:25:30 mac-free 22Gi load 3.72 4.48 4.35

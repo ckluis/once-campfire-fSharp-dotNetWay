@@ -1,0 +1,65 @@
+=== realtime/message_sent
+pixel-parity: dotnetway vs the Rails reference, layers pixels,aria,loose, seeds default (fast: chromium, light, no breakpoint sweep)
+pixel-parity: VM free 37G, parity/out 8.7M
+seed default: 2/2 screenshots pixel-equal; 2/2 aria equal; 2/2 loose equal  [35s]
+pixel-parity: PASSED, the UI is pixel-identical in 35s; reports under /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/parity/out/p2-2-rt
+=== realtime/attachment_sent
+pixel-parity: dotnetway vs the Rails reference, layers pixels,aria,loose, seeds default (fast: chromium, light, no breakpoint sweep)
+pixel-parity: VM free 37G, parity/out 18M
+seed default: 2/2 screenshots pixel-equal; 2/2 aria equal; 2/2 loose equal  [35s]
+pixel-parity: PASSED, the UI is pixel-identical in 35s; reports under /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/parity/out/p2-2-rt
+=== realtime/message_edited
+pixel-parity: dotnetway vs the Rails reference, layers pixels,aria,loose, seeds default (fast: chromium, light, no breakpoint sweep)
+pixel-parity: VM free 37G, parity/out 26M
+seed default: 2/2 screenshots pixel-equal; 2/2 aria equal; 2/2 loose equal  [37s]
+pixel-parity: PASSED, the UI is pixel-identical in 37s; reports under /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/parity/out/p2-2-rt
+=== realtime/message_deleted
+pixel-parity: dotnetway vs the Rails reference, layers pixels,aria,loose, seeds default (fast: chromium, light, no breakpoint sweep)
+pixel-parity: VM free 37G, parity/out 35M
+seed default: 2/2 screenshots pixel-equal; 2/2 aria equal; 2/2 loose equal  [36s]
+pixel-parity: PASSED, the UI is pixel-identical in 36s; reports under /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/parity/out/p2-2-rt
+=== realtime/boosted
+pixel-parity: dotnetway vs the Rails reference, layers pixels,aria,loose, seeds default (fast: chromium, light, no breakpoint sweep)
+pixel-parity: VM free 37G, parity/out 43M
+seed default: 2/2 screenshots pixel-equal; 2/2 aria equal; 2/2 loose equal  [35s]
+pixel-parity: PASSED, the UI is pixel-identical in 35s; reports under /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/parity/out/p2-2-rt
+=== realtime/boost_removed
+pixel-parity: dotnetway vs the Rails reference, layers pixels,aria,loose, seeds default (fast: chromium, light, no breakpoint sweep)
+pixel-parity: VM free 37G, parity/out 52M
+seed default: 2/2 screenshots pixel-equal; 2/2 aria equal; 2/2 loose equal  [34s]
+pixel-parity: PASSED, the UI is pixel-identical in 34s; reports under /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/parity/out/p2-2-rt
+=== realtime/typing/one
+pixel-parity: dotnetway vs the Rails reference, layers pixels,aria,loose, seeds default (fast: chromium, light, no breakpoint sweep)
+pixel-parity: VM free 37G, parity/out 60M
+seed default: 2/2 screenshots pixel-equal; 2/2 aria equal; 2/2 loose equal  [34s]
+pixel-parity: PASSED, the UI is pixel-identical in 34s; reports under /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/parity/out/p2-2-rt
+=== realtime/typing/many
+pixel-parity: dotnetway vs the Rails reference, layers pixels,aria,loose, seeds default (fast: chromium, light, no breakpoint sweep)
+pixel-parity: VM free 37G, parity/out 69M
+seed default: 2/2 screenshots pixel-equal; 2/2 aria equal; 2/2 loose equal  [40s]
+pixel-parity: PASSED, the UI is pixel-identical in 40s; reports under /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/parity/out/p2-2-rt
+=== realtime/unread_in_sidebar
+pixel-parity: dotnetway vs the Rails reference, layers pixels,aria,loose, seeds default (fast: chromium, light, no breakpoint sweep)
+pixel-parity: VM free 37G, parity/out 78M
+seed default: 2/2 screenshots pixel-equal; 2/2 aria equal; 2/2 loose equal  [39s]
+pixel-parity: PASSED, the UI is pixel-identical in 39s; reports under /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/parity/out/p2-2-rt
+=== realtime/new_room_in_sidebar
+pixel-parity: dotnetway vs the Rails reference, layers pixels,aria,loose, seeds default (fast: chromium, light, no breakpoint sweep)
+pixel-parity: VM free 37G, parity/out 86M
+seed default: 2/2 screenshots pixel-equal; 2/2 aria equal; 2/2 loose equal  [38s]
+pixel-parity: PASSED, the UI is pixel-identical in 38s; reports under /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/parity/out/p2-2-rt
+=== realtime/removed_from_room
+pixel-parity: dotnetway vs the Rails reference, layers pixels,aria,loose, seeds default (fast: chromium, light, no breakpoint sweep)
+pixel-parity: VM free 37G, parity/out 95M
+seed default: 2/2 screenshots pixel-equal; 2/2 aria equal; 2/2 loose equal  [76s]
+pixel-parity: PASSED, the UI is pixel-identical in 76s; reports under /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/parity/out/p2-2-rt
+=== realtime/room_deleted_then_send
+pixel-parity: dotnetway vs the Rails reference, layers pixels,aria,loose, seeds default (fast: chromium, light, no breakpoint sweep)
+pixel-parity: VM free 37G, parity/out 96M
+seed default: 2/2 screenshots pixel-equal; 2/2 aria equal; 2/2 loose equal  [39s]
+pixel-parity: PASSED, the UI is pixel-identical in 39s; reports under /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/parity/out/p2-2-rt
+=== realtime/presence_read
+pixel-parity: dotnetway vs the Rails reference, layers pixels,aria,loose, seeds default (fast: chromium, light, no breakpoint sweep)
+pixel-parity: VM free 37G, parity/out 106M
+seed default: 2/2 screenshots pixel-equal; 2/2 aria equal; 2/2 loose equal  [33s]
+pixel-parity: PASSED, the UI is pixel-identical in 33s; reports under /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/parity/out/p2-2-rt

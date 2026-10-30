@@ -1,0 +1,16 @@
+<body>
+  <a class="direct" data-badge-dot-target="unread" data-room-id="706558527" data-rooms-list-target="room" data-sorted-list-number="«epochms-373391209.670s»" data-sorted-list-target="item" href="/rooms/706558527" id="list_rooms_direct_706558527">
+    <span class="avatar">
+      <img aria-hidden="true" height="48" src="/users/773524090/avatar?v=20260210181100" width="48">
+    </span>
+    " "
+    <span class="align-center border-radius direct__author flex gap max-width min-width txt-small">
+      <span class="overflow-ellipsis txt-nowrap">
+        <span class="for-screen-reader">
+          "Ping with"
+        </span>
+        " "
+      </span>
+    </span>
+  </a>
+</body>

@@ -1,0 +1,31 @@
+pixel-parity: dotnetway vs the Rails reference, layers pixels,aria,loose, seeds default,crowd,custom_styles,first_run,restricted
+pixel-parity: VM free 43G, parity/out 13M
+seed default: 26/26 screenshots pixel-equal; 26/26 aria equal; 12/26 loose equal, 14 DIFFERENT  [80s]
+    LOOSE DIFF search/submitted @ chromium-desktop-light: +0 -40 lines
+    LOOSE DIFF search/submitted @ chromium-desktop-dark: +0 -40 lines
+    LOOSE DIFF search/submitted @ chromium-phone-light: +0 -40 lines
+    LOOSE DIFF search/submitted @ chromium-phone-dark: +0 -40 lines
+    LOOSE DIFF search/results @ chromium-desktop-light: +0 -8 lines
+    LOOSE DIFF search/results @ chromium-desktop-dark: +0 -8 lines
+    LOOSE DIFF search/results @ chromium-phone-light: +0 -8 lines
+    LOOSE DIFF search/results @ chromium-phone-dark: +0 -8 lines
+    LOOSE DIFF search/results @ chromium-bp799-light: +0 -8 lines
+    LOOSE DIFF search/results @ chromium-bp799-dark: +0 -8 lines
+    LOOSE DIFF search/results @ chromium-bp800-light: +0 -8 lines
+    LOOSE DIFF search/results @ chromium-bp800-dark: +0 -8 lines
+    LOOSE DIFF search/results @ chromium-bp801-light: +0 -8 lines
+    LOOSE DIFF search/results @ chromium-bp801-dark: +0 -8 lines
+pixel-parity: VM free 43G, parity/out 13M
+seed crowd: 0/0 screenshots pixel-equal; 0/0 aria equal; 0/0 loose equal  [8s]
+pixel-parity: VM free 43G, parity/out 20M
+seed custom_styles: 4/4 screenshots pixel-equal; 4/4 aria equal; 0/4 loose equal, 4 DIFFERENT  [25s]
+    LOOSE DIFF search/custom_styles @ chromium-desktop-dark: +0 -96 lines
+    LOOSE DIFF search/custom_styles @ chromium-phone-light: +0 -96 lines
+    LOOSE DIFF search/custom_styles @ chromium-desktop-light: +0 -96 lines
+    LOOSE DIFF search/custom_styles @ chromium-phone-dark: +0 -96 lines
+pixel-parity: VM free 43G, parity/out 20M
+seed first_run: 0/0 screenshots pixel-equal; 0/0 aria equal; 0/0 loose equal  [7s]
+pixel-parity: VM free 43G, parity/out 20M
+seed restricted: 0/0 screenshots pixel-equal; 0/0 aria equal; 0/0 loose equal  [8s]
+pixel-parity: FAILED in 128s; reports under /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/parity/out/p0-full/search
+time="2026-10-13T16:14:40-04:00" level=fatal msg="exit status 1"

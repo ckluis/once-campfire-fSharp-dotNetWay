@@ -1,0 +1,1381 @@
+{
+  "info": {
+    "title": "Parity report",
+    "expected": "reference http://127.0.0.1:4111",
+    "actual": "candidate http://127.0.0.1:4112",
+    "startedAt": "2026-10-22T23:07:16.903Z",
+    "durationMs": 98451,
+    "unusedAllowlist": [
+      {
+        "state": "pwa/manifest",
+        "layers": [
+          "server"
+        ],
+        "reason": "The manifest is JSON-escaped, not HTML-escaped, so the small logo's URL reads `&v=` where Rails wrote `&amp;v=` (README, \"The web app manifest is valid JSON\")",
+        "owner": "views"
+      }
+    ],
+    "counts": {
+      "pass": 2,
+      "fail": 24,
+      "allowed": 0,
+      "error": 0
+    },
+    "flaky": 0,
+    "masks": {}
+  },
+  "results": [
+    {
+      "state": "auth/sign_in",
+      "cell": "chromium-desktop-light",
+      "status": "fail",
+      "layers": [
+        {
+          "layer": "pixels",
+          "equal": true,
+          "pixels": {
+            "equal": true,
+            "width": 1440,
+            "height": 900
+          }
+        },
+        {
+          "layer": "server",
+          "equal": false,
+          "added": 1,
+          "removed": 1
+        },
+        {
+          "layer": "live",
+          "equal": false,
+          "added": 1,
+          "removed": 1
+        },
+        {
+          "layer": "loose",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "aria",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "network",
+          "equal": false,
+          "added": 280,
+          "removed": 262
+        },
+        {
+          "layer": "cable",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        }
+      ]
+    },
+    {
+      "state": "auth/sign_in",
+      "cell": "chromium-phone-light",
+      "status": "fail",
+      "layers": [
+        {
+          "layer": "pixels",
+          "equal": true,
+          "pixels": {
+            "equal": true,
+            "width": 1170,
+            "height": 2532
+          }
+        },
+        {
+          "layer": "server",
+          "equal": false,
+          "added": 1,
+          "removed": 1
+        },
+        {
+          "layer": "live",
+          "equal": false,
+          "added": 1,
+          "removed": 1
+        },
+        {
+          "layer": "loose",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "aria",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "network",
+          "equal": false,
+          "added": 280,
+          "removed": 262
+        },
+        {
+          "layer": "cable",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        }
+      ]
+    },
+    {
+      "state": "auth/sign_in/error",
+      "cell": "chromium-desktop-light",
+      "status": "fail",
+      "layers": [
+        {
+          "layer": "pixels",
+          "equal": true,
+          "pixels": {
+            "equal": true,
+            "width": 1440,
+            "height": 900
+          }
+        },
+        {
+          "layer": "server",
+          "equal": false,
+          "added": 1,
+          "removed": 1
+        },
+        {
+          "layer": "live",
+          "equal": false,
+          "added": 1,
+          "removed": 1
+        },
+        {
+          "layer": "loose",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "aria",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "network",
+          "equal": false,
+          "added": 280,
+          "removed": 262
+        },
+        {
+          "layer": "cable",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        }
+      ]
+    },
+    {
+      "state": "auth/sign_in/error",
+      "cell": "chromium-phone-light",
+      "status": "fail",
+      "layers": [
+        {
+          "layer": "pixels",
+          "equal": true,
+          "pixels": {
+            "equal": true,
+            "width": 1170,
+            "height": 2532
+          }
+        },
+        {
+          "layer": "server",
+          "equal": false,
+          "added": 1,
+          "removed": 1
+        },
+        {
+          "layer": "live",
+          "equal": false,
+          "added": 1,
+          "removed": 1
+        },
+        {
+          "layer": "loose",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "aria",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "network",
+          "equal": false,
+          "added": 280,
+          "removed": 262
+        },
+        {
+          "layer": "cable",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        }
+      ]
+    },
+    {
+      "state": "auth/sign_in/banned_ip",
+      "cell": "chromium-desktop-light",
+      "status": "fail",
+      "layers": [
+        {
+          "layer": "pixels",
+          "equal": true,
+          "pixels": {
+            "equal": true,
+            "width": 1440,
+            "height": 900
+          }
+        },
+        {
+          "layer": "server",
+          "equal": false,
+          "added": 1,
+          "removed": 1
+        },
+        {
+          "layer": "live",
+          "equal": false,
+          "added": 1,
+          "removed": 1
+        },
+        {
+          "layer": "loose",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "aria",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "network",
+          "equal": false,
+          "added": 280,
+          "removed": 262
+        },
+        {
+          "layer": "cable",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        }
+      ]
+    },
+    {
+      "state": "auth/sign_in/banned_ip",
+      "cell": "chromium-phone-light",
+      "status": "fail",
+      "layers": [
+        {
+          "layer": "pixels",
+          "equal": true,
+          "pixels": {
+            "equal": true,
+            "width": 1170,
+            "height": 2532
+          }
+        },
+        {
+          "layer": "server",
+          "equal": false,
+          "added": 1,
+          "removed": 1
+        },
+        {
+          "layer": "live",
+          "equal": false,
+          "added": 1,
+          "removed": 1
+        },
+        {
+          "layer": "loose",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "aria",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "network",
+          "equal": false,
+          "added": 280,
+          "removed": 262
+        },
+        {
+          "layer": "cable",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        }
+      ]
+    },
+    {
+      "state": "auth/join/completed",
+      "cell": "chromium-desktop-light",
+      "status": "fail",
+      "layers": [
+        {
+          "layer": "pixels",
+          "equal": true,
+          "pixels": {
+            "equal": true,
+            "width": 1440,
+            "height": 900
+          }
+        },
+        {
+          "layer": "server",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "live",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "loose",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "aria",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "network",
+          "equal": false,
+          "added": 345,
+          "removed": 327
+        },
+        {
+          "layer": "cable",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        }
+      ]
+    },
+    {
+      "state": "auth/join",
+      "cell": "chromium-desktop-light",
+      "status": "fail",
+      "layers": [
+        {
+          "layer": "pixels",
+          "equal": true,
+          "pixels": {
+            "equal": true,
+            "width": 1440,
+            "height": 900
+          }
+        },
+        {
+          "layer": "server",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "live",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "loose",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "aria",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "network",
+          "equal": false,
+          "added": 289,
+          "removed": 271
+        },
+        {
+          "layer": "cable",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        }
+      ]
+    },
+    {
+      "state": "auth/sign_in/rate_limited",
+      "cell": "chromium-desktop-light",
+      "status": "fail",
+      "layers": [
+        {
+          "layer": "pixels",
+          "equal": true,
+          "pixels": {
+            "equal": true,
+            "width": 1440,
+            "height": 900
+          }
+        },
+        {
+          "layer": "server",
+          "equal": false,
+          "added": 1,
+          "removed": 1
+        },
+        {
+          "layer": "live",
+          "equal": false,
+          "added": 1,
+          "removed": 1
+        },
+        {
+          "layer": "loose",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "aria",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "network",
+          "equal": false,
+          "added": 280,
+          "removed": 262
+        },
+        {
+          "layer": "cable",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        }
+      ]
+    },
+    {
+      "state": "auth/join",
+      "cell": "chromium-phone-light",
+      "status": "fail",
+      "layers": [
+        {
+          "layer": "pixels",
+          "equal": true,
+          "pixels": {
+            "equal": true,
+            "width": 1170,
+            "height": 2532
+          }
+        },
+        {
+          "layer": "server",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "live",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "loose",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "aria",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "network",
+          "equal": false,
+          "added": 289,
+          "removed": 271
+        },
+        {
+          "layer": "cable",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        }
+      ]
+    },
+    {
+      "state": "auth/join/invalid_code",
+      "cell": "chromium-desktop-light",
+      "status": "pass",
+      "layers": [
+        {
+          "layer": "pixels",
+          "equal": true,
+          "pixels": {
+            "equal": true,
+            "width": 1440,
+            "height": 900
+          }
+        },
+        {
+          "layer": "server",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "live",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "loose",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "aria",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "network",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "cable",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        }
+      ]
+    },
+    {
+      "state": "auth/join/completed",
+      "cell": "chromium-phone-light",
+      "status": "fail",
+      "layers": [
+        {
+          "layer": "pixels",
+          "equal": true,
+          "pixels": {
+            "equal": true,
+            "width": 1170,
+            "height": 2532
+          }
+        },
+        {
+          "layer": "server",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "live",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "loose",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "aria",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "network",
+          "equal": false,
+          "added": 345,
+          "removed": 327
+        },
+        {
+          "layer": "cable",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        }
+      ]
+    },
+    {
+      "state": "auth/transfer/valid",
+      "cell": "chromium-desktop-light",
+      "status": "fail",
+      "layers": [
+        {
+          "layer": "pixels",
+          "equal": true,
+          "pixels": {
+            "equal": true,
+            "width": 1440,
+            "height": 900
+          }
+        },
+        {
+          "layer": "server",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "live",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "loose",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "aria",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "network",
+          "equal": false,
+          "added": 328,
+          "removed": 310
+        },
+        {
+          "layer": "cable",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        }
+      ]
+    },
+    {
+      "state": "auth/sign_in/rate_limited",
+      "cell": "chromium-phone-light",
+      "status": "fail",
+      "layers": [
+        {
+          "layer": "pixels",
+          "equal": true,
+          "pixels": {
+            "equal": true,
+            "width": 1170,
+            "height": 2532
+          }
+        },
+        {
+          "layer": "server",
+          "equal": false,
+          "added": 1,
+          "removed": 1
+        },
+        {
+          "layer": "live",
+          "equal": false,
+          "added": 1,
+          "removed": 1
+        },
+        {
+          "layer": "loose",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "aria",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "network",
+          "equal": false,
+          "added": 280,
+          "removed": 262
+        },
+        {
+          "layer": "cable",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        }
+      ]
+    },
+    {
+      "state": "auth/join/invalid_code",
+      "cell": "chromium-phone-light",
+      "status": "pass",
+      "layers": [
+        {
+          "layer": "pixels",
+          "equal": true,
+          "pixels": {
+            "equal": true,
+            "width": 1170,
+            "height": 2531
+          }
+        },
+        {
+          "layer": "server",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "live",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "loose",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "aria",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "network",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "cable",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        }
+      ]
+    },
+    {
+      "state": "auth/transfer/valid",
+      "cell": "chromium-phone-light",
+      "status": "fail",
+      "layers": [
+        {
+          "layer": "pixels",
+          "equal": true,
+          "pixels": {
+            "equal": true,
+            "width": 1170,
+            "height": 2532
+          }
+        },
+        {
+          "layer": "server",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "live",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "loose",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "aria",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "network",
+          "equal": false,
+          "added": 328,
+          "removed": 310
+        },
+        {
+          "layer": "cable",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        }
+      ]
+    },
+    {
+      "state": "auth/transfer/expired",
+      "cell": "chromium-desktop-light",
+      "status": "fail",
+      "layers": [
+        {
+          "layer": "pixels",
+          "equal": true,
+          "pixels": {
+            "equal": true,
+            "width": 1440,
+            "height": 900
+          }
+        },
+        {
+          "layer": "server",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "live",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "loose",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "aria",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "network",
+          "equal": false,
+          "added": 268,
+          "removed": 250
+        },
+        {
+          "layer": "cable",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        }
+      ]
+    },
+    {
+      "state": "auth/join/existing_email",
+      "cell": "chromium-desktop-light",
+      "status": "fail",
+      "layers": [
+        {
+          "layer": "pixels",
+          "equal": true,
+          "pixels": {
+            "equal": true,
+            "width": 1440,
+            "height": 900
+          }
+        },
+        {
+          "layer": "server",
+          "equal": false,
+          "added": 1,
+          "removed": 1
+        },
+        {
+          "layer": "live",
+          "equal": false,
+          "added": 1,
+          "removed": 1
+        },
+        {
+          "layer": "loose",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "aria",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "network",
+          "equal": false,
+          "added": 296,
+          "removed": 278
+        },
+        {
+          "layer": "cable",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        }
+      ]
+    },
+    {
+      "state": "auth/signed_out_redirect",
+      "cell": "chromium-desktop-light",
+      "status": "fail",
+      "layers": [
+        {
+          "layer": "pixels",
+          "equal": true,
+          "pixels": {
+            "equal": true,
+            "width": 1440,
+            "height": 900
+          }
+        },
+        {
+          "layer": "server",
+          "equal": false,
+          "added": 1,
+          "removed": 1
+        },
+        {
+          "layer": "live",
+          "equal": false,
+          "added": 1,
+          "removed": 1
+        },
+        {
+          "layer": "loose",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "aria",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "network",
+          "equal": false,
+          "added": 282,
+          "removed": 263
+        },
+        {
+          "layer": "cable",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        }
+      ]
+    },
+    {
+      "state": "auth/transfer/expired",
+      "cell": "chromium-phone-light",
+      "status": "fail",
+      "layers": [
+        {
+          "layer": "pixels",
+          "equal": true,
+          "pixels": {
+            "equal": true,
+            "width": 1170,
+            "height": 2532
+          }
+        },
+        {
+          "layer": "server",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "live",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "loose",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "aria",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "network",
+          "equal": false,
+          "added": 268,
+          "removed": 250
+        },
+        {
+          "layer": "cable",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        }
+      ]
+    },
+    {
+      "state": "auth/join/existing_email",
+      "cell": "chromium-phone-light",
+      "status": "fail",
+      "layers": [
+        {
+          "layer": "pixels",
+          "equal": true,
+          "pixels": {
+            "equal": true,
+            "width": 1170,
+            "height": 2532
+          }
+        },
+        {
+          "layer": "server",
+          "equal": false,
+          "added": 1,
+          "removed": 1
+        },
+        {
+          "layer": "live",
+          "equal": false,
+          "added": 1,
+          "removed": 1
+        },
+        {
+          "layer": "loose",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "aria",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "network",
+          "equal": false,
+          "added": 296,
+          "removed": 278
+        },
+        {
+          "layer": "cable",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        }
+      ]
+    },
+    {
+      "state": "auth/signed_out_redirect",
+      "cell": "chromium-phone-light",
+      "status": "fail",
+      "layers": [
+        {
+          "layer": "pixels",
+          "equal": true,
+          "pixels": {
+            "equal": true,
+            "width": 1170,
+            "height": 2532
+          }
+        },
+        {
+          "layer": "server",
+          "equal": false,
+          "added": 1,
+          "removed": 1
+        },
+        {
+          "layer": "live",
+          "equal": false,
+          "added": 1,
+          "removed": 1
+        },
+        {
+          "layer": "loose",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "aria",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "network",
+          "equal": false,
+          "added": 282,
+          "removed": 263
+        },
+        {
+          "layer": "cable",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        }
+      ]
+    },
+    {
+      "state": "auth/incompatible_browser",
+      "cell": "chromium-desktop-light",
+      "status": "fail",
+      "layers": [
+        {
+          "layer": "pixels",
+          "equal": true,
+          "pixels": {
+            "equal": true,
+            "width": 1440,
+            "height": 900
+          }
+        },
+        {
+          "layer": "server",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "live",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "loose",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "aria",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "network",
+          "equal": false,
+          "added": 278,
+          "removed": 260
+        },
+        {
+          "layer": "cable",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        }
+      ]
+    },
+    {
+      "state": "auth/incompatible_browser/apple_messages",
+      "cell": "chromium-desktop-light",
+      "status": "fail",
+      "layers": [
+        {
+          "layer": "pixels",
+          "equal": true,
+          "pixels": {
+            "equal": true,
+            "width": 1440,
+            "height": 900
+          }
+        },
+        {
+          "layer": "server",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "live",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "loose",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "aria",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "network",
+          "equal": false,
+          "added": 278,
+          "removed": 260
+        },
+        {
+          "layer": "cable",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        }
+      ]
+    },
+    {
+      "state": "auth/incompatible_browser",
+      "cell": "chromium-phone-light",
+      "status": "fail",
+      "layers": [
+        {
+          "layer": "pixels",
+          "equal": true,
+          "pixels": {
+            "equal": true,
+            "width": 1170,
+            "height": 2532
+          }
+        },
+        {
+          "layer": "server",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "live",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "loose",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "aria",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "network",
+          "equal": false,
+          "added": 278,
+          "removed": 260
+        },
+        {
+          "layer": "cable",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        }
+      ]
+    },
+    {
+      "state": "auth/incompatible_browser/apple_messages",
+      "cell": "chromium-phone-light",
+      "status": "fail",
+      "layers": [
+        {
+          "layer": "pixels",
+          "equal": true,
+          "pixels": {
+            "equal": true,
+            "width": 1170,
+            "height": 2532
+          }
+        },
+        {
+          "layer": "server",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "live",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "loose",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "aria",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "network",
+          "equal": false,
+          "added": 278,
+          "removed": 260
+        },
+        {
+          "layer": "cable",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        }
+      ]
+    }
+  ]
+}

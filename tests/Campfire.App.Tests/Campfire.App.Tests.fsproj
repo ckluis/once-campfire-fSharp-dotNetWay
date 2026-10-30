@@ -1,0 +1,78 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../Shared/Repo.fs" Link="Repo.fs" />
+    <Compile Include="../Shared/JsonFrames.fs" Link="JsonFrames.fs" />
+    <Compile Include="../Shared/Testing.fs" Link="Testing.fs" />
+    <Compile Include="Support.fs" />
+    <Compile Include="TimeTests.fs" />
+    <Compile Include="UserAgentTests.fs" />
+    <Compile Include="PlatformTests.fs" />
+    <Compile Include="RouteTableTests.fs" />
+    <Compile Include="Web/AuthenticationTests.fs" />
+    <Compile Include="Web/BotKeyTests.fs" />
+    <Compile Include="Web/CsrfTests.fs" />
+    <Compile Include="Web/FlashTests.fs" />
+    <Compile Include="Web/RequestsTests.fs" />
+    <Compile Include="Web/ParamsTests.fs" />
+    <Compile Include="Web/FormatsTests.fs" />
+    <Compile Include="Web/RespondTests.fs" />
+    <Compile Include="Web/PagesTests.fs" />
+    <Compile Include="Web/HttpLogTests.fs" />
+    <Compile Include="Web/OutputCachingTests.fs" />
+    <Compile Include="Web/AcmeTests.fs" />
+    <Compile Include="Web/HostTests.fs" />
+    <Compile Include="Web/SessionControllerTests.fs" />
+    <Compile Include="Web/AccountControllerTests.fs" />
+    <Compile Include="Web/LookupControllerTests.fs" />
+    <Compile Include="Web/RoomControllerTests.fs" />
+    <Compile Include="AppTests.fs" />
+    <Compile Include="FileResultTests.fs" />
+    <Compile Include="JobsTests.fs" />
+    <Compile Include="MiscTests.fs" />
+    <Compile Include="PresentersTests.fs" />
+    <Compile Include="PaginationTests.fs" />
+    <Compile Include="IntegrationsSupport.fs" />
+    <Compile Include="GuardTests.fs" />
+    <Compile Include="ClientsTests.fs" />
+    <Compile Include="WebhookTests.fs" />
+    <Compile Include="WebPushTests.fs" />
+    <Compile Include="RedactionTests.fs" />
+    <Compile Include="OpengraphTests.fs" />
+    <Compile Include="RqrcodeTests.fs" />
+    <Compile Include="ControllerTests.fs" />
+    <Compile Include="PresenterAccountsTests.fs" />
+    <Compile Include="AttachmentTests.fs" />
+    <Compile Include="RoomsTests.fs" />
+    <Compile Include="MessagesTests.fs" />
+    <Compile Include="SearchesTests.fs" />
+    <Compile Include="ChannelsSupport.fs" />
+    <Compile Include="ChannelsTests.fs" />
+    <Compile Include="BroadcastsTests.fs" />
+    <Compile Include="RevocationTests.fs" />
+    <Compile Include="ChannelsGoldenTests.fs" />
+    <Compile Include="CableHostTests.fs" />
+    <Compile Include="CableAuthTests.fs" />
+    <Compile Include="HotPathTests.fs" />
+    <Compile Include="ConnectionTests.fs" />
+    <Compile Include="PageCacheTests.fs" />
+    <Compile Include="BuildTests.fs" />
+    <Compile Include="OptionsTests.fs" />
+    <Compile Include="FastReadsTests.fs" />
+    <Compile Include="AssetsTests.fs" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="testdata/**" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../src/Campfire.App/Campfire.App.fsproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="xunit.v3" />
+    <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" />
+    <PackageReference Include="Microsoft.Extensions.Diagnostics.Testing" />
+  </ItemGroup>
+</Project>

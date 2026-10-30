@@ -1,0 +1,29 @@
+candidate: reference :4111 vs candidate :4112 (seed default, clock frozen at 2026-03-02T16:00:00Z)
+breakpoint widths: {"chromium":[799,800,801],"firefox":[960,961],"webkit":[959,960]}
+24 cells (0 on shared servers, 24 on fresh servers in 3 slots) × 2 targets, 4 workers
+[1/24] realtime/message_sent @ firefox-desktop-light fail
+[2/24] realtime/message_sent @ chromium-desktop-light fail
+[3/24] realtime/message_sent @ webkit-desktop-light fail
+[4/24] realtime/message_sent @ chromium-desktop-dark fail
+[5/24] realtime/message_sent @ firefox-desktop-dark fail
+[6/24] realtime/message_sent @ webkit-desktop-dark fail
+[7/24] realtime/message_sent @ firefox-laptop-light fail
+[8/24] realtime/message_sent @ chromium-laptop-light fail
+[9/24] realtime/message_sent @ webkit-laptop-light fail
+[10/24] realtime/message_sent @ chromium-laptop-dark fail
+[11/24] realtime/message_sent @ firefox-laptop-dark fail
+[12/24] realtime/message_sent @ webkit-laptop-dark fail
+[13/24] realtime/message_sent @ firefox-tablet-light fail
+[14/24] realtime/message_sent @ chromium-tablet-light fail
+[15/24] realtime/message_sent @ webkit-tablet-light fail
+[16/24] realtime/message_sent @ firefox-tablet-dark fail
+[17/24] realtime/message_sent @ chromium-tablet-dark fail
+[18/24] realtime/message_sent @ webkit-tablet-dark fail
+[19/24] realtime/message_sent @ chromium-phone-light fail
+[20/24] realtime/message_sent @ firefox-phone-light fail
+[21/24] realtime/message_sent @ webkit-phone-light fail
+[22/24] realtime/message_sent @ firefox-phone-dark fail
+[23/24] realtime/message_sent @ chromium-phone-dark fail
+[24/24] realtime/message_sent @ webkit-phone-dark fail
+24 cells: 0 pass (0 flaky), 24 fail, 0 allowed, 0 error in 255.9s
+report: /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/parity/out/p4full-rt-message_sent/default/report.html

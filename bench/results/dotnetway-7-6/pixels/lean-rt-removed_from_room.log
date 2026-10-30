@@ -1,0 +1,11 @@
+pixel-parity: dotnetway vs the Rails reference, layers pixels,aria,loose, seeds default
+pixel-parity: VM free 37G, parity/out 26M
+seed default: capturing again (attempt 2): realtime/removed_from_room
+pixel-parity: VM free 37G, parity/out 52M
+seed default: capturing again (attempt 3): realtime/removed_from_room
+pixel-parity: VM free 37G, parity/out 78M
+seed default: 6/6 screenshots pixel-equal; 6/6 aria equal; 6/6 loose equal, 2 NOT CAPTURED  [975s]
+    NOT CAPTURED realtime/removed_from_room @ webkit-desktop-light: reference: step: #user_sidebar:not(:has([data-room-id="654632876"])) not visible: not ready after 30000ms at http://localhost:3999/rooms/654632876: waiting for 
+    NOT CAPTURED realtime/removed_from_room @ webkit-phone-light: reference: step: #user_sidebar:not(:has([data-room-id="654632876"])) not visible: not ready after 30000ms at http://localhost:3999/rooms/654632876: waiting for 
+pixel-parity: FAILED in 975s; reports under /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/parity/out/p76-lean-rt-removed_from_room
+time="2026-10-26T20:19:24-04:00" level=fatal msg="exit status 1"

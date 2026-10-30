@@ -1,0 +1,142 @@
+{
+  "profile": "read-and-post-v1",
+  "rounds": 2,
+  "routes": "room_show,messages_page,sidebar,search,post_message",
+  "seed_sha256": "e3a7302e6560174e332161d1e555a43a7a0ebf3f722de8db170e63772eef1560",
+  "verification_revision": "f3103c7d48ab1edf779e6235e34900b489d5a305",
+  "source_revisions": {
+    "rails": {
+      "head": "ca9b963961abcffed8256029afd75f32ecfdea81",
+      "dirty": false
+    },
+    "dotnetway": {
+      "head": "de6726149d3a8d7b6b3fa6011ab80320b48e44c6",
+      "dirty": false
+    }
+  },
+  "images": {
+    "rails": "sha256:abaf6099efd479bc449099826868e744e515227af707f0bbf783f285ad39c02a",
+    "dotnetway": "sha256:1f8dc6cc28012be8c88b75aa72a1ae6c929c924c90c453e2216fb463acefaa91"
+  },
+  "image_labels": {
+    "rails": null,
+    "dotnetway": "de6726149d3a8d7b6b3fa6011ab80320b48e44c6"
+  },
+  "host": [
+    "before: {\"spin_ms\": 59.43, \"spin_ms_max_cpu\": 60.11, \"cpus\": \"0-7\", \"baseline_ms\": 55.57, \"ratio\": 1.069} load=1.33 0.82 1.53 1/200 1170432",
+    "after: {\"spin_ms\": 59.14, \"spin_ms_max_cpu\": 60.41, \"cpus\": \"0-7\", \"baseline_ms\": 55.57, \"ratio\": 1.064} load=6.36 3.58 2.49 1/200 1171964",
+    "commit=de6726149d3a8d7b6b3fa6011ab80320b48e44c6 image=campfire-dotnetway:uq-de67261 mounted= mixed=0 harness=f3103c7"
+  ],
+  "table": {
+    "room_show": {
+      "rails": {
+        "median": 4507.9,
+        "min": 4434.8,
+        "max": 4581.0,
+        "runs": [
+          4581.0,
+          4434.8
+        ],
+        "x_rails": 1.0
+      },
+      "dotnetway": {
+        "median": 13704.9,
+        "min": 13614.4,
+        "max": 13795.4,
+        "runs": [
+          13614.4,
+          13795.4
+        ],
+        "x_rails": 3.04
+      }
+    },
+    "messages_page": {
+      "rails": {
+        "median": 4275.7,
+        "min": 4178.0,
+        "max": 4373.4,
+        "runs": [
+          4178.0,
+          4373.4
+        ],
+        "x_rails": 1.0
+      },
+      "dotnetway": {
+        "median": 12045.75,
+        "min": 11845.0,
+        "max": 12246.5,
+        "runs": [
+          11845.0,
+          12246.5
+        ],
+        "x_rails": 2.82
+      }
+    },
+    "sidebar": {
+      "rails": {
+        "median": 4717.35,
+        "min": 4643.3,
+        "max": 4791.4,
+        "runs": [
+          4791.4,
+          4643.3
+        ],
+        "x_rails": 1.0
+      },
+      "dotnetway": {
+        "median": 14437.05,
+        "min": 14271.7,
+        "max": 14602.4,
+        "runs": [
+          14271.7,
+          14602.4
+        ],
+        "x_rails": 3.06
+      }
+    },
+    "search": {
+      "rails": {
+        "median": 4544.05,
+        "min": 4526.8,
+        "max": 4561.3,
+        "runs": [
+          4526.8,
+          4561.3
+        ],
+        "x_rails": 1.0
+      },
+      "dotnetway": {
+        "median": 15796.0,
+        "min": 15277.0,
+        "max": 16315.0,
+        "runs": [
+          15277.0,
+          16315.0
+        ],
+        "x_rails": 3.48
+      }
+    },
+    "post_message": {
+      "rails": {
+        "median": 370.1,
+        "min": 369.1,
+        "max": 371.1,
+        "runs": [
+          369.1,
+          371.1
+        ],
+        "x_rails": 1.0
+      },
+      "dotnetway": {
+        "median": 2604.3,
+        "min": 2586.3,
+        "max": 2622.3,
+        "runs": [
+          2586.3,
+          2622.3
+        ],
+        "x_rails": 7.04
+      }
+    }
+  }
+}

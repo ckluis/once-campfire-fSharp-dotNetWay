@@ -1,0 +1,133 @@
+<body>
+  <lexxy-prompt-item search="Anna Bea Cole" sgid="«sgid:attachable:User#773523956»">
+    <template type="menu">
+      <span class="align-center autocomplete__item flex gap unpad">
+        <a class="avatar btn" data-turbo-frame="_top" href="/users/773523956" title="Anna Bea Cole">
+          <img aria-hidden="true" height="48" src="/users/«signed_id:user/avatar:773523956»/avatar?v=20260926130022" width="48">
+        </a>
+        " "
+        <span class="autocompletable__name">
+          "Anna Bea Cole"
+        </span>
+      </span>
+    </template>
+    <template type="editor">
+      <span class="mention" sgid="«sgid:attachable:User#773523956»">
+        <a class="avatar btn" data-turbo-frame="_top" href="/users/773523956" title="Anna Bea Cole">
+          <img aria-hidden="true" height="48" src="/users/«signed_id:user/avatar:773523956»/avatar?v=20260926130022" width="48">
+        </a>
+        " Anna Bea Cole"
+      </span>
+    </template>
+  </lexxy-prompt-item>
+  " "
+  <lexxy-prompt-item search="Bender Bot" sgid="«sgid:attachable:User#394959859»">
+    <template type="menu">
+      <span class="align-center autocomplete__item flex gap unpad">
+        <a class="avatar btn" data-turbo-frame="_top" href="/users/394959859" title="Bender Bot">
+          <img aria-hidden="true" height="48" src="/users/«signed_id:user/avatar:394959859»/avatar?v=20260926130020" width="48">
+        </a>
+        " "
+        <span class="autocompletable__name">
+          "Bender Bot"
+        </span>
+      </span>
+    </template>
+    <template type="editor">
+      <span class="mention" sgid="«sgid:attachable:User#394959859»">
+        <a class="avatar btn" data-turbo-frame="_top" href="/users/394959859" title="Bender Bot">
+          <img aria-hidden="true" height="48" src="/users/«signed_id:user/avatar:394959859»/avatar?v=20260926130020" width="48">
+        </a>
+        " Bender Bot"
+      </span>
+    </template>
+  </lexxy-prompt-item>
+  " "
+  <lexxy-prompt-item search="David" sgid="«sgid:attachable:User#127326141»">
+    <template type="menu">
+      <span class="align-center autocomplete__item flex gap unpad">
+        <a class="avatar btn" data-turbo-frame="_top" href="/users/127326141" title="David">
+          <img aria-hidden="true" height="48" src="/users/«signed_id:user/avatar:127326141»/avatar?v=20260926130020" width="48">
+        </a>
+        " "
+        <span class="autocompletable__name">
+          "David"
+        </span>
+      </span>
+    </template>
+    <template type="editor">
+      <span class="mention" sgid="«sgid:attachable:User#127326141»">
+        <a class="avatar btn" data-turbo-frame="_top" href="/users/127326141" title="David">
+          <img aria-hidden="true" height="48" src="/users/«signed_id:user/avatar:127326141»/avatar?v=20260926130020" width="48">
+        </a>
+        " David"
+      </span>
+    </template>
+  </lexxy-prompt-item>
+  " "
+  <lexxy-prompt-item search="Jason" sgid="«sgid:attachable:User#149087659»">
+    <template type="menu">
+      <span class="align-center autocomplete__item flex gap unpad">
+        <a class="avatar btn" data-turbo-frame="_top" href="/users/149087659" title="Jason">
+          <img aria-hidden="true" height="48" src="/users/«signed_id:user/avatar:149087659»/avatar?v=20260926130020" width="48">
+        </a>
+        " "
+        <span class="autocompletable__name">
+          "Jason"
+        </span>
+      </span>
+    </template>
+    <template type="editor">
+      <span class="mention" sgid="«sgid:attachable:User#149087659»">
+        <a class="avatar btn" data-turbo-frame="_top" href="/users/149087659" title="Jason">
+          <img aria-hidden="true" height="48" src="/users/«signed_id:user/avatar:149087659»/avatar?v=20260926130020" width="48">
+        </a>
+        " Jason"
+      </span>
+    </template>
+  </lexxy-prompt-item>
+  " "
+  <lexxy-prompt-item search="JZ" sgid="«sgid:attachable:User#773523953»">
+    <template type="menu">
+      <span class="align-center autocomplete__item flex gap unpad">
+        <a class="avatar btn" data-turbo-frame="_top" href="/users/773523953" title="JZ – Designer">
+          <img aria-hidden="true" height="48" src="/users/«signed_id:user/avatar:773523953»/avatar?v=20260926130020" width="48">
+        </a>
+        " "
+        <span class="autocompletable__name">
+          "JZ"
+        </span>
+      </span>
+    </template>
+    <template type="editor">
+      <span class="mention" sgid="«sgid:attachable:User#773523953»">
+        <a class="avatar btn" data-turbo-frame="_top" href="/users/773523953" title="JZ – Designer">
+          <img aria-hidden="true" height="48" src="/users/«signed_id:user/avatar:773523953»/avatar?v=20260926130020" width="48">
+        </a>
+        " JZ"
+      </span>
+    </template>
+  </lexxy-prompt-item>
+  " "
+  <lexxy-prompt-item search="Kevin" sgid="«sgid:attachable:User#712064548»">
+    <template type="menu">
+      <span class="align-center autocomplete__item flex gap unpad">
+        <a class="avatar btn" data-turbo-frame="_top" href="/users/712064548" title="Kevin – Programmer">
+          <img aria-hidden="true" height="48" src="/users/«signed_id:user/avatar:712064548»/avatar?v=20260926130020" width="48">
+        </a>
+        " "
+        <span class="autocompletable__name">
+          "Kevin"
+        </span>
+      </span>
+    </template>
+    <template type="editor">
+      <span class="mention" sgid="«sgid:attachable:User#712064548»">
+        <a class="avatar btn" data-turbo-frame="_top" href="/users/712064548" title="Kevin – Programmer">
+          <img aria-hidden="true" height="48" src="/users/«signed_id:user/avatar:712064548»/avatar?v=20260926130020" width="48">
+        </a>
+        " Kevin"
+      </span>
+    </template>
+  </lexxy-prompt-item>
+</body>

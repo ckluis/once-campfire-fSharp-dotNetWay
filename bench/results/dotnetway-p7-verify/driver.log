@@ -1,0 +1,35 @@
+=== start 03:23:42 df 29Gi load 3.24 3.63 3.58
+pebble-image rc=0 03:23:47 df 29Gi load 3.06 3.59 3.56
+asset-check rc=0 03:23:51 df 29Gi load 3.14 3.60 3.57
+cookie-roundtrip rc=0 03:23:59 df 29Gi load 3.04 3.57 3.56
+=== pixels tls 03:23:59 df 29Gi load 3.04 3.57 3.56
+pixels tls rc=0 03:25:22 df 29Gi load 3.74 3.72 3.62
+=== pixels front 03:25:22 df 29Gi load 3.74 3.72 3.62
+pixels front rc=0 03:31:23 df 28Gi load 3.05 4.43 4.14
+=== pixels rt-message_sent 03:31:24 df 28Gi load 3.05 4.43 4.14
+pixels rt-message_sent rc=0 03:31:59 df 28Gi load 3.26 4.34 4.12
+bench new rep 1 part 1/2 03:31:59 df 28Gi load 3.26 4.34 4.12
+rc=0 03:34:55 df 28Gi load 3.88 4.13 4.06
+bench new rep 1 part 2/2 03:34:55 df 28Gi load 3.88 4.13 4.06
+rc=0 03:38:32 df 28Gi load 5.09 4.25 4.08
+bench ctl rep 1 part 1/2 03:38:32 df 28Gi load 5.09 4.25 4.08
+rc=0 03:42:37 df 28Gi load 4.41 3.85 3.89
+bench ctl rep 1 part 2/2 03:42:37 df 28Gi load 4.41 3.85 3.89
+rc=0 03:46:54 df 28Gi load 5.33 4.18 3.95
+bench ctl rep 2 part 1/2 03:46:54 df 28Gi load 5.33 4.18 3.95
+rc=0 03:51:09 df 28Gi load 3.98 3.71 3.75
+bench ctl rep 2 part 2/2 03:51:09 df 28Gi load 3.98 3.71 3.75
+rc=0 03:55:30 df 28Gi load 5.88 4.41 3.98
+bench new rep 2 part 1/2 03:55:30 df 28Gi load 5.88 4.41 3.98
+rc=0 03:59:45 df 28Gi load 3.94 3.90 3.82
+bench new rep 2 part 2/2 03:59:45 df 28Gi load 3.94 3.90 3.82
+rc=0 04:03:30 df 28Gi load 4.45 3.74 3.71
+bench new rep 3 part 1/2 04:03:30 df 28Gi load 4.45 3.74 3.71
+rc=0 04:07:35 df 28Gi load 4.07 3.58 3.61
+bench new rep 3 part 2/2 04:07:35 df 28Gi load 4.07 3.58 3.61
+rc=0 04:11:20 df 28Gi load 4.87 3.76 3.62
+bench ctl rep 3 part 1/2 04:11:20 df 28Gi load 4.87 3.76 3.62
+rc=0 04:15:35 df 28Gi load 3.69 3.40 3.45
+bench ctl rep 3 part 2/2 04:15:35 df 28Gi load 3.69 3.40 3.45
+rc=0 04:19:10 df 28Gi load 5.01 3.88 3.60
+=== done 04:19:10 df 28Gi load 5.01 3.88 3.60

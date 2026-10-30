@@ -1,0 +1,54 @@
+<body>
+  <details class="hide-in-browser notifications-help" data-notifications-target="details">
+    <summary class="btn">
+      <img aria-hidden="true" height="20" src="/assets/external/gear-«digest».svg" width="20">
+      " "
+      <strong>
+        "Check your Android settings"
+      </strong>
+      " "
+      <img aria-hidden="true" class="disclosure" height="10" src="/assets/disclosure-«digest».svg" width="10">
+    </summary>
+    <ol>
+      <li>
+        "Open the "
+        <em>
+          <img aria-hidden="true" height="20" src="/assets/external/gear-«digest».svg" width="20">
+        </em>
+        " Settings app."
+      </li>
+      <li>
+        "Tap "
+        <em>
+          "Notifications"
+        </em>
+        "."
+      </li>
+      <li>
+        "Tap "
+        <em>
+          "App notifications"
+        </em>
+        "."
+      </li>
+      <li>
+        "Scroll to "
+        <em>
+          "Campfire"
+        </em>
+        "."
+      </li>
+      <li>
+        "Tap "
+        <em>
+          <img alt="the switch" height="22" src="/assets/external/switch-«digest».svg" width="22">
+        </em>
+        " to "
+        <em>
+          "Allow Notifications"
+        </em>
+        "."
+      </li>
+    </ol>
+  </details>
+</body>

@@ -1,0 +1,192 @@
+{
+  "info": {
+    "title": "Parity report",
+    "expected": "reference http://127.0.0.1:4111",
+    "actual": "candidate http://127.0.0.1:4112",
+    "startedAt": "2026-10-13T20:44:31.236Z",
+    "durationMs": 83019,
+    "unusedAllowlist": [
+      {
+        "state": "pwa/manifest",
+        "layers": [
+          "server"
+        ],
+        "reason": "The manifest is JSON-escaped, not HTML-escaped, so the small logo's URL reads `&v=` where Rails wrote `&amp;v=` (README, \"The web app manifest is valid JSON\")",
+        "owner": "views"
+      }
+    ],
+    "counts": {
+      "pass": 3,
+      "fail": 0,
+      "allowed": 0,
+      "error": 1
+    },
+    "flaky": 0,
+    "masks": {}
+  },
+  "results": [
+    {
+      "state": "auth/sign_in/error",
+      "cell": "chromium-phone-light",
+      "status": "pass",
+      "layers": [
+        {
+          "layer": "pixels",
+          "equal": true,
+          "pixels": {
+            "equal": true,
+            "width": 1170,
+            "height": 2532
+          }
+        },
+        {
+          "layer": "server",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "live",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "loose",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "aria",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "network",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "cable",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        }
+      ]
+    },
+    {
+      "state": "auth/sign_in/error",
+      "cell": "chromium-desktop-dark",
+      "status": "pass",
+      "layers": [
+        {
+          "layer": "pixels",
+          "equal": true,
+          "pixels": {
+            "equal": true,
+            "width": 1440,
+            "height": 900
+          }
+        },
+        {
+          "layer": "server",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "live",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "loose",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "aria",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "network",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "cable",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        }
+      ]
+    },
+    {
+      "state": "auth/sign_in/error",
+      "cell": "chromium-phone-dark",
+      "status": "pass",
+      "layers": [
+        {
+          "layer": "pixels",
+          "equal": true,
+          "pixels": {
+            "equal": true,
+            "width": 1170,
+            "height": 2532
+          }
+        },
+        {
+          "layer": "server",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "live",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "loose",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "aria",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "network",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "cable",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        }
+      ]
+    },
+    {
+      "state": "auth/sign_in/error",
+      "cell": "chromium-desktop-light",
+      "status": "error",
+      "layers": [],
+      "error": "candidate: not ready after 30000ms at http://localhost:3999/session/new: network: 4 in flight; settling [GET http://localhost:3999/assets/embeds-c20d0a3a.css, GET http://localhost:3999/assets/filters-8a4d63ed.css, GET http://localhost:3999/assets/flash-a561c1e5.css, GET http://localhost:3999/assets/inputs-9e58a07c.css]"
+    }
+  ]
+}

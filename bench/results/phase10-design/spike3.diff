@@ -1,0 +1,285 @@
+--- a/src/Campfire.Db/WriteGate.fs
++++ b/src/Campfire.Db/WriteGate.fs
+@@ -11,11 +11,15 @@
+     static let inWrite = new AsyncLocal<bool>()
+     static let held = new AsyncLocal<bool>()
+     static let exempt = new AsyncLocal<int>()
++    static let mutable epoch = 0L
+     let semaphore = new SemaphoreSlim(1, 1)
+ 
+     member _.Enter() : Task = semaphore.WaitAsync()
+ 
+-    member _.Exit() : unit = semaphore.Release() |> ignore
++    static member Epoch : int64 = System.Threading.Volatile.Read(&epoch)
++    member _.Exit() : unit =
++        System.Threading.Interlocked.Increment(&epoch) |> ignore
++        semaphore.Release() |> ignore
+ 
+     /// True from `BEGIN` to `COMMIT` inside `Writes.run`, false in the after-commit queue and everywhere else (design-cable C16).
+     static member InWrite : bool = inWrite.Value
+--- a/src/Campfire.App/Boot.fs
++++ b/src/Campfire.App/Boot.fs
+@@ -111,7 +111,9 @@
+             ))
+         |> ignore
+         services.AddScoped<Campfire.Db.Ef.CampfireDb>(fun sp ->
+-            sp.GetRequiredService<IDbContextFactory<Campfire.Db.Ef.CampfireDb>>().CreateDbContext())
++            let db = sp.GetRequiredService<IDbContextFactory<Campfire.Db.Ef.CampfireDb>>().CreateDbContext()
++            if System.Environment.GetEnvironmentVariable "SPIKE_OPEN_ONCE" = "1" then db.Database.OpenConnection()
++            db)
+         |> ignore
+         services.AddSingleton<WriteGate>(fun _ -> WriteGate()) |> ignore
+         services.AddSingleton<Jobs>(fun sp -> Jobs(JobLimits.QueueCapacity, loggers.CreateLogger "campfire.jobs", sp.GetRequiredService<CableHandle>()))
+--- a/src/Campfire.App/Web/Pages.fs
++++ b/src/Campfire.App/Web/Pages.fs
+@@ -20,6 +20,18 @@
+ open Campfire.Rails.Ruby
+ open Campfire.Views
+ open Campfire.Views.Templates.Sessions
++
++module SpikePageCache =
++    let enabled = System.Environment.GetEnvironmentVariable "SPIKE_PAGE_CACHE" = "1"
++    [<Literal>]
++    let KeyItem = "spike.page.key"
++    let entries = System.Collections.Concurrent.ConcurrentDictionary<string, struct (string * byte[] * string * (string * string) list)>()
++    [<Literal>]
++    let CookiesItem = "spike.page.cookies"
++    let kept = [| "ETag"; "Last-Modified"; "Cache-Control"; "Link"; "Vary" |]
++    let keyFor (http: HttpContext) (userId: int64) (sessionToken: string) : string =
++        let h = http.Request.Headers
++        String.Join("\u0001", [| string (string Campfire.Db.WriteGate.Epoch); string (string userId); string (sessionToken); string (http.Request.Scheme); string (http.Request.Host.Value); string (http.Request.Path.Value); string (http.Request.QueryString.Value); string (h.Accept.ToString()); string (h["Turbo-Frame"].ToString()); string (h.AcceptEncoding.ToString()); string (h.UserAgent.ToString()); string (h.Referer.ToString()); string (http.Request.Cookies["last_room"]) |])
+ 
+ module Pages =
+     /// Where the route table leaves the matched row's `controller#action` (the layout choice of `before_action`s reads it).
+@@ -200,6 +212,13 @@
+                             | ValueSome encoder ->
+                                 let cache = http.RequestServices.GetRequiredService<HybridCache>()
+                                 let! kept = Fragments.compressedPage cache encoder.EncodingName page (compress encoder)
++                                match http.Items.TryGetValue SpikePageCache.KeyItem, http.Items.TryGetValue SpikePageCache.CookiesItem with
++                                | (true, (:? string as key)), (true, (:? int as cookies)) when status = 200 && response.Headers.SetCookie.Count = cookies ->
++                                    let captured = [ for name in SpikePageCache.kept do
++                                                       let v = response.Headers[name]
++                                                       if v.Count > 0 then name, v.ToString() ]
++                                    SpikePageCache.entries[key] <- struct (kept.Encoding, kept.Bytes, contentType, captured)
++                                | _ -> ()
+                                 // Already encoded, so the compression middleware leaves it (and its `Vary`) alone.
+                                 response.Headers.ContentEncoding <- kept.Encoding
+                                 response.Headers.Append("Vary", "Accept-Encoding")
+@@ -319,3 +338,29 @@
+             applicationPageInAnyFormat http 200 IncompatibleBrowser.rendered
+         else
+             pageInAnyFormat http 200 IncompatibleBrowser.rendered
++
++
++module SpikeServe =
++    let tryServe (http: HttpContext) (render: unit -> Task<Result<HttpHandler, Error>>) : Task<Result<HttpHandler, Error>> =
++        let current = Current.get http
++        let flash = Respond.flash http
++        match SpikePageCache.enabled, current.User, current.Session with
++        | true, Some user, Some session when isNull flash.Notice && isNull flash.Alert && http.Request.Headers.IfNoneMatch.Count = 0 && http.Request.Headers.IfModifiedSince.Count = 0 ->
++            let key = SpikePageCache.keyFor http user.Id session.Token
++            match SpikePageCache.entries.TryGetValue key with
++            | true, struct (encoding, bytes, contentType, headers) ->
++                let handler: HttpHandler =
++                    fun (h: HttpContext) ->
++                        h.Response.StatusCode <- 200
++                        h.Response.ContentType <- contentType
++                        for (name, value) in headers do
++                            h.Response.Headers[name] <- Microsoft.Extensions.Primitives.StringValues value
++                        h.Response.Headers.ContentEncoding <- encoding
++                        h.Response.ContentLength <- Nullable(int64 bytes.Length)
++                        h.Response.Body.WriteAsync(bytes, 0, bytes.Length)
++                Task.FromResult(Ok handler)
++            | _ ->
++                http.Items[SpikePageCache.KeyItem] <- key
++                http.Items[SpikePageCache.CookiesItem] <- box http.Response.Headers.SetCookie.Count
++                render ()
++        | _ -> render ()
+--- a/src/Campfire.App/Controllers/Rooms.fs
++++ b/src/Campfire.App/Controllers/Rooms.fs
+@@ -192,7 +192,7 @@
+                 do! Before.chain Before.Default http
+                 let! (room: Room) = setRoom http All
+                 Pages.rememberLastRoomVisited http room.Id
+-                return! renderShow http room
++                return! SpikeServe.tryServe http (fun () -> renderShow http room)
+             }
+ 
+     /// `destroy` (RoomsController and `Rooms::DirectsController`).
+--- a/src/Campfire.App/Controllers/Messages.fs
++++ b/src/Campfire.App/Controllers/Messages.fs
+@@ -341,26 +341,29 @@
+             taskResult {
+                 do! Before.chain Before.Default http
+                 let! (_: Membership), (room: Room) = Before.setRoom http
+-                let! (messages: Message list) = findPagedMessages http room
+-                if messages.IsEmpty then
+-                    return Respond.head http 204
+-                else
+-                    // fresh_when @messages: the records' cache keys, their latest updated_at, and the template.
+-                    let etag =
+-                        messages
+-                        |> List.map (fun m -> Fragments.cacheKeyWithVersion "messages" m.Id (DateTimeOffset m.UpdatedAt))
+-                        |> String.concat "/"
+-                    let freshness =
+-                        { Freshness.Default with
+-                            Etag = etag
+-                            LastModified = ValueSome(DateTimeOffset(messages |> List.map (fun m -> m.UpdatedAt) |> List.max))
+-                            Template = TemplateDigestIndex }
+-                    match Respond.freshWhen http freshness with
+-                    | ValueSome notModified -> return notModified
+-                    | ValueNone ->
+-                        do! Formats.respondTo http [ Web.Format.Html ] |> Result.map ignore
+-                        let! views = Data.presentAsync http (fun presenter -> presenter.Messages messages)
+-                        return! Pages.bare http 200 Web.Format.Html (fun _ -> IndexPage.output views)
++                return!
++                    SpikeServe.tryServe http (fun () ->
++                        taskResult {
++                            let! (messages: Message list) = findPagedMessages http room
++                            if messages.IsEmpty then
++                                return Respond.head http 204
++                            else
++                                let etag =
++                                    messages
++                                    |> List.map (fun m -> Fragments.cacheKeyWithVersion "messages" m.Id (DateTimeOffset m.UpdatedAt))
++                                    |> String.concat "/"
++                                let freshness =
++                                    { Freshness.Default with
++                                        Etag = etag
++                                        LastModified = ValueSome(DateTimeOffset(messages |> List.map (fun m -> m.UpdatedAt) |> List.max))
++                                        Template = TemplateDigestIndex }
++                                match Respond.freshWhen http freshness with
++                                | ValueSome notModified -> return notModified
++                                | ValueNone ->
++                                    do! Formats.respondTo http [ Web.Format.Html ] |> Result.map ignore
++                                    let! views = Data.presentAsync http (fun presenter -> presenter.Messages messages)
++                                    return! Pages.bare http 200 Web.Format.Html (fun _ -> IndexPage.output views)
++                        })
+             }
+ 
+     /// `create`: `set_room` runs inside the action, and a room that's gone renders `room_not_found`.
+--- a/src/Campfire.App/Controllers/Users/Sidebars.fs
++++ b/src/Campfire.App/Controllers/Users/Sidebars.fs
+@@ -20,30 +20,34 @@
+         fun http ->
+             taskResult {
+                 do! Before.chain Before.Default http
+-                do! Formats.respondTo http [ Format.Html ] |> Result.map ignore
+-                let! (user: User) = Current.requireUser http
+-                let app = Data.app http
+-                let secrets = app.Secrets
+-                let! sidebar, restricted =
+-                    Data.readAsync http (fun db ->
+-                        task {
+-                            // The direct rooms' fragments are fetched up front.
+-                            let! sidebar = Accounts.sidebar db secrets app.Fragments (Page.fragmentContext app) user
+-                            let restricted =
+-                                Account.first db
+-                                |> Option.exists (fun account -> AccountSettings.restrictRoomCreationToAdministrators (Account.settings account))
+-                            return sidebar, restricted
+-                        })
++                return!
++                    SpikeServe.tryServe http (fun () ->
++                        taskResult {
++                            do! Formats.respondTo http [ Format.Html ] |> Result.map ignore
++                            let! (user: User) = Current.requireUser http
++                            let app = Data.app http
++                            let secrets = app.Secrets
++                            let! sidebar, restricted =
++                                Data.readAsync http (fun db ->
++                                    task {
++                                        // The direct rooms' fragments are fetched up front.
++                                        let! sidebar = Accounts.sidebar db secrets app.Fragments (Page.fragmentContext app) user
++                                        let restricted =
++                                            Account.first db
++                                            |> Option.exists (fun account -> AccountSettings.restrictRoomCreationToAdministrators (Account.settings account))
++                                        return sidebar, restricted
++                                    })
+ 
+-                let data: SidebarShow =
+-                    { CurrentUser = Common.userSummary secrets user
+-                      // turbo_stream_from :rooms / turbo_stream_from Current.user, :rooms
+-                      RoomsStream = Campfire.Rails.Turbo.signedStreamName secrets [ "rooms" ]
+-                      UserRoomsStream = Campfire.Rails.Turbo.signedStreamName secrets [ Campfire.Rails.GlobalId.toParam (Gid.userGid user.Id); "rooms" ]
+-                      DirectMemberships = sidebar.DirectMemberships
+-                      DirectPlaceholderUsers = sidebar.DirectPlaceholderUsers
+-                      OtherMemberships = sidebar.OtherMemberships
+-                      // `Current.user.administrator? || !Current.account.settings.restrict_room_creation_to_administrators?`
+-                      CanCreateRooms = User.isAdministrator user || not restricted }
+-                return! Pages.page http 200 (fun ctx -> ShowPage.rendered ctx data)
++                            let data: SidebarShow =
++                                { CurrentUser = Common.userSummary secrets user
++                                  // turbo_stream_from :rooms / turbo_stream_from Current.user, :rooms
++                                  RoomsStream = Campfire.Rails.Turbo.signedStreamName secrets [ "rooms" ]
++                                  UserRoomsStream = Campfire.Rails.Turbo.signedStreamName secrets [ Campfire.Rails.GlobalId.toParam (Gid.userGid user.Id); "rooms" ]
++                                  DirectMemberships = sidebar.DirectMemberships
++                                  DirectPlaceholderUsers = sidebar.DirectPlaceholderUsers
++                                  OtherMemberships = sidebar.OtherMemberships
++                                  // `Current.user.administrator? || !Current.account.settings.restrict_room_creation_to_administrators?`
++                                  CanCreateRooms = User.isAdministrator user || not restricted }
++                            return! Pages.page http 200 (fun ctx -> ShowPage.rendered ctx data)
++                        })
+             }
+--- a/src/Campfire.App/Controllers/Searches.fs
++++ b/src/Campfire.App/Controllers/Searches.fs
+@@ -46,31 +46,35 @@
+         fun http ->
+             taskResult {
+                 do! Before.chain Before.Default http
+-                let! q = queryParam http
+-                let! (user: User) = Current.requireUser http
+-                let query = searchableQuery q
+-                let lastRoom = Pages.lastRoomCookie http
+-                // `set_messages`, the recent searches and `last_room_visited` in one trip to the reader.
+-                let! messages, recentSearches, returnToRoomId =
+-                    Data.read http (fun db ->
+-                        let messages =
+-                            match query with
+-                            | Some query -> Message.searchReachable db user.Id query
+-                            | None -> []
+-                        let recent = Search.orderedForUser db user.Id |> List.map (fun search -> search.Query)
+-                        let returnTo =
+-                            Campfire.App.Current.lastRoomVisitedIn db user.Id lastRoom
+-                            |> Option.map (fun room -> room.Id)
+-                            |> Option.defaultValue 0L
+-                        messages, recent, returnTo)
+-                let! messages = Data.presentAsync http (fun presenter -> presenter.Messages messages)
+-                let index: IndexView =
+-                    { Query = query
+-                      Q = q
+-                      Messages = messages
+-                      RecentSearches = recentSearches
+-                      ReturnToRoomId = returnToRoomId }
+-                return! Pages.page http 200 (fun ctx -> IndexPage.rendered ctx index)
++                return!
++                    SpikeServe.tryServe http (fun () ->
++                        taskResult {
++                            let! q = queryParam http
++                            let! (user: User) = Current.requireUser http
++                            let query = searchableQuery q
++                            let lastRoom = Pages.lastRoomCookie http
++                            // `set_messages`, the recent searches and `last_room_visited` in one trip to the reader.
++                            let! messages, recentSearches, returnToRoomId =
++                                Data.read http (fun db ->
++                                    let messages =
++                                        match query with
++                                        | Some query -> Message.searchReachable db user.Id query
++                                        | None -> []
++                                    let recent = Search.orderedForUser db user.Id |> List.map (fun search -> search.Query)
++                                    let returnTo =
++                                        Campfire.App.Current.lastRoomVisitedIn db user.Id lastRoom
++                                        |> Option.map (fun room -> room.Id)
++                                        |> Option.defaultValue 0L
++                                    messages, recent, returnTo)
++                            let! messages = Data.presentAsync http (fun presenter -> presenter.Messages messages)
++                            let index: IndexView =
++                                { Query = query
++                                  Q = q
++                                  Messages = messages
++                                  RecentSearches = recentSearches
++                                  ReturnToRoomId = returnToRoomId }
++                            return! Pages.page http 200 (fun ctx -> IndexPage.rendered ctx index)
++                        })
+             }
+ 
+     let create: Web.Action =

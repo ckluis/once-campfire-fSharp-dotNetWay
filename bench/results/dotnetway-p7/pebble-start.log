@@ -1,0 +1,12 @@
+Unable to find image 'ghcr.io/letsencrypt/pebble:latest' locally
+latest: Pulling from letsencrypt/pebble
+b69492b104cf: Pulling fs layer
+c394f3c7ab71: Pulling fs layer
+2367e3f044f2: Download complete
+b69492b104cf: Download complete
+c394f3c7ab71: Download complete
+b69492b104cf: Pull complete
+c394f3c7ab71: Pull complete
+Digest: sha256:ddf230642b1a584f519f32e347de1b05a6e4c1f6c35c1863b33effeab5f78199
+Status: Downloaded newer image for ghcr.io/letsencrypt/pebble:latest
+f6d78839450f173350891467196e287e1677710def979f676e3569d6795fffb8

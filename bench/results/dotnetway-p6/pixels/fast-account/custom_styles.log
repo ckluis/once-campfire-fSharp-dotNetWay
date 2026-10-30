@@ -1,0 +1,10 @@
+candidate: reference :4111 vs candidate :4112 (seed custom_styles, clock frozen at 2026-03-02T16:00:00Z)
+6 cells (6 on shared servers, 0 on fresh servers in 3 slots) × 2 targets, 4 workers
+[1/6] account/edit/with_logo/member @ chromium-phone-light fail
+[2/6] account/edit/with_logo @ chromium-phone-light fail
+[3/6] account/edit/with_logo/member @ chromium-desktop-light fail
+[4/6] account/edit/with_logo @ chromium-desktop-light fail
+[5/6] account/custom_styles/filled @ chromium-phone-light fail
+[6/6] account/custom_styles/filled @ chromium-desktop-light fail
+6 cells: 0 pass (0 flaky), 6 fail, 0 allowed, 0 error in 17.9s
+report: /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/parity/out/p6-fast-account/custom_styles/report.html

@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <Compile Include="Unicode/WordRanges.fs" />
+    <Compile Include="Unicode/Chars.fs" />
+    <Compile Include="RubyExt.fs" />
+    <Compile Include="Loofah.fs" />
+    <Compile Include="Error.fs" />
+    <Compile Include="Html5.fs" />
+    <Compile Include="Attachables.fs" />
+    <Compile Include="Sanitizer.fs" />
+    <Compile Include="PlainText.fs" />
+    <Compile Include="Content.fs" />
+    <Compile Include="Filters.fs" />
+    <Compile Include="AutolinkMatch.fs" />
+    <Compile Include="Autolink.fs" />
+    <Compile Include="ActionText.fs" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="AngleSharp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../Campfire.Rails/Campfire.Rails.fsproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="Campfire.RichText.Tests" />
+  </ItemGroup>
+</Project>

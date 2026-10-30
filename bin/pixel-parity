@@ -1,0 +1,104 @@
+#!/usr/bin/env bash
+# The gate for "the UI is identical" (plans/dotnetway.md, section 3 "Gates common to every phase", gate 2): runs the parity harness,
+# theDotNetWay (campfire-candidate-dotnetway, built by `parity/bin/candidate build`) against the Rails reference, and reports three
+# layers, per seed: the screenshots (pixel for pixel), the accessibility tree (aria) and the loose DOM (the live body.outerHTML as a
+# tree, attributes as sets, character references decoded, whitespace that does not render dropped; parity/capture/loose.ts). The
+# server HTML, strict live DOM, network and cable layers are captured as always but not reported here: byte-level differences are
+# class A of the plan's known-differences policy (section 4), and the network and Cable layers have their own phase gates.
+#
+#   bin/pixel-parity [--fast] [--pixels-only] [--seeds default,crowd,custom_styles,first_run,restricted] [--candidate-tls] [--only GLOB[,GLOB]] [--out DIR] [-- OPTIONS]
+#
+# Exit status 0 only if every cell that has a screenshot is pixel-for-pixel equal to Rails' in every seed asked for, and its aria tree
+# and loose DOM are equal too (class C of the policy: never acceptable, so parity/allowlist.yml does not excuse them here): a different
+# or differently sized screenshot, a differing aria or loose layer, or a cell that could not be captured at all (an error says nothing
+# about pixels), exits 1 and lists the cells. --pixels-only reports the screenshots alone, as onCrack's gate did.
+# A cell the harness had to capture again because only its pixels differed (parity/SCREENS.md, "Pixel flakes") and that then
+# matched is counted as equal, and counted separately as "flaky" so a rising number is visible. Fragment states (responses, not
+# renderings) have no screenshot and are not counted.
+#
+# --fast is the first look while a change is in progress, roughly half the cells: Chromium only, the light scheme, no breakpoint sweep
+# (every state, desktop and phone). It is not the gate; the unit's close runs the default.
+#
+# The default is the harness's lean matrix (parity/SCREENS.md: every state on Chromium, desktop and phone, light and dark, the smoke
+# states on Firefox and WebKit, the breakpoint sweep); OPTIONS after `--` go to `parity/bin/candidate compare` (--matrix full,
+# --engines, --viewports, --workers ...). PARITY_CANDIDATE_APP=fsharp checks the port's image the same way.
+#
+# One command: on the Mac it runs itself inside colima (the harness needs the VM's GNU userland and host networking, and one compare
+# at a time: the VM has 6 GB and two at once OOM-kill Chromium, so the seeds run one after another). Each seed's full report
+# (report.html, report.json, screenshots, diffs) stays under DIR (default parity/out/pixel-parity-<stamp>/<seed>).
+set -euo pipefail
+
+ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+
+if [ "$(uname -s)" = Darwin ] && [ -z "${PIXEL_PARITY_IN_VM:-}" ]; then
+  command -v colima >/dev/null || { echo "pixel-parity: needs colima (or run it inside the VM)" >&2; exit 2; }
+  args=''; [ $# -eq 0 ] || args=$(printf '%q ' "$@")
+  # colima ssh does not carry the environment over: forward the knobs (PARITY_CANDIDATE_APP, PIXEL_PARITY_RETRIES, ...).
+  fwd=$(env | grep -E '^(PARITY_|PIXEL_PARITY_)[A-Z_]*=' | while IFS= read -r kv; do printf '%q ' "$kv"; done || true)
+  exec colima ssh -- bash -c "cd '$ROOT' && env PIXEL_PARITY_IN_VM=1 $fwd bin/pixel-parity $args"
+fi
+
+SEEDS=default,crowd,custom_styles,first_run,restricted ONLY="" OUT="" PASS=() FAST="" LAYERS=pixels,aria,loose
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --seeds) SEEDS=$2; shift 2 ;;
+    --only)  ONLY=$2; shift 2 ;;
+    --out)   OUT=$2; shift 2 ;;
+    --fast)  FAST=1; shift ;;
+    --candidate-tls) export PARITY_CANDIDATE_TLS=1; shift ;;
+    --pixels-only) LAYERS=pixels; shift ;;
+    --)      shift; PASS=("$@"); break ;;
+    -h|--help) sed -n '2,/^set -euo/p' "$0" | sed '$d; s/^# \{0,1\}//'; exit 0 ;;
+    *) echo "pixel-parity: unknown option $1 (try --help)" >&2; exit 2 ;;
+  esac
+done
+OUT=${OUT:-$ROOT/parity/out/pixel-parity-$(date -u +%Y%m%dT%H%M%SZ)}
+case "$OUT" in /*) ;; *) OUT=$PWD/$OUT ;; esac
+mkdir -p "$OUT" /tmp/parity-net
+export PARITY_NET_DIR=${PARITY_NET_DIR:-/tmp/parity-net}
+
+only=(); [ -z "$ONLY" ] || only=(--only "$ONLY")
+[ -z "$FAST" ] || PASS=(--engines chromium --schemes light --breakpoints exclude ${PASS[@]+"${PASS[@]}"})
+# 4 browsers at a time fit the 6 GB VM with the servers of the fresh-server slots; the harness's own default (2) is slower.
+export PARITY_WORKERS=${PARITY_WORKERS:-4}
+RETRIES=${PIXEL_PARITY_RETRIES:-2}
+failed=0 started=$(date +%s)
+echo "pixel-parity: ${PARITY_CANDIDATE_APP:-dotnetway} vs the Rails reference, layers ${LAYERS}, seeds ${SEEDS}${FAST:+ (fast: chromium, light, no breakpoint sweep)}"
+
+# Cells the harness could not capture (an error: a page that was not ready in 30 s, a browser that died) say nothing about pixels, and on
+# freshly started servers a few of them happen by chance (the same cells pass when run again, and the app serves the same files to
+# curl, to 6 keep-alive connections and to the browser, on both images). Those states are captured again, up to RETRIES times, and a
+# cell counts by its last attempt; a cell that never captures is reported as NOT CAPTURED and fails the gate.
+run_compare() {   # run_compare SEED OUTDIR LOG [--only STATES]
+  local seed=$1 out=$2 log=$3; shift 3
+  "$ROOT/parity/bin/candidate" compare --seed "$seed" --out "$out" "$@" ${PASS[@]+"${PASS[@]}"} >"$log" 2>&1 || true
+  core_guard
+}
+
+# A crashing browser (WebKit's WPEWebProcess) has left a multi-GB core dump in parity/ in three rounds; the capture containers now run with
+# --ulimit core=0, and this removes any that still appears, says so, and prints the VM's free space so a run that fills it is seen early.
+core_guard() {
+  local f
+  for f in "$ROOT"/parity/core "$ROOT"/parity/core.*; do
+    [ -e "$f" ] || continue
+    echo "pixel-parity: core dump $(du -h "$f" | cut -f1) at $f, deleted"; rm -f "$f"
+  done
+  echo "pixel-parity: VM free $(df -h /var/lib/docker | awk 'NR==2 {print $4}'), parity/out $(du -sh "$OUT" 2>/dev/null | cut -f1)"
+}
+
+for seed in ${SEEDS//,/ }; do
+  t0=$(date +%s)
+  [ -f "$ROOT/parity/.seed/$seed/labels.json" ] || { echo "seed $seed: not built (parity/bin/seed build $seed)"; failed=1; continue; }
+  # compare's own exit status says whether any layer differed, which is not the question; the report says what the pixels did.
+  run_compare "$seed" "$OUT/$seed" "$OUT/$seed.log" ${only[@]+"${only[@]}"}
+  for n in $(seq 1 "$RETRIES"); do
+    states=$(python3 "$ROOT/bin/pixel-parity-report" errors "$OUT/$seed/report.json" $(for k in $(seq 1 $((n - 1))); do echo "$OUT/$seed-retry$k/report.json"; done)) || true
+    [ -n "$states" ] || break
+    echo "seed $seed: capturing again (attempt $((n + 1))): $states" | cut -c1-200
+    run_compare "$seed" "$OUT/$seed-retry$n" "$OUT/$seed-retry$n.log" --only "$states"
+  done
+  reports=("$OUT/$seed/report.json"); for k in $(seq 1 "$RETRIES"); do [ -f "$OUT/$seed-retry$k/report.json" ] && reports+=("$OUT/$seed-retry$k/report.json"); done
+  python3 "$ROOT/bin/pixel-parity-report" summary "$LAYERS" "$seed" "$(( $(date +%s) - t0 ))" "$OUT/$seed.log" "${reports[@]}" || failed=1
+done
+echo "pixel-parity: $([ $failed -eq 0 ] && echo 'PASSED, the UI is pixel-identical' || echo 'FAILED') in $(( $(date +%s) - started ))s; reports under $OUT"
+exit $failed

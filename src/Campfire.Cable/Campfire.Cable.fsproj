@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <Compile Include="Options.fs" />
+    <Compile Include="Frames.fs" />
+    <Compile Include="Naming.fs" />
+    <Compile Include="Channel.fs" />
+    <Compile Include="Streams.fs" />
+    <Compile Include="Connection.fs" />
+    <Compile Include="Server.fs" />
+    <Compile Include="Endpoint.fs" />
+    <Compile Include="Heartbeat.fs" />
+    <Compile Include="Turbo.fs" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../Campfire.Rails/Campfire.Rails.fsproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="Campfire.Cable.Tests" />
+    <InternalsVisibleTo Include="Campfire.App.Tests" />
+  </ItemGroup>
+</Project>

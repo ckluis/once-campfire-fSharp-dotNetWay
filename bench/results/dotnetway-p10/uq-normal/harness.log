@@ -1,0 +1,173 @@
+rails round 1: room_show 16 clients 4842.4 req/s
+rails round 1: messages_page 16 clients 4817.7 req/s
+rails round 1: sidebar 16 clients 5135.5 req/s
+rails round 1: search 16 clients 5123.9 req/s
+rails round 1: post_message 16 clients 394.2 req/s
+fsharp round 1: room_show 16 clients 35396.9 req/s
+fsharp round 1: messages_page 16 clients 41896.5 req/s
+fsharp round 1: sidebar 16 clients 36937.9 req/s
+fsharp round 1: search 16 clients 33565.9 req/s
+fsharp round 1: post_message 16 clients 9400.7 req/s
+dotnetway round 1: room_show 16 clients 34690.5 req/s
+dotnetway round 1: messages_page 16 clients 33437.6 req/s
+dotnetway round 1: sidebar 16 clients 41982.3 req/s
+dotnetway round 1: search 16 clients 41208.0 req/s
+dotnetway round 1: post_message 16 clients 2910.8 req/s
+dotnetway round 2: room_show 16 clients 34572.8 req/s
+dotnetway round 2: messages_page 16 clients 33198.1 req/s
+dotnetway round 2: sidebar 16 clients 41718.7 req/s
+dotnetway round 2: search 16 clients 41206.3 req/s
+dotnetway round 2: post_message 16 clients 2884.8 req/s
+fsharp round 2: room_show 16 clients 36341.7 req/s
+fsharp round 2: messages_page 16 clients 42301.8 req/s
+fsharp round 2: sidebar 16 clients 37989.6 req/s
+fsharp round 2: search 16 clients 33657.9 req/s
+fsharp round 2: post_message 16 clients 9501.2 req/s
+rails round 2: room_show 16 clients 4981.6 req/s
+rails round 2: messages_page 16 clients 5000.0 req/s
+rails round 2: sidebar 16 clients 5244.0 req/s
+rails round 2: search 16 clients 5360.0 req/s
+rails round 2: post_message 16 clients 407.4 req/s
+rails round 3: room_show 16 clients 4770.1 req/s
+rails round 3: messages_page 16 clients 4909.0 req/s
+rails round 3: sidebar 16 clients 5242.4 req/s
+rails round 3: search 16 clients 5067.4 req/s
+rails round 3: post_message 16 clients 401.2 req/s
+fsharp round 3: room_show 16 clients 35401.0 req/s
+fsharp round 3: messages_page 16 clients 41721.1 req/s
+fsharp round 3: sidebar 16 clients 37690.9 req/s
+fsharp round 3: search 16 clients 33851.1 req/s
+fsharp round 3: post_message 16 clients 9506.8 req/s
+dotnetway round 3: room_show 16 clients 33946.8 req/s
+dotnetway round 3: messages_page 16 clients 32239.6 req/s
+dotnetway round 3: sidebar 16 clients 40575.5 req/s
+dotnetway round 3: search 16 clients 40464.1 req/s
+dotnetway round 3: post_message 16 clients 2838.1 req/s
+{
+  "rails": {
+    "room_show": {
+      "median_rps": 4842.4,
+      "runs": [
+        4842.4,
+        4981.6,
+        4770.1
+      ]
+    },
+    "messages_page": {
+      "median_rps": 4909.0,
+      "runs": [
+        4817.7,
+        5000.0,
+        4909.0
+      ]
+    },
+    "sidebar": {
+      "median_rps": 5242.4,
+      "runs": [
+        5135.5,
+        5244.0,
+        5242.4
+      ]
+    },
+    "search": {
+      "median_rps": 5123.9,
+      "runs": [
+        5123.9,
+        5360.0,
+        5067.4
+      ]
+    },
+    "post_message": {
+      "median_rps": 401.2,
+      "runs": [
+        394.2,
+        407.4,
+        401.2
+      ]
+    }
+  },
+  "fsharp": {
+    "room_show": {
+      "median_rps": 35401.0,
+      "runs": [
+        35396.9,
+        36341.7,
+        35401.0
+      ]
+    },
+    "messages_page": {
+      "median_rps": 41896.5,
+      "runs": [
+        41896.5,
+        42301.8,
+        41721.1
+      ]
+    },
+    "sidebar": {
+      "median_rps": 37690.9,
+      "runs": [
+        36937.9,
+        37989.6,
+        37690.9
+      ]
+    },
+    "search": {
+      "median_rps": 33657.9,
+      "runs": [
+        33565.9,
+        33657.9,
+        33851.1
+      ]
+    },
+    "post_message": {
+      "median_rps": 9501.2,
+      "runs": [
+        9400.7,
+        9501.2,
+        9506.8
+      ]
+    }
+  },
+  "dotnetway": {
+    "room_show": {
+      "median_rps": 34572.8,
+      "runs": [
+        34690.5,
+        34572.8,
+        33946.8
+      ]
+    },
+    "messages_page": {
+      "median_rps": 33198.1,
+      "runs": [
+        33437.6,
+        33198.1,
+        32239.6
+      ]
+    },
+    "sidebar": {
+      "median_rps": 41718.7,
+      "runs": [
+        41982.3,
+        41718.7,
+        40575.5
+      ]
+    },
+    "search": {
+      "median_rps": 41206.3,
+      "runs": [
+        41208.0,
+        41206.3,
+        40464.1
+      ]
+    },
+    "post_message": {
+      "median_rps": 2884.8,
+      "runs": [
+        2910.8,
+        2884.8,
+        2838.1
+      ]
+    }
+  }
+}

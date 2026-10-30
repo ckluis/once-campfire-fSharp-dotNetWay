@@ -1,0 +1,7 @@
+<body>
+  <a class="align-center btn gap room txt-nowrap" data-badge-dot-target="unread" data-room-id="486777696" data-rooms-list-target="room" data-sorted-list-name="All Talk" data-sorted-list-target="item" href="/rooms/486777696" id="list_rooms_closed_486777696" style="--column-gap: 0.5em">
+    <span class="overflow-ellipsis">
+      "All Talk"
+    </span>
+  </a>
+</body>

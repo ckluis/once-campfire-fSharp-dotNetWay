@@ -1,0 +1,205 @@
+{
+ "app": "dotnetway",
+ "rep": 1,
+ "cold_start_ms": 612,
+ "memory": {
+  "idle_current_mb": 84,
+  "idle_anon_mb": 57,
+  "peak_current_mb": 181,
+  "peak_anon_mb": 139,
+  "cgroup_peak_mb": 181
+ },
+ "http": [
+  {
+   "avg_bytes": 648,
+   "conc": 1,
+   "errors": 0,
+   "gzip": true,
+   "latency": {
+    "max_ms": 0.803,
+    "mean_ms": 0.08,
+    "n": 93823,
+    "p50_ms": 0.083,
+    "p90_ms": 0.112,
+    "p99_ms": 0.145
+   },
+   "ok": 93823,
+   "path": "/assets/_reset.ggeau7dgmv.css",
+   "rps": 11727.8,
+   "secs": 8.0,
+   "statuses": {
+    "200": 93823
+   },
+   "cost": {
+    "wall_s": 8.0,
+    "server_usage_us": 17518691,
+    "server_user_us": 13699340,
+    "server_system_us": 3819350,
+    "loadgen_user_us": 917773,
+    "loadgen_system_us": 1333960,
+    "n": 93823,
+    "server_cpu_us_per_req": 186.7,
+    "server_user_us_per_req": 146.0,
+    "server_system_us_per_req": 40.7,
+    "loadgen_cpu_us_per_req": 24.0,
+    "server_cores_busy": 2.19,
+    "loadgen_cores_busy": 0.28
+   },
+   "route": "static_css",
+   "warmup": {
+    "secs": 30.0,
+    "windows_rps": [
+     6882.7,
+     7988.1,
+     10193.7,
+     11396.3,
+     11577.0,
+     11377.8,
+     11599.0,
+     11695.6,
+     11615.5,
+     11678.2,
+     11618.7,
+     11499.9,
+     11665.2,
+     11577.5,
+     11634.7
+    ],
+    "reason": "settled",
+    "window_secs": 2.0,
+    "settled": true,
+    "tail_rps": 11625.8
+   },
+   "host_probe_after": {
+    "spin_ms": 59.06,
+    "spin_ms_max_cpu": 59.86,
+    "cpus": "0-3,4-7",
+    "baseline_ms": 55.57,
+    "ratio": 1.063
+   }
+  },
+  {
+   "avg_bytes": 648,
+   "conc": 16,
+   "errors": 0,
+   "gzip": true,
+   "latency": {
+    "max_ms": 7.491,
+    "mean_ms": 0.17,
+    "n": 741510,
+    "p50_ms": 0.144,
+    "p90_ms": 0.28,
+    "p99_ms": 0.584
+   },
+   "ok": 741510,
+   "path": "/assets/_reset.ggeau7dgmv.css",
+   "rps": 92682.8,
+   "secs": 8.0,
+   "statuses": {
+    "200": 741510
+   },
+   "cost": {
+    "wall_s": 8.0,
+    "server_usage_us": 21107526,
+    "server_user_us": 12195494,
+    "server_system_us": 8912032,
+    "loadgen_user_us": 4948020,
+    "loadgen_system_us": 5648808,
+    "n": 741510,
+    "server_cpu_us_per_req": 28.5,
+    "server_user_us_per_req": 16.4,
+    "server_system_us_per_req": 12.0,
+    "loadgen_cpu_us_per_req": 14.3,
+    "server_cores_busy": 2.64,
+    "loadgen_cores_busy": 1.32
+   },
+   "route": "static_css",
+   "warmup": {
+    "secs": 58.0,
+    "windows_rps": [
+     96197.6,
+     97058.9,
+     94671.2,
+     94605.2,
+     96169.0,
+     94425.2,
+     89372.4,
+     91206.4,
+     87684.0,
+     84743.9,
+     77937.7,
+     73205.2,
+     72720.3,
+     75514.7,
+     86523.5,
+     90286.4,
+     87714.4,
+     90345.0,
+     92229.6,
+     89277.7,
+     91117.9,
+     92269.0,
+     91777.1,
+     91074.8,
+     93105.2,
+     93407.7,
+     91925.9,
+     92723.1,
+     95071.4
+    ],
+    "reason": "settled",
+    "window_secs": 2.0,
+    "settled": true,
+    "tail_rps": 93240.1
+   },
+   "host_probe_after": {
+    "spin_ms": 58.58,
+    "spin_ms_max_cpu": 61.66,
+    "cpus": "0-3,4-7",
+    "baseline_ms": 55.57,
+    "ratio": 1.054
+   }
+  }
+ ],
+ "cable": [],
+ "upload": {},
+ "loadavg_start": "0.26 2.08 2.81 1/202 2042150",
+ "loadavg_end": "5.49 3.18 3.10 1/237 2045905",
+ "post_rows": [],
+ "probe": [
+  {
+   "route": "static_css",
+   "path": "/assets/_reset.ggeau7dgmv.css",
+   "gzip": {
+    "status": 200,
+    "content_encoding": "gzip",
+    "content_type": "text/css",
+    "wire_bytes": 648,
+    "decoded_bytes": 1218,
+    "etag": true
+   },
+   "identity": {
+    "status": 200,
+    "content_encoding": null,
+    "content_type": "text/css",
+    "wire_bytes": 1218,
+    "decoded_bytes": 1218,
+    "etag": true
+   }
+  }
+ ],
+ "host_probe_start": {
+  "spin_ms": 59.4,
+  "spin_ms_max_cpu": 62.84,
+  "cpus": "0-3,4-7",
+  "baseline_ms": 55.57,
+  "ratio": 1.069
+ },
+ "host_probe_end": {
+  "spin_ms": 58.94,
+  "spin_ms_max_cpu": 61.58,
+  "cpus": "0-3,4-7",
+  "baseline_ms": 55.57,
+  "ratio": 1.061
+ }
+}

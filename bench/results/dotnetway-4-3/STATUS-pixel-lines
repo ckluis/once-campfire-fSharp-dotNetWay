@@ -1,0 +1,4 @@
+main rc=0
+message_sent rc=0
+boosted rc=0
+message_edited rc=0

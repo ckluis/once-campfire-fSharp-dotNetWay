@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../Shared/Repo.fs" Link="Repo.fs" />
+    <Compile Include="../Shared/Testing.fs" Link="Testing.fs" />
+    <Compile Include="Support.fs" />
+    <Compile Include="ErrorTests.fs" />
+    <Compile Include="SchemaTests.fs" />
+    <Compile Include="UnitTests.fs" />
+    <Compile Include="AccountTests.fs" />
+    <Compile Include="CallbacksTests.fs" />
+    <Compile Include="DifferentialTests.fs" />
+    <Compile Include="FirstRunTests.fs" />
+    <Compile Include="FixturesTests.fs" />
+    <Compile Include="MembershipTests.fs" />
+    <Compile Include="MessageTests.fs" />
+    <Compile Include="PushTests.fs" />
+    <Compile Include="RoomTests.fs" />
+    <Compile Include="UserTests.fs" />
+    <Compile Include="SeedTests.fs" />
+    <Compile Include="EfTests.fs" />
+    <Compile Include="LinqTests.fs" />
+    <Compile Include="WritesTests.fs" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../src/Campfire.Db/Campfire.Db.fsproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="xunit.v3" />
+    <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" />
+  </ItemGroup>
+</Project>

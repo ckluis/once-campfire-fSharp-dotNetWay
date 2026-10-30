@@ -1,0 +1,12 @@
+2026-10-27T12:02:16.333629Z info: Microsoft.AspNetCore.HttpLogging.HttpLoggingMiddleware[9] Request and Response: Protocol: HTTP/1.1 Method: GET PathBase:  Path: /up QueryString:  StatusCode: 200 Duration: 0.0185
+2026-10-27T12:02:16.333741Z info: Microsoft.AspNetCore.HttpLogging.HttpLoggingMiddleware[9] Request and Response: Protocol: HTTP/1.1 Method: GET PathBase:  Path: /up QueryString:  StatusCode: 200 Duration: 0.0264
+2026-10-27T12:02:16.333775Z info: Microsoft.AspNetCore.HttpLogging.HttpLoggingMiddleware[9] Request and Response: Protocol: HTTP/1.1 Method: GET PathBase:  Path: /up QueryString:  StatusCode: 200 Duration: 0.0177
+2026-10-27T12:02:16.333810Z info: Microsoft.AspNetCore.HttpLogging.HttpLoggingMiddleware[9] Request and Response: Protocol: HTTP/1.1 Method: GET PathBase:  Path: /up QueryString:  StatusCode: 200 Duration: 0.029
+2026-10-27T12:02:16.333965Z info: Microsoft.AspNetCore.HttpLogging.HttpLoggingMiddleware[9] Request and Response: Protocol: HTTP/1.1 Method: GET PathBase:  Path: /up QueryString:  StatusCode: 200 Duration: 0.0261
+2026-10-27T12:02:16.333997Z info: Microsoft.AspNetCore.HttpLogging.HttpLoggingMiddleware[9] Request and Response: Protocol: HTTP/1.1 Method: GET PathBase:  Path: /up QueryString:  StatusCode: 200 Duration: 0.0184
+2026-10-27T12:02:16.331344Z info: Microsoft.AspNetCore.HttpLogging.HttpLoggingMiddleware[9] Request and Response: Protocol: HTTP/1.1 Method: GET PathBase:  Path: /up QueryString:  StatusCode: 200 Duration: 0.0162
+2026-10-27T12:02:16.334059Z info: Microsoft.AspNetCore.HttpLogging.HttpLoggingMiddleware[9] Request and Response: Protocol: HTTP/1.1 Method: GET PathBase:  Path: /up QueryString:  StatusCode: 200 Duration: 0.0216
+2026-10-27T12:02:16.331607Z info: Microsoft.AspNetCore.HttpLogging.HttpLoggingMiddleware[9] Request and Response: Protocol: HTTP/1.1 Method: GET PathBase:  Path: /up QueryString:  StatusCode: 200 Duration: 0.0509
+2026-10-27T12:02:16.332048Z info: Microsoft.AspNetCore.HttpLogging.HttpLoggingMiddleware[9] Request and Response: Protocol: HTTP/1.1 Method: GET PathBase:  Path: /up QueryString:  StatusCode: 200 Duration: 0.0181
+2026-10-27T12:02:16.334137Z info: Microsoft.AspNetCore.HttpLogging.HttpLoggingMiddleware[9] Request and Response: Protocol: HTTP/1.1 Method: GET PathBase:  Path: /up QueryString:  StatusCode: 200 Duration: 0.0266
+2026-10-27T12:02:16.334268Z info: Microsoft.AspNetCore.HttpLogging.HttpLoggingMiddleware[9] Request and Response: Protocol: HTTP/1.1 Method: GET PathBase:  Path: /up QueryString:  StatusCode: 200 Duration: 0.1448

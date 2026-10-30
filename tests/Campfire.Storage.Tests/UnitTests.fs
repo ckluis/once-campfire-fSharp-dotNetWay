@@ -1,0 +1,305 @@
+// Port of the #[cfg(test)] modules of rust/crates/storage/src: filename.rs, disk.rs, json.rs,
+// analyze.rs and storage.rs.
+module Campfire.Storage.Tests.UnitTests
+
+open System
+open System.IO
+open Xunit
+open Campfire.Rails
+open Campfire.Storage
+open Campfire.Db
+open System.Linq
+open Microsoft.EntityFrameworkCore
+
+// --- filename.rs ---------------------------------------------------------------------------------
+
+[<Fact>]
+let ``filename matches ruby file semantics`` () =
+    let cases =
+        [ ("foo.", ".", "foo")
+          ("a.b.", ".", "a.b")
+          (".bashrc", "", ".bashrc")
+          ("..", "", "..")
+          ("...", "", "...")
+          (".a.b", ".b", ".a")
+          ("a..b", ".b", "a.")
+          ("a/b.c/d", "", "d")
+          ("a.b/", ".b", "a")
+          ("x.tar.gz", ".gz", "x.tar")
+          ("a/.b", "", ".b")
+          (".", "", ".")
+          ("", "", "")
+          ("\u00e9.png", ".png", "\u00e9")
+          ("a. b", ". b", "a") ]
+    Assert.Equal(15, cases.Length)
+    for name, ext, baseName in cases do
+        let filename = Filename.create name
+        Assert.True((Filename.extensionWithDelimiter filename = ext), $"extname({name})")
+        Assert.True((Filename.baseName filename = baseName), $"base({name})")
+
+// --- disk.rs -------------------------------------------------------------------------------------
+
+[<Fact>]
+let ``an upload with a checksum is verified`` () =
+    use root = ScratchDir.Create()
+    let service = DiskService.create root.Path "local"
+    let upload (key: string) (data: string) (checksum: string option) =
+        use reader = new MemoryStream(Text.Encoding.UTF8.GetBytes data)
+        DiskService.upload service key reader checksum
+    let checksum (data: string) = Key.checksum (Text.Encoding.UTF8.GetBytes data)
+
+    Assert.Equal(Ok(), upload "matching" "bytes" (Some(checksum "bytes")))
+    Assert.Equal<byte[]>("bytes"B, (DiskService.download service "matching").Value)
+
+    match upload "mismatched" "bytes" (Some(checksum "other bytes")) with
+    | Error StorageError.Integrity -> ()
+    | other -> failwith $"{other}"
+    Assert.False(DiskService.exist service "mismatched")
+
+    Assert.Equal(Ok(), upload "unchecked" "bytes" None)
+    Assert.Equal<byte[]>("bytes"B, (DiskService.download service "unchecked").Value)
+
+// --- TempFile (FR5) -------------------------------------------------------------------------------
+
+[<Fact>]
+let ``FR5 a temp file lives in a directory of its own and goes with it`` () =
+    let file = TempFile.Create("ActiveStorage-5-", ".jpg")
+    let directory = Path.GetDirectoryName file.Path |> nonNull
+    Assert.StartsWith("ActiveStorage-5-", Path.GetFileName directory)
+    Assert.EndsWith(".jpg", file.Path)
+    if not (OperatingSystem.IsWindows()) then
+        Assert.Equal(UnixFileMode.UserRead ||| UnixFileMode.UserWrite ||| UnixFileMode.UserExecute, File.GetUnixFileMode directory)
+        Assert.Equal(UnixFileMode.UserRead ||| UnixFileMode.UserWrite, File.GetUnixFileMode file.Path)
+    // ffmpeg and libvips write to the path, replacing the file (and may add siblings).
+    File.Delete file.Path
+    File.WriteAllText(file.Path, "replaced")
+    File.WriteAllText(Path.Combine(directory, "sibling"), "x")
+    (file :> IDisposable).Dispose()
+    Assert.False(Directory.Exists directory)
+    Assert.False(File.Exists file.Path)
+    // Disposing twice is harmless.
+    (file :> IDisposable).Dispose()
+
+// --- Value.Set and Value.Merge (FR6) ---------------------------------------------------------------
+
+[<Fact>]
+let ``FR6 set and merge keep Ruby's hash order`` () =
+    let hash = Value.Object [ "identified", Value.Bool true; "width", Value.Int 320L; "height", Value.Int 240L ]
+    // `Hash#[]=`: an existing key keeps its place, a new key goes last.
+    Assert.Equal("""{"identified":true,"width":640,"height":240}""", Json.encode (hash.Set("width", Value.Int 640L)))
+    Assert.Equal("""{"identified":true,"width":320,"height":240,"analyzed":true}""", Json.encode (hash.Set("analyzed", Value.Bool true)))
+    // `Hash#merge`: the other hash's keys overwrite in place, new ones append in its order.
+    let other = Value.Object [ "height", Value.Int 1L; "zebra", Value.Null; "apple", Value.Null ]
+    Assert.Equal("""{"identified":true,"width":320,"height":1,"zebra":null,"apple":null}""", Json.encode (hash.Merge other))
+    // Anything that is not a hash is left alone.
+    Assert.Equal(Value.Int 1L, (Value.Int 1L).Set("a", Value.Null))
+    Assert.Equal(hash, hash.Merge(Value.Int 1L))
+    // `Json::parse` of the storage crate refuses an integer past i64::MAX.
+    Assert.Equal(None, Json.parseInt64Only """{"a":18446744073709551615}""")
+    Assert.Equal(Some(Value.Object [ "a", Value.Int 1L ]), Json.parseInt64Only """{"a":1}""")
+
+// --- json.rs -------------------------------------------------------------------------------------
+
+[<Fact>]
+let ``json leaves js line separators raw`` () =
+    // ActiveSupport::JSON.encode and ActiveRecord::Coders::JSON in the reference.
+    Assert.Equal("\"a\u2028b\u2029c\\u003c\\u003e\\u0026\"", Json.encode (Value.String "a\u2028b\u2029c<>&"))
+
+[<Fact>]
+let ``json preserves order and escapes like active support`` () =
+    let json = (Json.parseInt64Only """{"z":1,"a":[true,null,2.0,1e16,1e-5],"s":"<a & b>"}""").Value
+    Assert.Equal("""{"z":1,"a":[true,null,2.0,1e+16,0.00001],"s":"\u003ca \u0026 b\u003e"}""", Json.encode json)
+
+// --- analyze.rs ----------------------------------------------------------------------------------
+
+[<Fact>]
+let ``video metadata matches the analyzer`` () =
+    let probe =
+        (Json.parseInt64Only
+            """{"streams":[{"codec_type":"video","width":320,"height":180,"display_aspect_ratio":"16:9","duration":"65.840000"}],"format":{"duration":"65.9"}}""")
+            .Value
+    Assert.Equal(
+        """{"width":320.0,"height":180.0,"duration":65.84,"display_aspect_ratio":[16,9],"audio":false,"video":true}""",
+        Json.encode (Analyze.videoMetadata probe).Value
+    )
+
+[<Fact>]
+let ``rotated video swaps dimensions`` () =
+    let probe =
+        (Json.parseInt64Only
+            """{"streams":[{"codec_type":"video","width":1920,"height":1080,"side_data_list":[{"side_data_type":"Display Matrix","rotation":-90}]},{"codec_type":"audio"}],"format":{"duration":"3.5"}}""")
+            .Value
+    Assert.Equal(
+        """{"width":1080.0,"height":1920.0,"duration":3.5,"angle":-90,"audio":true,"video":true}""",
+        Json.encode (Analyze.videoMetadata probe).Value
+    )
+
+// --- storage.rs ----------------------------------------------------------------------------------
+
+/// `b"partial".chain(Broken)`: yields its bytes, then fails.
+type private Broken(prefix: byte[]) =
+    inherit Stream()
+    let mutable position = 0
+    override _.CanRead = true
+    override _.CanSeek = false
+    override _.CanWrite = false
+    override _.Length = raise (NotSupportedException())
+    override _.Position with get () = raise (NotSupportedException()) and set _ = raise (NotSupportedException())
+    override _.Flush() = ()
+    override _.Seek(_, _) = raise (NotSupportedException())
+    override _.SetLength _ = raise (NotSupportedException())
+    override _.Write(_, _, _) = raise (NotSupportedException())
+
+    override _.Read(buffer: byte[], offset: int, count: int) =
+        if position < prefix.Length then
+            let n = min count (prefix.Length - position)
+            Array.blit prefix position buffer offset n
+            position <- position + n
+            n
+        else
+            raise (IOException "the disk went away")
+
+[<Fact>]
+let ``a copy that fails leaves no file behind`` () =
+    use root = ScratchDir.Create()
+    let verifier = Secrets.appVerifier (Secrets.create "test") "ActiveStorage"
+    let storage = Storage.create (DiskService.create root.Path "local") verifier
+    let blob = NewBlob.unfurl (Text.Encoding.UTF8.GetBytes "partial and more") (Filename.create "a.txt") None "local" true
+    use reader = new Broken(Text.Encoding.UTF8.GetBytes "partial")
+
+    match Storage.stage storage blob reader with
+    | Error(StorageError.Io error) -> Assert.Equal("the disk went away", error.Message)
+    | other -> failwith $"a broken copy was staged: {other}"
+    Assert.False(DiskService.exist storage.Service blob.Key)
+
+// --- What Rust leaves to the app's tests: the paths through Storage that fail --------------------
+
+let private testStorage (root: ScratchDir) : Storage =
+    Storage.create (DiskService.create root.Path "local") (Secrets.appVerifier (Secrets.create "test") "ActiveStorage")
+
+
+
+[<Fact>]
+let ``opening a blob whose file is missing is file not found`` () =
+    use root = ScratchDir.Create()
+    use db = openDatabase ()
+    let storage = testStorage root
+    let blob = (Storage.createAndUpload storage db "bytes"B (Filename.create "a.txt") None).Value
+    DiskService.delete storage.Service blob.Key |> ignore
+    match Storage.openBlob storage blob with
+    | Error StorageError.FileNotFound -> ()
+    | other -> failwith $"{other}"
+
+[<Fact>]
+let ``opening a blob whose file changed is an integrity error`` () =
+    use root = ScratchDir.Create()
+    use db = openDatabase ()
+    let storage = testStorage root
+    let blob = (Storage.createAndUpload storage db "bytes"B (Filename.create "a.txt") None).Value
+    File.WriteAllText(Storage.pathFor storage blob, "other bytes")
+    match Storage.openBlob storage blob with
+    | Error StorageError.Integrity -> ()
+    | other -> failwith $"{other}"
+
+[<Fact>]
+let ``an opened blob is a copy named for its id and extension`` () =
+    use root = ScratchDir.Create()
+    use db = openDatabase ()
+    let storage = testStorage root
+    let blob = (Storage.createAndUpload storage db "bytes"B (Filename.create "a.txt") None).Value
+    let copy = (Storage.openBlob storage blob).Value
+    let path = copy.Path
+    // The prefix names the directory the copy lives in (FR5), and the extension names the file.
+    let directory = Path.GetFileName(Path.GetDirectoryName path |> nonNull)
+    Assert.True(directory.StartsWith $"ActiveStorage-{blob.Id}-" && path.EndsWith ".txt", path)
+    Assert.Equal<byte[]>("bytes"B, File.ReadAllBytes path)
+    (copy :> IDisposable).Dispose()
+    Assert.False(File.Exists path)
+
+[<Fact>]
+let ``a blob is stored by its key and described by its row`` () =
+    use root = ScratchDir.Create()
+    use db = openDatabase ()
+    let storage = testStorage root
+    let blob = (Storage.createAndUpload storage db "hello"B (Filename.create "hello.txt") None).Value
+    Assert.Equal(Some "text/plain", blob.ContentType)
+    Assert.Equal("2026-09-26 12:00:00", blob.CreatedAt)
+    Assert.Equal(Some "XUFAKrxLKna5cZ2REBfFkg==", blob.Checksum)
+    Assert.Equal(Path.Combine(root.Path, blob.Key.Substring(0, 2), blob.Key.Substring(2, 2), blob.Key), Storage.pathFor storage blob)
+    Assert.Equal(Some blob, Blob.find db blob.Id)
+    Assert.Equal("{\"identified\":true}", Json.encode blob.Metadata)
+
+[<Fact>]
+let ``a variant record is inserted once`` () =
+    use root = ScratchDir.Create()
+    use db = openDatabase ()
+    let storage = testStorage root
+    let blob = (Storage.createAndUpload storage db "bytes"B (Filename.create "a.txt") None).Value
+    let first = Blob.insertVariantRecord db blob.Id "digest"
+    Assert.True first.IsSome
+    Assert.Equal(None, Blob.insertVariantRecord db blob.Id "digest")
+    Assert.Equal(first, Blob.findVariantRecord db blob.Id "digest")
+
+[<Fact>]
+let ``folders come from the first four characters of the key`` () =
+    let service = DiskService.create "/root" "local"
+    Assert.Equal("/root/ab/cd/abcdef", DiskService.pathFor service "abcdef")
+    Assert.Equal("/root/ab/c/abc", DiskService.pathFor service "abc")
+    Assert.Equal("/root/a/a", DiskService.pathFor service "a")
+    Assert.Equal("/root/ab/ab", DiskService.pathFor service "ab")
+    // The cut is by bytes, as Rust's `str::get` makes it: whole characters stay whole, and a cut that
+    // would split one finds no folder.
+    Assert.Equal("/root/\u00e9/xy/\u00e9xyz", DiskService.pathFor service "\u00e9xyz")
+    Assert.Equal("/root/\u00e9/\u00e9/\u00e9\u00e9\u00e9\u00e9", DiskService.pathFor service "\u00e9\u00e9\u00e9\u00e9")
+    Assert.Equal("/root/x\u00e9yz/x\u00e9yz", DiskService.pathFor service "x\u00e9yz")
+
+[<Fact>]
+let ``deleting a prefix removes what starts with it`` () =
+    use root = ScratchDir.Create()
+    let service = DiskService.create root.Path "local"
+    for key in [ "variants/abc/one"; "variants/abc/two"; "variants/abd/other" ] do
+        use reader = new MemoryStream("x"B)
+        Assert.Equal(Ok(), DiskService.upload service key reader None)
+    Assert.Equal(Ok(), DiskService.deletePrefixed service "variants/abc/")
+    Assert.False(DiskService.exist service "variants/abc/one")
+    Assert.False(DiskService.exist service "variants/abc/two")
+    Assert.True(DiskService.exist service "variants/abd/other")
+
+// --- The rows on EF ---------------------------------------------------------------------------------
+
+[<Fact>]
+let ``an attached blob is the first attachment's, by id`` () =
+    use root = ScratchDir.Create()
+    use db = openDatabase ()
+    let storage = testStorage root
+    let upload (text: string) = (Storage.createAndUpload storage db (Text.Encoding.UTF8.GetBytes text) (Filename.create $"{text}.txt") None).Value
+    let first, second = upload "one", upload "two"
+    // The later blob is attached first, so the order is the attachment's id, not the blob's.
+    Blob.insertAttachment db "avatar" "User" 7L second.Id |> ignore
+    Blob.insertAttachment db "avatar" "User" 7L first.Id |> ignore
+    Assert.Equal(Some second.Id, Blob.attached db "User" 7L "avatar" |> Option.map (fun b -> b.Id))
+    Assert.Equal(None, Blob.attached db "User" 8L "avatar")
+    Assert.Equal(None, Blob.attached db "User" 7L "logo")
+    Assert.Equal<(string * int64) list>([ ("User", 7L) ], Blob.attachmentRecords db first.Id)
+
+[<Fact>]
+let ``updating a blob's metadata saves it and keeps the rest`` () =
+    use root = ScratchDir.Create()
+    use db = openDatabase ()
+    let storage = testStorage root
+    let blob = (Storage.createAndUpload storage db "bytes"B (Filename.create "a.txt") None).Value
+    let metadata = Value.Object [ "identified", Value.Bool true; "analyzed", Value.Bool true ]
+    let updated = Blob.updateMetadata db metadata blob
+    Assert.True(Blob.isAnalyzed updated)
+    let stored = (Blob.find db blob.Id).Value
+    Assert.Equal<string>("{\"identified\":true,\"analyzed\":true}", Json.encode stored.Metadata)
+    Assert.Equal(blob.Key, stored.Key)
+    Assert.Equal(blob.CreatedAt, stored.CreatedAt)
+
+[<Fact>]
+let ``a blob row is stamped with the clock's time as Active Record writes it`` () =
+    use root = ScratchDir.Create()
+    use db = openDatabase ()
+    let blob = (Storage.createAndUpload (testStorage root) db "bytes"B (Filename.create "a.txt") None).Value
+    Assert.Equal("2026-09-26 12:00:00", blob.CreatedAt)
+    Assert.Equal("2026-09-26 12:00:00", db.Blobs.Where(fun b -> b.Id = EF.Parameter blob.Id).Select(fun b -> b.CreatedAt).First() |> RailsTime.toDb)

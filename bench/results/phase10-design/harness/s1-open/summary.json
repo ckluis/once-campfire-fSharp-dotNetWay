@@ -1,0 +1,80 @@
+{
+  "metadata": {
+    "verification_revision": "f3103c7d48ab1edf779e6235e34900b489d5a305",
+    "response_validation": "route-contract-v1",
+    "started_at": "2026-10-28T11:04:12Z",
+    "seed_sha256": "4b584669b2268013f3d819d43ac61ea9e900b1740dec594422f185ba43acfe61",
+    "server_cpus": "0-3",
+    "client_cpus": "4-7",
+    "network": "host",
+    "gzip": true,
+    "duration": 8,
+    "concurrencies": "16",
+    "rounds": 2,
+    "loadgen_sha256": "351a66af1ea13003b845c24a63c59d7e5d2d46ddf101aa5c0e0b78e0a0869b1e",
+    "routes": "room_show,messages_page,sidebar",
+    "profile": "read-and-post-v1",
+    "mixed_writer": null,
+    "images": {
+      "dotnetway": "sha256:cf1df935d0af5d8080ac6038b4a0a6722d81ac6cab323ca9838b878497354ff1"
+    },
+    "image_labels": {
+      "dotnetway": {
+        "org.opencontainers.image.description": "",
+        "org.opencontainers.image.licenses": "MIT",
+        "org.opencontainers.image.revision": "dcc9434d3afaed16c1976e817334661c245fa36e",
+        "org.opencontainers.image.source": ""
+      }
+    },
+    "source_revisions": {
+      "dotnetway": {
+        "head": "838f700743abbb8af8ff5f9125d26270c561793f",
+        "dirty": true
+      }
+    },
+    "preflight_only": false,
+    "topology": {
+      "dotnetway": {
+        "processes": 1,
+        "runtime": ".NET 11 (Kestrel, ASP.NET Core, EF Core with Dapper hot reads)",
+        "response_cache": "none for pages (OutputCache serves public assets only)",
+        "cable": "native",
+        "jobs": "in-process"
+      }
+    },
+    "runtimes": {
+      "dotnetway": "dotnetway"
+    },
+    "search_order": {
+      "dotnetway": "created_at"
+    },
+    "complete": true
+  },
+  "results": {
+    "dotnetway": {
+      "room_show": {
+        "median_rps": 4009.7,
+        "runs": [
+          3979.3,
+          4040.1
+        ]
+      },
+      "messages_page": {
+        "median_rps": 10116.4,
+        "runs": [
+          10239.9,
+          9992.9
+        ]
+      },
+      "sidebar": {
+        "median_rps": 10740.25,
+        "runs": [
+          10966.5,
+          10514.0
+        ]
+      },
+      "search": null,
+      "post_message": null
+    }
+  }
+}

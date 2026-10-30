@@ -1,0 +1,45 @@
+#!/usr/bin/env bash
+# Runs a test project on Linux, in Dockerfile.toolchain (the .NET SDK on Debian, in colima), for the
+# tests that skip on macOS because the platform's TLS stack differs: the TLS listener's SNI selection (HS4) and
+# the ACME test against Pebble (AC11), for two.
+#
+#   bin/linux-tests App                                   all of Campfire.App.Tests
+#   bin/linux-tests App --filter-method "*HS4*"           extra arguments go to dotnet test
+#
+# Build, then test --no-build, with the build servers off: `dotnet test` that builds under a container's PID 1 does not return after the tests
+# are done (idle MSBuild nodes outlive it).
+# LINUX_TESTS_DOCKER_ARGS adds `docker run` arguments (the Pebble test needs `--network host` and a mount of Pebble's root, see
+# AGENTS.md); PEBBLE_* variables set in the VM's shell reach the tests.
+#
+# The build runs on a private copy of the sources (without bin/, obj/, target/, rust/ and the parity seeds,
+# which the tests still read from the real repository through CAMPFIRE_ROOT), so it can't clash with the
+# host's obj/ and bin/, and the build's own staging (the App stages its web root under obj/) can run. A run starts from a clean build.
+set -euo pipefail
+root="$(cd "$(dirname "$0")/.." && pwd)"
+
+if [ "$(uname)" = Darwin ]; then
+  exec colima ssh -- bash -c "cd '$root' && bin/linux-tests $(printf '%q ' "$@")"
+fi
+
+[ $# -ge 1 ] || { echo "usage: bin/linux-tests <Project> [dotnet test arguments]" >&2; exit 2; }
+project="$1"; shift
+image="${IMAGE:-campfire-fsharp-toolchain}"
+cd "$root"
+docker build --tag "$image" - < Dockerfile.toolchain
+exec docker run --rm \
+  --volume "$root:/repo:ro" \
+  --volume campfire-fsharp-nuget:/nuget \
+  --env NUGET_PACKAGES=/nuget \
+  --env CAMPFIRE_ROOT=/repo \
+  --env CAMPFIRE_REQUIRE_SEED \
+  --env PEBBLE_DIRECTORY --env PEBBLE_ROOT --env PEBBLE_HTTP_PORT --env PEBBLE_MANAGEMENT --env PEBBLE_TIMES \
+  ${LINUX_TESTS_DOCKER_ARGS:-} \
+  "$image" \
+  bash -c 'set -euo pipefail
+    mkdir -p /work
+    cd /repo
+    # (tar exits 1 for files that changed as it read them, which virtiofs reports for the directory itself.)
+    { tar --exclude=bin --exclude=obj --exclude=./target --exclude=./.git --exclude=./rust --exclude=./parity/.seed --exclude=./parity/node_modules -cf - . || test $? -eq 1; } | tar -xf - -C /work
+    cd /work
+    dotnet build "tests/Campfire.$0.Tests" -c Release -v q -nologo --disable-build-servers
+    exec dotnet test --project "tests/Campfire.$0.Tests" -c Release --no-build "$@"' "$project" "$@"

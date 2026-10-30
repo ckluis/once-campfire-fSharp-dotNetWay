@@ -1,0 +1,2 @@
+before: {"spin_ms": 58.37, "spin_ms_max_cpu": 59.9, "cpus": "0-7", "baseline_ms": 55.57, "ratio": 1.05} load=3.76 5.00 4.97 1/210 4172777
+after: {"spin_ms": 59.74, "spin_ms_max_cpu": 62.0, "cpus": "0-7", "baseline_ms": 55.57, "ratio": 1.075} load=4.87 5.36 5.27 1/217 4178871

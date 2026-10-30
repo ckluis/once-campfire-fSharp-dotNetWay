@@ -1,0 +1,24 @@
+pixel-parity: dotnetway vs the Rails reference, layers pixels,aria,loose, seeds default,crowd,custom_styles,first_run,restricted (fast: chromium, light, no breakpoint sweep)
+pixel-parity: VM free 36G, parity/out 1.9M
+seed default: 4/4 screenshots pixel-equal; 4/4 aria equal; 4/4 loose equal  [21s]
+pixel-parity: VM free 36G, parity/out 1.9M
+seed crowd: 0/0 screenshots pixel-equal; 0/0 aria equal; 0/0 loose equal  [4s]
+pixel-parity: VM free 36G, parity/out 1.9M
+seed custom_styles: 0/0 screenshots pixel-equal; 0/0 aria equal; 0/0 loose equal  [4s]
+pixel-parity: VM free 36G, parity/out 2.0M
+seed first_run: 0/0 screenshots pixel-equal; 0/0 aria equal; 0/0 loose equal  [3s]
+pixel-parity: VM free 36G, parity/out 2.0M
+seed restricted: 0/0 screenshots pixel-equal; 0/0 aria equal; 0/0 loose equal  [4s]
+pixel-parity: PASSED, the UI is pixel-identical in 36s; reports under /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/parity/out/pixel-parity-20261021T184812Z
+pixel-parity: dotnetway vs the Rails reference, layers pixels,aria,loose, seeds default,crowd,custom_styles,first_run,restricted (fast: chromium, light, no breakpoint sweep)
+pixel-parity: VM free 36G, parity/out 1.8M
+seed default: 2/2 screenshots pixel-equal; 2/2 aria equal; 2/2 loose equal  [21s]
+pixel-parity: VM free 36G, parity/out 1.8M
+seed crowd: 0/0 screenshots pixel-equal; 0/0 aria equal; 0/0 loose equal  [4s]
+pixel-parity: VM free 36G, parity/out 1.8M
+seed custom_styles: 0/0 screenshots pixel-equal; 0/0 aria equal; 0/0 loose equal  [3s]
+pixel-parity: VM free 36G, parity/out 1.9M
+seed first_run: 0/0 screenshots pixel-equal; 0/0 aria equal; 0/0 loose equal  [4s]
+pixel-parity: VM free 36G, parity/out 1.9M
+seed restricted: 0/0 screenshots pixel-equal; 0/0 aria equal; 0/0 loose equal  [3s]
+pixel-parity: PASSED, the UI is pixel-identical in 35s; reports under /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/parity/out/pixel-parity-20261021T184902Z

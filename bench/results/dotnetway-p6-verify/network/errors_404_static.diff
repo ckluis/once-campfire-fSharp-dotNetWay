@@ -1,0 +1,6 @@
+2,3c2,3
+<   headers: cache-control content-encoding content-type last-modified vary x-cache
+<   cache-control: max-age=2592000, public
+---
+>   headers: accept-ranges cache-control content-encoding content-type etag last-modified vary x-cache
+>   cache-control: no-cache

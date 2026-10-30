@@ -1,0 +1,153 @@
+/// The F# counterpart of `src/rest.rs`: the remaining templates (the account, bot, custom styles, sign-in, join,
+/// first-run, profile and push-subscription pages, their partials, the avatar SVG and the PWA manifest and
+/// service worker). A branch of `tryRun` here is the branch of the same name there, and the arguments are
+/// described there.
+module Campfire.Views.Differential.Rest
+
+open System.Text.Json
+open Campfire.Views
+open Campfire.Views.Users
+open Campfire.Views.Differential.Answer
+open Campfire.Views.Differential.Inputs
+
+let private known =
+    set
+        [ "accounts/edit"; "accounts/users/_user"; "accounts/users/_next_page_container"; "accounts/users/index_turbo_stream"
+          "accounts/bots/_bot"; "accounts/bots/_form"; "accounts/bots/index"; "accounts/bots/new"; "accounts/bots/edit"
+          "accounts/custom_styles/edit"; "first_runs/show"; "sessions/new"; "sessions/incompatible_browser"; "sessions/transfers/show"
+          "users/new"; "users/show"; "users/_ban_button"; "users/profiles/show"; "users/profiles/_membership"; "users/profiles/_transfer"
+          "users/push_subscriptions/index"; "users/push_subscriptions/_push_subscription"; "users/avatars/show"; "pwa/manifest"
+          "pwa/service_worker" ]
+
+let users (list: JsonElement) : UserSummary list = arr list |> List.map userSummary
+
+let private botForm (v: JsonElement) : Accounts.BotForm =
+    { Name = opt (get v "name")
+      WebhookUrl = opt (get v "webhook_url")
+      AvatarAttachmentUrl = opt (get v "avatar_attachment_url") }
+
+let private bot (v: JsonElement) : Accounts.Bot =
+    { User = userSummary (get v "user")
+      BotKey = str (get v "bot_key")
+      Rooms = arr (get v "rooms") |> List.map (fun room -> { Id = int64Of (get room "id"); Name = str (get room "name") }: Accounts.BotRoom) }
+
+let private membership (v: JsonElement) : ProfileMembership =
+    { RoomId = int64Of (get v "room_id")
+      RoomParamKey = str (get v "room_param_key")
+      RoomDisplayName = str (get v "room_display_name")
+      Involvement = str (get v "involvement")
+      Direct = bool (get v "direct") }
+
+let memberships (list: JsonElement) : ProfileMembership list = arr list |> List.map membership
+
+let private pushSubscription (v: JsonElement) : PushSubscription =
+    { Id = int64Of (get v "id")
+      Endpoint = str (get v "endpoint")
+      Browser = str (get v "browser")
+      Version = str (get v "version")
+      Platform = str (get v "platform") }
+
+let private run (op: string) (args: JsonElement) (ctx: ViewContext) : Answer =
+    match op with
+    | "accounts/edit" ->
+        let edit = get args "edit"
+        let edit: Accounts.EditView =
+            { AccountId = int64Of (get edit "account_id")
+              JoinCode = str (get edit "join_code")
+              RestrictRoomCreationToAdministrators = bool (get edit "restrict_room_creation_to_administrators")
+              Administrators = users (get edit "administrators")
+              Members = users (get edit "members")
+              NextPage = opt (get edit "next_page") }
+        Pages.viewPageAnswer args ctx (Templates.Accounts.Edit.rendered ctx edit)
+    | "accounts/users/_user" ->
+        let user = userSummary (get args "user")
+        Pages.nodeAnswer (fun () -> HtmlOutput.ofNode (Templates.Accounts.Users._User.render ctx user) [])
+    | "accounts/users/_next_page_container" ->
+        Pages.nodeAnswer (fun () -> HtmlOutput.ofNode (Templates.Accounts.Users._NextPageContainer.render (str (get args "page"))) [])
+    | "accounts/users/index_turbo_stream" ->
+        let users = users (get args "users")
+        Pages.nodeAnswer (fun () -> Templates.Accounts.Users.IndexTurboStream.output ctx users (opt (get args "next_page")))
+    | "accounts/bots/_bot" ->
+        let bot = bot (get args "bot")
+        Pages.nodeAnswer (fun () -> HtmlOutput.ofNode (Templates.Accounts.Bots._Bot.render ctx bot) [])
+    | "accounts/bots/_form" ->
+        let objectName = defaultArg (opt (get (get args "form") "model")) ""
+        let bot = botForm (get args "bot")
+        Pages.nodeAnswer (fun () -> HtmlOutput.ofNodes (Templates.Accounts.Bots._Form.render ctx objectName bot) [])
+    | "accounts/bots/index" ->
+        let bots = arr (get args "bots") |> List.map bot
+        Pages.viewPageAnswer args ctx (Templates.Accounts.Bots.Index.rendered ctx bots)
+    | "accounts/bots/new" ->
+        let bot = botForm (get args "bot")
+        Pages.viewPageAnswer args ctx (Templates.Accounts.Bots.New.rendered ctx bot)
+    | "accounts/bots/edit" ->
+        let botId = int64Of (get args "bot_id")
+        let bot = botForm (get args "bot")
+        Pages.viewPageAnswer args ctx (Templates.Accounts.Bots.Edit.rendered ctx botId bot)
+    | "accounts/custom_styles/edit" ->
+        let styles = opt (get args "custom_styles")
+        Pages.viewPageAnswer args ctx (Templates.Accounts.CustomStyles.Edit.rendered ctx styles)
+    | "first_runs/show" ->
+        Pages.viewPageAnswer args ctx (Templates.FirstRuns.Show.rendered ctx)
+    | "sessions/new" ->
+        let email = opt (get args "email_address")
+        let contact = helpContact (get args "help_contact")
+        Pages.viewPageAnswer args ctx (Templates.Sessions.New.rendered ctx email contact)
+    | "sessions/incompatible_browser" ->
+        Pages.viewPageAnswer args ctx (Templates.Sessions.IncompatibleBrowser.rendered ctx)
+    | "sessions/transfers/show" ->
+        let action = str (get args "action")
+        Pages.viewPageAnswer args ctx (Templates.Sessions.Transfers.Show.rendered action)
+    | "users/new" ->
+        let joinCode = str (get args "join_code")
+        let contact = helpContact (get args "help_contact")
+        Pages.viewPageAnswer args ctx (Templates.Users.New.rendered ctx joinCode contact)
+    | "users/show" ->
+        let user = userSummary (get args "user")
+        let transferId = str (get args "transfer_id")
+        Pages.viewPageAnswer args ctx (Templates.Users.Show.rendered ctx user transferId)
+    | "users/_ban_button" ->
+        let user = userSummary (get args "user")
+        Pages.nodeAnswer (fun () -> HtmlOutput.ofNode (Templates.Users._BanButton.render ctx user) [])
+    | "users/profiles/show" ->
+        let profile = get args "profile"
+        let profile: ProfileShow =
+            { User = userSummary (get profile "user")
+              AvatarAttached = bool (get profile "avatar_attached")
+              TransferId = str (get profile "transfer_id")
+              SharedMemberships = memberships (get profile "shared_memberships")
+              DirectMemberships = memberships (get profile "direct_memberships") }
+        Pages.viewPageAnswer args ctx (Templates.Users.Profiles.Show.rendered ctx profile)
+    | "users/profiles/_membership" ->
+        let membership = membership (get args "membership")
+        Pages.nodeAnswer (fun () -> HtmlOutput.ofNode (Templates.Users.Profiles._Membership.render ctx membership) [])
+    | "users/profiles/_transfer" ->
+        let user = userSummary (get args "user")
+        let transferId = str (get args "transfer_id")
+        Pages.nodeAnswer (fun () -> HtmlOutput.ofNode (Templates.Users.Profiles._Transfer.render ctx user transferId) [])
+    | "users/push_subscriptions/index" ->
+        let subscriptions = arr (get args "push_subscriptions") |> List.map pushSubscription
+        Pages.viewPageAnswer args ctx (Templates.Users.PushSubscriptions.Index.rendered ctx subscriptions)
+    | "users/push_subscriptions/_push_subscription" ->
+        let subscription = pushSubscription (get args "push_subscription")
+        Pages.nodeAnswer (fun () -> HtmlOutput.ofNode (Templates.Users.PushSubscriptions._PushSubscription.render ctx subscription) [])
+    | "users/avatars/show" ->
+        let userId = int64Of (get args "user_id")
+        let initials = str (get args "initials")
+        Pages.nodeAnswer (fun () -> HtmlOutput.ofNode (Templates.Users.Avatars.Show.render userId initials) [])
+    | "pwa/manifest" ->
+        Pages.nodeBytesAnswer (fun () ->
+            Templates.Pwa.Manifest.render
+                (opt (get args "account_name"))
+                (str (get args "logo_path_small"))
+                (str (get args "logo_path"))
+                (str (get args "base_url"))
+                asset)
+    | "pwa/service_worker" -> text Templates.Pwa.ServiceWorker.js
+    | _ -> failwith $"unknown rest op {op}"
+
+let tryRun (op: string) (args: JsonElement) (ctx: JsonElement) (shared: JsonElement) : Answer option =
+    if known.Contains op then
+        Some(run op args (viewContext ctx shared))
+    else
+        None

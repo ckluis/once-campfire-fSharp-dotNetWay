@@ -1,0 +1,12 @@
+=== dotnetway:1 part 1/2 22:46:02 mac-free 16Gi load 15.04 15.27 11.73
+rc=0 22:53:50 load 6.93 9.76 10.36
+=== dotnetway:1 part 2/2 22:53:51 mac-free 14Gi load 6.93 9.76 10.36
+rc=0 22:59:02 load 8.68 8.03 9.28
+=== dotnetway:2 part 1/2 22:59:02 mac-free 12Gi load 8.68 8.03 9.28
+rc=0 23:07:20 load 8.49 8.04 8.66
+=== dotnetway:2 part 2/2 23:07:20 mac-free 12Gi load 8.49 8.04 8.66
+rc=0 23:14:46 load 8.66 7.82 8.12
+=== dotnetway:3 part 1/2 23:14:46 mac-free 12Gi load 8.66 7.82 8.12
+rc=0 23:23:47 load 11.67 8.93 8.35
+=== dotnetway:3 part 2/2 23:23:47 mac-free 9Gi load 11.67 8.93 8.35
+rc=0 23:32:44 load 8.55 8.59 8.33

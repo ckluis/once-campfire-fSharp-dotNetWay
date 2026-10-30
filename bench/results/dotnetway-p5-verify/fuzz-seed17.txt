@@ -1,0 +1,34 @@
+inputs 101494, outputs checked 798599, 48.3 s
+violations 39, mutations 0, exceptions 0, slow 0
+--- violations by kind
+     6 body.html: escapes its container: body holds [div#x-container, text(
+     4 body.html: our own parser refuses our output
+     2 sanitize contentFilter: escapes its container: body holds [div#x-container, b#, p#, p#x-after]
+     2 sanitize contentFilter: escapes its container: body holds [div#x-container, b#, p#x-after]
+     1 sanitize contentFilter: escapes its container: body holds [div#x-container, pre#, s#, p#x-after]
+     1 sanitize contentFilter: escapes its container: body holds [div#x-container, p#, b#, p#x-after]
+     1 sanitize contentFilter: escapes its container: body holds [div#x-container, text(<1>>me@example.com&#xE000;1&gt;hello<time content-type=http://example.com/a?b=1&c=2></noembed>http://example.com/%22%3E%3Cimg%20src%3Dx%3E--><body onload=alert(1)>), hr#, span#, text(<�script>�https://x.com/dhh/
+     1 sanitize autoLink: escapes its container: body holds [div#x-container, text(<1>>me@example.com&#xE000;1&gt;hello<time content-type=http://example.com/a?b=1&c=2></noembed>http://example.com/%22%3E%3Cimg%20src%3Dx%3E--><body onload=alert(1)>), hr#, img#, span#, text(<�script>�https://x.com/dhh
+     1 sanitize contentFilter: escapes its container: body holds [div#x-container, p#, p#x-after]
+     1 sanitize contentFilter: escapes its container: body holds [div#x-container, u#, p#, p#x-after]
+     1 sanitize actionText: escapes its container: body holds [div#x-container, text(hello), action-text-attachment#, text(), figure#, em#, p#x-after]
+     1 sanitize contentFilter: escapes its container: body holds [div#x-container, text(hello), action-text-attachment#, text(), figure#, em#, p#x-after]
+     1 sanitize autoLink: escapes its container: body holds [div#x-container, text(hello1>), abbr#, em#, p#x-after]
+     1 sanitize actionText: escapes its container: body holds [div#x-container, br#, text(�), br#, text(--><</mtext><action-text-attachment content-type="text/html" content="<img src=x onerror=alert(1)><svg onload=alert(1)><a href=javascript:alert(1)>x</a><style>x</style>"></action-text-attachment><
+     1 sanitize contentFilter: escapes its container: body holds [div#x-container, br#, text(�), br#, text(--><</mtext><action-text-attachment content-type="text/html" content="<img src=x onerror=alert(1)><svg onload=alert(1)><a href=javascript:alert(1)>x</a><style>x</style>"></action-text-attachmen
+     1 sanitize autoLink: escapes its container: body holds [div#x-container, br#, text(�), br#, text(--><</mtext><action-text-attachment content-type="text/html" content="<img src=x onerror=alert(1)><svg onload=alert(1)><a href=javascript:alert(1)>x</a><style>x</style>"></action-text-attachment></r
+     1 sanitize contentFilter: escapes its container: body holds [div#x-container, span#, p#x-after]
+     1 sanitize contentFilter: escapes its container: body holds [div#x-container, code#, p#x-after]
+     1 sanitize defaults: escapes its container: body holds [div#x-container, text(<img src=x onerror=alert(1)>), h1#, text(www.example.com), p#x-after]
+     1 sanitize actionText: escapes its container: body holds [div#x-container, text(<img src=x onerror=alert(1)>), h1#, text(www.example.com), p#x-after]
+     1 sanitize contentFilter: escapes its container: body holds [div#x-container, text(<img src=x onerror=alert(1)>), h1#, text(www.example.com), p#x-after]
+     1 sanitize autoLink: escapes its container: body holds [div#x-container, text(<img src=x onerror=alert(1)>), h1#, text(www.example.com), p#x-after]
+     1 sanitize actionText: escapes its container: body holds [div#x-container, action-text-attachment#, p#x-after]
+     1 sanitize contentFilter: escapes its container: body holds [div#x-container, action-text-attachment#, p#x-after]
+     1 sanitize contentFilter: escapes its container: body holds [div#x-container, table#, p#x-after]
+     1 body.html: style="color: expression;"
+     1 sanitize actionText: escapes its container: body holds [div#x-container, text( 
+     1 sanitize contentFilter: escapes its container: body holds [div#x-container, text( 
+     1 sanitize autoLink: escapes its container: body holds [div#x-container, text( 
+--- mutations by kind
+--- exceptions by kind

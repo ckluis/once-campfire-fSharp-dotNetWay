@@ -1,0 +1,1277 @@
+{
+  "info": {
+    "title": "Parity report",
+    "expected": "reference http://127.0.0.1:4111",
+    "actual": "candidate http://127.0.0.1:4112",
+    "startedAt": "2026-10-29T05:24:09.352Z",
+    "durationMs": 291710,
+    "unusedAllowlist": [
+      {
+        "state": "pwa/manifest",
+        "layers": [
+          "server"
+        ],
+        "reason": "The manifest is JSON-escaped, not HTML-escaped, so the small logo's URL reads `&v=` where Rails wrote `&amp;v=` (README, \"The web app manifest is valid JSON\")",
+        "owner": "views"
+      }
+    ],
+    "counts": {
+      "pass": 0,
+      "fail": 24,
+      "allowed": 0,
+      "error": 0
+    },
+    "flaky": 0,
+    "masks": {}
+  },
+  "results": [
+    {
+      "state": "realtime/unread_in_sidebar",
+      "cell": "firefox-desktop-light",
+      "status": "fail",
+      "layers": [
+        {
+          "layer": "pixels",
+          "equal": true,
+          "pixels": {
+            "equal": true,
+            "width": 1440,
+            "height": 900
+          }
+        },
+        {
+          "layer": "server",
+          "equal": false,
+          "added": 30,
+          "removed": 30
+        },
+        {
+          "layer": "live",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "loose",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "aria",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "network",
+          "equal": false,
+          "added": 682,
+          "removed": 660
+        },
+        {
+          "layer": "cable",
+          "equal": false,
+          "added": 22,
+          "removed": 22
+        }
+      ]
+    },
+    {
+      "state": "realtime/unread_in_sidebar",
+      "cell": "chromium-desktop-light",
+      "status": "fail",
+      "layers": [
+        {
+          "layer": "pixels",
+          "equal": true,
+          "pixels": {
+            "equal": true,
+            "width": 1440,
+            "height": 900
+          }
+        },
+        {
+          "layer": "server",
+          "equal": false,
+          "added": 30,
+          "removed": 30
+        },
+        {
+          "layer": "live",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "loose",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "aria",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "network",
+          "equal": false,
+          "added": 693,
+          "removed": 678
+        },
+        {
+          "layer": "cable",
+          "equal": false,
+          "added": 1,
+          "removed": 1
+        }
+      ]
+    },
+    {
+      "state": "realtime/unread_in_sidebar",
+      "cell": "webkit-desktop-light",
+      "status": "fail",
+      "layers": [
+        {
+          "layer": "pixels",
+          "equal": true,
+          "pixels": {
+            "equal": true,
+            "width": 1440,
+            "height": 900
+          }
+        },
+        {
+          "layer": "server",
+          "equal": false,
+          "added": 30,
+          "removed": 30
+        },
+        {
+          "layer": "live",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "loose",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "aria",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "network",
+          "equal": false,
+          "added": 693,
+          "removed": 674
+        },
+        {
+          "layer": "cable",
+          "equal": false,
+          "added": 1,
+          "removed": 1
+        }
+      ]
+    },
+    {
+      "state": "realtime/unread_in_sidebar",
+      "cell": "chromium-desktop-dark",
+      "status": "fail",
+      "layers": [
+        {
+          "layer": "pixels",
+          "equal": true,
+          "pixels": {
+            "equal": true,
+            "width": 1440,
+            "height": 900
+          }
+        },
+        {
+          "layer": "server",
+          "equal": false,
+          "added": 30,
+          "removed": 30
+        },
+        {
+          "layer": "live",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "loose",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "aria",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "network",
+          "equal": false,
+          "added": 693,
+          "removed": 678
+        },
+        {
+          "layer": "cable",
+          "equal": false,
+          "added": 1,
+          "removed": 1
+        }
+      ]
+    },
+    {
+      "state": "realtime/unread_in_sidebar",
+      "cell": "firefox-desktop-dark",
+      "status": "fail",
+      "layers": [
+        {
+          "layer": "pixels",
+          "equal": true,
+          "pixels": {
+            "equal": true,
+            "width": 1440,
+            "height": 900
+          }
+        },
+        {
+          "layer": "server",
+          "equal": false,
+          "added": 30,
+          "removed": 30
+        },
+        {
+          "layer": "live",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "loose",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "aria",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "network",
+          "equal": false,
+          "added": 682,
+          "removed": 660
+        },
+        {
+          "layer": "cable",
+          "equal": false,
+          "added": 22,
+          "removed": 22
+        }
+      ]
+    },
+    {
+      "state": "realtime/unread_in_sidebar",
+      "cell": "webkit-desktop-dark",
+      "status": "fail",
+      "layers": [
+        {
+          "layer": "pixels",
+          "equal": true,
+          "pixels": {
+            "equal": true,
+            "width": 1440,
+            "height": 900
+          }
+        },
+        {
+          "layer": "server",
+          "equal": false,
+          "added": 30,
+          "removed": 30
+        },
+        {
+          "layer": "live",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "loose",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "aria",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "network",
+          "equal": false,
+          "added": 693,
+          "removed": 674
+        },
+        {
+          "layer": "cable",
+          "equal": false,
+          "added": 1,
+          "removed": 1
+        }
+      ]
+    },
+    {
+      "state": "realtime/unread_in_sidebar",
+      "cell": "firefox-laptop-light",
+      "status": "fail",
+      "layers": [
+        {
+          "layer": "pixels",
+          "equal": true,
+          "pixels": {
+            "equal": true,
+            "width": 1280,
+            "height": 800
+          }
+        },
+        {
+          "layer": "server",
+          "equal": false,
+          "added": 30,
+          "removed": 30
+        },
+        {
+          "layer": "live",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "loose",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "aria",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "network",
+          "equal": false,
+          "added": 682,
+          "removed": 660
+        },
+        {
+          "layer": "cable",
+          "equal": false,
+          "added": 22,
+          "removed": 22
+        }
+      ]
+    },
+    {
+      "state": "realtime/unread_in_sidebar",
+      "cell": "chromium-laptop-light",
+      "status": "fail",
+      "layers": [
+        {
+          "layer": "pixels",
+          "equal": true,
+          "pixels": {
+            "equal": true,
+            "width": 1280,
+            "height": 800
+          }
+        },
+        {
+          "layer": "server",
+          "equal": false,
+          "added": 30,
+          "removed": 30
+        },
+        {
+          "layer": "live",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "loose",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "aria",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "network",
+          "equal": false,
+          "added": 693,
+          "removed": 678
+        },
+        {
+          "layer": "cable",
+          "equal": false,
+          "added": 1,
+          "removed": 1
+        }
+      ]
+    },
+    {
+      "state": "realtime/unread_in_sidebar",
+      "cell": "webkit-laptop-light",
+      "status": "fail",
+      "layers": [
+        {
+          "layer": "pixels",
+          "equal": true,
+          "pixels": {
+            "equal": true,
+            "width": 1280,
+            "height": 800
+          }
+        },
+        {
+          "layer": "server",
+          "equal": false,
+          "added": 30,
+          "removed": 30
+        },
+        {
+          "layer": "live",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "loose",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "aria",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "network",
+          "equal": false,
+          "added": 689,
+          "removed": 666
+        },
+        {
+          "layer": "cable",
+          "equal": false,
+          "added": 1,
+          "removed": 1
+        }
+      ]
+    },
+    {
+      "state": "realtime/unread_in_sidebar",
+      "cell": "chromium-laptop-dark",
+      "status": "fail",
+      "layers": [
+        {
+          "layer": "pixels",
+          "equal": true,
+          "pixels": {
+            "equal": true,
+            "width": 1280,
+            "height": 800
+          }
+        },
+        {
+          "layer": "server",
+          "equal": false,
+          "added": 30,
+          "removed": 30
+        },
+        {
+          "layer": "live",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "loose",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "aria",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "network",
+          "equal": false,
+          "added": 693,
+          "removed": 678
+        },
+        {
+          "layer": "cable",
+          "equal": false,
+          "added": 1,
+          "removed": 1
+        }
+      ]
+    },
+    {
+      "state": "realtime/unread_in_sidebar",
+      "cell": "firefox-laptop-dark",
+      "status": "fail",
+      "layers": [
+        {
+          "layer": "pixels",
+          "equal": true,
+          "pixels": {
+            "equal": true,
+            "width": 1280,
+            "height": 800
+          }
+        },
+        {
+          "layer": "server",
+          "equal": false,
+          "added": 30,
+          "removed": 30
+        },
+        {
+          "layer": "live",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "loose",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "aria",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "network",
+          "equal": false,
+          "added": 682,
+          "removed": 660
+        },
+        {
+          "layer": "cable",
+          "equal": false,
+          "added": 22,
+          "removed": 22
+        }
+      ]
+    },
+    {
+      "state": "realtime/unread_in_sidebar",
+      "cell": "webkit-laptop-dark",
+      "status": "fail",
+      "layers": [
+        {
+          "layer": "pixels",
+          "equal": true,
+          "pixels": {
+            "equal": true,
+            "width": 1280,
+            "height": 800
+          }
+        },
+        {
+          "layer": "server",
+          "equal": false,
+          "added": 30,
+          "removed": 30
+        },
+        {
+          "layer": "live",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "loose",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "aria",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "network",
+          "equal": false,
+          "added": 689,
+          "removed": 666
+        },
+        {
+          "layer": "cable",
+          "equal": false,
+          "added": 1,
+          "removed": 1
+        }
+      ]
+    },
+    {
+      "state": "realtime/unread_in_sidebar",
+      "cell": "webkit-tablet-light",
+      "status": "fail",
+      "layers": [
+        {
+          "layer": "pixels",
+          "equal": true,
+          "pixels": {
+            "equal": true,
+            "width": 1668,
+            "height": 2388
+          }
+        },
+        {
+          "layer": "server",
+          "equal": false,
+          "added": 30,
+          "removed": 30
+        },
+        {
+          "layer": "live",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "loose",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "aria",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "network",
+          "equal": false,
+          "added": 697,
+          "removed": 682
+        },
+        {
+          "layer": "cable",
+          "equal": false,
+          "added": 1,
+          "removed": 1
+        }
+      ]
+    },
+    {
+      "state": "realtime/unread_in_sidebar",
+      "cell": "firefox-tablet-light",
+      "status": "fail",
+      "layers": [
+        {
+          "layer": "pixels",
+          "equal": true,
+          "pixels": {
+            "equal": true,
+            "width": 1668,
+            "height": 2388
+          }
+        },
+        {
+          "layer": "server",
+          "equal": false,
+          "added": 30,
+          "removed": 30
+        },
+        {
+          "layer": "live",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "loose",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "aria",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "network",
+          "equal": false,
+          "added": 686,
+          "removed": 668
+        },
+        {
+          "layer": "cable",
+          "equal": false,
+          "added": 22,
+          "removed": 22
+        }
+      ]
+    },
+    {
+      "state": "realtime/unread_in_sidebar",
+      "cell": "chromium-tablet-light",
+      "status": "fail",
+      "layers": [
+        {
+          "layer": "pixels",
+          "equal": true,
+          "pixels": {
+            "equal": true,
+            "width": 1668,
+            "height": 2388
+          }
+        },
+        {
+          "layer": "server",
+          "equal": false,
+          "added": 30,
+          "removed": 30
+        },
+        {
+          "layer": "live",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "loose",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "aria",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "network",
+          "equal": false,
+          "added": 693,
+          "removed": 678
+        },
+        {
+          "layer": "cable",
+          "equal": false,
+          "added": 1,
+          "removed": 1
+        }
+      ]
+    },
+    {
+      "state": "realtime/unread_in_sidebar",
+      "cell": "firefox-tablet-dark",
+      "status": "fail",
+      "layers": [
+        {
+          "layer": "pixels",
+          "equal": true,
+          "pixels": {
+            "equal": true,
+            "width": 1668,
+            "height": 2388
+          }
+        },
+        {
+          "layer": "server",
+          "equal": false,
+          "added": 30,
+          "removed": 30
+        },
+        {
+          "layer": "live",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "loose",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "aria",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "network",
+          "equal": false,
+          "added": 686,
+          "removed": 668
+        },
+        {
+          "layer": "cable",
+          "equal": false,
+          "added": 22,
+          "removed": 22
+        }
+      ]
+    },
+    {
+      "state": "realtime/unread_in_sidebar",
+      "cell": "webkit-tablet-dark",
+      "status": "fail",
+      "layers": [
+        {
+          "layer": "pixels",
+          "equal": true,
+          "pixels": {
+            "equal": true,
+            "width": 1668,
+            "height": 2388
+          }
+        },
+        {
+          "layer": "server",
+          "equal": false,
+          "added": 30,
+          "removed": 30
+        },
+        {
+          "layer": "live",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "loose",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "aria",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "network",
+          "equal": false,
+          "added": 697,
+          "removed": 682
+        },
+        {
+          "layer": "cable",
+          "equal": false,
+          "added": 1,
+          "removed": 1
+        }
+      ]
+    },
+    {
+      "state": "realtime/unread_in_sidebar",
+      "cell": "chromium-tablet-dark",
+      "status": "fail",
+      "layers": [
+        {
+          "layer": "pixels",
+          "equal": true,
+          "pixels": {
+            "equal": true,
+            "width": 1668,
+            "height": 2388
+          }
+        },
+        {
+          "layer": "server",
+          "equal": false,
+          "added": 30,
+          "removed": 30
+        },
+        {
+          "layer": "live",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "loose",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "aria",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "network",
+          "equal": false,
+          "added": 693,
+          "removed": 678
+        },
+        {
+          "layer": "cable",
+          "equal": false,
+          "added": 1,
+          "removed": 1
+        }
+      ]
+    },
+    {
+      "state": "realtime/unread_in_sidebar",
+      "cell": "chromium-phone-light",
+      "status": "fail",
+      "layers": [
+        {
+          "layer": "pixels",
+          "equal": true,
+          "pixels": {
+            "equal": true,
+            "width": 1170,
+            "height": 2532
+          }
+        },
+        {
+          "layer": "server",
+          "equal": false,
+          "added": 30,
+          "removed": 30
+        },
+        {
+          "layer": "live",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "loose",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "aria",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "network",
+          "equal": false,
+          "added": 693,
+          "removed": 678
+        },
+        {
+          "layer": "cable",
+          "equal": false,
+          "added": 1,
+          "removed": 1
+        }
+      ]
+    },
+    {
+      "state": "realtime/unread_in_sidebar",
+      "cell": "firefox-phone-light",
+      "status": "fail",
+      "layers": [
+        {
+          "layer": "pixels",
+          "equal": true,
+          "pixels": {
+            "equal": true,
+            "width": 1170,
+            "height": 2532
+          }
+        },
+        {
+          "layer": "server",
+          "equal": false,
+          "added": 30,
+          "removed": 30
+        },
+        {
+          "layer": "live",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "loose",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "aria",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "network",
+          "equal": false,
+          "added": 694,
+          "removed": 672
+        },
+        {
+          "layer": "cable",
+          "equal": false,
+          "added": 22,
+          "removed": 22
+        }
+      ]
+    },
+    {
+      "state": "realtime/unread_in_sidebar",
+      "cell": "webkit-phone-light",
+      "status": "fail",
+      "layers": [
+        {
+          "layer": "pixels",
+          "equal": true,
+          "pixels": {
+            "equal": true,
+            "width": 1170,
+            "height": 2532
+          }
+        },
+        {
+          "layer": "server",
+          "equal": false,
+          "added": 30,
+          "removed": 30
+        },
+        {
+          "layer": "live",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "loose",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "aria",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "network",
+          "equal": false,
+          "added": 689,
+          "removed": 666
+        },
+        {
+          "layer": "cable",
+          "equal": false,
+          "added": 1,
+          "removed": 1
+        }
+      ]
+    },
+    {
+      "state": "realtime/unread_in_sidebar",
+      "cell": "firefox-phone-dark",
+      "status": "fail",
+      "layers": [
+        {
+          "layer": "pixels",
+          "equal": true,
+          "pixels": {
+            "equal": true,
+            "width": 1170,
+            "height": 2532
+          }
+        },
+        {
+          "layer": "server",
+          "equal": false,
+          "added": 30,
+          "removed": 30
+        },
+        {
+          "layer": "live",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "loose",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "aria",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "network",
+          "equal": false,
+          "added": 694,
+          "removed": 672
+        },
+        {
+          "layer": "cable",
+          "equal": false,
+          "added": 22,
+          "removed": 22
+        }
+      ]
+    },
+    {
+      "state": "realtime/unread_in_sidebar",
+      "cell": "webkit-phone-dark",
+      "status": "fail",
+      "layers": [
+        {
+          "layer": "pixels",
+          "equal": true,
+          "pixels": {
+            "equal": true,
+            "width": 1170,
+            "height": 2532
+          }
+        },
+        {
+          "layer": "server",
+          "equal": false,
+          "added": 30,
+          "removed": 30
+        },
+        {
+          "layer": "live",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "loose",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "aria",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "network",
+          "equal": false,
+          "added": 689,
+          "removed": 666
+        },
+        {
+          "layer": "cable",
+          "equal": false,
+          "added": 1,
+          "removed": 1
+        }
+      ]
+    },
+    {
+      "state": "realtime/unread_in_sidebar",
+      "cell": "chromium-phone-dark",
+      "status": "fail",
+      "layers": [
+        {
+          "layer": "pixels",
+          "equal": true,
+          "pixels": {
+            "equal": true,
+            "width": 1170,
+            "height": 2532
+          }
+        },
+        {
+          "layer": "server",
+          "equal": false,
+          "added": 30,
+          "removed": 30
+        },
+        {
+          "layer": "live",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "loose",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "aria",
+          "equal": true,
+          "added": 0,
+          "removed": 0
+        },
+        {
+          "layer": "network",
+          "equal": false,
+          "added": 693,
+          "removed": 678
+        },
+        {
+          "layer": "cable",
+          "equal": false,
+          "added": 1,
+          "removed": 1
+        }
+      ]
+    }
+  ]
+}

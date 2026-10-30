@@ -1,0 +1,25 @@
+## d. sidebar and search read sets, in process, single thread, default seed, warm. load { 5.09 4.63 4.04 }
+d | sidebar | round 1 | ef | 265.5 us/page | 167157 B/page | load { 5.09 4.63 4.04 }
+d | sidebar | round 1 | dapper | 143.3 us/page | 95133 B/page | load { 5.09 4.63 4.04 }
+d | sidebar | round 2 | dapper | 142.7 us/page | 95128 B/page | load { 4.84 4.58 4.02 }
+d | sidebar | round 2 | ef | 172.7 us/page | 165816 B/page | load { 4.84 4.58 4.02 }
+d | sidebar | round 3 | ef | 170.1 us/page | 165816 B/page | load { 4.84 4.58 4.02 }
+d | sidebar | round 3 | dapper | 142.9 us/page | 95128 B/page | load { 4.61 4.54 4.01 }
+d | sidebar | round 4 | dapper | 143.4 us/page | 95128 B/page | load { 4.61 4.54 4.01 }
+d | sidebar | round 4 | ef | 172.7 us/page | 165816 B/page | load { 4.61 4.54 4.01 }
+d | sidebar | round 5 | ef | 173.3 us/page | 165816 B/page | load { 4.40 4.50 4.00 }
+d | sidebar | round 5 | dapper | 143.7 us/page | 95128 B/page | load { 4.40 4.50 4.00 }
+d | sidebar | round 6 | dapper | 142.8 us/page | 95128 B/page | load { 4.40 4.50 4.00 }
+d | sidebar | round 6 | ef | 172.6 us/page | 165816 B/page | load { 4.29 4.47 3.99 }
+d | search | round 1 | ef | 221.6 us/page | 168128 B/page | load { 4.29 4.47 3.99 }
+d | search | round 1 | dapper | 101.1 us/page | 67232 B/page | load { 4.29 4.47 3.99 }
+d | search | round 2 | dapper | 101.2 us/page | 67232 B/page | load { 4.11 4.43 3.98 }
+d | search | round 2 | ef | 182.2 us/page | 166224 B/page | load { 4.11 4.43 3.98 }
+d | search | round 3 | ef | 181.9 us/page | 166224 B/page | load { 4.11 4.43 3.98 }
+d | search | round 3 | dapper | 102.1 us/page | 67232 B/page | load { 3.94 4.39 3.97 }
+d | search | round 4 | dapper | 100.6 us/page | 67232 B/page | load { 3.94 4.39 3.97 }
+d | search | round 4 | ef | 181.7 us/page | 166224 B/page | load { 3.94 4.39 3.97 }
+d | search | round 5 | ef | 181.7 us/page | 166224 B/page | load { 3.94 4.39 3.97 }
+d | search | round 5 | dapper | 101.8 us/page | 67232 B/page | load { 3.86 4.37 3.96 }
+d | search | round 6 | dapper | 100.6 us/page | 67232 B/page | load { 3.86 4.37 3.96 }
+d | search | round 6 | ef | 181.2 us/page | 166224 B/page | load { 3.86 4.37 3.96 }

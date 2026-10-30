@@ -1,0 +1,13 @@
+pixel-parity: dotnetway vs the Rails reference, layers pixels,aria,loose, seeds default
+pixel-parity: VM free 43G, parity/out 35M
+seed default: 8/8 screenshots pixel-equal; 8/8 aria equal; 0/8 loose equal, 8 DIFFERENT  [121s]
+    LOOSE DIFF realtime/message_edited @ chromium-desktop-light: +0 -248 lines
+    LOOSE DIFF realtime/message_edited @ firefox-desktop-light: +0 -248 lines
+    LOOSE DIFF realtime/message_edited @ webkit-desktop-light: +0 -248 lines
+    LOOSE DIFF realtime/message_edited @ chromium-desktop-dark: +0 -248 lines
+    LOOSE DIFF realtime/message_edited @ firefox-phone-light: +0 -248 lines
+    LOOSE DIFF realtime/message_edited @ webkit-phone-light: +0 -248 lines
+    LOOSE DIFF realtime/message_edited @ chromium-phone-light: +0 -248 lines
+    LOOSE DIFF realtime/message_edited @ chromium-phone-dark: +0 -248 lines
+pixel-parity: FAILED in 121s; reports under /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/parity/out/p0-rt/message_edited
+time="2026-10-13T18:03:10-04:00" level=fatal msg="exit status 1"

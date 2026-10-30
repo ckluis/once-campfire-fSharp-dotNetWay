@@ -1,0 +1,6 @@
+candidate: reference :4111 vs candidate :4112 (seed default, clock frozen at 2026-03-02T16:00:00Z)
+2 cells (0 on shared servers, 2 on fresh servers in 3 slots) × 2 targets, 4 workers
+[1/2] realtime/attachment_sent @ chromium-desktop-light fail
+[2/2] realtime/attachment_sent @ chromium-phone-light fail
+2 cells: 0 pass (0 flaky), 2 fail, 0 allowed, 0 error in 28.1s
+report: /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/parity/out/p6-fast-rt-attachment_sent/default/report.html

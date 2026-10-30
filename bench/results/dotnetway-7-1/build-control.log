@@ -1,0 +1,287 @@
+candidate: building campfire-dotnetway:p6ctl from Dockerfile
+#0 building with "default" instance using docker driver
+
+#1 [internal] load build definition from Dockerfile
+#1 transferring dockerfile: 13.00kB done
+#1 DONE 0.0s
+
+#2 resolve image config for docker-image://docker.io/docker/dockerfile:1
+#2 DONE 0.1s
+
+#3 docker-image://docker.io/docker/dockerfile:1@sha256:4edf897a3ffa55b89f906fc8cc78afdb3f1834cc9c7083565e611a8a7d5fe99e
+#3 resolve docker.io/docker/dockerfile:1@sha256:4edf897a3ffa55b89f906fc8cc78afdb3f1834cc9c7083565e611a8a7d5fe99e done
+#3 CACHED
+
+#4 [internal] load metadata for docker.io/library/debian:trixie-slim
+#4 DONE 0.1s
+
+#5 [internal] load metadata for docker.io/library/buildpack-deps:trixie
+#5 DONE 0.2s
+
+#6 [internal] load .dockerignore
+#6 transferring context: 700B done
+#6 DONE 0.0s
+
+#7 [internal] preparing inline document
+#7 DONE 0.0s
+
+#8 [internal] preparing inline document
+#8 DONE 0.0s
+
+#9 [stage-6  1/12] FROM docker.io/library/debian:trixie-slim@sha256:62bd423aeee912639ca8ee681c2b762cb3e25137e0a92b20be455898a9f034ad
+#9 resolve docker.io/library/debian:trixie-slim@sha256:62bd423aeee912639ca8ee681c2b762cb3e25137e0a92b20be455898a9f034ad done
+#9 DONE 0.0s
+
+#10 [media-base 1/3] FROM docker.io/library/buildpack-deps:trixie@sha256:880a5e3d451b50a7b1acd06093a980771a40c2fac2bce29a2145e0f4825266f4
+#10 resolve docker.io/library/buildpack-deps:trixie@sha256:880a5e3d451b50a7b1acd06093a980771a40c2fac2bce29a2145e0f4825266f4 done
+#10 DONE 0.0s
+
+#11 [stage-6  2/12] RUN apt-get update -qq &&     apt-get install --no-install-recommends -y       ca-certificates libstdc++6 zlib1g libglib2.0-0t64 libexpat1 libjpeg62-turbo libspng0 libpng16-16t64       libwebp7 libwebpmux3 libwebpdemux2 libtiff6 libheif1 libheif-plugin-libde265       libheif-plugin-dav1d libexif12 liblcms2-2 libcgif0 libimagequant0 libhwy1t64 libdav1d7 &&     rm -rf /var/lib/apt/lists /var/cache/apt/archives
+#11 CACHED
+
+#12 [ffmpeg 1/1] RUN apt-get source -qq ffmpeg=7:7.1.5-0+deb13u1 &&     upstream=7.1.5-0+deb13u1 && upstream=${upstream%-*} && revision=0+deb13u1 &&     echo "9ed2ed34cbe7f056eeebbe9045c5e2d15e41b5b053fe7c8ba6979a0b6fb081ce  ffmpeg_7.1.5-0+deb13u1.dsc" | sha256sum -c - &&     cd ffmpeg-${upstream} &&     ./configure --prefix=/opt/ffmpeg --extra-version="${revision}" --toolchain=hardened       --enable-shared --disable-static --disable-doc --disable-ffplay --disable-avdevice       --disable-autodetect --disable-network --disable-hwaccels --disable-devices       --enable-libdav1d --enable-zlib --enable-bzlib --enable-lzma       --disable-encoders --enable-encoder=mjpeg       --disable-muxers --enable-muxer=image2       --disable-protocols --enable-protocol=file,pipe       --disable-filters       --enable-filter=buffer,buffersink,abuffer,abuffersink,format,aformat,null,anull,scale,aresample       --enable-filter=select,loop,trim,transpose,hflip,vflip,rotate,crop &&     make -j"$(nproc)" &&     make install &&     strip --strip-unneeded /opt/ffmpeg/lib/*.so.* /opt/ffmpeg/bin/*
+#12 CACHED
+
+#13 [media 3/3] COPY --from=ffmpeg /opt/ffmpeg/bin/ffmpeg /opt/ffmpeg/bin/ffprobe /usr/local/bin/
+#13 CACHED
+
+#14 [stage-6  3/12] COPY --from=media / /
+#14 CACHED
+
+#15 [vips 1/1] RUN apt-get source -qq vips=8.16.1-1+deb13u1 &&     echo "60205e00d061b9d8072938e04899f2ca2fdac0513068e561d33f7c87fae1ae2e  vips_8.16.1-1+deb13u1.dsc" | sha256sum -c - &&     cd vips-8.16.1 &&     eval "$(DEB_BUILD_MAINT_OPTIONS=hardening=+all dpkg-buildflags --export=sh)" &&     meson setup build --buildtype=plain --wrap-mode=nodownload --prefix=/opt/vips --libdir=lib       --auto-features=disabled -Dmodules=disabled -Dintrospection=disabled -Dcplusplus=false       -Ddeprecated=false -Dexamples=false       -Djpeg=enabled -Dspng=enabled -Dpng=enabled -Dwebp=enabled -Dtiff=enabled -Dheif=enabled       -Dexif=enabled -Dlcms=enabled -Dcgif=enabled -Dimagequant=enabled -Dhighway=enabled       -Dzlib=enabled &&     meson install -C build --strip
+#15 CACHED
+
+#16 [media-base 2/3] RUN sed -i 's/^Types: deb$/Types: deb deb-src/' /etc/apt/sources.list.d/debian.sources &&     apt-get update -qq &&     apt-get install --no-install-recommends -y       dpkg-dev meson ninja-build nasm       libglib2.0-dev libexpat1-dev zlib1g-dev libjpeg62-turbo-dev libspng-dev libpng-dev       libwebp-dev libtiff-dev libheif-dev libexif-dev liblcms2-dev libcgif-dev libimagequant-dev       libhwy-dev libdav1d-dev libbz2-dev liblzma-dev
+#16 CACHED
+
+#17 [media-base 3/3] WORKDIR /usr/src
+#17 CACHED
+
+#18 [media 1/3] COPY --from=vips /opt/vips/lib/libvips.so.42 /usr/local/lib/
+#18 CACHED
+
+#19 [media 2/3] COPY --from=ffmpeg /opt/ffmpeg/lib/libavcodec.so.61 /opt/ffmpeg/lib/libavfilter.so.10      /opt/ffmpeg/lib/libavformat.so.61 /opt/ffmpeg/lib/libavutil.so.59      /opt/ffmpeg/lib/libswresample.so.5 /opt/ffmpeg/lib/libswscale.so.8 /usr/local/lib/
+#19 CACHED
+
+#20 [stage-6  4/12] RUN ldconfig
+#20 CACHED
+
+#21 [internal] load build context
+#21 transferring context: 18.74MB 0.2s done
+#21 DONE 0.2s
+
+#22 [stage-6  5/12] RUN groupadd --system --gid 1000 rails &&     useradd rails --uid 1000 --gid 1000 --create-home --shell /bin/bash
+#22 DONE 0.1s
+
+#23 [stage-6  6/12] WORKDIR /rails
+#23 DONE 0.0s
+
+#8 [internal] preparing inline document
+#8 CACHED
+
+#7 [internal] preparing inline document
+#7 CACHED
+
+#24 [build 1/6] COPY --from=dotnet /opt/dotnet /opt/dotnet
+#24 CACHED
+
+#25 [build 2/6] WORKDIR /src
+#25 CACHED
+
+#26 [dotnet 1/1] RUN curl -fsSL https://dot.net/v1/dotnet-install.sh -o /tmp/dotnet-install.sh &&     bash /tmp/dotnet-install.sh --version 11.0.100-rc.2.26504.105 --install-dir /opt/dotnet &&     rm /tmp/dotnet-install.sh
+#26 CACHED
+
+#27 [build 3/6] COPY global.json Directory.Build.props Directory.Packages.props ./
+#27 CACHED
+
+#28 [build 4/6] COPY src src
+#28 DONE 0.0s
+
+#29 [build 5/6] COPY reference reference
+#29 DONE 0.0s
+
+#30 [build 6/6] RUN --mount=type=cache,id=campfire-fsharp-nuget,target=/root/.nuget/packages     case "arm64" in       amd64) rid=linux-x64 ;;       arm64) rid=linux-arm64 ;;       *) echo "unsupported architecture: arm64" >&2; exit 1 ;;     esac &&     dotnet publish src/Campfire.App/Campfire.App.fsproj -c Release -r "$rid" --self-contained true       -p:PublishReadyToRun=true -p:DebugType=None -p:DebugSymbols=false -o /out/campfire
+#30 0.555   Determining projects to restore...
+#30 1.337   Restored /src/src/Campfire.Ruby/Campfire.Ruby.fsproj (in 246 ms).
+#30 1.337   Restored /src/src/Campfire.RailsCompat/Campfire.RailsCompat.fsproj (in 246 ms).
+#30 1.337   Restored /src/src/Campfire.Db/Campfire.Db.fsproj (in 246 ms).
+#30 1.337   Restored /src/src/Campfire.Kit/Campfire.Kit.fsproj (in 246 ms).
+#30 1.347   Restored /src/src/Campfire.Routes/Campfire.Routes.fsproj (in 246 ms).
+#30 1.347   Restored /src/src/Campfire.Views/Campfire.Views.fsproj (in 246 ms).
+#30 1.347   Restored /src/src/Campfire.App/Campfire.App.fsproj (in 246 ms).
+#30 1.388   Restored /src/src/Campfire.RichText/Campfire.RichText.fsproj (in 265 ms).
+#30 1.388   Restored /src/src/Campfire.Cable/Campfire.Cable.fsproj (in 3 ms).
+#30 1.388   Restored /src/src/Campfire.Storage/Campfire.Storage.fsproj (in 5 ms).
+#30 1.428 /opt/dotnet/sdk/11.0.100-rc.2.26504.105/Sdks/Microsoft.NET.Sdk/targets/Microsoft.NET.RuntimeIdentifierInference.targets(385,5): message NETSDK1057: You are using a preview version of .NET. See: https://aka.ms/dotnet-support-policy [/src/src/Campfire.App/Campfire.App.fsproj]
+#30 1.587 /opt/dotnet/sdk/11.0.100-rc.2.26504.105/Sdks/Microsoft.NET.Sdk/targets/Microsoft.NET.RuntimeIdentifierInference.targets(385,5): message NETSDK1057: You are using a preview version of .NET. See: https://aka.ms/dotnet-support-policy [/src/src/Campfire.Cable/Campfire.Cable.fsproj]
+#30 1.588 /opt/dotnet/sdk/11.0.100-rc.2.26504.105/Sdks/Microsoft.NET.Sdk/targets/Microsoft.NET.RuntimeIdentifierInference.targets(385,5): message NETSDK1057: You are using a preview version of .NET. See: https://aka.ms/dotnet-support-policy [/src/src/Campfire.Ruby/Campfire.Ruby.fsproj]
+#30 1.588 /opt/dotnet/sdk/11.0.100-rc.2.26504.105/Sdks/Microsoft.NET.Sdk/targets/Microsoft.NET.RuntimeIdentifierInference.targets(385,5): message NETSDK1057: You are using a preview version of .NET. See: https://aka.ms/dotnet-support-policy [/src/src/Campfire.RichText/Campfire.RichText.fsproj]
+#30 1.588 /opt/dotnet/sdk/11.0.100-rc.2.26504.105/Sdks/Microsoft.NET.Sdk/targets/Microsoft.NET.RuntimeIdentifierInference.targets(385,5): message NETSDK1057: You are using a preview version of .NET. See: https://aka.ms/dotnet-support-policy [/src/src/Campfire.Kit/Campfire.Kit.fsproj]
+#30 1.588 /opt/dotnet/sdk/11.0.100-rc.2.26504.105/Sdks/Microsoft.NET.Sdk/targets/Microsoft.NET.RuntimeIdentifierInference.targets(385,5): message NETSDK1057: You are using a preview version of .NET. See: https://aka.ms/dotnet-support-policy [/src/src/Campfire.Routes/Campfire.Routes.fsproj]
+#30 1.588 /opt/dotnet/sdk/11.0.100-rc.2.26504.105/Sdks/Microsoft.NET.Sdk/targets/Microsoft.NET.RuntimeIdentifierInference.targets(385,5): message NETSDK1057: You are using a preview version of .NET. See: https://aka.ms/dotnet-support-policy [/src/src/Campfire.Db/Campfire.Db.fsproj]
+#30 1.588 /opt/dotnet/sdk/11.0.100-rc.2.26504.105/Sdks/Microsoft.NET.Sdk/targets/Microsoft.NET.RuntimeIdentifierInference.targets(385,5): message NETSDK1057: You are using a preview version of .NET. See: https://aka.ms/dotnet-support-policy [/src/src/Campfire.RailsCompat/Campfire.RailsCompat.fsproj]
+#30 3.748   Campfire.Routes -> /src/src/Campfire.Routes/bin/Release/net11.0/Campfire.Routes.dll
+#30 3.828   Campfire.Ruby -> /src/src/Campfire.Ruby/bin/Release/net11.0/Campfire.Ruby.dll
+#30 4.428   Campfire.RailsCompat -> /src/src/Campfire.RailsCompat/bin/Release/net11.0/Campfire.RailsCompat.dll
+#30 7.269   Campfire.Kit -> /src/src/Campfire.Kit/bin/Release/net11.0/Campfire.Kit.dll
+#30 8.228   Campfire.Cable -> /src/src/Campfire.Cable/bin/Release/net11.0/Campfire.Cable.dll
+#30 8.590   Campfire.RichText -> /src/src/Campfire.RichText/bin/Release/net11.0/Campfire.RichText.dll
+#30 8.671   Campfire.Views -> /src/src/Campfire.Views/bin/Release/net11.0/Campfire.Views.dll
+#30 9.228   Campfire.Db -> /src/src/Campfire.Db/bin/Release/net11.0/Campfire.Db.dll
+#30 10.87   Campfire.Storage -> /src/src/Campfire.Storage/bin/Release/net11.0/Campfire.Storage.dll
+#30 17.95   Campfire.App -> /src/src/Campfire.App/bin/Release/net11.0/linux-arm64/campfire.dll
+#30 29.11   Campfire.App -> /out/campfire/
+#30 DONE 29.3s
+
+#31 [stage-6  7/12] COPY --from=build /out/campfire /opt/campfire
+#31 DONE 0.3s
+
+#32 [stage-6  8/12] RUN ln -s /opt/campfire/campfire /usr/local/bin/campfire
+#32 DONE 0.1s
+
+#33 [stage-6  9/12] COPY --chmod=755 <<EOF /rails/bin/boot
+#33 DONE 0.0s
+
+#34 [stage-6 10/12] RUN mkdir -p /rails/storage/db /rails/storage/files /rails/storage/backups &&     chown -R 1000:1000 /rails
+#34 DONE 0.1s
+
+#35 [stage-6 11/12] COPY --chmod=755 <<EOF /hooks/pre-backup
+#35 DONE 0.0s
+
+#36 [stage-6 12/12] COPY --chmod=755 reference/hooks/post-restore /hooks/post-restore
+#36 DONE 0.0s
+
+#37 exporting to image
+#37 exporting layers
+#37 exporting layers 3.1s done
+#37 exporting manifest sha256:8db18cbce9c83a3dd4339b0200ca2ebb790fd22373e199aa7747bc62ca8ff702 done
+#37 exporting config sha256:ada9fc22d8408916c2dc505b8daa22974e8d5ee474d8474c8cb0acb455a0da7d done
+#37 exporting attestation manifest sha256:2a4ccec63d27a6eb78e22c7ac9d3bb9e70ad9fca2551b3838f099f1175009358 done
+#37 exporting manifest list sha256:4e33c8f9212bfe29a094ea573b018a507f666a3172bb3f0c1b9d087a903e1189 done
+#37 naming to docker.io/library/campfire-dotnetway:p6ctl done
+#37 unpacking to docker.io/library/campfire-dotnetway:p6ctl
+#37 unpacking to docker.io/library/campfire-dotnetway:p6ctl 0.5s done
+#37 DONE 3.7s
+candidate: building campfire-candidate-p6ctl from parity/docker/candidate/Dockerfile
+#0 building with "default" instance using docker driver
+
+#1 [internal] load build definition from Dockerfile
+#1 transferring dockerfile: 2.35kB done
+#1 DONE 0.0s
+
+#2 resolve image config for docker-image://docker.io/docker/dockerfile:1
+#2 DONE 0.2s
+
+#3 docker-image://docker.io/docker/dockerfile:1@sha256:4edf897a3ffa55b89f906fc8cc78afdb3f1834cc9c7083565e611a8a7d5fe99e
+#3 resolve docker.io/docker/dockerfile:1@sha256:4edf897a3ffa55b89f906fc8cc78afdb3f1834cc9c7083565e611a8a7d5fe99e done
+#3 CACHED
+
+#4 [internal] load metadata for docker.io/library/debian:trixie-slim
+#4 DONE 0.2s
+
+#5 [internal] load metadata for docker.io/library/campfire-dotnetway:p6ctl
+#5 DONE 0.6s
+
+#6 [internal] load .dockerignore
+#6 transferring context: 2B done
+#6 DONE 0.0s
+
+#7 [faketime 1/3] FROM docker.io/library/debian:trixie-slim@sha256:62bd423aeee912639ca8ee681c2b762cb3e25137e0a92b20be455898a9f034ad
+#7 resolve docker.io/library/debian:trixie-slim@sha256:62bd423aeee912639ca8ee681c2b762cb3e25137e0a92b20be455898a9f034ad done
+#7 DONE 0.0s
+
+#8 [faketime 2/3] RUN apt-get update -qq && apt-get install --no-install-recommends -y build-essential ca-certificates curl
+#8 CACHED
+
+#9 [faketime 3/3] RUN curl -fsSL -o /tmp/libfaketime.tar.gz https://github.com/wolfcw/libfaketime/archive/refs/tags/v0.9.10.tar.gz &&     echo "729ad33b9c750a50d9c68e97b90499680a74afd1568d859c574c0fe56fe7947f  /tmp/libfaketime.tar.gz" | sha256sum -c - &&     tar xzf /tmp/libfaketime.tar.gz -C /tmp &&     sed -i 's/-Werror //' /tmp/libfaketime-0.9.10/src/Makefile &&     make -C /tmp/libfaketime-0.9.10/src FAKETIME_COMPILE_CFLAGS="-UFAKE_PTHREAD" libfaketime.so.1 &&     install -D -m 644 /tmp/libfaketime-0.9.10/src/libfaketime.so.1 /usr/local/lib/faketime/libfaketime.so.1
+#9 CACHED
+
+#10 [internal] load build context
+#10 transferring context: 903B done
+#10 DONE 0.0s
+
+#11 [stage-1 1/5] FROM docker.io/library/campfire-dotnetway:p6ctl@sha256:4e33c8f9212bfe29a094ea573b018a507f666a3172bb3f0c1b9d087a903e1189
+#11 resolve docker.io/library/campfire-dotnetway:p6ctl@sha256:4e33c8f9212bfe29a094ea573b018a507f666a3172bb3f0c1b9d087a903e1189 done
+#11 DONE 0.0s
+
+#12 [stage-1 2/5] RUN apt-get update -qq &&     apt-get install --no-install-recommends -y sqlite3 procps &&     rm -rf /var/lib/apt/lists /var/cache/apt/archives
+#12 1.727 Reading package lists...
+#12 2.001 Building dependency tree...
+#12 2.065 Reading state information...
+#12 2.159 The following additional packages will be installed:
+#12 2.159   libncursesw6 libproc2-0 libreadline8t64 readline-common
+#12 2.159 Suggested packages:
+#12 2.159   readline-doc sqlite3-doc
+#12 2.159 Recommended packages:
+#12 2.159   libgpm2 psmisc linux-sysctl-defaults
+#12 2.191 The following NEW packages will be installed:
+#12 2.191   libncursesw6 libproc2-0 libreadline8t64 procps readline-common sqlite3
+#12 2.242 0 upgraded, 6 newly installed, 0 to remove and 5 not upgraded.
+#12 2.242 Need to get 1660 kB of archives.
+#12 2.242 After this operation, 5178 kB of additional disk space will be used.
+#12 2.242 Get:1 http://deb.debian.org/debian trixie/main arm64 libncursesw6 arm64 6.5+20250216-2 [124 kB]
+#12 2.281 Get:2 http://deb.debian.org/debian trixie/main arm64 libproc2-0 arm64 2:4.0.4-9 [62.8 kB]
+#12 2.301 Get:3 http://deb.debian.org/debian trixie/main arm64 procps arm64 2:4.0.4-9 [871 kB]
+#12 2.360 Get:4 http://deb.debian.org/debian trixie/main arm64 readline-common all 8.2-6 [69.4 kB]
+#12 2.362 Get:5 http://deb.debian.org/debian trixie/main arm64 libreadline8t64 arm64 8.2-6 [159 kB]
+#12 2.380 Get:6 http://deb.debian.org/debian trixie/main arm64 sqlite3 arm64 3.46.1-7+deb13u2 [373 kB]
+#12 2.470 debconf: unable to initialize frontend: Dialog
+#12 2.470 debconf: (TERM is not set, so the dialog frontend is not usable.)
+#12 2.470 debconf: falling back to frontend: Readline
+#12 2.471 debconf: unable to initialize frontend: Readline
+#12 2.471 debconf: (Can't locate Term/ReadLine.pm in @INC (you may need to install the Term::ReadLine module) (@INC entries checked: /etc/perl /usr/local/lib/aarch64-linux-gnu/perl/5.40.1 /usr/local/share/perl/5.40.1 /usr/lib/aarch64-linux-gnu/perl5/5.40 /usr/share/perl5 /usr/lib/aarch64-linux-gnu/perl-base /usr/lib/aarch64-linux-gnu/perl/5.40 /usr/share/perl/5.40 /usr/local/lib/site_perl) at /usr/share/perl5/Debconf/FrontEnd/Readline.pm line 8, <STDIN> line 6.)
+#12 2.471 debconf: falling back to frontend: Teletype
+#12 2.472 debconf: unable to initialize frontend: Teletype
+#12 2.472 debconf: (This frontend requires a controlling tty.)
+#12 2.472 debconf: falling back to frontend: Noninteractive
+#12 2.745 Fetched 1660 kB in 0s (8356 kB/s)
+#12 2.753 Selecting previously unselected package libncursesw6:arm64.
+#12 2.753 (Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 5733 files and directories currently installed.)
+#12 2.757 Preparing to unpack .../0-libncursesw6_6.5+20250216-2_arm64.deb ...
+#12 2.758 Unpacking libncursesw6:arm64 (6.5+20250216-2) ...
+#12 2.771 Selecting previously unselected package libproc2-0:arm64.
+#12 2.771 Preparing to unpack .../1-libproc2-0_2%3a4.0.4-9_arm64.deb ...
+#12 2.772 Unpacking libproc2-0:arm64 (2:4.0.4-9) ...
+#12 2.783 Selecting previously unselected package procps.
+#12 2.783 Preparing to unpack .../2-procps_2%3a4.0.4-9_arm64.deb ...
+#12 2.785 Unpacking procps (2:4.0.4-9) ...
+#12 2.828 Selecting previously unselected package readline-common.
+#12 2.828 Preparing to unpack .../3-readline-common_8.2-6_all.deb ...
+#12 2.829 Unpacking readline-common (8.2-6) ...
+#12 2.841 Selecting previously unselected package libreadline8t64:arm64.
+#12 2.841 Preparing to unpack .../4-libreadline8t64_8.2-6_arm64.deb ...
+#12 2.843 Adding 'diversion of /lib/aarch64-linux-gnu/libhistory.so.8 to /lib/aarch64-linux-gnu/libhistory.so.8.usr-is-merged by libreadline8t64'
+#12 2.845 Adding 'diversion of /lib/aarch64-linux-gnu/libhistory.so.8.2 to /lib/aarch64-linux-gnu/libhistory.so.8.2.usr-is-merged by libreadline8t64'
+#12 2.847 Adding 'diversion of /lib/aarch64-linux-gnu/libreadline.so.8 to /lib/aarch64-linux-gnu/libreadline.so.8.usr-is-merged by libreadline8t64'
+#12 2.849 Adding 'diversion of /lib/aarch64-linux-gnu/libreadline.so.8.2 to /lib/aarch64-linux-gnu/libreadline.so.8.2.usr-is-merged by libreadline8t64'
+#12 2.850 Unpacking libreadline8t64:arm64 (8.2-6) ...
+#12 2.863 Selecting previously unselected package sqlite3.
+#12 2.863 Preparing to unpack .../5-sqlite3_3.46.1-7+deb13u2_arm64.deb ...
+#12 2.864 Unpacking sqlite3 (3.46.1-7+deb13u2) ...
+#12 2.879 Setting up libproc2-0:arm64 (2:4.0.4-9) ...
+#12 2.881 Setting up libncursesw6:arm64 (6.5+20250216-2) ...
+#12 2.883 Setting up procps (2:4.0.4-9) ...
+#12 2.891 Setting up readline-common (8.2-6) ...
+#12 2.894 Setting up libreadline8t64:arm64 (8.2-6) ...
+#12 2.896 Setting up sqlite3 (3.46.1-7+deb13u2) ...
+#12 2.899 Processing triggers for libc-bin (2.41-12+deb13u4) ...
+#12 DONE 2.9s
+
+#13 [stage-1 3/5] COPY --from=faketime /usr/local/lib/faketime/libfaketime.so.1 /usr/local/lib/faketime/libfaketime.so.1
+#13 DONE 0.0s
+
+#14 [stage-1 4/5] COPY --chmod=755 entrypoint /usr/local/bin/parity-entrypoint
+#14 DONE 0.0s
+
+#15 [stage-1 5/5] RUN chmod -R a+rwX /rails/storage
+#15 DONE 0.1s
+
+#16 exporting to image
+#16 exporting layers 0.1s done
+#16 exporting manifest sha256:a6e6bed0de7a7f47bed17698dacfcb2e660b62416e62c8b484c471ef328b4517 done
+#16 exporting config sha256:9df8162b08525e10e26b1e870f63b65a65d502b29db18047d14c175d48247d64 done
+#16 exporting attestation manifest sha256:206f1d662e88e753b3aee423d566e932e813b9a28110190b1e630ef75447a98b done
+#16 exporting manifest list sha256:3e73e40fade21da8097497d1936047901996ce738809580647d7c75e4cac6613 done
+#16 naming to docker.io/library/campfire-candidate-p6ctl:latest done
+#16 unpacking to docker.io/library/campfire-candidate-p6ctl:latest 0.0s done
+#16 DONE 0.1s

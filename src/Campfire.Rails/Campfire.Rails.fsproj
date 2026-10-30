@@ -1,0 +1,34 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <Compile Include="Ruby/RubyString.fs" />
+    <Compile Include="Ruby/Integer.fs" />
+    <Compile Include="Ruby/Float.fs" />
+    <Compile Include="Ruby/Erb.fs" />
+    <Compile Include="Ruby/Ruby.fs" />
+    <Compile Include="Timestamp.fs" />
+    <Compile Include="Json.fs" />
+    <Compile Include="Marshal.fs" />
+    <Compile Include="RailsEncoding.fs" />
+    <Compile Include="Error.fs" />
+    <Compile Include="KeyGenerator.fs" />
+    <Compile Include="KeyedCrypto.fs" />
+    <Compile Include="Metadata.fs" />
+    <Compile Include="MessageVerifier.fs" />
+    <Compile Include="MessageEncryptor.fs" />
+    <Compile Include="Password.fs" />
+    <Compile Include="Secrets.fs" />
+    <Compile Include="Cookies.fs" />
+    <Compile Include="SignedId.fs" />
+    <Compile Include="GlobalId.fs" />
+    <Compile Include="Turbo.fs" />
+    <Compile Include="ContentDispositionApproximations.fs" />
+    <Compile Include="ContentDisposition.fs" />
+    <Compile Include="Routes.fs" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="BCrypt.Net-Next" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="Campfire.Rails.Tests" />
+  </ItemGroup>
+</Project>

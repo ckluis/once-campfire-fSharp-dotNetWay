@@ -1,0 +1,198 @@
+{
+  "profile": "read-and-post-v1",
+  "rounds": 2,
+  "routes": "room_show,messages_page,sidebar,search,post_message",
+  "seed_sha256": "e3a7302e6560174e332161d1e555a43a7a0ebf3f722de8db170e63772eef1560",
+  "verification_revision": "f3103c7d48ab1edf779e6235e34900b489d5a305",
+  "source_revisions": {
+    "rails": {
+      "head": "ca9b963961abcffed8256029afd75f32ecfdea81",
+      "dirty": false
+    },
+    "fsharp": {
+      "head": "9954ad0b01e32a17023b30b4254e7c75053d2dd8",
+      "dirty": false
+    },
+    "dotnetway": {
+      "head": "b42dec790d49b130166a565654ded2459411228c",
+      "dirty": false
+    }
+  },
+  "images": {
+    "rails": "sha256:abaf6099efd479bc449099826868e744e515227af707f0bbf783f285ad39c02a",
+    "fsharp": "sha256:eff5fc297f6aaee74f3fe88b4bb961d6da115ec90940c39ffbbdd4677fe177ae",
+    "dotnetway": "sha256:2629af24987355c0222e797fd8b7c194dc10f15eed104623592309f31dad7fe8"
+  },
+  "image_labels": {
+    "rails": null,
+    "fsharp": "9954ad0",
+    "dotnetway": "b42dec790d49b130166a565654ded2459411228c"
+  },
+  "host": [
+    "before: {\"spin_ms\": 57.8, \"spin_ms_max_cpu\": 60.05, \"cpus\": \"0-7\", \"baseline_ms\": 55.57, \"ratio\": 1.04} load=3.41 2.56 2.05 1/213 1456077",
+    "after: {\"spin_ms\": 60.21, \"spin_ms_max_cpu\": 61.07, \"cpus\": \"0-7\", \"baseline_ms\": 55.57, \"ratio\": 1.084} load=5.23 4.08 2.86 1/199 1458132",
+    "commit=b42dec790d49b130166a565654ded2459411228c image=campfire-dotnetway:uq-b42dec7 mounted= mixed=0 harness=f3103c7"
+  ],
+  "table": {
+    "room_show": {
+      "rails": {
+        "median": 4882.35,
+        "min": 4762.4,
+        "max": 5002.3,
+        "runs": [
+          4762.4,
+          5002.3
+        ],
+        "x_rails": 1.0
+      },
+      "fsharp": {
+        "median": 35632.0,
+        "min": 35603.7,
+        "max": 35660.3,
+        "runs": [
+          35603.7,
+          35660.3
+        ],
+        "x_rails": 7.3
+      },
+      "dotnetway": {
+        "median": 34513.5,
+        "min": 34382.0,
+        "max": 34645.0,
+        "runs": [
+          34645.0,
+          34382.0
+        ],
+        "x_rails": 7.07
+      }
+    },
+    "messages_page": {
+      "rails": {
+        "median": 4864.35,
+        "min": 4842.4,
+        "max": 4886.3,
+        "runs": [
+          4842.4,
+          4886.3
+        ],
+        "x_rails": 1.0
+      },
+      "fsharp": {
+        "median": 42317.1,
+        "min": 41888.5,
+        "max": 42745.7,
+        "runs": [
+          41888.5,
+          42745.7
+        ],
+        "x_rails": 8.7
+      },
+      "dotnetway": {
+        "median": 33177.35,
+        "min": 33015.5,
+        "max": 33339.2,
+        "runs": [
+          33015.5,
+          33339.2
+        ],
+        "x_rails": 6.82
+      }
+    },
+    "sidebar": {
+      "rails": {
+        "median": 5322.4,
+        "min": 5245.9,
+        "max": 5398.9,
+        "runs": [
+          5398.9,
+          5245.9
+        ],
+        "x_rails": 1.0
+      },
+      "fsharp": {
+        "median": 37657.9,
+        "min": 36921.0,
+        "max": 38394.8,
+        "runs": [
+          36921.0,
+          38394.8
+        ],
+        "x_rails": 7.08
+      },
+      "dotnetway": {
+        "median": 15891.4,
+        "min": 15619.4,
+        "max": 16163.4,
+        "runs": [
+          15619.4,
+          16163.4
+        ],
+        "x_rails": 2.99
+      }
+    },
+    "search": {
+      "rails": {
+        "median": 5158.4,
+        "min": 5144.5,
+        "max": 5172.3,
+        "runs": [
+          5144.5,
+          5172.3
+        ],
+        "x_rails": 1.0
+      },
+      "fsharp": {
+        "median": 33950.649999999994,
+        "min": 33483.2,
+        "max": 34418.1,
+        "runs": [
+          33483.2,
+          34418.1
+        ],
+        "x_rails": 6.58
+      },
+      "dotnetway": {
+        "median": 17537.55,
+        "min": 17346.1,
+        "max": 17729.0,
+        "runs": [
+          17346.1,
+          17729.0
+        ],
+        "x_rails": 3.4
+      }
+    },
+    "post_message": {
+      "rails": {
+        "median": 400.5,
+        "min": 399.8,
+        "max": 401.2,
+        "runs": [
+          401.2,
+          399.8
+        ],
+        "x_rails": 1.0
+      },
+      "fsharp": {
+        "median": 9484.05,
+        "min": 9482.4,
+        "max": 9485.7,
+        "runs": [
+          9485.7,
+          9482.4
+        ],
+        "x_rails": 23.68
+      },
+      "dotnetway": {
+        "median": 2886.75,
+        "min": 2862.5,
+        "max": 2911.0,
+        "runs": [
+          2862.5,
+          2911.0
+        ],
+        "x_rails": 7.21
+      }
+    }
+  }
+}

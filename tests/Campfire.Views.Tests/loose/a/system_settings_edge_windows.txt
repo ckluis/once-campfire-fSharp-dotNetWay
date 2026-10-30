@@ -1,0 +1,44 @@
+<body>
+  <details class="hide-in-browser notifications-help" data-notifications-target="details">
+    <summary class="btn">
+      <img aria-hidden="true" height="20" src="/assets/external/gear-«digest».svg" width="20">
+      " "
+      <strong>
+        "Check your Windows settings"
+      </strong>
+      " "
+      <img aria-hidden="true" class="disclosure" height="10" src="/assets/disclosure-«digest».svg" width="10">
+    </summary>
+    <ol>
+      <li>
+        "Click "
+        <em>
+          "Start"
+        </em>
+        ", then "
+        <em>
+          "Settings"
+        </em>
+        "."
+      </li>
+      <li>
+        "Go to "
+        <em>
+          "System > Notification"
+        </em>
+        "."
+      </li>
+      <li>
+        "Click "
+        <em>
+          <img alt="the toggle button" height="22" src="/assets/external/switch-«digest».svg" width="22">
+        </em>
+        " "
+        <em>
+          "ON"
+        </em>
+        " for Campfire."
+      </li>
+    </ol>
+  </details>
+</body>

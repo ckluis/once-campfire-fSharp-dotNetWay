@@ -1,0 +1,46 @@
+<body class data-controller="local-time lightbox">
+  <a class="btn skip-navigation" href="#main-content">
+    "Skip to main content"
+  </a>
+  <nav id="nav">
+  </nav>
+  <main id="main-content">
+    <form accept-charset="UTF-8" action="/session/transfers/«signed_id:user/transfer:773523953:expires»" data-controller="auto-submit" method="post">
+      <input name="_method" type="hidden" value="put">
+      <footer id="footer">
+      </footer>
+    </form>
+  </main>
+  <aside data-controller="toggle-class" data-toggle-class-toggle-class="open" id="sidebar">
+  </aside>
+  <dialog aria-label="Image Viewer (Press escape to close)" class="lightbox" data-action="close->lightbox#reset" data-lightbox-target="dialog">
+    <img class="lightbox__image" data-lightbox-target="zoomedImage" src>
+    " "
+    <button class="btn">
+      <img aria-hidden="true" src="/assets/remove-«digest».svg">
+      " "
+      <span class="for-screen-reader">
+        "Close image viewer"
+      </span>
+    </button>
+    " "
+    <a class="btn hide-in-ios-pwa lightbox__btn--download" data-lightbox-target="download" href>
+      <img aria-hidden="true" src="/assets/download-«digest».svg">
+      " "
+      <span class="for-screen-reader">
+        "Download file"
+      </span>
+    </a>
+    " "
+    <button class="btn lightbox__btn--share" data-action="web-share#share" data-controller="web-share" data-lightbox-target="share" data-web-share-files-value>
+      <img aria-hidden="true" src="/assets/share-«digest».svg">
+      " "
+      <span class="for-screen-reader">
+        "Share file"
+      </span>
+    </button>
+  </dialog>
+  <a aria-label="Once software from 37signals home page" href="https://once.com" id="app-logo" target="_blank">
+    <img alt="Campfire logo" height="216" src="/assets/campfire-icon-«digest».png" width="256">
+  </a>
+</body>

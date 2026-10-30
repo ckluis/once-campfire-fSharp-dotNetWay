@@ -1,0 +1,20 @@
+HTTP/1.1 302 Found
+Content-Length: 0
+Content-Type: text/html; charset=utf-8
+Date: Tue, 20 Oct 2026 01:57:39 GMT
+Cache-Control: no-cache
+Location: http://127.0.0.1:4312/
+Set-Cookie: session_token=eyJfcmFpbHMiOnsibWVzc2FnZSI6IklrNVhjRlZET1doSGIwMXROamhwVjBkUU1VNXpTMFoyVVNJPSIsImV4cCI6IjIwNDYtMTAtMjBUMDE6NTc6MzkuMDAwWiIsInB1ciI6ImNvb2tpZS5zZXNzaW9uX3Rva2VuIn19--8c0b9e962e2f70684020622c0a18cb4c0b9ace11; expires=Sat, 20 Oct 2046 01:57:39 GMT; path=/; samesite=lax; httponly
+Vary: Accept-Encoding
+Vary: Accept-Encoding
+x-version: parity
+x-rev: parity
+X-Frame-Options: SAMEORIGIN
+X-XSS-Protection: 0
+X-Content-Type-Options: nosniff
+x-permitted-cross-domain-policies: none
+referrer-policy: strict-origin-when-cross-origin
+x-request-id: 9cbb51e5-7cb8-47ea-a31d-a214abc91523
+x-runtime: 0.239951
+X-Cache: bypass
+

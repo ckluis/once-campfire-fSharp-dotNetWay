@@ -1,0 +1,46 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../Shared/Repo.fs" Link="Repo.fs" />
+    <Compile Include="LooseDom.fs" />
+    <Compile Include="Cases/Inputs.fs" />
+    <Compile Include="Cases/Answer.fs" />
+    <Compile Include="Cases/Pages.fs" />
+    <Compile Include="Cases/Rest.fs" />
+    <Compile Include="Cases/Operations.fs" />
+    <Compile Include="Support/Facts.fs" />
+    <Compile Include="Support/GoldenB.fs" />
+    <Compile Include="LooseDomTests.fs" />
+    <Compile Include="HtmlTests.fs" />
+    <Compile Include="HtmlOutputTests.fs" />
+    <Compile Include="LayoutsTests.fs" />
+    <Compile Include="FormsTests.fs" />
+    <Compile Include="HelpersTests.fs" />
+    <Compile Include="FragmentsTests.fs" />
+    <Compile Include="MessagesTests.fs" />
+    <Compile Include="UsersTests.fs" />
+    <Compile Include="UsersViewsTests.fs" />
+    <Compile Include="AccountsViewsTests.fs" />
+    <Compile Include="SessionsViewsTests.fs" />
+    <Compile Include="ParityATests.fs" />
+    <Compile Include="MessagesViewsTests.fs" />
+    <Compile Include="RoomsViewsTests.fs" />
+    <Compile Include="SearchesViewsTests.fs" />
+    <Compile Include="DifferentialTests.fs" />
+  </ItemGroup>
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../src/Campfire.Views/Campfire.Views.fsproj" />
+    <!-- Only the tests read the DOM: the HTML tokenizer ports the one the Rust crate's dev-dependency is. -->
+    <ProjectReference Include="../../src/Campfire.RichText/Campfire.RichText.fsproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="xunit.v3" />
+    <PackageReference Include="AngleSharp" />
+  </ItemGroup>
+</Project>

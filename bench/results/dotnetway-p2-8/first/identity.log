@@ -1,0 +1,59 @@
+date: 2026-10-20T12:51:14-04:00
+host: 6.8.0-117-generic, , 8 threads, 5GB
+server cpus: 0-3 (nproc 4); loadgen cpus: 4-7; network: host
+env: WEB_CONCURRENCY=3 JOB_CONCURRENCY=3 RAILS_MAX_THREADS=5 
+rust extra env: 
+fsharp extra env: 
+dotnetway extra env: 
+user agent: (none)
+dotnetway-identity image: campfire-dotnetway:app sha256:7777de1bf77845a7ac2be5b893abdffe7985497eb4200233e1706bb1e256db27 2026-10-20T11:59:06.296142201-04:00 built from commit: 55b4e675aef0acc2eeaf19957fe083b504b552d6
+repo HEAD: 55b4e67 (dirty: 0 files under src/ and rust/)
+work dir (seed copies): /var/tmp/campfire-bench-work (ext4)
+loadgen: /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/target/rust/aarch64-unknown-linux-gnu/release/loadgen (2026-10-13 18:47:07), built with rust:1.98.1-trixie
+schedule: apps dotnetway-identity, reps 1; suites: http; http secs 8, concs 1 16, routes room_show sidebar post_message, warm-up 30s at each route and concentration, idle 5s
+log retention: 2 x 10m (json-file)
+[12:52:05] load before run: 1.31 2.41 2.40 (waited 50s)
+[12:52:08] host probe before run: {"spin_ms": 60.0, "spin_ms_max_cpu": 61.59, "cpus": "0-3,4-7", "baseline_ms": 55.57, "ratio": 1.08} (waited 50s)
+[12:52:08] dotnetway-identity rep 1: starting (load: 1.28 2.39 2.40)
+[12:52:13] dotnetway-identity rep 1: cold start 384ms, idle 48MB (anon 25MB)
+[12:52:54] dotnetway-identity rep 1: room_show c=1 1195.3 rps p50 0.8 p99 2.463 {'200': 9563} err 0 cpu 1087.1 us/req; warm-up 30.0 s settled tail 1207.7 host 1.073
+[12:53:35] dotnetway-identity rep 1: room_show c=16 4014.0 rps p50 3.381 p99 9.527 {'200': 32122} err 0 cpu 855.4 us/req; warm-up 30.0 s settled tail 3975.5 host 1.064
+[12:54:16] dotnetway-identity rep 1: sidebar c=1 1582.2 rps p50 0.595 p99 1.063 {'200': 12658} err 0 cpu 729.5 us/req; warm-up 30.0 s settled tail 1594.8 host 1.084
+[12:54:57] dotnetway-identity rep 1: sidebar c=16 5107.6 rps p50 2.563 p99 8.279 {'200': 40876} err 0 cpu 684.6 us/req; warm-up 30.0 s settled tail 5030.9 host 1.073
+[12:55:38] dotnetway-identity rep 1: post_message c=1 892.5 rps p50 0.962 p99 4.943 {'200': 7141} err 0 cpu 1930.4 us/req; warm-up 30.0 s settled tail 903.5 host 1.083
+[12:56:19] dotnetway-identity rep 1: post_message c=16 1671.3 rps p50 9.127 p99 17.935 {'200': 13383} err 0 cpu 1865.1 us/req; warm-up 30.1 s settled tail 1641.3 host 1.079
+[12:56:22] dotnetway-identity rep 1: done -> bench/results/dotnetway-p2-8/identity/dotnetway-identity-1.json
+```
+date: 2026-10-20T12:51:14-04:00
+host: 6.8.0-117-generic, , 8 threads, 5GB
+server cpus: 0-3 (nproc 4); loadgen cpus: 4-7; network: host
+env: WEB_CONCURRENCY=3 JOB_CONCURRENCY=3 RAILS_MAX_THREADS=5 
+rust extra env: 
+fsharp extra env: 
+dotnetway extra env: 
+user agent: (none)
+dotnetway-identity image: campfire-dotnetway:app sha256:7777de1bf77845a7ac2be5b893abdffe7985497eb4200233e1706bb1e256db27 2026-10-20T11:59:06.296142201-04:00 built from commit: 55b4e675aef0acc2eeaf19957fe083b504b552d6
+repo HEAD: 55b4e67 (dirty: 0 files under src/ and rust/)
+work dir (seed copies): /var/tmp/campfire-bench-work (ext4)
+loadgen: /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/target/rust/aarch64-unknown-linux-gnu/release/loadgen (2026-10-13 18:47:07), built with rust:1.98.1-trixie
+schedule: apps dotnetway-identity, reps 1; suites: http; http secs 8, concs 1 16, routes room_show sidebar post_message, warm-up 30s at each route and concentration, idle 5s
+log retention: 2 x 10m (json-file)
+```
+
+Reps: , dotnetway-identity 1. Cells: median [min–max].
+
+### Startup and memory
+
+| Metric |  |
+|---|
+| cold start: docker run → /up 200 (ms) |  |
+| idle memory.current (MB) |  |
+| idle anon (MB) |  |
+| peak memory.current under load (MB) |  |
+| peak anon under load (MB) |  |
+Traceback (most recent call last):
+  File "/Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/bench/report", line 121, in <module>
+    first = runs[apps[0]][0]
+                 ~~~~^^^
+IndexError: list index out of range
+time="2026-10-20T12:56:22-04:00" level=fatal msg="exit status 1"

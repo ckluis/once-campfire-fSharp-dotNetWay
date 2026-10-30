@@ -1,0 +1,24 @@
+== rooms/show/*
+exit 0
+pixel-parity: dotnetway vs the Rails reference, layers pixels,aria,loose, seeds default (fast: chromium, light, no breakpoint sweep)
+pixel-parity: VM free 36G, parity/out 28M
+seed default: 16/16 screenshots pixel-equal; 16/16 aria equal; 16/16 loose equal  [58s]
+pixel-parity: PASSED, the UI is pixel-identical in 58s; reports under /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/parity/out/p10-3-rooms_show___
+== messages/*
+exit 0
+pixel-parity: dotnetway vs the Rails reference, layers pixels,aria,loose, seeds default (fast: chromium, light, no breakpoint sweep)
+pixel-parity: VM free 36G, parity/out 209M
+seed default: 48/48 screenshots pixel-equal; 48/48 aria equal; 48/48 loose equal  [143s]
+pixel-parity: PASSED, the UI is pixel-identical in 143s; reports under /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/parity/out/p10-3-messages___
+== search/*
+exit 0
+pixel-parity: dotnetway vs the Rails reference, layers pixels,aria,loose, seeds default (fast: chromium, light, no breakpoint sweep)
+pixel-parity: VM free 36G, parity/out 5.1M
+seed default: 10/10 screenshots pixel-equal; 10/10 aria equal; 10/10 loose equal  [38s]
+pixel-parity: PASSED, the UI is pixel-identical in 38s; reports under /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/parity/out/p10-3-search___
+== interactions/sidebar/*,interactions/phone_sidebar
+exit 0
+pixel-parity: dotnetway vs the Rails reference, layers pixels,aria,loose, seeds default (fast: chromium, light, no breakpoint sweep)
+pixel-parity: VM free 36G, parity/out 27M
+seed default: 6/6 screenshots pixel-equal; 6/6 aria equal; 6/6 loose equal  [38s]
+pixel-parity: PASSED, the UI is pixel-identical in 38s; reports under /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/parity/out/p10-3-interactions_sidebar___interactions_phone_sidebar_

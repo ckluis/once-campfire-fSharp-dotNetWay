@@ -1,0 +1,55 @@
+#!/usr/bin/env bash
+# Build with warnings as errors, then run every test. Must pass before work is reported done.
+#   bin/verify            build + all tests
+#   bin/verify Db Cable    build + only those projects' tests
+set -euo pipefail
+cd "$(dirname "$0")/.."
+export PATH="$HOME/.dotnet:$PATH" DOTNET_NOLOGO=1 DOTNET_CLI_TELEMETRY_OPTOUT=1
+# NetVips (Campfire.Storage) loads the system libvips by its soname, which macOS only finds on the
+# default library path; Homebrew installs it elsewhere. (Linux finds it through ldconfig.)
+if [ "$(uname)" = Darwin ] && [ -d /opt/homebrew/lib ]; then
+  export DYLD_FALLBACK_LIBRARY_PATH="/opt/homebrew/lib${DYLD_FALLBACK_LIBRARY_PATH:+:$DYLD_FALLBACK_LIBRARY_PATH}"
+fi
+# Data-layer guards (plans/design-data-ef.md E12): SQL is parameterized by construction, so no `*Raw` EF call outside
+# Schema.fs (which runs the constant schema.sql), no runtime-built FormattableString outside Models.fs's batched insert_all and
+# Fixtures.fs (constant text and numbered holes only; Fixtures also names a table and columns that SQLite's pragma_table_info
+# listed, since an identifier cannot be a hole), and never F#'s `query { }` (4 ms a query).
+guard() {
+  local what=$1 pattern=$2 allowed=$3 hits
+  hits=$(grep -rnE --include='*.fs' "$pattern" src | grep -v '/obj/' | grep -vE "$allowed" || true)
+  if [ -n "$hits" ]; then echo "verify: $what outside its allowed place:" >&2; echo "$hits" >&2; exit 1; fi
+}
+guard 'a *Raw EF SQL call' 'FromSqlRaw|ExecuteSqlRaw|SqlQueryRaw' '^src/Campfire\.Db/Schema\.fs:'
+guard 'FormattableStringFactory' 'FormattableStringFactory' '^src/Campfire\.Db/(Models|Fixtures)\.fs:'
+guard "F#'s query { }" '(^|[^"$A-Za-z])query[[:space:]]*\{' '^$'
+# ADO.NET commands bypass EF's parameterization: only the constant pragmas (Interceptors.fs) and the backup's busy_timeout (Boot.fs).
+guard 'a hand-built ADO.NET command' 'CommandText|CreateCommand\(' '^src/Campfire\.(Db/Ef/Interceptors|App/Boot)\.fs:'
+# Hybrid reads (Reads: hybrid EF Core + Dapper): Dapper is called in exactly one module, and no SQL there is built from values
+# (parameters only: no interpolated or concatenated string reaches a Dapper call).
+guard 'Dapper' '\bDapper\b|QueryFirstOrDefault|\.Query<|SqlMapper' '^src/Campfire\.Db/Ef/FastReads\.fs:'
+if grep -nE '\$"[^"]*(SELECT|INSERT|UPDATE|DELETE)|"[^"]*(SELECT|FROM)[^"]*"[[:space:]]*\+' src/Campfire.Db/Ef/FastReads.fs; then
+  echo "verify: SQL built from values in src/Campfire.Db/Ef/FastReads.fs (parameters only)" >&2; exit 1
+fi
+# The grep above misses `+` before a literal and SQL kept in a non-literal value. So, by construction: every Dapper call takes a named
+# `...Sql` value as its SQL, and every `let [private] ...Sql =` is one plain string literal (no `$`, no `+`, nothing after it).
+if grep -nE '\.(Query|Execute)[A-Za-z]*(<[^>]*>)?\(' src/Campfire.Db/Ef/FastReads.fs | grep -vE '\.(Query|Execute)[A-Za-z]*(<[^>]*>)?\([a-z][A-Za-z]*Sql,'; then
+  echo "verify: a Dapper call in src/Campfire.Db/Ef/FastReads.fs whose SQL is not a named ...Sql constant" >&2; exit 1
+fi
+if awk '/^[[:space:]]*let (private |mutable )*[a-z][A-Za-z]*Sql[[:space:]]*=/ { v = $0; sub(/^[^=]*=[[:space:]]*/, "", v); if (v == "") { getline v }
+       sub(/^[[:space:]]+/, "", v); sub(/[[:space:]]+$/, "", v); if (v !~ /^"[^"$+]*"$/) { print FILENAME ":" NR ": " v; bad = 1 } }
+     END { exit bad ? 0 : 1 }' src/Campfire.Db/Ef/FastReads.fs; then
+  echo "verify: a ...Sql value in src/Campfire.Db/Ef/FastReads.fs that is not one plain string literal" >&2; exit 1
+fi
+# The clock (plans/design-jobs.md J10): `TimeProvider` is the only one. No DateTime(Offset).(Utc)Now in src except the `Date` response
+# header (Respond.fs: Thruster's and Puma's real clock, never the harness's frozen one). The request duration is a Stopwatch.
+guard 'DateTime(Offset).(Utc)Now' 'DateTime(Offset)?\.(Utc)?Now' '^src/Campfire\.App/Web/Respond\.fs:.*Headers\.Date <-'
+# The Falco.Markup views (plans/design-views.md V3): Falco writes attribute values and Text.raw unescaped, so the lint requires every
+# non-literal to go through Core/Html.fs. The self-test proves it bites (a planted file per rule must be caught, the clean file passes).
+bin/lint-markup --self-test
+bin/lint-markup
+dotnet build CampfireFs.slnx -c Release -warnaserror -v quiet -nologo
+if [ $# -eq 0 ]; then
+  dotnet test --solution CampfireFs.slnx -c Release --no-build
+else
+  for p in "$@"; do dotnet test --project "tests/Campfire.$p.Tests" -c Release --no-build; done
+fi

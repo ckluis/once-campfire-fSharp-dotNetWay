@@ -1,0 +1,12 @@
+pixel-parity: dotnetway vs the Rails reference, layers pixels,aria,loose, seeds default,crowd,custom_styles,first_run,restricted
+pixel-parity: VM free 38G, parity/out 349M
+seed default: 170/170 screenshots pixel-equal; 170/170 aria equal; 170/170 loose equal  [503s]
+pixel-parity: VM free 38G, parity/out 421M
+seed crowd: 16/16 screenshots pixel-equal; 16/16 aria equal; 16/16 loose equal  [59s]
+pixel-parity: VM free 38G, parity/out 455M
+seed custom_styles: 8/8 screenshots pixel-equal; 8/8 aria equal; 8/8 loose equal  [48s]
+pixel-parity: VM free 38G, parity/out 455M
+seed first_run: 0/0 screenshots pixel-equal; 0/0 aria equal; 0/0 loose equal  [6s]
+pixel-parity: VM free 38G, parity/out 456M
+seed restricted: 4/4 screenshots pixel-equal; 4/4 aria equal; 4/4 loose equal  [16s]
+pixel-parity: PASSED, the UI is pixel-identical in 632s; reports under /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/parity/out/p5lean-rooms

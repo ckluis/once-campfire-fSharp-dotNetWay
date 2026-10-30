@@ -1,0 +1,9 @@
+Running tests from /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.Views.Tests/bin/Release/net11.0/Campfire.Views.Tests.dll (net11.0|arm64)
+/Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.Views.Tests/bin/Release/net11.0/Campfire.Views.Tests.dll (net11.0|arm64) passed [+123/x0/?0] (2s 544ms)
+
+Test run summary: Passed!
+  total: 123
+  failed: 0
+  succeeded: 123
+  skipped: 0
+  duration: 2s 646ms

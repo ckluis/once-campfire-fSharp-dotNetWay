@@ -1,0 +1,36 @@
+<body>
+  <details class="hide-in-pwa notifications-help pwa__instructions" data-controller="pwa-install" data-notifications-target="details" data-pwa-install-prompting-class="pwa--can-install">
+    <summary class="btn">
+      <img aria-hidden="true" height="20" src="/assets/external/install-«digest».svg" width="20">
+      " "
+      <strong>
+        "Install Campfire as a web app."
+      </strong>
+      " "
+      <img aria-hidden="true" class="disclosure" height="10" src="/assets/disclosure-«digest».svg" width="10">
+    </summary>
+    <ol>
+      <li>
+        "Click "
+        <em>
+          "File"
+        </em>
+        " in the top left."
+      </li>
+      <li>
+        "Click "
+        <em>
+          "Add to Dock…"
+        </em>
+        "."
+      </li>
+    </ol>
+    <div class="margin-block-start pwa__installer txt-align-center">
+      <hr class="margin-block separator">
+      <button class="btn btn--reversed center" data-action="pwa-install#promptInstall">
+        <img aria-hidden="true" src="/assets/external/install-«digest».svg">
+        " Install now"
+      </button>
+    </div>
+  </details>
+</body>

@@ -1,0 +1,6 @@
+[10:27:57] load before run: 0.69 2.21 2.62 (waited 0s)
+[10:28:00] host probe before run: {"spin_ms": 58.38, "spin_ms_max_cpu": 61.78, "cpus": "0-3,4-7", "baseline_ms": 55.57, "ratio": 1.051} (waited 0s)
+[10:28:52] profile room_show: busy 56074 ms;  SQLite reads 26.1%, Kestrel and ASP.NET Core HTTP 18.4%, request log line (console logger) 14.8%, controllers and presenters 14.5%, GC suspension 12.4%, thread-pool spin and hand-off 6.0%
+[10:29:43] load before run: 1.45 2.25 2.61 (waited 50s)
+[10:29:45] host probe before run: {"spin_ms": 57.83, "spin_ms_max_cpu": 59.76, "cpus": "0-3,4-7", "baseline_ms": 55.57, "ratio": 1.041} (waited 50s)
+[10:30:48] profile sidebar: busy 55975 ms;  SQLite reads 30.1%, Kestrel and ASP.NET Core HTTP 17.8%, controllers and presenters 15.3%, request log line (console logger) 14.8%, GC suspension 7.7%, thread-pool spin and hand-off 6.0%

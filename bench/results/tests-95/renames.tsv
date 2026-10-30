@@ -1,0 +1,66 @@
+Campfire.App.Tests.ClientsTests.a pinned private address is refused at connect	->	Campfire.App.Tests.ClientsTests.GD2 a pinned private address is refused at connect
+Campfire.App.Tests.ClientsTests.a webhook POST is sent once on a 500	->	Campfire.App.Tests.ClientsTests.CL1 a webhook POST is sent once on a 500
+Campfire.App.Tests.ClientsTests.a webhook POST is sent once on a reset	->	Campfire.App.Tests.ClientsTests.CL1 a webhook POST is sent once on a reset
+Campfire.App.Tests.ClientsTests.a webhook POST is sent once on a timeout	->	Campfire.App.Tests.ClientsTests.CL1 a webhook POST is sent once on a timeout
+Campfire.App.Tests.ClientsTests.an IPv4-mapped answer is classified as its IPv4 address	->	Campfire.App.Tests.ClientsTests.GD4 an IPv4-mapped answer is classified as its IPv4 address
+Campfire.App.Tests.ClientsTests.an unpinned request to a private host is refused at connect	->	Campfire.App.Tests.ClientsTests.GD1 an unpinned request to a private host is refused at connect
+Campfire.App.Tests.ClientsTests.every handler is configured without redirects, proxy or cookies	->	Campfire.App.Tests.ClientsTests.CL2 CL3 every handler is configured without redirects, proxy or cookies
+Campfire.App.Tests.ClientsTests.no client follows a redirect	->	Campfire.App.Tests.ClientsTests.CL2 no client follows a redirect
+Campfire.App.Tests.ClientsTests.proxy variables are ignored	->	Campfire.App.Tests.ClientsTests.CL3 proxy variables are ignored
+Campfire.App.Tests.ClientsTests.readLimited stops a gzip bomb at the limit	->	Campfire.App.Tests.ClientsTests.CL5 readLimited stops a gzip bomb at the limit
+Campfire.App.Tests.ClientsTests.requests carry Net::HTTP's Accept and User-Agent	->	Campfire.App.Tests.ClientsTests.CL4 requests carry Net::HTTP's Accept and User-Agent
+Campfire.App.Tests.ClientsTests.the IPNetwork lists are the old lists	->	Campfire.App.Tests.ClientsTests.GD3 the IPNetwork lists are the old lists
+Campfire.App.Tests.OpengraphTests.a deep body still unfurls the head	->	Campfire.App.Tests.OpengraphTests.OG2 a deep body still unfurls the head
+Campfire.App.Tests.OpengraphTests.decodes references like libxml2 but for the class B probes	->	Campfire.App.Tests.OpengraphTests.OG3 decodes references like libxml2 but for the class B probes
+Campfire.App.Tests.OpengraphTests.each redirect hop is guarded	->	Campfire.App.Tests.OpengraphTests.OG4 each redirect hop is guarded
+Campfire.App.Tests.OpengraphTests.hostile pages are stopped by the caps	->	Campfire.App.Tests.OpengraphTests.OG1 hostile pages are stopped by the caps
+Campfire.App.Tests.OpengraphTests.the class B probes are listed	->	Campfire.App.Tests.OpengraphTests.OG3 the class B probes are listed
+Campfire.App.Tests.OpengraphTests.tokenizes like libxml2 but for the class B probes	->	Campfire.App.Tests.OpengraphTests.OG3 tokenizes like libxml2 but for the class B probes
+Campfire.App.Tests.Web.ControllersATests.N1 a page of a Web action has Rails' default headers, the version headers and no body digest	->	Campfire.App.Tests.Web.SessionControllerTests.N1 a page of a Web action has Rails' default headers, the version headers and no body digest
+Campfire.App.Tests.Web.ControllersATests.N2 a redirect and a bare head answer no-cache with the default headers	->	Campfire.App.Tests.Web.SessionControllerTests.N2 a redirect and a bare head answer no-cache with the default headers
+Campfire.App.Tests.Web.ControllersATests.N3 the health check answers HTML and JSON, without the chain	->	Campfire.App.Tests.Web.SessionControllerTests.N3 the health check answers HTML and JSON, without the chain
+Campfire.App.Tests.Web.ControllersATests.N4 Turbo Native navigation answers its text	->	Campfire.App.Tests.Web.SessionControllerTests.N4 Turbo Native navigation answers its text
+Campfire.App.Tests.Web.ControllersATests.N5 the conductor checks the request's origin before it refuses	->	Campfire.App.Tests.Web.SessionControllerTests.N5 the conductor checks the request's origin before it refuses
+Campfire.App.Tests.Web.ControllersATests.N6 the PWA files are open to anyone and their bodies are Rails'	->	Campfire.App.Tests.Web.SessionControllerTests.N6 the PWA files are open to anyone and their bodies are Rails'
+Campfire.App.Tests.Web.ControllersATests.N7 the root goes to the last room, and to sign in for a visitor	->	Campfire.App.Tests.Web.SessionControllerTests.N7 the root goes to the last room, and to sign in for a visitor
+Campfire.App.Tests.Web.ControllersATests.N8 the sign in limit is per client address	->	Campfire.App.Tests.Web.SessionControllerTests.N8 the sign in limit is per client address
+Campfire.App.Tests.Web.ControllersATests.N9 an error page carries none of the chain's headers and no cache control	->	Campfire.App.Tests.Web.SessionControllerTests.N9 an error page carries none of the chain's headers and no cache control
+Campfire.App.Tests.Web.ControllersBTests.J1 the administrator-only writes answer 403 to a member, and run for an administrator	->	Campfire.App.Tests.Web.AccountControllerTests.J1 the administrator-only writes answer 403 to a member, and run for an administrator
+Campfire.App.Tests.Web.ControllersBTests.J10 the logo is a public image with a conditional GET	->	Campfire.App.Tests.Web.AccountControllerTests.J10 the logo is a public image with a conditional GET
+Campfire.App.Tests.Web.ControllersBTests.J2 the account form reads its name and its settings hash	->	Campfire.App.Tests.Web.AccountControllerTests.J2 the account form reads its name and its settings hash
+Campfire.App.Tests.Web.ControllersBTests.J3 the people list's next pages are a Turbo Stream, and only that	->	Campfire.App.Tests.Web.AccountControllerTests.J3 the people list's next pages are a Turbo Stream, and only that
+Campfire.App.Tests.Web.ControllersBTests.J4 a role change and a removal	->	Campfire.App.Tests.Web.AccountControllerTests.J4 a role change and a removal
+Campfire.App.Tests.Web.ControllersBTests.J5 bots: list, create, change, new key and remove	->	Campfire.App.Tests.Web.AccountControllerTests.J5 bots: list, create, change, new key and remove
+Campfire.App.Tests.Web.ControllersBTests.J6 joining with the account's code	->	Campfire.App.Tests.Web.AccountControllerTests.J6 joining with the account's code
+Campfire.App.Tests.Web.ControllersBTests.J7 avatars answer a signed-in user, with conditional GETs, and their owner can remove one	->	Campfire.App.Tests.Web.AccountControllerTests.J7 avatars answer a signed-in user, with conditional GETs, and their owner can remove one
+Campfire.App.Tests.Web.ControllersBTests.J8 profile: the page, a name change, and the sidebar frame	->	Campfire.App.Tests.Web.AccountControllerTests.J8 profile: the page, a name change, and the sidebar frame
+Campfire.App.Tests.Web.ControllersBTests.J9 push subscriptions: list, params, removal and test notifications	->	Campfire.App.Tests.Web.AccountControllerTests.J9 push subscriptions: list, params, removal and test notifications
+Campfire.App.Tests.Web.ControllersCTests.K1 the mention list: formats, headers, the room filter and sign-in	->	Campfire.App.Tests.Web.LookupControllerTests.K1 the mention list: formats, headers, the room filter and sign-in
+Campfire.App.Tests.Web.ControllersCTests.K2 the QR code is public, cached for a year, and refuses what it cannot encode	->	Campfire.App.Tests.Web.LookupControllerTests.K2 the QR code is public, cached for a year, and refuses what it cannot encode
+Campfire.App.Tests.Web.ControllersCTests.K3 searches: record, show, clear, and the params Rails would choke on	->	Campfire.App.Tests.Web.LookupControllerTests.K3 searches: record, show, clear, and the params Rails would choke on
+Campfire.App.Tests.Web.ControllersCTests.K4 unfurling needs a url, and a hash for one is no metadata	->	Campfire.App.Tests.Web.LookupControllerTests.K4 unfurling needs a url, and a hash for one is no metadata
+Campfire.App.Tests.Web.ControllersCTests.K5 the Active Storage writes need a session and a same-origin request	->	Campfire.App.Tests.Web.LookupControllerTests.K5 the Active Storage writes need a session and a same-origin request
+Campfire.App.Tests.Web.ControllersCTests.K6 a direct upload read back: disk PUT, redirect, proxy, ranges and the disk cache header	->	Campfire.App.Tests.Web.LookupControllerTests.K6 a direct upload read back: disk PUT, redirect, proxy, ranges and the disk cache header
+Campfire.App.Tests.Web.ControllersDTests.D1 a bot's raw body survives the form reader and the method override	->	Campfire.App.Tests.Web.RoomControllerTests.D1 a bot's raw body survives the form reader and the method override
+Campfire.App.Tests.Web.ControllersDTests.D2 set_room sends a missing room back to the root with an alert	->	Campfire.App.Tests.Web.RoomControllerTests.D2 set_room sends a missing room back to the root with an alert
+Campfire.App.Tests.Web.ControllersDTests.D3 the last_room cookie is set on a room page and only when it changes	->	Campfire.App.Tests.Web.RoomControllerTests.D3 the last_room cookie is set on a room page and only when it changes
+Campfire.App.Tests.Web.ControllersDTests.D4 refresh reads since as an integer and rejects a hash	->	Campfire.App.Tests.Web.RoomControllerTests.D4 refresh reads since as an integer and rejects a hash
+Campfire.App.Tests.Web.ControllersDTests.D5 involvement: blank clears it, a name sets it, anything else is a 500	->	Campfire.App.Tests.Web.RoomControllerTests.D5 involvement: blank clears it, a name sets it, anything else is a 500
+Campfire.App.Tests.Web.SeamTests.Action.run sends the handler an action returns, a halt as it is, and an error as the kit renders it	->	Campfire.App.Tests.RouteTableTests.Action.run sends the handler an action returns, a halt as it is, and an error as the kit renders it
+Campfire.App.Tests.Web.SeamTests.Current is one object per request	->	Campfire.App.Tests.Web.AuthenticationTests.Current is one object per request
+Campfire.App.Tests.Web.SeamTests.a request resolves ICsrfProtection, IAuthenticationSchemeProvider and ISessionStore on net11	->	Campfire.App.Tests.Web.AuthenticationTests.a request resolves ICsrfProtection, IAuthenticationSchemeProvider and ISessionStore on net11
+Campfire.App.Tests.Web.SeamTests.every row of the route table is a wrapped Web action and the table dispatches through them	->	Campfire.App.Tests.RouteTableTests.every row of the route table is a wrapped Web action and the table dispatches through them
+Campfire.App.Tests.Web.SeamTests.no authentication scheme is the default, so nothing authenticates unasked	->	Campfire.App.Tests.Web.AuthenticationTests.no authentication scheme is the default, so nothing authenticates unasked
+Campfire.App.Tests.WebPushTests.a 429 with retry after is sent once	->	Campfire.App.Tests.WebPushTests.WP4 a 429 with retry after is sent once
+Campfire.App.Tests.WebPushTests.a panicking delivery frees its slot	->	Campfire.App.Tests.WebPushTests.WP8 a panicking delivery frees its slot
+Campfire.App.Tests.WebPushTests.a stop right after the start still delivers and invalidates	->	Campfire.App.Tests.WebPushTests.WP8 a stop right after the start still delivers and invalidates
+Campfire.App.Tests.WebPushTests.delivers to the pinned address with the vapid headers	->	Campfire.App.Tests.WebPushTests.WP2 delivers to the pinned address with the vapid headers
+Campfire.App.Tests.WebPushTests.only the subscriptions own faults invalidate it	->	Campfire.App.Tests.WebPushTests.WP3 only the subscriptions own faults invalidate it
+Campfire.App.Tests.WebPushTests.raises what the gem raises	->	Campfire.App.Tests.WebPushTests.WP3 raises what the gem raises
+Campfire.App.Tests.WebPushTests.skips endpoints it may not deliver to	->	Campfire.App.Tests.WebPushTests.WP5 skips endpoints it may not deliver to
+Campfire.App.Tests.WebPushTests.test notification	->	Campfire.App.Tests.WebPushTests.WP7 test notification
+Campfire.App.Tests.WebPushTests.the longest payload fits a push message	->	Campfire.App.Tests.WebPushTests.WP1 the longest payload fits a push message
+Campfire.App.Tests.WebPushTests.the payload decrypts to the message	->	Campfire.App.Tests.WebPushTests.WP1 the payload decrypts to the message
+Campfire.App.Tests.WebPushTests.the pool drops deliveries past its queue	->	Campfire.App.Tests.WebPushTests.WP8 the pool drops deliveries past its queue
+Campfire.App.Tests.WebPushTests.the pool keeps subscriptions it failed to reach	->	Campfire.App.Tests.WebPushTests.WP8 the pool keeps subscriptions it failed to reach
+Campfire.App.Tests.WebPushTests.web push is off without a valid key pair	->	Campfire.App.Tests.WebPushTests.WP6 web push is off without a valid key pair

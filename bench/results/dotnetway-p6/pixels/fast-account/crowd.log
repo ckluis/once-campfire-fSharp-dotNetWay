@@ -1,0 +1,8 @@
+candidate: reference :4111 vs candidate :4112 (seed crowd, clock frozen at 2026-03-02T16:00:00Z)
+5 cells (5 on shared servers, 0 on fresh servers in 3 slots) × 2 targets, 4 workers
+[1/5] account/edit/crowd @ chromium-phone-light fail
+[2/5] account/edit/crowd @ chromium-desktop-light fail
+[4/5] account/edit/crowd/next_page @ chromium-desktop-light fail
+[5/5] account/edit/crowd/next_page @ chromium-phone-light fail
+5 cells: 1 pass (0 flaky), 4 fail, 0 allowed, 0 error in 15.3s
+report: /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/parity/out/p6-fast-account/crowd/report.html

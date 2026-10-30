@@ -1,0 +1,4 @@
+message_sent rc=0
+typing/one rc=0
+presence_read rc=0
+removed_from_room rc=0

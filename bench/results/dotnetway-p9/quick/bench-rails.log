@@ -1,0 +1,409 @@
+date: 2026-10-28T03:59:26-04:00
+host: 6.8.0-117-generic, , 8 threads, 5GB
+server cpus: 0-3 (nproc 4); loadgen cpus: 4-7; network: host
+env: WEB_CONCURRENCY=3 JOB_CONCURRENCY=3 RAILS_MAX_THREADS=5 
+rust extra env: 
+fsharp extra env: 
+dotnetway extra env: 
+user agent: (none)
+reference image: campfire-reference:app sha256:0a25342ba66031f06820985d328e926e0d83d3bea197e1510f58cbe6967a2cb0 2026-10-12T18:35:08.145300382-04:00 built from commit: 
+repo HEAD: dcc9434 (dirty: 0 files under src/ and rust/)
+work dir (seed copies): /var/tmp/campfire-bench-work (ext4)
+loadgen: /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/target/rust/aarch64-unknown-linux-gnu/release/loadgen (2026-10-13 18:47:07), built with rust:1.98.1-trixie
+schedule: apps reference, reps 3; suites: http; http secs 8, concs 1 16, routes room_show messages_page sidebar search post_message static_css avatar up (in parts, --part 1/3 is one slice of them), warm-up 30s at each route and concentration, idle 5s
+log retention: 2 x 10m (json-file)
+[04:00:36] load before run: 1.42 2.75 2.74 (waited 70s)
+[04:00:39] host probe before run: {"spin_ms": 59.17, "spin_ms_max_cpu": 62.07, "cpus": "0-3,4-7", "baseline_ms": 55.57, "ratio": 1.065} (waited 70s)
+[04:00:39] reference rep 1: starting (load: 1.39 2.72 2.73)
+[04:00:46] reference rep 1: cold start 2154ms, idle 301MB (anon 282MB)
+[04:01:28] reference rep 1: room_show c=1 111.1 rps p50 8.815 p99 11.247 {'200': 889} err 0 cpu 9163.7 us/req; warm-up 30.1 s settled tail 110.3 host 1.078
+[04:02:09] reference rep 1: room_show c=16 240.4 rps p50 67.135 p99 139.391 {'200': 1944} err 0 cpu 12205.3 us/req; warm-up 30.8 s settled tail 235.1 host 1.044
+[04:03:50] reference rep 1: messages_page c=1 223.1 rps p50 4.399 p99 5.735 {'200': 1785} err 0 cpu 4608.2 us/req; warm-up 90.0 s reached the maximum tail 213.5 host 1.08
+[04:04:48] reference rep 1: messages_page c=16 418.7 rps p50 42.367 p99 85.631 {'200': 3369} err 0 cpu 6785.4 us/req; warm-up 46.8 s settled tail 392.3 host 1.073
+[04:05:28] reference rep 1: sidebar c=1 279.1 rps p50 3.469 p99 4.919 {'200': 2233} err 0 cpu 3680.8 us/req; warm-up 30.0 s settled tail 274.0 host 1.07
+[04:06:09] reference rep 1: sidebar c=16 589.9 rps p50 24.671 p99 55.071 {'200': 4731} err 0 cpu 4985.2 us/req; warm-up 30.3 s settled tail 585.1 host 1.044
+[04:06:13] reference rep 1: done -> /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/bench/results/dotnetway-p9/quick/rails/reference-1.json
+date: 2026-10-28T03:59:26-04:00
+host: 6.8.0-117-generic, , 8 threads, 5GB
+server cpus: 0-3 (nproc 4); loadgen cpus: 4-7; network: host
+env: WEB_CONCURRENCY=3 JOB_CONCURRENCY=3 RAILS_MAX_THREADS=5 
+rust extra env: 
+fsharp extra env: 
+dotnetway extra env: 
+user agent: (none)
+reference image: campfire-reference:app sha256:0a25342ba66031f06820985d328e926e0d83d3bea197e1510f58cbe6967a2cb0 2026-10-12T18:35:08.145300382-04:00 built from commit: 
+repo HEAD: dcc9434 (dirty: 0 files under src/ and rust/)
+work dir (seed copies): /var/tmp/campfire-bench-work (ext4)
+loadgen: /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/target/rust/aarch64-unknown-linux-gnu/release/loadgen (2026-10-13 18:47:07), built with rust:1.98.1-trixie
+schedule: apps reference, reps 3; suites: http; http secs 8, concs 1 16, routes room_show messages_page sidebar search post_message static_css avatar up (in parts, --part 1/3 is one slice of them), warm-up 30s at each route and concentration, idle 5s
+log retention: 2 x 10m (json-file)
+[04:07:03] load before run: 1.37 2.35 2.59 (waited 50s)
+[04:07:05] host probe before run: {"spin_ms": 58.2, "spin_ms_max_cpu": 60.4, "cpus": "0-3,4-7", "baseline_ms": 55.57, "ratio": 1.047} (waited 50s)
+[04:07:05] reference rep 1: starting (load: 1.34 2.33 2.58)
+[04:07:13] reference rep 1: cold start 2030ms, idle 301MB (anon 281MB)
+[04:07:58] reference rep 1: search c=1 201.3 rps p50 4.907 p99 6.467 {'200': 1611} err 0 cpu 5007.3 us/req; warm-up 34.0 s settled tail 203.1 host 1.046
+[04:08:39] reference rep 1: search c=16 408.2 rps p50 38.239 p99 65.055 {'200': 3279} err 0 cpu 7003.2 us/req; warm-up 30.5 s settled tail 410.1 host 1.068
+[04:09:20] reference rep 1: static_css c=1 15134.2 rps p50 0.063 p99 0.106 {'200': 121075} err 0 cpu 57.0 us/req; warm-up 30.0 s settled tail 15177.0 host 1.04
+[04:10:01] reference rep 1: static_css c=16 98105.4 rps p50 0.111 p99 0.814 {'200': 784899} err 0 cpu 29.4 us/req; warm-up 30.0 s settled tail 97666.7 host 1.07
+[04:10:41] reference rep 1: post_message c=1 177.1 rps p50 5.279 p99 8.687 {'200': 1417} err 0 cpu 7800.7 us/req; warm-up 30.0 s settled tail 176.0 host 1.077
+[04:11:23] reference rep 1: post_message c=16 330.7 rps p50 41.727 p99 127.871 {'200': 2658} err 0 cpu 10172.1 us/req; warm-up 30.5 s settled tail 328.8 host 1.051
+[04:11:26] reference rep 1: done -> /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/bench/results/dotnetway-p9/quick/rails/reference-1.json
+date: 2026-10-28T03:59:26-04:00
+host: 6.8.0-117-generic, , 8 threads, 5GB
+server cpus: 0-3 (nproc 4); loadgen cpus: 4-7; network: host
+env: WEB_CONCURRENCY=3 JOB_CONCURRENCY=3 RAILS_MAX_THREADS=5 
+rust extra env: 
+fsharp extra env: 
+dotnetway extra env: 
+user agent: (none)
+reference image: campfire-reference:app sha256:0a25342ba66031f06820985d328e926e0d83d3bea197e1510f58cbe6967a2cb0 2026-10-12T18:35:08.145300382-04:00 built from commit: 
+repo HEAD: dcc9434 (dirty: 0 files under src/ and rust/)
+work dir (seed copies): /var/tmp/campfire-bench-work (ext4)
+loadgen: /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/target/rust/aarch64-unknown-linux-gnu/release/loadgen (2026-10-13 18:47:07), built with rust:1.98.1-trixie
+schedule: apps reference, reps 3; suites: http; http secs 8, concs 1 16, routes room_show messages_page sidebar search post_message static_css avatar up (in parts, --part 1/3 is one slice of them), warm-up 30s at each route and concentration, idle 5s
+log retention: 2 x 10m (json-file)
+[04:12:56] load before run: 1.32 2.56 2.65 (waited 90s)
+[04:12:59] host probe before run: {"spin_ms": 57.31, "spin_ms_max_cpu": 60.56, "cpus": "0-3,4-7", "baseline_ms": 55.57, "ratio": 1.031} (waited 90s)
+[04:12:59] reference rep 1: starting (load: 1.29 2.53 2.64)
+[04:13:06] reference rep 1: cold start 2124ms, idle 301MB (anon 282MB)
+[04:13:48] reference rep 1: avatar c=1 12529.6 rps p50 0.076 p99 0.144 {'200': 100238} err 0 cpu 65.7 us/req; warm-up 30.0 s settled tail 12586.3 host 1.075
+[04:14:28] reference rep 1: avatar c=16 70557.4 rps p50 0.152 p99 0.995 {'200': 564502} err 0 cpu 38.8 us/req; warm-up 30.0 s settled tail 71438.3 host 1.06
+[04:15:09] reference rep 1: up c=1 2136.1 rps p50 0.437 p99 1.026 {'200': 17089} err 0 cpu 520.7 us/req; warm-up 30.0 s settled tail 2142.2 host 1.058
+[04:15:50] reference rep 1: up c=16 4221.7 rps p50 3.731 p99 6.899 {'200': 33791} err 0 cpu 641.7 us/req; warm-up 30.0 s settled tail 4233.9 host 1.082
+[04:15:53] reference rep 1: done -> /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/bench/results/dotnetway-p9/quick/rails/reference-1.json
+date: 2026-10-28T03:59:26-04:00
+host: 6.8.0-117-generic, , 8 threads, 5GB
+server cpus: 0-3 (nproc 4); loadgen cpus: 4-7; network: host
+env: WEB_CONCURRENCY=3 JOB_CONCURRENCY=3 RAILS_MAX_THREADS=5 
+rust extra env: 
+fsharp extra env: 
+dotnetway extra env: 
+user agent: (none)
+reference image: campfire-reference:app sha256:0a25342ba66031f06820985d328e926e0d83d3bea197e1510f58cbe6967a2cb0 2026-10-12T18:35:08.145300382-04:00 built from commit: 
+repo HEAD: dcc9434 (dirty: 0 files under src/ and rust/)
+work dir (seed copies): /var/tmp/campfire-bench-work (ext4)
+loadgen: /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/target/rust/aarch64-unknown-linux-gnu/release/loadgen (2026-10-13 18:47:07), built with rust:1.98.1-trixie
+schedule: apps reference, reps 3; suites: http; http secs 8, concs 1 16, routes room_show messages_page sidebar search post_message static_css avatar up (in parts, --part 1/3 is one slice of them), warm-up 30s at each route and concentration, idle 5s
+log retention: 2 x 10m (json-file)
+[04:16:53] load before run: 1.38 2.61 2.69 (waited 60s)
+[04:16:56] host probe before run: {"spin_ms": 58.86, "spin_ms_max_cpu": 62.39, "cpus": "0-3,4-7", "baseline_ms": 55.57, "ratio": 1.059} (waited 60s)
+[04:16:56] reference rep 2: starting (load: 1.38 2.61 2.69)
+[04:17:03] reference rep 2: cold start 1996ms, idle 304MB (anon 284MB)
+[04:17:45] reference rep 2: room_show c=1 111.3 rps p50 8.823 p99 10.759 {'200': 891} err 0 cpu 9146.5 us/req; warm-up 30.1 s settled tail 111.4 host 1.041
+[04:18:26] reference rep 2: room_show c=16 238.8 rps p50 71.103 p99 126.975 {'200': 1927} err 0 cpu 12235.5 us/req; warm-up 30.8 s settled tail 233.3 host 1.044
+[04:19:07] reference rep 2: messages_page c=1 222.0 rps p50 4.415 p99 5.727 {'200': 1777} err 0 cpu 4629.5 us/req; warm-up 30.0 s settled tail 215.8 host 1.038
+[04:19:50] reference rep 2: messages_page c=16 410.9 rps p50 45.695 p99 81.919 {'200': 3301} err 0 cpu 6881.9 us/req; warm-up 32.6 s settled tail 394.7 host 1.053
+[04:20:31] reference rep 2: sidebar c=1 276.4 rps p50 3.511 p99 4.915 {'200': 2212} err 0 cpu 3717.2 us/req; warm-up 30.0 s settled tail 279.2 host 1.036
+[04:21:12] reference rep 2: sidebar c=16 584.4 rps p50 26.911 p99 48.127 {'200': 4691} err 0 cpu 5032.0 us/req; warm-up 30.3 s settled tail 586.8 host 1.076
+[04:21:15] reference rep 2: done -> /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/bench/results/dotnetway-p9/quick/rails/reference-2.json
+date: 2026-10-28T03:59:26-04:00
+host: 6.8.0-117-generic, , 8 threads, 5GB
+server cpus: 0-3 (nproc 4); loadgen cpus: 4-7; network: host
+env: WEB_CONCURRENCY=3 JOB_CONCURRENCY=3 RAILS_MAX_THREADS=5 
+rust extra env: 
+fsharp extra env: 
+dotnetway extra env: 
+user agent: (none)
+reference image: campfire-reference:app sha256:0a25342ba66031f06820985d328e926e0d83d3bea197e1510f58cbe6967a2cb0 2026-10-12T18:35:08.145300382-04:00 built from commit: 
+repo HEAD: dcc9434 (dirty: 0 files under src/ and rust/)
+work dir (seed copies): /var/tmp/campfire-bench-work (ext4)
+loadgen: /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/target/rust/aarch64-unknown-linux-gnu/release/loadgen (2026-10-13 18:47:07), built with rust:1.98.1-trixie
+schedule: apps reference, reps 3; suites: http; http secs 8, concs 1 16, routes room_show messages_page sidebar search post_message static_css avatar up (in parts, --part 1/3 is one slice of them), warm-up 30s at each route and concentration, idle 5s
+log retention: 2 x 10m (json-file)
+[04:22:06] load before run: 1.27 2.21 2.51 (waited 50s)
+[04:22:08] host probe before run: {"spin_ms": 58.89, "spin_ms_max_cpu": 61.05, "cpus": "0-3,4-7", "baseline_ms": 55.57, "ratio": 1.06} (waited 50s)
+[04:22:08] reference rep 2: starting (load: 1.27 2.21 2.51)
+[04:22:15] reference rep 2: cold start 2073ms, idle 314MB (anon 294MB)
+[04:22:59] reference rep 2: search c=1 202.2 rps p50 4.891 p99 6.131 {'200': 1618} err 0 cpu 4982.6 us/req; warm-up 32.0 s settled tail 203.1 host 1.075
+[04:23:40] reference rep 2: search c=16 406.1 rps p50 36.831 p99 70.143 {'200': 3260} err 0 cpu 7037.0 us/req; warm-up 30.5 s settled tail 405.2 host 1.048
+[04:24:21] reference rep 2: static_css c=1 15106.4 rps p50 0.063 p99 0.105 {'200': 120853} err 0 cpu 56.8 us/req; warm-up 30.0 s settled tail 15196.3 host 1.048
+[04:25:01] reference rep 2: static_css c=16 97913.8 rps p50 0.112 p99 0.806 {'200': 783338} err 0 cpu 29.5 us/req; warm-up 30.0 s settled tail 97359.0 host 1.082
+[04:25:44] reference rep 2: post_message c=1 175.6 rps p50 5.359 p99 9.271 {'200': 1405} err 0 cpu 7859.3 us/req; warm-up 32.0 s settled tail 176.5 host 1.054
+[04:26:26] reference rep 2: post_message c=16 332.3 rps p50 40.415 p99 132.479 {'200': 2681} err 0 cpu 10210.2 us/req; warm-up 30.6 s settled tail 326.9 host 1.098
+[04:26:29] reference rep 2: done -> /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/bench/results/dotnetway-p9/quick/rails/reference-2.json
+date: 2026-10-28T03:59:26-04:00
+host: 6.8.0-117-generic, , 8 threads, 5GB
+server cpus: 0-3 (nproc 4); loadgen cpus: 4-7; network: host
+env: WEB_CONCURRENCY=3 JOB_CONCURRENCY=3 RAILS_MAX_THREADS=5 
+rust extra env: 
+fsharp extra env: 
+dotnetway extra env: 
+user agent: (none)
+reference image: campfire-reference:app sha256:0a25342ba66031f06820985d328e926e0d83d3bea197e1510f58cbe6967a2cb0 2026-10-12T18:35:08.145300382-04:00 built from commit: 
+repo HEAD: dcc9434 (dirty: 0 files under src/ and rust/)
+work dir (seed copies): /var/tmp/campfire-bench-work (ext4)
+loadgen: /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/target/rust/aarch64-unknown-linux-gnu/release/loadgen (2026-10-13 18:47:07), built with rust:1.98.1-trixie
+schedule: apps reference, reps 3; suites: http; http secs 8, concs 1 16, routes room_show messages_page sidebar search post_message static_css avatar up (in parts, --part 1/3 is one slice of them), warm-up 30s at each route and concentration, idle 5s
+log retention: 2 x 10m (json-file)
+[04:27:29] load before run: 1.31 2.31 2.50 (waited 60s)
+[04:27:32] host probe before run: {"spin_ms": 59.02, "spin_ms_max_cpu": 61.1, "cpus": "0-3,4-7", "baseline_ms": 55.57, "ratio": 1.062} (waited 60s)
+[04:27:32] reference rep 2: starting (load: 1.31 2.31 2.50)
+[04:27:39] reference rep 2: cold start 2077ms, idle 301MB (anon 281MB)
+[04:28:20] reference rep 2: avatar c=1 12579.6 rps p50 0.076 p99 0.138 {'200': 100637} err 0 cpu 64.9 us/req; warm-up 30.0 s settled tail 12595.9 host 1.059
+[04:29:01] reference rep 2: avatar c=16 74410.8 rps p50 0.147 p99 0.905 {'200': 595326} err 0 cpu 36.9 us/req; warm-up 30.0 s settled tail 73558.3 host 1.066
+[04:29:42] reference rep 2: up c=1 2132.3 rps p50 0.439 p99 0.883 {'200': 17059} err 0 cpu 521.2 us/req; warm-up 30.0 s settled tail 2120.1 host 1.076
+[04:30:25] reference rep 2: up c=16 4161.0 rps p50 3.751 p99 7.203 {'200': 33313} err 0 cpu 646.1 us/req; warm-up 32.0 s settled tail 4090.1 host 1.033
+[04:30:28] reference rep 2: done -> /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/bench/results/dotnetway-p9/quick/rails/reference-2.json
+date: 2026-10-28T03:59:26-04:00
+host: 6.8.0-117-generic, , 8 threads, 5GB
+server cpus: 0-3 (nproc 4); loadgen cpus: 4-7; network: host
+env: WEB_CONCURRENCY=3 JOB_CONCURRENCY=3 RAILS_MAX_THREADS=5 
+rust extra env: 
+fsharp extra env: 
+dotnetway extra env: 
+user agent: (none)
+reference image: campfire-reference:app sha256:0a25342ba66031f06820985d328e926e0d83d3bea197e1510f58cbe6967a2cb0 2026-10-12T18:35:08.145300382-04:00 built from commit: 
+repo HEAD: dcc9434 (dirty: 0 files under src/ and rust/)
+work dir (seed copies): /var/tmp/campfire-bench-work (ext4)
+loadgen: /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/target/rust/aarch64-unknown-linux-gnu/release/loadgen (2026-10-13 18:47:07), built with rust:1.98.1-trixie
+schedule: apps reference, reps 3; suites: http; http secs 8, concs 1 16, routes room_show messages_page sidebar search post_message static_css avatar up (in parts, --part 1/3 is one slice of them), warm-up 30s at each route and concentration, idle 5s
+log retention: 2 x 10m (json-file)
+[04:31:28] load before run: 1.42 2.29 2.47 (waited 60s)
+[04:31:31] host probe before run: {"spin_ms": 59.73, "spin_ms_max_cpu": 61.55, "cpus": "0-3,4-7", "baseline_ms": 55.57, "ratio": 1.075} (waited 60s)
+[04:31:31] reference rep 3: starting (load: 1.38 2.27 2.47)
+[04:31:38] reference rep 3: cold start 2127ms, idle 313MB (anon 294MB)
+[04:32:24] reference rep 3: room_show c=1 110.3 rps p50 8.967 p99 10.623 {'200': 883} err 0 cpu 9232.0 us/req; warm-up 34.1 s settled tail 111.3 host 1.072
+[04:33:05] reference rep 3: room_show c=16 246.7 rps p50 51.423 p99 180.863 {'200': 1991} err 0 cpu 12050.3 us/req; warm-up 30.8 s settled tail 232.1 host 1.079
+[04:33:46] reference rep 3: messages_page c=1 220.3 rps p50 4.443 p99 5.775 {'200': 1763} err 0 cpu 4661.3 us/req; warm-up 30.0 s settled tail 219.4 host 1.08
+[04:34:27] reference rep 3: messages_page c=16 381.6 rps p50 41.375 p99 86.847 {'200': 3068} err 0 cpu 7346.7 us/req; warm-up 30.6 s settled tail 386.2 host 1.063
+[04:35:08] reference rep 3: sidebar c=1 280.1 rps p50 3.475 p99 5.095 {'200': 2241} err 0 cpu 3672.4 us/req; warm-up 30.0 s settled tail 281.0 host 1.078
+[04:35:49] reference rep 3: sidebar c=16 589.5 rps p50 26.223 p99 56.159 {'200': 4730} err 0 cpu 4964.0 us/req; warm-up 30.4 s settled tail 587.3 host 1.052
+[04:35:52] reference rep 3: done -> /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/bench/results/dotnetway-p9/quick/rails/reference-3.json
+date: 2026-10-28T03:59:26-04:00
+host: 6.8.0-117-generic, , 8 threads, 5GB
+server cpus: 0-3 (nproc 4); loadgen cpus: 4-7; network: host
+env: WEB_CONCURRENCY=3 JOB_CONCURRENCY=3 RAILS_MAX_THREADS=5 
+rust extra env: 
+fsharp extra env: 
+dotnetway extra env: 
+user agent: (none)
+reference image: campfire-reference:app sha256:0a25342ba66031f06820985d328e926e0d83d3bea197e1510f58cbe6967a2cb0 2026-10-12T18:35:08.145300382-04:00 built from commit: 
+repo HEAD: dcc9434 (dirty: 0 files under src/ and rust/)
+work dir (seed copies): /var/tmp/campfire-bench-work (ext4)
+loadgen: /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/target/rust/aarch64-unknown-linux-gnu/release/loadgen (2026-10-13 18:47:07), built with rust:1.98.1-trixie
+schedule: apps reference, reps 3; suites: http; http secs 8, concs 1 16, routes room_show messages_page sidebar search post_message static_css avatar up (in parts, --part 1/3 is one slice of them), warm-up 30s at each route and concentration, idle 5s
+log retention: 2 x 10m (json-file)
+[04:36:43] load before run: 1.34 2.17 2.38 (waited 50s)
+[04:36:45] host probe before run: {"spin_ms": 58.27, "spin_ms_max_cpu": 64.1, "cpus": "0-3,4-7", "baseline_ms": 55.57, "ratio": 1.049} (waited 50s)
+[04:36:45] reference rep 3: starting (load: 1.31 2.15 2.38)
+[04:36:52] reference rep 3: cold start 2029ms, idle 304MB (anon 284MB)
+[04:37:34] reference rep 3: search c=1 204.1 rps p50 4.875 p99 6.035 {'200': 1633} err 0 cpu 4937.9 us/req; warm-up 30.0 s settled tail 205.9 host 1.056
+[04:38:15] reference rep 3: search c=16 408.2 rps p50 37.215 p99 81.791 {'200': 3287} err 0 cpu 7012.1 us/req; warm-up 30.5 s settled tail 409.4 host 1.051
+[04:38:56] reference rep 3: static_css c=1 15131.5 rps p50 0.063 p99 0.105 {'200': 121053} err 0 cpu 56.9 us/req; warm-up 30.0 s settled tail 15169.8 host 1.058
+[04:39:36] reference rep 3: static_css c=16 97844.1 rps p50 0.112 p99 0.813 {'200': 782782} err 0 cpu 29.5 us/req; warm-up 30.0 s settled tail 97801.2 host 1.051
+[04:40:17] reference rep 3: post_message c=1 178.3 rps p50 5.259 p99 9.087 {'200': 1427} err 0 cpu 7754.8 us/req; warm-up 30.0 s settled tail 178.4 host 1.07
+[04:40:58] reference rep 3: post_message c=16 328.4 rps p50 46.015 p99 124.863 {'200': 2638} err 0 cpu 10263.9 us/req; warm-up 30.5 s settled tail 329.9 host 1.051
+[04:41:02] reference rep 3: done -> /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/bench/results/dotnetway-p9/quick/rails/reference-3.json
+date: 2026-10-28T03:59:26-04:00
+host: 6.8.0-117-generic, , 8 threads, 5GB
+server cpus: 0-3 (nproc 4); loadgen cpus: 4-7; network: host
+env: WEB_CONCURRENCY=3 JOB_CONCURRENCY=3 RAILS_MAX_THREADS=5 
+rust extra env: 
+fsharp extra env: 
+dotnetway extra env: 
+user agent: (none)
+reference image: campfire-reference:app sha256:0a25342ba66031f06820985d328e926e0d83d3bea197e1510f58cbe6967a2cb0 2026-10-12T18:35:08.145300382-04:00 built from commit: 
+repo HEAD: dcc9434 (dirty: 0 files under src/ and rust/)
+work dir (seed copies): /var/tmp/campfire-bench-work (ext4)
+loadgen: /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/target/rust/aarch64-unknown-linux-gnu/release/loadgen (2026-10-13 18:47:07), built with rust:1.98.1-trixie
+schedule: apps reference, reps 3; suites: http; http secs 8, concs 1 16, routes room_show messages_page sidebar search post_message static_css avatar up (in parts, --part 1/3 is one slice of them), warm-up 30s at each route and concentration, idle 5s
+log retention: 2 x 10m (json-file)
+[04:42:12] load before run: 1.39 2.42 2.46 (waited 70s)
+[04:42:15] host probe before run: {"spin_ms": 58.7, "spin_ms_max_cpu": 63.0, "cpus": "0-3,4-7", "baseline_ms": 55.57, "ratio": 1.056} (waited 70s)
+[04:42:15] reference rep 3: starting (load: 1.36 2.40 2.45)
+[04:42:22] reference rep 3: cold start 2001ms, idle 304MB (anon 285MB)
+[04:43:03] reference rep 3: avatar c=1 12513.7 rps p50 0.076 p99 0.136 {'200': 100111} err 0 cpu 65.0 us/req; warm-up 30.0 s settled tail 12580.7 host 1.054
+[04:43:44] reference rep 3: avatar c=16 74131.1 rps p50 0.147 p99 0.918 {'200': 593077} err 0 cpu 37.0 us/req; warm-up 30.0 s settled tail 73702.0 host 1.077
+[04:44:24] reference rep 3: up c=1 2128.6 rps p50 0.44 p99 0.915 {'200': 17029} err 0 cpu 521.1 us/req; warm-up 30.0 s settled tail 2125.0 host 1.061
+[04:45:05] reference rep 3: up c=16 4241.0 rps p50 3.713 p99 7.007 {'200': 33943} err 0 cpu 640.1 us/req; warm-up 30.0 s settled tail 4241.8 host 1.062
+[04:45:08] reference rep 3: done -> /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/bench/results/dotnetway-p9/quick/rails/reference-3.json
+```
+date: 2026-10-28T03:59:26-04:00
+host: 6.8.0-117-generic, , 8 threads, 5GB
+server cpus: 0-3 (nproc 4); loadgen cpus: 4-7; network: host
+env: WEB_CONCURRENCY=3 JOB_CONCURRENCY=3 RAILS_MAX_THREADS=5 
+rust extra env: 
+fsharp extra env: 
+dotnetway extra env: 
+user agent: (none)
+reference image: campfire-reference:app sha256:0a25342ba66031f06820985d328e926e0d83d3bea197e1510f58cbe6967a2cb0 2026-10-12T18:35:08.145300382-04:00 built from commit: 
+repo HEAD: dcc9434 (dirty: 0 files under src/ and rust/)
+work dir (seed copies): /var/tmp/campfire-bench-work (ext4)
+loadgen: /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/target/rust/aarch64-unknown-linux-gnu/release/loadgen (2026-10-13 18:47:07), built with rust:1.98.1-trixie
+schedule: apps reference, reps 3; suites: http; http secs 8, concs 1 16, routes room_show messages_page sidebar search post_message static_css avatar up (in parts, --part 1/3 is one slice of them), warm-up 30s at each route and concentration, idle 5s
+log retention: 2 x 10m (json-file)
+```
+
+Reps: reference 3. Cells: median [min–max].
+
+### Startup and memory
+
+| Metric | Rails |
+|---|---|
+| cold start: docker run → /up 200 (ms) | 2,127 [1,996–2,154] |
+| idle memory.current (MB) | 304 [301–313] |
+| idle anon (MB) | 284 [282–294] |
+| peak memory.current under load (MB) | 928 [922–930] |
+| peak anon under load (MB) | 893 [887–896] |
+
+### HTTP (signed in as david; keep-alive; c = concurrent connections)
+
+`CPU µs/req` is the container's CPU (cgroup cpu.stat, user + system, unprofiled) over the run divided by its requests; for CPU a ratio below 1 means the first app spends more per request.
+
+| Metric | Rails |
+|---|---|
+| room_show c=1 req/s | 111 [110–111] |
+| room_show c=1 CPU µs/req | 9,164 [9,146–9,232] |
+| room_show c=1 p50 ms | 8.82 [8.81–8.97] |
+| room_show c=1 p99 ms | 10.8 [10.6–11.2] |
+| room_show c=16 req/s | 240 [239–247] |
+| room_show c=16 CPU µs/req | 12,205 [12,050–12,236] |
+| room_show c=16 p50 ms | 67.1 [51.4–71.1] |
+| room_show c=16 p99 ms | 139 [127–181] |
+| messages_page c=1 req/s | 222 [220–223] |
+| messages_page c=1 CPU µs/req | 4,630 [4,608–4,661] |
+| messages_page c=1 p50 ms | 4.42 [4.40–4.44] |
+| messages_page c=1 p99 ms | 5.74 [5.73–5.78] |
+| messages_page c=16 req/s | 411 [382–419] |
+| messages_page c=16 CPU µs/req | 6,882 [6,785–7,347] |
+| messages_page c=16 p50 ms | 42.4 [41.4–45.7] |
+| messages_page c=16 p99 ms | 85.6 [81.9–86.8] |
+| sidebar c=1 req/s | 279 [276–280] |
+| sidebar c=1 CPU µs/req | 3,681 [3,672–3,717] |
+| sidebar c=1 p50 ms | 3.48 [3.47–3.51] |
+| sidebar c=1 p99 ms | 4.92 [4.92–5.09] |
+| sidebar c=16 req/s | 590 [584–590] |
+| sidebar c=16 CPU µs/req | 4,985 [4,964–5,032] |
+| sidebar c=16 p50 ms | 26.2 [24.7–26.9] |
+| sidebar c=16 p99 ms | 55.1 [48.1–56.2] |
+| search c=1 req/s | 202 [201–204] |
+| search c=1 CPU µs/req | 4,983 [4,938–5,007] |
+| search c=1 p50 ms | 4.89 [4.88–4.91] |
+| search c=1 p99 ms | 6.13 [6.04–6.47] |
+| search c=16 req/s | 408 [406–408] |
+| search c=16 CPU µs/req | 7,012 [7,003–7,037] |
+| search c=16 p50 ms | 37.2 [36.8–38.2] |
+| search c=16 p99 ms | 70.1 [65.1–81.8] |
+| static_css c=1 req/s | 15,132 [15,106–15,134] |
+| static_css c=1 CPU µs/req | 56.9 [56.8–57.0] |
+| static_css c=1 p50 ms | 0.06 [0.06–0.06] |
+| static_css c=1 p99 ms | 0.10 [0.10–0.11] |
+| static_css c=16 req/s | 97,914 [97,844–98,105] |
+| static_css c=16 CPU µs/req | 29.5 [29.4–29.5] |
+| static_css c=16 p50 ms | 0.11 [0.11–0.11] |
+| static_css c=16 p99 ms | 0.81 [0.81–0.81] |
+| post_message c=1 req/s | 177 [176–178] |
+| post_message c=1 CPU µs/req | 7,801 [7,755–7,859] |
+| post_message c=1 p50 ms | 5.28 [5.26–5.36] |
+| post_message c=1 p99 ms | 9.09 [8.69–9.27] |
+| post_message c=16 req/s | 331 [328–332] |
+| post_message c=16 CPU µs/req | 10,210 [10,172–10,264] |
+| post_message c=16 p50 ms | 41.7 [40.4–46.0] |
+| post_message c=16 p99 ms | 128 [125–132] |
+| avatar c=1 req/s | 12,530 [12,514–12,580] |
+| avatar c=1 CPU µs/req | 65.0 [64.9–65.7] |
+| avatar c=1 p50 ms | 0.08 [0.08–0.08] |
+| avatar c=1 p99 ms | 0.14 [0.14–0.14] |
+| avatar c=16 req/s | 74,131 [70,557–74,411] |
+| avatar c=16 CPU µs/req | 37.0 [36.9–38.8] |
+| avatar c=16 p50 ms | 0.15 [0.15–0.15] |
+| avatar c=16 p99 ms | 0.92 [0.91–0.99] |
+| up c=1 req/s | 2,132 [2,129–2,136] |
+| up c=1 CPU µs/req | 521 [521–521] |
+| up c=1 p50 ms | 0.44 [0.44–0.44] |
+| up c=1 p99 ms | 0.92 [0.88–1.03] |
+| up c=16 req/s | 4,222 [4,161–4,241] |
+| up c=16 CPU µs/req | 642 [640–646] |
+| up c=16 p50 ms | 3.73 [3.71–3.75] |
+| up c=16 p99 ms | 7.01 [6.90–7.20] |
+
+## Validity
+
+### Load average before each run (1, 5, 15 minutes; the run waited for the 1-minute figure to fall below LOAD_MAX)
+
+| App | Rep | Before | After |
+|---|---|---|---|
+| Rails | 1 | 1.39 2.72 2.73 | 3.93 3.21 2.88 |
+| Rails | 2 | 1.38 2.61 2.69 | 3.86 2.80 2.64 |
+| Rails | 3 | 1.38 2.27 2.47 | 3.81 2.99 2.66 |
+
+### Host CPU probe (a fixed spin timed on every pinned CPU, against the quietest this VM has shown; bench/lib/hostprobe.py)
+
+The VM's load average cannot see another program on the Mac taking the cores its vCPUs run on; this can. A ratio of 1.00 is a quiet host, above 1.10 the pinned server and load generator were slowed by something outside the run. `After each window` probes the machine right after every measured run of the rep.
+
+| App | Rep | Before the run | After the run | Windows probed above 1.10 | Highest after a window |
+|---|---|---|---|---|---|
+| Rails | 1 | 1.06 | 1.06 | 0/16 | 1.08 |
+| Rails | 2 | 1.06 | 1.07 | 0/16 | 1.10 |
+| Rails | 3 | 1.07 | 1.05 | 0/16 | 1.08 |
+
+### Responses by status class, every HTTP run of every rep
+
+| App | Route | 2xx | 3xx | 4xx | 5xx | Errors (no response) |
+|---|---|---|---|---|---|---|
+| Rails | room_show | 8,525 | 0 | 0 | 0 | 0 |
+| Rails | messages_page | 15,063 | 0 | 0 | 0 | 0 |
+| Rails | sidebar | 20,838 | 0 | 0 | 0 | 0 |
+| Rails | search | 14,688 | 0 | 0 | 0 | 0 |
+| Rails | static_css | 2,714,000 | 0 | 0 | 0 | 0 |
+| Rails | post_message | 12,226 | 0 | 0 | 0 | 0 |
+| Rails | avatar | 2,053,891 | 0 | 0 | 0 | 0 |
+| Rails | up | 152,224 | 0 | 0 | 0 | 0 |
+
+### Warm-up before each measured run (the app runs the route at the measured concurrency until its throughput is flat; bench/lib/warmup.py)
+
+`measured / warm-up tail` is the measured run's requests a second over the mean of the last three 2 s warm-up windows: well above 1 would mean the app was still speeding up when measurement began, well below 1 that it was slowing down.
+
+| App | Route | c | warm-up seconds | settled | measured / warm-up tail |
+|---|---|---|---|---|---|
+| Rails | room_show | 1 | 30.1 [30.1–34.1] | 3/3 | 1.00 |
+| Rails | room_show | 16 | 30.8 [30.8–30.8] | 3/3 | 1.02 |
+| Rails | messages_page | 1 | 30.0 [30.0–90.0] | 2/3 **←** | 1.03 |
+| Rails | messages_page | 16 | 32.6 [30.6–46.8] | 3/3 | 1.04 |
+| Rails | sidebar | 1 | 30.0 [30.0–30.0] | 3/3 | 1.00 |
+| Rails | sidebar | 16 | 30.3 [30.3–30.4] | 3/3 | 1.00 |
+| Rails | search | 1 | 32.0 [30.0–34.0] | 3/3 | 0.99 |
+| Rails | search | 16 | 30.5 [30.5–30.5] | 3/3 | 1.00 |
+| Rails | static_css | 1 | 30.0 [30.0–30.0] | 3/3 | 1.00 |
+| Rails | static_css | 16 | 30.0 [30.0–30.0] | 3/3 | 1.00 |
+| Rails | post_message | 1 | 30.0 [30.0–32.0] | 3/3 | 1.00 |
+| Rails | post_message | 16 | 30.5 [30.5–30.6] | 3/3 | 1.01 |
+| Rails | avatar | 1 | 30.0 [30.0–30.0] | 3/3 | 1.00 |
+| Rails | avatar | 16 | 30.0 [30.0–30.0] | 3/3 | 1.01 |
+| Rails | up | 1 | 30.0 [30.0–30.0] | 3/3 | 1.00 |
+| Rails | up | 16 | 30.0 [30.0–32.0] | 3/3 | 1.00 |
+
+### Rows written by `post_message` (messages of the write room counted in the app's SQLite file around each run)
+
+| App | Rep | Phase | Posts answered below 400 | Rows written | Match |
+|---|---|---|---|---|---|
+| Rails | 1 | warm-up c=1 | 5,126 | 5,126 | yes |
+| Rails | 1 | run c=1 | 1,417 | 1,417 | yes |
+| Rails | 1 | warm-up c=16 | 9,986 | 9,986 | yes |
+| Rails | 1 | run c=16 | 2,658 | 2,658 | yes |
+| Rails | 1 | **all** | 19,187 | 19,187 | yes |
+| Rails | 2 | warm-up c=1 | 5,455 | 5,455 | yes |
+| Rails | 2 | run c=1 | 1,405 | 1,405 | yes |
+| Rails | 2 | warm-up c=16 | 9,967 | 9,967 | yes |
+| Rails | 2 | run c=16 | 2,681 | 2,681 | yes |
+| Rails | 2 | **all** | 19,508 | 19,508 | yes |
+| Rails | 3 | warm-up c=1 | 5,175 | 5,175 | yes |
+| Rails | 3 | run c=1 | 1,427 | 1,427 | yes |
+| Rails | 3 | warm-up c=16 | 10,007 | 10,007 | yes |
+| Rails | 3 | run c=16 | 2,638 | 2,638 | yes |
+| Rails | 3 | **all** | 19,247 | 19,247 | yes |
+
+### Response bytes, one request per route (gzip: wire / decoded; identity: bytes) and the average over the c=16 run
+
+The probe is a single request after sign-in, before any load. Bodies carry per-request tokens and the clock, so sizes of two apps agree to within a few bytes when they render the same page. "c=16 avg" is what the load generator received per request on the wire (gzip unless the column says otherwise).
+
+| Route | Rails gzip wire / decoded | Rails identity | Rails c=16 avg | F# vs Rust |
+|---|---|---|---|---|
+| room_show | 200 44,351 / 463,708 | 200 463,708 | 44,366 | – |
+| messages_page | 200 34,890 / 430,925 | 200 430,925 | 34,890 | – |
+| sidebar | 200 6,266 / 31,427 | 200 31,427 | 6,267 | – |
+| search | 200 17,519 / 165,519 | 200 165,519 | 17,521 | – |
+| static_css | 200 653 / 1,218 | 200 1,218 | 653 | – |
+| avatar | 200 3,360 / 3,364 | 200 3,364 | 3,360 | – |
+| up | 200 88 / 73 | 200 73 | 88 | – |
+| post_message | – | – | 2,001 | – |

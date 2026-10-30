@@ -1,0 +1,16 @@
+pixel-parity: dotnetway vs the Rails reference, layers pixels,aria,loose, seeds default,crowd,custom_styles,first_run,restricted
+pixel-parity: VM free 43G, parity/out 99M
+seed default: NO REPORT after 523s (/Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/parity/out/p0-full/realtime/default.log)
+    
+    Node.js v24.20.0
+    /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/parity/bin/../capture/sandbox/run.sh: line 128: /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/parity/out/.control.VfZfkY/.done.11817.1791923426874696134: No such file or directory
+pixel-parity: VM free 43G, parity/out 99M
+seed crowd: 0/0 screenshots pixel-equal; 0/0 aria equal; 0/0 loose equal  [6s]
+pixel-parity: VM free 43G, parity/out 99M
+seed custom_styles: 0/0 screenshots pixel-equal; 0/0 aria equal; 0/0 loose equal  [5s]
+pixel-parity: VM free 43G, parity/out 99M
+seed first_run: 0/0 screenshots pixel-equal; 0/0 aria equal; 0/0 loose equal  [6s]
+pixel-parity: VM free 43G, parity/out 99M
+seed restricted: 0/0 screenshots pixel-equal; 0/0 aria equal; 0/0 loose equal  [5s]
+pixel-parity: FAILED in 545s; reports under /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/parity/out/p0-full/realtime
+time="2026-10-13T16:30:51-04:00" level=fatal msg="exit status 1"

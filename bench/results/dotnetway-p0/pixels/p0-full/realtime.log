@@ -1,0 +1,16 @@
+pixel-parity: dotnetway vs the Rails reference, layers pixels,aria,loose, seeds default,crowd,custom_styles,first_run,restricted
+pixel-parity: VM free 43G, parity/out 256M
+seed default: NO REPORT after 1446s (/Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/parity/out/p0-full/realtime/default.log)
+    }
+    
+    Node.js v24.20.0
+pixel-parity: VM free 43G, parity/out 256M
+seed crowd: 0/0 screenshots pixel-equal; 0/0 aria equal; 0/0 loose equal  [7s]
+pixel-parity: VM free 43G, parity/out 256M
+seed custom_styles: 0/0 screenshots pixel-equal; 0/0 aria equal; 0/0 loose equal  [5s]
+pixel-parity: VM free 43G, parity/out 256M
+seed first_run: 0/0 screenshots pixel-equal; 0/0 aria equal; 0/0 loose equal  [6s]
+pixel-parity: VM free 43G, parity/out 256M
+seed restricted: 0/0 screenshots pixel-equal; 0/0 aria equal; 0/0 loose equal  [6s]
+pixel-parity: FAILED in 1471s; reports under /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/parity/out/p0-full/realtime
+time="2026-10-13T17:57:09-04:00" level=fatal msg="exit status 1"

@@ -1,0 +1,12 @@
+info: Microsoft.AspNetCore.HttpLogging.HttpLoggingMiddleware[9] Request and Response: Protocol: HTTP/1.1 Method: GET PathBase:  Path: /up QueryString:  remote_addr: 127.0.0.1 StatusCode: 200 Duration: 0.0148
+info: Microsoft.AspNetCore.HttpLogging.HttpLoggingMiddleware[9] Request and Response: Protocol: HTTP/1.1 Method: GET PathBase:  Path: /up QueryString:  remote_addr: 127.0.0.1 StatusCode: 200 Duration: 0.0147
+info: Microsoft.AspNetCore.HttpLogging.HttpLoggingMiddleware[9] Request and Response: Protocol: HTTP/1.1 Method: GET PathBase:  Path: /up QueryString:  remote_addr: 127.0.0.1 StatusCode: 200 Duration: 0.0146
+info: Microsoft.AspNetCore.HttpLogging.HttpLoggingMiddleware[9] Request and Response: Protocol: HTTP/1.1 Method: GET PathBase:  Path: /up QueryString:  remote_addr: 127.0.0.1 StatusCode: 200 Duration: 0.0145
+info: Microsoft.AspNetCore.HttpLogging.HttpLoggingMiddleware[9] Request and Response: Protocol: HTTP/1.1 Method: GET PathBase:  Path: /up QueryString:  remote_addr: 127.0.0.1 StatusCode: 200 Duration: 0.0146
+info: Microsoft.AspNetCore.HttpLogging.HttpLoggingMiddleware[9] Request and Response: Protocol: HTTP/1.1 Method: GET PathBase:  Path: /up QueryString:  remote_addr: 127.0.0.1 StatusCode: 200 Duration: 0.0219
+info: Microsoft.AspNetCore.HttpLogging.HttpLoggingMiddleware[9] Request and Response: Protocol: HTTP/1.1 Method: GET PathBase:  Path: /up QueryString:  remote_addr: 127.0.0.1 StatusCode: 200 Duration: 0.0154
+info: Microsoft.AspNetCore.HttpLogging.HttpLoggingMiddleware[9] Request and Response: Protocol: HTTP/1.1 Method: GET PathBase:  Path: /up QueryString:  remote_addr: 127.0.0.1 StatusCode: 200 Duration: 0.0151
+info: Microsoft.AspNetCore.HttpLogging.HttpLoggingMiddleware[9] Request and Response: Protocol: HTTP/1.1 Method: GET PathBase:  Path: /up QueryString:  remote_addr: 127.0.0.1 StatusCode: 200 Duration: 0.0213
+info: Microsoft.AspNetCore.HttpLogging.HttpLoggingMiddleware[9] Request and Response: Protocol: HTTP/1.1 Method: GET PathBase:  Path: /up QueryString:  remote_addr: 127.0.0.1 StatusCode: 200 Duration: 0.0277
+info: Microsoft.AspNetCore.HttpLogging.HttpLoggingMiddleware[9] Request and Response: Protocol: HTTP/1.1 Method: GET PathBase:  Path: /up QueryString:  remote_addr: 127.0.0.1 StatusCode: 200 Duration: 0.0237
+info: Microsoft.AspNetCore.HttpLogging.HttpLoggingMiddleware[9] Request and Response: Protocol: HTTP/1.1 Method: GET PathBase:  Path: /up QueryString:  remote_addr: 127.0.0.1 StatusCode: 200 Duration: 0.0241

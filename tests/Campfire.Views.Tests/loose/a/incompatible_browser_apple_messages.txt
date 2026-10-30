@@ -1,0 +1,159 @@
+<body class data-controller="local-time lightbox">
+  <a class="btn skip-navigation" href="#main-content">
+    "Skip to main content"
+  </a>
+  <nav id="nav">
+  </nav>
+  <main id="main-content">
+    <div class="center panel">
+      <header>
+        <h1 class="margin-block-end margin-none-block-start txt-align-center txt-tight-lines txt-x-large">
+          "Upgrade to a supported web browser"
+        </h1>
+        <div class="align-start flex gap">
+          <details class="position-relative" data-action="keydown.esc->popup#close toggle->popup#toggle click@document->popup#closeOnClickOutside" data-controller="popup" data-popup-orientation-top-class="popup-orientation-top">
+            <summary class="btn" tabindex="-1">
+              <img aria-hidden="true" class="color-icon" height="20" src="/assets/globe-«digest».svg" width="20">
+              <span class="for-screen-reader">
+                "Translate"
+              </span>
+            </summary>
+            <div class="language-list-menu shadow" data-popup-target="menu">
+              <dl class="language-list">
+                <dt>
+                  "🇺🇸"
+                </dt>
+                <dd class="margin-none">
+                  "Upgrade to a supported web browser. Campfire requires a modern web browser. Please use one of the browsers listed below and make sure auto-updates are enabled."
+                </dd>
+                <dt>
+                  "🇪🇸"
+                </dt>
+                <dd class="margin-none">
+                  "Actualiza a un navegador web compatible. Campfire requiere un navegador web moderno. Utiliza uno de los navegadores listados a continuación y asegúrate de que las actualizaciones automáticas estén habilitadas."
+                </dd>
+                <dt>
+                  "🇫🇷"
+                </dt>
+                <dd class="margin-none">
+                  "Mettez à jour vers un navigateur web pris en charge. Campfire nécessite un navigateur web moderne. Veuillez utiliser l'un des navigateurs répertoriés ci-dessous et assurez-vous que les mises à jour automatiques sont activées."
+                </dd>
+                <dt>
+                  "🇮🇳"
+                </dt>
+                <dd class="margin-none">
+                  "समर्थित वेब ब्राउज़र में अपग्रेड करें। Campfire को एक आधुनिक वेब ब्राउज़र की आवश्यकता है। कृपया नीचे सूचीबद्ध ब्राउज़रों में से कोई एक का उपयोग करें और सुनिश्चित करें कि स्वचालित अपडेट्स सक्षम हैं।"
+                </dd>
+                <dt>
+                  "🇩🇪"
+                </dt>
+                <dd class="margin-none">
+                  "Aktualisieren Sie auf einen unterstützten Webbrowser. Campfire erfordert einen modernen Webbrowser. Verwenden Sie bitte einen der unten aufgeführten Browser und stellen Sie sicher, dass automatische Updates aktiviert sind."
+                </dd>
+                <dt>
+                  "🇧🇷"
+                </dt>
+                <dd class="margin-none">
+                  "Atualize para um navegador compatível. O Campfire requer um navegador moderno. Por favor, use um dos navegadores listados abaixo e certifique-se de que as atualizações automáticas estão ativadas."
+                </dd>
+                <dt>
+                  "🇯🇵"
+                </dt>
+                <dd class="margin-none">
+                  "サポートされたウェブブラウザーにアップグレードしてください。Campfireはモダンなウェブブラウザーが必要です。下記のブラウザーのいずれかを使用し、自動更新が有効になっていることを確認してください。"
+                </dd>
+              </dl>
+            </div>
+          </details>
+          <p class="margin-none-block-start">
+            "Campfire requires a modern web browser. Please use one of the browsers listed below and make sure auto-updates are enabled."
+          </p>
+        </div>
+      </header>
+      <div class="align-center browser-list flex flex-wrap gap justify-center margin-block">
+        <div class="browser flex flex-column">
+          <img aria-hidden="true" class="center" src="/assets/browsers/safari-«digest».svg">
+          <div class="align-center flex flex-column margin-block-start-half">
+            <strong>
+              "Safari"
+            </strong>
+            " "
+            <span>
+              "17.2+"
+            </span>
+          </div>
+        </div>
+        <div class="browser flex flex-column">
+          <img aria-hidden="true" class="center" src="/assets/browsers/chrome-«digest».svg">
+          <div class="align-center flex flex-column margin-block-start-half">
+            <strong>
+              "Chrome"
+            </strong>
+            " "
+            <span>
+              "120+"
+            </span>
+          </div>
+        </div>
+        <div class="browser flex flex-column">
+          <img aria-hidden="true" class="center" src="/assets/browsers/firefox-«digest».svg">
+          <div class="align-center flex flex-column margin-block-start-half">
+            <strong>
+              "Firefox"
+            </strong>
+            " "
+            <span>
+              "121+"
+            </span>
+          </div>
+        </div>
+        <div class="browser flex flex-column">
+          <img aria-hidden="true" class="center" src="/assets/browsers/opera-«digest».svg">
+          <div class="align-center flex flex-column margin-block-start-half">
+            <strong>
+              "Opera"
+            </strong>
+            " "
+            <span>
+              "104+"
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <footer id="footer">
+    </footer>
+  </main>
+  <aside data-controller="toggle-class" data-toggle-class-toggle-class="open" id="sidebar">
+  </aside>
+  <dialog aria-label="Image Viewer (Press escape to close)" class="lightbox" data-action="close->lightbox#reset" data-lightbox-target="dialog">
+    <img class="lightbox__image" data-lightbox-target="zoomedImage" src>
+    <form class="lightbox__btn" method="dialog">
+      <button class="btn">
+        <img aria-hidden="true" src="/assets/remove-«digest».svg">
+        " "
+        <span class="for-screen-reader">
+          "Close image viewer"
+        </span>
+      </button>
+    </form>
+    <a class="btn hide-in-ios-pwa lightbox__btn--download" data-lightbox-target="download" href>
+      <img aria-hidden="true" src="/assets/download-«digest».svg">
+      " "
+      <span class="for-screen-reader">
+        "Download file"
+      </span>
+    </a>
+    " "
+    <button class="btn lightbox__btn--share" data-action="web-share#share" data-controller="web-share" data-lightbox-target="share" data-web-share-files-value>
+      <img aria-hidden="true" src="/assets/share-«digest».svg">
+      " "
+      <span class="for-screen-reader">
+        "Share file"
+      </span>
+    </button>
+  </dialog>
+  <a aria-label="Once software from 37signals home page" href="https://once.com" id="app-logo" target="_blank">
+    <img alt="Campfire logo" height="216" src="/assets/campfire-icon-«digest».png" width="256">
+  </a>
+</body>

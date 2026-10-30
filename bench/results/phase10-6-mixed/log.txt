@@ -1,0 +1,4 @@
+15:08:54 building campfire-dotnetway:uq-953023e from a clean clone of 953023e
+15:08:57 dotnetway image campfire-dotnetway:uq-953023e revision label 953023e9f4a4215d2a88aa8624120f5f360a439d
+15:09:02 ruby bin/benchmark --workspace /mnt/upstream-quick/ws --rounds 3 --duration 8 --concurrencies 16 --cpus 0-3 --client-cpus 4-7 --apps rails,fsharp,dotnetway --routes room_show,messages_page,sidebar,search --output /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/bench/results/phase10-6-mixed/raw --mixed-write-rate 10
+15:15:54 harness exit 0

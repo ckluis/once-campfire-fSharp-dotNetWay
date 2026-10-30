@@ -1,0 +1,7 @@
+main rc=1
+message_sent rc=0
+message_edited rc=0
+message_deleted rc=0
+boosted rc=0
+boost_removed rc=0
+attachment_sent rc=0

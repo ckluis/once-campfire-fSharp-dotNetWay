@@ -1,0 +1,81 @@
+#!/usr/bin/env python3
+"""The reading half of bin/pixel-parity: what the screenshot layer of one or more parity reports says.
+
+  pixel-parity-report errors REPORT...              the comma-separated states with a cell that no report captured (empty if none)
+  pixel-parity-report summary LAYERS SEED SECS LOG REPORT...   one line per seed, then every differing or uncaptured cell; exit 1 unless all equal
+                                                    LAYERS is a comma list of pixels, aria, loose (the harness's layers of that name)
+
+Reports are in order of attempt; a cell counts by its last report that captured it (status other than "error").
+"""
+import json
+import os
+import sys
+
+
+def cells(paths):
+    merged = {}
+    for path in paths:
+        if not os.path.exists(path):
+            continue
+        for r in json.load(open(path))["results"]:
+            key = (r["state"], r["cell"])
+            if key in merged and merged[key]["status"] != "error" and r["status"] == "error":
+                continue
+            merged[key] = r
+    return merged
+
+
+def main():
+    mode = sys.argv[1]
+    if mode == "errors":
+        bad = sorted({state for (state, _), r in cells(sys.argv[2:]).items() if r["status"] == "error"})
+        print(",".join(bad))
+        sys.exit(0 if bad else 1)
+    layers, seed, secs, log, paths = sys.argv[2].split(","), sys.argv[3], int(sys.argv[4]), sys.argv[5], sys.argv[6:]
+    if not paths or not os.path.exists(paths[0]):
+        tail = open(log).read().strip().splitlines()[-3:] if os.path.exists(log) else []
+        print(f"seed {seed}: NO REPORT after {secs}s ({log})" + "".join(f"\n    {l}" for l in tail))
+        sys.exit(1)
+    equal = flaky = 0
+    bad, errors = [], []
+    extra = {name: [0, []] for name in layers if name != "pixels"}     # layer -> [equal cells, differing (cell, +added, -removed)]
+    for r in cells(paths).values():
+        px = next((l for l in r["layers"] if l["layer"] == "pixels"), None)
+        if r["status"] == "error":
+            errors.append(r)
+        elif px is None:
+            continue                                # a fragment state: a response, no screenshot
+        else:
+            if px["equal"]:
+                equal += 1
+                flaky += bool(r.get("flaky"))
+            else:
+                bad.append((r, px["pixels"]))
+            for name, (ok, diff) in extra.items():
+                layer = next((l for l in r["layers"] if l["layer"] == name), None)
+                if layer is None:
+                    diff.append((r, None, None))    # the harness did not record the layer: that is a failure of the gate, not a pass
+                elif layer["equal"]:
+                    extra[name][0] += 1
+                else:
+                    diff.append((r, layer.get("added"), layer.get("removed")))
+    total = equal + len(bad)
+    line = f"seed {seed}: {equal}/{total} screenshots pixel-equal" + (f" ({flaky} flaky, equal after retry)" if flaky else "")
+    line += f", {len(bad)} DIFFERENT" if bad else ""
+    for name, (ok, diff) in extra.items():
+        line += f"; {ok}/{total} {name} equal" + (f", {len(diff)} DIFFERENT" if diff else "")
+    line += f", {len(errors)} NOT CAPTURED" if errors else ""
+    print(f"{line}  [{secs}s]")
+    for r, px in bad[:25]:
+        what = px.get("sizeMismatch") or f"{px.get('differentPixels')} pixels"
+        print(f"    DIFF {r['state']} @ {r['cell']}: {what}  (diff image: {r.get('diffImage', 'none')})")
+    for name, (ok, diff) in extra.items():
+        for r, added, removed in diff[:25]:
+            what = "layer not recorded" if added is None and removed is None else f"+{added} -{removed} lines"
+            print(f"    {name.upper()} DIFF {r['state']} @ {r['cell']}: {what}")
+    for r in errors[:10]:
+        print(f"    NOT CAPTURED {r['state']} @ {r['cell']}: {(r.get('error') or '').splitlines()[0][:160]}")
+    sys.exit(1 if bad or errors or any(diff for _, diff in extra.values()) else 0)
+
+
+main()

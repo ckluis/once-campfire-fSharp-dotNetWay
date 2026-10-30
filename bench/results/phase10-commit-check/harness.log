@@ -1,0 +1,32 @@
+rails round 1: sidebar 16 clients 5413.6 req/s
+dotnetway round 1: sidebar 16 clients 3471.2 req/s
+dotnetway round 2: sidebar 16 clients 3686.6 req/s
+rails round 2: sidebar 16 clients 5535.4 req/s
+{
+  "rails": {
+    "room_show": null,
+    "messages_page": null,
+    "sidebar": {
+      "median_rps": 5474.5,
+      "runs": [
+        5413.6,
+        5535.4
+      ]
+    },
+    "search": null,
+    "post_message": null
+  },
+  "dotnetway": {
+    "room_show": null,
+    "messages_page": null,
+    "sidebar": {
+      "median_rps": 3578.8999999999996,
+      "runs": [
+        3471.2,
+        3686.6
+      ]
+    },
+    "search": null,
+    "post_message": null
+  }
+}

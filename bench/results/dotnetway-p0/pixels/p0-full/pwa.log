@@ -1,0 +1,38 @@
+pixel-parity: dotnetway vs the Rails reference, layers pixels,aria,loose, seeds default,crowd,custom_styles,first_run,restricted
+pixel-parity: VM free 43G, parity/out 166M
+seed default: 52/52 screenshots pixel-equal; 52/52 aria equal; 20/52 loose equal, 32 DIFFERENT  [167s]
+    LOOSE DIFF pwa/notifications_help/chrome_mac @ chromium-phone-light: +0 -248 lines
+    LOOSE DIFF pwa/notifications_help/chrome_mac @ chromium-phone-dark: +0 -248 lines
+    LOOSE DIFF pwa/notifications_help/chrome_mac @ chromium-desktop-dark: +0 -248 lines
+    LOOSE DIFF pwa/notifications_help/chrome_mac @ chromium-desktop-light: +0 -248 lines
+    LOOSE DIFF pwa/notifications_help/chrome_windows @ chromium-desktop-light: +0 -248 lines
+    LOOSE DIFF pwa/notifications_help/chrome_windows @ chromium-phone-light: +0 -248 lines
+    LOOSE DIFF pwa/notifications_help/chrome_windows @ chromium-phone-dark: +0 -248 lines
+    LOOSE DIFF pwa/notifications_help/chrome_windows @ chromium-desktop-dark: +0 -248 lines
+    LOOSE DIFF pwa/notifications_help/chrome_ios @ chromium-phone-dark: +0 -248 lines
+    LOOSE DIFF pwa/notifications_help/chrome_android @ chromium-phone-light: +0 -248 lines
+    LOOSE DIFF pwa/notifications_help/chrome_ios @ chromium-phone-light: +0 -248 lines
+    LOOSE DIFF pwa/notifications_help/chrome_android @ chromium-phone-dark: +0 -248 lines
+    LOOSE DIFF pwa/notifications_help/safari_mac @ chromium-phone-light: +0 -248 lines
+    LOOSE DIFF pwa/notifications_help/safari_mac @ chromium-phone-dark: +0 -248 lines
+    LOOSE DIFF pwa/notifications_help/safari_mac @ chromium-desktop-light: +0 -248 lines
+    LOOSE DIFF pwa/notifications_help/safari_mac @ chromium-desktop-dark: +0 -248 lines
+    LOOSE DIFF pwa/notifications_help/safari_ios @ chromium-phone-dark: +0 -248 lines
+    LOOSE DIFF pwa/notifications_help/safari_ios @ chromium-phone-light: +0 -248 lines
+    LOOSE DIFF pwa/notifications_help/firefox_mac @ chromium-desktop-dark: +0 -248 lines
+    LOOSE DIFF pwa/notifications_help/firefox_mac @ chromium-desktop-light: +0 -248 lines
+    LOOSE DIFF pwa/notifications_help/firefox_mac @ chromium-phone-dark: +0 -248 lines
+    LOOSE DIFF pwa/notifications_help/firefox_mac @ chromium-phone-light: +0 -248 lines
+    LOOSE DIFF pwa/notifications_help/firefox_windows @ chromium-desktop-light: +0 -248 lines
+    LOOSE DIFF pwa/notifications_help/firefox_windows @ chromium-desktop-dark: +0 -248 lines
+    LOOSE DIFF pwa/notifications_help/firefox_windows @ chromium-phone-dark: +0 -248 lines
+pixel-parity: VM free 43G, parity/out 166M
+seed crowd: 0/0 screenshots pixel-equal; 0/0 aria equal; 0/0 loose equal  [7s]
+pixel-parity: VM free 43G, parity/out 166M
+seed custom_styles: 0/0 screenshots pixel-equal; 0/0 aria equal; 0/0 loose equal  [6s]
+pixel-parity: VM free 43G, parity/out 166M
+seed first_run: 0/0 screenshots pixel-equal; 0/0 aria equal; 0/0 loose equal  [6s]
+pixel-parity: VM free 43G, parity/out 166M
+seed restricted: 0/0 screenshots pixel-equal; 0/0 aria equal; 0/0 loose equal  [5s]
+pixel-parity: FAILED in 191s; reports under /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/parity/out/p0-full/pwa
+time="2026-10-13T16:52:04-04:00" level=fatal msg="exit status 1"

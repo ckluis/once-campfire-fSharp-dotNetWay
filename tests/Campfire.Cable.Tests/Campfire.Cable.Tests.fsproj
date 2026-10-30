@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../Shared/Repo.fs" Link="Repo.fs" />
+    <Compile Include="../Shared/JsonFrames.fs" Link="JsonFrames.fs" />
+    <Compile Include="Support.fs" />
+    <Compile Include="NamingTests.fs" />
+    <Compile Include="ChannelTests.fs" />
+    <Compile Include="FramesTests.fs" />
+    <Compile Include="StreamsTests.fs" />
+    <Compile Include="TurboTests.fs" />
+    <Compile Include="ProtocolTests.fs" />
+    <Compile Include="TransportTests.fs" />
+    <Compile Include="LimitTests.fs" />
+    <Compile Include="MemoryTests.fs" />
+    <Compile Include="JsonFramesTests.fs" />
+    <Compile Include="GoldenTests.fs" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../src/Campfire.Cable/Campfire.Cable.fsproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <PackageReference Include="xunit.v3" />
+  </ItemGroup>
+</Project>

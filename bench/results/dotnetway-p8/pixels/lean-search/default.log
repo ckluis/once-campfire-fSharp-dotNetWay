@@ -1,0 +1,35 @@
+candidate: reference :4111 vs candidate :4112 (seed default, clock frozen at 2026-03-02T16:00:00Z)
+breakpoint widths: {"chromium":[799,800,801],"firefox":[960,961],"webkit":[959,960]}
+30 cells (26 on shared servers, 4 on fresh servers in 3 slots) × 2 targets, 4 workers
+[1/30] search/empty @ chromium-desktop-light fail
+[2/30] search/empty @ chromium-desktop-dark fail
+[3/30] search/submitted @ chromium-desktop-dark fail
+[4/30] search/submitted @ chromium-desktop-light fail
+[5/30] search/submitted @ chromium-phone-light fail
+[6/30] search/empty @ chromium-phone-light fail
+[7/30] search/empty @ chromium-phone-dark fail
+[8/30] search/recent @ chromium-desktop-light fail
+[9/30] search/recent @ chromium-desktop-dark fail
+[10/30] search/recent @ chromium-phone-light fail
+[11/30] search/recent @ chromium-phone-dark fail
+[12/30] search/submitted @ chromium-phone-dark fail
+[13/30] search/results @ chromium-desktop-light fail
+[14/30] search/results @ chromium-desktop-dark fail
+[15/30] search/results @ chromium-phone-light fail
+[16/30] search/results @ chromium-phone-dark fail
+[17/30] search/results @ chromium-bp799-light fail
+[18/30] search/results @ chromium-bp799-dark fail
+[19/30] search/results @ chromium-bp800-light fail
+[20/30] search/results @ chromium-bp800-dark fail
+[21/30] search/results @ chromium-bp801-light fail
+[22/30] search/results @ chromium-bp801-dark fail
+[23/30] search/results/many @ chromium-desktop-light fail
+[24/30] search/results/many @ chromium-desktop-dark fail
+[25/30] search/results/many @ chromium-phone-light fail
+[26/30] search/results/many @ chromium-phone-dark fail
+[27/30] search/no_results @ chromium-desktop-light fail
+[28/30] search/no_results @ chromium-desktop-dark fail
+[29/30] search/no_results @ chromium-phone-light fail
+[30/30] search/no_results @ chromium-phone-dark fail
+30 cells: 0 pass (0 flaky), 30 fail, 0 allowed, 0 error in 74.5s
+report: /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/parity/out/p88-lean-search/default/report.html

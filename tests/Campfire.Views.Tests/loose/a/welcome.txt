@@ -1,0 +1,56 @@
+<body class="sidebar" data-controller="local-time lightbox">
+  <a class="btn skip-navigation" href="#main-content">
+    "Skip to main content"
+  </a>
+  <nav id="nav">
+  </nav>
+  <main id="main-content">
+    <div class="message-area" id="message-area">
+      <div class="center message-area--empty min-width">
+        <figure class="center pad">
+          <img aria-hidden="true" class="colorize--black translucent" src="/assets/messages-empty-«digest».svg">
+          " "
+          <span class="for-screen-reader">
+            "New Bie"
+          </span>
+        </figure>
+      </div>
+    </div>
+    <footer id="footer">
+    </footer>
+  </main>
+  <aside data-controller="toggle-class" data-toggle-class-toggle-class="open" id="sidebar">
+    <turbo-frame data-action="presence:present@window->rooms-list#read read-rooms:read->rooms-list#read turbo:frame-load->rooms-list#loaded refresh-room:visible@window->turbo-frame#reload" data-controller="rooms-list read-rooms turbo-frame" data-rooms-list-unread-class="unread" data-turbo-permanent="true" id="user_sidebar" src="/users/me/sidebar" target="_top">
+    </turbo-frame>
+  </aside>
+  <dialog aria-label="Image Viewer (Press escape to close)" class="lightbox" data-action="close->lightbox#reset" data-lightbox-target="dialog">
+    <img class="lightbox__image" data-lightbox-target="zoomedImage" src>
+    <form class="lightbox__btn" method="dialog">
+      <button class="btn">
+        <img aria-hidden="true" src="/assets/remove-«digest».svg">
+        " "
+        <span class="for-screen-reader">
+          "Close image viewer"
+        </span>
+      </button>
+    </form>
+    <a class="btn hide-in-ios-pwa lightbox__btn--download" data-lightbox-target="download" href>
+      <img aria-hidden="true" src="/assets/download-«digest».svg">
+      " "
+      <span class="for-screen-reader">
+        "Download file"
+      </span>
+    </a>
+    " "
+    <button class="btn lightbox__btn--share" data-action="web-share#share" data-controller="web-share" data-lightbox-target="share" data-web-share-files-value>
+      <img aria-hidden="true" src="/assets/share-«digest».svg">
+      " "
+      <span class="for-screen-reader">
+        "Share file"
+      </span>
+    </button>
+  </dialog>
+  <a aria-label="Once software from 37signals home page" href="https://once.com" id="app-logo" target="_blank">
+    <img alt="Campfire logo" height="216" src="/assets/campfire-icon-«digest».png" width="256">
+  </a>
+</body>

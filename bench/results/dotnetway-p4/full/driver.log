@@ -1,0 +1,52 @@
+=== restricted seed restricted attempt 1 22:26:36 df 18Gi
+restricted rc=1 attempt=1
+=== auth seed default attempt 1 22:29:43 df 18Gi
+auth rc=1 attempt=1
+=== errors seed default attempt 1 22:54:32 df 19Gi
+errors rc=0 attempt=1
+=== pwa seed default attempt 1 22:58:06 df 19Gi
+pwa rc=0 attempt=1
+=== welcome seed default attempt 1 23:11:44 df 18Gi
+welcome rc=0 attempt=1
+=== bot_api seed default attempt 1 23:13:19 df 18Gi
+bot_api rc=0 attempt=1
+=== search seed default attempt 1 23:13:30 df 18Gi
+search rc=1 attempt=1
+=== account seed default attempt 1 23:20:14 df 17Gi
+account rc=0 attempt=1
+=== users seed default attempt 1 23:28:44 df 18Gi
+users rc=0 attempt=1
+=== autocompletable seed default attempt 1 23:43:56 df 18Gi
+autocompletable rc=0 attempt=1
+=== messages seed default attempt 1 23:44:05 df 18Gi
+messages rc=0 attempt=1
+=== interactions seed default attempt 1 00:17:54 df 13Gi
+interactions rc=0 attempt=1
+=== rooms seed default attempt 1 01:25:05 df 21Gi
+rooms rc=0 attempt=1
+=== rt-message_sent seed default attempt 1 02:12:33 df 20Gi
+rt-message_sent rc=0 attempt=1
+=== rt-attachment_sent seed default attempt 1 02:16:58 df 21Gi
+rt-attachment_sent rc=0 attempt=1
+=== rt-message_edited seed default attempt 1 02:21:28 df 21Gi
+rt-message_edited rc=0 attempt=1
+=== rt-message_deleted seed default attempt 1 02:26:22 df 21Gi
+rt-message_deleted rc=0 attempt=1
+=== rt-boosted seed default attempt 1 02:30:57 df 21Gi
+rt-boosted rc=0 attempt=1
+=== rt-boost_removed seed default attempt 1 02:35:17 df 20Gi
+rt-boost_removed rc=0 attempt=1
+=== rt-typing_one seed default attempt 1 02:39:34 df 20Gi
+rt-typing_one rc=0 attempt=1
+=== rt-typing_many seed default attempt 1 02:43:49 df 20Gi
+rt-typing_many rc=0 attempt=1
+=== rt-unread_in_sidebar seed default attempt 1 02:49:27 df 20Gi
+rt-unread_in_sidebar rc=0 attempt=1
+=== rt-new_room_in_sidebar seed default attempt 1 02:54:26 df 20Gi
+rt-new_room_in_sidebar rc=0 attempt=1
+=== rt-removed_from_room seed default attempt 1 02:59:17 df 20Gi
+rt-removed_from_room rc=0 attempt=1
+=== rt-room_deleted_then_send seed default attempt 1 03:08:43 df 20Gi
+rt-room_deleted_then_send rc=0 attempt=1
+=== rt-presence_read seed default attempt 1 03:13:34 df 20Gi
+rt-presence_read rc=0 attempt=1

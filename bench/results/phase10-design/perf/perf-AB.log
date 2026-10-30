@@ -1,0 +1,8 @@
+libcoreclr symbols (8daecad51b3a88668e81b6e27326a9f47a49b57f): installed
+libc symbols (5f3926d9963ff284b8173bf3601bbb00c3abad16): installed
+[07:50:18] load before run: 1.27 3.33 4.08 (waited 60s)
+[07:50:21] host probe before run: {"spin_ms": 60.2, "spin_ms_max_cpu": 61.92, "cpus": "0-3,4-7", "baseline_ms": 55.57, "ratio": 1.083} (waited 60s)
+[07:51:24] perf fsharp room_show: recorded; host probe after the unprofiled / perf windows: 1.035 / 1.065; unprofiled 89.3 us/req, 3.13 cores
+[07:52:21] perf fsharp sidebar: recorded; host probe after the unprofiled / perf windows: 1.057 / 1.058; unprofiled 73.3 us/req, 3.07 cores
+[07:52:26] perf fsharp room_show: 89.3 us/req unprofiled (perf 105.8 ); Kestrel and ASP.NET Core HTTP 27.1%, SQLite engine (libe_sqlite3) 22.4%, Microsoft.Data.Sqlite and P/Invoke stubs 15.1%, cookies, session, HMAC and key derivation (Campfire.Rails) 11.3%
+[07:52:29] perf fsharp sidebar: 73.3 us/req unprofiled (perf 71.0 ); Kestrel and ASP.NET Core HTTP 26.5%, SQLite engine (libe_sqlite3) 18.0%, Microsoft.Data.Sqlite and P/Invoke stubs 15.0%, cookies, session, HMAC and key derivation (Campfire.Rails) 14.0%

@@ -1,0 +1,8 @@
+Total reclaimed space: 0B
+Total:	5.616MB
+TYPE            TOTAL     ACTIVE    SIZE      RECLAIMABLE
+Images          20        0         17.76GB   11.88GB (66%)
+Containers      0         0         0B        0B
+Local Volumes   2         0         960.6MB   960.6MB (100%)
+Build Cache     73        0         4.632GB   3.066GB
+VM disk on macOS:  18G	/Users/clank/.colima/_lima/_disks/colima/datadisk

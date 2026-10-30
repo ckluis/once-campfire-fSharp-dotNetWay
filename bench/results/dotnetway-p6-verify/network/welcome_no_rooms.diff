@@ -1,0 +1,825 @@
+2,3c2,3
+<   headers: cache-control content-encoding content-type etag link referrer-policy set-cookie vary x-cache x-content-type-options x-frame-options x-permitted-cross-domain-policies x-rev x-version x-xss-protection
+<   cache-control: max-age=0, must-revalidate, private
+---
+>   headers: cache-control content-encoding content-type link referrer-policy vary x-cache x-content-type-options x-frame-options x-permitted-cross-domain-policies x-rev x-version x-xss-protection
+>   cache-control: no-cache
+6,7d5
+<   set-cookie: _campfire_session; httponly; path; samesite
+<   set-cookie: session_token; httponly; path; samesite
+10,11c8,9
+<   headers: cache-control content-encoding content-type last-modified vary x-cache
+<   cache-control: max-age=2592000, public
+---
+>   headers: accept-ranges cache-control content-encoding content-type etag last-modified vary x-cache
+>   cache-control: immutable, max-age=31536000
+16,17c14,15
+<   headers: cache-control content-encoding content-type last-modified vary x-cache
+<   cache-control: max-age=2592000, public
+---
+>   headers: accept-ranges cache-control content-encoding content-type etag last-modified vary x-cache
+>   cache-control: immutable, max-age=31536000
+22,23c20,21
+<   headers: cache-control content-encoding content-type last-modified vary x-cache
+<   cache-control: max-age=2592000, public
+---
+>   headers: accept-ranges cache-control content-encoding content-type etag last-modified vary x-cache
+>   cache-control: immutable, max-age=31536000
+28,29c26,27
+<   headers: cache-control content-encoding content-type last-modified vary x-cache
+<   cache-control: max-age=2592000, public
+---
+>   headers: accept-ranges cache-control content-encoding content-type etag last-modified vary x-cache
+>   cache-control: immutable, max-age=31536000
+34,35c32,33
+<   headers: cache-control content-encoding content-type last-modified vary x-cache
+<   cache-control: max-age=2592000, public
+---
+>   headers: accept-ranges cache-control content-encoding content-type etag last-modified vary x-cache
+>   cache-control: immutable, max-age=31536000
+40,41c38,39
+<   headers: cache-control content-encoding content-type last-modified vary x-cache
+<   cache-control: max-age=2592000, public
+---
+>   headers: accept-ranges cache-control content-encoding content-type etag last-modified vary x-cache
+>   cache-control: immutable, max-age=31536000
+46,47c44,45
+<   headers: cache-control content-encoding content-type last-modified vary x-cache
+<   cache-control: max-age=2592000, public
+---
+>   headers: accept-ranges cache-control content-encoding content-type etag last-modified vary x-cache
+>   cache-control: immutable, max-age=31536000
+52,53c50,51
+<   headers: cache-control content-encoding content-type last-modified vary x-cache
+<   cache-control: max-age=2592000, public
+---
+>   headers: accept-ranges cache-control content-encoding content-type etag last-modified vary x-cache
+>   cache-control: immutable, max-age=31536000
+58,59c56,57
+<   headers: cache-control content-encoding content-type last-modified vary x-cache
+<   cache-control: max-age=2592000, public
+---
+>   headers: accept-ranges cache-control content-encoding content-type etag last-modified vary x-cache
+>   cache-control: immutable, max-age=31536000
+64,65c62,63
+<   headers: cache-control content-encoding content-type last-modified vary x-cache
+<   cache-control: max-age=2592000, public
+---
+>   headers: accept-ranges cache-control content-encoding content-type etag last-modified vary x-cache
+>   cache-control: immutable, max-age=31536000
+70,71c68,69
+<   headers: cache-control content-encoding content-type last-modified vary x-cache
+<   cache-control: max-age=2592000, public
+---
+>   headers: accept-ranges cache-control content-encoding content-type etag last-modified vary x-cache
+>   cache-control: immutable, max-age=31536000
+76,77c74,75
+<   headers: cache-control content-encoding content-type last-modified vary x-cache
+<   cache-control: max-age=2592000, public
+---
+>   headers: accept-ranges cache-control content-encoding content-type etag last-modified vary x-cache
+>   cache-control: immutable, max-age=31536000
+82,83c80,81
+<   headers: cache-control content-encoding content-type last-modified vary x-cache
+<   cache-control: max-age=2592000, public
+---
+>   headers: accept-ranges cache-control content-type etag last-modified vary x-cache
+>   cache-control: immutable, max-age=31536000
+88,89c86,87
+<   headers: cache-control content-encoding content-type last-modified vary x-cache
+<   cache-control: max-age=2592000, public
+---
+>   headers: accept-ranges cache-control content-encoding content-type etag last-modified vary x-cache
+>   cache-control: immutable, max-age=31536000
+94,95c92,93
+<   headers: cache-control content-encoding content-type last-modified vary x-cache
+<   cache-control: max-age=2592000, public
+---
+>   headers: accept-ranges cache-control content-encoding content-type etag last-modified vary x-cache
+>   cache-control: immutable, max-age=31536000
+100,101c98,99
+<   headers: cache-control content-encoding content-type last-modified vary x-cache
+<   cache-control: max-age=2592000, public
+---
+>   headers: accept-ranges cache-control content-encoding content-type etag last-modified vary x-cache
+>   cache-control: immutable, max-age=31536000
+106,107c104,105
+<   headers: cache-control content-encoding content-type last-modified vary x-cache
+<   cache-control: max-age=2592000, public
+---
+>   headers: accept-ranges cache-control content-encoding content-type etag last-modified vary x-cache
+>   cache-control: immutable, max-age=31536000
+112,113c110,111
+<   headers: cache-control content-encoding content-type last-modified vary x-cache
+<   cache-control: max-age=2592000, public
+---
+>   headers: accept-ranges cache-control content-encoding content-type etag last-modified vary x-cache
+>   cache-control: immutable, max-age=31536000
+118,119c116,117
+<   headers: cache-control content-encoding content-type last-modified vary x-cache
+<   cache-control: max-age=2592000, public
+---
+>   headers: accept-ranges cache-control content-encoding content-type etag last-modified vary x-cache
+>   cache-control: immutable, max-age=31536000
+124,125c122,123
+<   headers: cache-control content-encoding content-type last-modified vary x-cache
+<   cache-control: max-age=2592000, public
+---
+>   headers: accept-ranges cache-control content-encoding content-type etag last-modified vary x-cache
+>   cache-control: immutable, max-age=31536000
+130,131c128,129
+<   headers: cache-control content-encoding content-type last-modified vary x-cache
+<   cache-control: max-age=2592000, public
+---
+>   headers: accept-ranges cache-control content-encoding content-type etag last-modified vary x-cache
+>   cache-control: immutable, max-age=31536000
+136,137c134,135
+<   headers: cache-control content-encoding content-type last-modified vary x-cache
+<   cache-control: max-age=2592000, public
+---
+>   headers: accept-ranges cache-control content-encoding content-type etag last-modified vary x-cache
+>   cache-control: immutable, max-age=31536000
+142,143c140,141
+<   headers: cache-control content-encoding content-type last-modified vary x-cache
+<   cache-control: max-age=2592000, public
+---
+>   headers: accept-ranges cache-control content-encoding content-type etag last-modified vary x-cache
+>   cache-control: immutable, max-age=31536000
+148,149c146,147
+<   headers: cache-control content-encoding content-type last-modified vary x-cache
+<   cache-control: max-age=2592000, public
+---
+>   headers: accept-ranges cache-control content-encoding content-type etag last-modified vary x-cache
+>   cache-control: immutable, max-age=31536000
+154,155c152,153
+<   headers: cache-control content-encoding content-type last-modified vary x-cache
+<   cache-control: max-age=2592000, public
+---
+>   headers: accept-ranges cache-control content-encoding content-type etag last-modified vary x-cache
+>   cache-control: immutable, max-age=31536000
+160,161c158,159
+<   headers: cache-control content-encoding content-type last-modified vary x-cache
+<   cache-control: max-age=2592000, public
+---
+>   headers: accept-ranges cache-control content-encoding content-type etag last-modified vary x-cache
+>   cache-control: immutable, max-age=31536000
+166,167c164,165
+<   headers: cache-control content-encoding content-type last-modified vary x-cache
+<   cache-control: max-age=2592000, public
+---
+>   headers: accept-ranges cache-control content-encoding content-type etag last-modified vary x-cache
+>   cache-control: immutable, max-age=31536000
+172,173c170,171
+<   headers: cache-control content-encoding content-type last-modified vary x-cache
+<   cache-control: max-age=2592000, public
+---
+>   headers: accept-ranges cache-control content-encoding content-type etag last-modified vary x-cache
+>   cache-control: immutable, max-age=31536000
+178,179c176,177
+<   headers: cache-control content-encoding content-type last-modified vary x-cache
+<   cache-control: max-age=2592000, public
+---
+>   headers: accept-ranges cache-control content-encoding content-type etag last-modified vary x-cache
+>   cache-control: immutable, max-age=31536000
+184,185c182,183
+<   headers: cache-control content-encoding content-type last-modified vary x-cache
+<   cache-control: max-age=2592000, public
+---
+>   headers: accept-ranges cache-control content-encoding content-type etag last-modified vary x-cache
+>   cache-control: immutable, max-age=31536000
+190,191c188,189
+<   headers: cache-control content-encoding content-type last-modified vary x-cache
+<   cache-control: max-age=2592000, public
+---
+>   headers: accept-ranges cache-control content-encoding content-type etag last-modified vary x-cache
+>   cache-control: immutable, max-age=31536000
+196,197c194,195
+<   headers: cache-control content-encoding content-type last-modified vary x-cache
+<   cache-control: max-age=2592000, public
+---
+>   headers: accept-ranges cache-control content-encoding content-type etag last-modified vary x-cache
+>   cache-control: immutable, max-age=31536000
+202,203c200,201
+<   headers: cache-control content-encoding content-type last-modified vary x-cache
+<   cache-control: max-age=2592000, public
+---
+>   headers: accept-ranges cache-control content-encoding content-type etag last-modified vary x-cache
+>   cache-control: immutable, max-age=31536000
+208,209c206,207
+<   headers: cache-control content-encoding content-type last-modified vary x-cache
+<   cache-control: max-age=2592000, public
+---
+>   headers: accept-ranges cache-control content-encoding content-type etag last-modified vary x-cache
+>   cache-control: immutable, max-age=31536000
+214,215c212,213
+<   headers: cache-control content-encoding content-type last-modified vary x-cache
+<   cache-control: max-age=2592000, public
+---
+>   headers: accept-ranges cache-control content-encoding content-type etag last-modified vary x-cache
+>   cache-control: immutable, max-age=31536000
+220,221c218,219
+<   headers: cache-control content-encoding content-type last-modified vary x-cache
+<   cache-control: max-age=2592000, public
+---
+>   headers: accept-ranges cache-control content-encoding content-type etag last-modified vary x-cache
+>   cache-control: immutable, max-age=31536000
+226,227c224,225
+<   headers: cache-control content-encoding content-type last-modified vary x-cache
+<   cache-control: max-age=2592000, public
+---
+>   headers: accept-ranges cache-control content-encoding content-type etag last-modified vary x-cache
+>   cache-control: immutable, max-age=31536000
+232,233c230,231
+<   headers: cache-control content-encoding content-type last-modified vary x-cache
+<   cache-control: max-age=2592000, public
+---
+>   headers: accept-ranges cache-control content-encoding content-type etag last-modified vary x-cache
+>   cache-control: immutable, max-age=31536000
+238,239c236,237
+<   headers: cache-control content-encoding content-type last-modified vary x-cache
+<   cache-control: max-age=2592000, public
+---
+>   headers: accept-ranges cache-control content-encoding content-type etag last-modified vary x-cache
+>   cache-control: immutable, max-age=31536000
+244,245c242,243
+<   headers: cache-control content-encoding content-type last-modified vary x-cache
+<   cache-control: max-age=2592000, public
+---
+>   headers: accept-ranges cache-control content-encoding content-type etag last-modified vary x-cache
+>   cache-control: immutable, max-age=31536000
+250,251c248,249
+<   headers: cache-control content-encoding content-type last-modified vary x-cache
+<   cache-control: max-age=2592000, public
+---
+>   headers: accept-ranges cache-control content-encoding content-type etag last-modified vary x-cache
+>   cache-control: immutable, max-age=31536000
+256,257c254,255
+<   headers: cache-control content-encoding content-type last-modified vary x-cache
+<   cache-control: max-age=2592000, public
+---
+>   headers: accept-ranges cache-control content-encoding content-type etag last-modified vary x-cache
+>   cache-control: immutable, max-age=31536000
+262,263c260,261
+<   headers: cache-control content-encoding content-type last-modified vary x-cache
+<   cache-control: max-age=2592000, public
+---
+>   headers: accept-ranges cache-control content-encoding content-type etag last-modified vary x-cache
+>   cache-control: immutable, max-age=31536000
+268,269c266,267
+<   headers: cache-control content-encoding content-type last-modified vary x-cache
+<   cache-control: max-age=2592000, public
+---
+>   headers: accept-ranges cache-control content-encoding content-type etag last-modified vary x-cache
+>   cache-control: immutable, max-age=31536000
+274,275c272,273
+<   headers: cache-control content-encoding content-type last-modified vary x-cache
+<   cache-control: max-age=2592000, public
+---
+>   headers: accept-ranges cache-control content-encoding content-type etag last-modified vary x-cache
+>   cache-control: immutable, max-age=31536000
+280,281c278,279
+<   headers: cache-control content-encoding content-type last-modified vary x-cache
+<   cache-control: max-age=2592000, public
+---
+>   headers: accept-ranges cache-control content-encoding content-type etag last-modified vary x-cache
+>   cache-control: immutable, max-age=31536000
+286,287c284,285
+<   headers: cache-control content-encoding content-type last-modified vary x-cache
+<   cache-control: max-age=2592000, public
+---
+>   headers: accept-ranges cache-control content-encoding content-type etag last-modified vary x-cache
+>   cache-control: immutable, max-age=31536000
+292,293c290,291
+<   headers: cache-control content-encoding content-type last-modified vary x-cache
+<   cache-control: max-age=2592000, public
+---
+>   headers: accept-ranges cache-control content-encoding content-type etag last-modified vary x-cache
+>   cache-control: immutable, max-age=31536000
+298,299c296,297
+<   headers: cache-control content-encoding content-type last-modified vary x-cache
+<   cache-control: max-age=2592000, public
+---
+>   headers: accept-ranges cache-control content-encoding content-type etag last-modified vary x-cache
+>   cache-control: immutable, max-age=31536000
+304,305c302,303
+<   headers: cache-control content-encoding content-type last-modified vary x-cache
+<   cache-control: max-age=2592000, public
+---
+>   headers: accept-ranges cache-control content-encoding content-type etag last-modified vary x-cache
+>   cache-control: immutable, max-age=31536000
+310,311c308,309
+<   headers: cache-control content-encoding content-type last-modified vary x-cache
+<   cache-control: max-age=2592000, public
+---
+>   headers: accept-ranges cache-control content-encoding content-type etag last-modified vary x-cache
+>   cache-control: immutable, max-age=31536000
+316,317c314,315
+<   headers: cache-control content-encoding content-type last-modified vary x-cache
+<   cache-control: max-age=2592000, public
+---
+>   headers: accept-ranges cache-control content-encoding content-type etag last-modified vary x-cache
+>   cache-control: immutable, max-age=31536000
+322,323c320,321
+<   headers: cache-control content-encoding content-type last-modified vary x-cache
+<   cache-control: max-age=2592000, public
+---
+>   headers: accept-ranges cache-control content-encoding content-type etag last-modified vary x-cache
+>   cache-control: immutable, max-age=31536000
+328,329c326,327
+<   headers: cache-control content-encoding content-type last-modified vary x-cache
+<   cache-control: max-age=2592000, public
+---
+>   headers: accept-ranges cache-control content-encoding content-type etag last-modified vary x-cache
+>   cache-control: immutable, max-age=31536000
+334,335c332,333
+<   headers: cache-control content-encoding content-type last-modified vary x-cache
+<   cache-control: max-age=2592000, public
+---
+>   headers: accept-ranges cache-control content-encoding content-type etag last-modified vary x-cache
+>   cache-control: immutable, max-age=31536000
+340,341c338,339
+<   headers: cache-control content-encoding content-type last-modified vary x-cache
+<   cache-control: max-age=2592000, public
+---
+>   headers: accept-ranges cache-control content-encoding content-type etag last-modified vary x-cache
+>   cache-control: immutable, max-age=31536000
+346,347c344,345
+<   headers: cache-control content-encoding content-type last-modified vary x-cache
+<   cache-control: max-age=2592000, public
+---
+>   headers: accept-ranges cache-control content-encoding content-type etag last-modified vary x-cache
+>   cache-control: immutable, max-age=31536000
+352,353c350,351
+<   headers: cache-control content-encoding content-type last-modified vary x-cache
+<   cache-control: max-age=2592000, public
+---
+>   headers: accept-ranges cache-control content-encoding content-type etag last-modified vary x-cache
+>   cache-control: immutable, max-age=31536000
+358,359c356,357
+<   headers: cache-control content-encoding content-type last-modified vary x-cache
+<   cache-control: max-age=2592000, public
+---
+>   headers: accept-ranges cache-control content-encoding content-type etag last-modified vary x-cache
+>   cache-control: immutable, max-age=31536000
+364,365c362,363
+<   headers: cache-control content-encoding content-type last-modified vary x-cache
+<   cache-control: max-age=2592000, public
+---
+>   headers: accept-ranges cache-control content-encoding content-type etag last-modified vary x-cache
+>   cache-control: immutable, max-age=31536000
+370,371c368,369
+<   headers: cache-control content-encoding content-type last-modified vary x-cache
+<   cache-control: max-age=2592000, public
+---
+>   headers: accept-ranges cache-control content-encoding content-type etag last-modified vary x-cache
+>   cache-control: immutable, max-age=31536000
+376,377c374,375
+<   headers: cache-control content-encoding content-type last-modified vary x-cache
+<   cache-control: max-age=2592000, public
+---
+>   headers: accept-ranges cache-control content-encoding content-type etag last-modified vary x-cache
+>   cache-control: immutable, max-age=31536000
+382,383c380,381
+<   headers: cache-control content-encoding content-type last-modified vary x-cache
+<   cache-control: max-age=2592000, public
+---
+>   headers: accept-ranges cache-control content-encoding content-type etag last-modified vary x-cache
+>   cache-control: immutable, max-age=31536000
+388,389c386,387
+<   headers: cache-control content-encoding content-type last-modified vary x-cache
+<   cache-control: max-age=2592000, public
+---
+>   headers: accept-ranges cache-control content-encoding content-type etag last-modified vary x-cache
+>   cache-control: immutable, max-age=31536000
+394,395c392,393
+<   headers: cache-control content-encoding content-type last-modified vary x-cache
+<   cache-control: max-age=2592000, public
+---
+>   headers: accept-ranges cache-control content-encoding content-type etag last-modified vary x-cache
+>   cache-control: immutable, max-age=31536000
+400,401c398,399
+<   headers: cache-control content-encoding content-type last-modified vary x-cache
+<   cache-control: max-age=2592000, public
+---
+>   headers: accept-ranges cache-control content-encoding content-type etag last-modified vary x-cache
+>   cache-control: immutable, max-age=31536000
+406,407c404,405
+<   headers: cache-control content-encoding content-type last-modified vary x-cache
+<   cache-control: max-age=2592000, public
+---
+>   headers: accept-ranges cache-control content-encoding content-type etag last-modified vary x-cache
+>   cache-control: immutable, max-age=31536000
+412,413c410,411
+<   headers: cache-control content-encoding content-type last-modified vary x-cache
+<   cache-control: max-age=2592000, public
+---
+>   headers: accept-ranges cache-control content-encoding content-type etag last-modified vary x-cache
+>   cache-control: immutable, max-age=31536000
+418,419c416,417
+<   headers: cache-control content-encoding content-type last-modified vary x-cache
+<   cache-control: max-age=2592000, public
+---
+>   headers: accept-ranges cache-control content-encoding content-type etag last-modified vary x-cache
+>   cache-control: immutable, max-age=31536000
+424,425c422,423
+<   headers: cache-control content-encoding content-type last-modified vary x-cache
+<   cache-control: max-age=2592000, public
+---
+>   headers: accept-ranges cache-control content-encoding content-type etag last-modified vary x-cache
+>   cache-control: immutable, max-age=31536000
+430,431c428,429
+<   headers: cache-control content-encoding content-type last-modified vary x-cache
+<   cache-control: max-age=2592000, public
+---
+>   headers: accept-ranges cache-control content-encoding content-type etag last-modified vary x-cache
+>   cache-control: immutable, max-age=31536000
+436,437c434,435
+<   headers: cache-control content-encoding content-type last-modified vary x-cache
+<   cache-control: max-age=2592000, public
+---
+>   headers: accept-ranges cache-control content-encoding content-type etag last-modified vary x-cache
+>   cache-control: immutable, max-age=31536000
+442,443c440,441
+<   headers: cache-control content-encoding content-type last-modified vary x-cache
+<   cache-control: max-age=2592000, public
+---
+>   headers: accept-ranges cache-control content-encoding content-type etag last-modified vary x-cache
+>   cache-control: immutable, max-age=31536000
+448,449c446,447
+<   headers: cache-control content-encoding content-type last-modified vary x-cache
+<   cache-control: max-age=2592000, public
+---
+>   headers: accept-ranges cache-control content-encoding content-type etag last-modified vary x-cache
+>   cache-control: immutable, max-age=31536000
+454,455c452,453
+<   headers: cache-control content-encoding content-type last-modified vary x-cache
+<   cache-control: max-age=2592000, public
+---
+>   headers: accept-ranges cache-control content-encoding content-type etag last-modified vary x-cache
+>   cache-control: immutable, max-age=31536000
+460,461c458,459
+<   headers: cache-control content-encoding content-type last-modified vary x-cache
+<   cache-control: max-age=2592000, public
+---
+>   headers: accept-ranges cache-control content-encoding content-type etag last-modified vary x-cache
+>   cache-control: immutable, max-age=31536000
+466,467c464,465
+<   headers: cache-control content-encoding content-type last-modified vary x-cache
+<   cache-control: max-age=2592000, public
+---
+>   headers: accept-ranges cache-control content-encoding content-type etag last-modified vary x-cache
+>   cache-control: immutable, max-age=31536000
+472,473c470,471
+<   headers: cache-control content-encoding content-type last-modified vary x-cache
+<   cache-control: max-age=2592000, public
+---
+>   headers: accept-ranges cache-control content-encoding content-type etag last-modified vary x-cache
+>   cache-control: immutable, max-age=31536000
+478,479c476,477
+<   headers: cache-control content-encoding content-type last-modified vary x-cache
+<   cache-control: max-age=2592000, public
+---
+>   headers: accept-ranges cache-control content-encoding content-type etag last-modified vary x-cache
+>   cache-control: immutable, max-age=31536000
+484,485c482,483
+<   headers: cache-control content-encoding content-type last-modified vary x-cache
+<   cache-control: max-age=2592000, public
+---
+>   headers: accept-ranges cache-control content-encoding content-type etag last-modified vary x-cache
+>   cache-control: immutable, max-age=31536000
+490,491c488,489
+<   headers: cache-control content-encoding content-type last-modified vary x-cache
+<   cache-control: max-age=2592000, public
+---
+>   headers: accept-ranges cache-control content-encoding content-type etag last-modified vary x-cache
+>   cache-control: immutable, max-age=31536000
+496,497c494,495
+<   headers: cache-control content-encoding content-type last-modified vary x-cache
+<   cache-control: max-age=2592000, public
+---
+>   headers: accept-ranges cache-control content-encoding content-type etag last-modified vary x-cache
+>   cache-control: immutable, max-age=31536000
+502,503c500,501
+<   headers: cache-control content-encoding content-type last-modified vary x-cache
+<   cache-control: max-age=2592000, public
+---
+>   headers: accept-ranges cache-control content-encoding content-type etag last-modified vary x-cache
+>   cache-control: immutable, max-age=31536000
+508,509c506,507
+<   headers: cache-control content-encoding content-type last-modified vary x-cache
+<   cache-control: max-age=2592000, public
+---
+>   headers: accept-ranges cache-control content-encoding content-type etag last-modified vary x-cache
+>   cache-control: immutable, max-age=31536000
+512a511,516
+> GET /assets/lexxy-content-«digest».css → 200
+>   headers: accept-ranges cache-control content-encoding content-type etag last-modified vary x-cache
+>   cache-control: no-cache
+>   content-type: text/css
+>   vary: accept-encoding
+>   body: named by its digest
+514,515c518,519
+<   headers: cache-control content-encoding content-type last-modified vary x-cache
+<   cache-control: max-age=2592000, public
+---
+>   headers: accept-ranges cache-control content-encoding content-type etag last-modified vary x-cache
+>   cache-control: immutable, max-age=31536000
+518a523,528
+> GET /assets/lexxy-editor-«digest».css → 200
+>   headers: accept-ranges cache-control content-encoding content-type etag last-modified vary x-cache
+>   cache-control: no-cache
+>   content-type: text/css
+>   vary: accept-encoding
+>   body: named by its digest
+520,521c530,531
+<   headers: cache-control content-encoding content-type last-modified vary x-cache
+<   cache-control: max-age=2592000, public
+---
+>   headers: accept-ranges cache-control content-encoding content-type etag last-modified vary x-cache
+>   cache-control: immutable, max-age=31536000
+524a535,540
+> GET /assets/lexxy-variables-«digest».css → 200
+>   headers: accept-ranges cache-control content-encoding content-type etag last-modified vary x-cache
+>   cache-control: no-cache
+>   content-type: text/css
+>   vary: accept-encoding
+>   body: named by its digest
+526,527c542,543
+<   headers: cache-control content-encoding content-type last-modified vary x-cache
+<   cache-control: max-age=2592000, public
+---
+>   headers: accept-ranges cache-control content-encoding content-type etag last-modified vary x-cache
+>   cache-control: immutable, max-age=31536000
+532,533c548,549
+<   headers: cache-control content-encoding content-type last-modified vary x-cache
+<   cache-control: max-age=2592000, public
+---
+>   headers: accept-ranges cache-control content-encoding content-type etag last-modified vary x-cache
+>   cache-control: immutable, max-age=31536000
+538,539c554,555
+<   headers: cache-control content-encoding content-type last-modified vary x-cache
+<   cache-control: max-age=2592000, public
+---
+>   headers: accept-ranges cache-control content-encoding content-type etag last-modified vary x-cache
+>   cache-control: immutable, max-age=31536000
+544,545c560,561
+<   headers: cache-control content-encoding content-type last-modified vary x-cache
+<   cache-control: max-age=2592000, public
+---
+>   headers: accept-ranges cache-control content-encoding content-type etag last-modified vary x-cache
+>   cache-control: immutable, max-age=31536000
+550,551c566,567
+<   headers: cache-control content-encoding content-type last-modified vary x-cache
+<   cache-control: max-age=2592000, public
+---
+>   headers: accept-ranges cache-control content-encoding content-type etag last-modified vary x-cache
+>   cache-control: immutable, max-age=31536000
+556,557c572,573
+<   headers: cache-control content-encoding content-type last-modified vary x-cache
+<   cache-control: max-age=2592000, public
+---
+>   headers: accept-ranges cache-control content-encoding content-type etag last-modified vary x-cache
+>   cache-control: immutable, max-age=31536000
+562,563c578,579
+<   headers: cache-control content-encoding content-type last-modified vary x-cache
+<   cache-control: max-age=2592000, public
+---
+>   headers: accept-ranges cache-control content-encoding content-type etag last-modified vary x-cache
+>   cache-control: immutable, max-age=31536000
+568,569c584,585
+<   headers: cache-control content-encoding content-type last-modified vary x-cache
+<   cache-control: max-age=2592000, public
+---
+>   headers: accept-ranges cache-control content-encoding content-type etag last-modified vary x-cache
+>   cache-control: immutable, max-age=31536000
+574,575c590,591
+<   headers: cache-control content-encoding content-type last-modified vary x-cache
+<   cache-control: max-age=2592000, public
+---
+>   headers: accept-ranges cache-control content-encoding content-type etag last-modified vary x-cache
+>   cache-control: immutable, max-age=31536000
+580,581c596,597
+<   headers: cache-control content-encoding content-type last-modified vary x-cache
+<   cache-control: max-age=2592000, public
+---
+>   headers: accept-ranges cache-control content-encoding content-type etag last-modified vary x-cache
+>   cache-control: immutable, max-age=31536000
+586,587c602,603
+<   headers: cache-control content-encoding content-type last-modified vary x-cache
+<   cache-control: max-age=2592000, public
+---
+>   headers: accept-ranges cache-control content-encoding content-type etag last-modified vary x-cache
+>   cache-control: immutable, max-age=31536000
+592,593c608,609
+<   headers: cache-control content-encoding content-type last-modified vary x-cache
+<   cache-control: max-age=2592000, public
+---
+>   headers: accept-ranges cache-control content-encoding content-type etag last-modified vary x-cache
+>   cache-control: immutable, max-age=31536000
+598,599c614,615
+<   headers: cache-control content-encoding content-type last-modified vary x-cache
+<   cache-control: max-age=2592000, public
+---
+>   headers: accept-ranges cache-control content-encoding content-type etag last-modified vary x-cache
+>   cache-control: immutable, max-age=31536000
+604,605c620,621
+<   headers: cache-control content-encoding content-type last-modified vary x-cache
+<   cache-control: max-age=2592000, public
+---
+>   headers: accept-ranges cache-control content-encoding content-type etag last-modified vary x-cache
+>   cache-control: immutable, max-age=31536000
+610,611c626,627
+<   headers: cache-control content-encoding content-type last-modified vary x-cache
+<   cache-control: max-age=2592000, public
+---
+>   headers: accept-ranges cache-control content-encoding content-type etag last-modified vary x-cache
+>   cache-control: immutable, max-age=31536000
+616,617c632,633
+<   headers: cache-control content-encoding content-type last-modified vary x-cache
+<   cache-control: max-age=2592000, public
+---
+>   headers: accept-ranges cache-control content-encoding content-type etag last-modified vary x-cache
+>   cache-control: immutable, max-age=31536000
+622,623c638,639
+<   headers: cache-control content-encoding content-type last-modified vary x-cache
+<   cache-control: max-age=2592000, public
+---
+>   headers: accept-ranges cache-control content-encoding content-type etag last-modified vary x-cache
+>   cache-control: immutable, max-age=31536000
+628,629c644,645
+<   headers: cache-control content-encoding content-type last-modified vary x-cache
+<   cache-control: max-age=2592000, public
+---
+>   headers: accept-ranges cache-control content-encoding content-type etag last-modified vary x-cache
+>   cache-control: immutable, max-age=31536000
+634,635c650,651
+<   headers: cache-control content-encoding content-type last-modified vary x-cache
+<   cache-control: max-age=2592000, public
+---
+>   headers: accept-ranges cache-control content-encoding content-type etag last-modified vary x-cache
+>   cache-control: immutable, max-age=31536000
+640,641c656,657
+<   headers: cache-control content-encoding content-type last-modified vary x-cache
+<   cache-control: max-age=2592000, public
+---
+>   headers: accept-ranges cache-control content-encoding content-type etag last-modified vary x-cache
+>   cache-control: immutable, max-age=31536000
+646,647c662,663
+<   headers: cache-control content-encoding content-type last-modified vary x-cache
+<   cache-control: max-age=2592000, public
+---
+>   headers: accept-ranges cache-control content-encoding content-type etag last-modified vary x-cache
+>   cache-control: immutable, max-age=31536000
+652,653c668,669
+<   headers: cache-control content-encoding content-type last-modified vary x-cache
+<   cache-control: max-age=2592000, public
+---
+>   headers: accept-ranges cache-control content-encoding content-type etag last-modified vary x-cache
+>   cache-control: immutable, max-age=31536000
+658,659c674,675
+<   headers: cache-control content-encoding content-type last-modified vary x-cache
+<   cache-control: max-age=2592000, public
+---
+>   headers: accept-ranges cache-control content-encoding content-type etag last-modified vary x-cache
+>   cache-control: immutable, max-age=31536000
+664,665c680,681
+<   headers: cache-control content-encoding content-type last-modified vary x-cache
+<   cache-control: max-age=2592000, public
+---
+>   headers: accept-ranges cache-control content-encoding content-type etag last-modified vary x-cache
+>   cache-control: immutable, max-age=31536000
+670,671c686,687
+<   headers: cache-control content-encoding content-type last-modified vary x-cache
+<   cache-control: max-age=2592000, public
+---
+>   headers: accept-ranges cache-control content-encoding content-type etag last-modified vary x-cache
+>   cache-control: immutable, max-age=31536000
+676,677c692,693
+<   headers: cache-control content-encoding content-type last-modified vary x-cache
+<   cache-control: max-age=2592000, public
+---
+>   headers: accept-ranges cache-control content-encoding content-type etag last-modified vary x-cache
+>   cache-control: immutable, max-age=31536000
+682,683c698,699
+<   headers: cache-control content-encoding content-type last-modified vary x-cache
+<   cache-control: max-age=2592000, public
+---
+>   headers: accept-ranges cache-control content-encoding content-type etag last-modified vary x-cache
+>   cache-control: immutable, max-age=31536000
+688,689c704,705
+<   headers: cache-control content-encoding content-type last-modified vary x-cache
+<   cache-control: max-age=2592000, public
+---
+>   headers: accept-ranges cache-control content-encoding content-type etag last-modified vary x-cache
+>   cache-control: immutable, max-age=31536000
+694,695c710,711
+<   headers: cache-control content-encoding content-type last-modified vary x-cache
+<   cache-control: max-age=2592000, public
+---
+>   headers: accept-ranges cache-control content-encoding content-type etag last-modified vary x-cache
+>   cache-control: immutable, max-age=31536000
+700,701c716,717
+<   headers: cache-control content-encoding content-type last-modified vary x-cache
+<   cache-control: max-age=2592000, public
+---
+>   headers: accept-ranges cache-control content-encoding content-type etag last-modified vary x-cache
+>   cache-control: immutable, max-age=31536000
+706,707c722,723
+<   headers: cache-control content-encoding content-type last-modified vary x-cache
+<   cache-control: max-age=2592000, public
+---
+>   headers: accept-ranges cache-control content-encoding content-type etag last-modified vary x-cache
+>   cache-control: immutable, max-age=31536000
+712,713c728,729
+<   headers: cache-control content-encoding content-type last-modified vary x-cache
+<   cache-control: max-age=2592000, public
+---
+>   headers: accept-ranges cache-control content-encoding content-type etag last-modified vary x-cache
+>   cache-control: immutable, max-age=31536000
+718,719c734,735
+<   headers: cache-control content-encoding content-type last-modified vary x-cache
+<   cache-control: max-age=2592000, public
+---
+>   headers: accept-ranges cache-control content-encoding content-type etag last-modified vary x-cache
+>   cache-control: immutable, max-age=31536000
+724,725c740,741
+<   headers: cache-control content-encoding content-type last-modified vary x-cache
+<   cache-control: max-age=2592000, public
+---
+>   headers: accept-ranges cache-control content-encoding content-type etag last-modified vary x-cache
+>   cache-control: immutable, max-age=31536000
+730,731c746,747
+<   headers: cache-control content-encoding content-type last-modified vary x-cache
+<   cache-control: max-age=2592000, public
+---
+>   headers: accept-ranges cache-control content-encoding content-type etag last-modified vary x-cache
+>   cache-control: immutable, max-age=31536000
+736,737c752,753
+<   headers: cache-control content-encoding content-type last-modified vary x-cache
+<   cache-control: max-age=2592000, public
+---
+>   headers: accept-ranges cache-control content-encoding content-type etag last-modified vary x-cache
+>   cache-control: immutable, max-age=31536000
+742,743c758,759
+<   headers: cache-control content-encoding content-type last-modified vary x-cache
+<   cache-control: max-age=2592000, public
+---
+>   headers: accept-ranges cache-control content-encoding content-type etag last-modified vary x-cache
+>   cache-control: immutable, max-age=31536000
+748,749c764,765
+<   headers: cache-control content-encoding content-type last-modified vary x-cache
+<   cache-control: max-age=2592000, public
+---
+>   headers: accept-ranges cache-control content-encoding content-type etag last-modified vary x-cache
+>   cache-control: immutable, max-age=31536000
+754,755c770,771
+<   headers: cache-control content-encoding content-type last-modified vary x-cache
+<   cache-control: max-age=2592000, public
+---
+>   headers: accept-ranges cache-control content-encoding content-type etag last-modified vary x-cache
+>   cache-control: immutable, max-age=31536000
+760,761c776,777
+<   headers: cache-control content-encoding content-type last-modified vary x-cache
+<   cache-control: max-age=2592000, public
+---
+>   headers: accept-ranges cache-control content-encoding content-type etag last-modified vary x-cache
+>   cache-control: immutable, max-age=31536000
+766,767c782,783
+<   headers: cache-control content-encoding content-type last-modified vary x-cache
+<   cache-control: max-age=2592000, public
+---
+>   headers: accept-ranges cache-control content-encoding content-type etag last-modified vary x-cache
+>   cache-control: immutable, max-age=31536000
+772,773c788,789
+<   headers: cache-control content-encoding content-type last-modified vary x-cache
+<   cache-control: max-age=2592000, public
+---
+>   headers: accept-ranges cache-control content-encoding content-type etag last-modified vary x-cache
+>   cache-control: immutable, max-age=31536000
+778,779c794,795
+<   headers: cache-control content-encoding content-type last-modified vary x-cache
+<   cache-control: max-age=2592000, public
+---
+>   headers: accept-ranges cache-control content-encoding content-type etag last-modified vary x-cache
+>   cache-control: immutable, max-age=31536000
+784,785c800,801
+<   headers: cache-control content-encoding content-type etag referrer-policy set-cookie vary x-cache x-content-type-options x-frame-options x-permitted-cross-domain-policies x-rev x-version x-xss-protection
+<   cache-control: max-age=0, must-revalidate, private
+---
+>   headers: cache-control content-encoding content-type referrer-policy vary x-cache x-content-type-options x-frame-options x-permitted-cross-domain-policies x-rev x-version x-xss-protection
+>   cache-control: no-cache
+788,789d803
+<   set-cookie: _campfire_session; httponly; path; samesite
+<   set-cookie: session_token; httponly; path; samesite
+798c812
+<   headers: cache-control content-disposition content-encoding content-transfer-encoding content-type etag vary x-cache x-rev x-version
+---
+>   headers: accept-ranges cache-control content-disposition content-transfer-encoding content-type etag last-modified vary x-cache x-rev x-version
+805c819
+<   headers: cache-control content-disposition content-encoding content-transfer-encoding content-type etag vary x-cache x-rev x-version
+---
+>   headers: accept-ranges cache-control content-disposition content-encoding content-transfer-encoding content-type etag last-modified vary x-cache x-rev x-version
+824c838
+<   headers: cache-control content-disposition content-encoding content-transfer-encoding content-type etag vary x-cache x-rev x-version
+---
+>   headers: accept-ranges cache-control content-disposition content-transfer-encoding content-type etag last-modified vary x-cache x-rev x-version

@@ -1,0 +1,81 @@
+
+Build succeeded.
+    0 Warning(s)
+    0 Error(s)
+
+Time Elapsed 00:00:14.98
+Running tests from /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.Assets.Tests/bin/Release/net11.0/Campfire.Assets.Tests.dll (net11.0|arm64)
+Running tests from /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.Db.Tests/bin/Release/net11.0/Campfire.Db.Tests.dll (net11.0|arm64)
+Running tests from /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/bin/Release/net11.0/Campfire.App.Tests.dll (net11.0|arm64)
+Running tests from /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.Routes.Tests/bin/Release/net11.0/Campfire.Routes.Tests.dll (net11.0|arm64)
+Running tests from /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.Views.Tests/bin/Release/net11.0/Campfire.Views.Tests.dll (net11.0|arm64)
+Running tests from /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.Cable.Tests/bin/Release/net11.0/Campfire.Cable.Tests.dll (net11.0|arm64)
+Running tests from /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.Kit.Tests/bin/Release/net11.0/Campfire.Kit.Tests.dll (net11.0|arm64)
+Running tests from /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.RailsCompat.Tests/bin/Release/net11.0/Campfire.RailsCompat.Tests.dll (net11.0|arm64)
+Running tests from /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.Ruby.Tests/bin/Release/net11.0/Campfire.Ruby.Tests.dll (net11.0|arm64)
+Running tests from /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.RichText.Tests/bin/Release/net11.0/Campfire.RichText.Tests.dll (net11.0|arm64)
+skipped Campfire.Cable.Tests.GoldenTests.record_reference
+  Not run (due to explicit test filtering)
+  from /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.Cable.Tests/bin/Release/net11.0/Campfire.Cable.Tests.dll (net11.0|arm64)
+/Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.Routes.Tests/bin/Release/net11.0/Campfire.Routes.Tests.dll (net11.0|arm64) passed [+5/x0/?0] (771ms)
+Running tests from /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.Storage.Tests/bin/Release/net11.0/Campfire.Storage.Tests.dll (net11.0|arm64)
+/Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.Ruby.Tests/bin/Release/net11.0/Campfire.Ruby.Tests.dll (net11.0|arm64) passed [+21/x0/?0] (1s 369ms)
+skipped Campfire.App.Tests.MiscTests.transparent huge pages are disabled
+  transparent huge pages are a Linux setting (bin/linux-tests App runs this in the toolchain image)
+  from /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/bin/Release/net11.0/Campfire.App.Tests.dll (net11.0|arm64)
+skipped Campfire.Kit.Tests.FrontAcmeIntegrationTests.returning clients resume their sessions by ticket
+  SslStream issues no session tickets outside Linux; run it with bin/linux-tests Kit
+  from /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.Kit.Tests/bin/Release/net11.0/Campfire.Kit.Tests.dll (net11.0|arm64)
+/Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.Assets.Tests/bin/Release/net11.0/Campfire.Assets.Tests.dll (net11.0|arm64) passed [+14/x0/?0] (1s 876ms)
+/Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.Views.Tests/bin/Release/net11.0/Campfire.Views.Tests.dll (net11.0|arm64) passed [+137/x0/?0] (1s 985ms)
+skipped Campfire.Db.Tests.FixturesTests.export database for rails
+  writes a database to CAMPFIRE_EXPORT_DB for the Rails rollback check
+  from /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.Db.Tests/bin/Release/net11.0/Campfire.Db.Tests.dll (net11.0|arm64)
+skipped Campfire.Db.Tests.FixturesTests.fixtures match ruby row for row
+  needs CAMPFIRE_RUBY_FIXTURES_DB, a database the reference app filled with `db:fixtures:load`
+  from /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.Db.Tests/bin/Release/net11.0/Campfire.Db.Tests.dll (net11.0|arm64)
+/Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.RailsCompat.Tests/bin/Release/net11.0/Campfire.RailsCompat.Tests.dll (net11.0|arm64) passed [+64/x0/?0] (7s 641ms)
+/Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.RichText.Tests/bin/Release/net11.0/Campfire.RichText.Tests.dll (net11.0|arm64) passed [+78/x0/?0] (7s 963ms)
+skipped Campfire.Db.Tests.DifferentialTests.scenario matches ruby
+  needs CAMPFIRE_RUBY_SCENARIO_DB, the reference app's database after scenario.rb
+  from /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.Db.Tests/bin/Release/net11.0/Campfire.Db.Tests.dll (net11.0|arm64)
+/Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.Storage.Tests/bin/Release/net11.0/Campfire.Storage.Tests.dll (net11.0|arm64) passed [+42/x0/?0] (13s 146ms)
+/Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.Db.Tests/bin/Release/net11.0/Campfire.Db.Tests.dll (net11.0|arm64) passed [+207/x0/?3] (15s 557ms)
+/Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/bin/Release/net11.0/Campfire.App.Tests.dll (net11.0|arm64) passed [+199/x0/?1] (15s 666ms)
+/Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.Kit.Tests/bin/Release/net11.0/Campfire.Kit.Tests.dll (net11.0|arm64) passed [+230/x0/?1] (19s 961ms)
+failed Campfire.Cable.Tests.ProtocolTests.unknown channels and malformed commands get no reply (30s 006ms)
+  System.TimeoutException : The operation has timed out.
+  from /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.Cable.Tests/bin/Release/net11.0/Campfire.Cable.Tests.dll (net11.0|arm64)
+  Xunit.MicrosoftTestingPlatform.XunitException: System.TimeoutException : The operation has timed out.
+    at Campfire.Cable.Tests.ProtocolTests.withServer@35.MoveNext() in /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.Cable.Tests/ProtocolTests.fs:38
+    --- End of stack trace from previous location ---
+/Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.Cable.Tests/bin/Release/net11.0/Campfire.Cable.Tests.dll (net11.0|arm64) failed with 1 error(s) [+63/x1/?1] (37s 345ms)
+Exit code: 2
+  Error output: cable fan-out: 4414 B retained per idle connection (1000 connections, one subscription each)
+  cable fan-out: 1000 subscribers, rounds of 100 message(s) of 600 B: delivered in 4.3 ms (median of 20), 0.25 us CPU and 27 B allocated per delivery, 12.4 writes per connection per round
+  cable fan-out: 4414 B retained per idle connection (1000 connections, one subscription each)
+  cable fan-out: 1000 subscribers, rounds of 1 message(s) of 600 B (deflate): delivered in 1.3 ms (median of 100), 1.17 us CPU and 31 B allocated per delivery, 1.0 writes per connection per round
+  cable fan-out: 4403 B retained per idle connection (1000 connections, one subscription each)
+  cable fan-out: 1000 subscribers, rounds of 1 message(s) of 600 B: delivered in 1.3 ms (median of 100), 1.42 us CPU and 28 B allocated per delivery, 1.0 writes per connection per round
+  cable fan-out: 4405 B retained per idle connection (1000 connections, one subscription each)
+  cable fan-out: 1000 subscribers, rounds of 100 message(s) of 600 B (deflate): delivered in 3.3 ms (median of 20), 0.15 us CPU and 30 B allocated per delivery, 3.8 writes per connection per round
+
+Test run summary: Failed!
+  /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.Assets.Tests/bin/Release/net11.0/Campfire.Assets.Tests.dll (net11.0|arm64) passed [+14/x0/?0] (1s 876ms)
+  /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.Db.Tests/bin/Release/net11.0/Campfire.Db.Tests.dll (net11.0|arm64) passed [+207/x0/?3] (15s 557ms)
+  /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.App.Tests/bin/Release/net11.0/Campfire.App.Tests.dll (net11.0|arm64) passed [+199/x0/?1] (15s 666ms)
+  /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.Routes.Tests/bin/Release/net11.0/Campfire.Routes.Tests.dll (net11.0|arm64) passed [+5/x0/?0] (771ms)
+  /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.Views.Tests/bin/Release/net11.0/Campfire.Views.Tests.dll (net11.0|arm64) passed [+137/x0/?0] (1s 985ms)
+  /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.Cable.Tests/bin/Release/net11.0/Campfire.Cable.Tests.dll (net11.0|arm64) failed with 1 error(s) [+63/x1/?1] (37s 345ms)
+  /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.Kit.Tests/bin/Release/net11.0/Campfire.Kit.Tests.dll (net11.0|arm64) passed [+230/x0/?1] (19s 961ms)
+  /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.RailsCompat.Tests/bin/Release/net11.0/Campfire.RailsCompat.Tests.dll (net11.0|arm64) passed [+64/x0/?0] (7s 641ms)
+  /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.Ruby.Tests/bin/Release/net11.0/Campfire.Ruby.Tests.dll (net11.0|arm64) passed [+21/x0/?0] (1s 369ms)
+  /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.RichText.Tests/bin/Release/net11.0/Campfire.RichText.Tests.dll (net11.0|arm64) passed [+78/x0/?0] (7s 963ms)
+  /Users/clank/Desktop/projects/once-campfire-fsharp-thedotnetway/tests/Campfire.Storage.Tests/bin/Release/net11.0/Campfire.Storage.Tests.dll (net11.0|arm64) passed [+42/x0/?0] (13s 146ms)
+
+  total: 1067
+  failed: 1
+  succeeded: 1060
+  skipped: 6
+  duration: 37s 619ms
+Test run completed with non-success exit code: 2. At least one test failed. See: https://aka.ms/testingplatform/exitcodes
