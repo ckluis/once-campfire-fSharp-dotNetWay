@@ -2679,8 +2679,8 @@
     "meta": {
       "title": "theDotNetWay",
       "description": "Basecamp's ONCE Campfire on the standard .NET stack: ASP.NET Core, EF Core with Dapper on the hot reads, Kestrel, Falco.Markup and AngleSharp. Every page pixel-identical to Rails; every number links to the file it came from.",
-      "repo_url": "",
-      "branch": "dotnetway",
+      "repo_url": "https://github.com/ckluis/once-campfire-fSharp-dotNetWay",
+      "branch": "main",
       "port_url": "https://github.com/ckluis/once-campfire-fSharp",
       "oncrack_url": "https://github.com/ckluis/once-campfire-fSharp-onCrack",
       "upstream_url": "https://github.com/basecamp/once-campfire",

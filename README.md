@@ -7,6 +7,11 @@ a drop-in replacement for the Rails app: the same SQLite database, storage layou
 and the same behavior. It is the third Campfire in F#, a fork of the published F# port (`ckluis/once-campfire-fSharp`), from which
 it replaced one layer at a time behind a pixel-parity harness.
 
+**Project page: [ckluis.github.io/once-campfire-fSharp-dotNetWay](https://ckluis.github.io/once-campfire-fSharp-dotNetWay/)**, with
+the six-ways table and every number linked to the file it came from. Its siblings are the
+[F# port](https://github.com/ckluis/once-campfire-fSharp) (the same work as the Rust port) and
+[onCrack](https://github.com/ckluis/once-campfire-fSharp-onCrack) (F# with every speed trick allowed).
+
 **Status: built and verified, with its known differences listed below.** Phases 0 to 10 are closed and recorded in
 [`plans/dotnetway.md`](plans/dotnetway.md). At the final full gate (Phase 10) **4,918 of 4,918 captured cells** (five seeds, three
 browsers, four viewports, both themes, a breakpoint sweep) were equal to Rails on screenshot, accessibility tree and loose DOM, the
@@ -474,7 +479,9 @@ Every difference below needs a hostile, hand-made body; none appears in the 658-
 - **Opengraph URLs** are read by `System.Uri` behind an RFC 3986 character check, not Ruby's parser: `mailto:nobody`, a host with
   empty labels, `[v1.x]` and a port past 65535 give an embed without a link, where Rails raises or links. Tested by
   `OpengraphTests` "System.Uri reads the old URI probes".
-- The sibling-walk cost, the tokenizer's raw-text lowercasing and the select-mode exception are to be reported to AngleSharp.
+- The sibling-walk cost, the tokenizer's raw-text lowercasing and the select-mode exception were reported to AngleSharp
+  ([#1392](https://github.com/AngleSharp/AngleSharp/issues/1392), [#1393](https://github.com/AngleSharp/AngleSharp/issues/1393),
+  [#1394](https://github.com/AngleSharp/AngleSharp/issues/1394)); this repository does not depend on a fix.
 
 ### Integrations (`Integrations/`: jobs, webhooks, unfurls, Web Push)
 
